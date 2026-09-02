@@ -1,7 +1,7 @@
 /**
  * The CaptureCat mark — pure vector, no raster.
  *
- * Traced 1:1 from the master artwork (`logo.png`, 1024x1024) rather than
+ * Traced 1:1 from the master artwork (`assets/brand/logo.png`, 1024x1024) rather than
  * redrawn, so the web mark is the same shape as the source. Each `<g>` is one
  * colour region: the body silhouette, the white whiskers and muzzle, the ear
  * pink and its inner shadow, and the two greens of the eyes.

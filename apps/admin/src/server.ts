@@ -1,5 +1,5 @@
 /**
- * Server entry. Unlike apps/web-start, the admin console serves a single host
+ * Server entry. Unlike apps/web, the admin console serves a single host
  * (admin.capturecat.so) — no host-rewrite or legacy-redirect logic needed.
  */
 import {

@@ -16,9 +16,12 @@ official.
 ```
 apps/
   macos/     → Native AppKit macOS app (Xcode)
-  api/       → Cloudflare Workers API (Hono + R2 + D1)
-  web/       → Marketing site + share pages + dashboard (Next.js)
-packages/    → Shared packages
+  api/       → Cloudflare Workers API (Hono + R2 + D1 + Durable Objects)
+  web/       → Marketing site + share pages + dashboard (TanStack Start)
+  admin/     → Admin console (TanStack Start)
+assets/      → Brand artwork (logos, icon sources)
+docs/        → Roadmap and migration notes
+tools/       → MCP bundle build scripts
 ```
 
 ## Development
