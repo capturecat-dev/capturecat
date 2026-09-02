@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SkeletonCard } from "@/components/dashboard/page-skeletons";
 import { Check, ExternalLink, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,7 +38,9 @@ export function ProfileCard() {
     onError: (error) => toast.error(error.message),
   });
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return <SkeletonCard lines={4} action />;
+  }
 
   const claimed = profile?.username ?? null;
   const changed =
