@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SkeletonLines } from "@/components/dashboard/page-skeletons";
 import { toast } from "sonner";
 import { BadgeCheck, Globe, RefreshCw, Trash2 } from "lucide-react";
 
@@ -55,7 +56,7 @@ export function CustomDomainsCard() {
       </p>
 
       {isLoading ? (
-        <p className="mt-3 text-sm text-muted-foreground">Loading…</p>
+        <div className="mt-3"><SkeletonLines lines={2} /></div>
       ) : (
         <>
           <div className="mt-3 space-y-2">

@@ -9,7 +9,7 @@ import { tooltip } from "@tanstack/charts/tooltip";
 import { Chart } from "@tanstack/react-charts";
 
 import { trpc } from "@/lib/trpc/client";
-import { PageSpinner } from "@/components/ui/page-spinner";
+import { AnalyticsSkeleton } from "@/components/dashboard/page-skeletons";
 
 /* ------------------------------------------------------------------ */
 /* Shared formatting + chart chrome                                    */
@@ -287,7 +287,7 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
   const { data, isLoading, error } = trpc.videos.analytics.useQuery({ videoId });
 
   if (isLoading) {
-    return <PageSpinner />;
+    return <AnalyticsSkeleton />;
   }
   if (error || !data) {
     return (

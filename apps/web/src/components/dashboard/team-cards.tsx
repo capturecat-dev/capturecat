@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { TeamAvatar } from "@/components/dashboard/team-avatar";
+import { TeamSkeleton, SkeletonLines } from "@/components/dashboard/page-skeletons";
 import { useRef } from "react";
 
 /**
@@ -48,7 +49,7 @@ export function TeamCards() {
   const org = orgs?.[0] ?? null;
 
   if (isPending) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <TeamSkeleton />;
   }
   if (!org) return <CreateTeamCard />;
   return <TeamDetail orgId={org.id} orgName={org.name} />;
@@ -371,7 +372,7 @@ function TeamLibraryCard({ orgId }: { orgId: string }) {
         settings.
       </p>
       <div className="mt-3 space-y-2">
-        {!loaded && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!loaded && <SkeletonLines lines={2} />}
         {loaded && videos.length === 0 && (
           <p className="text-sm text-muted-foreground">Nothing here yet.</p>
         )}

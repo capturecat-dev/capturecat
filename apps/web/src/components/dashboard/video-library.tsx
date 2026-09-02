@@ -26,7 +26,7 @@ import type { DashboardVideo } from "@/components/dashboard/video-types";
 import { formatSize } from "@/components/dashboard/video-format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageSpinner } from "@/components/ui/page-spinner";
+import { LibrarySkeleton } from "@/components/dashboard/page-skeletons";
 import {
   Empty,
   EmptyDescription,
@@ -247,7 +247,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
       thumbnailUrl: v.thumbnailUrl,
     });
 
-  if (isLoading) return <PageSpinner />;
+  if (isLoading) return <LibrarySkeleton />;
 
   if (allItems.length === 0 && activeUploads.length === 0) {
     return (

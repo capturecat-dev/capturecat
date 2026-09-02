@@ -19,7 +19,7 @@ import { formatDateTime, formatDuration, formatSize } from "@/components/dashboa
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { PageSpinner } from "@/components/ui/page-spinner";
+import { VideoDetailSkeleton } from "@/components/dashboard/page-skeletons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,9 +98,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
   const [ctaUrl, setCtaUrl] = useState<string | null>(null);
 
   if (isLoading) {
-    return (
-      <PageSpinner />
-    );
+    return <VideoDetailSkeleton />;
   }
 
   if (!video) {

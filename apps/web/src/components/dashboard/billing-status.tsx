@@ -5,7 +5,7 @@ import { trpc } from "@/lib/trpc/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageSpinner } from "@/components/ui/page-spinner";
+import { BillingSkeleton } from "@/components/dashboard/page-skeletons";
 
 export function BillingStatus({ success }: { success: boolean }) {
   const { data, isLoading } = trpc.billing.status.useQuery();
@@ -29,7 +29,7 @@ export function BillingStatus({ success }: { success: boolean }) {
   });
 
   if (isLoading) {
-    return <PageSpinner />;
+    return <BillingSkeleton />;
   }
 
   const isPaid = data?.tier === "paid";
