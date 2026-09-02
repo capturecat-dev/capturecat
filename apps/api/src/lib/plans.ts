@@ -205,8 +205,16 @@ export async function planForTier(
  *  get the pro plan's flags, everyone else the free row's. */
 export async function featuresForTier(
   db: D1Database,
-  tier: "free" | "tester" | "paid"
+  tier: "free" | "tester" | "paid",
+  /** The subscribed plan's name (subscription.plan) — decides WHICH paid
+   *  plan's features apply. Without it, paid falls back to pro, which is
+   *  right for every pre-Business subscriber. */
+  planName?: string | null
 ): Promise<PlanFeatures> {
+  if (tier === "paid" && planName) {
+    const plan = await planByName(db, planName.toLowerCase());
+    if (plan?.isActive) return plan.features;
+  }
   if (tier === "paid" || tier === "tester") {
     const pro = await planByName(db, "pro");
     if (pro) return pro.features;

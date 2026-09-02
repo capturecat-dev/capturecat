@@ -132,7 +132,7 @@ hubRoutes.post(
     if (!doc) return c.json({ error: "Video not found" }, 404);
     if (doc.uid !== c.get("user").uid) return c.json({ error: "Forbidden" }, 403);
 
-    const features = await featuresForTier(c.env.DB, c.get("entitlement").tier);
+    const features = await featuresForTier(c.env.DB, c.get("entitlement").tier, c.get("entitlement").planName);
     if (!features.aiSummaries) {
       return c.json({ error: "AI summaries require CaptureCat Pro" }, 402);
     }
@@ -223,7 +223,7 @@ const DOMAIN_RE =
 const CNAME_TARGET = "capturecat.so";
 
 hubRoutes.get("/domains", requireAuth, requireEntitlement(), async (c) => {
-  const features = await featuresForTier(c.env.DB, c.get("entitlement").tier);
+  const features = await featuresForTier(c.env.DB, c.get("entitlement").tier, c.get("entitlement").planName);
   return c.json({
     enabled: features.customDomain,
     cnameTarget: CNAME_TARGET,
@@ -232,7 +232,7 @@ hubRoutes.get("/domains", requireAuth, requireEntitlement(), async (c) => {
 });
 
 hubRoutes.post("/domains", requireAuth, requireEntitlement(), async (c) => {
-  const features = await featuresForTier(c.env.DB, c.get("entitlement").tier);
+  const features = await featuresForTier(c.env.DB, c.get("entitlement").tier, c.get("entitlement").planName);
   if (!features.customDomain) {
     return c.json({ error: "Custom domains require CaptureCat Pro" }, 402);
   }

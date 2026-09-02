@@ -172,11 +172,13 @@ export function buildAuth(env: Env) {
         }
         const { featuresForTier } = await import("./plans");
         const { resolveTier } = await import("./entitlement");
+        const { activeSubscriptionPlan } = await import("./stripe");
         const tier = await resolveTier(env.DB, userId, undefined);
         if (tier === "blocked") {
           throw new APIError("FORBIDDEN", { message: "Account blocked" });
         }
-        const features = await featuresForTier(env.DB, tier);
+        const planName = tier === "paid" ? await activeSubscriptionPlan(env.DB, userId) : null;
+        const features = await featuresForTier(env.DB, tier, planName);
         if (!(features as { sso?: boolean }).sso) {
           throw new APIError("FORBIDDEN", {
             message: "SSO requires the Business plan. Upgrade to configure an identity provider.",

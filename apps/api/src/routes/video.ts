@@ -980,7 +980,7 @@ videoRoutes.post("/video/:videoId/org", requireAuth, requireEntitlement(), async
   const { isOrgMember, setVideoOrg } = await import("../lib/db");
   if (orgId) {
     const { featuresForTier } = await import("../lib/plans");
-    const features = await featuresForTier(c.env.DB, c.get("entitlement").tier);
+    const features = await featuresForTier(c.env.DB, c.get("entitlement").tier, c.get("entitlement").planName);
     if (!features.teams) {
       return c.json({ error: "Team libraries require a paid plan" }, 402);
     }

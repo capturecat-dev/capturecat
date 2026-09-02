@@ -71,6 +71,32 @@ export const adminRouter = createTRPCRouter({
     };
   }),
 
+  syncPlanStripe: adminProcedure
+    .input(
+      z.object({
+        planId: z.string().min(1),
+        monthlyCents: z.number().int().positive().optional(),
+        annualCents: z.number().int().positive().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const res = await apiFetch(`/api/admin/plans/${encodeURIComponent(input.planId)}/stripe-sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          monthlyCents: input.monthlyCents,
+          annualCents: input.annualCents,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { productId?: string; priceId?: string | null; annualPriceId?: string | null; error?: string }
+        | null;
+      if (!res.ok) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: data?.error ?? "Stripe sync failed" });
+      }
+      return data!;
+    }),
+
   listPlans: adminProcedure.query(async () => {
     const res = await apiFetch("/api/admin/plans");
     if (!res.ok) throw new TRPCError({ code: "FORBIDDEN", message: "Could not load plans" });

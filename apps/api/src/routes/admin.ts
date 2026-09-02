@@ -302,6 +302,74 @@ adminRoutes.put("/admin/plans/:id", async (c) => {
 });
 
 /** POST /admin/plans — create a tier. `name` is immutable once set. */
+/**
+ * POST /admin/plans/:id/stripe-sync — create the Stripe product + recurring
+ * price(s) for a plan and write the ids back, so "make a plan sellable" is
+ * one admin click instead of a dashboard round-trip. Amounts arrive in cents;
+ * a fresh product is created every sync (re-syncing mints new prices — old
+ * subscriptions keep their old price, which is how Stripe wants it).
+ */
+adminRoutes.post("/admin/plans/:id/stripe-sync", async (c) => {
+  if (!c.env.STRIPE_SECRET_KEY) {
+    return c.json({ error: "STRIPE_SECRET_KEY is not configured" }, 503);
+  }
+  const id = c.req.param("id");
+  const row = await c.env.DB.prepare("SELECT name, display_name FROM plan WHERE id = ?")
+    .bind(id)
+    .first<{ name: string; display_name: string }>();
+  if (!row) return c.json({ error: "Plan not found" }, 404);
+  if (row.name === "free") return c.json({ error: "The free plan is never sold" }, 400);
+
+  const body: { monthlyCents?: unknown; annualCents?: unknown; currency?: unknown } =
+    await c.req.json().catch(() => ({}));
+  const monthly =
+    typeof body.monthlyCents === "number" && Number.isInteger(body.monthlyCents) && body.monthlyCents > 0
+      ? body.monthlyCents : null;
+  const annual =
+    typeof body.annualCents === "number" && Number.isInteger(body.annualCents) && body.annualCents > 0
+      ? body.annualCents : null;
+  if (!monthly && !annual) {
+    return c.json({ error: "monthlyCents and/or annualCents (integer, > 0) required" }, 400);
+  }
+  const currency =
+    typeof body.currency === "string" && /^[a-z]{3}$/.test(body.currency) ? body.currency : "usd";
+
+  const Stripe = (await import("stripe")).default;
+  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY);
+
+  const product = await stripe.products.create({
+    name: `CaptureCat ${row.display_name}`,
+    metadata: { plan: row.name },
+  });
+  let priceId: string | null = null;
+  let annualPriceId: string | null = null;
+  if (monthly) {
+    priceId = (await stripe.prices.create({
+      product: product.id,
+      unit_amount: monthly,
+      currency,
+      recurring: { interval: "month" },
+    })).id;
+  }
+  if (annual) {
+    annualPriceId = (await stripe.prices.create({
+      product: product.id,
+      unit_amount: annual,
+      currency,
+      recurring: { interval: "year" },
+    })).id;
+  }
+
+  await c.env.DB.prepare(
+    `UPDATE plan SET price_id = COALESCE(?, price_id),
+                     annual_price_id = COALESCE(?, annual_price_id),
+                     updated_at = datetime('now')
+      WHERE id = ?`
+  ).bind(priceId, annualPriceId, id).run();
+
+  return c.json({ productId: product.id, priceId, annualPriceId });
+});
+
 adminRoutes.post("/admin/plans", async (c) => {
   type Body = { name?: unknown; displayName?: unknown };
   const body: Body = await c.req.json<Body>().catch(() => ({}) as Body);
