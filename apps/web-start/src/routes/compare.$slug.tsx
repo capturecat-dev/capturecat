@@ -1,4 +1,5 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
+import { jsonLd } from "@/lib/json-ld";
 
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
@@ -49,7 +50,7 @@ function ComparePage() {
     <main className="min-h-screen bg-background flex flex-col">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(pseoJsonLd(page)) }}
+        dangerouslySetInnerHTML={{ __html: jsonLd(pseoJsonLd(page)) }}
       />
       <Navbar />
 

@@ -13,6 +13,8 @@
 
 import { Hono } from "hono";
 import type { Env, Variables } from "../types";
+import { isValidUnlockToken } from "./video";
+import { fixedWindowAllow } from "../lib/entitlement";
 import { getSharedVideo, listVideoComments } from "../lib/db";
 import { requireAuth } from "../middleware/auth";
 import { generateId } from "../lib/id";
@@ -39,6 +41,12 @@ analyticsRoutes.post("/video/:videoId/analytics", async (c) => {
   if (!doc || doc.status !== "ready" || doc.isPrivate) {
     return c.json({ error: "Video not found" }, 404);
   }
+  // Password-gated videos only count viewers who actually unlocked — otherwise
+  // anyone could register views (and exhaust a maxViews cap) without the
+  // password.
+  if (doc.passwordHash && !(await isValidUnlockToken(c.env, doc.videoId, c.req.query("token")))) {
+    return c.json({ error: "Video not found" }, 404);
+  }
 
   // Per-IP window via the edge cache, mirroring the comment limiter.
   const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
@@ -54,6 +62,10 @@ analyticsRoutes.post("/video/:videoId/analytics", async (c) => {
     rateKey,
     new Response(String(count + 1), { headers: { "Cache-Control": "s-maxage=60" } })
   );
+  // Global inner layer — the cache counter is per-colo.
+  if (!(await fixedWindowAllow(c.env.DB, `ingest:${ip}`, INGEST_RATE_LIMIT, 60))) {
+    return c.json({ ok: true }, 202);
+  }
 
   const body: { sessionId?: unknown; events?: unknown; referrer?: unknown } =
     await c.req.json().catch(() => ({}));
@@ -72,6 +84,13 @@ analyticsRoutes.post("/video/:videoId/analytics", async (c) => {
   const cf = (c.req.raw as Request & { cf?: { country?: string } }).cf;
   const ua = c.req.header("User-Agent") ?? "";
   const device = /Mobi|Android|iPhone|iPad/i.test(ua) ? "mobile" : "desktop";
+  // Hard cap on view rows per video: the table is otherwise unbounded from an
+  // unauthenticated endpoint (random session ids).
+  const MAX_VIEW_ROWS = 200_000;
+  const viewRows = await c.env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM video_views WHERE video_id = ?"
+  ).bind(doc.videoId).first<{ n: number }>();
+  if ((viewRows?.n ?? 0) >= MAX_VIEW_ROWS) return c.json({ ok: true }, 202);
   await c.env.DB.prepare(
     `INSERT OR IGNORE INTO video_views
        (view_id, video_id, session_id, referrer, country, device, created_at)

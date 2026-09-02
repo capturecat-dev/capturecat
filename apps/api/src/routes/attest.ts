@@ -67,8 +67,9 @@ attestRoutes.post("/attest/register", requireAuth, async (c) => {
       keyIdB64: body.keyId,
       challenge: b64ToBytes(row.nonce),
       appId: APP_ID,
-      // Debug builds attest against Apple's development environment.
-      allowDevelopment: true,
+      // Debug builds attest against Apple's development environment. Once
+      // the gate ENFORCES, a debug-signed build must not satisfy it.
+      allowDevelopment: c.env.ATTEST_MODE !== "enforce",
     });
 
     await c.env.DB

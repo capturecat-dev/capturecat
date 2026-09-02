@@ -86,6 +86,46 @@ export function requireEntitlement(options: EntitlementOptions = {}) {
  * unlike the per-IP Cache API limiter which stays as the outer cheap layer).
  * Chain after requireAuth. Exceeding the limit fails closed with 429.
  */
+/**
+ * The same D1 fixed-window counter for UNAUTHENTICATED surfaces (unlock,
+ * comments, analytics ingest), keyed by whatever the caller chooses — usually
+ * IP or IP+resource. Returns whether the request is allowed. The per-colo
+ * Cache API limiter stays as the cheap outer layer; this one is global, so
+ * "10 attempts per window" means 10, not 10 × number of colos.
+ */
+export async function fixedWindowAllow(
+  db: D1Database,
+  key: string,
+  limit: number,
+  windowSec: number,
+): Promise<boolean> {
+  const windowStart = Math.floor(Date.now() / 1000 / windowSec) * windowSec;
+  try {
+    const row = await db
+      .prepare(
+        `INSERT INTO rate_limits (key, window_start, count)
+         VALUES (?1, ?2, 1)
+         ON CONFLICT(key) DO UPDATE SET
+           count = CASE WHEN rate_limits.window_start = ?2
+                        THEN rate_limits.count + 1 ELSE 1 END,
+           window_start = ?2
+         RETURNING count`,
+      )
+      .bind(key, windowStart)
+      .first<{ count: number }>();
+    return (row?.count ?? 1) <= limit;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("no such table")) {
+      console.error("rate_limits table missing — run migrations", message);
+      return true;
+    }
+    // Fail closed — a broken limiter must not become unlimited.
+    console.error("fixedWindowAllow failed", message);
+    return false;
+  }
+}
+
 export function userRateLimit(opts: { limit: number; windowSec?: number; scope: string }) {
   const windowSec = opts.windowSec ?? 60;
   return createMiddleware<{ Bindings: Env; Variables: Variables }>(

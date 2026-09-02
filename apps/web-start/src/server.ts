@@ -127,10 +127,27 @@ function rewrite(request: Request): Request | Response {
   return request;
 }
 
+/**
+ * Baseline security headers. Embeds must stay frameable (that's the product);
+ * every other page — dashboard included — refuses to be framed.
+ */
+async function withSecurityHeaders(request: Request, response: Response): Promise<Response> {
+  const path = new URL(request.url).pathname;
+  const frameable = path.startsWith("/embed/") || /^\/e\/[^/]+$/.test(path);
+  const headers = new Headers(response.headers);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  if (!frameable) {
+    headers.set("X-Frame-Options", "DENY");
+    headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+  }
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export default createServerEntry({
-  fetch(request: Request) {
+  async fetch(request: Request) {
     const routed = rewrite(request);
     if (routed instanceof Response) return routed;
-    return startHandler(routed);
+    return withSecurityHeaders(routed, await startHandler(routed));
   },
 });

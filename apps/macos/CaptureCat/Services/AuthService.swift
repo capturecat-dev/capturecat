@@ -14,11 +14,16 @@ nonisolated enum CaptureCatAPI {
     /// whichever stack this resolves to — a share made against localhost will
     /// never appear on the production dashboard.
     static var baseURL: String {
+        // Debug-only, and https or loopback only. In a Release build this
+        // override would let any local process (`defaults write …`) redirect
+        // the session bearer token and the sign-in flow to an attacker host
+        // over plain HTTP — the one way around the Keychain's protection.
+        #if DEBUG
         if let override = UserDefaults.standard.string(forKey: "apiBaseURL"),
-           override.hasPrefix("http") {
+           let url = URL(string: override), let host = url.host,
+           url.scheme == "https" || host == "localhost" || host == "127.0.0.1" {
             return override
         }
-        #if DEBUG
         return "http://localhost:8787"
         #else
         return "https://api.capturecat.so"

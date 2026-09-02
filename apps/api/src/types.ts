@@ -139,6 +139,8 @@ export interface VideoMetadata {
   /** Content type of the owner-uploaded custom thumbnail in R2 at
    *  `thumbs/{videoId}` (migration 0020), or null when none exists. */
   thumbnailType: string | null;
+  /** Unquoted ETag recorded at /complete; null for pre-0021 rows. */
+  etag?: string | null;
 }
 
 /** One historical file of a shared video (migration 0017). */

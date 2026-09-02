@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { jsonLd } from "@/lib/json-ld";
 
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
@@ -40,7 +41,7 @@ export const Route = createFileRoute("/pricing")({
 function PricingPage() {
   const { plan } = Route.useLoaderData();
 
-  const jsonLd = {
+  const jsonLdData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: "CaptureCat",
@@ -70,7 +71,7 @@ function PricingPage() {
     <main className="min-h-screen bg-background flex flex-col">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLd(jsonLdData) }}
       />
       <Navbar />
 

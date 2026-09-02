@@ -26,15 +26,14 @@ final class DeepLinkHandler {
         let params = parseQueryParams(url)
         print("[DeepLink] Handling: \(url) → command=\(command) params=\(params)")
 
-        // Auto-complete onboarding so deep links always work
-        if let appState {
-            if appState.needsOnboarding {
-                appState.completeOnboarding(acceptedTerms: true)
-                print("[DeepLink] Auto-completed onboarding")
-            }
-            for window in NSApplication.shared.windows where window.identifier?.rawValue == "onboarding" || window.title.contains("Onboarding") {
-                window.close()
-            }
+        // A web page can fire these (after the browser's one-time "Open
+        // CaptureCat?" prompt), so a deep link must never accept the Terms or
+        // skip the permissions walkthrough on the user's behalf. Until
+        // onboarding is done, links only bring the app forward.
+        if let appState, appState.needsOnboarding {
+            print("[DeepLink] Ignored \(command): onboarding not complete")
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
         }
 
         switch command {
@@ -158,13 +157,8 @@ final class DeepLinkHandler {
         for project in projects {
             print("  - \(project.id.uuidString): \(project.name) (\(project.duration.formattedTimecode))")
         }
-        // Also write to a temp file so external tools can read it
-        let list = projects.map { ["id": $0.id.uuidString, "name": $0.name, "duration": $0.duration] }
-        if let data = try? JSONSerialization.data(withJSONObject: list, options: .prettyPrinted) {
-            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("capturecat-projects.json")
-            try? data.write(to: tempURL)
-            print("[DeepLink] Project list written to: \(tempURL.path)")
-        }
+        // No temp-file dump: a web page could trigger this write. External
+        // tools use the MCP `list_projects` tool instead.
     }
 
     // MARK: - Open Project

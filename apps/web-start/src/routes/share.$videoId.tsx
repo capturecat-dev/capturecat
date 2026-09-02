@@ -1,6 +1,7 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { API_URL } from "@/lib/api-url";
+import { jsonLd } from "@/lib/json-ld";
 import SharePlayer, {
   type AnnotationMarker,
 } from "@/components/share/share-player";
@@ -146,7 +147,7 @@ export const Route = createFileRoute("/share/$videoId")({
       scripts: [
         {
           type: "application/ld+json",
-          children: JSON.stringify({
+          children: jsonLd({
             "@context": "https://schema.org",
             "@type": "VideoObject",
             name: video.aiTitle || video.fileName,

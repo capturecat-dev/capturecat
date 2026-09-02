@@ -11,7 +11,7 @@ import AppKit
 enum CaptureSourceResolver {
     /// `type` is one of display | window | chrome | safari.
     /// Params: display (index), app (owning app name), title (window title).
-    static func resolve(type: String, params: [String: String]) async -> CaptureSource? {
+    static func resolve(type: String, params: [String: String], launchIfMissing: Bool = false) async -> CaptureSource? {
         guard let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true) else {
             return nil
         }
@@ -31,7 +31,7 @@ enum CaptureSourceResolver {
                 let match = content.windows.first { window in
                     window.owningApplication?.applicationName.localizedCaseInsensitiveContains(appName) == true
                 }
-                if match == nil {
+                if match == nil, launchIfMissing {
                     // App not running — try to launch it
                     await launchAppByName(appName)
                 }
@@ -142,12 +142,9 @@ enum CaptureSourceResolver {
                 return
             }
         }
-        // Fallback: use open command
-        print("[CaptureSource] Trying 'open -a \(name)'...")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-a", name]
-        try? process.run()
-        process.waitUntilExit()
+        // No `open -a` fallback: that resolved ANY name LaunchServices knows,
+        // which let a caller launch arbitrary apps. Only the fixed
+        // /Applications paths above are honoured.
+        print("[CaptureSource] \(name) not found in /Applications")
     }
 }

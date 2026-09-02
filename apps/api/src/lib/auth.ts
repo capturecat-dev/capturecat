@@ -159,19 +159,13 @@ export function buildAuth(env: Env) {
       // callback arrives as a cross-site POST from this origin and Better Auth
       // runs an origin check on it.
       "https://appleid.apple.com",
-      // The marketing site / web dashboard.
-      "https://capturecat.so",
-      "https://www.capturecat.so",
-      // Admin console — separate Next.js app, separate host, same session.
-      "https://admin.capturecat.so",
-      // Local dev servers, and any extra origins from
-      // BETTER_AUTH_TRUSTED_ORIGINS (e.g. a tunnel hostname for testing Apple
-      // sign-in). Derived from webOrigins() so this list cannot disagree with
-      // the CORS/CSRF one — they gate the same requests from different layers,
-      // and a request allowed by one and refused by the other is the hardest
-      // kind of failure to read. localhost appears only when this Worker is
-      // itself running locally, so a production deploy can never trust it.
-      ...webOrigins(env).filter((o) => o.startsWith("http://")),
+      // Every web origin (marketing site, app + admin subdomains, local dev
+      // servers, BETTER_AUTH_TRUSTED_ORIGINS extras) comes from the ONE list
+      // the CORS/CSRF middleware uses, so the two layers cannot disagree —
+      // a hand-copied subset here once silently omitted app.capturecat.so.
+      // localhost appears only when this Worker is itself running locally,
+      // so a production deploy can never trust it.
+      ...webOrigins(env),
       // RFC 8252 §7.3 loopback redirects for the desktop app. The port is
       // random per sign-in attempt and CANNOT be pre-registered, hence the
       // wildcard. Literal IPs only — `localhost` is deliberately absent
