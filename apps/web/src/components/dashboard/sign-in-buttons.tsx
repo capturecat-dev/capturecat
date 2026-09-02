@@ -25,16 +25,21 @@ export function SignInButtons({ next }: { next?: string }) {
     if (!email.includes("@")) return;
     setPending("sso");
     const site = import.meta.env.VITE_SITE_URL ?? window.location.origin;
-    const { error } = await authClient.signIn.sso({
-      email,
-      callbackURL: `${site}${next && next.startsWith("/") ? next : "/app"}`,
-      errorCallbackURL: `${site}/login?error=sso`,
-    });
-    if (error) {
+    try {
+      const { error } = await authClient.signIn.sso({
+        email,
+        callbackURL: `${site}${next && next.startsWith("/") ? next : "/app"}`,
+        errorCallbackURL: `${site}/login?error=sso`,
+      });
+      if (error) {
+        setPending(null);
+        toast.error(
+          error.message ?? "No identity provider is configured for that email domain."
+        );
+      }
+    } catch {
       setPending(null);
-      toast.error(
-        error.message ?? "No identity provider is configured for that email domain."
-      );
+      toast.error("Can't reach the API — is it running?");
     }
   };
 
@@ -45,15 +50,23 @@ export function SignInButtons({ next }: { next?: string }) {
     // signIn.social resolves with { error } instead of throwing — without
     // this check a rejected request (e.g. untrusted origin) left the button
     // stuck on "Redirecting…" forever.
-    const { error } = await authClient.signIn.social({
-      provider,
-      // Must be an absolute, trusted origin — the API origin-checks it.
-      callbackURL: `${site}${next && next.startsWith("/") ? next : "/app"}`,
-      errorCallbackURL: `${site}/login?error=oauth`,
-    });
-    if (error) {
+    try {
+      const { error } = await authClient.signIn.social({
+        provider,
+        // Must be an absolute, trusted origin — the API origin-checks it.
+        callbackURL: `${site}${next && next.startsWith("/") ? next : "/app"}`,
+        errorCallbackURL: `${site}/login?error=oauth`,
+      });
+      if (error) {
+        setPending(null);
+        toast.error(error.message ?? "Sign-in failed — is the API reachable?");
+      }
+    } catch {
+      // A network-level failure (API not running / unreachable) THROWS
+      // instead of resolving with { error } — without this catch the button
+      // sticks on "Redirecting…" forever.
       setPending(null);
-      toast.error(error.message ?? "Sign-in failed — is the API reachable?");
+      toast.error("Can't reach the API — is it running?");
     }
   };
 

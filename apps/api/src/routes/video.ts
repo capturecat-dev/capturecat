@@ -21,6 +21,7 @@ import { getAISummary, getTranscript } from "../lib/db";
 import { requireAuth } from "../middleware/auth";
 import { requireEntitlement, userRateLimit, fixedWindowAllow } from "../lib/entitlement";
 import { generateId } from "../lib/id";
+import { readValidatedImage } from "../lib/uploads";
 import { PRO_PLAN_LIMITS } from "../lib/stripe";
 import { shareBaseURL } from "../lib/origins";
 
@@ -788,7 +789,6 @@ videoRoutes.delete(
 // `thumbs/{videoId}`, existence recorded in shared_videos.thumbnail_type.
 // ---------------------------------------------------------------------------
 
-const THUMBNAIL_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const THUMBNAIL_MAX_BYTES = 5 * 1024 * 1024;
 
 const thumbnailR2Key = (videoId: string) => `thumbs/${videoId}`;
@@ -815,23 +815,16 @@ videoRoutes.put(
     if (!doc) return c.json({ error: "Video not found" }, 404);
     if (doc.uid !== c.get("user").uid) return c.json({ error: "Forbidden" }, 403);
 
-    const contentType = (c.req.header("Content-Type") ?? "").split(";")[0].trim().toLowerCase();
-    if (!THUMBNAIL_TYPES.has(contentType)) {
-      return c.json({ error: "Thumbnail must be image/jpeg, image/png or image/webp" }, 415);
-    }
-    // Cheap early refusal when the client declares its size…
-    const declared = parseInt(c.req.header("Content-Length") ?? "", 10);
-    if (Number.isFinite(declared) && declared > THUMBNAIL_MAX_BYTES) {
-      return c.json({ error: "Thumbnail must be 5 MB or smaller" }, 413);
-    }
-    // …and the authoritative check on the actual bytes.
-    const body = await c.req.arrayBuffer();
-    if (body.byteLength === 0) return c.json({ error: "Empty body" }, 400);
-    if (body.byteLength > THUMBNAIL_MAX_BYTES) {
-      return c.json({ error: "Thumbnail must be 5 MB or smaller" }, 413);
-    }
+    // Shared image validation (lib/uploads): type allowlist + magic-byte
+    // sniff + double size check — same rules as team logos.
+    const img = await readValidatedImage(c.req, {
+      maxBytes: THUMBNAIL_MAX_BYTES,
+      label: "Thumbnail",
+    });
+    if (!img.ok) return c.json({ error: img.error }, img.status);
+    const contentType = img.contentType;
 
-    await c.env.R2.put(thumbnailR2Key(videoId), body, {
+    await c.env.R2.put(thumbnailR2Key(videoId), img.bytes, {
       httpMetadata: { contentType },
     });
     await setThumbnailType(c.env.DB, videoId, contentType);
