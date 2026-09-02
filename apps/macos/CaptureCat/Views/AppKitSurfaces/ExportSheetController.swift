@@ -15,8 +15,6 @@ final class ExportSheetController: NSViewController {
     private var exportSettings: ExportSettings
     private var exporter = VideoExporter()
     private var isExporting = false
-    private var isCheckingAccess = false
-    private var shouldStartExportAfterSignIn = false
     private var shareAfterExport = false
     private var allowComments = false
 
@@ -378,7 +376,7 @@ final class ExportSheetController: NSViewController {
         isExporting = exporting
         formStack.isHidden = exporting
         exportingStack.isHidden = !exporting
-        exportButton.isEnabled = !exporting && !isCheckingAccess
+        exportButton.isEnabled = !exporting
         cancelButton.isEnabled = !exporting
         if exporting {
             progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
@@ -408,53 +406,12 @@ final class ExportSheetController: NSViewController {
 
     private func beginExportFlow() {
         commitCustomSizeFields()
-        Task { await checkAccessAndMaybeExport() }
-    }
-
-    private func checkAccessAndMaybeExport() async {
-        if let configError = appState.authService.configurationError {
-            showError(configError)
-            return
-        }
-
-        isCheckingAccess = true
-        exportButton.isEnabled = false
-        showError(nil)
-
-        do {
-            let access = try await appState.authService.evaluateExportAccess()
-            isCheckingAccess = false
-            exportButton.isEnabled = true
-
-            switch access {
-            case .allowed:
-                startExport()
-            case .needsSignIn:
-                shouldStartExportAfterSignIn = true
-                presentAuthGate()
-            default:
-                showError(appState.authService.exportAccessMessage(for: access))
-            }
-        } catch {
-            isCheckingAccess = false
-            exportButton.isEnabled = true
-            showError(error.localizedDescription)
-        }
-    }
-
-    private var authGate: AuthGateSheetController?
-
-    private func presentAuthGate() {
-        let gate = AuthGateSheetController(appState: appState) { [weak self] in
-            guard let self else { return }
-            if self.shouldStartExportAfterSignIn {
-                self.shouldStartExportAfterSignIn = false
-                self.beginExportFlow()
-            }
-        }
-        authGate = gate
-        gate.onClosed = { [weak self] in self?.authGate = nil }
-        if let window = view.window { gate.present(over: window) }
+        // Export is free and local since open-sourcing (2026-09-02): no
+        // account, no entitlement, no network. Sign-in gates only the CLOUD
+        // features (share links, auto-sync) — enforced server-side, where a
+        // fork can't reach it. The old client-side gate was one deleted `if`
+        // away from useless and read as "phones home to save your own video".
+        startExport()
     }
 
     private func startExport() {
@@ -587,122 +544,5 @@ final class ExportSheetController: NSViewController {
 extension ExportSheetController: NSTextFieldDelegate {
     func controlTextDidEndEditing(_ obj: Notification) {
         commitCustomSizeFields()
-    }
-}
-
-// MARK: - Auth gate sheet
-
-/// Native port of AuthGateView — sign-in required panel with a single Sign In
-/// button, working state, and error reporting.
-@MainActor
-final class AuthGateSheetController: NSViewController {
-    private let appState: AppState
-    private let onSignedIn: () -> Void
-    var onClosed: (() -> Void)?
-
-    /// CCDialog anatomy — header carries the title and explainer, footer the
-    /// actions. No stock sheet chrome.
-    private let dialog = CCDialog(
-        title: "Sign In Required",
-        subtitle: "Export is available to paid users and approved testers. Sign in to continue.",
-        width: 380
-    )
-
-    // One button. Which providers exist is decided by the chooser page that
-    // `/api/desktop/authorize` serves, not by this sheet.
-    private let signInButton = InspectorButton("Sign In")
-    private let workingLabel = NSTextField(labelWithString: "Signing in...")
-    private let spinner = CCSpinner()
-    private let errorLabel = NSTextField(wrappingLabelWithString: "")
-    private var themeObservation: CCThemeObservation?
-
-    func present(over window: NSWindow) {
-        loadViewIfNeeded()
-        dialog.onEscape = { [weak self] in self?.closeGate() }
-        dialog.present(over: window)
-    }
-
-    private func closeGate() {
-        dialog.dismiss { [weak self] in self?.onClosed?() }
-    }
-
-    init(appState: AppState, onSignedIn: @escaping () -> Void) {
-        self.appState = appState
-        self.onSignedIn = onSignedIn
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    override func loadView() {
-        view = dialog.card
-
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        dialog.addContent(stack)
-
-        if let configError = appState.authService.configurationError {
-            let configLabel = NSTextField(wrappingLabelWithString: configError)
-            configLabel.font = EditorThemeKit.caption()
-            configLabel.textColor = .systemRed
-            stack.addArrangedSubview(configLabel)
-            configLabel.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-        }
-
-        let disabled = appState.authService.configurationError != nil
-        signInButton.isEnabled = !disabled
-        signInButton.onClick = { [weak self] in
-            Task { await self?.signIn { try await self?.appState.signIn() } }
-        }
-        signInButton.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(signInButton)
-        signInButton.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-
-        spinner.isDisplayedWhenStopped = false
-        workingLabel.font = EditorThemeKit.caption()
-        workingLabel.textColor = EditorThemeKit.textSecondary
-        let workingRow = NSStackView(views: [spinner, workingLabel])
-        workingRow.orientation = .horizontal
-        workingRow.spacing = 8
-        workingRow.isHidden = true
-        stack.addArrangedSubview(workingRow)
-
-        errorLabel.font = EditorThemeKit.caption()
-        errorLabel.textColor = .systemRed
-        errorLabel.isHidden = true
-        stack.addArrangedSubview(errorLabel)
-        errorLabel.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-
-        let cancel = InspectorButton("Cancel")
-        cancel.onClick = { [weak self] in self?.closeGate() }
-        dialog.addFooter(cancel)
-
-        themeObservation = CCThemeObservation { [weak self] in
-            self?.workingLabel.textColor = EditorThemeKit.textSecondary
-        }
-    }
-
-    private func signIn(_ action: @escaping () async throws -> Void) async {
-        setWorking(true)
-        do {
-            try await action()
-            setWorking(false)
-            closeGate()
-            onSignedIn()
-        } catch {
-            setWorking(false)
-            if AuthService.isUserCancellation(error) { return }
-            errorLabel.stringValue = error.localizedDescription
-            errorLabel.isHidden = false
-        }
-    }
-
-    private func setWorking(_ working: Bool) {
-        signInButton.isEnabled = !working
-        (workingLabel.superview as? NSStackView)?.isHidden = !working
-        if working { spinner.startAnimation(nil) } else { spinner.stopAnimation(nil) }
     }
 }

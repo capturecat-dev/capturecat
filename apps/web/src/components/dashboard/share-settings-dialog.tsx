@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc/client";
+import { authClient } from "@/lib/auth-client";
+import { API_URL } from "@/lib/api-url";
 import { THUMBNAIL_ACCEPT, uploadThumbnail } from "@/lib/thumbnails";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -20,6 +22,7 @@ import {
  */
 export interface ShareSettingsVideo {
   videoId: string;
+  orgId: string | null;
   fileName: string;
   allowDownload: boolean;
   hasPassword: boolean;
@@ -47,6 +50,11 @@ export function ShareSettingsDialog({
   });
 
   const [allowDownload, setAllowDownload] = useState(video.allowDownload);
+  // Team library: present only when the user belongs to an org. The API
+  // enforces plan + membership; this is just the affordance.
+  const { data: orgs } = authClient.useListOrganizations();
+  const teamOrg = orgs?.[0] ?? null;
+  const [inTeamLibrary, setInTeamLibrary] = useState(video.orgId !== null);
   const [passwordEnabled, setPasswordEnabled] = useState(video.hasPassword);
   const [password, setPassword] = useState("");
   const [expiresAt, setExpiresAt] = useState(
@@ -96,6 +104,14 @@ export function ShareSettingsDialog({
   const iframeEmbed = `<iframe src="https://capturecat.so/embed/${video.videoId}" width="800" height="450" frameborder="0" allow="fullscreen" allowfullscreen style="aspect-ratio:16/9;width:100%;height:auto"></iframe>`;
 
   const save = () => {
+    if (teamOrg && inTeamLibrary !== (video.orgId !== null)) {
+      void fetch(`${API_URL}/api/video/${encodeURIComponent(video.videoId)}/org`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId: inTeamLibrary ? teamOrg.id : null }),
+      });
+    }
     update.mutate({
       videoId: video.videoId,
       allowDownload,
@@ -130,6 +146,18 @@ export function ShareSettingsDialog({
             </div>
             <Switch checked={allowDownload} onCheckedChange={setAllowDownload} />
           </label>
+
+          {teamOrg && (
+            <label className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Team library</p>
+                <p className="text-xs text-muted-foreground">
+                  Everyone in {teamOrg.name} can find and watch this video.
+                </p>
+              </div>
+              <Switch checked={inTeamLibrary} onCheckedChange={setInTeamLibrary} />
+            </label>
+          )}
 
           <div className="space-y-2">
             <label className="flex items-center justify-between gap-4">

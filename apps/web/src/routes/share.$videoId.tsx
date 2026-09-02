@@ -86,7 +86,7 @@ export const Route = createFileRoute("/share/$videoId")({
     if (video.gate && video.gate !== "open") {
       return {
         meta: [
-          { title: "Private video — CaptureCat" },
+          { title: "Private video | CaptureCat" },
           { name: "robots", content: "noindex" },
         ],
       };
@@ -99,7 +99,7 @@ export const Route = createFileRoute("/share/$videoId")({
     const thumbnailUrl =
       video.thumbnailUrl ??
       `https://capturecat.so/cdn-cgi/media/mode=frame,time=1s,width=1200,height=630,fit=cover,format=jpg/${videoStreamUrl}`;
-    const description = `Watch "${video.fileName}" — shared via CaptureCat`;
+    const description = `Watch "${video.fileName}", shared via CaptureCat`;
 
     return {
       meta: [

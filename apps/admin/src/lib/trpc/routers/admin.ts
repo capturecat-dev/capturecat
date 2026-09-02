@@ -60,6 +60,17 @@ export const adminRouter = createTRPCRouter({
     };
   }),
 
+  listOrgs: adminProcedure.query(async () => {
+    const res = await apiFetch("/api/admin/orgs");
+    if (!res.ok) throw new TRPCError({ code: "FORBIDDEN", message: "Could not load orgs" });
+    return (await res.json()) as {
+      orgs: Array<{
+        id: string; name: string; slug: string; createdAt: string;
+        members: number; videos: number; ownerEmail: string | null;
+      }>;
+    };
+  }),
+
   listPlans: adminProcedure.query(async () => {
     const res = await apiFetch("/api/admin/plans");
     if (!res.ok) throw new TRPCError({ code: "FORBIDDEN", message: "Could not load plans" });

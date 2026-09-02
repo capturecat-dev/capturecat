@@ -17,6 +17,26 @@ import { authClient } from "@/lib/auth-client";
  */
 export function SignInButtons({ next }: { next?: string }) {
   const [pending, setPending] = useState<string | null>(null);
+  const [ssoOpen, setSsoOpen] = useState(false);
+  const [ssoEmail, setSsoEmail] = useState("");
+
+  const signInSso = async () => {
+    const email = ssoEmail.trim();
+    if (!email.includes("@")) return;
+    setPending("sso");
+    const site = import.meta.env.VITE_SITE_URL ?? window.location.origin;
+    const { error } = await authClient.signIn.sso({
+      email,
+      callbackURL: `${site}${next && next.startsWith("/") ? next : "/app"}`,
+      errorCallbackURL: `${site}/login?error=sso`,
+    });
+    if (error) {
+      setPending(null);
+      toast.error(
+        error.message ?? "No identity provider is configured for that email domain."
+      );
+    }
+  };
 
   const signIn = async (provider: "google" | "apple") => {
     setPending(provider);
@@ -66,6 +86,35 @@ export function SignInButtons({ next }: { next?: string }) {
         </svg>
         {pending === "apple" ? "Redirecting…" : "Continue with Apple"}
       </button>
+      {ssoOpen ? (
+        <div className="flex w-full gap-2">
+          <input
+            type="email"
+            autoFocus
+            placeholder="you@company.com"
+            value={ssoEmail}
+            onChange={(e) => setSsoEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void signInSso()}
+            className="h-12 w-full rounded-full border border-white/20 bg-white/5 px-5 text-[15px] text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30"
+          />
+          <button
+            type="button"
+            disabled={pending !== null || !ssoEmail.includes("@")}
+            onClick={() => void signInSso()}
+            className="inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-white/10 px-5 text-[15px] font-medium text-white transition-transform duration-300 hover:scale-[1.02] disabled:opacity-60"
+          >
+            {pending === "sso" ? "Redirecting…" : "Continue"}
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setSsoOpen(true)}
+          className="text-center text-sm text-white/50 underline-offset-4 hover:text-white/80 hover:underline"
+        >
+          Use single sign-on (SSO)
+        </button>
+      )}
     </div>
   );
 }

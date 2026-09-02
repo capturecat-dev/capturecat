@@ -11,7 +11,7 @@ import {
 
 /**
  * Presentational sections shared by the /compare and /alternatives pages.
- * Pure server components — same glass-card language as the agents page.
+ * Pure server components, same glass-card language as the agents page.
  */
 
 function Cell({ cell, highlight }: { cell: FeatureCell; highlight?: boolean }) {
@@ -19,7 +19,7 @@ function Cell({ cell, highlight }: { cell: FeatureCell; highlight?: boolean }) {
     return (
       <span className={highlight ? "text-cyan-300" : "text-foreground"}>✓</span>
     );
-  if (cell === false) return <span className="text-muted-foreground/60">—</span>;
+  if (cell === false) return <span className="text-muted-foreground/60">No</span>;
   if (cell === null)
     return <span className="text-muted-foreground/60 text-xs">check their site</span>;
   return <span className="text-muted-foreground text-[13px]">{cell}</span>;
@@ -63,7 +63,7 @@ export function FeatureTable({ competitor }: { competitor: Competitor }) {
         </table>
       </div>
       <p className="px-6 py-4 text-xs text-muted-foreground/70">
-        Competitor details checked {FACTS_CHECKED} — see{" "}
+        Competitor details checked {FACTS_CHECKED}. See{" "}
         <a
           href={competitor.website}
           rel="nofollow noopener"
@@ -148,7 +148,7 @@ export function PseoCta({ competitorName }: { competitorName?: string }) {
           Try the recording{competitorName ? `, not the pitch` : ""}
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
-          The recorder and the full editor are free — record one clip and watch
+          The recorder and the full editor are free. Record one clip and watch
           the zooms, cursor smoothing, and captions appear on their own.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

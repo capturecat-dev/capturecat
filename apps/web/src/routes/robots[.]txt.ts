@@ -43,7 +43,7 @@ export const Route = createFileRoute("/robots.txt")({
     handlers: {
       GET: () => {
         const body = [
-          "# CaptureCat — https://capturecat.so",
+          "# CaptureCat, https://capturecat.so",
           "# Content signals: https://contentsignals.org",
           "",
           group("*", true),

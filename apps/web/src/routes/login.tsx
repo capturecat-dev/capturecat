@@ -25,7 +25,7 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
   head: () => ({
     meta: [
-      { title: "Sign In — CaptureCat" },
+      { title: "Sign in | CaptureCat" },
       {
         name: "description",
         content:

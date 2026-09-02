@@ -1,4 +1,6 @@
 import { createAuthClient } from "better-auth/react";
+import { organizationClient } from "better-auth/client/plugins";
+import { ssoClient } from "@better-auth/sso/client";
 
 import { API_URL } from "./api-url";
 
@@ -10,4 +12,6 @@ export const authClient = createAuthClient({
   baseURL: API_URL,
   // Cross-origin API: only credentialed requests carry the session cookie.
   fetchOptions: { credentials: "include" },
+  // Teams + enterprise SSO (self-serve IdP registration by org admins).
+  plugins: [organizationClient(), ssoClient()],
 });

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { CreditCard, LogOut, Mail, ShieldCheck, Users } from "lucide-react";
+import { Building2, CreditCard, LogOut, Mail, ShieldCheck, Users } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 
 import {
@@ -19,6 +19,7 @@ import { authClient } from "@/lib/auth-client";
 
 const navItems = [
   { title: "Users", href: "/users", icon: Users },
+  { title: "Teams", href: "/teams", icon: Building2 },
   { title: "Beta", href: "/beta", icon: Mail },
   { title: "Plans", href: "/plans", icon: CreditCard },
 ] as const;

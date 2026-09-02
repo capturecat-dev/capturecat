@@ -19,7 +19,10 @@
  */
 
 import { betterAuth } from "better-auth";
-import { admin, bearer, oneTimeToken } from "better-auth/plugins";
+import { admin, bearer, oneTimeToken, organization } from "better-auth/plugins";
+import { createAuthMiddleware } from "better-auth/api";
+import { sso } from "@better-auth/sso";
+import { APIError } from "better-auth/api";
 import { importPKCS8, SignJWT } from "jose";
 // All Stripe configuration (client, plans, webhook secret, lifecycle hooks)
 // lives in ./stripe — do not inline it here.
@@ -154,6 +157,34 @@ export function buildAuth(env: Env) {
         : {}),
     },
 
+    hooks: {
+      // Feature-gate SSO provider management: registering/updating a provider
+      // is the paid enterprise surface. Runs before the plugin handler; the
+      // sign-in and callback endpoints are untouched.
+      before: createAuthMiddleware(async (ctx) => {
+        const gated = ["/sso/register", "/sso/update-provider"];
+        if (!gated.includes(ctx.path)) return;
+        const userId = ctx.context.session?.user?.id;
+        if (!userId) {
+          // No resolved session on the hook context — the plugin's own auth
+          // requirement will produce the 401.
+          return;
+        }
+        const { featuresForTier } = await import("./plans");
+        const { resolveTier } = await import("./entitlement");
+        const tier = await resolveTier(env.DB, userId, undefined);
+        if (tier === "blocked") {
+          throw new APIError("FORBIDDEN", { message: "Account blocked" });
+        }
+        const features = await featuresForTier(env.DB, tier);
+        if (!(features as { sso?: boolean }).sso) {
+          throw new APIError("FORBIDDEN", {
+            message: "SSO requires the Business plan. Upgrade to configure an identity provider.",
+          });
+        }
+      }),
+    },
+
     trustedOrigins: [
       // REQUIRED for Apple: the provider uses response_mode=form_post, so the
       // callback arrives as a cross-site POST from this origin and Better Auth
@@ -248,6 +279,27 @@ export function buildAuth(env: Env) {
         expiresIn: 2, // minutes
         disableClientRequest: true,
         disableSetSessionCookie: true,
+      }),
+
+      // Teams. Orgs/members/invitations (schema in 0022). Any signed-in
+      // user may create ONE org; SSO and future seat pricing are the paid
+      // gates, not org creation itself — a free team library is the hook.
+      // Invitations are link-based: no email sender is wired, so the
+      // dashboard surfaces a copyable accept URL instead. The callback is
+      // still required or the plugin refuses to create invitations.
+      organization({
+        organizationLimit: 1,
+        invitationExpiresIn: 60 * 60 * 24 * 7,
+        async sendInvitationEmail() {
+          // Deliberate no-op — invite links are copied from the dashboard.
+        },
+      }),
+
+      // Enterprise SSO (OIDC + SAML). Provider registration is entitlement-
+      // gated in the `before` hook below; sign-in/callback endpoints stay
+      // open (they must be, for the customer's users to authenticate).
+      sso({
+        domainVerification: { enabled: true },
       }),
 
       // Billing. Registers /subscription/{upgrade,cancel,restore,list,

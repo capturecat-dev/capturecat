@@ -29,7 +29,7 @@ interface PlanLimits {
 }
 
 function formatPrice(amount: number | null, currency: string): string {
-  if (amount === null) return "—";
+  if (amount === null) return "n/a";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currency.toUpperCase(),
@@ -45,11 +45,13 @@ const FEATURE_LABELS: Record<string, string> = {
   cloudShare: "Cloud sharing with links",
   comments: "Timestamped viewer comments",
   removeWatermark: "Watermark-free exports",
+  teams: "Team library & member invites",
 };
 
 /** Ships with the app on every tier; not gated in D1. */
 const CORE_FEATURES = [
   "Unlimited screen recordings",
+  "Free, watermark-optional local export",
   "Auto zoom & motion effects",
   "Camera overlay & cursor smoothing",
   "On-device captions",

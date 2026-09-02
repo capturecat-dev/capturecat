@@ -15,6 +15,7 @@ import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as BetaRouteImport } from './routes/beta'
 import { Route as DownloadRouteImport } from './routes/download'
+import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PricingRouteImport } from './routes/pricing'
@@ -22,11 +23,13 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as AcceptInvitationInvitationIdRouteImport } from './routes/accept-invitation.$invitationId'
 import { Route as AlternativesSlugRouteImport } from './routes/alternatives.$slug'
 import { Route as ApiOembedRouteImport } from './routes/api/oembed'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppBillingRouteImport } from './routes/app/billing'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppTeamRouteImport } from './routes/app/team'
 import { Route as CompareIndexRouteImport } from './routes/compare.index'
 import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
 import { Route as EmbedVideoIdRouteImport } from './routes/embed.$videoId'
@@ -67,6 +70,11 @@ const DownloadRoute = DownloadRouteImport.update({
   path: '/download',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeaturesRoute = FeaturesRouteImport.update({
+  id: '/features',
+  path: '/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
   id: '/llms.txt',
   path: '/llms.txt',
@@ -102,6 +110,12 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcceptInvitationInvitationIdRoute =
+  AcceptInvitationInvitationIdRouteImport.update({
+    id: '/accept-invitation/$invitationId',
+    path: '/accept-invitation/$invitationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AlternativesSlugRoute = AlternativesSlugRouteImport.update({
   id: '/alternatives/$slug',
   path: '/alternatives/$slug',
@@ -125,6 +139,11 @@ const AppBillingRoute = AppBillingRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppTeamRoute = AppTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const CompareIndexRoute = CompareIndexRouteImport.update({
@@ -181,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
   '/download': typeof DownloadRoute
+  '/features': typeof FeaturesRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
@@ -188,10 +208,12 @@ export interface FileRoutesByFullPath {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/alternatives/$slug': typeof AlternativesSlugRoute
   '/api/oembed': typeof ApiOembedRoute
   '/app/billing': typeof AppBillingRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/team': typeof AppTeamRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
@@ -209,6 +231,7 @@ export interface FileRoutesByTo {
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
   '/download': typeof DownloadRoute
+  '/features': typeof FeaturesRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
@@ -216,10 +239,12 @@ export interface FileRoutesByTo {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/alternatives/$slug': typeof AlternativesSlugRoute
   '/api/oembed': typeof ApiOembedRoute
   '/app/billing': typeof AppBillingRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/team': typeof AppTeamRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
@@ -239,6 +264,7 @@ export interface FileRoutesById {
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
   '/download': typeof DownloadRoute
+  '/features': typeof FeaturesRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
@@ -246,10 +272,12 @@ export interface FileRoutesById {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/accept-invitation/$invitationId': typeof AcceptInvitationInvitationIdRoute
   '/alternatives/$slug': typeof AlternativesSlugRoute
   '/api/oembed': typeof ApiOembedRoute
   '/app/billing': typeof AppBillingRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/team': typeof AppTeamRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
@@ -270,6 +298,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/beta'
     | '/download'
+    | '/features'
     | '/llms.txt'
     | '/login'
     | '/pricing'
@@ -277,10 +306,12 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/terms'
+    | '/accept-invitation/$invitationId'
     | '/alternatives/$slug'
     | '/api/oembed'
     | '/app/billing'
     | '/app/settings'
+    | '/app/team'
     | '/compare/$slug'
     | '/embed/$videoId'
     | '/md-share/$videoId'
@@ -298,6 +329,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/beta'
     | '/download'
+    | '/features'
     | '/llms.txt'
     | '/login'
     | '/pricing'
@@ -305,10 +337,12 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/terms'
+    | '/accept-invitation/$invitationId'
     | '/alternatives/$slug'
     | '/api/oembed'
     | '/app/billing'
     | '/app/settings'
+    | '/app/team'
     | '/compare/$slug'
     | '/embed/$videoId'
     | '/md-share/$videoId'
@@ -327,6 +361,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/beta'
     | '/download'
+    | '/features'
     | '/llms.txt'
     | '/login'
     | '/pricing'
@@ -334,10 +369,12 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/terms'
+    | '/accept-invitation/$invitationId'
     | '/alternatives/$slug'
     | '/api/oembed'
     | '/app/billing'
     | '/app/settings'
+    | '/app/team'
     | '/compare/$slug'
     | '/embed/$videoId'
     | '/md-share/$videoId'
@@ -357,6 +394,7 @@ export interface RootRouteChildren {
   AgentsRoute: typeof AgentsRoute
   BetaRoute: typeof BetaRoute
   DownloadRoute: typeof DownloadRoute
+  FeaturesRoute: typeof FeaturesRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
@@ -364,6 +402,7 @@ export interface RootRouteChildren {
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
+  AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
   AlternativesSlugRoute: typeof AlternativesSlugRoute
   ApiOembedRoute: typeof ApiOembedRoute
   CompareSlugRoute: typeof CompareSlugRoute
@@ -419,6 +458,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/features': {
+      id: '/features'
+      path: '/features'
+      fullPath: '/features'
+      preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/llms.txt': {
       id: '/llms.txt'
       path: '/llms.txt'
@@ -468,6 +514,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/accept-invitation/$invitationId': {
+      id: '/accept-invitation/$invitationId'
+      path: '/accept-invitation/$invitationId'
+      fullPath: '/accept-invitation/$invitationId'
+      preLoaderRoute: typeof AcceptInvitationInvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/alternatives/$slug': {
       id: '/alternatives/$slug'
       path: '/alternatives/$slug'
@@ -501,6 +554,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/team': {
+      id: '/app/team'
+      path: '/team'
+      fullPath: '/app/team'
+      preLoaderRoute: typeof AppTeamRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/compare/': {
@@ -572,6 +632,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteRouteChildren {
   AppBillingRoute: typeof AppBillingRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
   AppVideosVideoIdAnalyticsRoute: typeof AppVideosVideoIdAnalyticsRoute
   AppVideosVideoIdIndexRoute: typeof AppVideosVideoIdIndexRoute
@@ -580,6 +641,7 @@ interface AppRouteRouteChildren {
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppBillingRoute: AppBillingRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
   AppVideosVideoIdAnalyticsRoute: AppVideosVideoIdAnalyticsRoute,
   AppVideosVideoIdIndexRoute: AppVideosVideoIdIndexRoute,
@@ -596,6 +658,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentsRoute: AgentsRoute,
   BetaRoute: BetaRoute,
   DownloadRoute: DownloadRoute,
+  FeaturesRoute: FeaturesRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
@@ -603,6 +666,7 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
+  AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
   AlternativesSlugRoute: AlternativesSlugRoute,
   ApiOembedRoute: ApiOembedRoute,
   CompareSlugRoute: CompareSlugRoute,

@@ -5,14 +5,14 @@ import { SITE_URL } from "./site-url";
  * Programmatic SEO: one competitor record generates a comparison page
  * (/compare/capturecat-vs-{slug}) and an alternative page
  * (/alternatives/{slug}-alternative), each with HTML, a Markdown twin, FAQs,
- * and JSON-LD — all from the same data, so the renderings never drift.
+ * and JSON-LD, all from the same data, so the renderings never drift.
  *
  * The generated pages are appended to SITE_PAGES in site-content.ts, which
  * automatically enrols them in the sitemap, llms.txt, the /*.md routes, the
  * Accept: text/markdown negotiation, and the Link: rel="alternate" headers.
  *
  * Competitor facts were checked on FACTS_CHECKED. Keep claims conservative:
- * a cell may be true, false, a short string, or null ("check their site") —
+ * a cell may be true, false, a short string, or null ("check their site"),
  * never guess a competitor feature we haven't verified.
  */
 
@@ -79,21 +79,21 @@ export const COMPETITORS: Competitor[] = [
     tradeoffs: [
       "Paid licence (about $149), with updates billed yearly after the first year",
       "No free tier beyond a trial",
-      "No AI-agent integration — every edit is done by hand in the app",
+      "No AI-agent integration. Every edit is done by hand in the app",
     ],
     features: [
       true, // auto zoom
       true, // cursor fx
-      null, // captions — unverified
+      null, // captions: unverified
       false, // MCP
-      null, // share analytics — unverified
+      null, // share analytics: unverified
       "Trial only",
       false,
       "macOS",
       "~$149 one-time + yearly updates",
     ],
     switchTip:
-      "Record in CaptureCat exactly as you did in Screen Studio — the zooms, cursor smoothing, and click ripples are applied automatically the same way, and your first project costs nothing.",
+      "Record in CaptureCat exactly as you did in Screen Studio. The zooms, cursor smoothing, and click ripples are applied automatically the same way, and your first project costs nothing.",
     faqExtra: {
       question: "Is CaptureCat cheaper than Screen Studio?",
       answer:
@@ -107,7 +107,7 @@ export const COMPETITORS: Competitor[] = [
     summary:
       "Cap is an open-source screen recorder for macOS and Windows focused on instant recording and one-click share links, with optional self-hosting.",
     differentiator:
-      "Cap's core is instant capture-and-share; CaptureCat's core is automatic cinematography — it replays your session and adds zooms, cursor smoothing, and captions by itself, then exports a file that matches the preview frame-for-frame. CaptureCat also ships a built-in MCP server for AI-agent editing.",
+      "Cap's core is instant capture-and-share; CaptureCat's core is automatic cinematography. It replays your session and adds zooms, cursor smoothing, and captions by itself, then exports a file that matches the preview frame-for-frame. CaptureCat also ships a built-in MCP server for AI-agent editing.",
     pickThemWhen:
       "you want an open-source, cross-platform recorder you can self-host, and raw speed-to-link matters more than automatic editing.",
     strengths: [
@@ -121,7 +121,7 @@ export const COMPETITORS: Competitor[] = [
       "No AI-agent integration",
     ],
     features: [
-      null, // auto zoom — unverified depth
+      null, // auto zoom: unverified depth
       null,
       null,
       false,
@@ -132,7 +132,7 @@ export const COMPETITORS: Competitor[] = [
       "Free (open source) · paid cloud",
     ],
     switchTip:
-      "Keep Cap for quick throwaway links if you like it — CaptureCat earns its place on the recordings that need to look produced: product demos, launch videos, and tutorials where zooms and captions matter.",
+      "Keep Cap for quick throwaway links if you like it. CaptureCat earns its place on the recordings that need to look produced: product demos, launch videos, and tutorials where zooms and captions matter.",
   },
   {
     slug: "loom",
@@ -141,7 +141,7 @@ export const COMPETITORS: Competitor[] = [
     summary:
       "Loom (an Atlassian product) is an async video-messaging tool for teams: record a quick clip in the browser or desktop app and send a link.",
     differentiator:
-      "Loom optimises for speed of communication; the recording itself stays raw. CaptureCat optimises for how the recording looks — automatic zooms, a steadied cursor, on-device captions, device frames — while still giving you share links, timestamped comments, and viewer analytics.",
+      "Loom optimises for speed of communication; the recording itself stays raw. CaptureCat optimises for how the recording looks (automatic zooms, a steadied cursor, on-device captions, device frames) while still giving you share links, timestamped comments, and viewer analytics.",
     pickThemWhen:
       "your team already lives in Loom and the videos are quick internal messages nobody needs to polish.",
     strengths: [
@@ -150,7 +150,7 @@ export const COMPETITORS: Competitor[] = [
       "Transcripts and team workspace features",
     ],
     tradeoffs: [
-      "Recordings look raw — no automatic zooms or cursor work",
+      "Recordings look raw. No automatic zooms or cursor work",
       "Free tier caps videos at 5 minutes and 25 videos",
       "Per-seat subscription pricing adds up for teams",
     ],
@@ -166,14 +166,14 @@ export const COMPETITORS: Competitor[] = [
       "Free tier · per-seat subscription",
     ],
     switchTip:
-      "CaptureCat's share links work the way Loom's do — public or private, with comments pinned to the exact second — so the sharing workflow carries over; the videos just arrive already edited.",
+      "CaptureCat's share links work the way Loom's do, public or private with comments pinned to the exact second, so the sharing workflow carries over; the videos just arrive already edited.",
   },
   {
     slug: "cleanshot-x",
     name: "CleanShot X",
     website: "https://cleanshot.com",
     summary:
-      "CleanShot X is a macOS capture utility — best-in-class screenshots and quick screen recordings with annotation and cloud links.",
+      "CleanShot X is a macOS capture utility: best-in-class screenshots and quick screen recordings with annotation and cloud links.",
     differentiator:
       "CleanShot X is a capture utility first; video is one of many tools in it. CaptureCat is a video product: it captures clicks and keystrokes as data, then automatically produces the zooms, cursor smoothing, and captions a polished demo needs, with viewer analytics on every share link.",
     pickThemWhen:
@@ -184,7 +184,7 @@ export const COMPETITORS: Competitor[] = [
       "Affordable one-time base licence",
     ],
     tradeoffs: [
-      "Not built for polished demo videos — no automatic zooms or cursor effects",
+      "Not built for polished demo videos. No automatic zooms or cursor effects",
       "No viewer analytics on shared media",
       "No AI-agent integration",
     ],
@@ -209,9 +209,9 @@ export const COMPETITORS: Competitor[] = [
     summary:
       "OBS Studio is the free, open-source capture and live-streaming powerhouse used across macOS, Windows, and Linux.",
     differentiator:
-      "OBS records anything but edits nothing — output needs a separate editor and real skill. CaptureCat trades OBS's infinite configurability for a finished result: by the time you stop recording, the zooms, cursor smoothing, and captions are already applied.",
+      "OBS records anything but edits nothing. Output needs a separate editor and real skill. CaptureCat trades OBS's infinite configurability for a finished result: by the time you stop recording, the zooms, cursor smoothing, and captions are already applied.",
     pickThemWhen:
-      "you're live-streaming, compositing scenes, or need capture flexibility no consumer app offers — and you're happy editing afterwards.",
+      "you're live-streaming, compositing scenes, or need capture flexibility no consumer app offers, and you're happy editing afterwards.",
     strengths: [
       "Completely free and open source",
       "Unmatched capture and streaming flexibility",
@@ -219,7 +219,7 @@ export const COMPETITORS: Competitor[] = [
     ],
     tradeoffs: [
       "Steep learning curve",
-      "No editing — raw footage needs a separate editor",
+      "No editing. Raw footage needs a separate editor",
       "No sharing, analytics, or automatic polish of any kind",
     ],
     features: [
@@ -234,7 +234,7 @@ export const COMPETITORS: Competitor[] = [
       "Free",
     ],
     switchTip:
-      "If OBS is your recorder because it's free, note that CaptureCat's recorder and editor are also free — the difference is you skip the editing session afterwards.",
+      "If OBS is your recorder because it's free, note that CaptureCat's recorder and editor are also free. The difference is you skip the editing session afterwards.",
   },
   {
     slug: "camtasia",
@@ -243,7 +243,7 @@ export const COMPETITORS: Competitor[] = [
     summary:
       "Camtasia (TechSmith) is a full manual screen-recording and video-editing suite for macOS and Windows, popular for courseware and training videos.",
     differentiator:
-      "Camtasia gives you a multitrack timeline and expects you to drive it — zooms, cursor effects, and callouts are all placed by hand. CaptureCat derives them automatically from your recorded clicks and keystrokes, and an AI agent can adjust them over MCP.",
+      "Camtasia gives you a multitrack timeline and expects you to drive it. Zooms, cursor effects, and callouts are all placed by hand. CaptureCat derives them automatically from your recorded clicks and keystrokes, and an AI agent can adjust them over MCP.",
     pickThemWhen:
       "you're producing long-form courseware with quizzes, chapters, and heavy manual editing.",
     strengths: [
@@ -268,7 +268,7 @@ export const COMPETITORS: Competitor[] = [
       "Paid subscription",
     ],
     switchTip:
-      "For the demos you used to hand-edit in Camtasia, record in CaptureCat and check the timeline afterwards — the zooms it placed from your click data are usually the ones you'd have keyframed yourself.",
+      "For the demos you used to hand-edit in Camtasia, record in CaptureCat and check the timeline afterwards. The zooms it placed from your click data are usually the ones you'd have keyframed yourself.",
   },
   {
     slug: "kap",
@@ -277,7 +277,7 @@ export const COMPETITORS: Competitor[] = [
     summary:
       "Kap is a small, free, open-source menu-bar screen recorder for macOS with quick exports to MP4 and GIF.",
     differentiator:
-      "Kap captures and exports — that's its whole (charming) job. CaptureCat also captures from the menu bar, but then does the editing for you: automatic zooms, cursor smoothing, captions, wallpapers, and device frames, with share links and analytics when you want them.",
+      "Kap captures and exports. That is its whole (charming) job. CaptureCat also captures from the menu bar, but then does the editing for you: automatic zooms, cursor smoothing, captions, wallpapers, and device frames, with share links and analytics when you want them.",
     pickThemWhen:
       "you need a tiny free tool for quick raw GIFs and clips, and polish doesn't matter.",
     strengths: [
@@ -302,16 +302,16 @@ export const COMPETITORS: Competitor[] = [
       "Free",
     ],
     switchTip:
-      "CaptureCat's free tier covers everything Kap does — plus the automatic editing — so switching costs nothing; your quick clips just stop looking quick.",
+      "CaptureCat's free tier covers everything Kap does, plus the automatic editing, so switching costs nothing; your quick clips just stop looking quick.",
   },
   {
     slug: "quicktime",
     name: "QuickTime Player",
     website: "https://support.apple.com/guide/quicktime-player",
     summary:
-      "QuickTime Player is macOS's built-in recorder — press ⇧⌘5 and capture the screen with no extra software.",
+      "QuickTime Player is macOS's built-in recorder. Press ⇧⌘5 and capture the screen with no extra software.",
     differentiator:
-      "QuickTime gives you the raw pixels and stops there. CaptureCat records the same screen but also captures every click and keystroke as data, then turns that into cinematic zooms, a steadied cursor, and on-device captions — automatically, still free.",
+      "QuickTime gives you the raw pixels and stops there. CaptureCat records the same screen but also captures every click and keystroke as data, then turns that into cinematic zooms, a steadied cursor, and on-device captions. Automatically, and still free.",
     pickThemWhen:
       "you need a one-off raw capture right now and don't want to install anything.",
     strengths: [
@@ -377,7 +377,7 @@ function compareFaqs(c: Competitor): Faq[] {
     {
       question: "Is CaptureCat free?",
       answer:
-        "Yes — the recorder and the full editor are free forever, including automatic zooms, cursor smoothing, on-device captions, and full-quality export. The Pro subscription only adds cloud features: share links, timestamped comments, and viewer analytics.",
+        "Yes. The recorder and the full editor are free forever, including automatic zooms, cursor smoothing, on-device captions, and full-quality export. The Pro subscription only adds cloud features: share links, timestamped comments, and viewer analytics.",
     },
     {
       question: `Does ${c.name} work with AI agents?`,
@@ -396,12 +396,12 @@ function alternativeFaqs(c: Competitor): Faq[] {
   return [
     {
       question: `What is a good ${c.name} alternative for Mac?`,
-      answer: `CaptureCat is a native Mac screen recorder that edits itself — automatic cinematic zooms, cursor smoothing, on-device captions, and device frames, with share links and viewer analytics on the Pro plan. ${c.differentiator}`,
+      answer: `CaptureCat is a native Mac screen recorder that edits itself: automatic cinematic zooms, cursor smoothing, on-device captions, and device frames, with share links and viewer analytics on the Pro plan. ${c.differentiator}`,
     },
     {
       question: "Is CaptureCat free?",
       answer:
-        "Yes — the recorder and the full editor are free forever. Pro adds cloud sharing, timestamped comments, and viewer analytics.",
+        "Yes. The recorder and the full editor are free forever. Pro adds cloud sharing, timestamped comments, and viewer analytics.",
     },
     {
       question: `How do I switch from ${c.name} to CaptureCat?`,
@@ -432,7 +432,7 @@ export function buildPseoPage(
     path: alternativePath(c),
     title: `${c.name} Alternative for Mac`,
     heroTitle: `The ${c.name} alternative that edits itself`,
-    heroSubtitle: `${c.summary} If you're after something different, CaptureCat records your Mac and applies the editing automatically — zooms, cursor smoothing, captions — then shares a link with viewer analytics.`,
+    heroSubtitle: `${c.summary} If you're after something different, CaptureCat records your Mac and applies the editing automatically (zooms, cursor smoothing, captions), then shares a link with viewer analytics.`,
     description: `Looking for a ${c.name} alternative on macOS? CaptureCat is a free native screen recorder with automatic cinematic zooms, on-device captions, AI-agent editing over MCP, and share links with analytics.`,
     faqs: alternativeFaqs(c),
   };
@@ -457,7 +457,7 @@ export function findPseoPage(path: string): PseoPage | undefined {
 
 export function cellText(cell: FeatureCell): string {
   if (cell === true) return "✓";
-  if (cell === false) return "—";
+  if (cell === false) return "No";
   if (cell === null) return "check their site";
   return cell;
 }
@@ -583,7 +583,7 @@ export function pseoJsonLd(page: PseoPage): object {
 
 const hubMarkdown = `# Compare Mac Screen Recorders
 
-How CaptureCat stacks up against other Mac screen recorders — feature by
+How CaptureCat stacks up against other Mac screen recorders, feature by
 feature, with honest trade-offs and a note on when the other tool is the
 better pick. Competitor details checked ${FACTS_CHECKED}.
 
@@ -607,7 +607,7 @@ export const PSEO_SITE_PAGES: SitePage[] = [
     path: "/compare",
     title: "Compare Mac Screen Recorders",
     description:
-      "How CaptureCat compares to Screen Studio, Cap, Loom, CleanShot X, OBS, Camtasia, Kap, and QuickTime — features, pricing, and honest trade-offs.",
+      "How CaptureCat compares to Screen Studio, Cap, Loom, CleanShot X, OBS, Camtasia, Kap, and QuickTime: features, pricing, and honest trade-offs.",
     lastModified: LAST_MODIFIED,
     markdown: hubMarkdown,
   },

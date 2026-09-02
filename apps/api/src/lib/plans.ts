@@ -34,6 +34,10 @@ export interface PlanFeatures {
   aiSummaries: boolean;
   /** /api/screenshot/take — the paid screenshot-rendering API. */
   screenshotApi: boolean;
+  /** Team library: share videos into an organization. */
+  teams: boolean;
+  /** Enterprise SSO (OIDC/SAML) — register an identity provider. */
+  sso: boolean;
 }
 
 export interface PlanLimits {
@@ -70,6 +74,8 @@ const FEATURE_DEFAULTS: PlanFeatures = {
   customDomain: false,
   aiSummaries: false,
   screenshotApi: false,
+  teams: false,
+  sso: false,
 };
 
 const LIMIT_DEFAULTS: PlanLimits = {

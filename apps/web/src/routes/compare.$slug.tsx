@@ -1,19 +1,19 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { jsonLd } from "@/lib/json-ld";
 
-import Navbar from "@/components/landing/Navbar";
-import Footer from "@/components/landing/Footer";
+import Navbar from "@/components/marketing/Navbar";
+import Footer from "@/components/marketing/Footer";
 import {
   FeatureTable,
   StrengthsTradeoffs,
   FaqSection,
   PseoCta,
-} from "@/components/landing/PseoSections";
+} from "@/components/marketing/PseoSections";
 import { COMPETITORS, buildPseoPage, pseoJsonLd } from "@/lib/pseo-content";
 import { markdownAlternateLinks } from "@/lib/site-content";
 
 /**
- * /compare/capturecat-vs-{competitor} — generated comparison pages.
+ * /compare/capturecat-vs-{competitor}: generated comparison pages.
  * Content, Markdown twin, and JSON-LD all come from lib/pseo-content.ts.
  */
 

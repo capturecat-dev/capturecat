@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import Navbar from "@/components/landing/Navbar";
-import Footer from "@/components/landing/Footer";
+import Navbar from "@/components/marketing/Navbar";
+import Footer from "@/components/marketing/Footer";
 import { markdownAlternateLinks } from "@/lib/site-content";
 
 export const Route = createFileRoute("/terms")({
@@ -77,7 +77,7 @@ function TermsPage() {
               You keep ownership of every recording you make and every video or
               image you upload (&ldquo;Your Content&rdquo;). You grant us only the
               limited licence needed to host, process, and deliver Your Content so
-              the Service works — for example, so a share link plays for the
+              the Service works, for example, so a share link plays for the
               people you send it to. That licence ends when you delete the content
               or close your account, subject to short technical delays and
               backups.
@@ -158,7 +158,7 @@ function TermsPage() {
             <h2>9. Our liability</h2>
             <p>
               We do not exclude or limit our liability where it would be unlawful
-              to do so — this includes liability for death or personal injury
+              to do so. This includes liability for death or personal injury
               caused by our negligence, for fraud, and for your statutory rights
               as a consumer. Subject to that, we are not liable for loss that is
               not reasonably foreseeable, for business losses, or for loss of data

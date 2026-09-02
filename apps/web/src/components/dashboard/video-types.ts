@@ -2,6 +2,8 @@
 
 export interface DashboardVideo {
   videoId: string;
+  /** Organization whose team library holds this video; null = personal. */
+  orgId: string | null;
   fileName: string;
   contentType: string;
   fileSizeBytes: number;

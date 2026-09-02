@@ -237,6 +237,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
   const openShareSettings = (v: DashboardVideo) =>
     setSettingsTarget({
       videoId: v.videoId,
+      orgId: v.orgId,
       fileName: v.fileName,
       allowDownload: v.allowDownload,
       hasPassword: v.hasPassword,
