@@ -224,7 +224,45 @@ app.route("/api", screenshotRoutes);
 // Catch-all — block everything else
 app.all("*", (c) => c.json({ error: "Not found" }, 404));
 
-export default app;
+/**
+ * Hourly housekeeping:
+ *  - abandoned uploads: rows stuck in "pending" for > 2 h are deleted along
+ *    with any bytes that made it to R2 (a presigned PUT can succeed without
+ *    /complete ever being called — those objects are billed but invisible
+ *    to the storage quota);
+ *  - rate_limits rows whose window ended over a day ago.
+ */
+async function sweep(env: Env): Promise<void> {
+  const cutoff = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
+  const stale = await env.DB.prepare(
+    "SELECT video_id, r2_key FROM shared_videos WHERE status = 'pending' AND created_at < ? LIMIT 200"
+  ).bind(cutoff).all<{ video_id: string; r2_key: string }>();
+  for (const row of stale.results ?? []) {
+    await env.R2.delete(row.r2_key).catch(() => {});
+    await env.DB.prepare("DELETE FROM video_versions WHERE video_id = ? AND status = 'pending'")
+      .bind(row.video_id).run();
+    await env.DB.prepare("DELETE FROM shared_videos WHERE video_id = ? AND status = 'pending'")
+      .bind(row.video_id).run();
+  }
+  const staleVersions = await env.DB.prepare(
+    "SELECT video_id, version_number, r2_key FROM video_versions WHERE status = 'pending' AND created_at < ? LIMIT 200"
+  ).bind(cutoff).all<{ video_id: string; version_number: number; r2_key: string }>();
+  for (const row of staleVersions.results ?? []) {
+    await env.R2.delete(row.r2_key).catch(() => {});
+    await env.DB.prepare(
+      "DELETE FROM video_versions WHERE video_id = ? AND version_number = ? AND status = 'pending'"
+    ).bind(row.video_id, row.version_number).run();
+  }
+  await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
+    .bind(Math.floor(Date.now() / 1000) - 86_400).run();
+}
+
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(sweep(env));
+  },
+};
 
 // Durable Object classes must be exported from the Worker entrypoint.
 export { ShareJobsDO } from "./share-jobs";

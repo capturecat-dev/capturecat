@@ -40,6 +40,9 @@ aiRoutes.post(
     if (body.prompt.length > 32_000) {
       return c.json({ error: "prompt too long" }, 413);
     }
+    if (body.system && body.system.length > 8_000) {
+      return c.json({ error: "system prompt too long" }, 413);
+    }
 
     const payload: Record<string, unknown> = {
       contents: [{ role: "user", parts: [{ text: body.prompt }] }],

@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { jsonLd } from "@/lib/json-ld";
 
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
@@ -15,7 +16,7 @@ import { SITE_URL, markdownAlternateLinks } from "@/lib/site-content";
  * page, so crawlers (and people) can reach all of them from one place.
  */
 
-const jsonLd = {
+const jsonLdData = {
   "@context": "https://schema.org",
   "@graph": [
     {
@@ -60,7 +61,7 @@ function CompareHubPage() {
     <main className="min-h-screen bg-background flex flex-col">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLd(jsonLdData) }}
       />
       <Navbar />
 

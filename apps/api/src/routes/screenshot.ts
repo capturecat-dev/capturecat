@@ -27,6 +27,7 @@
 
 import { Hono, type Context } from "hono";
 import type { Env, Variables } from "../types";
+import { webOrigins } from "../lib/origins";
 import { getAuth } from "../lib/auth";
 import { resolveTier } from "../lib/entitlement";
 import { planForTier } from "../lib/plans";
@@ -110,6 +111,19 @@ async function handleTake(
   const caller = await resolveCaller(c, typeof raw.access_key === "string" ? raw.access_key : null);
   if (!caller) {
     return c.json(errBody("unauthorized", "A valid session or access key is required."), 401);
+  }
+  // A cookie session can be ridden cross-site (top-level navigation carries a
+  // SameSite=Lax cookie): the render is billed, quota is consumed, and
+  // store=true writes to R2 under the victim. Session callers must POST from
+  // an allowed web origin; GET stays for API-key clients only.
+  if (caller.via === "session") {
+    const origin = c.req.header("Origin");
+    if (c.req.method !== "POST" || !origin || !webOrigins(c.env).includes(origin)) {
+      return c.json(
+        errBody("forbidden", "Session-authenticated calls must be POSTed from the CaptureCat web app; use an access key for API clients."),
+        403,
+      );
+    }
   }
 
   // Tier + plan (features AND limits in one lookup).

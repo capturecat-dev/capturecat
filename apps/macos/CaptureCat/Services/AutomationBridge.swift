@@ -81,9 +81,11 @@ final class AutomationBridge {
     private func execute(command: String, params: [String: String]) {
         guard let appState else { return }
 
-        // Same policy as deep links: automation always works, onboarding or not.
+        // Same policy as deep links: nothing external accepts the Terms or
+        // skips the permissions walkthrough for the user.
         if appState.needsOnboarding {
-            appState.completeOnboarding(acceptedTerms: true)
+            print("[Automation] Ignored \(command): onboarding not complete")
+            return
         }
 
         switch command {
@@ -97,7 +99,7 @@ final class AutomationBridge {
             writeStatus(state: "preparing")
             appState.recordingSession.reset()
             Task { @MainActor in
-                guard let source = await CaptureSourceResolver.resolve(type: sourceType, params: params) else {
+                guard let source = await CaptureSourceResolver.resolve(type: sourceType, params: params, launchIfMissing: true) else {
                     self.writeStatus(state: "failed", extra: [
                         "error": "could not resolve capture source '\(sourceType)' \(params)",
                     ])

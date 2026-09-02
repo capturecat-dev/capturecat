@@ -40,6 +40,7 @@ interface SharedVideoRow {
   cta_url: string | null;
   profile_visible: number;
   thumbnail_type: string | null;
+  etag?: string | null;
 }
 
 function rowToVideo(row: SharedVideoRow): VideoMetadata {
@@ -68,6 +69,7 @@ function rowToVideo(row: SharedVideoRow): VideoMetadata {
     ctaLabel: row.cta_label ?? null,
     ctaUrl: row.cta_url ?? null,
     profileVisible: row.profile_visible !== 0,
+    etag: row.etag ?? null,
     thumbnailType: row.thumbnail_type ?? null,
   };
 }

@@ -5,7 +5,7 @@ import { requireEntitlement, userRateLimit } from "../lib/entitlement";
 import { checkAssertion } from "./attest";
 import { shareBaseURL } from "../lib/origins";
 import { generateId } from "../lib/id";
-import { createPresignedUploadUrl, headR2Object } from "../lib/presign";
+import { createPresignedUploadUrl, headR2Object, headR2ObjectMeta } from "../lib/presign";
 import {
   getSharedVideo,
   upsertSharedVideo,
@@ -125,11 +125,9 @@ uploadRoutes.post(
   async (c) => {
   const user = c.get("user");
 
-  // Verify request comes from our app, not Postman/curl
-  const appToken = c.req.header("X-App-Token");
-  if (appToken !== c.env.APP_TOKEN) {
-    return c.json({ error: "Forbidden" }, 403);
-  }
+  // X-App-Token is a client-version marker only. The app's value ships in
+  // the open-source repo, so it authenticates nothing — genuineness is App
+  // Attest's job (checkAssertion above), and identity is the bearer token.
 
   const body = await c.req.json<{
     fileName: string;
@@ -159,6 +157,18 @@ uploadRoutes.post(
 
   if (!body.fileName) {
     return c.json({ error: "fileName is required" }, 400);
+  }
+  // Echoed into /meta, Content-Disposition and page titles — bound it.
+  body.fileName = body.fileName.slice(0, 200);
+  // The declared size is signed into the presigned PUT (see presign.ts).
+  const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024;
+  if (
+    typeof body.fileSizeBytes !== "number" ||
+    !Number.isInteger(body.fileSizeBytes) ||
+    body.fileSizeBytes <= 0 ||
+    body.fileSizeBytes > MAX_UPLOAD_BYTES
+  ) {
+    return c.json({ error: "fileSizeBytes must be a positive integer (≤ 5 GB)" }, 400);
   }
 
   const annotationsJson = Array.isArray(body.annotations)
@@ -219,6 +229,19 @@ uploadRoutes.post(
   );
 
   const videoId = generateId();
+  // A presign is a liability until /complete: the object may already be in
+  // R2 while the row still says pending, invisible to the storage quota.
+  // Bound the number outstanding per user (the hourly sweep clears strays).
+  const pendingRow = await c.env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM shared_videos WHERE uid = ? AND status = 'pending'"
+  ).bind(user.uid).first<{ n: number }>();
+  if ((pendingRow?.n ?? 0) >= 5) {
+    return c.json(
+      { error: "Too many uploads in progress — finish or wait a moment before starting another." },
+      429
+    );
+  }
+
   const r2Key = `videos/${videoId}.mp4`;
 
   // Create presigned upload URL with size limit
@@ -229,6 +252,7 @@ uploadRoutes.post(
     bucket: "capturecat",
     key: r2Key,
     contentType,
+    contentLength: body.fileSizeBytes,
   });
 
   // Write pending record to D1
@@ -311,10 +335,7 @@ uploadRoutes.post(
   userRateLimit({ limit: 30, windowSec: 60, scope: "upload" }),
   checkAssertion(),
   async (c) => {
-    const appToken = c.req.header("X-App-Token");
-    if (appToken !== c.env.APP_TOKEN) {
-      return c.json({ error: "Forbidden" }, 403);
-    }
+    // X-App-Token: client-version marker only — see /upload/video.
 
     const user = c.get("user");
     const videoId = c.req.param("videoId");
@@ -332,7 +353,7 @@ uploadRoutes.post(
 
     // Verify the R2 object actually exists (via S3 API, not local binding)
     const r2Key = doc.r2Key;
-    const fileSize = await headR2Object({
+    const head = await headR2ObjectMeta({
       r2Endpoint: c.env.R2_ENDPOINT,
       accessKeyId: c.env.R2_ACCESS_KEY_ID,
       secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
@@ -340,9 +361,10 @@ uploadRoutes.post(
       key: r2Key,
     });
 
-    if (fileSize === null) {
+    if (head === null) {
       return c.json({ error: "Upload not found in storage" }, 404);
     }
+    const fileSize = head.size;
 
     // Reject oversized uploads — delete the R2 object
     if (fileSize > MAX_FILE_SIZE) {
@@ -373,6 +395,10 @@ uploadRoutes.post(
       fileSizeBytes: fileSize,
     });
     await markVersionReady(c.env.DB, videoId, doc.currentVersion, fileSize);
+    // Pin the verified bytes: the byte route refuses a later re-PUT.
+    await c.env.DB.prepare("UPDATE shared_videos SET etag = ? WHERE video_id = ?")
+      .bind(head.etag, videoId)
+      .run();
 
     return c.json({
       videoId,
@@ -396,10 +422,7 @@ uploadRoutes.post(
   async (c) => {
     const user = c.get("user");
 
-    const appToken = c.req.header("X-App-Token");
-    if (appToken !== c.env.APP_TOKEN) {
-      return c.json({ error: "Forbidden" }, 403);
-    }
+    // X-App-Token: client-version marker only — see /upload/video.
 
     const videoId = c.req.param("videoId");
     const doc = await getSharedVideo(c.env.DB, videoId);
@@ -426,7 +449,14 @@ uploadRoutes.post(
     if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
       return c.json({ error: "Invalid content type" }, 400);
     }
-    if (body.fileSizeBytes && body.fileSizeBytes > MAX_FILE_SIZE) {
+    if (
+      typeof body.fileSizeBytes !== "number" ||
+      !Number.isInteger(body.fileSizeBytes) ||
+      body.fileSizeBytes <= 0
+    ) {
+      return c.json({ error: "fileSizeBytes must be a positive integer" }, 400);
+    }
+    if (body.fileSizeBytes > MAX_FILE_SIZE) {
       return c.json({ error: "File too large (max 1 GB)" }, 413);
     }
     if (body.durationSeconds && body.durationSeconds > MAX_DURATION_SECONDS) {
@@ -457,6 +487,8 @@ uploadRoutes.post(
       bucket: "capturecat",
       key: r2Key,
       contentType,
+      // Same signed-size rule as the first upload (see presign.ts).
+      contentLength: body.fileSizeBytes,
     });
 
     await insertVideoVersion(c.env.DB, {
@@ -487,10 +519,7 @@ uploadRoutes.post(
   userRateLimit({ limit: 30, windowSec: 60, scope: "upload" }),
   checkAssertion(),
   async (c) => {
-    const appToken = c.req.header("X-App-Token");
-    if (appToken !== c.env.APP_TOKEN) {
-      return c.json({ error: "Forbidden" }, 403);
-    }
+    // X-App-Token: client-version marker only — see /upload/video.
 
     const user = c.get("user");
     const videoId = c.req.param("videoId");

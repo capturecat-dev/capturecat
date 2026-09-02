@@ -14,7 +14,9 @@ export const Route = createFileRoute("/login")({
     const session = await fetchSession();
     if (session) {
       const next = search.next;
-      if (next && next.startsWith("/")) {
+      // Same-origin paths only: "//evil.com" and "/\\evil.com" both start
+      // with "/" but are protocol-relative URLs — an open redirect.
+      if (next && /^\/(?![\/\\])/.test(next)) {
         throw redirect({ href: next });
       }
       throw redirect({ to: "/app" });

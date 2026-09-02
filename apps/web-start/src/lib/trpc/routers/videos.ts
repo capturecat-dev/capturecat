@@ -74,7 +74,7 @@ export const videosRouter = createTRPCRouter({
         brandAccent: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
         showVersionHistory: z.boolean().optional(),
         ctaLabel: z.string().min(1).max(60).nullable().optional(),
-        ctaUrl: z.string().url().max(300).nullable().optional(),
+        ctaUrl: z.string().url().startsWith("https://").max(300).nullable().optional(),
         profileVisible: z.boolean().optional(),
       })
     )

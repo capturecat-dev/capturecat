@@ -19,7 +19,7 @@ import {
 import type { VideoMetadata } from "../types";
 import { getAISummary, getTranscript } from "../lib/db";
 import { requireAuth } from "../middleware/auth";
-import { requireEntitlement, userRateLimit } from "../lib/entitlement";
+import { requireEntitlement, userRateLimit, fixedWindowAllow } from "../lib/entitlement";
 import { generateId } from "../lib/id";
 import { PRO_PLAN_LIMITS } from "../lib/stripe";
 import { shareBaseURL } from "../lib/origins";
@@ -48,12 +48,14 @@ videoRoutes.get("/video/:videoId", async (c) => {
   } else {
     doc = await getSharedVideo(c.env.DB, videoId);
 
-    // Cache metadata for 5 minutes (reduces DB reads)
+    // Short metadata cache: purges are per-colo, so a settings change
+    // (privacy, password, expiry) must go stale everywhere within seconds,
+    // not five minutes.
     if (doc && doc.status === "ready") {
       await cache.put(
         metaCacheKey,
         new Response(JSON.stringify(doc), {
-          headers: { "Cache-Control": "s-maxage=300" },
+          headers: { "Cache-Control": "s-maxage=30" },
         })
       );
     }
@@ -128,6 +130,11 @@ videoRoutes.get("/video/:videoId", async (c) => {
   if (!object) {
     return c.json({ error: "Video file not found in storage" }, 404);
   }
+  // The presigned PUT outlives /complete; only the bytes verified there are
+  // served under this record.
+  if (doc.etag && r2Key === doc.r2Key && object.etag !== doc.etag) {
+    return c.json({ error: "Video file not found in storage" }, 404);
+  }
 
   const contentType = doc.contentType || "video/mp4";
   const headers = new Headers();
@@ -138,9 +145,11 @@ videoRoutes.get("/video/:videoId", async (c) => {
   // upload can flip at any time, so it must not be cached for a year.
   headers.set(
     "Cache-Control",
-    pinnedVersion !== null
-      ? "public, max-age=31536000, immutable"
-      : "public, max-age=300"
+    !isPublic
+      ? "private, no-store"
+      : pinnedVersion !== null
+        ? "public, max-age=31536000, immutable"
+        : "public, max-age=300"
   );
 
   let response: Response;
@@ -193,11 +202,55 @@ async function isOwnerRequest(
 // Share gates: password / expiry / view cap (migration 0012)
 // ---------------------------------------------------------------------------
 
-/** SHA-256("<videoId>:<password>") hex — the stored password form. */
-async function passwordDigest(videoId: string, password: string): Promise<string> {
+/** Legacy (pre-hardening) form: SHA-256("<videoId>:<password>") hex. Only
+ *  used to VERIFY old rows, which are re-hashed on first successful unlock. */
+async function legacyPasswordDigest(videoId: string, password: string): Promise<string> {
   const data = new TextEncoder().encode(`${videoId}:${password}`);
   const hash = await crypto.subtle.digest("SHA-256", data);
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return toHex(new Uint8Array(hash));
+}
+
+function toHex(bytes: Uint8Array): string {
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+const PBKDF2_ITERATIONS = 210_000;
+
+async function pbkdf2(password: string, salt: Uint8Array): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations: PBKDF2_ITERATIONS }, key, 256
+  );
+  return toHex(new Uint8Array(bits));
+}
+
+/** Stored form: `pbkdf2$<saltHex>$<hashHex>` — salted, 210k iterations, so a
+ *  leaked table is not crackable at GPU speed the way a single SHA-256 was. */
+async function passwordDigest(_videoId: string, password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return `pbkdf2$${toHex(salt)}$${await pbkdf2(password, salt)}`;
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Verify against either form; returns whether the stored hash is legacy so
+ *  the caller can upgrade it. */
+async function verifyPassword(
+  videoId: string, password: string, stored: string
+): Promise<{ ok: boolean; legacy: boolean }> {
+  const parts = stored.split("$");
+  if (parts.length === 3 && parts[0] === "pbkdf2") {
+    const salt = new Uint8Array(parts[1].match(/.{2}/g)!.map((h) => parseInt(h, 16)));
+    return { ok: constantTimeEqual(await pbkdf2(password, salt), parts[2]), legacy: false };
+  }
+  return { ok: constantTimeEqual(await legacyPasswordDigest(videoId, password), stored), legacy: true };
 }
 
 /** Unlock tokens: HMAC(secret, "unlock:<videoId>:<hourBucket>") hex. Valid for
@@ -206,17 +259,27 @@ async function passwordDigest(videoId: string, password: string): Promise<string
  *  nothing here, deliberately: tokens gate the *page session*, the password
  *  gates new visitors). */
 async function unlockToken(env: Env, videoId: string, bucket: number): Promise<string> {
-  const key = await crypto.subtle.importKey(
+  // Purpose-derived key (HMAC(secret, "share-unlock")) rather than the raw
+  // auth secret, so unlock tokens and session material are cryptographically
+  // unrelated: leaking one says nothing about the other, and either can be
+  // rotated independently.
+  const root = await crypto.subtle.importKey(
     "raw", new TextEncoder().encode(env.BETTER_AUTH_SECRET),
     { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const derived = await crypto.subtle.sign(
+    "HMAC", root, new TextEncoder().encode("share-unlock")
+  );
+  const key = await crypto.subtle.importKey(
+    "raw", derived, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
   );
   const mac = await crypto.subtle.sign(
     "HMAC", key, new TextEncoder().encode(`unlock:${videoId}:${bucket}`)
   );
-  return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return toHex(new Uint8Array(mac));
 }
 
-async function isValidUnlockToken(env: Env, videoId: string, token: string | undefined): Promise<boolean> {
+export async function isValidUnlockToken(env: Env, videoId: string, token: string | undefined): Promise<boolean> {
   if (!token) return false;
   const bucket = Math.floor(Date.now() / 3_600_000);
   for (const b of [bucket, bucket - 1]) {
@@ -268,7 +331,7 @@ videoRoutes.post("/video/:videoId/unlock", async (c) => {
   const ip = c.req.header("CF-Connecting-IP") ?? "unknown";
   const windowKey = Math.floor(Date.now() / 600_000);
   const rateKey = new Request(
-    `https://rate-limit.internal/unlock/${encodeURIComponent(ip)}/${windowKey}`
+    `https://rate-limit.internal/unlock/${encodeURIComponent(ip)}/${doc.videoId}/${windowKey}`
   );
   const cached = await caches.default.match(rateKey);
   const attempts = cached ? parseInt(await cached.text(), 10) : 0;
@@ -277,13 +340,24 @@ videoRoutes.post("/video/:videoId/unlock", async (c) => {
     rateKey,
     new Response(String(attempts + 1), { headers: { "Cache-Control": "s-maxage=600" } })
   );
+  // Global inner layer: the cache counter above is per-colo, so a distributed
+  // guesser would otherwise get 10 attempts × every edge location.
+  if (!(await fixedWindowAllow(c.env.DB, `unlock:${doc.videoId}:${ip}`, 10, 600))) {
+    return c.json({ error: "Too many attempts" }, 429);
+  }
 
   const body: { password?: unknown } = await c.req.json().catch(() => ({}));
   if (typeof body.password !== "string" || body.password.length === 0) {
     return c.json({ error: "password required" }, 400);
   }
-  const digest = await passwordDigest(doc.videoId, body.password);
-  if (digest !== doc.passwordHash) return c.json({ error: "Wrong password" }, 403);
+  const verdict = await verifyPassword(doc.videoId, body.password, doc.passwordHash);
+  if (!verdict.ok) return c.json({ error: "Wrong password" }, 403);
+  if (verdict.legacy) {
+    // Transparent upgrade of a pre-hardening row to the salted form.
+    await c.env.DB.prepare("UPDATE shared_videos SET password_hash = ? WHERE video_id = ?")
+      .bind(await passwordDigest(doc.videoId, body.password), doc.videoId)
+      .run();
+  }
 
   const bucket = Math.floor(Date.now() / 3_600_000);
   return c.json({ token: await unlockToken(c.env, doc.videoId, bucket) });
@@ -304,6 +378,8 @@ function parseRange(
   const start = parseInt(match[1], 10);
   if (match[2]) {
     const end = parseInt(match[2], 10);
+    // "bytes=10-5" → negative length → R2 throws → 500. Treat as no range.
+    if (end < start) return { offset: 0 };
     return { offset: start, length: end - start + 1 };
   }
 
@@ -550,6 +626,10 @@ videoRoutes.post("/video/:videoId/comments", async (c) => {
       headers: { "Cache-Control": "s-maxage=600" },
     })
   );
+  // Global inner layer — see the unlock route.
+  if (!(await fixedWindowAllow(c.env.DB, `comment:${ip}`, COMMENT_RATE_LIMIT, 600))) {
+    return c.json({ error: "Slow down — try again in a few minutes" }, 429);
+  }
 
   if ((await countVideoComments(c.env.DB, doc.videoId)) >= MAX_COMMENTS_PER_VIDEO) {
     return c.json({ error: "This video is no longer accepting comments" }, 403);

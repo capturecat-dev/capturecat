@@ -98,3 +98,7 @@ class_name = "ShareJobsDO"
 [[migrations]]
 tag = "v1-share-jobs"
 new_sqlite_classes = ["ShareJobsDO"]
+
+# Hourly sweep of abandoned pending uploads + stale rate-limit rows (index.ts scheduled handler).
+[triggers]
+crons = ["17 * * * *"]

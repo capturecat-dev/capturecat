@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { jsonLd } from "@/lib/json-ld";
 
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
@@ -129,7 +130,7 @@ const CLIENTS: Array<{
   },
 ];
 
-const jsonLd = {
+const jsonLdData = {
   "@context": "https://schema.org",
   "@type": "TechArticle",
   headline: "Use CaptureCat with AI agents over MCP",
@@ -143,7 +144,7 @@ function AgentsPage() {
     <main className="min-h-screen bg-background flex flex-col">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLd(jsonLdData) }}
       />
       <Navbar />
 

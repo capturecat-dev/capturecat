@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import { requireAuth } from "../middleware/auth";
-import { requireEntitlement } from "../lib/entitlement";
+import { requireEntitlement, userRateLimit } from "../lib/entitlement";
 import { featuresForTier } from "../lib/plans";
 import { generateId } from "../lib/id";
 import {
@@ -125,6 +125,8 @@ hubRoutes.post(
   "/video/:videoId/ai-summary",
   requireAuth,
   requireEntitlement(),
+  // Each call re-sends up to 30k chars of transcript to Gemini — bound it.
+  userRateLimit({ limit: 5, windowSec: 60, scope: "ai-summary" }),
   async (c) => {
     const doc = await getSharedVideo(c.env.DB, c.req.param("videoId"));
     if (!doc) return c.json({ error: "Video not found" }, 404);
@@ -245,6 +247,12 @@ hubRoutes.post("/domains", requireAuth, requireEntitlement(), async (c) => {
   }
   const existing = (await listDomains(c.env.DB, c.get("user").uid)).length;
   if (existing >= 3) return c.json({ error: "Domain limit reached" }, 400);
+  // A claim is only a reservation until DNS verification: drop stale
+  // unverified claims so squatting a domain someone else owns lapses in a
+  // day instead of blocking the real owner forever.
+  await c.env.DB.prepare(
+    "DELETE FROM custom_domains WHERE domain = ? AND verified = 0 AND created_at < ?"
+  ).bind(domain, new Date(Date.now() - 24 * 3600 * 1000).toISOString()).run();
   if (!(await insertDomain(c.env.DB, domain, c.get("user").uid))) {
     return c.json({ error: "That domain is already in use" }, 409);
   }

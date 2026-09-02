@@ -13,6 +13,7 @@ interface PresignOptions {
   key: string;
   contentType: string;
   expiresIn?: number;
+  contentLength?: number;
 }
 
 function createS3Client(options: { r2Endpoint: string; accessKeyId: string; secretAccessKey: string }) {
@@ -41,11 +42,36 @@ export async function createPresignedUploadUrl(
     Bucket: options.bucket,
     Key: options.key,
     ContentType: options.contentType,
+    // Signed into the URL: the PUT must carry exactly this Content-Length,
+    // so a presign is a permit for ONE upload of a declared size — not an
+    // hour-long 5 GB blank cheque.
+    ContentLength: options.contentLength,
   });
 
   return getSignedUrl(client, command, {
-    expiresIn: options.expiresIn ?? 3600,
+    // Short: the signature is only checked when the PUT starts, so a slow
+    // upload is unaffected, but the window to re-PUT after /complete is small.
+    expiresIn: options.expiresIn ?? 900,
   });
+}
+
+/** HEAD with the verified size and (unquoted) ETag, or null if missing. */
+export async function headR2ObjectMeta(options: {
+  r2Endpoint: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  bucket: string;
+  key: string;
+}): Promise<{ size: number; etag: string | null } | null> {
+  const client = createS3Client(options);
+  try {
+    const result = await client.send(
+      new HeadObjectCommand({ Bucket: options.bucket, Key: options.key })
+    );
+    return { size: result.ContentLength ?? 0, etag: result.ETag?.replace(/"/g, "") ?? null };
+  } catch {
+    return null;
+  }
 }
 
 /**
