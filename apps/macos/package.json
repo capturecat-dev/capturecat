@@ -1,0 +1,13 @@
+{
+  "name": "capturecat-macos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Workspace entry for the macOS app. There is no JavaScript here — this exists so Turborepo can see the app at all, and so `turbo build` / `turbo test` cover it instead of silently skipping it. Without a package.json, `turbo ls` lists three packages and the Mac app is not one of them.",
+  "scripts": {
+    "build": "xcodebuild -project CaptureCat.xcodeproj -scheme CaptureCat -configuration Debug -allowProvisioningUpdates build",
+    "build:release": "xcodebuild -project CaptureCat.xcodeproj -scheme CaptureCat -configuration Release -allowProvisioningUpdates build",
+    "test": "./scripts/run-gates.sh",
+    "dmg": "./scripts/create_release_dmg.sh",
+    "publish": "./scripts/publish_release.sh"
+  }
+}

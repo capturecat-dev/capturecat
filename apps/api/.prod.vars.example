@@ -1,0 +1,83 @@
+# Production secrets for the `capturecat-api` Worker.
+#
+#   cp .prod.vars.example .prod.vars      # fill in real values
+#   npx wrangler secret bulk .prod.vars --name capturecat-api
+#
+# `.prod.vars` is gitignored; this template never holds a real value.
+#
+# ── Read this before the first deploy ────────────────────────────────────────
+# Renaming the Worker created a NEW Worker. Secrets do NOT follow a rename, so
+# `capturecat-api` starts with none — including the ones the old `cappd-api`
+# already had. Everything below has to be set once, or the Worker will boot,
+# serve /api/health, and be unable to sign anyone in.
+#
+# Values that can be copied straight from the old Worker (you still have to
+# re-enter them; Cloudflare will not reveal a stored secret):
+#   APP_TOKEN, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT,
+#   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+#
+# Deliberately NOT carried over — nothing reads them any more:
+#   FIREBASE_SERVICE_ACCOUNT_EMAIL, FIREBASE_SERVICE_ACCOUNT_KEY
+#
+# NOT secrets, already in wrangler.toml [vars] — do not duplicate here:
+#   BETTER_AUTH_URL, ATTEST_MODE
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Better Auth ──────────────────────────────────────────────────────────────
+# `openssl rand -base64 32`
+# Signs session cookies AND is the HMAC key the bearer plugin validates raw
+# session tokens with. Rotating it logs out every web user and invalidates
+# every Keychain-stored desktop token at the same moment.
+BETTER_AUTH_SECRET=
+
+# ── Google OAuth ─────────────────────────────────────────────────────────────
+# Cloud Console -> Credentials -> OAuth client ID, type "Web application"
+# (NOT "Desktop app" — the Worker holds the secret).
+# Authorised redirect URI, byte-exact:
+#   https://api.capturecat.so/api/auth/callback/google
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# ── Apple Sign in ────────────────────────────────────────────────────────────
+# APPLE_CLIENT_ID is the SERVICES ID (e.g. so.capturecat.auth), NOT the app
+# bundle id — pasting the bundle id returns `invalid_client` with no further
+# explanation. Return URL on the Services ID:
+#   https://api.capturecat.so/api/auth/callback/apple
+#
+# APPLE_PRIVATE_KEY is the whole AuthKey_XXXXXXXXXX.p8 on ONE line with newlines
+# escaped as \n (src/lib/auth.ts un-escapes before importPKCS8). Quote it.
+# Leave all four blank to ship Google-only: providers are registered
+# conditionally, so the chooser simply will not offer Apple.
+APPLE_CLIENT_ID=
+APPLE_TEAM_ID=
+APPLE_KEY_ID=
+APPLE_PRIVATE_KEY=""
+
+# ── Stripe ───────────────────────────────────────────────────────────────────
+# LIVE keys here. STRIPE_WEBHOOK_SECRET must be the signing secret of the
+# dashboard endpoint pointed at:
+#   https://api.capturecat.so/api/auth/stripe/webhook
+# (not the one `stripe listen` prints — that one is for local dev only).
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRO_PRICE_ID=
+# Optional — only if you sell an annual price.
+STRIPE_PRO_ANNUAL_PRICE_ID=
+# Optional — free-trial days. This is how free subscriptions are offered: the
+# plugin creates a real Stripe subscription in status `trialing`, which counts
+# as paid. Blank or 0 = no trial. For one-off comps use a 100%-off coupon in
+# the dashboard instead; both sync through the same webhook.
+STRIPE_PRO_TRIAL_DAYS=
+
+# ── R2 (presigned uploads) ───────────────────────────────────────────────────
+# An R2 API token, not the account key. The Worker also has a native R2 binding
+# for reads; these credentials exist only to presign browser/desktop uploads.
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+# Shared token guarding the internal upload surface.
+APP_TOKEN=
+# Server-side AI key for /api/ai/*. Never ships in the desktop app.
+GEMINI_API_KEY=

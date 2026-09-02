@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Deliberately NOT capturecat-web: this deploys alongside the existing
+  // OpenNext worker until cutover, at which point the custom domains
+  // (capturecat.so, www, app) move over from apps/web/wrangler.jsonc.
+  "name": "capturecat-start",
+  // Deploying with these attached REASSIGNS the hostnames to this worker —
+  // which is how the cutover from the old capturecat-web worker was done
+  // (2026-08-24). NOT admin.capturecat.so — that belongs to the admin worker.
+  "routes": [
+    { "pattern": "capturecat.so", "custom_domain": true },
+    { "pattern": "www.capturecat.so", "custom_domain": true },
+    { "pattern": "app.capturecat.so", "custom_domain": true }
+  ],
+  "compatibility_date": "2025-09-02",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "main": "src/server.ts",
+  "vars": {
+    "VITE_API_URL": "https://api.capturecat.so",
+    "VITE_SITE_URL": "https://capturecat.so"
+  },
+  "observability": { "enabled": true }
+}

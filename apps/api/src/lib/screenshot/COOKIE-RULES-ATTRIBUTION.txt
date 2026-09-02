@@ -1,0 +1,16 @@
+Cookie-banner hide rules derived from the EasyList Cookie List.
+
+Source:        https://secure.fanboy.co.nz/fanboy-cookiemonster.txt
+Homepage:      https://easylist.to/
+List title:    Easylist Cookie List
+Last modified: 2026-08-10 11:50 UTC
+Fetched:       2026-08-10T15:48:53.551Z
+
+Licence: the EasyList Cookie List is dual-licensed under the
+GNU General Public License v3 (https://www.gnu.org/licenses/gpl-3.0.html)
+and Creative Commons Attribution-ShareAlike 3.0 (https://creativecommons.org/licenses/by-sa/3.0/).
+The fetched file's own header states: http://creativecommons.org/licenses/by/3.0/
+
+The generated JSON (cookie-rules.generated.json) is a mechanical conversion of
+that list's plain-CSS element-hiding rules; all credit to the EasyList authors.
+Regenerate with: node apps/api/scripts/update-cookie-rules.mjs

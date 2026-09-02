@@ -1,0 +1,26 @@
+{
+  "name": "capturecat-api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "wrangler deploy --dry-run",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.750.0",
+    "@aws-sdk/s3-request-presigner": "^3.750.0",
+    "@better-auth/stripe": "^1.6.25",
+    "better-auth": "^1.6.25",
+    "hono": "^4.7.0",
+    "stripe": "^20.4.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260804.1",
+    "typescript": "^5",
+    "vitest": "^3.2.7",
+    "wrangler": "^4.119.0"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Deliberately NOT capturecat-admin: this deploys alongside the existing
+  // OpenNext admin worker until cutover.
+  "name": "capturecat-admin-start",
+  // First-ever prod deploy of the admin console (2026-08-24) — the old Next
+  // admin worker never existed on the account; this custom domain is new.
+  // Access is gated server-side: no session → /login, non-admin role → 404.
+  "routes": [
+    { "pattern": "admin.capturecat.so", "custom_domain": true }
+  ],
+  "compatibility_date": "2025-09-02",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "main": "src/server.ts",
+  "vars": {
+    "VITE_API_URL": "https://api.capturecat.so",
+    "VITE_SITE_URL": "https://admin.capturecat.so"
+  },
+  "observability": { "enabled": true }
+}
