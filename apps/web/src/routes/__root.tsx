@@ -16,11 +16,11 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "CaptureCat — Beautiful screen recordings" },
+      { title: "CaptureCat: the Mac screen recorder that edits itself" },
       {
         name: "description",
         content:
-          "CaptureCat records your screen and turns it into a polished, shareable video — automatic zooms, cursor effects, and instant share links.",
+          "CaptureCat records your Mac and adds the zooms, cursor smoothing, and captions automatically. Free to record and export, with share links and viewer analytics on Pro.",
       },
     ],
     links: [

@@ -41,6 +41,7 @@ interface SharedVideoRow {
   profile_visible: number;
   thumbnail_type: string | null;
   etag?: string | null;
+  org_id?: string | null;
 }
 
 function rowToVideo(row: SharedVideoRow): VideoMetadata {
@@ -70,6 +71,7 @@ function rowToVideo(row: SharedVideoRow): VideoMetadata {
     ctaUrl: row.cta_url ?? null,
     profileVisible: row.profile_visible !== 0,
     etag: row.etag ?? null,
+    orgId: row.org_id ?? null,
     thumbnailType: row.thumbnail_type ?? null,
   };
 }
@@ -276,6 +278,47 @@ export async function listSharedVideos(
     .bind(uid)
     .all<SharedVideoRow>();
   return (results ?? []).map(rowToVideo);
+}
+
+/** Ready videos in an organization's team library, newest first. */
+export async function listOrgVideos(
+  db: D1Database,
+  orgId: string
+): Promise<VideoMetadata[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM shared_videos
+        WHERE org_id = ? AND status = 'ready'
+        ORDER BY created_at DESC`
+    )
+    .bind(orgId)
+    .all<SharedVideoRow>();
+  return (results ?? []).map(rowToVideo);
+}
+
+/** Is `uid` a member of `orgId`? Reads the Better Auth org plugin's table. */
+export async function isOrgMember(
+  db: D1Database,
+  orgId: string,
+  uid: string
+): Promise<boolean> {
+  const row = await db
+    .prepare('SELECT 1 AS x FROM "member" WHERE "organizationId" = ? AND "userId" = ? LIMIT 1')
+    .bind(orgId, uid)
+    .first<{ x: number }>();
+  return !!row;
+}
+
+/** Move a video in/out of an org's team library (uploader keeps ownership). */
+export async function setVideoOrg(
+  db: D1Database,
+  videoId: string,
+  orgId: string | null
+): Promise<void> {
+  await db
+    .prepare("UPDATE shared_videos SET org_id = ? WHERE video_id = ?")
+    .bind(orgId, videoId)
+    .run();
 }
 
 // ---------------------------------------------------------------------------

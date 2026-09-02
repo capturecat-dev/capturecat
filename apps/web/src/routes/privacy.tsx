@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import Navbar from "@/components/landing/Navbar";
-import Footer from "@/components/landing/Footer";
+import Navbar from "@/components/marketing/Navbar";
+import Footer from "@/components/marketing/Footer";
 import { markdownAlternateLinks } from "@/lib/site-content";
 
 export const Route = createFileRoute("/privacy")({
@@ -54,7 +54,7 @@ function PrivacyPage() {
               </li>
               <li>
                 Our full legal name and trading address are available to
-                customers on request — just email the address above.
+                customers on request. Just email the address above.
               </li>
             </ul>
           </section>
@@ -88,7 +88,7 @@ function PrivacyPage() {
               video each viewer watched, player interactions (play, pause, seek,
               clicks), approximate country, referring page, and device type.
               Viewers are identified by a random, per-tab identifier held only in
-              memory — not a persistent tracking cookie.
+              memory, not a persistent tracking cookie.
             </p>
             <h3>Technical data</h3>
             <p>
@@ -103,22 +103,22 @@ function PrivacyPage() {
               <li>
                 <span className="text-foreground">To provide the service</span>{" "}
                 (create your account, store and serve your shared videos, show
-                you analytics) — lawful basis: performance of a contract.
+                you analytics). Lawful basis: performance of a contract.
               </li>
               <li>
                 <span className="text-foreground">To take payment</span> and
-                manage your subscription — lawful basis: performance of a
+                manage your subscription. Lawful basis: performance of a
                 contract.
               </li>
               <li>
                 <span className="text-foreground">To keep the service secure</span>{" "}
-                (rate limiting, fraud and abuse prevention, logging) — lawful
+                (rate limiting, fraud and abuse prevention, logging). Lawful
                 basis: our legitimate interests in protecting the service and its
                 users.
               </li>
               <li>
                 <span className="text-foreground">To meet legal obligations</span>{" "}
-                (for example, tax and accounting records) — lawful basis: legal
+                (for example, tax and accounting records). Lawful basis: legal
                 obligation.
               </li>
             </ul>
@@ -132,15 +132,15 @@ function PrivacyPage() {
             </p>
             <ul>
               <li>
-                <span className="text-foreground">Cloudflare</span> — hosting,
+                <span className="text-foreground">Cloudflare</span>: hosting,
                 content delivery, database, and video storage.
               </li>
               <li>
-                <span className="text-foreground">Stripe</span> — payment
+                <span className="text-foreground">Stripe</span>: payment
                 processing and subscription management.
               </li>
               <li>
-                <span className="text-foreground">Google and Apple</span> —
+                <span className="text-foreground">Google and Apple</span>:
                 authentication when you choose to sign in with them.
               </li>
             </ul>
@@ -155,9 +155,9 @@ function PrivacyPage() {
             <h2>5. International transfers</h2>
             <p>
               Some of our providers process data outside the United Kingdom. Where
-              they do, the transfer is protected by appropriate safeguards — the
+              they do, the transfer is protected by appropriate safeguards (the
               UK International Data Transfer Agreement, the UK Addendum to the EU
-              Standard Contractual Clauses, or an adequacy decision — so your data
+              Standard Contractual Clauses, or an adequacy decision) so your data
               receives an equivalent level of protection.
             </p>
           </section>

@@ -141,6 +141,8 @@ export interface VideoMetadata {
   thumbnailType: string | null;
   /** Unquoted ETag recorded at /complete; null for pre-0021 rows. */
   etag?: string | null;
+  /** Organization whose team library holds this video; null = personal. */
+  orgId?: string | null;
 }
 
 /** One historical file of a shared video (migration 0017). */

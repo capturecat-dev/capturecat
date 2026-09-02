@@ -4,6 +4,7 @@ import {
   CreditCardIcon,
   ListVideoIcon,
   SettingsIcon,
+  UsersIcon,
   VideoIcon,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ import {
 
 const NAV_MAIN = [
   { title: "Library", url: "/app", icon: VideoIcon, exact: true },
+  { title: "Team", url: "/app/team", icon: UsersIcon },
   { title: "Settings", url: "/app/settings", icon: SettingsIcon },
   { title: "Billing", url: "/app/billing", icon: CreditCardIcon },
 ] as const;

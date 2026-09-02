@@ -32,6 +32,7 @@ export const videosRouter = createTRPCRouter({
     return (await res.json()) as {
       videos: Array<{
         videoId: string;
+        orgId: string | null;
         fileName: string;
         contentType: string;
         fileSizeBytes: number;

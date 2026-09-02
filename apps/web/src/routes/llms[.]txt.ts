@@ -23,7 +23,7 @@ export const Route = createFileRoute("/llms.txt")({
           "",
           "CaptureCat is a screen recorder for Mac that edits itself. It records any",
           "display, window, area, iPhone/iPad, or web page by URL, capturing clicks,",
-          "cursor and keystrokes as data — then applies the editing automatically:",
+          "cursor and keystrokes as data, then applies the editing automatically:",
           "cinematic auto-zooms, cursor smoothing with click ripples and key sounds,",
           "on-device captions, blur/highlight/depth-focus regions, camera-bubble",
           "layouts, annotations, wallpaper framing, and device bezels. Exports match",

@@ -91,7 +91,7 @@ enum ExportBenchHarness {
             let exporter = VideoExporter()
             let start = CMClockGetTime(CMClockGetHostTimeClock())
             do {
-                try await exporter.export(project: project, to: outputURL, skipEntitlementCheck: true)
+                try await exporter.export(project: project, to: outputURL)
             } catch {
                 print("EXPORT-BENCH FAILED: export (\(label)) — \(error.localizedDescription)")
                 return 1

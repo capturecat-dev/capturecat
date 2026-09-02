@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import Navbar from "@/components/landing/Navbar";
-import Footer from "@/components/landing/Footer";
-import { BetaForm } from "@/components/landing/BetaForm";
+import Navbar from "@/components/marketing/Navbar";
+import Footer from "@/components/marketing/Footer";
+import { BetaForm } from "@/components/marketing/BetaForm";
 
 // Deliberately unlinked and non-indexed: the URL is shared directly, not
 // discovered. Kept out of SITE_PAGES too, so it has no Markdown twin.
@@ -54,7 +54,7 @@ function BetaPage() {
 
           <p className="mt-6 max-w-lg text-pretty text-center text-lg leading-relaxed text-muted-foreground">
             Drop your email to join the beta. We&rsquo;ll send an invite as soon
-            as a spot opens up — no spam, ever.
+            as a spot opens up. No spam, ever.
           </p>
 
           <div className="mt-12 flex w-full justify-center">

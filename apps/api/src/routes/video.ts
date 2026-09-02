@@ -192,7 +192,15 @@ async function isOwnerRequest(
     const session = await getAuth(c.env).api.getSession({
       headers: c.req.raw.headers,
     });
-    return session?.user.id === doc.uid;
+    if (!session) return false;
+    if (session.user.id === doc.uid) return true;
+    // Team library: members of the video's org get owner-level VIEW access
+    // (mutations stay uploader-scoped in their own routes).
+    if (doc.orgId) {
+      const { isOrgMember } = await import("../lib/db");
+      return isOrgMember(c.env.DB, doc.orgId, session.user.id);
+    }
+    return false;
   } catch {
     return false;
   }
@@ -942,6 +950,57 @@ videoRoutes.patch("/video/:videoId/privacy", requireAuth, requireEntitlement(), 
  * Returns storage numbers alongside the list so the dashboard stops hardcoding
  * a 10 GiB limit independently of `PRO_PLAN_LIMITS`.
  */
+// Team library listing — any member of the org.
+videoRoutes.get("/org/:orgId/videos", requireAuth, requireEntitlement(), async (c) => {
+  const orgId = c.req.param("orgId");
+  const uid = c.get("user").uid;
+  const { isOrgMember, listOrgVideos } = await import("../lib/db");
+  if (!(await isOrgMember(c.env.DB, orgId, uid))) {
+    return c.json({ error: "Not a member of this team" }, 403);
+  }
+  const videos = await listOrgVideos(c.env.DB, orgId);
+  return c.json({
+    videos: videos.map((v) => ({
+      videoId: v.videoId,
+      fileName: v.fileName,
+      durationSeconds: v.durationSeconds,
+      createdAt: v.createdAt,
+      isPrivate: v.isPrivate,
+      url: v.url,
+      uid: v.uid,
+      orgId: v.orgId,
+    })),
+  });
+});
+
+// Share a video into (or remove it from) the org's team library.
+// Uploader-only; requires teams on the uploader's plan and org membership.
+videoRoutes.post("/video/:videoId/org", requireAuth, requireEntitlement(), async (c) => {
+  const videoId = c.req.param("videoId");
+  const uid = c.get("user").uid;
+  const doc = await getSharedVideo(c.env.DB, videoId);
+  if (!doc || doc.uid !== uid) return c.json({ error: "Video not found" }, 404);
+
+  const body: { orgId?: unknown } = await c.req.json().catch(() => ({}));
+  const orgId = typeof body.orgId === "string" && body.orgId.length > 0 ? body.orgId : null;
+
+  const { isOrgMember, setVideoOrg } = await import("../lib/db");
+  if (orgId) {
+    const { featuresForTier } = await import("../lib/plans");
+    const features = await featuresForTier(c.env.DB, c.get("entitlement").tier);
+    if (!features.teams) {
+      return c.json({ error: "Team libraries require a paid plan" }, 402);
+    }
+    if (!(await isOrgMember(c.env.DB, orgId, uid))) {
+      return c.json({ error: "Not a member of this team" }, 403);
+    }
+  }
+  await setVideoOrg(c.env.DB, videoId, orgId);
+  // Org changes alter who may view — drop the per-colo metadata cache entry.
+  await caches.default.delete(new Request(`https://meta.internal/video/${videoId}`));
+  return c.json({ videoId, orgId });
+});
+
 videoRoutes.get("/videos", requireAuth, requireEntitlement(), async (c) => {
   const uid = c.get("user").uid;
   const [videos, used] = await Promise.all([
@@ -951,6 +1010,7 @@ videoRoutes.get("/videos", requireAuth, requireEntitlement(), async (c) => {
   return c.json({
     videos: videos.map((v) => ({
       videoId: v.videoId,
+      orgId: v.orgId ?? null,
       fileName: v.fileName,
       contentType: v.contentType,
       fileSizeBytes: v.fileSizeBytes,

@@ -1,9 +1,9 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { jsonLd } from "@/lib/json-ld";
 
-import Navbar from "@/components/landing/Navbar";
-import Footer from "@/components/landing/Footer";
-import { PseoCta } from "@/components/landing/PseoSections";
+import Navbar from "@/components/marketing/Navbar";
+import Footer from "@/components/marketing/Footer";
+import { PseoCta } from "@/components/marketing/PseoSections";
 import {
   PSEO_COMPARE_PAGES,
   PSEO_ALTERNATIVE_PAGES,
@@ -12,7 +12,7 @@ import {
 import { SITE_URL, markdownAlternateLinks } from "@/lib/site-content";
 
 /**
- * /compare — the hub that links every generated comparison and alternative
+ * /compare, the hub that links every generated comparison and alternative
  * page, so crawlers (and people) can reach all of them from one place.
  */
 
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/compare/")({
       {
         name: "description",
         content:
-          "How CaptureCat compares to Screen Studio, Cap, Loom, CleanShot X, OBS, Camtasia, Kap, and QuickTime — features, pricing, and honest trade-offs.",
+          "How CaptureCat compares to Screen Studio, Cap, Loom, CleanShot X, OBS, Camtasia, Kap, and QuickTime: features, pricing, and honest trade-offs.",
       },
     ],
     links: markdownAlternateLinks("/compare"),
@@ -80,7 +80,7 @@ function CompareHubPage() {
             How CaptureCat compares
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Feature-by-feature comparisons with the other Mac screen recorders —
+            Feature-by-feature comparisons with the other Mac screen recorders:
             including where each of them is genuinely the better pick.
           </p>
         </div>

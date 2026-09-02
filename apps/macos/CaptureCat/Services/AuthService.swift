@@ -585,22 +585,6 @@ final class AuthService: NSObject {
         }
     }
 
-    /// Used by VideoExporter before any export begins, including headless/MCP
-    /// runs that never construct an AppState.
-    static func assertCurrentUserCanExport() async throws {
-        let service = AuthService()
-        service.configureIfNeeded(installAuthObserver: false)
-
-        guard service.configurationError == nil else {
-            throw AuthError.exportAccessDenied(service.configurationError ?? "Sign-in is unavailable.")
-        }
-
-        let result = try await service.evaluateExportAccess()
-        guard result == .allowed else {
-            throw AuthError.exportAccessDenied(service.exportAccessMessage(for: result))
-        }
-    }
-
     // MARK: - Offline grace
 
     private func shouldAllowOfflineExport(using error: Error) -> Bool {

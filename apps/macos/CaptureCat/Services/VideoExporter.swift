@@ -75,15 +75,10 @@ final class VideoExporter {
 
     func export(
         project: Project,
-        to outputURL: URL,
-        skipEntitlementCheck: Bool = false
+        to outputURL: URL
     ) async throws {
-        // skipEntitlementCheck is for ExportBenchHarness ONLY: it exports a
-        // synthetic fixture, so there is no user content to paywall and the
-        // bench must run offline/CI. Every user-facing path keeps the check.
-        if !skipEntitlementCheck {
-            try await AuthService.assertCurrentUserCanExport()
-        }
+        // Export is free, local, and offline since open-sourcing — the paid
+        // gates live server-side on the cloud features (shares, AI, domains).
 
         // Raster caches are only valid within one export's settings/geometry.
         cachedSubtitleKey = nil

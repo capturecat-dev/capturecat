@@ -62,6 +62,24 @@ adminRoutes.use("/admin/*", requireAuth, async (c, next) => {
  * literal — that list includes `past_due` on purpose for dunning grace, and
  * inlining it here would fork the dunning policy from the one the API enforces.
  */
+adminRoutes.get("/admin/orgs", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT o."id", o."name", o."slug", o."createdAt",
+            (SELECT COUNT(*) FROM "member" m WHERE m."organizationId" = o."id") AS members,
+            (SELECT COUNT(*) FROM shared_videos v WHERE v.org_id = o."id" AND v.status = 'ready') AS videos,
+            (SELECT u.email FROM "member" m JOIN "user" u ON u.id = m."userId"
+              WHERE m."organizationId" = o."id" AND m.role = 'owner' LIMIT 1) AS owner_email
+       FROM "organization" o
+      ORDER BY o."createdAt" DESC`
+  ).all<{ id: string; name: string; slug: string; createdAt: string; members: number; videos: number; owner_email: string | null }>();
+  return c.json({
+    orgs: (results ?? []).map((r) => ({
+      id: r.id, name: r.name, slug: r.slug, createdAt: r.createdAt,
+      members: r.members, videos: r.videos, ownerEmail: r.owner_email,
+    })),
+  });
+});
+
 adminRoutes.get("/admin/users", async (c) => {
   const placeholders = PAID_SUBSCRIPTION_STATUSES.map(() => "?").join(",");
   const { results } = await c.env.DB.prepare(
