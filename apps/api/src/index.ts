@@ -8,6 +8,7 @@ import { adminRoutes } from "./routes/admin";
 import { planRoutes } from "./routes/plans";
 import { uploadRoutes } from "./routes/upload";
 import { jobRoutes } from "./routes/jobs";
+import { orgRoutes } from "./routes/org";
 import { hubRoutes } from "./routes/hub";
 import { videoRoutes } from "./routes/video";
 import { analyticsRoutes } from "./routes/analytics";
@@ -54,7 +55,7 @@ app.use(
   "/api/*",
   cors({
     origin: (origin, c) => webOrigins(c.env).includes(origin) ? origin : null,
-    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     // REQUIRED: without this the browser will not send the session cookie to
     // /api/me, /api/videos, /api/video or /api/admin, so a cookie-authenticated
@@ -205,6 +206,7 @@ app.route("/api", planRoutes);
 app.route("/api", uploadRoutes);
 app.route("/api", jobRoutes);
 app.route("/api", hubRoutes);
+app.route("/api", orgRoutes);
 app.route("/api", videoRoutes);
 // Viewer analytics (ingest is public + rate limited, reads are owner-only).
 app.route("/api", analyticsRoutes);

@@ -14,6 +14,8 @@ import { API_URL, SITE_URL } from "@/lib/api-url";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { TeamAvatar } from "@/components/dashboard/team-avatar";
+import { useRef } from "react";
 
 /**
  * Teams — backed entirely by the Better Auth organization plugin on the API
@@ -36,6 +38,7 @@ type FullOrg = {
   id: string;
   name: string;
   slug: string;
+  logo: string | null;
   members: Member[];
   invitations: Invitation[];
 };
@@ -173,12 +176,15 @@ function MembersCard({
 
   return (
     <div className="rounded-lg border p-4">
-      <div className="flex items-center gap-2">
-        <Users className="h-4 w-4" />
-        <h2 className="text-sm font-medium">{orgName}</h2>
-        <Badge variant="secondary" className="text-[10px]">
-          {full?.members.length ?? "…"} member{full?.members.length === 1 ? "" : "s"}
-        </Badge>
+      <div className="flex items-center gap-3">
+        <TeamAvatar name={orgName} logo={full?.logo} size={40} />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-medium">{orgName}</h2>
+          <p className="text-xs text-muted-foreground">
+            {full?.members.length ?? "…"} member{full?.members.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        {canManage && <LogoUploadButton orgId={orgId} onUploaded={refresh} />}
       </div>
 
       <div className="mt-3 space-y-2">
@@ -269,6 +275,63 @@ function MembersCard({
         </div>
       )}
     </div>
+  );
+}
+
+function LogoUploadButton({
+  orgId,
+  onUploaded,
+}: {
+  orgId: string;
+  onUploaded: () => Promise<void>;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  const upload = async (file: File) => {
+    if (file.size > 1024 * 1024) {
+      toast.error("Logo must be under 1 MB");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(`${API_URL}/api/org/${encodeURIComponent(orgId)}/logo`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(data?.error ?? "Upload failed");
+      } else {
+        toast.success("Team logo updated");
+        await onUploaded();
+      }
+    } catch {
+      toast.error("Upload failed — is the API reachable?");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void upload(f);
+        }}
+      />
+      <Button variant="outline" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}>
+        {busy ? "Uploading…" : "Upload logo"}
+      </Button>
+    </>
   );
 }
 
