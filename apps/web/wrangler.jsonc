@@ -3,6 +3,9 @@
   // Deliberately NOT capturecat-web: this deploys alongside the existing
   // OpenNext worker until cutover, at which point the custom domains
   // (capturecat.so, www, app) move over from apps/web/wrangler.jsonc.
+  // Deployed Worker name predates the folder rename (web-start → web).
+  // Changing it would create a NEW Worker and orphan domains + secrets —
+  // leave it unless deliberately migrating the deployment.
   "name": "capturecat-start",
   // Deploying with these attached REASSIGNS the hostnames to this worker —
   // which is how the cutover from the old capturecat-web worker was done

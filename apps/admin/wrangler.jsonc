@@ -2,6 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   // Deliberately NOT capturecat-admin: this deploys alongside the existing
   // OpenNext admin worker until cutover.
+  // Deployed Worker name predates the folder rename (admin-start → admin).
+  // Changing it would create a NEW Worker and orphan the domain + secrets —
+  // leave it unless deliberately migrating the deployment.
   "name": "capturecat-admin-start",
   // First-ever prod deploy of the admin console (2026-08-24) — the old Next
   // admin worker never existed on the account; this custom domain is new.
