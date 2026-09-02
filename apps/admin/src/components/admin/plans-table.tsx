@@ -14,6 +14,11 @@ const FEATURES: Array<{ key: string; label: string; hint: string }> = [
   { key: "webCapture", label: "URL capture", hint: "Capture a web page by address" },
   { key: "comments", label: "Comments", hint: "Viewers can comment on a shared video" },
   { key: "removeWatermark", label: "No watermark", hint: "Export without the CaptureCat mark" },
+  { key: "customDomain", label: "Custom domain", hint: "Share pages on the customer's own CNAME" },
+  { key: "aiSummaries", label: "AI summaries", hint: "Server-side titles/summaries/chapters" },
+  { key: "screenshotApi", label: "Screenshot API", hint: "/api/screenshot/take renders" },
+  { key: "teams", label: "Teams", hint: "Share videos into a team library" },
+  { key: "sso", label: "Enterprise SSO", hint: "Register an OIDC/SAML identity provider" },
 ];
 
 const LIMITS: Array<{ key: string; label: string; unit: string }> = [
@@ -21,6 +26,7 @@ const LIMITS: Array<{ key: string; label: string; unit: string }> = [
   { key: "maxFileSizeBytes", label: "Max file size", unit: "bytes" },
   { key: "maxDurationSeconds", label: "Max duration", unit: "seconds" },
   { key: "maxUploadsPerDay", label: "Uploads per day", unit: "per day" },
+  { key: "maxScreenshotsPerMonth", label: "Screenshot renders", unit: "per month" },
 ];
 
 export function PlansTable() {
@@ -124,6 +130,8 @@ export function PlansTable() {
             </Button>
             <span className="text-xs text-muted-foreground">
               Stripe price: <code>{plan.priceId ?? "—"}</code>
+              {plan.annualPriceId && <> · annual: <code>{plan.annualPriceId}</code></>}
+              {plan.name !== "free" && <StripeSyncRow planId={plan.id} hasPrice={!!plan.priceId} />}
               {plan.trialDays > 0 && ` · ${plan.trialDays}-day trial`}
             </span>
           </div>
@@ -159,6 +167,59 @@ export function PlansTable() {
           existing subscribers.
         </p>
       </div>
+    </div>
+  );
+}
+
+
+/** One-click "make it sellable": creates the Stripe product + recurring
+ *  price(s) from dollar amounts and writes the price ids back to the plan.
+ *  Re-syncing mints NEW prices (existing subscribers keep theirs). */
+function StripeSyncRow({ planId, hasPrice }: { planId: string; hasPrice: boolean }) {
+  const utils = trpc.useUtils();
+  const [monthly, setMonthly] = useState("");
+  const [annual, setAnnual] = useState("");
+  const sync = trpc.admin.syncPlanStripe.useMutation({
+    onSuccess: () => {
+      setMonthly("");
+      setAnnual("");
+      utils.admin.listPlans.invalidate();
+    },
+  });
+  const toCents = (v: string) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : undefined;
+  };
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <Input
+        className="h-8 w-28"
+        placeholder="$ / month"
+        value={monthly}
+        onChange={(e) => setMonthly(e.target.value)}
+      />
+      <Input
+        className="h-8 w-28"
+        placeholder="$ / year"
+        value={annual}
+        onChange={(e) => setAnnual(e.target.value)}
+      />
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={sync.isPending || (!toCents(monthly) && !toCents(annual))}
+        onClick={() =>
+          sync.mutate({
+            planId,
+            monthlyCents: toCents(monthly),
+            annualCents: toCents(annual),
+          })
+        }
+      >
+        {sync.isPending ? "Syncing…" : hasPrice ? "Re-sync to Stripe" : "Create in Stripe"}
+      </Button>
+      {sync.error && <span className="text-xs text-destructive">{sync.error.message}</span>}
     </div>
   );
 }

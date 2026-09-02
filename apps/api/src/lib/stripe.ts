@@ -159,6 +159,27 @@ export const PAID_SUBSCRIPTION_STATUSES = [
  *
  * Throws on D1 failure; callers decide the fail-open/fail-closed posture.
  */
+/** The plan NAME of the user's live subscription (lowercased by the plugin),
+ *  or null. This is what makes multi-plan gating work: "paid" is a tier,
+ *  but WHICH paid plan decides the feature set (pro vs business). */
+export async function activeSubscriptionPlan(
+  db: D1Database,
+  referenceId: string,
+): Promise<string | null> {
+  const placeholders = PAID_SUBSCRIPTION_STATUSES.map(() => "?").join(",");
+  const row = await db
+    .prepare(
+      `SELECT "plan" FROM "subscription"
+        WHERE "referenceId" = ?
+          AND "status" IN (${placeholders})
+        ORDER BY "periodEnd" DESC
+        LIMIT 1`,
+    )
+    .bind(referenceId, ...PAID_SUBSCRIPTION_STATUSES)
+    .first<{ plan: string }>();
+  return row?.plan ?? null;
+}
+
 export async function hasPaidSubscription(
   db: D1Database,
   referenceId: string,

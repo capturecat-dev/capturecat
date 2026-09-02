@@ -75,7 +75,18 @@ export function requireEntitlement(options: EntitlementOptions = {}) {
         );
       }
 
-      c.set("entitlement", { uid: user.uid, tier });
+      // WHICH paid plan (pro/business/…) rides along so feature checks can
+      // be plan-aware without a second query per route.
+      let planName: string | null = null;
+      if (tier === "paid") {
+        try {
+          const { activeSubscriptionPlan } = await import("./stripe");
+          planName = await activeSubscriptionPlan(c.env.DB, user.uid);
+        } catch {
+          // fall back to pro-features behavior
+        }
+      }
+      c.set("entitlement", { uid: user.uid, tier, planName });
       await next();
     },
   );

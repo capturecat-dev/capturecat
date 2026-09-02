@@ -183,5 +183,5 @@ export type Variables = {
    *  the desktop app mirrors it into the Keychain so a continuously active
    *  user is never signed out at the 30-day mark. */
   session: { expiresAt: string };
-  entitlement: { uid: string; tier: EntitlementTier };
+  entitlement: { uid: string; tier: EntitlementTier; planName?: string | null };
 };
