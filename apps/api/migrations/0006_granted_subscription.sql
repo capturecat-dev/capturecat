@@ -1,0 +1,14 @@
+-- Admin-grantable subscription ("free sub").
+--
+-- `paid` used to be derivable ONLY from a live Stripe subscription, so an
+-- operator had no way to comp someone without creating a real Stripe object.
+-- This column is the second, deliberate source of paid access.
+--
+-- It is a THIRD state, not a replacement: Stripe remains authoritative for
+-- customers who actually pay, and `subscribed` covers comps, staff and
+-- lifetime grants. `resolveTier()` treats either as "paid", so the rest of the
+-- system needs no concept of which one applied.
+--
+-- Server-owned like `tester`/`blocked`: it is not in Better Auth's
+-- additionalFields, so no client payload can reach it — only the admin route.
+ALTER TABLE user ADD COLUMN subscribed INTEGER;

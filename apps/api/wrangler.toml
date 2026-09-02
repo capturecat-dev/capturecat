@@ -1,0 +1,100 @@
+name = "capturecat-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# REQUIRED by Better Auth — it uses AsyncLocalStorage. Without this flag the
+# Worker throws at the FIRST REQUEST, not at build time, so `wrangler deploy
+# --dry-run` will happily pass while the deployed Worker is broken.
+# (Needs a compatibility_date >= 2024-09-23; ours is 2025-01-01.)
+compatibility_flags = ["nodejs_compat"]
+
+routes = [{ pattern = "api.capturecat.so", custom_domain = true }]
+
+[[r2_buckets]]
+binding = "R2"
+# R2 buckets cannot be renamed in place, so `capturecat` is a NEW bucket. The
+# old `cappd` bucket still holds 16 objects / 228 MB (uploaded video + release
+# DMGs) — those must be copied across before it is deleted; see README.
+bucket_name = "capturecat"
+# `wrangler dev` binds R2 to the REAL bucket, while D1 stays local. Uploads reach
+# R2 through a presigned URL (the S3 API, not this binding), so they always land
+# in the real bucket — a local binding here can never see them, and every share
+# played back in dev 404s with "Video file not found in storage".
+remote = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "capturecat"
+database_id = "234c0423-84d4-4e59-8338-d03828d57d43"
+migrations_dir = "migrations"
+
+[vars]
+# Public origin this Worker is served from. Better Auth builds its OAuth
+# callback URLs against this — if it is wrong or missing, providers redirect to
+# localhost and sign-in fails. Override to "http://localhost:8787" in .dev.vars
+# for `wrangler dev`.
+BETTER_AUTH_URL = "https://api.capturecat.so"
+# App Attest rollout: "off" | "report" (verify+log, never block) | "enforce".
+# Flip to "enforce" only after the report logs run clean for a while.
+ATTEST_MODE = "report"
+# Admin allowlist for /api/admin/*. Better Auth's admin plugin is deliberately
+# NOT enabled — it would add role/banned/banExpires columns plus 15 endpoints
+# including impersonate-user and set-user-password. Admin authority is this
+# list, so changing it needs a redeploy.
+
+# Secrets (set via `wrangler secret put <NAME>` from this directory):
+#
+#   BETTER_AUTH_SECRET   — `openssl rand -base64 32`. Signs session cookies AND
+#                          is the HMAC key the bearer plugin validates raw
+#                          session tokens with. Rotating it logs out every user
+#                          and invalidates every Keychain-stored desktop token.
+#   GOOGLE_CLIENT_ID     — Google Cloud OAuth client, "Web application" type
+#   GOOGLE_CLIENT_SECRET
+#   APPLE_CLIENT_ID      — the Apple SERVICES ID (e.g. so.capturecat.auth).
+#                          NOT the bundle id; Apple returns invalid_client.
+#   APPLE_TEAM_ID        — E52HU87CX9
+#   APPLE_KEY_ID         — the 10 chars from AuthKey_XXXXXXXXXX.p8
+#   APPLE_PRIVATE_KEY    — `cat AuthKey_XXXXXXXXXX.p8 | npx wrangler secret put APPLE_PRIVATE_KEY`
+#   STRIPE_SECRET_KEY
+#   STRIPE_WEBHOOK_SECRET        — from the /api/auth/stripe/webhook endpoint
+#   STRIPE_PRO_PRICE_ID          — price_… monthly
+#   STRIPE_PRO_ANNUAL_PRICE_ID   — price_… annual (optional)
+#   GEMINI_API_KEY   — server-side AI key for /api/ai/* (never ship in the app)
+#   TURNSTILE_SECRET — Cloudflare Turnstile secret for POST /api/beta siteverify.
+#                      The PUBLIC site key is NOT here; it lives in the web app
+#                      as NEXT_PUBLIC_TURNSTILE_SITE_KEY. Set via
+#                      `wrangler secret put TURNSTILE_SECRET`.
+#   BROWSER_RENDERING_TOKEN — API token with "Browser Rendering - Edit"
+#                      permission, for /api/screenshot/take. The engine calls
+#                      the REST quick-action endpoint
+#                      (accounts/<id>/browser-rendering/screenshot) with it —
+#                      deliberately NOT the `browser` Worker binding: REST
+#                      bills duration only ($0.09/browser-hour past the
+#                      included 10 hrs/month on the Workers PAID plan, which
+#                      this account is on and which Browser Rendering
+#                      requires), while the binding also bills $2/concurrent
+#                      browser beyond 10. To enable: Cloudflare dashboard →
+#                      Workers & Pages → Browser Rendering, then mint the
+#                      token under My Profile → API Tokens. Without this
+#                      secret (and CF_ACCOUNT_ID below) the endpoint answers
+#                      503 not_configured — it fails at REQUEST time, not
+#                      deploy time, so `--dry-run` passing proves nothing here.
+
+# Cloudflare account id for the Browser Rendering REST calls. Not a secret
+# (it appears in every dashboard URL) but paired with the token above.
+# CF_ACCOUNT_ID = "<account id>"   — uncomment and fill before shipping.
+# Optional extra SSRF blocklist for /api/screenshot/take: comma-separated
+# hostnames; each entry blocks the host and every subdomain. The built-in
+# guard (private ranges, localhost, .internal, …) applies regardless.
+# SCREENSHOT_URL_BLOCKLIST = ""
+
+# ---------------------------------------------------------------------------
+# Durable Objects — per-user background share-upload job tracking
+# ---------------------------------------------------------------------------
+[[durable_objects.bindings]]
+name = "SHARE_JOBS"
+class_name = "ShareJobsDO"
+
+[[migrations]]
+tag = "v1-share-jobs"
+new_sqlite_classes = ["ShareJobsDO"]
