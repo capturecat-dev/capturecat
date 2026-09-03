@@ -32,16 +32,27 @@ export function BillingStatus({ success }: { success: boolean }) {
 
   // Live price from the public pricing endpoint (amounts come from Stripe),
   // so a price change never leaves this button lying. Falls back to $10.
+  // Three states: unknown (fetch failed — keep the button, just no number),
+  // unavailable (Pro hidden in the admin — no button at all), priced.
   const [proPrice, setProPrice] = useState<string | null>(null);
+  const [proAvailable, setProAvailable] = useState(true);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const res = await fetch(`${API_URL}/api/plans`);
         if (!res.ok) return;
-        const body = (await res.json()) as { monthly?: { amount?: number | null; currency?: string } };
+        const body = (await res.json()) as {
+          available?: boolean;
+          monthly?: { amount?: number | null; currency?: string };
+        };
+        if (cancelled) return;
+        if (body.available === false) {
+          setProAvailable(false);
+          return;
+        }
         const cents = body.monthly?.amount;
-        if (!cancelled && typeof cents === "number") {
+        if (typeof cents === "number") {
           setProPrice(
             new Intl.NumberFormat("en-US", {
               style: "currency",
@@ -51,7 +62,7 @@ export function BillingStatus({ success }: { success: boolean }) {
           );
         }
       } catch {
-        // fallback label stands
+        // network failure: keep the button, price unknown
       }
     })();
     return () => {
@@ -64,7 +75,7 @@ export function BillingStatus({ success }: { success: boolean }) {
   }
 
   const isPaid = data?.tier === "paid";
-  const monthlyLabel = proPrice ?? "$10";
+
 
   return (
     <div className="space-y-6">
@@ -108,13 +119,23 @@ export function BillingStatus({ success }: { success: boolean }) {
               </Button>
             </div>
           ) : (
-            <Button
-              onClick={() => createCheckout.mutate({ annual: false })}
-              disabled={createCheckout.isPending}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              {createCheckout.isPending ? "Redirecting..." : `Upgrade to Pro — ${monthlyLabel}/mo`}
-            </Button>
+            proAvailable ? (
+              <Button
+                onClick={() => createCheckout.mutate({ annual: false })}
+                disabled={createCheckout.isPending}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                {createCheckout.isPending
+                  ? "Redirecting..."
+                  : proPrice
+                    ? `Upgrade to Pro — ${proPrice}/mo`
+                    : "Upgrade to Pro"}
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Upgrades aren’t available right now — check back soon.
+              </p>
+            )
           )}
         </CardContent>
       </Card>

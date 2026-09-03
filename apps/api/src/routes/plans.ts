@@ -57,6 +57,12 @@ planRoutes.get("/plans", async (c) => {
   // admin's Stripe sync writes them); the env ids remain as a fallback for
   // deployments that predate the sync button.
   const pro = await planByName(c.env.DB, "pro");
+  // Hidden in the admin console = deliberately not for sale right now. Say
+  // so explicitly instead of 503ing, so the dashboard and pricing page can
+  // hide their upgrade CTAs rather than render a button that can't work.
+  if (pro && !pro.isActive) {
+    return c.json({ available: false });
+  }
   const [monthly, annual] = await Promise.all([
     readPrice(stripe, pro?.priceId ?? c.env.STRIPE_PRO_PRICE_ID),
     readPrice(stripe, pro?.annualPriceId ?? c.env.STRIPE_PRO_ANNUAL_PRICE_ID),
