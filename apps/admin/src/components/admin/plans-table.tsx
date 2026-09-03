@@ -169,7 +169,7 @@ function PlanRow({ plan, onManage }: { plan: Plan; onManage: () => void }) {
             <DropdownMenuItem onClick={onManage}>Manage</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              disabled={save.isPending}
+              disabled={save.isPending || plan.name === "free"}
               onClick={() => save.mutate({ ...plan, isActive: !plan.isActive })}
             >
               {plan.isActive ? "Hide from sale" : "Publish"}
@@ -267,12 +267,16 @@ function ManagePlanDialog({ plan, onClose }: { plan: Plan; onClose: () => void }
           <span>
             {plan.isActive ? "Available for sale" : "Hidden from sale"}
             <span className="block text-xs text-muted-foreground">
-              Hidden plans keep existing subscribers but can't be newly purchased.
+              {plan.name === "free"
+                ? "The free plan is the fallback tier — it can't be hidden."
+                : plan.name === "pro" && plan.isActive
+                  ? "Careful: hiding Pro breaks the upgrade/checkout flow until re-enabled."
+                  : "Hidden plans keep existing subscribers but can't be newly purchased."}
             </span>
           </span>
           <Switch
             checked={plan.isActive}
-            disabled={saveActive.isPending}
+            disabled={saveActive.isPending || plan.name === "free"}
             onCheckedChange={(on) => saveActive.mutate({ ...plan, isActive: on })}
           />
         </label>
