@@ -243,6 +243,9 @@ function ManagePlanDialog({ plan, onClose }: { plan: Plan; onClose: () => void }
   const save = trpc.admin.updatePlan.useMutation({
     onSuccess: () => utils.admin.listPlans.invalidate(),
   });
+  const saveActive = trpc.admin.updatePlan.useMutation({
+    onSuccess: () => utils.admin.listPlans.invalidate(),
+  });
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -259,6 +262,20 @@ function ManagePlanDialog({ plan, onClose }: { plan: Plan; onClose: () => void }
             Changes apply on the next API request — nothing to deploy.
           </DialogDescription>
         </DialogHeader>
+
+        <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-sm">
+          <span>
+            {plan.isActive ? "Available for sale" : "Hidden from sale"}
+            <span className="block text-xs text-muted-foreground">
+              Hidden plans keep existing subscribers but can't be newly purchased.
+            </span>
+          </span>
+          <Switch
+            checked={plan.isActive}
+            disabled={saveActive.isPending}
+            onCheckedChange={(on) => saveActive.mutate({ ...plan, isActive: on })}
+          />
+        </label>
 
         <div className="grid gap-6 sm:grid-cols-2">
           <div>
@@ -319,9 +336,7 @@ function ManagePlanDialog({ plan, onClose }: { plan: Plan; onClose: () => void }
                     <code>{plan.priceId ?? "—"}</code>
                   </span>
                 </p>
-                {plan.priceId && plan.monthlyAmountCents === null && (
-                  <RefreshAmountsButton planId={plan.id} />
-                )}
+
                 <StripeSyncRow planId={plan.id} hasPrice={!!plan.priceId} />
               </div>
             )}
@@ -339,47 +354,77 @@ function StripeSyncRow({ planId, hasPrice }: { planId: string; hasPrice: boolean
   const utils = trpc.useUtils();
   const [monthly, setMonthly] = useState("");
   const [annual, setAnnual] = useState("");
+  const [note, setNote] = useState<string | null>(null);
   const sync = trpc.admin.syncPlanStripe.useMutation({
     onSuccess: () => {
       setMonthly("");
       setAnnual("");
+      setNote("Prices created in Stripe");
       utils.admin.listPlans.invalidate();
     },
+    onError: (e) => setNote(e.message),
+  });
+  const refresh = trpc.admin.refreshPlanStripe.useMutation({
+    onSuccess: () => {
+      setNote("Amounts fetched from Stripe");
+      utils.admin.listPlans.invalidate();
+    },
+    onError: (e) => setNote(e.message),
   });
   const toCents = (v: string) => {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : undefined;
   };
+  const hasAmounts = !!(toCents(monthly) || toCents(annual));
+  const busy = sync.isPending || refresh.isPending;
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2">
-      <Input
-        className="h-8 w-24"
-        placeholder="$ / month"
-        value={monthly}
-        onChange={(e) => setMonthly(e.target.value)}
-      />
-      <Input
-        className="h-8 w-24"
-        placeholder="$ / year"
-        value={annual}
-        onChange={(e) => setAnnual(e.target.value)}
-      />
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={sync.isPending || (!toCents(monthly) && !toCents(annual))}
-        onClick={() =>
-          sync.mutate({
-            planId,
-            monthlyCents: toCents(monthly),
-            annualCents: toCents(annual),
-          })
-        }
-      >
-        {sync.isPending ? "Syncing…" : hasPrice ? "Re-sync to Stripe" : "Create in Stripe"}
-      </Button>
-      {sync.error && <span className="text-xs text-destructive">{sync.error.message}</span>}
+    <div className="mt-2 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          className="h-8 w-24"
+          placeholder="$ / month"
+          value={monthly}
+          onChange={(e) => setMonthly(e.target.value)}
+        />
+        <Input
+          className="h-8 w-24"
+          placeholder="$ / year"
+          value={annual}
+          onChange={(e) => setAnnual(e.target.value)}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy || (!hasAmounts && !hasPrice)}
+          onClick={() => {
+            setNote(null);
+            if (hasAmounts) {
+              sync.mutate({ planId, monthlyCents: toCents(monthly), annualCents: toCents(annual) });
+            } else {
+              // No amounts typed: read the CURRENT amounts of the existing
+              // price ids out of Stripe instead of minting anything.
+              refresh.mutate({ planId });
+            }
+          }}
+        >
+          {busy
+            ? "Working…"
+            : hasAmounts
+              ? hasPrice
+                ? "Create new prices"
+                : "Create in Stripe"
+              : "Fetch amounts from Stripe"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {note ??
+          (hasAmounts
+            ? "Creates a new Stripe product + price(s) at these amounts. Existing subscribers keep their old price."
+            : hasPrice
+              ? "Leave the amounts empty to pull the current amounts of the saved price ids from Stripe."
+              : "Enter amounts to create this plan's Stripe product and prices.")}
+      </p>
     </div>
   );
 }
