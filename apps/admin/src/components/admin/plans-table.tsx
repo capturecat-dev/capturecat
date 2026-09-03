@@ -1,7 +1,34 @@
 import { useState } from "react";
+import { MoreHorizontal, Plus } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { trpc } from "@/lib/trpc/client";
 import { TableLoading } from "@/components/ui/table-loading";
 
@@ -29,78 +56,220 @@ const LIMITS: Array<{ key: string; label: string; unit: string }> = [
   { key: "maxScreenshotsPerMonth", label: "Screenshot renders", unit: "per month" },
 ];
 
+type Plan = {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  priceId: string | null;
+  annualPriceId: string | null;
+  trialDays: number;
+  features: Record<string, boolean>;
+  limits: Record<string, number>;
+  sortOrder: number;
+  isActive: boolean;
+};
+
 export function PlansTable() {
   const { data, isLoading } = trpc.admin.listPlans.useQuery();
-  const utils = trpc.useUtils();
-  const [error, setError] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
-  const [newLabel, setNewLabel] = useState("");
-
-  const save = trpc.admin.updatePlan.useMutation({
-    onSuccess: () => { setError(null); utils.admin.listPlans.invalidate(); },
-    onError: (e) => setError(e.message),
-  });
-  const create = trpc.admin.createPlan.useMutation({
-    onSuccess: () => {
-      setError(null); setNewName(""); setNewLabel("");
-      utils.admin.listPlans.invalidate();
-    },
-    onError: (e) => setError(e.message),
-  });
+  const [managing, setManaging] = useState<Plan | null>(null);
 
   if (isLoading) return <TableLoading />;
-  const plans = data?.plans ?? [];
+  const plans = (data?.plans ?? []) as Plan[];
 
   return (
-    <div className="space-y-8">
-      {error && <p className="text-sm text-destructive">{error}</p>}
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <AddPlanDialog />
+      </div>
 
-      {plans.map((plan) => (
-        <div key={plan.id} className="rounded-lg border p-4">
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <span className="text-lg font-semibold">{plan.displayName}</span>
-            {/* The slug, not the label: this is what @better-auth/stripe writes
-                onto every subscription row, so it is identity and not editable. */}
-            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{plan.name}</code>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Plan</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Features</TableHead>
+            <TableHead>Pricing</TableHead>
+            <TableHead className="w-10" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {plans.map((plan) => (
+            <PlanRow key={plan.id} plan={plan} onManage={() => setManaging(plan)} />
+          ))}
+        </TableBody>
+      </Table>
+
+      {managing && (
+        <ManagePlanDialog
+          plan={plans.find((p) => p.id === managing.id) ?? managing}
+          onClose={() => setManaging(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PlanRow({ plan, onManage }: { plan: Plan; onManage: () => void }) {
+  const utils = trpc.useUtils();
+  const save = trpc.admin.updatePlan.useMutation({
+    onSuccess: () => utils.admin.listPlans.invalidate(),
+  });
+  const enabled = FEATURES.filter((f) => plan.features[f.key] === true).length;
+
+  return (
+    <TableRow className="cursor-pointer" onClick={onManage}>
+      <TableCell>
+        <span className="font-medium">{plan.displayName}</span>{" "}
+        <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{plan.name}</code>
+      </TableCell>
+      <TableCell>
+        <Badge variant={plan.isActive ? "default" : "outline"}>
+          {plan.isActive ? "Active" : "Hidden"}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {enabled}/{FEATURES.length} enabled
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {plan.name === "free"
+          ? "Free"
+          : plan.priceId
+            ? `monthly${plan.annualPriceId ? " + annual" : ""}`
+            : "Not sellable"}
+        {plan.trialDays > 0 && ` · ${plan.trialDays}d trial`}
+      </TableCell>
+      <TableCell onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onManage}>Manage</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={save.isPending}
+              onClick={() => save.mutate({ ...plan, isActive: !plan.isActive })}
+            >
+              {plan.isActive ? "Hide from sale" : "Publish"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function AddPlanDialog() {
+  const utils = trpc.useUtils();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [label, setLabel] = useState("");
+  const create = trpc.admin.createPlan.useMutation({
+    onSuccess: () => {
+      setOpen(false);
+      setName("");
+      setLabel("");
+      utils.admin.listPlans.invalidate();
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm">
+          <Plus className="mr-1 h-4 w-4" /> Add plan
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>New plan</DialogTitle>
+          <DialogDescription>
+            The slug is permanent — it's written onto every subscription row, so
+            renaming later would orphan subscribers.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Input
+            placeholder="slug, e.g. business"
+            value={name}
+            onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+          />
+          <Input
+            placeholder="Display name, e.g. Business"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+          />
+          {create.error && (
+            <p className="text-xs text-destructive">{create.error.message}</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button
+            disabled={create.isPending || name.length < 2 || !label.trim()}
+            onClick={() => create.mutate({ name, displayName: label.trim() })}
+          >
+            {create.isPending ? "Creating…" : "Create plan"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ManagePlanDialog({ plan, onClose }: { plan: Plan; onClose: () => void }) {
+  const utils = trpc.useUtils();
+  const save = trpc.admin.updatePlan.useMutation({
+    onSuccess: () => utils.admin.listPlans.invalidate(),
+  });
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {plan.displayName}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-normal">{plan.name}</code>
             <Badge variant={plan.isActive ? "default" : "outline"}>
               {plan.isActive ? "Active" : "Hidden"}
             </Badge>
-            {!plan.priceId && <Badge variant="outline">No price — not sellable</Badge>}
+          </DialogTitle>
+          <DialogDescription>
+            Changes apply on the next API request — nothing to deploy.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <p className="mb-3 text-sm font-medium">Features</p>
+            <div className="space-y-3">
+              {FEATURES.map((f) => (
+                <label key={f.key} className="flex items-center justify-between gap-3 text-sm">
+                  <span>
+                    {f.label}
+                    <span className="block text-xs text-muted-foreground">{f.hint}</span>
+                  </span>
+                  <Switch
+                    checked={plan.features[f.key] === true}
+                    disabled={save.isPending}
+                    onCheckedChange={(on) =>
+                      save.mutate({ ...plan, features: { ...plan.features, [f.key]: on } })
+                    }
+                  />
+                </label>
+              ))}
+            </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-6">
             <div>
-              <p className="mb-2 text-sm font-medium">Features</p>
-              <div className="space-y-2">
-                {FEATURES.map((f) => (
-                  <label key={f.key} className="flex items-start gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      defaultChecked={plan.features[f.key] === true}
-                      disabled={save.isPending}
-                      onChange={(e) =>
-                        save.mutate({
-                          ...plan,
-                          features: { ...plan.features, [f.key]: e.currentTarget.checked },
-                        })
-                      }
-                    />
-                    <span>
-                      {f.label}
-                      <span className="block text-xs text-muted-foreground">{f.hint}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-2 text-sm font-medium">Limits</p>
+              <p className="mb-3 text-sm font-medium">Limits</p>
               <div className="space-y-2">
                 {LIMITS.map((l) => (
                   <label key={l.key} className="flex items-center gap-2 text-sm">
-                    <span className="w-36 shrink-0 text-muted-foreground">{l.label}</span>
+                    <span className="w-32 shrink-0 text-muted-foreground">{l.label}</span>
                     <Input
                       type="number"
                       className="h-8"
@@ -112,65 +281,31 @@ export function PlansTable() {
                         save.mutate({ ...plan, limits: { ...plan.limits, [l.key]: next } });
                       }}
                     />
-                    <span className="text-xs text-muted-foreground">{l.unit}</span>
                   </label>
                 ))}
               </div>
             </div>
-          </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant={plan.isActive ? "outline" : "default"}
-              disabled={save.isPending}
-              onClick={() => save.mutate({ ...plan, isActive: !plan.isActive })}
-            >
-              {plan.isActive ? "Hide" : "Publish"}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              Stripe price: <code>{plan.priceId ?? "—"}</code>
-              {plan.annualPriceId && <> · annual: <code>{plan.annualPriceId}</code></>}
-              {plan.name !== "free" && <StripeSyncRow planId={plan.id} hasPrice={!!plan.priceId} />}
-              {plan.trialDays > 0 && ` · ${plan.trialDays}-day trial`}
-            </span>
+            {plan.name !== "free" && (
+              <div>
+                <p className="mb-2 text-sm font-medium">Stripe</p>
+                <p className="text-xs text-muted-foreground">
+                  price: <code>{plan.priceId ?? "—"}</code>
+                  {plan.annualPriceId && (
+                    <>
+                      {" "}· annual: <code>{plan.annualPriceId}</code>
+                    </>
+                  )}
+                </p>
+                <StripeSyncRow planId={plan.id} hasPrice={!!plan.priceId} />
+              </div>
+            )}
           </div>
         </div>
-      ))}
-
-      <div className="rounded-lg border border-dashed p-4">
-        <p className="mb-3 text-sm font-medium">New plan</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Input
-            placeholder="slug (e.g. team)"
-            className="h-9 w-48"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-          <Input
-            placeholder="Display name"
-            className="h-9 w-56"
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-          />
-          <Button
-            size="sm"
-            disabled={create.isPending || newName.length < 2 || !newLabel}
-            onClick={() => create.mutate({ name: newName, displayName: newLabel })}
-          >
-            Create
-          </Button>
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Created hidden and without a price. The slug is permanent — it is what
-          Stripe subscriptions are stored against, so renaming one would orphan
-          existing subscribers.
-        </p>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
-
 
 /** One-click "make it sellable": creates the Stripe product + recurring
  *  price(s) from dollar amounts and writes the price ids back to the plan.
@@ -194,13 +329,13 @@ function StripeSyncRow({ planId, hasPrice }: { planId: string; hasPrice: boolean
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
       <Input
-        className="h-8 w-28"
+        className="h-8 w-24"
         placeholder="$ / month"
         value={monthly}
         onChange={(e) => setMonthly(e.target.value)}
       />
       <Input
-        className="h-8 w-28"
+        className="h-8 w-24"
         placeholder="$ / year"
         value={annual}
         onChange={(e) => setAnnual(e.target.value)}
