@@ -59,7 +59,7 @@ export function BillingStatus({ success }: { success: boolean }) {
             <CardDescription>
               {isPaid
                 ? "You have full access to all CaptureCat features."
-                : "Upgrade to Pro to export recordings and unlock all features."}
+                : "Recording, editing, and export are free forever. Pro adds cloud sharing, AI summaries, team libraries, and custom domains."}
             </CardDescription>
           </div>
         </CardHeader>
