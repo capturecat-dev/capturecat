@@ -308,6 +308,7 @@ function ManagePlanDialog({ plan, onClose }: { plan: Plan; onClose: () => void }
             {plan.name !== "free" && (
               <div>
                 <p className="mb-2 text-sm font-medium">Stripe</p>
+                <PriceIdFields plan={plan} />
                 <p className="text-xs text-muted-foreground">
                   {money(plan.monthlyAmountCents, plan.currency)
                     ? `${money(plan.monthlyAmountCents, plan.currency)}/mo`
@@ -401,5 +402,40 @@ function RefreshAmountsButton({ planId }: { planId: string }) {
     >
       {refresh.isPending ? "Fetching…" : "Fetch amounts from Stripe"}
     </Button>
+  );
+}
+
+
+/** Paste existing Stripe price ids (price_…) directly — for plans whose
+ *  prices were created in the Stripe dashboard rather than the sync button.
+ *  Blur saves; follow with "Fetch amounts from Stripe". */
+function PriceIdFields({ plan }: { plan: Plan }) {
+  const utils = trpc.useUtils();
+  const save = trpc.admin.updatePlan.useMutation({
+    onSuccess: () => utils.admin.listPlans.invalidate(),
+  });
+  const commit = (field: "priceId" | "annualPriceId", value: string) => {
+    const v = value.trim() || null;
+    if (v === plan[field]) return;
+    if (v && !/^price_[A-Za-z0-9]+$/.test(v)) return;
+    save.mutate({ ...plan, [field]: v });
+  };
+  return (
+    <div className="mb-2 space-y-2">
+      <Input
+        className="h-8 font-mono text-xs"
+        placeholder="price_… (monthly)"
+        defaultValue={plan.priceId ?? ""}
+        disabled={save.isPending}
+        onBlur={(e) => commit("priceId", e.currentTarget.value)}
+      />
+      <Input
+        className="h-8 font-mono text-xs"
+        placeholder="price_… (annual, optional)"
+        defaultValue={plan.annualPriceId ?? ""}
+        disabled={save.isPending}
+        onBlur={(e) => commit("annualPriceId", e.currentTarget.value)}
+      />
+    </div>
   );
 }
