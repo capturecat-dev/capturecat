@@ -15,7 +15,7 @@ import { Hono } from "hono";
 import type Stripe from "stripe";
 import type { Env, Variables } from "../types";
 import { PRO_PLAN_LIMITS, createStripeClient } from "../lib/stripe";
-import { listPlans } from "../lib/plans";
+import { listPlans, planByName } from "../lib/plans";
 
 export const planRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -53,9 +53,13 @@ planRoutes.get("/plans", async (c) => {
   // drifted when it was written by hand.
   const stripe = createStripeClient(c.env);
 
+  // The plan TABLE is the source of truth for which prices are sold (the
+  // admin's Stripe sync writes them); the env ids remain as a fallback for
+  // deployments that predate the sync button.
+  const pro = await planByName(c.env.DB, "pro");
   const [monthly, annual] = await Promise.all([
-    readPrice(stripe, c.env.STRIPE_PRO_PRICE_ID),
-    readPrice(stripe, c.env.STRIPE_PRO_ANNUAL_PRICE_ID),
+    readPrice(stripe, pro?.priceId ?? c.env.STRIPE_PRO_PRICE_ID),
+    readPrice(stripe, pro?.annualPriceId ?? c.env.STRIPE_PRO_ANNUAL_PRICE_ID),
   ]);
 
   if (!monthly) {

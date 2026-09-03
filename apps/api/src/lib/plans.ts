@@ -61,6 +61,10 @@ export interface PlanRecord {
   limits: PlanLimits;
   sortOrder: number;
   isActive: boolean;
+  /** Display amounts recorded at Stripe-sync time; null = never synced. */
+  monthlyAmountCents: number | null;
+  annualAmountCents: number | null;
+  currency: string;
 }
 
 /** Applied when a plan's JSON omits a key, so an older row cannot grant a
@@ -98,6 +102,9 @@ interface PlanRow {
   limits: string;
   sort_order: number;
   is_active: number;
+  monthly_amount_cents?: number | null;
+  annual_amount_cents?: number | null;
+  currency?: string | null;
 }
 
 function parseJSON<T extends object>(raw: string, defaults: T): T {
@@ -124,6 +131,9 @@ function toRecord(row: PlanRow): PlanRecord {
     limits: parseJSON(row.limits, LIMIT_DEFAULTS),
     sortOrder: row.sort_order,
     isActive: row.is_active === 1,
+    monthlyAmountCents: row.monthly_amount_cents ?? null,
+    annualAmountCents: row.annual_amount_cents ?? null,
+    currency: row.currency ?? "usd",
   };
 }
 
@@ -161,6 +171,9 @@ export async function freePlan(db: D1Database): Promise<PlanRecord> {
       limits: { ...LIMIT_DEFAULTS },
       sortOrder: 0,
       isActive: true,
+      monthlyAmountCents: null,
+      annualAmountCents: null,
+      currency: "usd",
     }
   );
 }
