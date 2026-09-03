@@ -56,6 +56,15 @@ const LIMITS: Array<{ key: string; label: string; unit: string }> = [
   { key: "maxScreenshotsPerMonth", label: "Screenshot renders", unit: "per month" },
 ];
 
+function money(cents: number | null | undefined, currency: string): string | null {
+  if (typeof cents !== "number") return null;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+  }).format(cents / 100);
+}
+
 type Plan = {
   id: string;
   name: string;
@@ -68,6 +77,9 @@ type Plan = {
   limits: Record<string, number>;
   sortOrder: number;
   isActive: boolean;
+  monthlyAmountCents: number | null;
+  annualAmountCents: number | null;
+  currency: string;
 };
 
 export function PlansTable() {
@@ -135,7 +147,14 @@ function PlanRow({ plan, onManage }: { plan: Plan; onManage: () => void }) {
         {plan.name === "free"
           ? "Free"
           : plan.priceId
-            ? `monthly${plan.annualPriceId ? " + annual" : ""}`
+            ? [
+                money(plan.monthlyAmountCents, plan.currency) ?? "monthly",
+                plan.annualPriceId
+                  ? `${money(plan.annualAmountCents, plan.currency) ?? "annual"}/yr`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")
             : "Not sellable"}
         {plan.trialDays > 0 && ` · ${plan.trialDays}d trial`}
       </TableCell>
@@ -290,13 +309,18 @@ function ManagePlanDialog({ plan, onClose }: { plan: Plan; onClose: () => void }
               <div>
                 <p className="mb-2 text-sm font-medium">Stripe</p>
                 <p className="text-xs text-muted-foreground">
-                  price: <code>{plan.priceId ?? "—"}</code>
-                  {plan.annualPriceId && (
-                    <>
-                      {" "}· annual: <code>{plan.annualPriceId}</code>
-                    </>
-                  )}
+                  {money(plan.monthlyAmountCents, plan.currency)
+                    ? `${money(plan.monthlyAmountCents, plan.currency)}/mo`
+                    : "amount unknown"}
+                  {plan.annualPriceId &&
+                    ` · ${money(plan.annualAmountCents, plan.currency) ?? "?"}/yr`}
+                  <span className="block truncate opacity-60">
+                    <code>{plan.priceId ?? "—"}</code>
+                  </span>
                 </p>
+                {plan.priceId && plan.monthlyAmountCents === null && (
+                  <RefreshAmountsButton planId={plan.id} />
+                )}
                 <StripeSyncRow planId={plan.id} hasPrice={!!plan.priceId} />
               </div>
             )}
@@ -356,5 +380,26 @@ function StripeSyncRow({ planId, hasPrice }: { planId: string; hasPrice: boolean
       </Button>
       {sync.error && <span className="text-xs text-destructive">{sync.error.message}</span>}
     </div>
+  );
+}
+
+
+/** Backfill display amounts for prices minted before amounts were recorded
+ *  (or changed directly in the Stripe dashboard). */
+function RefreshAmountsButton({ planId }: { planId: string }) {
+  const utils = trpc.useUtils();
+  const refresh = trpc.admin.refreshPlanStripe.useMutation({
+    onSuccess: () => utils.admin.listPlans.invalidate(),
+  });
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      className="mt-1 h-7 px-2 text-xs"
+      disabled={refresh.isPending}
+      onClick={() => refresh.mutate({ planId })}
+    >
+      {refresh.isPending ? "Fetching…" : "Fetch amounts from Stripe"}
+    </Button>
   );
 }

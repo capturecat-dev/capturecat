@@ -363,11 +363,56 @@ adminRoutes.post("/admin/plans/:id/stripe-sync", async (c) => {
   await c.env.DB.prepare(
     `UPDATE plan SET price_id = COALESCE(?, price_id),
                      annual_price_id = COALESCE(?, annual_price_id),
+                     monthly_amount_cents = COALESCE(?, monthly_amount_cents),
+                     annual_amount_cents = COALESCE(?, annual_amount_cents),
+                     currency = ?,
                      updated_at = datetime('now')
       WHERE id = ?`
-  ).bind(priceId, annualPriceId, id).run();
+  ).bind(priceId, annualPriceId, monthly, annual, currency, id).run();
 
-  return c.json({ productId: product.id, priceId, annualPriceId });
+  return c.json({ productId: product.id, priceId, annualPriceId, monthly, annual });
+});
+
+/**
+ * POST /admin/plans/:id/refresh-stripe — pull the CURRENT amounts for a
+ * plan's existing price ids out of Stripe and store them, for prices minted
+ * before amounts were recorded (or edited directly in the Stripe dashboard).
+ */
+adminRoutes.post("/admin/plans/:id/refresh-stripe", async (c) => {
+  if (!c.env.STRIPE_SECRET_KEY) {
+    return c.json({ error: "STRIPE_SECRET_KEY is not configured" }, 503);
+  }
+  const id = c.req.param("id");
+  const row = await c.env.DB.prepare("SELECT price_id, annual_price_id FROM plan WHERE id = ?")
+    .bind(id)
+    .first<{ price_id: string | null; annual_price_id: string | null }>();
+  if (!row) return c.json({ error: "Plan not found" }, 404);
+  if (!row.price_id && !row.annual_price_id) {
+    return c.json({ error: "Plan has no Stripe prices to read" }, 400);
+  }
+  const Stripe = (await import("stripe")).default;
+  const stripe = new Stripe(c.env.STRIPE_SECRET_KEY);
+  const read = async (priceId: string | null) => {
+    if (!priceId) return null;
+    try {
+      const p = await stripe.prices.retrieve(priceId);
+      return { amount: p.unit_amount ?? null, currency: p.currency };
+    } catch {
+      return null;
+    }
+  };
+  const [monthly, annual] = await Promise.all([read(row.price_id), read(row.annual_price_id)]);
+  await c.env.DB.prepare(
+    `UPDATE plan SET monthly_amount_cents = COALESCE(?, monthly_amount_cents),
+                     annual_amount_cents = COALESCE(?, annual_amount_cents),
+                     currency = COALESCE(?, currency),
+                     updated_at = datetime('now')
+      WHERE id = ?`
+  ).bind(monthly?.amount ?? null, annual?.amount ?? null, monthly?.currency ?? annual?.currency ?? null, id).run();
+  return c.json({
+    monthlyAmountCents: monthly?.amount ?? null,
+    annualAmountCents: annual?.amount ?? null,
+  });
 });
 
 adminRoutes.post("/admin/plans", async (c) => {

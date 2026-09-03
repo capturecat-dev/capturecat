@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { CreditCard, Heart, Sparkles } from "lucide-react";
+import { API_URL } from "@/lib/api-url";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc/client";
@@ -28,11 +30,41 @@ export function BillingStatus({ success }: { success: boolean }) {
     },
   });
 
+  // Live price from the public pricing endpoint (amounts come from Stripe),
+  // so a price change never leaves this button lying. Falls back to $10.
+  const [proPrice, setProPrice] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/plans`);
+        if (!res.ok) return;
+        const body = (await res.json()) as { monthly?: { amount?: number | null; currency?: string } };
+        const cents = body.monthly?.amount;
+        if (!cancelled && typeof cents === "number") {
+          setProPrice(
+            new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: (body.monthly?.currency ?? "usd").toUpperCase(),
+              maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+            }).format(cents / 100)
+          );
+        }
+      } catch {
+        // fallback label stands
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   if (isLoading) {
     return <BillingSkeleton />;
   }
 
   const isPaid = data?.tier === "paid";
+  const monthlyLabel = proPrice ?? "$10";
 
   return (
     <div className="space-y-6">
@@ -81,7 +113,7 @@ export function BillingStatus({ success }: { success: boolean }) {
               disabled={createCheckout.isPending}
             >
               <Sparkles className="mr-2 h-4 w-4" />
-              {createCheckout.isPending ? "Redirecting..." : "Upgrade to Pro — $10/mo"}
+              {createCheckout.isPending ? "Redirecting..." : `Upgrade to Pro — ${monthlyLabel}/mo`}
             </Button>
           )}
         </CardContent>

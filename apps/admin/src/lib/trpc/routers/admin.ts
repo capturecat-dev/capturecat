@@ -37,6 +37,9 @@ export interface Plan {
   limits: Record<string, number>;
   sortOrder: number;
   isActive: boolean;
+  monthlyAmountCents: number | null;
+  annualAmountCents: number | null;
+  currency: string;
 }
 
 export const adminRouter = createTRPCRouter({
@@ -70,6 +73,21 @@ export const adminRouter = createTRPCRouter({
       }>;
     };
   }),
+
+  refreshPlanStripe: adminProcedure
+    .input(z.object({ planId: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      const res = await apiFetch(`/api/admin/plans/${encodeURIComponent(input.planId)}/refresh-stripe`, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { monthlyAmountCents?: number | null; annualAmountCents?: number | null; error?: string }
+        | null;
+      if (!res.ok) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: data?.error ?? "Refresh failed" });
+      }
+      return data!;
+    }),
 
   syncPlanStripe: adminProcedure
     .input(
