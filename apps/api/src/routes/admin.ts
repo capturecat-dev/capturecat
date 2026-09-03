@@ -273,6 +273,16 @@ adminRoutes.put("/admin/plans/:id", async (c) => {
   if (typeof body.limits !== "object" || body.limits === null) {
     return c.json({ error: "limits must be an object" }, 400);
   }
+  // The free plan is the fallback tier every unpaid user resolves to —
+  // hiding it would leave signed-in users with no feature set at all.
+  if (body.isActive === false) {
+    const target = await c.env.DB.prepare("SELECT name FROM plan WHERE id = ?")
+      .bind(id)
+      .first<{ name: string }>();
+    if (target?.name === "free") {
+      return c.json({ error: "The free plan is the fallback tier and cannot be hidden" }, 400);
+    }
+  }
 
   const res = await c.env.DB.prepare(
     `UPDATE plan
