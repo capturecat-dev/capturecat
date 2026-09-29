@@ -20,6 +20,7 @@ import { attestRoutes } from "./routes/attest";
 import { aiRoutes } from "./routes/ai";
 import { betaRoutes } from "./routes/beta";
 import { screenshotRoutes } from "./routes/screenshot";
+import { ssoRoutes } from "./routes/sso";
 import { rateLimit } from "./middleware/rate-limit";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -135,6 +136,13 @@ app.use("/api/auth/*", async (c, next) => {
   if (path === "/api/auth/get-session") {
     return sessionLimiter(c, next);
   }
+  // Identity-provider round trips: the OIDC callback and SAML ACS/SLO posts
+  // arrive from a whole company behind one egress IP (or from the IdP
+  // itself). They carry a state-bound code, not a guessable credential, so
+  // they get the read-side ceiling rather than the credential one.
+  if (path.startsWith("/api/auth/sso/callback") || path.startsWith("/api/auth/sso/saml2/")) {
+    return sessionLimiter(c, next);
+  }
   return credentialLimiter(c, next);
 });
 // Desktop loopback/PKCE bridge: 20 per minute per IP.
@@ -207,6 +215,9 @@ app.route("/api", uploadRoutes);
 app.route("/api", jobRoutes);
 app.route("/api", hubRoutes);
 app.route("/api", orgRoutes);
+// Enterprise SSO overview + domain verification for org admins; the sign-in
+// and provider CRUD endpoints themselves are Better Auth's under /api/auth.
+app.route("/api", ssoRoutes);
 app.route("/api", videoRoutes);
 // Viewer analytics (ingest is public + rate limited, reads are owner-only).
 app.route("/api", analyticsRoutes);

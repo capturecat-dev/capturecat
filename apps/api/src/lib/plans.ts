@@ -12,41 +12,118 @@
  * limit shape as every paid tier. That means gating has ONE code path — you
  * always resolve a plan and ask it a question — instead of a special case that
  * has to be remembered at every call site.
+ *
+ * # Two schemas per shape, on purpose
+ *
+ * Stored JSON is parsed with the LENIENT schema: every key falls back to its
+ * deny value on its own (`.catch`), so an old row that predates a key, or a
+ * hand-edited row with one bad value, denies that one feature rather than
+ * throwing or granting anything. Unknown keys are dropped.
+ *
+ * Admin writes go through the STRICT schema: unknown keys are rejected so a
+ * typo in the console cannot silently create a flag nothing reads, and wrong
+ * types are a 400 rather than a quiet deny at runtime.
  */
 
+import { z } from "zod";
 import type { StripePlan } from "@better-auth/stripe";
+import type { EntitlementTier } from "../types";
 
-/** Everything gateable. Adding a key here is the whole job of adding a gate. */
-export interface PlanFeatures {
-  /** Capture a web page by URL from the desktop app. */
-  webCapture: boolean;
-  /** Upload still images (screenshots) rather than only recordings. */
-  imageUpload: boolean;
-  /** Upload at all, and get a share link. */
-  cloudShare: boolean;
-  /** Viewers can leave timestamped comments on a shared video. */
-  comments: boolean;
-  /** Export without the CaptureCat watermark. */
-  removeWatermark: boolean;
-  /** Serve share pages from the user's own domain (CNAME). */
-  customDomain: boolean;
-  /** Server-side Gemini titles/summaries/chapters for shares. */
-  aiSummaries: boolean;
-  /** /api/screenshot/take — the paid screenshot-rendering API. */
-  screenshotApi: boolean;
-  /** Team library: share videos into an organization. */
-  teams: boolean;
-  /** Enterprise SSO (OIDC/SAML) — register an identity provider. */
-  sso: boolean;
+/**
+ * Everything gateable. Adding a key here is the whole job of adding a gate.
+ *
+ *   webCapture      Capture a web page by URL from the desktop app.
+ *   imageUpload     Upload still images (screenshots) rather than only recordings.
+ *   cloudShare      Upload at all, and get a share link.
+ *   comments        Viewers can leave timestamped comments on a shared video.
+ *   removeWatermark Export without the CaptureCat watermark.
+ *   customDomain    Serve share pages from the user's own domain (CNAME).
+ *   aiSummaries     Server-side Gemini titles/summaries/chapters for shares.
+ *   screenshotApi   /api/screenshot/take — the paid screenshot-rendering API.
+ *   teams           Team library: share videos into an organization.
+ *   sso             Enterprise SSO (OIDC/SAML) — register an identity provider.
+ */
+export const FEATURE_KEYS = [
+  "webCapture",
+  "imageUpload",
+  "cloudShare",
+  "comments",
+  "removeWatermark",
+  "customDomain",
+  "aiSummaries",
+  "screenshotApi",
+  "teams",
+  "sso",
+] as const;
+export type FeatureKey = (typeof FEATURE_KEYS)[number];
+
+/**
+ * Every enforced cap. `routes/upload.ts` (via `lib/upload-policy.ts`) and
+ * `routes/screenshot.ts` are the enforcement points; nothing else may carry a
+ * copy of these numbers.
+ *
+ *   maxTotalStorageBytes    Sum of every ready video version the user owns.
+ *                           0 = the plan permits no uploads.
+ *   maxFileSizeBytes        Per upload. 0 = no uploads.
+ *   maxDurationSeconds      Per upload. 0 = no duration cap (a zero-second
+ *                           cap is meaningless, and storage already gates).
+ *   maxUploadsPerDay        New shares per UTC day. 0 = no uploads.
+ *   maxScreenshotsPerMonth  Screenshot API renders per UTC calendar month;
+ *                           0 = none.
+ */
+export const LIMIT_KEYS = [
+  "maxTotalStorageBytes",
+  "maxFileSizeBytes",
+  "maxDurationSeconds",
+  "maxUploadsPerDay",
+  "maxScreenshotsPerMonth",
+] as const;
+export type LimitKey = (typeof LIMIT_KEYS)[number];
+
+function shapeOf<K extends string, S extends z.ZodType>(keys: readonly K[], schema: S): Record<K, S> {
+  return Object.fromEntries(keys.map((k) => [k, schema])) as Record<K, S>;
 }
 
-export interface PlanLimits {
-  maxTotalStorageBytes: number;
-  maxFileSizeBytes: number;
-  maxDurationSeconds: number;
-  maxUploadsPerDay: number;
-  /** Screenshot API renders per UTC calendar month; 0 = none. */
-  maxScreenshotsPerMonth: number;
+// --- Lenient (stored rows) -------------------------------------------------
+
+/** Deny by default, per key: missing, null, "true", 1 — all read as false. */
+export const PlanFeaturesSchema = z.object(shapeOf(FEATURE_KEYS, z.boolean().catch(false)));
+export type PlanFeatures = z.infer<typeof PlanFeaturesSchema>;
+
+/** Zero by default, per key: missing, negative, fractional, or non-numeric
+ *  values all read as 0, which every consumer treats as "none". */
+export const PlanLimitsSchema = z.object(shapeOf(LIMIT_KEYS, z.int().min(0).catch(0)));
+export type PlanLimits = z.infer<typeof PlanLimitsSchema>;
+
+// --- Strict (admin writes) --------------------------------------------------
+
+export const PlanFeaturesInputSchema = z.strictObject(
+  shapeOf(FEATURE_KEYS, z.boolean().default(false)),
+);
+export const PlanLimitsInputSchema = z.strictObject(
+  shapeOf(LIMIT_KEYS, z.int().min(0).default(0)),
+);
+
+/** Parse a stored JSON blob. Never throws: garbage becomes the all-deny shape. */
+export function parseStoredFeatures(raw: unknown): PlanFeatures {
+  return PlanFeaturesSchema.parse(parseObject(raw));
+}
+export function parseStoredLimits(raw: unknown): PlanLimits {
+  return PlanLimitsSchema.parse(parseObject(raw));
+}
+
+function parseObject(raw: unknown): Record<string, unknown> {
+  let value: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 export interface PlanRecord {
@@ -67,29 +144,6 @@ export interface PlanRecord {
   currency: string;
 }
 
-/** Applied when a plan's JSON omits a key, so an older row cannot grant a
- *  feature added later simply by not mentioning it. Deny by default. */
-const FEATURE_DEFAULTS: PlanFeatures = {
-  webCapture: false,
-  imageUpload: false,
-  cloudShare: false,
-  comments: false,
-  removeWatermark: false,
-  customDomain: false,
-  aiSummaries: false,
-  screenshotApi: false,
-  teams: false,
-  sso: false,
-};
-
-const LIMIT_DEFAULTS: PlanLimits = {
-  maxTotalStorageBytes: 0,
-  maxFileSizeBytes: 0,
-  maxDurationSeconds: 0,
-  maxUploadsPerDay: 0,
-  maxScreenshotsPerMonth: 0,
-};
-
 interface PlanRow {
   id: string;
   name: string;
@@ -107,17 +161,6 @@ interface PlanRow {
   currency?: string | null;
 }
 
-function parseJSON<T extends object>(raw: string, defaults: T): T {
-  try {
-    const parsed = JSON.parse(raw) as Partial<T>;
-    // Spread defaults FIRST so a missing key denies rather than inherits
-    // whatever `undefined` would mean at the call site.
-    return { ...defaults, ...parsed };
-  } catch {
-    return { ...defaults };
-  }
-}
-
 function toRecord(row: PlanRow): PlanRecord {
   return {
     id: row.id,
@@ -127,8 +170,8 @@ function toRecord(row: PlanRow): PlanRecord {
     priceId: row.price_id,
     annualPriceId: row.annual_price_id,
     trialDays: row.trial_days,
-    features: parseJSON(row.features, FEATURE_DEFAULTS),
-    limits: parseJSON(row.limits, LIMIT_DEFAULTS),
+    features: parseStoredFeatures(row.features),
+    limits: parseStoredLimits(row.limits),
     sortOrder: row.sort_order,
     isActive: row.is_active === 1,
     monthlyAmountCents: row.monthly_amount_cents ?? null,
@@ -167,8 +210,8 @@ export async function freePlan(db: D1Database): Promise<PlanRecord> {
       priceId: null,
       annualPriceId: null,
       trialDays: 0,
-      features: { ...FEATURE_DEFAULTS },
-      limits: { ...LIMIT_DEFAULTS },
+      features: parseStoredFeatures({}),
+      limits: parseStoredLimits({}),
       sortOrder: 0,
       isActive: true,
       monthlyAmountCents: null,
@@ -199,14 +242,36 @@ export async function stripePlansFromDB(env: { DB: D1Database }): Promise<Stripe
     }));
 }
 
-/** The full plan record for a resolved entitlement tier — paid and tester
- *  users get the pro row, everyone else the free row. Use when both features
- *  AND limits are needed (e.g. the screenshot API gate + monthly cap) so one
- *  lookup serves both. */
-export async function planForTier(
+/**
+ * The ONE resolution from a server-resolved entitlement to the plan row that
+ * governs it. Every feature or limit check goes through here.
+ *
+ *   paid + planName  → that plan if it is still active; otherwise FREE.
+ *                      A subscription to a plan the admin has since hidden
+ *                      (or renamed) must not silently become the most
+ *                      generous tier — it becomes the least, and is logged,
+ *                      so the mistake is visible in the console instead of
+ *                      in the bill.
+ *   paid, no name    → pro. Only reachable when the subscription-plan
+ *                      lookup itself failed (requireEntitlement fails soft
+ *                      there), so a D1 blip costs a paying user nothing.
+ *   tester           → pro
+ *   anything else    → free
+ *
+ * Never throws: a D1 blip degrades to free, which denies everything — the
+ * same fail-closed posture as `freePlan`.
+ */
+export async function planForEntitlement(
   db: D1Database,
-  tier: "free" | "tester" | "paid"
+  entitlement: { tier: EntitlementTier; planName?: string | null },
 ): Promise<PlanRecord> {
+  const { tier, planName } = entitlement;
+  if (tier === "paid" && planName) {
+    const plan = await planByName(db, planName.toLowerCase()).catch(() => null);
+    if (plan?.isActive) return plan;
+    console.error(`plans: subscription names plan "${planName}" which is missing or inactive — denying`);
+    return freePlan(db);
+  }
   if (tier === "paid" || tier === "tester") {
     const pro = await planByName(db, "pro").catch(() => null);
     if (pro) return pro;
@@ -214,23 +279,17 @@ export async function planForTier(
   return freePlan(db);
 }
 
-/** The feature set for a resolved entitlement tier — paid and tester users
- *  get the pro plan's flags, everyone else the free row's. */
+/** The full plan record for a tier when the subscribed plan name is not at
+ *  hand (session-less callers such as the screenshot API's key auth). */
+export async function planForTier(db: D1Database, tier: EntitlementTier): Promise<PlanRecord> {
+  return planForEntitlement(db, { tier });
+}
+
+/** The feature set for a resolved entitlement. */
 export async function featuresForTier(
   db: D1Database,
-  tier: "free" | "tester" | "paid",
-  /** The subscribed plan's name (subscription.plan) — decides WHICH paid
-   *  plan's features apply. Without it, paid falls back to pro, which is
-   *  right for every pre-Business subscriber. */
-  planName?: string | null
+  tier: EntitlementTier,
+  planName?: string | null,
 ): Promise<PlanFeatures> {
-  if (tier === "paid" && planName) {
-    const plan = await planByName(db, planName.toLowerCase());
-    if (plan?.isActive) return plan.features;
-  }
-  if (tier === "paid" || tier === "tester") {
-    const pro = await planByName(db, "pro");
-    if (pro) return pro.features;
-  }
-  return (await freePlan(db)).features;
+  return (await planForEntitlement(db, { tier, planName })).features;
 }

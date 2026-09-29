@@ -13,12 +13,13 @@
  * Key management is session-ONLY on purpose: a leaked key must not be able to
  * mint or revoke keys.
  *
- * GATING forks on the door used:
- *   • API KEY: the plan row's `screenshotApi` feature (403 upgrade_required)
- *     → `maxScreenshotsPerMonth` consumed atomically in D1 (429 quota_exceeded).
- *   • SESSION (the signed-in app / dashboard): allowed on EVERY plan — the
- *     desktop app's URL capture renders here now and was free when it was
- *     local WKWebView — metered per UTC DAY via sessionDailyScreenshotCap.
+ * GATING is by plan row on BOTH doors (lib/screenshot/params.ts screenshotGate):
+ *   • API KEY: `screenshotApi` (403 upgrade_required).
+ *   • SESSION (the signed-in app / dashboard): `webCapture`.
+ *   Both consume `maxScreenshotsPerMonth` atomically in D1 (429 quota_exceeded).
+ *   `store=true` additionally needs `imageUpload`, is checked against the
+ *   storage cap with the rendered byte count, and is recorded in
+ *   stored_objects so it counts like every other byte the user keeps.
  * The per-IP Cache API rate limit is registered in index.ts like every other
  * route family.
  *
@@ -29,13 +30,14 @@ import { Hono, type Context } from "hono";
 import type { Env, Variables } from "../types";
 import { webOrigins } from "../lib/origins";
 import { getAuth } from "../lib/auth";
-import { resolveTier } from "../lib/entitlement";
-import { planForTier } from "../lib/plans";
+import { resolveEntitlement } from "../lib/entitlement";
+import { planForEntitlement } from "../lib/plans";
+import { checkUploadAllowance } from "../lib/upload-policy";
+import { deleteStoredObject, listStoredObjects, recordStoredObject, storageUsageBytes } from "../lib/db";
 import { createPresignedDownloadUrl } from "../lib/presign";
 import {
   parseScreenshotParams,
   screenshotGate,
-  sessionDailyScreenshotCap,
   type RawParams,
 } from "../lib/screenshot/params";
 import { mintKey, parseKeyToken, verifySecret } from "../lib/screenshot/keys";
@@ -50,8 +52,8 @@ const errBody = (code: string, message: string): ErrBody => ({ error: { code, me
 interface Caller {
   uid: string;
   claims: { tester: boolean; blocked: boolean };
-  /** How the caller authenticated — the gate + quota policy fork on this
-   *  (see sessionDailyScreenshotCap in lib/screenshot/params.ts). */
+  /** How the caller authenticated — decides WHICH plan flag opens the door
+   *  (see screenshotGate in lib/screenshot/params.ts). */
   via: "session" | "key";
 }
 
@@ -126,23 +128,20 @@ async function handleTake(
     }
   }
 
-  // Tier + plan (features AND limits in one lookup).
-  const tier = await resolveTier(c.env.DB, caller.uid, caller.claims);
-  if (tier === "blocked") {
+  // Tier + subscribed plan (features AND limits in one lookup).
+  const ent = await resolveEntitlement(c.env.DB, caller.uid, caller.claims);
+  if (ent === "blocked") {
     return c.json(errBody("account_blocked", "This account is blocked."), 403);
   }
-  const plan = await planForTier(c.env.DB, tier);
-  // POLICY (2026-08-10): the screenshotApi feature gate applies to API-KEY
-  // callers only. A session (the signed-in app / dashboard) renders on every
-  // plan — URL capture was a free local feature before it moved to Chromium
-  // and must not silently become pro-only — but on a per-day allowance
-  // instead of the plan's monthly quota. Full rationale next to
-  // sessionDailyScreenshotCap in lib/screenshot/params.ts.
-  if (caller.via === "key") {
-    const gate = screenshotGate({ tier, features: plan.features });
-    if (!gate.ok) {
-      return c.json({ error: gate.error }, gate.status);
-    }
+  const plan = await planForEntitlement(c.env.DB, ent);
+  const tier = ent.tier;
+  // POLICY (2026-09-03, supersedes 2026-08-10): both doors are plan-gated.
+  // The old "sessions render on every plan" rule contradicted the pricing
+  // page (web capture is listed under Pro) and the plan table (free has
+  // webCapture:false), and was bypassable by forging the Origin header.
+  const gate = screenshotGate({ tier, features: plan.features, door: caller.via });
+  if (!gate.ok) {
+    return c.json({ error: gate.error }, gate.status);
   }
 
   // `engine` — chromium is the only implemented engine. A "kitesurf" beta
@@ -166,12 +165,20 @@ async function handleTake(
     return c.json(errBody("not_configured", "Screenshot rendering is not configured."), 503);
   }
 
+  // store=true keeps bytes: that needs the imageUpload flag AND room in the
+  // storage cap, decided BEFORE rendering so a refused request bills nothing.
+  if (params.store && !plan.features.imageUpload) {
+    return c.json(
+      errBody("upgrade_required", "Storing screenshots requires a plan with image uploads."),
+      403,
+    );
+  }
+
   // Quota BEFORE rendering: refused requests consume nothing, and the SQL's
   // conditional upsert means a race can never spend the last unit twice.
-  // Sessions meter per UTC day (separate 8-digit counter key in the same
-  // table); keys keep the plan's monthly cap.
-  const cap = caller.via === "session" ? sessionDailyScreenshotCap(tier) : plan.limits.maxScreenshotsPerMonth;
-  const period = caller.via === "session" ? ("day" as const) : ("month" as const);
+  // One monthly counter for both doors, from the plan row.
+  const cap = plan.limits.maxScreenshotsPerMonth;
+  const period = "month" as const;
   const quota = await consumeQuota(c.env.DB, caller.uid, cap, new Date(), period).catch(
     (e) => {
       // Fail closed — a broken meter must not become unmetered renders.
@@ -185,9 +192,9 @@ async function handleTake(
     return c.json(
       errBody(
         "quota_exceeded",
-        period === "day"
-          ? `Daily web-capture allowance (${quota.cap}) exhausted. It resets at midnight UTC.`
-          : `Monthly screenshot quota (${quota.cap}) exhausted.`,
+        quota.cap <= 0
+          ? "Your plan includes no screenshot renders."
+          : `Monthly screenshot quota (${quota.cap}) exhausted. It resets on the 1st (UTC).`,
       ),
       429,
     );
@@ -205,8 +212,21 @@ async function handleTake(
     // serving convention upload.ts uses, so no new public route exists.
     const hash = await cacheKey(params);
     const key = `screenshots/${caller.uid}/${hash}.${params.format}`;
+    // The rendered size is known now: hold it to the same storage cap as a
+    // video, and record it so the cap sees it next time.
+    const usedBytes = await storageUsageBytes(c.env.DB, caller.uid);
+    const verdict = checkUploadAllowance(plan, { fileSizeBytes: result.bytes.byteLength, usedBytes });
+    if (!verdict.ok) {
+      return c.json(errBody(verdict.body.code, verdict.body.error), verdict.status);
+    }
     await c.env.R2.put(key, result.bytes, {
       httpMetadata: { contentType: CONTENT_TYPES[params.format] },
+    });
+    await recordStoredObject(c.env.DB, {
+      r2Key: key,
+      uid: caller.uid,
+      kind: "screenshot",
+      bytes: result.bytes.byteLength,
     });
     const url = await createPresignedDownloadUrl({
       r2Endpoint: c.env.R2_ENDPOINT,
@@ -274,10 +294,10 @@ screenshotRoutes.post("/screenshot/keys", async (c) => {
 
   // Only entitled users can mint — a free user's key would 403 on every /take
   // anyway, but refusing here keeps the failure at the obvious place.
-  const tier = await resolveTier(c.env.DB, caller.uid, caller.claims);
-  if (tier === "blocked") return c.json(errBody("account_blocked", "This account is blocked."), 403);
-  const plan = await planForTier(c.env.DB, tier);
-  const gate = screenshotGate({ tier, features: plan.features });
+  const ent = await resolveEntitlement(c.env.DB, caller.uid, caller.claims);
+  if (ent === "blocked") return c.json(errBody("account_blocked", "This account is blocked."), 403);
+  const plan = await planForEntitlement(c.env.DB, ent);
+  const gate = screenshotGate({ tier: ent.tier, features: plan.features, door: "key" });
   if (!gate.ok) return c.json({ error: gate.error }, gate.status);
 
   const active = await c.env.DB
@@ -344,4 +364,35 @@ screenshotRoutes.delete("/screenshot/keys/:id", async (c) => {
     return c.json(errBody("not_found", "No active key with that id."), 404);
   }
   return c.json({ id, revoked: true });
+});
+
+/**
+ * Stored screenshots (store=true) — session only, so a user can see what is
+ * counting against their storage and free it.
+ */
+screenshotRoutes.get("/screenshot/stored", async (c) => {
+  const caller = await requireSession(c);
+  if (!caller) return c.json(errBody("unauthorized", "Sign in to list stored screenshots."), 401);
+  const objects = await listStoredObjects(c.env.DB, caller.uid, "screenshot");
+  return c.json({
+    objects: objects.map((o) => ({
+      key: o.r2Key,
+      bytes: o.bytes,
+      createdAt: o.createdAt,
+    })),
+  });
+});
+
+screenshotRoutes.delete("/screenshot/stored/:hash", async (c) => {
+  const caller = await requireSession(c);
+  if (!caller) return c.json(errBody("unauthorized", "Sign in to delete stored screenshots."), 401);
+  const hash = c.req.param("hash");
+  if (!/^[A-Za-z0-9._-]{1,120}$/.test(hash)) return c.json(errBody("bad_request", "Invalid key."), 400);
+  // Keys are always screenshots/{uid}/{hash}.{fmt}; the uid in the key is
+  // the caller's, so a user can never address another user's object.
+  const key = `screenshots/${caller.uid}/${hash}`;
+  const owned = await deleteStoredObject(c.env.DB, caller.uid, key);
+  if (!owned) return c.json(errBody("not_found", "No such stored screenshot."), 404);
+  await c.env.R2.delete(key).catch(() => {});
+  return c.json({ ok: true, key });
 });

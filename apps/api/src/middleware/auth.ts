@@ -68,6 +68,15 @@ export const requireAuth = createMiddleware<{
     return c.json({ error: "Invalid or expired session" }, 401);
   }
 
+  // Blocked is decided HERE, once, for every authenticated route. It used to
+  // live in requireEntitlement, which a dozen requireAuth-only routes (jobs,
+  // transcript search, analytics, org logo) never chained — so a blocked
+  // account could keep writing. The desktop client already reads this exact
+  // 403 shape (AuthService.swift looks for "blocked" in the message).
+  if ((session.user as { blocked?: boolean | null }).blocked === true) {
+    return c.json({ error: "Account blocked" }, 403);
+  }
+
   c.set("session", {
     expiresAt: new Date(session.session.expiresAt).toISOString(),
   });

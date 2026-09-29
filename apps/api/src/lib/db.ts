@@ -229,33 +229,130 @@ export async function deleteSharedVideo(
     .run();
 }
 
-/** Total bytes of "ready" shared media for a user (storage-cap check).
- *  Versioned videos count every retained version; videos without version rows
- *  (pre-0017 uploads that were never re-shared) fall back to the top-level
- *  size so nothing is double-counted or missed. */
+/**
+ * The ONE definition of "bytes this user is storing", as a SQL fragment so the
+ * quota check in `markVersionReadyWithinQuota` can embed it and decide
+ * atomically. `?1` is the uid.
+ *
+ *  - every ready version of every ready video (migration 0017);
+ *  - videos with no version rows (pre-0017 uploads never re-shared) at their
+ *    top-level size, so nothing is double-counted or missed;
+ *  - every non-video object recorded in stored_objects (migration 0025):
+ *    screenshots stored via the screenshot API.
+ */
+const STORAGE_SUM_SQL = `
+  SELECT COALESCE(SUM(sz), 0) FROM (
+    SELECT vv.file_size_bytes AS sz
+      FROM video_versions vv
+      JOIN shared_videos sv ON sv.video_id = vv.video_id
+     WHERE sv.uid = ?1 AND sv.status = 'ready' AND vv.status = 'ready'
+    UNION ALL
+    SELECT sv.file_size_bytes AS sz
+      FROM shared_videos sv
+     WHERE sv.uid = ?1 AND sv.status = 'ready'
+       AND NOT EXISTS (SELECT 1 FROM video_versions vv WHERE vv.video_id = sv.video_id)
+    UNION ALL
+    SELECT so.bytes AS sz FROM stored_objects so WHERE so.uid = ?1
+  )`;
+
+/** Total bytes of stored media for a user (the storage-cap check). */
 export async function storageUsageBytes(
   db: D1Database,
   uid: string
 ): Promise<number> {
   const row = await db
-    .prepare(
-      `SELECT COALESCE(SUM(sz), 0) AS total FROM (
-         SELECT vv.file_size_bytes AS sz
-           FROM video_versions vv
-           JOIN shared_videos sv ON sv.video_id = vv.video_id
-          WHERE sv.uid = ?1 AND sv.status = 'ready' AND vv.status = 'ready'
-         UNION ALL
-         SELECT sv.file_size_bytes AS sz
-           FROM shared_videos sv
-          WHERE sv.uid = ?1 AND sv.status = 'ready'
-            AND NOT EXISTS (
-              SELECT 1 FROM video_versions vv WHERE vv.video_id = sv.video_id
-            )
-       )`
-    )
+    .prepare(`SELECT (${STORAGE_SUM_SQL}) AS total`)
     .bind(uid)
     .first<{ total: number }>();
   return row?.total ?? 0;
+}
+
+/**
+ * Flip a pending version to ready ONLY IF doing so keeps the owner within
+ * `limitBytes` — one conditional UPDATE, so five concurrent /complete calls
+ * cannot each read the same "used" figure and all land. Returns:
+ *   "ready"      the version was accepted (or was already ready: idempotent)
+ *   "over_quota" the row is still pending and must be cleaned up
+ *   "missing"    no such version
+ */
+export async function markVersionReadyWithinQuota(
+  db: D1Database,
+  input: { uid: string; videoId: string; versionNumber: number; fileSizeBytes: number; limitBytes: number }
+): Promise<"ready" | "over_quota" | "missing"> {
+  const res = await db
+    .prepare(
+      `UPDATE video_versions
+          SET status = 'ready', file_size_bytes = ?2
+        WHERE video_id = ?3 AND version_number = ?4 AND status = 'pending'
+          AND (?2 + (${STORAGE_SUM_SQL})) <= ?5`
+    )
+    .bind(input.uid, input.fileSizeBytes, input.videoId, input.versionNumber, input.limitBytes)
+    .run();
+  if ((res.meta?.changes ?? 0) > 0) return "ready";
+  const row = await db
+    .prepare(`SELECT status FROM video_versions WHERE video_id = ? AND version_number = ?`)
+    .bind(input.videoId, input.versionNumber)
+    .first<{ status: string }>();
+  if (!row) return "missing";
+  return row.status === "ready" ? "ready" : "over_quota";
+}
+
+/** Presigns outstanding for a user: pending first uploads AND pending replace
+ *  versions. Each is a liability until /complete (the bytes may already be in
+ *  R2, invisible to the quota), so both are bounded together. */
+export async function pendingUploadCount(db: D1Database, uid: string): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM shared_videos WHERE uid = ?1 AND status = 'pending')
+       + (SELECT COUNT(*) FROM video_versions vv
+            JOIN shared_videos sv ON sv.video_id = vv.video_id
+           WHERE sv.uid = ?1 AND vv.status = 'pending' AND sv.status = 'ready') AS n`
+    )
+    .bind(uid)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+// --- stored_objects (migration 0025) -----------------------------------------
+
+export async function recordStoredObject(
+  db: D1Database,
+  input: { r2Key: string; uid: string; kind: "screenshot"; bytes: number }
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO stored_objects (r2_key, uid, kind, bytes, created_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(r2_key) DO UPDATE SET bytes = excluded.bytes, created_at = excluded.created_at`
+    )
+    .bind(input.r2Key, input.uid, input.kind, input.bytes, new Date().toISOString())
+    .run();
+}
+
+export async function listStoredObjects(
+  db: D1Database,
+  uid: string,
+  kind: "screenshot"
+): Promise<Array<{ r2Key: string; bytes: number; createdAt: string }>> {
+  const rows = await db
+    .prepare(`SELECT r2_key, bytes, created_at FROM stored_objects WHERE uid = ? AND kind = ? ORDER BY created_at DESC`)
+    .bind(uid, kind)
+    .all<{ r2_key: string; bytes: number; created_at: string }>();
+  return (rows.results ?? []).map((r) => ({ r2Key: r.r2_key, bytes: r.bytes, createdAt: r.created_at }));
+}
+
+/** Returns the row if it belonged to the user (and is now gone). */
+export async function deleteStoredObject(
+  db: D1Database,
+  uid: string,
+  r2Key: string
+): Promise<boolean> {
+  const res = await db
+    .prepare(`DELETE FROM stored_objects WHERE r2_key = ? AND uid = ?`)
+    .bind(r2Key, uid)
+    .run();
+  return (res.meta?.changes ?? 0) > 0;
 }
 
 /**
@@ -440,12 +537,17 @@ export async function markVersionReady(
 export async function setCurrentVersion(
   db: D1Database,
   videoId: string,
-  version: VideoVersion
+  version: VideoVersion,
+  /** The R2 ETag verified at complete time. The byte route refuses to serve
+   *  a key whose object ETag differs from the pinned one; leaving the OLD
+   *  version's ETag behind after a replace made every replaced video 404 for
+   *  every viewer. Pass null to clear the pin. */
+  etag: string | null
 ): Promise<void> {
   await db
     .prepare(
       `UPDATE shared_videos
-          SET current_version = ?, r2_key = ?, file_size_bytes = ?, duration_seconds = ?
+          SET current_version = ?, r2_key = ?, file_size_bytes = ?, duration_seconds = ?, etag = ?
         WHERE video_id = ?`
     )
     .bind(
@@ -453,6 +555,7 @@ export async function setCurrentVersion(
       version.r2Key,
       version.fileSizeBytes,
       version.durationSeconds,
+      etag,
       videoId
     )
     .run();
@@ -770,21 +873,77 @@ export async function getAISummary(
 export interface CustomDomain {
   domain: string;
   uid: string;
+  /** DNS points at us (our own CNAME check). */
   verified: boolean;
   createdAt: string;
+  /** Cloudflare for SaaS custom hostname id, once provisioned. */
+  cfHostnameId: string | null;
+  /** Cloudflare's hostname status ("pending" | "active" | …) at last check. */
+  cfStatus: string | null;
+  /** Cloudflare's certificate status at last check. */
+  cfSslStatus: string | null;
+  cfCheckedAt: string | null;
+}
+
+type CustomDomainRow = {
+  domain: string;
+  uid: string;
+  verified: number;
+  created_at: string;
+  cf_hostname_id?: string | null;
+  cf_status?: string | null;
+  cf_ssl_status?: string | null;
+  cf_checked_at?: string | null;
+};
+
+function toDomain(r: CustomDomainRow): CustomDomain {
+  return {
+    domain: r.domain,
+    uid: r.uid,
+    verified: r.verified === 1,
+    createdAt: r.created_at,
+    cfHostnameId: r.cf_hostname_id ?? null,
+    cfStatus: r.cf_status ?? null,
+    cfSslStatus: r.cf_ssl_status ?? null,
+    cfCheckedAt: r.cf_checked_at ?? null,
+  };
+}
+
+/** A domain is LIVE when DNS points at us AND Cloudflare reports the
+ *  hostname and its certificate active. Only live domains route. */
+export function domainIsLive(d: CustomDomain): boolean {
+  return d.verified && d.cfStatus === "active" && d.cfSslStatus === "active";
 }
 
 export async function listDomains(db: D1Database, uid: string): Promise<CustomDomain[]> {
   const rows = await db
     .prepare("SELECT * FROM custom_domains WHERE uid = ? ORDER BY created_at")
     .bind(uid)
-    .all<{ domain: string; uid: string; verified: number; created_at: string }>();
-  return (rows.results ?? []).map((r) => ({
-    domain: r.domain,
-    uid: r.uid,
-    verified: r.verified === 1,
-    createdAt: r.created_at,
-  }));
+    .all<CustomDomainRow>();
+  return (rows.results ?? []).map(toDomain);
+}
+
+export async function getDomain(db: D1Database, domain: string): Promise<CustomDomain | null> {
+  const row = await db
+    .prepare("SELECT * FROM custom_domains WHERE domain = ?")
+    .bind(domain)
+    .first<CustomDomainRow>();
+  return row ? toDomain(row) : null;
+}
+
+export async function setDomainCloudflareState(
+  db: D1Database,
+  domain: string,
+  state: { cfHostnameId: string | null; cfStatus: string | null; cfSslStatus: string | null }
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE custom_domains
+          SET cf_hostname_id = ?, cf_status = ?, cf_ssl_status = ?, cf_checked_at = ?
+        WHERE domain = ?`
+    )
+    .bind(state.cfHostnameId, state.cfStatus, state.cfSslStatus, new Date().toISOString(), domain)
+    .run();
 }
 
 export async function insertDomain(
@@ -830,8 +989,6 @@ export async function resolveDomain(
   const row = await db
     .prepare("SELECT * FROM custom_domains WHERE domain = ? AND verified = 1")
     .bind(domain)
-    .first<{ domain: string; uid: string; verified: number; created_at: string }>();
-  return row
-    ? { domain: row.domain, uid: row.uid, verified: true, createdAt: row.created_at }
-    : null;
+    .first<CustomDomainRow>();
+  return row ? toDomain(row) : null;
 }

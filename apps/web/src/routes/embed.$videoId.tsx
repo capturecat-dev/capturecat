@@ -1,6 +1,7 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { API_URL } from "@/lib/api-url";
+import { fetchShareMeta } from "@/lib/share-meta";
 import SharePlayer, {
   type AnnotationMarker,
 } from "@/components/share/share-player";
@@ -17,7 +18,7 @@ interface VideoMeta {
   contentType: string;
   durationSeconds: number;
   annotations?: AnnotationMarker[];
-  gate?: "open" | "locked" | "expired" | "view_limit";
+  gate?: "open" | "locked" | "expired" | "view_limit" | "paused";
   allowDownload?: boolean;
   brandAccent?: string | null;
   aiChapters?: { start: number; label: string }[];
@@ -27,10 +28,8 @@ export const Route = createFileRoute("/embed/$videoId")({
   loader: async ({ params }) => {
     let video: VideoMeta | null = null;
     try {
-      const res = await fetch(
-        `${API_URL}/api/video/${encodeURIComponent(params.videoId)}/meta`
-      );
-      if (res.ok) video = (await res.json()) as VideoMeta;
+      const raw = await fetchShareMeta({ data: params.videoId });
+      video = raw ? (JSON.parse(raw) as VideoMeta) : null;
     } catch {
       video = null;
     }
@@ -55,7 +54,7 @@ function EmbedPage() {
           <ShareGate
             videoId={video.videoId}
             fileName={video.fileName}
-            gate={video.gate as "locked" | "expired" | "view_limit"}
+            gate={video.gate as "locked" | "expired" | "view_limit" | "paused"}
             brandAccent={video.brandAccent}
             apiUrl={API_URL}
           />

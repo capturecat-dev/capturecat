@@ -49,7 +49,9 @@ the timeline clock (`currentTime - startTime`), never a wall clock, so scrubbing
 Headless harnesses (run the built binary):
 `--preview-parity`, `--raster-golden`, `--videotrack-math-test [--canvas]`, `--voicetrack-test`,
 `--keysound-test`, `--playback-observer-test`, `--inspector-probe`, `--editor-shell-shot`,
-`--recording-panel-shot`.
+`--recording-panel-shot`, `--cursor-export-parity` (the ONLY gate that compares a preview frame
+against a real exported frame; run it after touching cursor layout, `CursorStyleProvider`, or
+`renderCursorCI`).
 
 `--preview-parity` and `--raster-golden` were SwiftUI-vs-native diffs. With SwiftUI gone they score
 against **frozen references** — `PreviewGoldens`, `RasterGoldens`, `SquircleReference` — captured

@@ -342,3 +342,103 @@
   background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.28), transparent);
   pointer-events: none;
 }
+
+/* ------------------------------------------------------------------ */
+/* Studio kit — the dashboard's shared vocabulary. Same glass language  */
+/* as the marketing site; these classes exist so every page, dialog    */
+/* and card uses ONE control shape and ONE row shape.                  */
+/* ------------------------------------------------------------------ */
+
+/* Pill text control — identical to the shadcn Input, usable on raw
+   <input>/<textarea>/<select> where the component is inconvenient. */
+.studio-input {
+  height: 2.25rem;
+  width: 100%;
+  min-width: 0;
+  border-radius: 9999px;
+  border: 1px solid var(--input);
+  background: color-mix(in oklab, var(--input) 30%, transparent);
+  padding: 0 0.875rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--foreground);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+.studio-input::placeholder {
+  color: var(--muted-foreground);
+}
+.studio-input:hover {
+  background: color-mix(in oklab, var(--input) 40%, transparent);
+}
+.studio-input:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.studio-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+textarea.studio-input {
+  height: auto;
+  border-radius: 1.125rem;
+  padding: 0.625rem 0.875rem;
+  resize: none;
+}
+input[type="color"].studio-input {
+  width: 3rem;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  cursor: pointer;
+}
+input[type="color"].studio-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"].studio-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 9999px;
+}
+input[type="date"].studio-input::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+  filter: invert(1);
+}
+
+/* A list row inside a panel: members, domains, versions, invites. */
+.studio-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+  padding: 0.625rem 0.875rem;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+a.studio-row:hover,
+button.studio-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.studio-row-dashed {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: transparent;
+}
+
+/* Uppercase micro-label: section eyebrows, stat labels, field labels. */
+.studio-eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* Recessed well inside a panel (code, previews, tables). */
+.studio-well {
+  border-radius: 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}

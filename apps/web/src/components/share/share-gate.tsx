@@ -31,7 +31,7 @@ export default function ShareGate({
 }: {
   videoId: string;
   fileName: string;
-  gate: "locked" | "expired" | "view_limit";
+  gate: "locked" | "expired" | "view_limit" | "paused";
   brandAccent?: string | null;
   apiUrl: string;
 }) {
@@ -138,7 +138,9 @@ export default function ShareGate({
           <p className="text-white/50 text-sm">
             {gate === "expired"
               ? "This share link has expired."
-              : "This video has reached its view limit."}
+              : gate === "paused"
+                ? "This share is paused — the owner’s plan no longer includes cloud sharing."
+                : "This video has reached its view limit."}
           </p>
         </div>
       )}

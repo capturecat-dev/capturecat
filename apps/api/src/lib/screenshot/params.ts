@@ -311,46 +311,37 @@ export function parseScreenshotParams(raw: RawParams, blocklist?: string): Param
 
 export interface GateInput {
   tier: "free" | "tester" | "paid";
-  features: { screenshotApi?: boolean };
+  features: { screenshotApi?: boolean; webCapture?: boolean };
+  /** Which door: API-key callers need `screenshotApi`; the signed-in app /
+   *  dashboard (URL capture) needs `webCapture`. Default: screenshotApi. */
+  door?: "key" | "session";
 }
 
 export type GateResult = { ok: true } | { ok: false; status: 403; error: ParamError };
 
+/**
+ * Both doors into /take are plan-gated. It used to be that a SESSION caller
+ * rendered on every plan with a hardcoded per-day allowance — and since the
+ * "session" door was told apart from the key door only by a client-supplied
+ * Origin header, the paid API was free for anyone holding a bearer token.
+ * Now the plan row decides: `webCapture` for the app, `screenshotApi` for
+ * keys, and `maxScreenshotsPerMonth` meters both through one monthly counter.
+ */
 export function screenshotGate(input: GateInput): GateResult {
-  if (input.features.screenshotApi !== true) {
+  const door = input.door ?? "key";
+  const allowed = door === "session" ? input.features.webCapture === true : input.features.screenshotApi === true;
+  if (!allowed) {
     return {
       ok: false,
       status: 403,
       error: {
         code: "upgrade_required",
-        message: "The screenshot API requires a CaptureCat Pro plan.",
+        message:
+          door === "session"
+            ? "Web capture requires a CaptureCat Pro plan."
+            : "The screenshot API requires a CaptureCat Pro plan.",
       },
     };
   }
   return { ok: true };
-}
-
-// ---------------------------------------------------------------------------
-// Session (desktop app / dashboard) policy — PRODUCT DECISION 2026-08-10:
-//
-// URL capture in the desktop app used to be a free, local WKWebView feature.
-// Rendering moved to this Chromium endpoint, and a free local feature must not
-// silently become pro-only — so SESSION-authenticated callers (the signed-in
-// app or dashboard; there is no way to hold a session without an account) may
-// render on EVERY plan, metered by a per-UTC-DAY allowance instead of the
-// plan's monthly Screenshot-API quota. API-KEY callers are unchanged: the
-// `screenshotApi` feature gate (pro-only) plus `maxScreenshotsPerMonth`.
-// The daily counter shares the screenshot_usage table under an 8-digit
-// YYYYMMDD key, which can never collide with the 6-digit monthly YYYYMM key.
-// ---------------------------------------------------------------------------
-
-/** Renders per UTC day for a session-authenticated caller, by tier. */
-export function sessionDailyScreenshotCap(tier: "free" | "tester" | "paid"): number {
-  switch (tier) {
-    case "free":
-      return 30;
-    case "tester":
-    case "paid":
-      return 500;
-  }
 }

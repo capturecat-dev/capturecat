@@ -274,3 +274,41 @@ Go-live checklist:
 2. `wrangler secret put GEMINI_API_KEY` (optional until an AI feature ships).
 3. Deploy. Keep `ATTEST_MODE = "report"` for at least a week of real traffic.
 4. Flip to `enforce` only after report logs are clean.
+
+## Custom share domains (Cloudflare for SaaS)
+
+A Pro customer's `share.acme.com` is a **Cloudflare custom hostname** on the
+capturecat.so zone. `POST /api/domains` records the domain and registers the
+hostname (HTTP validation); `POST /api/domains/:domain/verify` checks the
+customer's CNAME and refreshes Cloudflare's hostname + certificate status. A
+domain only routes when all three are green (`domainIsLive` in lib/db.ts) and
+its owner's plan still includes custom domains — `GET /api/domains/resolve`
+is what the web Worker asks.
+
+One-time zone setup (idempotent):
+
+```bash
+CF_API_TOKEN=… CF_ZONE_ID=… ./scripts/setup-saas.sh
+npx wrangler secret put CF_SAAS_API_TOKEN     # SSL and Certificates: Edit
+# then set CF_ZONE_ID in wrangler.toml [vars] and deploy
+```
+
+The script creates the originless `customers.capturecat.so` record (AAAA
+`100::`, proxied), makes it the SaaS fallback origin, and adds the `*/*`
+Workers route to the web Worker — the only route pattern Cloudflare matches
+for custom hostnames. Because routes run before Workers custom domains, the
+web Worker passes `api.` and `admin.` traffic straight through (`fetch(request)`
+in apps/web/src/server.ts).
+
+## Enterprise SSO
+
+Better Auth's SSO plugin (`/api/auth/sso/*`) does registration, sign-in and
+callbacks. Registration and provider edits are gated on the caller's plan
+`sso` flag in `lib/auth.ts` (the Business plan; seeded inactive by migration
+0025 — Stripe-sync and activate it in the admin console). `routes/sso.ts`
+adds what an org admin needs on top: `GET /api/sso/overview` (providers,
+verification state, the DNS TXT record to publish, the redirect / ACS /
+metadata URLs to paste into the IdP) and
+`POST /api/sso/providers/:id/verify` (TXT check over DNS-over-HTTPS). Sign-in
+is refused until the domain is verified. The desktop sign-in chooser offers
+"Use single sign-on" once any verified provider exists.

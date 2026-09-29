@@ -6,6 +6,7 @@ import { BadgeCheck, Globe, RefreshCw, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { EmptyNote, PlanChip, Row, Section, UpgradeNote } from "@/components/dashboard/studio";
 
 /**
  * Pro feature: serve share pages from the user's own domain. The card walks
@@ -41,65 +42,75 @@ export function CustomDomainsCard() {
     onSuccess: () => void utils.videos.domains.invalidate(),
   });
 
-  return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center gap-2">
-        <Globe className="h-4 w-4" />
-        <h2 className="text-sm font-medium">Custom share domain</h2>
-        <Badge variant="secondary" className="text-[10px]">PRO</Badge>
-      </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Serve share links from your own domain, e.g.{" "}
-        <code className="text-xs">share.yourcompany.com/&lt;video&gt;</code>.
-        Point a CNAME at <code className="text-xs">{data?.cnameTarget ?? "capturecat.so"}</code>{" "}
-        and verify.
-      </p>
+  const domains = data?.domains ?? [];
 
-      {isLoading ? (
-        <div className="mt-3"><SkeletonLines lines={2} /></div>
-      ) : (
+  return (
+    <Section
+      icon={<Globe />}
+      title="Custom share domain"
+      badge={<PlanChip plan="pro" />}
+      description={
         <>
-          <div className="mt-3 space-y-2">
-            {(data?.domains ?? []).map((d) => (
-              <div
-                key={d.domain}
-                className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate text-sm">{d.domain}</span>
-                  {d.verified ? (
-                    <Badge className="gap-1 text-[10px]"><BadgeCheck className="h-3 w-3" />verified</Badge>
-                  ) : (
-                    <Badge variant="secondary" className="text-[10px]">pending DNS</Badge>
-                  )}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  {!d.verified && (
+          Serve share links from your own domain, e.g.{" "}
+          <code className="text-xs text-foreground/80">share.yourcompany.com/&lt;video&gt;</code>.
+          Point a CNAME at{" "}
+          <code className="text-xs text-foreground/80">{data?.cnameTarget ?? "capturecat.so"}</code>{" "}
+          and verify.
+        </>
+      }
+    >
+      {isLoading ? (
+        <SkeletonLines lines={2} />
+      ) : (
+        <div className="space-y-3">
+          {domains.length === 0 ? (
+            <EmptyNote>No domains yet.</EmptyNote>
+          ) : (
+            <div className="space-y-2">
+              {domains.map((d) => (
+                <Row key={d.domain}>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-sm">{d.domain}</span>
+                    {d.verified ? (
+                      <Badge className="gap-1 text-[10px]">
+                        <BadgeCheck />
+                        verified
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-[10px]">
+                        pending DNS
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {!d.verified && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={verify.isPending}
+                        onClick={() => verify.mutate({ domain: d.domain })}
+                      >
+                        <RefreshCw data-icon="inline-start" />
+                        Verify
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
-                      size="sm"
-                      disabled={verify.isPending}
-                      onClick={() => verify.mutate({ domain: d.domain })}
+                      size="icon-sm"
+                      className="text-destructive hover:text-destructive"
+                      aria-label={`Remove ${d.domain}`}
+                      onClick={() => remove.mutate({ domain: d.domain })}
                     >
-                      <RefreshCw className="mr-1 h-3.5 w-3.5" />
-                      Verify
+                      <Trash2 />
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive"
-                    onClick={() => remove.mutate({ domain: d.domain })}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
+                  </div>
+                </Row>
+              ))}
+            </div>
+          )}
 
           <form
-            className="mt-3 flex gap-2"
+            className="flex gap-2"
             onSubmit={(e) => {
               e.preventDefault();
               if (draft.trim()) add.mutate({ domain: draft.trim().toLowerCase() });
@@ -109,20 +120,15 @@ export function CustomDomainsCard() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="share.yourcompany.com"
-              className="min-w-0 flex-1 rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+              className="studio-input flex-1"
             />
             <Button type="submit" disabled={add.isPending || !draft.trim()}>
               {add.isPending ? "Adding…" : "Add domain"}
             </Button>
           </form>
-          {data && !data.enabled && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Custom domains are a CaptureCat Pro feature —{" "}
-              <a href="/app/billing" className="underline">upgrade</a> to enable.
-            </p>
-          )}
-        </>
+          {data && !data.enabled && <UpgradeNote plan="pro">Custom domains are part of Pro.</UpgradeNote>}
+        </div>
       )}
-    </div>
+    </Section>
   );
 }

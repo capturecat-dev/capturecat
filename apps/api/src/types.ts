@@ -72,6 +72,17 @@ export interface Env {
    *  (each entry blocks the host and all subdomains), on top of the built-in
    *  private-range / localhost SSRF guard in lib/screenshot/params.ts. */
   SCREENSHOT_URL_BLOCKLIST?: string;
+
+  /** Cloudflare for SaaS — custom share domains. Zone id of capturecat.so
+   *  (not secret) and an API token with "SSL and Certificates: Edit" on that
+   *  zone (secret, `wrangler secret put CF_SAAS_API_TOKEN`). Without both,
+   *  POST /api/domains still records the domain but reports
+   *  `provisioning: "not_configured"` and the domain can never go live. */
+  CF_ZONE_ID?: string;
+  CF_SAAS_API_TOKEN?: string;
+  /** The hostname customers CNAME to. Must be a proxied, originless record
+   *  in the zone (see scripts/setup-saas.sh). Default customers.capturecat.so. */
+  CUSTOM_DOMAIN_CNAME_TARGET?: string;
 }
 
 export interface AuthUser {

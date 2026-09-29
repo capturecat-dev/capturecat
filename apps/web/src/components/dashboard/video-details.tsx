@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  ArrowLeft,
   BarChart3,
   Copy,
   ExternalLink,
@@ -20,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { VideoDetailSkeleton } from "@/components/dashboard/page-skeletons";
+import { PageHeader } from "@/components/dashboard/studio";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,13 +104,12 @@ export function VideoDetails({ videoId }: { videoId: string }) {
   if (!video) {
     return (
       <div className="space-y-4">
-        <Link
-          to="/app"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back to videos
-        </Link>
-        <p className="text-muted-foreground">Video not found — it may have been deleted.</p>
+        <PageHeader
+          back={{ to: "/app", label: "Library" }}
+          eyebrow="Video"
+          title="Not found"
+          description="This video may have been deleted."
+        />
       </div>
     );
   }
@@ -141,38 +140,36 @@ export function VideoDetails({ videoId }: { videoId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <Link
-            to="/app"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to videos
-          </Link>
-          <h1 className="mt-1 truncate text-xl font-semibold">{video.fileName}</h1>
-          <p className="text-sm text-muted-foreground">
-            {formatDuration(video.durationSeconds)} · {formatSize(video.fileSizeBytes)} ·
-            version {currentVersion} live
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/app/videos/$videoId/analytics" params={{ videoId: video.videoId }}>
-              <BarChart3 className="mr-2 h-4 w-4" /> Analytics
-            </Link>
-          </Button>
-          {!video.isPrivate && (
-            <Button variant="outline" size="sm" onClick={() => window.open(video.url, "_blank")}>
-              <ExternalLink className="mr-2 h-4 w-4" /> View share page
+      <PageHeader
+        back={{ to: "/app", label: "Library" }}
+        eyebrow="Video"
+        title={video.fileName}
+        description={
+          <span className="tabular-nums">
+            {formatDuration(video.durationSeconds)} · {formatSize(video.fileSizeBytes)} · version{" "}
+            {currentVersion} live
+          </span>
+        }
+        actions={
+          <>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/app/videos/$videoId/analytics" params={{ videoId: video.videoId }}>
+                <BarChart3 data-icon="inline-start" /> Analytics
+              </Link>
             </Button>
-          )}
-        </div>
-      </div>
+            {!video.isPrivate && (
+              <Button variant="outline" size="sm" onClick={() => window.open(video.url, "_blank")}>
+                <ExternalLink data-icon="inline-start" /> Share page
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         {/* Left column — settings */}
         <div className="space-y-4">
-          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-2xl">
+          <section className="glass-panel hairline-top p-5">
             <h2 className="text-sm font-semibold">Visibility</h2>
             <div className="mt-3 space-y-4">
               <label className="flex items-center justify-between gap-4">
@@ -250,7 +247,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-2xl">
+          <section className="glass-panel hairline-top p-5">
             <h2 className="text-sm font-semibold">Access controls</h2>
             <div className="mt-3 space-y-4">
               <div className="space-y-2">
@@ -269,49 +266,49 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={video.hasPassword ? "Unchanged — type to replace" : "Choose a password"}
-                    className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                    className="studio-input"
                   />
                 )}
               </div>
 
               <div className="grid min-w-0 grid-cols-2 gap-3">
                 <div className="min-w-0 space-y-1">
-                  <p className="text-sm font-medium">Expires</p>
+                  <p className="studio-eyebrow">Expires</p>
                   <input
                     type="date"
                     value={effExpiresAt}
                     onChange={(e) => setExpiresAt(e.target.value)}
-                    className="w-full min-w-0 rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                    className="studio-input"
                   />
                 </div>
                 <div className="min-w-0 space-y-1">
-                  <p className="text-sm font-medium">View limit</p>
+                  <p className="studio-eyebrow">View limit</p>
                   <input
                     type="number"
                     min={0}
                     value={effMaxViews}
                     onChange={(e) => setMaxViews(e.target.value)}
                     placeholder="Unlimited"
-                    className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                    className="studio-input"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm font-medium">Brand accent</p>
+                <p className="studio-eyebrow">Brand accent</p>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
                     value={/^#[0-9a-fA-F]{6}$/.test(effAccent) ? effAccent : "#FBBF24"}
                     onChange={(e) => setAccent(e.target.value.toUpperCase())}
-                    className="h-9 w-12 cursor-pointer rounded-md border bg-transparent"
+                    className="studio-input"
                   />
                   <input
                     type="text"
                     value={effAccent}
                     onChange={(e) => setAccent(e.target.value)}
                     placeholder="Default"
-                    className="w-28 rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                    className="studio-input w-28"
                   />
                   {effAccent && (
                     <Button variant="ghost" size="sm" onClick={() => setAccent("")}>
@@ -329,7 +326,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-2xl">
+          <section className="glass-panel hairline-top p-5">
             <h2 className="text-sm font-semibold">Call to action</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               A button on the share page — clicks are tracked in analytics as a
@@ -342,14 +339,14 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                 onChange={(e) => setCtaLabel(e.target.value)}
                 placeholder="Book a demo"
                 maxLength={60}
-                className="min-w-0 rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                className="studio-input"
               />
               <input
                 type="url"
                 value={ctaUrl ?? (video.ctaUrl ?? "")}
                 onChange={(e) => setCtaUrl(e.target.value)}
                 placeholder="https://example.com/demo"
-                className="min-w-0 rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                className="studio-input"
               />
               <div className="flex gap-1">
                 <Button
@@ -385,7 +382,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-2xl">
+          <section className="glass-panel hairline-top p-5">
             <div className="flex items-center gap-2">
               <History className="h-4 w-4 text-muted-foreground" />
               <h2 className="text-sm font-semibold">Version history</h2>
@@ -395,7 +392,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
               link — every previous cut is kept here. Restore one to make it live
               again, or delete it to free storage.
             </p>
-            <div className="mt-3 overflow-x-auto rounded-lg border">
+            <div className="studio-well mt-3 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -469,7 +466,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
 
         {/* Right column — preview + link */}
         <div className="space-y-4">
-          <section className="overflow-hidden rounded-2xl border border-white/10 bg-black">
+          <section className="studio-well overflow-hidden rounded-2xl bg-black">
             <video
               key={previewUrl}
               src={previewUrl}
@@ -479,10 +476,10 @@ export function VideoDetails({ videoId }: { videoId: string }) {
             />
           </section>
 
-          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-2xl">
-            <p className="text-xs font-medium text-muted-foreground">Share link</p>
+          <section className="glass-panel hairline-top p-5">
+            <p className="studio-eyebrow">Share link</p>
             <div className="mt-1 flex min-w-0 items-center gap-2">
-              <code className="block min-w-0 flex-1 truncate rounded-md border px-3 py-2 text-xs">
+              <code className="studio-well block min-w-0 flex-1 truncate px-3 py-2 text-xs">
                 {video.url}
               </code>
               <Button

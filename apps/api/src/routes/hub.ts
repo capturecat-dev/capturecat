@@ -2,10 +2,25 @@ import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import { requireAuth } from "../middleware/auth";
 import { requireEntitlement, userRateLimit } from "../lib/entitlement";
+import { z } from "zod";
 import { featuresForTier } from "../lib/plans";
+import { planForUser } from "../lib/entitlement";
+import { parseJsonBody } from "../lib/validate";
+import {
+  cnameTarget,
+  createCustomHostname,
+  deleteCustomHostname,
+  getCustomHostname,
+  saasConfigured,
+  type CustomHostname,
+} from "../lib/cloudflare-saas";
 import { generateId } from "../lib/id";
 import {
   deleteDomain,
+  domainIsLive,
+  getDomain,
+  setDomainCloudflareState,
+  type CustomDomain,
   getAISummary,
   getSharedVideo,
   getTranscript,
@@ -219,16 +234,34 @@ hubRoutes.post(
 const DOMAIN_RE =
   /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/;
 
-/** The CNAME target and the hostname a domain must point at. */
-const CNAME_TARGET = "capturecat.so";
+/**
+ * Custom share domains — Cloudflare for SaaS.
+ *
+ * Adding a domain does three things: records it, registers it as a custom
+ * hostname on our zone (so Cloudflare routes it and issues its certificate),
+ * and hands back the CNAME target. "Verify" checks our own CNAME lookup AND
+ * refreshes Cloudflare's hostname + certificate status; a domain only routes
+ * once both are active (`domainIsLive`). Removing a domain deletes the custom
+ * hostname so the certificate is not left behind.
+ */
 
 hubRoutes.get("/domains", requireAuth, requireEntitlement(), async (c) => {
   const features = await featuresForTier(c.env.DB, c.get("entitlement").tier, c.get("entitlement").planName);
   return c.json({
     enabled: features.customDomain,
-    cnameTarget: CNAME_TARGET,
-    domains: await listDomains(c.env.DB, c.get("user").uid),
+    cnameTarget: cnameTarget(c.env),
+    provisioning: saasConfigured(c.env) ? "cloudflare" : "not_configured",
+    domains: (await listDomains(c.env.DB, c.get("user").uid)).map(publicDomain),
   });
+});
+
+const DomainBodySchema = z.object({
+  domain: z
+    .string({ error: "domain is required" })
+    .trim()
+    .toLowerCase()
+    .max(253, { error: "Domain is too long" })
+    .regex(DOMAIN_RE, { error: "Enter a valid domain, e.g. share.yourcompany.com" }),
 });
 
 hubRoutes.post("/domains", requireAuth, requireEntitlement(), async (c) => {
@@ -236,73 +269,177 @@ hubRoutes.post("/domains", requireAuth, requireEntitlement(), async (c) => {
   if (!features.customDomain) {
     return c.json({ error: "Custom domains require CaptureCat Pro" }, 402);
   }
-  const body: { domain?: unknown } = await c.req.json().catch(() => ({}));
-  const domain =
-    typeof body.domain === "string" ? body.domain.trim().toLowerCase() : "";
-  if (!DOMAIN_RE.test(domain) || domain.length > 253) {
-    return c.json({ error: "Enter a valid domain, e.g. share.yourcompany.com" }, 400);
-  }
-  if (domain.endsWith("capturecat.so")) {
+  const parsed = await parseJsonBody(c.req, DomainBodySchema, { emptyOnInvalidJson: true });
+  if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+  const { domain } = parsed.data;
+  if (domain === "capturecat.so" || domain.endsWith(".capturecat.so")) {
     return c.json({ error: "That domain is reserved" }, 400);
   }
-  const existing = (await listDomains(c.env.DB, c.get("user").uid)).length;
-  if (existing >= 3) return c.json({ error: "Domain limit reached" }, 400);
+  const uid = c.get("user").uid;
+  const existing = await listDomains(c.env.DB, uid);
+  if (existing.length >= MAX_DOMAINS_PER_USER) return c.json({ error: "Domain limit reached" }, 400);
   // A claim is only a reservation until DNS verification: drop stale
   // unverified claims so squatting a domain someone else owns lapses in a
   // day instead of blocking the real owner forever.
   await c.env.DB.prepare(
     "DELETE FROM custom_domains WHERE domain = ? AND verified = 0 AND created_at < ?"
   ).bind(domain, new Date(Date.now() - 24 * 3600 * 1000).toISOString()).run();
-  if (!(await insertDomain(c.env.DB, domain, c.get("user").uid))) {
+  if (!(await insertDomain(c.env.DB, domain, uid))) {
     return c.json({ error: "That domain is already in use" }, 409);
   }
-  return c.json({ domain, verified: false, cnameTarget: CNAME_TARGET });
+
+  // Register with Cloudflare now so the certificate is issued the moment the
+  // customer's CNAME lands. A failure here is reported, not hidden: the row
+  // stays, and Verify retries the registration.
+  let provisioning: "cloudflare" | "not_configured" | "error" = "not_configured";
+  let hostname: CustomHostname | null = null;
+  if (saasConfigured(c.env)) {
+    try {
+      hostname = await createCustomHostname(c.env, domain);
+      await setDomainCloudflareState(c.env.DB, domain, {
+        cfHostnameId: hostname.id,
+        cfStatus: hostname.status,
+        cfSslStatus: hostname.sslStatus,
+      });
+      provisioning = "cloudflare";
+    } catch (err) {
+      console.error("domains: Cloudflare custom hostname create failed", err);
+      provisioning = "error";
+    }
+  } else {
+    console.error("domains: CF_ZONE_ID / CF_SAAS_API_TOKEN not set — domain recorded but cannot go live");
+  }
+
+  const record = await getDomain(c.env.DB, domain);
+  return c.json({
+    ...(record ? publicDomain(record) : { domain, verified: false, live: false }),
+    cnameTarget: cnameTarget(c.env),
+    provisioning,
+    ownershipVerification: hostname?.ownershipVerification ?? null,
+  });
 });
 
-/** DNS check via Cloudflare's DoH resolver: the domain must CNAME (or
- *  flatten) to something that resolves to us. */
+/** DNS check via Cloudflare's DoH resolver (the domain must CNAME, or
+ *  flatten, to our CNAME target) plus a refresh of Cloudflare's own view of
+ *  the hostname. */
 hubRoutes.post("/domains/:domain/verify", requireAuth, requireEntitlement(), async (c) => {
+  const features = await featuresForTier(c.env.DB, c.get("entitlement").tier, c.get("entitlement").planName);
+  if (!features.customDomain) {
+    return c.json({ error: "Custom domains require CaptureCat Pro" }, 402);
+  }
   const uid = c.get("user").uid;
   const domain = c.req.param("domain").toLowerCase();
-  const owned = (await listDomains(c.env.DB, uid)).some((d) => d.domain === domain);
-  if (!owned) return c.json({ error: "Domain not found" }, 404);
+  const record = (await listDomains(c.env.DB, uid)).find((d) => d.domain === domain);
+  if (!record) return c.json({ error: "Domain not found" }, 404);
 
-  const resp = await fetch(
-    `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=CNAME`,
-    { headers: { Accept: "application/dns-json" } }
-  );
-  const dns = (await resp.json().catch(() => ({}))) as {
-    Answer?: Array<{ type: number; data: string }>;
-  };
-  const cnames = (dns.Answer ?? [])
-    .filter((a) => a.type === 5)
-    .map((a) => a.data.replace(/\.$/, "").toLowerCase());
-  const verified = cnames.some(
-    (target) => target === CNAME_TARGET || target.endsWith(`.${CNAME_TARGET}`)
-  );
+  const target = cnameTarget(c.env);
+  const cnames = await lookupCnames(domain);
+  const verified = cnames.some((t) => t === target || t === "capturecat.so" || t.endsWith(`.capturecat.so`));
   await setDomainVerified(c.env.DB, domain, verified);
+
+  // Cloudflare's side: register if the add failed earlier, then read status.
+  let hostname: CustomHostname | null = null;
+  let provisioning: "cloudflare" | "not_configured" | "error" = "not_configured";
+  if (saasConfigured(c.env)) {
+    try {
+      hostname = record.cfHostnameId
+        ? await getCustomHostname(c.env, record.cfHostnameId)
+        : null;
+      if (!hostname) hostname = await createCustomHostname(c.env, domain);
+      await setDomainCloudflareState(c.env.DB, domain, {
+        cfHostnameId: hostname.id,
+        cfStatus: hostname.status,
+        cfSslStatus: hostname.sslStatus,
+      });
+      provisioning = "cloudflare";
+    } catch (err) {
+      console.error("domains: Cloudflare status refresh failed", err);
+      provisioning = "error";
+    }
+  }
+
+  const fresh = await getDomain(c.env.DB, domain);
+  // The resolve endpoint is edge-cached; a domain that just went live (or
+  // just lost verification) must not wait five minutes.
+  await caches.default
+    .delete(new Request(`https://domains.internal/resolve/${encodeURIComponent(domain)}`))
+    .catch(() => {});
   return c.json({
-    domain,
-    verified,
+    ...(fresh ? publicDomain(fresh) : { domain, verified, live: false }),
     found: cnames,
-    expected: CNAME_TARGET,
+    expected: target,
+    provisioning,
+    ownershipVerification: hostname?.ownershipVerification ?? null,
+    verificationErrors: hostname?.verificationErrors ?? [],
   });
 });
 
 hubRoutes.delete("/domains/:domain", requireAuth, async (c) => {
-  await deleteDomain(c.env.DB, c.req.param("domain").toLowerCase(), c.get("user").uid);
+  const uid = c.get("user").uid;
+  const domain = c.req.param("domain").toLowerCase();
+  const record = (await listDomains(c.env.DB, uid)).find((d) => d.domain === domain);
+  if (record?.cfHostnameId && saasConfigured(c.env)) {
+    try {
+      await deleteCustomHostname(c.env, record.cfHostnameId);
+    } catch (err) {
+      // Never strand the user with a domain they cannot remove; the
+      // orphaned hostname is visible in the Cloudflare dashboard.
+      console.error("domains: Cloudflare custom hostname delete failed", err);
+    }
+  }
+  await deleteDomain(c.env.DB, domain, uid);
+  await caches.default
+    .delete(new Request(`https://domains.internal/resolve/${encodeURIComponent(domain)}`))
+    .catch(() => {});
   return c.json({ ok: true });
 });
 
-/** Public resolve for the web Worker's host-routing middleware. Edge-cached
- *  hard (5 min) — it runs on every request to a custom host. */
+/** Public resolve for the web Worker's host routing. A host is "found" only
+ *  when it is LIVE (DNS + Cloudflare hostname + certificate) AND its owner's
+ *  plan still includes custom domains — a cancelled Pro must not keep a
+ *  branded share host. Edge-cached 5 min per colo; verify/delete purge it. */
 hubRoutes.get("/domains/resolve", async (c) => {
   const host = (c.req.query("host") ?? "").toLowerCase();
   if (!DOMAIN_RE.test(host)) return c.json({ found: false });
+  const cacheKey = new Request(`https://domains.internal/resolve/${encodeURIComponent(host)}`);
+  const hit = await caches.default.match(cacheKey).catch(() => undefined);
+  if (hit) return hit;
   const record = await resolveDomain(c.env.DB, host);
-  return c.json(
-    { found: record !== null },
-    200,
-    { "Cache-Control": "public, s-maxage=300" }
-  );
+  let found = record !== null && domainIsLive(record);
+  if (found && record) {
+    found = (await planForUser(c.env, record.uid)).features.customDomain;
+  }
+  const res = c.json({ found }, 200, { "Cache-Control": "public, s-maxage=300" });
+  await caches.default.put(cacheKey, res.clone()).catch(() => {});
+  return res;
 });
+
+const MAX_DOMAINS_PER_USER = 3;
+
+function publicDomain(d: CustomDomain) {
+  return {
+    domain: d.domain,
+    verified: d.verified,
+    live: domainIsLive(d),
+    cfStatus: d.cfStatus,
+    cfSslStatus: d.cfSslStatus,
+    createdAt: d.createdAt,
+  };
+}
+
+async function lookupCnames(domain: string): Promise<string[]> {
+  try {
+    const resp = await fetch(
+      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=CNAME`,
+      { headers: { Accept: "application/dns-json" } }
+    );
+    const dns = (await resp.json().catch(() => ({}))) as {
+      Answer?: Array<{ type: number; data: string }>;
+    };
+    return (dns.Answer ?? [])
+      .filter((a) => a.type === 5)
+      .map((a) => a.data.replace(/\.$/, "").toLowerCase());
+  } catch {
+    return [];
+  }
+}
