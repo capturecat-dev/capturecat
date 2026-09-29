@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { BillingStatus } from "@/components/dashboard/billing-status";
+import { PageHeader } from "@/components/dashboard/studio";
 
 const searchSchema = z.object({
   success: z.string().optional(),
@@ -17,12 +18,11 @@ function BillingPage() {
   const { success } = Route.useSearch();
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground">
-          Manage your subscription and billing.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Account"
+        title="Billing"
+        description="Your plan, what it includes, and where to change it."
+      />
       <BillingStatus success={success === "true"} />
     </div>
   );

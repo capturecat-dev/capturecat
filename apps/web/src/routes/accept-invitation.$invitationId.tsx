@@ -71,8 +71,8 @@ function AcceptInvitationPage() {
   };
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-lg border p-6 text-center">
+    <main className="flex min-h-svh items-center justify-center bg-background p-6">
+      <div className="glass-panel hairline-top w-full max-w-sm rounded-3xl p-8 text-center">
         {invalid ? (
           <>
             <h1 className="text-lg font-semibold">Invitation not found</h1>

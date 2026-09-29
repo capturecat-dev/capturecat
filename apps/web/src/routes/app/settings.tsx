@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { CustomDomainsCard } from "@/components/dashboard/custom-domains-card";
 import { ProfileCard } from "@/components/dashboard/profile-card";
+import { PageHeader, Sections } from "@/components/dashboard/studio";
 
 export const Route = createFileRoute("/app/settings")({
   component: SettingsPage,
@@ -11,14 +12,15 @@ export const Route = createFileRoute("/app/settings")({
 function SettingsPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Account settings and preferences.
-        </p>
-      </div>
-      <ProfileCard />
-      <CustomDomainsCard />
+      <PageHeader
+        eyebrow="Account"
+        title="Settings"
+        description="Your public profile and the domains your share links live on."
+      />
+      <Sections className="max-w-3xl">
+        <ProfileCard />
+        <CustomDomainsCard />
+      </Sections>
     </div>
   );
 }

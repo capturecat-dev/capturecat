@@ -32,7 +32,10 @@ import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import { requireAuth } from "../middleware/auth";
 import { PAID_SUBSCRIPTION_STATUSES } from "../lib/stripe";
-import { listPlans } from "../lib/plans";
+import { z } from "zod";
+import { listPlans, PlanFeaturesInputSchema, PlanLimitsInputSchema } from "../lib/plans";
+import { parseJsonBody } from "../lib/validate";
+import { purgePlanCache } from "../lib/entitlement";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -155,6 +158,9 @@ adminRoutes.post("/admin/users/:id/entitlement", async (c) => {
   if ((res.meta?.changes ?? 0) === 0) {
     return c.json({ error: "User not found" }, 404);
   }
+  // The share/comment/domain paths cache the owner's plan per colo for 60 s;
+  // an admin edit should show up on the next request, not the next minute.
+  await purgePlanCache(userId);
 
   // Blocking must also end the sessions. `resolveTier()` re-reads the user row
   // on every request (session.cookieCache is off on purpose), so a `tester`
@@ -244,35 +250,33 @@ adminRoutes.get("/admin/plans", async (c) => {
  * paying for — the row would no longer resolve and they would silently drop to
  * free. Create a new plan instead.
  */
-adminRoutes.put("/admin/plans/:id", async (c) => {
-  const id = c.req.param("id");
-  type Body = {
-    displayName?: unknown;
-    description?: unknown;
-    priceId?: unknown;
-    annualPriceId?: unknown;
-    trialDays?: unknown;
-    features?: unknown;
-    limits?: unknown;
-    sortOrder?: unknown;
-    isActive?: unknown;
-  };
-  const body: Body = await c.req.json<Body>().catch(() => ({}) as Body);
+/** Trimmed; blank → null so the DB never stores "". */
+const optionalText = z
+  .string()
+  .nullish()
+  .transform((v) => v?.trim() || null);
 
-  const str = (v: unknown) => (typeof v === "string" ? v.trim() : null);
-  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.trunc(v) : null);
-
-  if (typeof body.displayName !== "string" || !body.displayName.trim()) {
-    return c.json({ error: "displayName is required" }, 400);
-  }
+const PlanUpdateSchema = z.object({
+  displayName: z.string().trim().min(1, { error: "displayName is required" }),
+  description: optionalText,
+  priceId: optionalText,
+  annualPriceId: optionalText,
+  trialDays: z.int().min(0).default(0),
   // Objects, not strings: accepting pre-serialised JSON here would let a typo
   // write an unparseable blob that silently denies every feature at runtime.
-  if (typeof body.features !== "object" || body.features === null) {
-    return c.json({ error: "features must be an object" }, 400);
-  }
-  if (typeof body.limits !== "object" || body.limits === null) {
-    return c.json({ error: "limits must be an object" }, 400);
-  }
+  // STRICT shapes: an unknown key is a 400, never a flag nothing reads.
+  features: PlanFeaturesInputSchema,
+  limits: PlanLimitsInputSchema,
+  sortOrder: z.int().default(0),
+  isActive: z.boolean().default(true),
+});
+
+adminRoutes.put("/admin/plans/:id", async (c) => {
+  const id = c.req.param("id");
+  const parsed = await parseJsonBody(c.req, PlanUpdateSchema, { emptyOnInvalidJson: true });
+  if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+  const body = parsed.data;
+
   // The free plan is the fallback tier every unpaid user resolves to —
   // hiding it would leave signed-in users with no feature set at all.
   if (body.isActive === false) {
@@ -292,15 +296,15 @@ adminRoutes.put("/admin/plans/:id", async (c) => {
       WHERE id = ?`
   )
     .bind(
-      body.displayName.trim(),
-      str(body.description),
-      str(body.priceId) || null,
-      str(body.annualPriceId) || null,
-      num(body.trialDays) ?? 0,
+      body.displayName,
+      body.description,
+      body.priceId,
+      body.annualPriceId,
+      body.trialDays,
       JSON.stringify(body.features),
       JSON.stringify(body.limits),
-      num(body.sortOrder) ?? 0,
-      body.isActive === false ? 0 : 1,
+      body.sortOrder,
+      body.isActive ? 1 : 0,
       id
     )
     .run();
@@ -425,21 +429,23 @@ adminRoutes.post("/admin/plans/:id/refresh-stripe", async (c) => {
   });
 });
 
-adminRoutes.post("/admin/plans", async (c) => {
-  type Body = { name?: unknown; displayName?: unknown };
-  const body: Body = await c.req.json<Body>().catch(() => ({}) as Body);
-  const name = typeof body.name === "string" ? body.name.trim().toLowerCase() : "";
-  const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
-
+const PlanCreateSchema = z.object({
   // The name becomes the identity @better-auth/stripe writes onto every
   // subscription row, so keep it to a slug rather than free text.
-  if (!/^[a-z][a-z0-9_-]{1,31}$/.test(name)) {
-    return c.json(
-      { error: "name must be a lowercase slug, 2-32 chars, starting with a letter" },
-      400
-    );
-  }
-  if (!displayName) return c.json({ error: "displayName is required" }, 400);
+  name: z
+    .string({ error: "name is required" })
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z][a-z0-9_-]{1,31}$/, {
+      error: "name must be a lowercase slug, 2-32 chars, starting with a letter",
+    }),
+  displayName: z.string({ error: "displayName is required" }).trim().min(1, { error: "displayName is required" }),
+});
+
+adminRoutes.post("/admin/plans", async (c) => {
+  const parsed = await parseJsonBody(c.req, PlanCreateSchema, { emptyOnInvalidJson: true });
+  if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+  const { name, displayName } = parsed.data;
 
   const exists = await c.env.DB.prepare(`SELECT 1 FROM plan WHERE name = ?`).bind(name).first();
   if (exists) return c.json({ error: `A plan named "${name}" already exists` }, 409);

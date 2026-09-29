@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
+  BadgeCheck,
   Copy,
   KeyRound,
+  ShieldCheck,
   Trash2,
   UserPlus,
   Users,
@@ -11,22 +13,23 @@ import {
 
 import { authClient } from "@/lib/auth-client";
 import { API_URL, SITE_URL } from "@/lib/api-url";
+import { trpc } from "@/lib/trpc/client";
+import type { SsoProvider } from "@/lib/trpc/routers/sso";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { TeamAvatar } from "@/components/dashboard/team-avatar";
 import { TeamSkeleton, SkeletonLines } from "@/components/dashboard/page-skeletons";
-import { useRef } from "react";
+import { EmptyNote, Field, Panel, PlanChip, Row, Section, Sections, UpgradeNote } from "@/components/dashboard/studio";
 
 /**
- * Teams — backed entirely by the Better Auth organization plugin on the API
- * (no tRPC layer: the auth client already speaks these endpoints, credentialed
- * and CSRF-checked server-side).
+ * Teams — members and the shared library ride the Better Auth organization
+ * plugin directly from the browser (the auth client already speaks those
+ * endpoints, credentialed and CSRF-checked server-side). SSO goes through
+ * tRPC (`routers/sso.ts`) so the overview, verification and provider CRUD
+ * are typed and validated in one place.
  *
  * Invitations are LINK-based: the server deliberately sends no email, so the
- * pending list surfaces a copyable accept URL instead. SSO registration is
- * entitlement-gated server-side (features.sso); this card renders for org
- * owners/admins and lets the API refuse.
+ * pending list surfaces a copyable accept URL instead.
  */
 
 type Member = {
@@ -73,28 +76,30 @@ function CreateTeamCard() {
   };
 
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center gap-2">
-        <Users className="h-4 w-4" />
-        <h2 className="text-sm font-medium">Create your team</h2>
-      </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        A shared library for your company’s recordings — invite teammates,
-        collect every share in one place, and (on Business) bring your own
-        SSO.
-      </p>
-      <div className="mt-3 flex gap-2">
-        <Input
+    <Panel
+      className="max-w-3xl"
+      icon={<Users />}
+      title="Create your team"
+      description="A shared library for your company’s recordings — invite teammates, collect every share in one place, and (on Business) bring your own single sign-on."
+    >
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void create();
+        }}
+      >
+        <input
+          className="studio-input flex-1"
           placeholder="Team name, e.g. Acme Inc"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && void create()}
         />
-        <Button onClick={() => void create()} disabled={busy || !name.trim()}>
+        <Button type="submit" disabled={busy || !name.trim()}>
           Create team
         </Button>
-      </div>
-    </div>
+      </form>
+    </Panel>
   );
 }
 
@@ -118,7 +123,7 @@ function TeamDetail({ orgId, orgName }: { orgId: string; orgName: string }) {
   const canManage = myRole === "owner" || myRole === "admin";
 
   return (
-    <div className="space-y-6">
+    <Sections className="max-w-3xl">
       <MembersCard
         orgId={orgId}
         orgName={orgName}
@@ -128,7 +133,7 @@ function TeamDetail({ orgId, orgName }: { orgId: string; orgName: string }) {
       />
       <TeamLibraryCard orgId={orgId} />
       {canManage && <SsoCard orgId={orgId} />}
-    </div>
+    </Sections>
   );
 }
 
@@ -167,33 +172,32 @@ function MembersCard({
   };
 
   const copyInviteLink = (invitationId: string) => {
-    void navigator.clipboard.writeText(
-      `${SITE_URL}/accept-invitation/${invitationId}`
-    );
+    void navigator.clipboard.writeText(`${SITE_URL}/accept-invitation/${invitationId}`);
     toast.success("Invite link copied");
   };
 
   const pending = (full?.invitations ?? []).filter((i) => i.status === "pending");
+  const memberCount = full?.members.length;
 
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center gap-3">
-        <TeamAvatar name={orgName} logo={full?.logo} size={40} />
-        <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-medium">{orgName}</h2>
-          <p className="text-xs text-muted-foreground">
-            {full?.members.length ?? "…"} member{full?.members.length === 1 ? "" : "s"}
-          </p>
-        </div>
-        {canManage && <LogoUploadButton orgId={orgId} onUploaded={refresh} />}
-      </div>
-
-      <div className="mt-3 space-y-2">
+    <Section
+      title={
+        <span className="flex items-center gap-3">
+          <TeamAvatar name={orgName} logo={full?.logo} size={32} />
+          {orgName}
+        </span>
+      }
+      description={
+        memberCount === undefined
+          ? "Loading members…"
+          : `${memberCount} member${memberCount === 1 ? "" : "s"}${pending.length ? ` · ${pending.length} invited` : ""}`
+      }
+      actions={canManage ? <LogoUploadButton orgId={orgId} onUploaded={refresh} /> : undefined}
+    >
+      <div className="space-y-2">
+        {!full && <SkeletonLines lines={3} />}
         {(full?.members ?? []).map((m) => (
-          <div
-            key={m.id}
-            className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
-          >
+          <Row key={m.id}>
             <div className="min-w-0">
               <span className="truncate text-sm">{m.user.name || m.user.email}</span>
               <span className="ml-2 text-xs text-muted-foreground">{m.user.email}</span>
@@ -205,9 +209,8 @@ function MembersCard({
               {canManage && m.role !== "owner" && (
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  title="Remove from team"
+                  size="icon-xs"
+                  aria-label="Remove from team"
                   onClick={async () => {
                     const { error } = await authClient.organization.removeMember({
                       memberIdOrEmail: m.user.email,
@@ -217,65 +220,64 @@ function MembersCard({
                     else await refresh();
                   }}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 />
                 </Button>
               )}
             </div>
-          </div>
+          </Row>
         ))}
 
         {pending.map((i) => (
-          <div
-            key={i.id}
-            className="flex items-center justify-between gap-3 rounded-md border border-dashed px-3 py-2"
-          >
+          <Row key={i.id} dashed>
             <div className="min-w-0">
               <span className="truncate text-sm">{i.email}</span>
-              <Badge variant="outline" className="ml-2 text-[10px]">invited</Badge>
+              <Badge variant="outline" className="ml-2 text-[10px]">
+                invited
+              </Badge>
             </div>
             {canManage && (
               <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1 text-xs"
-                  onClick={() => copyInviteLink(i.id)}
-                >
-                  <Copy className="h-3 w-3" /> Copy link
+                <Button variant="ghost" size="xs" onClick={() => copyInviteLink(i.id)}>
+                  <Copy data-icon="inline-start" /> Copy link
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  title="Cancel invitation"
+                  size="icon-xs"
+                  aria-label="Cancel invitation"
                   onClick={async () => {
                     await authClient.organization.cancelInvitation({ invitationId: i.id });
                     await refresh();
                   }}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 />
                 </Button>
               </div>
             )}
-          </div>
+          </Row>
         ))}
       </div>
 
       {canManage && (
-        <div className="mt-3 flex gap-2">
-          <Input
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void invite();
+          }}
+        >
+          <input
+            className="studio-input flex-1"
             placeholder="teammate@company.com"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && void invite()}
           />
-          <Button onClick={() => void invite()} disabled={busy || !email.trim()}>
-            <UserPlus className="mr-1 h-4 w-4" /> Invite
+          <Button type="submit" disabled={busy || !email.trim()}>
+            <UserPlus data-icon="inline-start" /> Invite
           </Button>
-        </div>
+        </form>
       )}
-    </div>
+    </Section>
   );
 }
 
@@ -362,95 +364,349 @@ function TeamLibraryCard({ orgId }: { orgId: string }) {
   }, [orgId]);
 
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center gap-2">
-        <Video className="h-4 w-4" />
-        <h2 className="text-sm font-medium">Team library</h2>
-      </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Videos teammates shared to the team. Add yours from a video’s share
-        settings.
-      </p>
-      <div className="mt-3 space-y-2">
+    <Section
+      icon={<Video />}
+      title="Team library"
+      badge={<PlanChip plan="pro" />}
+      description="Videos teammates shared to the team. Add yours from a video’s share settings."
+    >
+      <div className="space-y-2">
         {!loaded && <SkeletonLines lines={2} />}
-        {loaded && videos.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nothing here yet.</p>
-        )}
+        {loaded && videos.length === 0 && <EmptyNote>Nothing here yet.</EmptyNote>}
         {videos.map((v) => (
-          <a
-            key={v.videoId}
-            href={v.url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 hover:bg-muted/40"
-          >
+          <a key={v.videoId} href={v.url} target="_blank" rel="noreferrer" className="studio-row">
             <span className="truncate text-sm">{v.fileName}</span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground tabular-nums">
               {new Date(v.createdAt).toLocaleDateString()}
             </span>
           </a>
         ))}
       </div>
+    </Section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Single sign-on                                                      */
+/* ------------------------------------------------------------------ */
+
+function CopyValue({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <span className="studio-eyebrow block">{label}</span>
+      <div className="mt-1 flex min-w-0 items-center gap-2">
+        <code className={"studio-well block min-w-0 flex-1 truncate px-3 py-2 text-xs " + (mono ? "" : "font-sans")}>
+          {value}
+        </code>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label={`Copy ${label}`}
+          onClick={() => {
+            void navigator.clipboard.writeText(value);
+            toast.success(`${label} copied`);
+          }}
+        >
+          <Copy />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ProviderRow({
+  orgId,
+  provider,
+  canManage,
+  onChanged,
+}: {
+  orgId: string;
+  provider: SsoProvider;
+  canManage: boolean;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(!provider.domainVerified);
+  const verify = trpc.sso.verifyDomain.useMutation({
+    onSuccess: (r) => {
+      if (r.domainVerified) toast.success(`${provider.domain} verified — teammates can sign in with SSO`);
+      else
+        toast.error(
+          r.found.length
+            ? `TXT record found but it does not match yet (${r.found.length} value${r.found.length === 1 ? "" : "s"}). DNS can take a few minutes.`
+            : "No TXT record found yet. DNS can take a few minutes.",
+        );
+      onChanged();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const remove = trpc.sso.remove.useMutation({
+    onSuccess: () => {
+      toast.success("Identity provider removed");
+      onChanged();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/[0.025]">
+      <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm">{provider.domain}</span>
+          <Badge variant="outline" className="text-[10px] uppercase">
+            {provider.type}
+          </Badge>
+          {provider.domainVerified ? (
+            <Badge className="gap-1 text-[10px]">
+              <BadgeCheck /> verified
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-[10px]">
+              pending DNS
+            </Badge>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button variant="ghost" size="xs" onClick={() => setOpen((v) => !v)}>
+            {open ? "Hide setup" : "Setup"}
+          </Button>
+          {canManage && (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="text-destructive hover:text-destructive"
+              aria-label={`Remove ${provider.providerId}`}
+              disabled={remove.isPending}
+              onClick={() => {
+                if (window.confirm(`Remove the ${provider.domain} identity provider? Teammates will no longer be able to sign in with it.`)) {
+                  remove.mutate({ providerId: provider.providerId });
+                }
+              }}
+            >
+              <Trash2 />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {open && (
+        <div className="space-y-4 border-t border-white/8 px-3.5 py-3.5">
+          {!provider.domainVerified && provider.dnsRecord && (
+            <div className="space-y-3">
+              <p className="text-[13px] text-muted-foreground">
+                <span className="text-foreground">Step 1 — prove you own {provider.domain}.</span>{" "}
+                Add this TXT record at your DNS host, then click Verify. Sign-in stays off until it
+                passes.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <CopyValue label="TXT name" value={provider.dnsRecord.name} />
+                <CopyValue label="TXT value" value={provider.dnsRecord.value} />
+              </div>
+              {canManage && (
+                <Button
+                  size="sm"
+                  disabled={verify.isPending}
+                  onClick={() => verify.mutate({ organizationId: orgId, providerId: provider.providerId })}
+                >
+                  <ShieldCheck data-icon="inline-start" />
+                  {verify.isPending ? "Checking DNS…" : "Verify domain"}
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <p className="text-[13px] text-muted-foreground">
+              <span className="text-foreground">
+                {provider.domainVerified ? "In your identity provider." : "Step 2 — in your identity provider."}
+              </span>{" "}
+              {provider.type === "oidc"
+                ? "Register this redirect URI on the OIDC application."
+                : "Configure the service provider with these values."}
+            </p>
+            {provider.type === "oidc" ? (
+              <div className="grid gap-3">
+                <CopyValue label="Redirect URI" value={provider.redirectUri} />
+                {provider.oidc?.discoveryEndpoint && (
+                  <CopyValue label="Discovery" value={provider.oidc.discoveryEndpoint} />
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                <CopyValue label="ACS URL" value={provider.samlAcsUrl} />
+                <CopyValue label="SP metadata" value={provider.samlMetadataUrl} />
+              </div>
+            )}
+          </div>
+
+          {provider.domainVerified && (
+            <p className="text-[13px] text-muted-foreground">
+              Teammates sign in at{" "}
+              <a href={`${SITE_URL}/login`} className="text-foreground underline underline-offset-4">
+                {SITE_URL.replace(/^https?:\/\//, "")}/login
+              </a>{" "}
+              with “Use single sign-on” and their @{provider.domain} address, or from the app’s
+              sign-in screen. They join this team automatically.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 function SsoCard({ orgId }: { orgId: string }) {
-  const [providerId, setProviderId] = useState("");
+  const utils = trpc.useUtils();
+  const { data, isLoading } = trpc.sso.overview.useQuery({ organizationId: orgId });
+  const refresh = () => void utils.sso.overview.invalidate({ organizationId: orgId });
+
+  const [kind, setKind] = useState<"oidc" | "saml">("oidc");
+  const [adding, setAdding] = useState(false);
   const [domain, setDomain] = useState("");
+  const [providerId, setProviderId] = useState("");
   const [issuer, setIssuer] = useState("");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [entryPoint, setEntryPoint] = useState("");
+  const [cert, setCert] = useState("");
 
-  const register = async () => {
-    setBusy(true);
-    const { error } = await authClient.sso.register({
-      providerId: providerId.trim() || domain.trim().replace(/\W+/g, "-"),
-      issuer: issuer.trim(),
-      domain: domain.trim().toLowerCase(),
-      organizationId: orgId,
-      oidcConfig: {
-        clientId: clientId.trim(),
-        clientSecret: clientSecret.trim(),
-        issuer: issuer.trim(),
-        discoveryEndpoint: `${issuer.trim().replace(/\/$/, "")}/.well-known/openid-configuration`,
-      },
-    } as Parameters<typeof authClient.sso.register>[0]);
-    setBusy(false);
-    if (error) toast.error(error.message ?? "SSO registration failed");
-    else {
-      toast.success("Identity provider registered — test with an @" + domain + " account");
-      setProviderId(""); setDomain(""); setIssuer(""); setClientId(""); setClientSecret("");
+  const reset = () => {
+    setAdding(false);
+    setDomain("");
+    setProviderId("");
+    setIssuer("");
+    setClientId("");
+    setClientSecret("");
+    setEntryPoint("");
+    setCert("");
+  };
+  const onRegistered = () => {
+    toast.success("Identity provider added — publish the TXT record, then verify");
+    reset();
+    refresh();
+  };
+  const registerOidc = trpc.sso.registerOidc.useMutation({ onSuccess: onRegistered, onError: (e) => toast.error(e.message) });
+  const registerSaml = trpc.sso.registerSaml.useMutation({ onSuccess: onRegistered, onError: (e) => toast.error(e.message) });
+
+  const suggestedId = providerId.trim() || domain.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const busy = registerOidc.isPending || registerSaml.isPending;
+  const canSubmit =
+    !!domain.trim() &&
+    !!issuer.trim() &&
+    (kind === "oidc" ? !!clientId.trim() && !!clientSecret.trim() : !!entryPoint.trim() && cert.trim().length > 40);
+
+  const submit = () => {
+    if (kind === "oidc") {
+      registerOidc.mutate({ organizationId: orgId, providerId: suggestedId, domain, issuer, clientId, clientSecret });
+    } else {
+      registerSaml.mutate({ organizationId: orgId, providerId: suggestedId, domain, issuer, entryPoint, cert, apiOrigin: API_URL });
     }
   };
 
+  const providers = data?.providers ?? [];
+
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center gap-2">
-        <KeyRound className="h-4 w-4" />
-        <h2 className="text-sm font-medium">Single sign-on</h2>
-        <Badge variant="secondary" className="text-[10px]">BUSINESS</Badge>
-      </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Connect your identity provider (Okta, Entra, Google Workspace — any
-        OIDC IdP). Teammates on your email domain sign in through it and join
-        this team automatically.
-      </p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <Input placeholder="Email domain, e.g. acme.com" value={domain} onChange={(e) => setDomain(e.target.value)} />
-        <Input placeholder="Issuer URL, e.g. https://acme.okta.com" value={issuer} onChange={(e) => setIssuer(e.target.value)} />
-        <Input placeholder="OIDC client ID" value={clientId} onChange={(e) => setClientId(e.target.value)} />
-        <Input placeholder="OIDC client secret" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} />
-        <Input placeholder="Provider ID (optional, e.g. acme-okta)" value={providerId} onChange={(e) => setProviderId(e.target.value)} className="sm:col-span-2" />
-      </div>
-      <Button
-        className="mt-3"
-        onClick={() => void register()}
-        disabled={busy || !domain.trim() || !issuer.trim() || !clientId.trim() || !clientSecret.trim()}
-      >
-        Register provider
-      </Button>
-    </div>
+    <Section
+      icon={<KeyRound />}
+      title="Single sign-on"
+      badge={<PlanChip plan="business" />}
+      description="Connect your identity provider — Okta, Microsoft Entra, Google Workspace, or any OIDC or SAML IdP. Teammates on your email domain sign in through it and join this team automatically."
+      actions={
+        data?.enabled && data.canManage && !adding ? (
+          <Button size="sm" onClick={() => setAdding(true)}>
+            Add provider
+          </Button>
+        ) : undefined
+      }
+    >
+      {isLoading ? (
+        <SkeletonLines lines={3} />
+      ) : (
+        <div className="space-y-4">
+          {providers.length === 0 && !adding ? (
+            <EmptyNote>No identity provider connected yet.</EmptyNote>
+          ) : (
+            <div className="space-y-2">
+              {providers.map((p) => (
+                <ProviderRow key={p.providerId} orgId={orgId} provider={p} canManage={!!data?.canManage} onChanged={refresh} />
+              ))}
+            </div>
+          )}
+
+          {adding && data?.enabled && (
+            <form
+              className="space-y-4 rounded-xl border border-white/8 bg-white/[0.025] p-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (canSubmit && !busy) submit();
+              }}
+            >
+              <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-0.5 text-xs">
+                {(["oidc", "saml"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setKind(k)}
+                    className={
+                      "rounded-full px-3 py-1 font-medium uppercase tracking-[0.06em] transition-colors " +
+                      (kind === k ? "bg-white text-black" : "text-muted-foreground hover:text-foreground")
+                    }
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Email domain" hint="Teammates with this domain use SSO.">
+                  <input className="studio-input" placeholder="acme.com" value={domain} onChange={(e) => setDomain(e.target.value)} />
+                </Field>
+                <Field label="Provider ID" hint={`Used in your redirect URI. Defaults to ${suggestedId || "the domain"}.`}>
+                  <input className="studio-input" placeholder="acme-okta" value={providerId} onChange={(e) => setProviderId(e.target.value)} />
+                </Field>
+                <Field
+                  label={kind === "oidc" ? "Issuer URL" : "Issuer / entity ID"}
+                  hint={kind === "oidc" ? "We read /.well-known/openid-configuration from it." : "From the IdP’s SAML metadata."}
+                  className="md:col-span-2"
+                >
+                  <input className="studio-input" placeholder={kind === "oidc" ? "https://acme.okta.com" : "https://sts.windows.net/…/"} value={issuer} onChange={(e) => setIssuer(e.target.value)} />
+                </Field>
+                {kind === "oidc" ? (
+                  <>
+                    <Field label="Client ID">
+                      <input className="studio-input" value={clientId} onChange={(e) => setClientId(e.target.value)} />
+                    </Field>
+                    <Field label="Client secret" hint="Stored encrypted at rest by the API; never shown again.">
+                      <input className="studio-input" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} />
+                    </Field>
+                  </>
+                ) : (
+                  <>
+                    <Field label="Sign-on URL" hint="The IdP’s SAML 2.0 endpoint (HTTP-Redirect)." className="md:col-span-2">
+                      <input className="studio-input" placeholder="https://login.microsoftonline.com/…/saml2" value={entryPoint} onChange={(e) => setEntryPoint(e.target.value)} />
+                    </Field>
+                    <Field label="Signing certificate (PEM)" className="md:col-span-2">
+                      <textarea className="studio-input" rows={4} placeholder="-----BEGIN CERTIFICATE-----" value={cert} onChange={(e) => setCert(e.target.value)} />
+                    </Field>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={reset} disabled={busy}>
+                  Cancel
+                </Button>
+                <Button type="submit" size="sm" disabled={!canSubmit || busy}>
+                  {busy ? "Adding…" : "Add provider"}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {data && !data.enabled && (
+            <UpgradeNote plan="business">Single sign-on is part of Business.</UpgradeNote>
+          )}
+        </div>
+      )}
+    </Section>
   );
 }

@@ -75,15 +75,25 @@ enum CursorStyleProvider {
               let graphicsContext = NSGraphicsContext(bitmapImageRep: bitmap)
         else { return nil }
 
-        // Giving the rep the cursor's point size makes AppKit apply the pixel
-        // density while invoking the NSImage drawing handler. Vector-backed
-        // styles are therefore drawn directly at the requested resolution.
+        // The rep keeps the cursor's POINT size so the raster reports the same
+        // dimensions as the NSImage it came from, but that alone does not scale
+        // the drawing: `NSGraphicsContext(bitmapImageRep:)` fixed its CTM at
+        // 1 pixel per point when it was created above, so the sprite used to
+        // land as a 1× drawing in one corner of the larger bitmap. The exporter
+        // then stretched that mostly-transparent bitmap into the layout rect and
+        // the visible arrow came out 1/rasterScale of the preview's (measured
+        // by `--cursor-export-parity`). Scale the CTM explicitly so the vector
+        // artwork fills the requested pixel grid.
         bitmap.size = asset.image.size
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = graphicsContext
         graphicsContext.imageInterpolation = .high
         graphicsContext.cgContext.setShouldAntialias(true)
         graphicsContext.cgContext.setAllowsAntialiasing(true)
+        graphicsContext.cgContext.scaleBy(
+            x: CGFloat(pixelWidth) / asset.image.size.width,
+            y: CGFloat(pixelHeight) / asset.image.size.height
+        )
         asset.image.draw(
             in: CGRect(origin: .zero, size: asset.image.size),
             from: CGRect(origin: .zero, size: asset.image.size),

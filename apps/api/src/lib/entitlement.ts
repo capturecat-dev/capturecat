@@ -18,7 +18,8 @@
 
 import { createMiddleware } from "hono/factory";
 import type { Env, Variables, EntitlementTier } from "../types";
-import { hasPaidSubscription } from "./stripe";
+import { activeSubscriptionPlan, hasPaidSubscription } from "./stripe";
+import { planForEntitlement, type PlanFeatures, type PlanRecord } from "./plans";
 
 export async function resolveTier(
   db: D1Database,
@@ -45,6 +46,74 @@ export async function resolveTier(
   if (paid) return "paid";
   if (claims?.tester) return "tester";
   return "free";
+}
+
+/** Tier + subscribed plan name in one call, for code paths that hold a uid
+ *  but no Hono context (Better Auth hooks, the screenshot API's two doors,
+ *  the share page checking its OWNER). "blocked" short-circuits. */
+export async function resolveEntitlement(
+  db: D1Database,
+  uid: string,
+  claims: { tester: boolean; blocked: boolean } | undefined,
+): Promise<{ tier: EntitlementTier; planName: string | null } | "blocked"> {
+  const tier = await resolveTier(db, uid, claims);
+  if (tier === "blocked") return "blocked";
+  let planName: string | null = null;
+  if (tier === "paid") {
+    // Fail soft to "pro" (planForEntitlement treats a null name that way);
+    // a D1 hiccup must not deny a paying user.
+    planName = await activeSubscriptionPlan(db, uid).catch(() => null);
+  }
+  return { tier, planName };
+}
+
+/** The plan governing a user identified only by uid — reads the server-owned
+ *  tester/blocked columns itself. Used for the OWNER of a share, whose plan
+ *  decides whether the link still streams, comments still open, and a custom
+ *  domain still routes. Cached 60 s per colo: it runs on public paths. */
+export async function planForUser(env: { DB: D1Database }, uid: string): Promise<PlanRecord> {
+  const cacheKey = new Request(`https://entitlement.internal/plan/${encodeURIComponent(uid)}`);
+  const cache = caches.default;
+  const hit = await cache.match(cacheKey).catch(() => undefined);
+  if (hit) {
+    try {
+      return (await hit.json()) as PlanRecord;
+    } catch {
+      // fall through to a fresh read
+    }
+  }
+  let claims: { tester: boolean; blocked: boolean } | undefined;
+  try {
+    const row = await env.DB.prepare(`SELECT "tester", "blocked" FROM "user" WHERE "id" = ?`)
+      .bind(uid)
+      .first<{ tester: number | boolean | null; blocked: number | boolean | null }>();
+    claims = row
+      ? { tester: row.tester === 1 || row.tester === true, blocked: row.blocked === 1 || row.blocked === true }
+      : undefined;
+  } catch (err) {
+    console.error("planForUser: claims lookup failed", err);
+  }
+  const ent = await resolveEntitlement(env.DB, uid, claims);
+  const plan =
+    ent === "blocked"
+      ? await planForEntitlement(env.DB, { tier: "free" })
+      : await planForEntitlement(env.DB, ent);
+  await cache
+    .put(cacheKey, new Response(JSON.stringify(plan), { headers: { "Cache-Control": "s-maxage=60" } }))
+    .catch(() => {});
+  return plan;
+}
+
+export async function featuresForUser(env: { DB: D1Database }, uid: string): Promise<PlanFeatures> {
+  return (await planForUser(env, uid)).features;
+}
+
+/** Drop the per-colo plan cache for a user (after an admin entitlement edit
+ *  or a subscription webhook) so a change shows within seconds, not a minute. */
+export async function purgePlanCache(uid: string): Promise<void> {
+  await caches.default
+    .delete(new Request(`https://entitlement.internal/plan/${encodeURIComponent(uid)}`))
+    .catch(() => {});
 }
 
 export interface EntitlementOptions {

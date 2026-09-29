@@ -22,8 +22,17 @@ enum AgentSetup {
 
     // MARK: - Copyable payloads
 
+    /// `--scope user`: Claude Code's default scope is `local`, which registers
+    /// the server for the CURRENT DIRECTORY only — an "install" that silently
+    /// vanished the moment the user cd'd elsewhere. User scope is every
+    /// project on this Mac, which is what "connect CaptureCat" means.
     static var claudeCodeCommand: String {
-        "claude mcp add capturecat -- \"\(binaryPath)\" --mcp"
+        "claude mcp add --scope user capturecat -- \"\(binaryPath)\" --mcp"
+    }
+
+    /// Gemini CLI reads the same shape as Claude Code; `-s user` likewise.
+    static var geminiCommand: String {
+        "gemini mcp add -s user capturecat \"\(binaryPath)\" --mcp"
     }
 
     static var codexCommand: String {
@@ -204,5 +213,9 @@ enum AgentSetup {
 
     static var claudeDesktopInstalled: Bool {
         isInstalled(bundleID: "com.anthropic.claudefordesktop")
+    }
+
+    static var windsurfInstalled: Bool {
+        isInstalled(bundleID: "com.exafunction.windsurf")
     }
 }

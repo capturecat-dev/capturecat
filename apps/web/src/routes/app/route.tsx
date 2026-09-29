@@ -34,9 +34,12 @@ export const Route = createFileRoute("/app")({
   component: AppLayout,
 });
 
-const CRUMBS: Array<{ prefix: string; label: string }> = [
+/** Ordered most-specific first: the analytics prefix must win over the
+ *  video prefix it extends. */
+const CRUMBS: Array<{ prefix: string; label: string; parent?: { to: "/app"; label: string } }> = [
   { prefix: "/app/settings", label: "Settings" },
   { prefix: "/app/billing", label: "Billing" },
+  { prefix: "/app/team", label: "Team" },
   { prefix: "/app/videos", label: "Video" },
 ];
 
@@ -44,6 +47,7 @@ function AppLayout() {
   const { session } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const crumb = CRUMBS.find((c) => pathname.startsWith(c.prefix));
+  const isAnalytics = /^\/app\/videos\/[^/]+\/analytics/.test(pathname);
 
   return (
     /* forcedTheme: the liquid-glass surfaces are dark-only (white-opacity
@@ -101,6 +105,14 @@ function AppLayout() {
                       </BreadcrumbItem>
                     </>
                   )}
+                  {isAnalytics && (
+                    <>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>Analytics</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </>
+                  )}
                 </BreadcrumbList>
               </Breadcrumb>
               <div className="ml-auto">
@@ -114,8 +126,12 @@ function AppLayout() {
               </div>
             </div>
           </header>
-          <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-            <Outlet />
+          {/* One content width for every page so panels line up as you
+              move between them. */}
+          <div className="flex flex-1 flex-col">
+            <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 md:px-8 md:py-7">
+              <Outlet />
+            </div>
           </div>
         </SidebarInset>
       </SidebarProvider>

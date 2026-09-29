@@ -27,6 +27,7 @@ import { formatSize } from "@/components/dashboard/video-format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LibrarySkeleton } from "@/components/dashboard/page-skeletons";
+import { PageHeader } from "@/components/dashboard/studio";
 import {
   Empty,
   EmptyDescription,
@@ -251,7 +252,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
 
   if (allItems.length === 0 && activeUploads.length === 0) {
     return (
-      <Empty className="glass-panel hairline-top min-h-[420px]">
+      <Empty className="glass-panel hairline-top min-h-[420px] border-dashed border-white/12">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <VideoIcon />
@@ -285,25 +286,26 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Title row */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            {selectedPlaylist
-              ? `${selectedPlaylist.emoji ? `${selectedPlaylist.emoji} ` : ""}${selectedPlaylist.name}`
-              : "Library"}
-          </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+      <PageHeader
+        eyebrow={selectedPlaylist ? "Playlist" : "Library"}
+        title={
+          selectedPlaylist
+            ? `${selectedPlaylist.emoji ? `${selectedPlaylist.emoji} ` : ""}${selectedPlaylist.name}`
+            : "Your videos"
+        }
+        description={
+          <>
             {items.length} video{items.length === 1 ? "" : "s"}
-            {activeUploads.length > 0 &&
-              ` · ${activeUploads.length} uploading`}
-          </p>
-        </div>
-        <StorageMeter
-          usedBytes={data?.storageUsedBytes ?? 0}
-          limitBytes={data?.storageLimitBytes}
-        />
-      </div>
+            {activeUploads.length > 0 && ` · ${activeUploads.length} uploading`}
+          </>
+        }
+        meta={
+          <StorageMeter
+            usedBytes={data?.storageUsedBytes ?? 0}
+            limitBytes={data?.storageLimitBytes}
+          />
+        }
+      />
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
@@ -418,7 +420,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
               onKeyDown={(e) => e.key === "Escape" && setCreatingPlaylist(false)}
               placeholder="Playlist name"
               maxLength={60}
-              className="w-36 rounded-full border border-white/10 bg-transparent px-3 py-1 text-sm outline-none focus:ring-1 focus:ring-ring"
+              className="studio-input h-8 w-36"
             />
             <Button size="sm" type="submit" disabled={createPlaylist.isPending}>
               Add

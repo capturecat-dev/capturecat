@@ -14,8 +14,8 @@
 import { Hono } from "hono";
 import type Stripe from "stripe";
 import type { Env, Variables } from "../types";
-import { PRO_PLAN_LIMITS, createStripeClient } from "../lib/stripe";
-import { listPlans, planByName } from "../lib/plans";
+import { createStripeClient } from "../lib/stripe";
+import { listPlans, planByName, parseStoredLimits } from "../lib/plans";
 
 export const planRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -98,8 +98,8 @@ planRoutes.get("/plans", async (c) => {
             limits: freeRow.limits,
           }
         : null,
-      // Informational; routes/upload.ts remains the enforcement point.
-      limits: proRow?.limits ?? PRO_PLAN_LIMITS,
+      // The same row lib/upload-policy.ts enforces from. No row = no caps.
+      limits: proRow?.limits ?? parseStoredLimits({}),
     },
     200,
     { "Cache-Control": "public, max-age=300" }

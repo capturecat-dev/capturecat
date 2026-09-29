@@ -28,6 +28,30 @@ const LEGACY_REDIRECTS: Record<string, string> = {
   "/dashboard": "/app",
 };
 
+/** Hosts on the zone that belong to OTHER Workers. With the `*\/*` route
+ *  Cloudflare for SaaS needs, this Worker sees their traffic first and must
+ *  hand it on untouched — Workers routes run before Workers custom domains. */
+function isSiblingHost(host: string): boolean {
+  return host.endsWith(".capturecat.so") && !CAPTURECAT_HOSTS.has(host);
+}
+
+/** A customer domain only serves share pages while the API says it is live
+ *  (DNS + Cloudflare hostname + certificate + the owner's plan). Cached at
+ *  the edge for five minutes by the API; the API purges on verify/delete. */
+async function customHostIsLive(host: string): Promise<boolean> {
+  try {
+    const api = import.meta.env.VITE_API_URL ?? "https://api.capturecat.so";
+    const res = await fetch(`${api}/api/domains/resolve?host=${encodeURIComponent(host)}`, {
+      cf: { cacheTtl: 300, cacheEverything: true },
+    } as RequestInit);
+    if (!res.ok) return false;
+    const body = (await res.json()) as { found?: boolean };
+    return body.found === true;
+  } catch {
+    return false;
+  }
+}
+
 function isFirstPartyHost(host: string): boolean {
   return (
     CAPTURECAT_HOSTS.has(host) ||
@@ -46,10 +70,16 @@ function isAssetPath(pathname: string): boolean {
   );
 }
 
-function rewrite(request: Request): Request | Response {
+async function rewrite(request: Request): Promise<Request | Response> {
   const url = new URL(request.url);
   const host = url.host;
   const path = url.pathname;
+
+  if (isSiblingHost(host)) {
+    // api.capturecat.so / admin.capturecat.so: not ours. Pass through to the
+    // Worker bound to that custom domain.
+    return fetch(request);
+  }
 
   // Share-page markdown twin: /share/<id>.md → /md-share/<id> (per-video
   // route with the transcript; the static registry below can't serve it).
@@ -106,8 +136,13 @@ function rewrite(request: Request): Request | Response {
     return request;
   }
 
-  // Customer custom domains: share/embed only, all else bounces home.
+  // Customer custom domains: share/embed only, all else bounces home. A host
+  // nobody registered (or that lapsed) bounces too — never serve a share
+  // page on a domain the API does not vouch for.
   if (!isFirstPartyHost(host)) {
+    if (!(await customHostIsLive(host))) {
+      return Response.redirect("https://capturecat.so" + path, 302);
+    }
     if (isAssetPath(path) || path.startsWith("/share/") || path.startsWith("/embed/")) {
       return request;
     }
@@ -146,7 +181,7 @@ async function withSecurityHeaders(request: Request, response: Response): Promis
 
 export default createServerEntry({
   async fetch(request: Request) {
-    const routed = rewrite(request);
+    const routed = await rewrite(request);
     if (routed instanceof Response) return routed;
     return withSecurityHeaders(routed, await startHandler(routed));
   },

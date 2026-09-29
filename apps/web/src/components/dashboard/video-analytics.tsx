@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { Settings2 } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { areaY, barY, defineChart, lineY } from "@tanstack/charts";
 import { crosshair } from "@tanstack/charts/crosshair";
 import { scaleBand } from "@tanstack/charts/scales/band";
@@ -10,6 +12,7 @@ import { Chart } from "@tanstack/react-charts";
 
 import { trpc } from "@/lib/trpc/client";
 import { AnalyticsSkeleton } from "@/components/dashboard/page-skeletons";
+import { PageHeader } from "@/components/dashboard/studio";
 
 /* ------------------------------------------------------------------ */
 /* Shared formatting + chart chrome                                    */
@@ -62,7 +65,7 @@ function Panel({
 }) {
   return (
     <div className="glass-panel hairline-top min-w-0 overflow-hidden p-5">
-      <h2 className="text-sm font-medium">{title}</h2>
+      <h2 className="text-sm font-semibold">{title}</h2>
       {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
       <div className="mt-4 min-w-0">{children}</div>
     </div>
@@ -302,18 +305,19 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
 
   return (
     <div className="min-w-0 space-y-6">
-      <div>
-        <Link
-          to="/app"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> My Videos
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">Analytics</h1>
-        <p className="text-muted-foreground">
-          Who watched, where they stopped, and what they did.
-        </p>
-      </div>
+      <PageHeader
+        back={{ to: "/app", label: "Library" }}
+        eyebrow="Video"
+        title="Analytics"
+        description="Who watched, where they stopped, and what they did."
+        actions={
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/app/videos/$videoId" params={{ videoId }}>
+              <Settings2 data-icon="inline-start" /> Settings
+            </Link>
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile value={data.views.toLocaleString()} label="Views" accent="var(--chart-2)" />

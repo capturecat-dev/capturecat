@@ -5,7 +5,15 @@ import { requireEntitlement, userRateLimit } from "../lib/entitlement";
 import { checkAssertion } from "./attest";
 import { shareBaseURL } from "../lib/origins";
 import { generateId } from "../lib/id";
-import { createPresignedUploadUrl, headR2Object, headR2ObjectMeta } from "../lib/presign";
+import { createPresignedUploadUrl, headR2ObjectMeta } from "../lib/presign";
+import { planForEntitlement } from "../lib/plans";
+import { checkUploadAllowance, storageDeniedBody } from "../lib/upload-policy";
+import { parseJsonBody } from "../lib/validate";
+import {
+  UploadVideoBodySchema,
+  ReplaceVideoBodySchema,
+  ReplaceCompleteBodySchema,
+} from "../lib/upload-schemas";
 import {
   getSharedVideo,
   upsertSharedVideo,
@@ -16,10 +24,10 @@ import {
   insertVideoVersion,
   getVideoVersion,
   nextVersionNumber,
-  markVersionReady,
+  markVersionReadyWithinQuota,
+  pendingUploadCount,
   setCurrentVersion,
   deleteVideoVersion,
-  type TranscriptSegment,
 } from "../lib/db";
 
 export const uploadRoutes = new Hono<{
@@ -28,299 +36,167 @@ export const uploadRoutes = new Hono<{
 }>();
 
 /**
+ * Every cap here comes from the caller's plan row (`lib/plans.ts`) and is
+ * decided by `checkUploadAllowance` (`lib/upload-policy.ts`). There are no
+ * upload constants in this file on purpose: editing a plan in the admin
+ * console is the whole job of changing what a tier may upload.
+ *
+ * Bodies are validated with the zod schemas in `lib/upload-schemas.ts`.
+ */
+
+/** Outstanding presigns per user, first uploads and replace versions together. */
+const MAX_PENDING_PRESIGNS = 5;
+
+/** Shares started today, from the per-colo cache counter. Cheap and
+ *  approximate — the plan's `maxUploadsPerDay` is a courtesy cap, not a
+ *  billing boundary; storage is the hard one. */
+async function dailyUploadCounter(uid: string) {
+  const cache = caches.default;
+  const today = new Date().toISOString().slice(0, 10);
+  const key = new Request(`https://rate-limit.internal/user-upload/${uid}/${today}`);
+  const cached = await cache.match(key);
+  const count = cached ? parseInt(await cached.text(), 10) || 0 : 0;
+  return {
+    count,
+    // Expires at end of day, ~24h TTL.
+    increment: () =>
+      cache.put(
+        key,
+        new Response(String(count + 1), { headers: { "Cache-Control": "s-maxage=86400" } }),
+      ),
+  };
+}
+
+/**
  * POST /upload/video
  * Returns a presigned upload URL + videoId.
  * Client uploads directly to R2 using the presigned URL.
  */
-/** Max file size: 1 GB (safety net) */
-const MAX_FILE_SIZE = 1024 * 1024 * 1024;
-/** Max total shared cloud storage per user: 10 GB */
-const MAX_TOTAL_STORAGE_BYTES = 10 * 1024 * 1024 * 1024;
-/** Max duration: 30 minutes */
-const MAX_DURATION_SECONDS = 30 * 60;
-/** Max uploads per user per day */
-const MAX_UPLOADS_PER_DAY = 10;
-/** Only allow video content types */
-const ALLOWED_CONTENT_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
-
-/** Annotation markers for the share page: validated and re-serialized —
- *  never store client JSON verbatim. */
-function validateAnnotations(annotations: unknown[]): string | null {
-  const markers = annotations
-    .slice(0, 100)
-    .flatMap((raw): { start: number; end: number; label?: string; autoPause?: boolean; pauseDuration?: number }[] => {
-      if (typeof raw !== "object" || raw === null) return [];
-      const m = raw as Record<string, unknown>;
-      const start = typeof m.start === "number" && isFinite(m.start) ? Math.max(0, m.start) : null;
-      const end = typeof m.end === "number" && isFinite(m.end) ? Math.max(0, m.end) : null;
-      if (start === null || end === null || end < start) return [];
-      const marker: { start: number; end: number; label?: string; autoPause?: boolean; pauseDuration?: number } = {
-        start: Math.round(start * 1000) / 1000,
-        end: Math.round(end * 1000) / 1000,
-      };
-      if (typeof m.label === "string" && m.label.trim()) {
-        marker.label = m.label.trim().slice(0, 120);
-      }
-      if (m.autoPause === true) {
-        marker.autoPause = true;
-        const d = typeof m.pauseDuration === "number" && isFinite(m.pauseDuration) ? m.pauseDuration : 2;
-        marker.pauseDuration = Math.min(30, Math.max(0.5, d));
-      }
-      return [marker];
-    });
-  return markers.length > 0 ? JSON.stringify(markers) : null;
-}
-
-/** On-device subtitle segments, validated segment by segment. */
-function validateTranscript(transcript: unknown[]): TranscriptSegment[] {
-  return (transcript as Array<Record<string, unknown>>)
-    .flatMap((seg) => {
-      const start = typeof seg.start === "number" && isFinite(seg.start) ? seg.start : null;
-      const end = typeof seg.end === "number" && isFinite(seg.end) ? seg.end : null;
-      const text = typeof seg.text === "string" ? seg.text.trim().slice(0, 500) : "";
-      if (start === null || end === null || end < start || !text) return [];
-      const out: TranscriptSegment = {
-        start: Math.round(start * 100) / 100,
-        end: Math.round(end * 100) / 100,
-        text,
-      };
-      if (Array.isArray(seg.words)) {
-        const words = (seg.words as Array<Record<string, unknown>>)
-          .flatMap((w) => {
-            const ws = typeof w.start === "number" && isFinite(w.start) ? w.start : null;
-            const we = typeof w.end === "number" && isFinite(w.end) ? w.end : null;
-            const wt = typeof w.text === "string" ? w.text.trim().slice(0, 80) : "";
-            // `<=` not `<`: zero-duration words make karaoke progress
-            // (t - start) / (end - start) divide by zero downstream.
-            if (ws === null || we === null || we <= ws || !wt) return [];
-            return [{ start: Math.round(ws * 100) / 100, end: Math.round(we * 100) / 100, text: wt }];
-          })
-          .slice(0, 60);
-        if (words.length > 0) out.words = words;
-      }
-      return [out];
-    })
-    .slice(0, 5000);
-}
-
-/** Local-model chapter list, same shape the Gemini path writes. */
-function validateChapters(chapters: unknown): Array<{ start: number; label: string }> {
-  if (!Array.isArray(chapters)) return [];
-  return (chapters as Array<Record<string, unknown>>)
-    .flatMap((ch) =>
-      typeof ch.start === "number" && typeof ch.label === "string"
-        ? [{ start: Math.max(0, ch.start), label: ch.label.slice(0, 60) }]
-        : []
-    )
-    .slice(0, 12);
-}
 uploadRoutes.post(
   "/upload/video",
   requireAuth,
-  // Server-resolved entitlement (blocked users bounced; tier attached for
-  // future per-tier caps) + per-uid limit + App Attest (report-mode for now).
+  // Server-resolved entitlement (blocked users bounced; plan attached for the
+  // per-plan caps below) + per-uid limit + App Attest (report-mode for now).
   requireEntitlement(),
   userRateLimit({ limit: 30, windowSec: 60, scope: "upload" }),
   checkAssertion(),
   async (c) => {
-  const user = c.get("user");
+    const user = c.get("user");
 
-  // X-App-Token is a client-version marker only. The app's value ships in
-  // the open-source repo, so it authenticates nothing — genuineness is App
-  // Attest's job (checkAssertion above), and identity is the bearer token.
+    // X-App-Token is a client-version marker only. The app's value ships in
+    // the open-source repo, so it authenticates nothing — genuineness is App
+    // Attest's job (checkAssertion above), and identity is the bearer token.
 
-  const body = await c.req.json<{
-    fileName: string;
-    contentType?: string;
-    fileSizeBytes?: number;
-    durationSeconds?: number;
-    commentsEnabled?: boolean;
-    annotations?: unknown;
-    projectId?: unknown;
-    /** On-device subtitle segments {start, end, text} in output seconds. */
-    transcript?: unknown;
-    /** Local-model results generated on the Mac at share time. */
-    aiTitle?: unknown;
-    aiSummary?: unknown;
-    aiChapters?: unknown;
-  }>();
+    const parsed = await parseJsonBody(c.req, UploadVideoBodySchema);
+    if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+    const body = parsed.data;
 
-  // The editor project this export came from, so the dashboard can deep-link
-  // back into the app. Strictly a UUID or dropped — never stored verbatim.
-  const projectId =
-    typeof body.projectId === "string" &&
-    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
-      body.projectId
-    )
-      ? body.projectId.toUpperCase()
-      : null;
+    const plan = await planForEntitlement(c.env.DB, c.get("entitlement"));
+    const [currentUsageBytes, daily] = await Promise.all([
+      storageUsageBytes(c.env.DB, user.uid),
+      dailyUploadCounter(user.uid),
+    ]);
 
-  if (!body.fileName) {
-    return c.json({ error: "fileName is required" }, 400);
-  }
-  // Echoed into /meta, Content-Disposition and page titles — bound it.
-  body.fileName = body.fileName.slice(0, 200);
-  // The declared size is signed into the presigned PUT (see presign.ts).
-  const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 * 1024;
-  if (
-    typeof body.fileSizeBytes !== "number" ||
-    !Number.isInteger(body.fileSizeBytes) ||
-    body.fileSizeBytes <= 0 ||
-    body.fileSizeBytes > MAX_UPLOAD_BYTES
-  ) {
-    return c.json({ error: "fileSizeBytes must be a positive integer (≤ 5 GB)" }, 400);
-  }
-
-  const annotationsJson = Array.isArray(body.annotations)
-    ? validateAnnotations(body.annotations)
-    : null;
-
-  // Validate content type
-  const contentType = body.contentType || "video/mp4";
-  if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
-    return c.json({ error: "Invalid content type" }, 400);
-  }
-
-  // Reject oversized files before they even upload
-  if (body.fileSizeBytes && body.fileSizeBytes > MAX_FILE_SIZE) {
-    return c.json({ error: "File too large (max 1 GB)" }, 413);
-  }
-
-  // Reject recordings longer than 30 minutes
-  if (body.durationSeconds && body.durationSeconds > MAX_DURATION_SECONDS) {
-    return c.json({ error: "Recording too long (max 30 minutes)" }, 413);
-  }
-
-  const currentUsageBytes = await storageUsageBytes(c.env.DB, user.uid);
-  const requestedFileSize = body.fileSizeBytes ?? 0;
-
-  if (requestedFileSize > 0 && currentUsageBytes + requestedFileSize > MAX_TOTAL_STORAGE_BYTES) {
-    return c.json(
-      {
-        error: "Storage limit reached (10 GB). Delete shared videos before uploading more.",
-        usedBytes: currentUsageBytes,
-        limitBytes: MAX_TOTAL_STORAGE_BYTES,
-        remainingBytes: Math.max(0, MAX_TOTAL_STORAGE_BYTES - currentUsageBytes),
-      },
-      413
-    );
-  }
-
-  // Per-user daily upload limit (cached counter)
-  const cache = caches.default;
-  const today = new Date().toISOString().slice(0, 10);
-  const userLimitKey = new Request(
-    `https://rate-limit.internal/user-upload/${user.uid}/${today}`
-  );
-  const cachedCount = await cache.match(userLimitKey);
-  let uploadCount = cachedCount ? parseInt(await cachedCount.text(), 10) : 0;
-
-  if (uploadCount >= MAX_UPLOADS_PER_DAY) {
-    return c.json({ error: "Daily upload limit reached (10 per day)" }, 429);
-  }
-
-  // Increment user counter (expires at end of day, ~24h TTL)
-  uploadCount++;
-  await cache.put(
-    userLimitKey,
-    new Response(String(uploadCount), {
-      headers: { "Cache-Control": "s-maxage=86400" },
-    })
-  );
-
-  const videoId = generateId();
-  // A presign is a liability until /complete: the object may already be in
-  // R2 while the row still says pending, invisible to the storage quota.
-  // Bound the number outstanding per user (the hourly sweep clears strays).
-  const pendingRow = await c.env.DB.prepare(
-    "SELECT COUNT(*) AS n FROM shared_videos WHERE uid = ? AND status = 'pending'"
-  ).bind(user.uid).first<{ n: number }>();
-  if ((pendingRow?.n ?? 0) >= 5) {
-    return c.json(
-      { error: "Too many uploads in progress — finish or wait a moment before starting another." },
-      429
-    );
-  }
-
-  const r2Key = `videos/${videoId}.mp4`;
-
-  // Create presigned upload URL with size limit
-  const uploadUrl = await createPresignedUploadUrl({
-    r2Endpoint: c.env.R2_ENDPOINT,
-    accessKeyId: c.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
-    bucket: "capturecat",
-    key: r2Key,
-    contentType,
-    contentLength: body.fileSizeBytes,
-  });
-
-  // Write pending record to D1
-  await upsertSharedVideo(c.env.DB, {
-    videoId,
-    uid: user.uid,
-    fileName: body.fileName,
-    contentType,
-    fileSizeBytes: 0,
-    durationSeconds: body.durationSeconds ?? 0,
-    r2Key,
-    url: `${shareBaseURL(c.env)}/share/${videoId}`,
-    isPrivate: false,
-    status: "pending",
-    createdAt: new Date().toISOString(),
-    commentsEnabled: body.commentsEnabled === true,
-    allowDownload: false,
-    passwordHash: null,
-    expiresAt: null,
-    maxViews: null,
-    brandAccent: null,
-    annotationsJson,
-    projectId,
-    currentVersion: 1,
-    showVersionHistory: false,
-    ctaLabel: null,
-    ctaUrl: null,
-    profileVisible: true,
-    thumbnailType: null,
-  });
-
-  // Version 1 of the new video (migration 0017) — replace uploads append to
-  // this table and storage accounting sums it.
-  await insertVideoVersion(c.env.DB, {
-    versionId: `v1-${videoId}`,
-    videoId,
-    versionNumber: 1,
-    r2Key,
-    fileSizeBytes: 0,
-    durationSeconds: body.durationSeconds ?? 0,
-    status: "pending",
-    createdAt: new Date().toISOString(),
-  });
-
-  // Transcript: the app's on-device subtitles, already retimed to output
-  // seconds. Validated segment by segment — never stored verbatim.
-  if (Array.isArray(body.transcript)) {
-    const segments = validateTranscript(body.transcript);
-    if (segments.length > 0) {
-      await upsertTranscript(c.env.DB, videoId, user.uid, segments);
-    }
-  }
-
-  // Local-model title/summary/chapters generated on the Mac at share time.
-  // Same shape the server-side Gemini path writes; `ai_source` records which.
-  const localTitle = typeof body.aiTitle === "string" ? body.aiTitle.slice(0, 80) : null;
-  const localSummary = typeof body.aiSummary === "string" ? body.aiSummary.slice(0, 600) : null;
-  const localChapters = validateChapters(body.aiChapters);
-  if (localTitle || localSummary || localChapters.length > 0) {
-    await setAISummary(c.env.DB, videoId, {
-      title: localTitle,
-      summary: localSummary,
-      chaptersJson: localChapters.length > 0 ? JSON.stringify(localChapters) : null,
-      source: "local",
+    const verdict = checkUploadAllowance(plan, {
+      fileSizeBytes: body.fileSizeBytes,
+      durationSeconds: body.durationSeconds,
+      usedBytes: currentUsageBytes,
+      uploadsToday: daily.count,
     });
-  }
+    if (!verdict.ok) return c.json(verdict.body, verdict.status);
 
-  return c.json({ videoId, uploadUrl, r2Key });
+    // A presign is a liability until /complete: the object may already be in
+    // R2 while the row still says pending, invisible to the storage quota.
+    // Bound the number outstanding per user — first uploads AND replace
+    // versions together (the hourly sweep clears strays). Checked BEFORE the
+    // daily counter is spent, so a refused presign costs nothing.
+    if ((await pendingUploadCount(c.env.DB, user.uid)) >= MAX_PENDING_PRESIGNS) {
+      return c.json(
+        { error: "Too many uploads in progress — finish or wait a moment before starting another." },
+        429
+      );
+    }
+
+    await daily.increment();
+
+    const videoId = generateId();
+
+    const r2Key = `videos/${videoId}.mp4`;
+
+    // Create presigned upload URL with size limit. The declared size is
+    // signed into the presigned PUT (see presign.ts).
+    const uploadUrl = await createPresignedUploadUrl({
+      r2Endpoint: c.env.R2_ENDPOINT,
+      accessKeyId: c.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
+      bucket: "capturecat",
+      key: r2Key,
+      contentType: body.contentType,
+      contentLength: body.fileSizeBytes,
+    });
+
+    // Write pending record to D1
+    await upsertSharedVideo(c.env.DB, {
+      videoId,
+      uid: user.uid,
+      fileName: body.fileName,
+      contentType: body.contentType,
+      fileSizeBytes: 0,
+      durationSeconds: body.durationSeconds,
+      r2Key,
+      url: `${shareBaseURL(c.env)}/share/${videoId}`,
+      isPrivate: false,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      // The client asks; the plan decides. Comments are re-checked against
+      // the owner's plan at read/write time too (routes/video.ts).
+      commentsEnabled: body.commentsEnabled && plan.features.comments,
+      allowDownload: false,
+      passwordHash: null,
+      expiresAt: null,
+      maxViews: null,
+      brandAccent: null,
+      annotationsJson: body.annotations,
+      projectId: body.projectId,
+      currentVersion: 1,
+      showVersionHistory: false,
+      ctaLabel: null,
+      ctaUrl: null,
+      profileVisible: true,
+      thumbnailType: null,
+    });
+
+    // Version 1 of the new video (migration 0017) — replace uploads append to
+    // this table and storage accounting sums it.
+    await insertVideoVersion(c.env.DB, {
+      versionId: `v1-${videoId}`,
+      videoId,
+      versionNumber: 1,
+      r2Key,
+      fileSizeBytes: 0,
+      durationSeconds: body.durationSeconds,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    });
+
+    // Transcript: the app's on-device subtitles, already retimed to output
+    // seconds. Validated segment by segment — never stored verbatim.
+    if (body.transcript && body.transcript.length > 0) {
+      await upsertTranscript(c.env.DB, videoId, user.uid, body.transcript);
+    }
+
+    // Local-model title/summary/chapters generated on the Mac at share time.
+    // Same shape the server-side Gemini path writes; `ai_source` records which.
+    if (body.aiTitle || body.aiSummary || body.aiChapters.length > 0) {
+      await setAISummary(c.env.DB, videoId, {
+        title: body.aiTitle,
+        summary: body.aiSummary,
+        chaptersJson: body.aiChapters.length > 0 ? JSON.stringify(body.aiChapters) : null,
+        source: "local",
+      });
+    }
+
+    return c.json({ videoId, uploadUrl, r2Key });
   }
 );
 
@@ -351,6 +227,16 @@ uploadRoutes.post(
       return c.json({ error: "Not authorized" }, 403);
     }
 
+    // Idempotent: a retried /complete after a flaky response must not count
+    // the same bytes twice, trip the cap, and delete a video that was fine.
+    if (doc.status === "ready") {
+      return c.json({
+        videoId,
+        url: `${shareBaseURL(c.env)}/share/${videoId}`,
+        status: "ready",
+      });
+    }
+
     // Verify the R2 object actually exists (via S3 API, not local binding)
     const r2Key = doc.r2Key;
     const head = await headR2ObjectMeta({
@@ -366,36 +252,40 @@ uploadRoutes.post(
     }
     const fileSize = head.size;
 
-    // Reject oversized uploads — delete the R2 object
-    if (fileSize > MAX_FILE_SIZE) {
-      await c.env.R2.delete(r2Key);
-      await deleteSharedVideo(c.env.DB, videoId);
-      return c.json({ error: "File too large (max 1 GB)" }, 413);
-    }
-
+    // Re-check against the plan with the VERIFIED size: the client's declared
+    // size was signed into the PUT, but the plan may have changed since the
+    // presign, and the bytes are what storage accounting will sum.
+    const plan = await planForEntitlement(c.env.DB, c.get("entitlement"));
     const currentUsageBytes = await storageUsageBytes(c.env.DB, user.uid);
-    if (currentUsageBytes + fileSize > MAX_TOTAL_STORAGE_BYTES) {
+    const verdict = checkUploadAllowance(plan, { fileSizeBytes: fileSize, usedBytes: currentUsageBytes });
+    const accepted = verdict.ok
+      ? // The storage cap is decided INSIDE this UPDATE (one statement, no
+        // read-then-check window), so concurrent completes cannot all land.
+        await markVersionReadyWithinQuota(c.env.DB, {
+          uid: user.uid,
+          videoId,
+          versionNumber: doc.currentVersion,
+          fileSizeBytes: fileSize,
+          limitBytes: plan.limits.maxTotalStorageBytes,
+        })
+      : "over_quota";
+    if (!verdict.ok || accepted !== "ready") {
+      // Denied after the bytes landed: delete the object so it never counts.
       await c.env.R2.delete(r2Key);
       await deleteSharedVideo(c.env.DB, videoId);
       return c.json(
-        {
-          error: "Storage limit reached (10 GB). Delete shared videos before uploading more.",
-          usedBytes: currentUsageBytes,
-          limitBytes: MAX_TOTAL_STORAGE_BYTES,
-          remainingBytes: Math.max(0, MAX_TOTAL_STORAGE_BYTES - currentUsageBytes),
-        },
-        413
+        verdict.ok ? storageDeniedBody(plan, currentUsageBytes) : verdict.body,
+        verdict.ok ? 413 : verdict.status,
       );
     }
 
-    // Mark the record ready with the verified size
+    // Mark the record ready with the verified size and pin the verified
+    // bytes: the byte route refuses a later re-PUT on the still-live presign.
     await upsertSharedVideo(c.env.DB, {
       ...doc,
       status: "ready",
       fileSizeBytes: fileSize,
     });
-    await markVersionReady(c.env.DB, videoId, doc.currentVersion, fileSize);
-    // Pin the verified bytes: the byte route refuses a later re-PUT.
     await c.env.DB.prepare("UPDATE shared_videos SET etag = ? WHERE video_id = ?")
       .bind(head.etag, videoId)
       .run();
@@ -433,49 +323,27 @@ uploadRoutes.post(
       return c.json({ error: "Not authorized" }, 403);
     }
 
-    const body = await c.req.json<{
-      fileName?: string;
-      contentType?: string;
-      fileSizeBytes?: number;
-      durationSeconds?: number;
-      annotations?: unknown;
-      transcript?: unknown;
-      aiTitle?: unknown;
-      aiSummary?: unknown;
-      aiChapters?: unknown;
-    }>().catch(() => ({} as Record<string, never>));
+    const parsed = await parseJsonBody(c.req, ReplaceVideoBodySchema, { emptyOnInvalidJson: true });
+    if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+    const body = parsed.data;
 
-    const contentType = body.contentType || "video/mp4";
-    if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
-      return c.json({ error: "Invalid content type" }, 400);
-    }
-    if (
-      typeof body.fileSizeBytes !== "number" ||
-      !Number.isInteger(body.fileSizeBytes) ||
-      body.fileSizeBytes <= 0
-    ) {
-      return c.json({ error: "fileSizeBytes must be a positive integer" }, 400);
-    }
-    if (body.fileSizeBytes > MAX_FILE_SIZE) {
-      return c.json({ error: "File too large (max 1 GB)" }, 413);
-    }
-    if (body.durationSeconds && body.durationSeconds > MAX_DURATION_SECONDS) {
-      return c.json({ error: "Recording too long (max 30 minutes)" }, 413);
-    }
-
-    const currentUsageBytes = await storageUsageBytes(c.env.DB, user.uid);
-    const requestedFileSize = body.fileSizeBytes ?? 0;
-    if (requestedFileSize > 0 && currentUsageBytes + requestedFileSize > MAX_TOTAL_STORAGE_BYTES) {
+    if ((await pendingUploadCount(c.env.DB, user.uid)) >= MAX_PENDING_PRESIGNS) {
       return c.json(
-        {
-          error: "Storage limit reached (10 GB). Delete shared videos or old versions before uploading more.",
-          usedBytes: currentUsageBytes,
-          limitBytes: MAX_TOTAL_STORAGE_BYTES,
-          remainingBytes: Math.max(0, MAX_TOTAL_STORAGE_BYTES - currentUsageBytes),
-        },
-        413
+        { error: "Too many uploads in progress — finish or wait a moment before starting another." },
+        429
       );
     }
+
+    // Replacing a share is not a new share, so the daily cap does not apply;
+    // storage, size and duration do.
+    const plan = await planForEntitlement(c.env.DB, c.get("entitlement"));
+    const currentUsageBytes = await storageUsageBytes(c.env.DB, user.uid);
+    const verdict = checkUploadAllowance(plan, {
+      fileSizeBytes: body.fileSizeBytes,
+      durationSeconds: body.durationSeconds ?? 0,
+      usedBytes: currentUsageBytes,
+    });
+    if (!verdict.ok) return c.json(verdict.body, verdict.status);
 
     const versionNumber = await nextVersionNumber(c.env.DB, videoId);
     const r2Key = `videos/${videoId}/v${versionNumber}.mp4`;
@@ -486,7 +354,7 @@ uploadRoutes.post(
       secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
       bucket: "capturecat",
       key: r2Key,
-      contentType,
+      contentType: body.contentType,
       // Same signed-size rule as the first upload (see presign.ts).
       contentLength: body.fileSizeBytes,
     });
@@ -537,76 +405,71 @@ uploadRoutes.post(
       return c.json({ error: "Version not found" }, 404);
     }
 
-    const fileSize = await headR2Object({
+    // Validate the body before touching storage so a malformed request
+    // cannot leave a half-flipped version behind.
+    const parsed = await parseJsonBody(c.req, ReplaceCompleteBodySchema, { emptyOnInvalidJson: true });
+    if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+    const body = parsed.data;
+
+    const head = await headR2ObjectMeta({
       r2Endpoint: c.env.R2_ENDPOINT,
       accessKeyId: c.env.R2_ACCESS_KEY_ID,
       secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
       bucket: "capturecat",
       key: version.r2Key,
     });
-    if (fileSize === null) {
+    if (head === null) {
       return c.json({ error: "Upload not found in storage" }, 404);
     }
+    const fileSize = head.size;
 
-    if (fileSize > MAX_FILE_SIZE) {
-      await c.env.R2.delete(version.r2Key);
-      await deleteVideoVersion(c.env.DB, videoId, versionNumber);
-      return c.json({ error: "File too large (max 1 GB)" }, 413);
-    }
-
+    // Same verified-size re-check and atomic accept as /complete.
+    const plan = await planForEntitlement(c.env.DB, c.get("entitlement"));
     const currentUsageBytes = await storageUsageBytes(c.env.DB, user.uid);
-    if (currentUsageBytes + fileSize > MAX_TOTAL_STORAGE_BYTES) {
+    const verdict = checkUploadAllowance(plan, { fileSizeBytes: fileSize, usedBytes: currentUsageBytes });
+    const accepted = verdict.ok
+      ? await markVersionReadyWithinQuota(c.env.DB, {
+          uid: user.uid,
+          videoId,
+          versionNumber,
+          fileSizeBytes: fileSize,
+          limitBytes: plan.limits.maxTotalStorageBytes,
+        })
+      : "over_quota";
+    if (!verdict.ok || accepted !== "ready") {
       await c.env.R2.delete(version.r2Key);
       await deleteVideoVersion(c.env.DB, videoId, versionNumber);
       return c.json(
-        {
-          error: "Storage limit reached (10 GB). Delete shared videos or old versions before uploading more.",
-          usedBytes: currentUsageBytes,
-          limitBytes: MAX_TOTAL_STORAGE_BYTES,
-          remainingBytes: Math.max(0, MAX_TOTAL_STORAGE_BYTES - currentUsageBytes),
-        },
-        413
+        verdict.ok ? storageDeniedBody(plan, currentUsageBytes) : verdict.body,
+        verdict.ok ? 413 : verdict.status,
       );
     }
 
-    await markVersionReady(c.env.DB, videoId, versionNumber, fileSize);
-    await setCurrentVersion(c.env.DB, videoId, {
-      ...version,
-      status: "ready",
-      fileSizeBytes: fileSize,
-    });
+    // The share link now points at the new cut, pinned to ITS ETag. Leaving
+    // the old ETag behind made the byte route 404 every replaced video.
+    await setCurrentVersion(
+      c.env.DB,
+      videoId,
+      { ...version, status: "ready", fileSizeBytes: fileSize },
+      head.etag,
+    );
 
     // The new cut's markers/transcript/AI metadata, validated the same way
     // the original upload validates them.
-    const body = await c.req.json<{
-      annotations?: unknown;
-      transcript?: unknown;
-      aiTitle?: unknown;
-      aiSummary?: unknown;
-      aiChapters?: unknown;
-    }>().catch(() => ({} as Record<string, never>));
-
-    if (Array.isArray(body.annotations)) {
-      const annotationsJson = validateAnnotations(body.annotations);
+    if (body.annotations !== undefined) {
       await c.env.DB
         .prepare("UPDATE shared_videos SET annotations_json = ? WHERE video_id = ?")
-        .bind(annotationsJson, videoId)
+        .bind(body.annotations, videoId)
         .run();
     }
-    if (Array.isArray(body.transcript)) {
-      const segments = validateTranscript(body.transcript);
-      if (segments.length > 0) {
-        await upsertTranscript(c.env.DB, videoId, user.uid, segments);
-      }
+    if (body.transcript && body.transcript.length > 0) {
+      await upsertTranscript(c.env.DB, videoId, user.uid, body.transcript);
     }
-    const localTitle = typeof body.aiTitle === "string" ? body.aiTitle.slice(0, 80) : null;
-    const localSummary = typeof body.aiSummary === "string" ? body.aiSummary.slice(0, 600) : null;
-    const localChapters = validateChapters(body.aiChapters);
-    if (localTitle || localSummary || localChapters.length > 0) {
+    if (body.aiTitle || body.aiSummary || body.aiChapters.length > 0) {
       await setAISummary(c.env.DB, videoId, {
-        title: localTitle,
-        summary: localSummary,
-        chaptersJson: localChapters.length > 0 ? JSON.stringify(localChapters) : null,
+        title: body.aiTitle,
+        summary: body.aiSummary,
+        chaptersJson: body.aiChapters.length > 0 ? JSON.stringify(body.aiChapters) : null,
         source: "local",
       });
     }

@@ -72,17 +72,10 @@ export interface StripeEnv {
 const PRO_PLAN_NAME = "pro";
 
 /**
- * Caps enforced by `routes/upload.ts`. Carried as plan metadata so the plan
- * definition is self-describing; the upload route remains the enforcement
- * point (these values are informational, not a second source of truth).
+ * Emergency fallback only (see `plans:` below). It carries NO limits on
+ * purpose: caps live in the `plan` table and are enforced from there by
+ * `lib/upload-policy.ts`; a second copy here would drift.
  */
-export const PRO_PLAN_LIMITS = {
-  maxFileSizeBytes: 1024 * 1024 * 1024, // 1 GB
-  maxTotalStorageBytes: 10 * 1024 * 1024 * 1024, // 10 GB
-  maxDurationSeconds: 30 * 60,
-  maxUploadsPerDay: 10,
-} as const;
-
 function proPlan(env: StripeEnv): StripePlan {
   const monthly = env.STRIPE_PRO_PRICE_ID?.trim();
   // An unset/blank annual price must become `undefined`, not "", or an
@@ -103,7 +96,6 @@ function proPlan(env: StripeEnv): StripePlan {
     name: PRO_PLAN_NAME,
     priceId: monthly,
     annualDiscountPriceId: annual,
-    limits: PRO_PLAN_LIMITS,
 
     // Free subscriptions, the plugin's own way.
     //
@@ -167,18 +159,39 @@ export async function activeSubscriptionPlan(
   referenceId: string,
 ): Promise<string | null> {
   const placeholders = PAID_SUBSCRIPTION_STATUSES.map(() => "?").join(",");
+  // Precedence by STATUS first, recency second. Ordering by periodEnd alone
+  // let a lapsed-into-past_due Business row outrank a freshly bought Pro row
+  // (the dunning row's period had already been advanced by Stripe), so the
+  // customer paid for Pro and was served Business.
   const row = await db
     .prepare(
       `SELECT "plan" FROM "subscription"
         WHERE "referenceId" = ?
           AND "status" IN (${placeholders})
-        ORDER BY "periodEnd" DESC
+          AND ${PERIOD_STILL_OPEN}
+        ORDER BY CASE "status" WHEN 'active' THEN 0 WHEN 'trialing' THEN 1 ELSE 2 END,
+                 "periodEnd" DESC
         LIMIT 1`,
     )
-    .bind(referenceId, ...PAID_SUBSCRIPTION_STATUSES)
+    .bind(referenceId, ...PAID_SUBSCRIPTION_STATUSES, nowIso())
     .first<{ plan: string }>();
   return row?.plan ?? null;
 }
+
+/**
+ * A paid status alone is not enough: the row's billing period must still be
+ * open. This is what bounds `past_due` — Stripe advances periodEnd at each
+ * renewal attempt, so a card that keeps failing stays paid only until the
+ * period it last managed to open runs out — and it is the backstop for a
+ * missed `customer.subscription.deleted` webhook, which would otherwise leave
+ * an `active` row granting access forever.
+ *
+ * `periodEnd` is written by @better-auth/stripe as an ISO-8601 string; rows
+ * with no period (never synced) are given the benefit of the doubt so a
+ * webhook ordering hiccup cannot lock out a customer who just paid.
+ */
+const PERIOD_STILL_OPEN = `("periodEnd" IS NULL OR "periodEnd" > ?)`;
+const nowIso = () => new Date().toISOString();
 
 export async function hasPaidSubscription(
   db: D1Database,
@@ -193,9 +206,10 @@ export async function hasPaidSubscription(
       `SELECT 1 AS one FROM "subscription"
         WHERE "referenceId" = ?
           AND "status" IN (${placeholders})
+          AND ${PERIOD_STILL_OPEN}
         LIMIT 1`,
     )
-    .bind(referenceId, ...PAID_SUBSCRIPTION_STATUSES)
+    .bind(referenceId, ...PAID_SUBSCRIPTION_STATUSES, nowIso())
     .first<{ one: number }>();
   return row !== null;
 }

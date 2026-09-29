@@ -42,6 +42,9 @@ deleteRoutes.delete(
         doc.r2Key.length > 0 ? doc.r2Key : null,
         `videos/${videoId}.mp4`,
         ...versions.map((v) => v.r2Key),
+        // The owner-uploaded poster (routes/video.ts thumbnailR2Key). It was
+        // orphaned in R2 forever when the video went.
+        `thumbs/${videoId}`,
       ].filter((value): value is string => value !== null)
     )
   );

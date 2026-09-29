@@ -31,7 +31,8 @@ import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import { getAuth, hasAppleConfig, hasGoogleConfig } from "../lib/auth";
 import { requireAuth } from "../middleware/auth";
-import { resolveTier } from "../lib/entitlement";
+import { resolveEntitlement } from "../lib/entitlement";
+import { planForEntitlement } from "../lib/plans";
 
 export const desktopRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -41,11 +42,27 @@ const REQUEST_TTL_SEC = 600;
 /** The one path a loopback redirect may use. */
 const CALLBACK_PATH = "/capturecat-auth/callback";
 
-const PROVIDERS = new Set(["apple", "google"]);
+// "sso" is the enterprise door: the chooser collects a work email and the
+// SSO plugin resolves the identity provider by its domain.
+const PROVIDERS = new Set(["apple", "google", "sso"]);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Whether any verified SSO provider exists — decides if the chooser shows
+ *  the work-email door at all. Cheap and edge-cached is not worth it: one
+ *  indexed COUNT per desktop sign-in start. */
+async function ssoProvidersExist(db: D1Database): Promise<boolean> {
+  try {
+    const row = await db
+      .prepare('SELECT COUNT(*) AS n FROM "ssoProvider" WHERE "domainVerified" = 1')
+      .first<{ n: number }>();
+    return (row?.n ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
 
 function nowSec(): number {
   return Math.floor(Date.now() / 1000);
@@ -144,6 +161,8 @@ function chooserPage(params: {
   method: string;
   clientState: string | null;
   providers: Array<{ id: string; label: string; mark: string }>;
+  /** Show the SSO email form. */
+  sso?: boolean;
 }): string {
   const escape = (text: string) =>
     text.replace(/[&<>"']/g, (ch) =>
@@ -165,6 +184,16 @@ function chooserPage(params: {
         `<a class="btn" href="${href(p.id)}"><span class="mark">${p.mark}</span>${escape(p.label)}</a>`,
     )
     .join("\n");
+  // Enterprise SSO: same authorize endpoint, provider=sso plus the work email
+  // (a GET form so the validated PKCE params ride along as hidden fields).
+  const hidden = (name: string, value: string) =>
+    `<input type="hidden" name="${name}" value="${escape(value)}">`;
+  const ssoForm = `<details class="sso"><summary>Use single sign-on (SSO)</summary>
+<form method="get" action="/api/desktop/authorize">
+${hidden("provider", "sso")}${hidden("redirect_uri", params.redirectUri)}${hidden("code_challenge", params.codeChallenge)}${hidden("code_challenge_method", params.method)}${params.clientState !== null ? hidden("state", params.clientState) : ""}
+<input class="field" type="email" name="email" placeholder="you@company.com" required autocomplete="email">
+<button class="btn go" type="submit">Continue</button>
+</form></details>`;
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sign in to CaptureCat</title><style>
@@ -176,6 +205,13 @@ font:400 15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgro
 .card{text-align:center;padding:40px 48px;max-width:320px}
 h1{font-size:19px;margin:0 0 8px;font-weight:600}
 p{margin:0 0 24px;opacity:.65}
+.sso{margin-top:18px;font-size:13px}
+.sso summary{cursor:pointer;opacity:.65;list-style:none}
+.sso summary:hover{opacity:1}
+.sso form{display:flex;gap:8px;margin-top:10px}
+.field{flex:1;min-width:0;border:1px solid #d2d2d7;border-radius:10px;padding:10px 12px;font:inherit;background:transparent;color:inherit}
+@media(prefers-color-scheme:dark){.field{border-color:#3a3a3c}}
+.btn.go{margin:0;padding:10px 14px}
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;
 background:#fff;border:1px solid #d2d2d7;border-radius:10px;padding:11px 16px;margin-bottom:10px;
 color:#1d1d1f;font-weight:500;font-size:14px}
@@ -186,6 +222,7 @@ color:#1d1d1f;font-weight:500;font-size:14px}
     params.providers.length > 1 ? "Choose how you&#39;d like to continue." : "Continue to your account."
   }</p>
 ${buttons}
+${params.sso ? ssoForm : ""}
 </div></body></html>`;
 }
 
@@ -254,9 +291,11 @@ desktopRoutes.get("/desktop/authorize", async (c) => {
     if (available.length === 0) {
       return c.html(errorPage("No sign-in providers are configured."), 503);
     }
-    // Exactly one configured provider: skip the chooser entirely rather than
-    // asking someone to "choose" from a list of one.
-    if (available.length === 1) {
+    // Exactly one configured provider and no SSO: skip the chooser entirely
+    // rather than asking someone to "choose" from a list of one. With SSO
+    // the chooser is the only place to enter a work email, so it stays.
+    const ssoAvailable = await ssoProvidersExist(c.env.DB);
+    if (available.length === 1 && !ssoAvailable) {
       const query = new URLSearchParams({
         provider: available[0].id,
         redirect_uri: redirectUri,
@@ -267,8 +306,15 @@ desktopRoutes.get("/desktop/authorize", async (c) => {
       return c.redirect(`/api/desktop/authorize?${query.toString()}`, 302);
     }
     return c.html(
-      chooserPage({ redirectUri, codeChallenge, method, clientState, providers: available }),
+      chooserPage({ redirectUri, codeChallenge, method, clientState, providers: available, sso: ssoAvailable }),
     );
+  }
+
+  // SSO: the email's domain picks the identity provider. Validated here so a
+  // malformed address never reaches the plugin as a 500.
+  const ssoEmail = provider === "sso" ? (c.req.query("email") ?? "").trim().toLowerCase() : "";
+  if (provider === "sso" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ssoEmail)) {
+    return c.html(errorPage("Enter your work email address to sign in with SSO."), 400);
   }
 
   // A provider the app named but that is not configured would reach
@@ -310,19 +356,33 @@ desktopRoutes.get("/desktop/authorize", async (c) => {
 
   let result: { headers: Headers; response: unknown };
   try {
-    result = await auth.api.signInSocial({
-      body: {
-        provider: provider as "apple" | "google",
-        callbackURL: `${origin}/api/desktop/complete?rid=${rid}`,
-        errorCallbackURL: `${origin}/api/desktop/failed?rid=${rid}`,
-      },
-      returnHeaders: true,
-    });
+    result =
+      provider === "sso"
+        ? await auth.api.signInSSO({
+            body: {
+              email: ssoEmail,
+              callbackURL: `${origin}/api/desktop/complete?rid=${rid}`,
+              errorCallbackURL: `${origin}/api/desktop/failed?rid=${rid}`,
+            },
+            returnHeaders: true,
+          })
+        : await auth.api.signInSocial({
+            body: {
+              provider: provider as "apple" | "google",
+              callbackURL: `${origin}/api/desktop/complete?rid=${rid}`,
+              errorCallbackURL: `${origin}/api/desktop/failed?rid=${rid}`,
+            },
+            returnHeaders: true,
+          });
   } catch (err) {
-    console.error("desktop: signInSocial failed", err);
+    console.error("desktop: sign-in start failed", err);
     return c.html(
-      errorPage("This sign-in provider is not available right now."),
-      502,
+      errorPage(
+        provider === "sso"
+          ? "No verified identity provider is set up for that email domain. Ask your team admin, or sign in another way."
+          : "This sign-in provider is not available right now.",
+      ),
+      provider === "sso" ? 400 : 502,
     );
   }
 
@@ -536,7 +596,9 @@ desktopRoutes.post("/desktop/revoke", async (c) => {
 // out a subscriber in dunning that this API still treats as paid.
 desktopRoutes.get("/me", requireAuth, async (c) => {
   const user = c.get("user");
-  const tier = await resolveTier(c.env.DB, user.uid, user.claims);
+  const ent = await resolveEntitlement(c.env.DB, user.uid, user.claims);
+  const tier = ent === "blocked" ? "blocked" : ent.tier;
+  const plan = await planForEntitlement(c.env.DB, ent === "blocked" ? { tier: "free" } : ent);
 
   return c.json({
     uid: user.uid,
@@ -544,6 +606,13 @@ desktopRoutes.get("/me", requireAuth, async (c) => {
     tier: tier === "blocked" ? "free" : tier,
     tester: user.claims?.tester === true,
     blocked: tier === "blocked",
+    // The plan row that governs this user, resolved server-side: which
+    // features are on (removeWatermark, webCapture, …) and the caps. The
+    // client never decides entitlement, but it can now ASK instead of
+    // inferring from the tier.
+    plan: { name: plan.name, displayName: plan.displayName },
+    features: plan.features,
+    limits: plan.limits,
     // Better Auth slides the session expiry forward on use without changing
     // the token. Handing the current value back lets the desktop app refresh
     // its Keychain copy instead of expiring a session that is still alive.

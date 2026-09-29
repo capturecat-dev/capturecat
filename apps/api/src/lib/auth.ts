@@ -20,7 +20,7 @@
 
 import { betterAuth } from "better-auth";
 import { admin, bearer, oneTimeToken, organization } from "better-auth/plugins";
-import { createAuthMiddleware } from "better-auth/api";
+import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { sso } from "@better-auth/sso";
 import { APIError } from "better-auth/api";
 import { importPKCS8, SignJWT } from "jose";
@@ -164,24 +164,30 @@ export function buildAuth(env: Env) {
       before: createAuthMiddleware(async (ctx) => {
         const gated = ["/sso/register", "/sso/update-provider"];
         if (!gated.includes(ctx.path)) return;
-        const userId = ctx.context.session?.user?.id;
+        // A global before-hook runs BEFORE the endpoint's sessionMiddleware,
+        // so `ctx.context.session` is always null here — the previous version
+        // of this hook read it, returned early, and never gated anything.
+        // getSessionFromCtx resolves the session from the request itself.
+        const session = await getSessionFromCtx(ctx).catch(() => null);
+        const userId = session?.user?.id;
         if (!userId) {
-          // No resolved session on the hook context — the plugin's own auth
-          // requirement will produce the 401.
+          // Let the plugin's own auth requirement produce the 401.
           return;
         }
-        const { featuresForTier } = await import("./plans");
-        const { resolveTier } = await import("./entitlement");
-        const { activeSubscriptionPlan } = await import("./stripe");
-        const tier = await resolveTier(env.DB, userId, undefined);
-        if (tier === "blocked") {
+        const { planForEntitlement } = await import("./plans");
+        const { resolveEntitlement } = await import("./entitlement");
+        const user = session.user as { tester?: boolean | null; blocked?: boolean | null };
+        const ent = await resolveEntitlement(env.DB, userId, {
+          tester: user.tester === true,
+          blocked: user.blocked === true,
+        });
+        if (ent === "blocked") {
           throw new APIError("FORBIDDEN", { message: "Account blocked" });
         }
-        const planName = tier === "paid" ? await activeSubscriptionPlan(env.DB, userId) : null;
-        const features = await featuresForTier(env.DB, tier, planName);
-        if (!(features as { sso?: boolean }).sso) {
+        const plan = await planForEntitlement(env.DB, ent);
+        if (!plan.features.sso) {
           throw new APIError("FORBIDDEN", {
-            message: "SSO requires the Business plan. Upgrade to configure an identity provider.",
+            message: "Single sign-on is part of the Business plan. Upgrade to connect an identity provider.",
           });
         }
       }),
@@ -301,7 +307,15 @@ export function buildAuth(env: Env) {
       // gated in the `before` hook below; sign-in/callback endpoints stay
       // open (they must be, for the customer's users to authenticate).
       sso({
+        // Sign-in is refused until the provider's domain is verified; the
+        // Team page walks the admin through the TXT record (routes/sso.ts).
         domainVerification: { enabled: true },
+        // Anyone who signs in through an org's provider joins that org as a
+        // member. Owners/admins are only ever promoted from the Team page.
+        organizationProvisioning: { disabled: false, defaultRole: "member" },
+        // Mint the user on first SSO sign-in; there is no other way for an
+        // enterprise account to exist.
+        disableImplicitSignUp: false,
       }),
 
       // Billing. Registers /subscription/{upgrade,cancel,restore,list,

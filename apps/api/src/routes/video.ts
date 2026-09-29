@@ -19,10 +19,12 @@ import {
 import type { VideoMetadata } from "../types";
 import { getAISummary, getTranscript } from "../lib/db";
 import { requireAuth } from "../middleware/auth";
-import { requireEntitlement, userRateLimit, fixedWindowAllow } from "../lib/entitlement";
+import { requireEntitlement, userRateLimit, fixedWindowAllow, planForUser } from "../lib/entitlement";
+import { headR2ObjectMeta } from "../lib/presign";
+import { resolveDomain, domainIsLive } from "../lib/db";
 import { generateId } from "../lib/id";
 import { readValidatedImage } from "../lib/uploads";
-import { PRO_PLAN_LIMITS } from "../lib/stripe";
+import { planForEntitlement } from "../lib/plans";
 import { shareBaseURL } from "../lib/origins";
 
 export const videoRoutes = new Hono<{
@@ -85,6 +87,7 @@ videoRoutes.get("/video/:videoId", async (c) => {
     if (gate.state === "locked") return c.json({ error: "Password required" }, 403);
     if (gate.state === "expired") return c.json({ error: "This link has expired" }, 410);
     if (gate.state === "view_limit") return c.json({ error: "View limit reached" }, 403);
+    if (gate.state === "paused") return c.json({ error: "This share is paused" }, 403);
   }
 
   // Version pinning (migration 0017). `?v=N` streams a specific version —
@@ -301,7 +304,10 @@ type ShareGate =
   | { state: "open" }
   | { state: "locked" }
   | { state: "expired" }
-  | { state: "view_limit" };
+  | { state: "view_limit" }
+  /** The OWNER's plan no longer includes cloud sharing. Bytes stay in R2 so
+   *  a resubscribe restores every link; until then nothing streams. */
+  | { state: "paused" };
 
 /** The share-page gate, shared by /meta, the byte route, and /download so the
  *  page and the stream can never disagree. */
@@ -310,6 +316,13 @@ async function shareGate(
   doc: VideoMetadata,
   token: string | undefined
 ): Promise<ShareGate> {
+  // Sharing is a plan feature of the uploader, checked at VIEW time as well
+  // as upload time. Without this, one month of Pro bought permanent hosting:
+  // caps were only ever enforced on the upload path.
+  const ownerPlan = await planForUser(c.env, doc.uid);
+  if (!ownerPlan.features.cloudShare) {
+    return { state: "paused" };
+  }
   if (doc.expiresAt && Date.parse(doc.expiresAt) < Date.now()) {
     return { state: "expired" };
   }
@@ -411,6 +424,20 @@ videoRoutes.get("/video/:videoId/meta", async (c) => {
   const doc = await getSharedVideo(c.env.DB, c.req.param("videoId"));
   if (!doc || doc.status !== "ready" || doc.isPrivate) {
     return c.json({ error: "Video not found" }, 404);
+  }
+  // The share page forwards the host it is rendering on. A customer's custom
+  // domain serves ONLY that customer's videos, only while the domain is live
+  // and their plan still includes custom domains — never someone else's
+  // share, and never after a downgrade.
+  const shareHost = (c.req.header("X-Share-Host") ?? "").toLowerCase().replace(/:\d+$/, "");
+  if (shareHost && !isFirstPartyShareHost(shareHost)) {
+    const record = await resolveDomain(c.env.DB, shareHost);
+    if (!record || !domainIsLive(record) || record.uid !== doc.uid) {
+      return c.json({ error: "Video not found" }, 404);
+    }
+    if (!(await planForUser(c.env, record.uid)).features.customDomain) {
+      return c.json({ error: "Video not found" }, 404);
+    }
   }
   const gate = await shareGate(c, doc, c.req.query("token"));
   if (gate.state !== "open") {
@@ -584,17 +611,33 @@ function parseMarkers(json: string | null): unknown[] {
 // Viewer comments — public read/write, gated on the uploader's opt-in
 // ---------------------------------------------------------------------------
 
-/** Same visibility gate as /meta: ready, public, and comments switched on. */
-async function commentableVideo(db: D1Database, videoId: string) {
-  const doc = await getSharedVideo(db, videoId);
+/** Same visibility gate as /meta: ready, public, comments switched on, AND
+ *  the uploader's plan still includes comments. `commentsEnabled` is a
+ *  client-sent flag; the plan flag is the entitlement. */
+async function commentableVideo(env: Env, videoId: string) {
+  const doc = await getSharedVideo(env.DB, videoId);
   if (!doc || doc.status !== "ready" || doc.isPrivate || !doc.commentsEnabled) {
     return null;
   }
+  const plan = await planForUser(env, doc.uid);
+  if (!plan.features.comments || !plan.features.cloudShare) return null;
   return doc;
 }
 
+/** Hosts that serve share pages first-party. Anything else is a customer's
+ *  custom domain and must resolve through custom_domains. */
+function isFirstPartyShareHost(host: string): boolean {
+  return (
+    host === "capturecat.so" ||
+    host.endsWith(".capturecat.so") ||
+    host === "localhost" ||
+    host.startsWith("127.0.0.1") ||
+    host.endsWith(".workers.dev")
+  );
+}
+
 videoRoutes.get("/video/:videoId/comments", async (c) => {
-  const doc = await commentableVideo(c.env.DB, c.req.param("videoId"));
+  const doc = await commentableVideo(c.env, c.req.param("videoId"));
   if (!doc) return c.json({ error: "Comments unavailable" }, 404);
   const comments = await listVideoComments(c.env.DB, doc.videoId);
   return c.json({
@@ -614,7 +657,7 @@ const MAX_COMMENTS_PER_VIDEO = 500;
 const COMMENT_RATE_LIMIT = 10;
 
 videoRoutes.post("/video/:videoId/comments", async (c) => {
-  const doc = await commentableVideo(c.env.DB, c.req.param("videoId"));
+  const doc = await commentableVideo(c.env, c.req.param("videoId"));
   if (!doc) return c.json({ error: "Comments unavailable" }, 404);
 
   // Per-IP window via the edge cache, mirroring the daily-upload counter.
@@ -736,7 +779,17 @@ videoRoutes.post(
       return c.json({ error: "Version not found" }, 404);
     }
 
-    await setCurrentVersion(c.env.DB, videoId, version);
+    // Re-pin the ETag to the object actually being restored; the presign
+    // that created it is long expired, but the byte route still compares.
+    const head = await headR2ObjectMeta({
+      r2Endpoint: c.env.R2_ENDPOINT,
+      accessKeyId: c.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
+      bucket: "capturecat",
+      key: version.r2Key,
+    });
+    if (head === null) return c.json({ error: "Version file not found in storage" }, 404);
+    await setCurrentVersion(c.env.DB, videoId, version, head.etag);
     // Byte route gates on the 5-minute metadata cache — purge so the link
     // plays the restored version now.
     await caches.default.delete(new Request(`https://meta.internal/video/${videoId}`));
@@ -940,8 +993,8 @@ videoRoutes.patch("/video/:videoId/privacy", requireAuth, requireEntitlement(), 
 // GET /videos — the signed-in user's library
 // ---------------------------------------------------------------------------
 /**
- * Returns storage numbers alongside the list so the dashboard stops hardcoding
- * a 10 GiB limit independently of `PRO_PLAN_LIMITS`.
+ * Returns storage numbers alongside the list so the dashboard shows the
+ * caller's OWN plan limit, not a hardcoded one.
  */
 // Team library listing — any member of the org.
 videoRoutes.get("/org/:orgId/videos", requireAuth, requireEntitlement(), async (c) => {
@@ -996,9 +1049,10 @@ videoRoutes.post("/video/:videoId/org", requireAuth, requireEntitlement(), async
 
 videoRoutes.get("/videos", requireAuth, requireEntitlement(), async (c) => {
   const uid = c.get("user").uid;
-  const [videos, used] = await Promise.all([
+  const [videos, used, plan] = await Promise.all([
     listSharedVideos(c.env.DB, uid),
     storageUsageBytes(c.env.DB, uid),
+    planForEntitlement(c.env.DB, c.get("entitlement")),
   ]);
   return c.json({
     videos: videos.map((v) => ({
@@ -1036,6 +1090,6 @@ videoRoutes.get("/videos", requireAuth, requireEntitlement(), async (c) => {
         : null,
     })),
     storageUsedBytes: used,
-    storageLimitBytes: PRO_PLAN_LIMITS.maxTotalStorageBytes,
+    storageLimitBytes: plan.limits.maxTotalStorageBytes,
   });
 });

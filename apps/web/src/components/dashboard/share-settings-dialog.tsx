@@ -175,49 +175,49 @@ export function ShareSettingsDialog({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={video.hasPassword ? "Unchanged — type to replace" : "Choose a password"}
-                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                className="studio-input"
               />
             )}
           </div>
 
           <div className="grid min-w-0 grid-cols-2 gap-3">
             <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium">Expires</p>
+              <p className="studio-eyebrow">Expires</p>
               <input
                 type="date"
                 value={expiresAt}
                 onChange={(e) => setExpiresAt(e.target.value)}
-                className="w-full min-w-0 rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                className="studio-input"
               />
             </div>
             <div className="min-w-0 space-y-1">
-              <p className="text-sm font-medium">View limit</p>
+              <p className="studio-eyebrow">View limit</p>
               <input
                 type="number"
                 min={0}
                 value={maxViews}
                 onChange={(e) => setMaxViews(e.target.value)}
                 placeholder="Unlimited"
-                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                className="studio-input"
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <p className="text-sm font-medium">Brand accent</p>
+            <p className="studio-eyebrow">Brand accent</p>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#FBBF24"}
                 onChange={(e) => setAccent(e.target.value.toUpperCase())}
-                className="h-9 w-12 cursor-pointer rounded-md border bg-transparent"
+                className="studio-input"
               />
               <input
                 type="text"
                 value={accent}
                 onChange={(e) => setAccent(e.target.value)}
                 placeholder="Default"
-                className="w-28 rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                className="studio-input w-28"
               />
               {accent && (
                 <Button variant="ghost" size="sm" onClick={() => setAccent("")}>
@@ -231,12 +231,12 @@ export function ShareSettingsDialog({
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">Thumbnail</p>
+            <p className="studio-eyebrow">Thumbnail</p>
             {thumbnailUrl && (
               <img
                 src={thumbnailUrl}
                 alt="Custom thumbnail"
-                className="aspect-video w-full rounded-md border object-cover"
+                className="studio-well aspect-video w-full object-cover"
               />
             )}
             <input
@@ -279,7 +279,7 @@ export function ShareSettingsDialog({
           <div className="min-w-0 space-y-2">
             <p className="text-sm font-medium">Embed</p>
             <div className="flex min-w-0 items-center gap-2">
-              <code className="block min-w-0 flex-1 truncate rounded-md border px-3 py-2 text-xs text-muted-foreground">
+              <code className="studio-well block min-w-0 flex-1 truncate px-3 py-2 text-xs text-muted-foreground">
                 {scriptEmbed}
               </code>
               <Button
@@ -295,7 +295,7 @@ export function ShareSettingsDialog({
               </Button>
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              <code className="block min-w-0 flex-1 truncate rounded-md border px-3 py-2 text-xs text-muted-foreground">
+              <code className="studio-well block min-w-0 flex-1 truncate px-3 py-2 text-xs text-muted-foreground">
                 {iframeEmbed}
               </code>
               <Button

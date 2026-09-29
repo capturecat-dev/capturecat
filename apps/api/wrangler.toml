@@ -37,6 +37,13 @@ BETTER_AUTH_URL = "https://api.capturecat.so"
 # App Attest rollout: "off" | "report" (verify+log, never block) | "enforce".
 # Flip to "enforce" only after the report logs run clean for a while.
 ATTEST_MODE = "report"
+# Cloudflare for SaaS (custom share domains). Zone id is not secret; the token
+# is: `wrangler secret put CF_SAAS_API_TOKEN` (SSL and Certificates: Edit on
+# the zone). One-time zone setup: scripts/setup-saas.sh. Without both,
+# customers can add a domain but it never goes live (the API says so).
+# CF_ZONE_ID = "<zone id>"
+# CUSTOM_DOMAIN_CNAME_TARGET = "customers.capturecat.so"
+
 # Admin allowlist for /api/admin/*. Better Auth's admin plugin is deliberately
 # NOT enabled — it would add role/banned/banExpires columns plus 15 endpoints
 # including impersonate-user and set-user-password. Admin authority is this
@@ -64,6 +71,9 @@ ATTEST_MODE = "report"
 #                      The PUBLIC site key is NOT here; it lives in the web app
 #                      as NEXT_PUBLIC_TURNSTILE_SITE_KEY. Set via
 #                      `wrangler secret put TURNSTILE_SECRET`.
+#   CF_SAAS_API_TOKEN — Cloudflare API token, "SSL and Certificates: Edit" on the
+#                      capturecat.so zone, for custom share domains (custom
+#                      hostnames). See scripts/setup-saas.sh.
 #   BROWSER_RENDERING_TOKEN — API token with "Browser Rendering - Edit"
 #                      permission, for /api/screenshot/take. The engine calls
 #                      the REST quick-action endpoint

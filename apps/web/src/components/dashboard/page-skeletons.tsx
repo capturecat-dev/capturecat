@@ -3,14 +3,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 /**
  * Polaris-style page skeletons: every loading state mirrors the LAYOUT of the
  * page it stands in for (Shopify's SkeletonPage/SkeletonBodyText pattern) —
- * a title ghost, then card/table ghosts shaped like the real content — so
- * the page doesn't jump when data lands. Use these instead of PageSpinner.
+ * a title ghost, then panel/table ghosts shaped like the real content — so
+ * the page doesn't jump when data lands. Ghost surfaces are the same glass
+ * panels the real pages use. Use these instead of PageSpinner.
  */
 
 /** SkeletonDisplayText — the page title ghost. */
 export function SkeletonTitle({ wide = false }: { wide?: boolean }) {
   return (
     <div className="space-y-2">
+      <Skeleton className="h-3 w-16 opacity-60" />
       <Skeleton className={wide ? "h-7 w-64" : "h-7 w-40"} />
       <Skeleton className="h-4 w-72 opacity-60" />
     </div>
@@ -32,7 +34,7 @@ export function SkeletonLines({ lines = 3 }: { lines?: number }) {
   );
 }
 
-/** A bordered card ghost with an optional heading row. */
+/** A glass panel ghost with an optional heading row. */
 export function SkeletonCard({
   lines = 3,
   action = false,
@@ -41,13 +43,13 @@ export function SkeletonCard({
   action?: boolean;
 }) {
   return (
-    <div className="rounded-lg border p-4">
+    <div className="glass-panel hairline-top p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Skeleton className="h-4 w-4 rounded" />
+          <Skeleton className="size-4 rounded" />
           <Skeleton className="h-4 w-32" />
         </div>
-        {action && <Skeleton className="h-8 w-24 rounded-md" />}
+        {action && <Skeleton className="h-8 w-24 rounded-full" />}
       </div>
       <div className="mt-4">
         <SkeletonLines lines={lines} />
@@ -59,130 +61,120 @@ export function SkeletonCard({
 /** Table ghost: header row + n data rows. */
 export function SkeletonTable({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="rounded-lg border">
-      <div className="flex items-center gap-4 border-b px-4 py-3">
+    <div className="glass-panel hairline-top overflow-hidden">
+      <div className="flex items-center gap-4 border-b border-white/8 px-4 py-3">
         <Skeleton className="h-3.5 w-32" />
         <Skeleton className="ml-auto h-3.5 w-20" />
         <Skeleton className="h-3.5 w-16" />
       </div>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="flex items-center gap-4 border-b px-4 py-3.5 last:border-b-0">
+        <div key={i} className="flex items-center gap-4 border-b border-white/8 px-4 py-3.5 last:border-b-0">
           <Skeleton className="h-9 w-14 shrink-0 rounded-md" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <Skeleton className="h-3.5" style={{ width: `${45 + ((i * 17) % 35)}%` }} />
             <Skeleton className="h-3 w-24 opacity-60" />
           </div>
           <Skeleton className="h-3.5 w-20" />
-          <Skeleton className="h-7 w-7 rounded-md" />
+          <Skeleton className="size-7 rounded-md" />
         </div>
       ))}
     </div>
   );
 }
 
-/** Library page: toolbar + video table. */
+/** Library page: title + toolbar + video table. */
 export function LibrarySkeleton() {
   return (
     <div className="space-y-4">
+      <div className="flex items-end justify-between">
+        <SkeletonTitle />
+        <Skeleton className="h-4 w-44 opacity-60" />
+      </div>
       <div className="flex items-center gap-2">
-        <Skeleton className="h-9 w-56 rounded-md" />
-        <Skeleton className="h-9 w-28 rounded-md" />
-        <Skeleton className="ml-auto h-9 w-24 rounded-md" />
+        <Skeleton className="h-9 w-56 rounded-full" />
+        <Skeleton className="h-9 w-28 rounded-full" />
+        <Skeleton className="ml-auto h-9 w-24 rounded-full" />
       </div>
       <SkeletonTable rows={7} />
     </div>
   );
 }
 
-/** Team page: members card + library card + SSO card. */
+/** Team page: members + library + SSO, one surface. */
 export function TeamSkeleton() {
+  return <SkeletonSections sections={[{ lines: 3, action: true }, { lines: 2 }, { lines: 4, action: true }]} />;
+}
+
+/** One surface, hairline-divided sections — the shape Sections renders. */
+export function SkeletonSections({ sections }: { sections: Array<{ lines: number; action?: boolean }> }) {
   return (
-    <div className="space-y-6">
-      <div className="rounded-lg border p-4">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-10 rounded-lg" />
-          <div className="flex-1 space-y-1.5">
-            <Skeleton className="h-4 w-36" />
-            <Skeleton className="h-3 w-20 opacity-60" />
-          </div>
-          <Skeleton className="h-8 w-24 rounded-md" />
-        </div>
-        <div className="mt-4 space-y-2">
-          {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="flex items-center justify-between rounded-md border px-3 py-2.5">
-              <Skeleton className="h-3.5 w-44" />
-              <Skeleton className="h-5 w-14 rounded-full" />
+    <div className="glass-panel hairline-top max-w-3xl divide-y divide-white/8 overflow-hidden">
+      {sections.map((s, i) => (
+        <div key={i} className="p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="size-4 rounded" />
+              <Skeleton className="h-4 w-32" />
             </div>
-          ))}
+            {s.action && <Skeleton className="h-8 w-24 rounded-full" />}
+          </div>
+          <div className="mt-4">
+            <SkeletonLines lines={s.lines} />
+          </div>
         </div>
-      </div>
-      <SkeletonCard lines={2} />
-      <SkeletonCard lines={4} action />
+      ))}
     </div>
   );
 }
 
-/** Settings: profile card + domains card. */
+/** Settings: profile + domains, one surface. */
 export function SettingsSkeleton() {
-  return (
-    <div className="space-y-6">
-      <SkeletonCard lines={4} action />
-      <SkeletonCard lines={3} />
-    </div>
-  );
+  return <SkeletonSections sections={[{ lines: 4, action: true }, { lines: 3 }]} />;
 }
 
-/** Billing: status card with a plan line and action button. */
+/** Billing: plan + storage, one surface. */
 export function BillingSkeleton() {
-  return (
-    <div className="rounded-lg border p-6">
-      <div className="flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-lg" />
-        <div className="space-y-1.5">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-3 w-48 opacity-60" />
-        </div>
-      </div>
-      <div className="mt-6 space-y-2">
-        <SkeletonLines lines={2} />
-      </div>
-      <Skeleton className="mt-6 h-9 w-48 rounded-md" />
-    </div>
-  );
+  return <SkeletonSections sections={[{ lines: 2, action: true }, { lines: 2 }]} />;
 }
 
-/** Video detail: player ghost + meta + settings rows. */
+/** Video detail: title + settings column + player column. */
 export function VideoDetailSkeleton() {
   return (
-    <div className="space-y-4">
-      <Skeleton className="aspect-video w-full rounded-lg" />
-      <div className="flex items-center justify-between">
-        <div className="space-y-1.5">
-          <Skeleton className="h-5 w-64" />
-          <Skeleton className="h-3.5 w-32 opacity-60" />
-        </div>
-        <Skeleton className="h-9 w-28 rounded-md" />
+    <div className="space-y-6">
+      <div className="flex items-end justify-between">
+        <SkeletonTitle wide />
+        <Skeleton className="h-8 w-28 rounded-full" />
       </div>
-      <SkeletonCard lines={3} />
+      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        <div className="space-y-4">
+          <SkeletonCard lines={3} />
+          <SkeletonCard lines={4} />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="aspect-video w-full rounded-2xl" />
+          <SkeletonCard lines={2} />
+        </div>
+      </div>
     </div>
   );
 }
 
-/** Analytics: stat tiles + chart ghost + table. */
+/** Analytics: title + stat tiles + chart ghost + table. */
 export function AnalyticsSkeleton() {
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        {Array.from({ length: 3 }, (_, i) => (
-          <div key={i} className="rounded-lg border p-4">
+    <div className="space-y-6">
+      <SkeletonTitle />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="glass-panel hairline-top px-5 py-4">
             <Skeleton className="h-3 w-20 opacity-60" />
             <Skeleton className="mt-2 h-7 w-16" />
           </div>
         ))}
       </div>
-      <div className="rounded-lg border p-4">
+      <div className="glass-panel hairline-top p-5">
         <Skeleton className="h-3.5 w-32" />
-        <Skeleton className="mt-3 h-48 w-full rounded-md" />
+        <Skeleton className="mt-4 h-48 w-full rounded-xl" />
       </div>
       <SkeletonTable rows={4} />
     </div>

@@ -1,6 +1,7 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { API_URL } from "@/lib/api-url";
+import { fetchShareMeta } from "@/lib/share-meta";
 import { jsonLd } from "@/lib/json-ld";
 import SharePlayer, {
   type AnnotationMarker,
@@ -31,7 +32,7 @@ interface VideoMeta {
   annotations?: AnnotationMarker[];
   /** "open" | "locked" | "expired" | "view_limit" — gated metas carry only
    *  videoId/fileName/gate/brandAccent. */
-  gate?: "open" | "locked" | "expired" | "view_limit";
+  gate?: "open" | "locked" | "expired" | "view_limit" | "paused";
   allowDownload?: boolean;
   brandAccent?: string | null;
   aiTitle?: string | null;
@@ -57,11 +58,8 @@ function isoDuration(seconds: number): string {
 
 async function getVideo(videoId: string): Promise<VideoMeta | null> {
   try {
-    const res = await fetch(
-      `${API_URL}/api/video/${encodeURIComponent(videoId)}/meta`
-    );
-    if (!res.ok) return null;
-    return (await res.json()) as VideoMeta;
+    const raw = await fetchShareMeta({ data: videoId });
+    return raw ? (JSON.parse(raw) as VideoMeta) : null;
   } catch {
     return null;
   }
@@ -240,7 +238,7 @@ function SharePage() {
           <ShareGate
             videoId={video.videoId}
             fileName={video.fileName}
-            gate={video.gate as "locked" | "expired" | "view_limit"}
+            gate={video.gate as "locked" | "expired" | "view_limit" | "paused"}
             brandAccent={video.brandAccent}
             apiUrl={API_URL}
           />

@@ -3,7 +3,6 @@ import {
   checkUrlAllowed,
   parseScreenshotParams,
   screenshotGate,
-  sessionDailyScreenshotCap,
   DEVICE_PRESETS,
 } from "./params";
 
@@ -196,10 +195,18 @@ describe("screenshotGate — entitlement matrix (mock plan)", () => {
   });
 });
 
-describe("sessionDailyScreenshotCap — app callers render on every plan", () => {
-  it("grants a positive allowance to every tier (free must never be 0)", () => {
-    expect(sessionDailyScreenshotCap("free")).toBe(30);
-    expect(sessionDailyScreenshotCap("paid")).toBe(500);
-    expect(sessionDailyScreenshotCap("tester")).toBe(500);
+describe("screenshotGate — session door is gated by webCapture", () => {
+  it("free plan without webCapture is refused on the session door", () => {
+    const r = screenshotGate({ tier: "free", features: { webCapture: false, screenshotApi: false }, door: "session" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.code).toBe("upgrade_required");
+  });
+  it("webCapture opens the session door but not the key door", () => {
+    expect(screenshotGate({ tier: "paid", features: { webCapture: true }, door: "session" }).ok).toBe(true);
+    expect(screenshotGate({ tier: "paid", features: { webCapture: true }, door: "key" }).ok).toBe(false);
+  });
+  it("screenshotApi opens the key door but not the session door", () => {
+    expect(screenshotGate({ tier: "paid", features: { screenshotApi: true }, door: "key" }).ok).toBe(true);
+    expect(screenshotGate({ tier: "paid", features: { screenshotApi: true }, door: "session" }).ok).toBe(false);
   });
 });

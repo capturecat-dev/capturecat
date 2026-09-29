@@ -77,6 +77,9 @@ if CommandLine.arguments.contains("--screenshot-hotkey-probe") {
 
 // Settings window probe: sidebar/pane topology, pane switching, a control
 // write-through (restored), and the live dark/light recolor.
+if CommandLine.arguments.contains("--agent-setup-shot") {
+    MainActor.assumeIsolated { AgentSetupShotHarness.run() }
+}
 if CommandLine.arguments.contains("--settings-shot") {
     MainActor.assumeIsolated { SettingsShotHarness.run() }
 }
@@ -660,6 +663,13 @@ if CommandLine.arguments.contains("--autozoom-test") {
 // launch.
 if CommandLine.arguments.contains("--cameralayout-test") {
     CameraLayoutHarness.run()
+}
+
+// Preview↔export CURSOR gate: the arrow the editor shows vs the arrow the
+// exporter burns in, measured on the same 1920×1080 pixel grid (2× preview
+// snapshot vs a real 1080p export). Never reached in a normal launch.
+if CommandLine.arguments.contains("--cursor-export-parity") {
+    MainActor.assumeIsolated { CursorExportParityHarness.run() }
 }
 
 // Export throughput benchmark: synthetic fixture → full VideoExporter pass →
