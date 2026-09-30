@@ -238,9 +238,15 @@ export async function deleteSharedVideo(
  *  - videos with no version rows (pre-0017 uploads never re-shared) at their
  *    top-level size, so nothing is double-counted or missed;
  *  - every non-video object recorded in stored_objects (migration 0025):
- *    screenshots stored via the screenshot API.
+ *    screenshots stored via the screenshot API;
+ *  - cloud projects for the web editor (migration 0026): every VERIFIED
+ *    media object (pending presigns are not counted — the presign route
+ *    bounds them separately) plus each project's current project.json.
+ *
+ * Exported so the cloud-project routes can embed the same sum in their own
+ * conditional UPDATEs (atomic accept) instead of re-deriving it.
  */
-const STORAGE_SUM_SQL = `
+export const STORAGE_SUM_SQL = `
   SELECT COALESCE(SUM(sz), 0) FROM (
     SELECT vv.file_size_bytes AS sz
       FROM video_versions vv
@@ -253,6 +259,11 @@ const STORAGE_SUM_SQL = `
        AND NOT EXISTS (SELECT 1 FROM video_versions vv WHERE vv.video_id = sv.video_id)
     UNION ALL
     SELECT so.bytes AS sz FROM stored_objects so WHERE so.uid = ?1
+    UNION ALL
+    SELECT cpo.bytes AS sz FROM cloud_project_objects cpo
+     WHERE cpo.owner_uid = ?1 AND cpo.status = 'ready'
+    UNION ALL
+    SELECT cp.doc_bytes AS sz FROM cloud_projects cp WHERE cp.owner_uid = ?1
   )`;
 
 /** Total bytes of stored media for a user (the storage-cap check). */

@@ -85,9 +85,16 @@ export async function createPresignedDownloadUrl(options: {
   bucket: string;
   key: string;
   expiresIn?: number;
+  /** Signed `response-content-type` override, so the object is served as
+   *  exactly this type regardless of what the PUT stored (cloud projects). */
+  responseContentType?: string;
 }): Promise<string> {
   const client = createS3Client(options);
-  const command = new GetObjectCommand({ Bucket: options.bucket, Key: options.key });
+  const command = new GetObjectCommand({
+    Bucket: options.bucket,
+    Key: options.key,
+    ResponseContentType: options.responseContentType,
+  });
   return getSignedUrl(client, command, { expiresIn: options.expiresIn ?? 3600 });
 }
 

@@ -300,6 +300,85 @@ for custom hostnames. Because routes run before Workers custom domains, the
 web Worker passes `api.` and `admin.` traffic straight through (`fetch(request)`
 in apps/web/src/server.ts).
 
+## Cloud projects (web editor)
+
+The web editor at `app.capturecat.so/editor/<projectId>` edits the same
+project the Mac app does. The Mac uploads the bundle ("Open in Web Editor"),
+the browser loads it through short-lived presigned GETs, and project.json
+saves use optimistic concurrency; the Mac can pull the web's edits back
+("Pull Web Edits"). Routes: `src/routes/cloud-projects.ts`; rules (paths,
+types, sizes, document check, keys): `src/lib/cloud-projects.ts`; SQL:
+`src/lib/cloud-projects-db.ts`; schema: `migrations/0026_cloud_projects.sql`.
+
+| Endpoint | Who | What |
+|---|---|---|
+| `GET /api/cloud-projects` | signed in | your projects + `storage {usedBytes, limitBytes}`; `?orgId=` lists a team's (members only) |
+| `PUT /api/cloud-projects/:id` | owner (or new id) | stage a manifest `{name, orgId?, files:[{path, sha256, bytes, contentType, source?}]}` → `missing[]` with one presigned PUT per object the cloud lacks |
+| `POST /api/cloud-projects/:id/finalize` | owner | verify every new object (R2 size **and** streamed SHA-256), accept it into the quota atomically, commit the manifest, collect unreferenced objects. `409 objects_missing` = upload first; `202` = large upload, call again |
+| `GET /api/cloud-projects/:id` | owner, org members | `document` (raw project.json text, byte-exact), `revision` (+ `ETag`), `files[]` with presigned GETs, `urlsExpireAt` |
+| `GET /api/cloud-projects/:id/files` | owner, org members | fresh presigned GETs only |
+| `PUT /api/cloud-projects/:id/project` | owner, org members | body = project.json; **`If-Match: "<revision>"` required** (428 without). Stale → `409 revision_conflict` with the current `revision` + `document` |
+| `DELETE /api/cloud-projects/:id` | owner | rows + every R2 object |
+
+- **Auth.** `requireAuth` — the session cookie (web; non-GET needs a trusted
+  `Origin`) or a bearer token (desktop). The owner does everything; if the
+  owner put the project in an org (plan `teams` + membership, like
+  `POST /video/:id/org`) its members may **read** it and **save edits** to
+  project.json (revision-checked like the owner's; a growing document is
+  charged to the OWNER's quota under the OWNER's plan). Media, org moves and
+  delete stay owner-only — media is the owner's storage. Strangers get 404 on
+  reads and on writes to an existing project; claiming another account's id
+  via `PUT` is 403 `not_owner`. App Attest is deliberately not chained (the
+  browser cannot attest).
+- **Storage.** Media is content-addressed per owner + project:
+  `cloud-projects/<uid>/<id>/objects/<sha256>` (an unchanged recording is
+  never re-uploaded). project.json lives in R2, one object per save attempt
+  (`…/doc/<revision>-<nonce>.json`), not in D1: D1 caps a value at 2 MB and
+  the document grows with the recording. A save writes its object first and
+  then compare-and-swaps the row on `revision`, so a race or crash never
+  leaves the row pointing at a torn document (the nonce keeps two racing
+  saves off the same key).
+- **Quota.** Verified objects and each project's document are summed by
+  `STORAGE_SUM_SQL` with shares and screenshots — one pool per user. Staging
+  runs `checkUploadAllowance` (plan `cloudShare` + `maxTotalStorageBytes`;
+  the plan's share-upload `maxFileSizeBytes` is LIFTED to the 5 GiB single-PUT
+  ceiling for project media — a cloud project carries the raw recording the
+  web editor renders from, not an exported mp4) with other projects' outstanding presigns counted as
+  used and dropped objects credited; finalize re-decides on verified bytes
+  inside one conditional UPDATE and deletes what does not fit. A document
+  save that grows is quota-checked; one that shrinks always succeeds.
+  Per-kind ceilings (video 5 GiB, image 64 MB, audio 1 GB, JSON 512 MB) and
+  an extension → content-type allowlist (no SVG/HTML) apply regardless of
+  plan. Images browsers cannot decode (HEIC/HEIF/TIFF/BMP) never arrive: the
+  Mac converts them to PNG (JPEG q0.95 above 64 MB) during sync and records
+  the original reference as the file's `source`.
+- **Bucket CORS.** The browser reads media straight from R2 (`web-editor-media`:
+  GET/HEAD + Range) and the web recorder uploads to the presigned PUTs
+  (`web-recorder-upload`: PUT + Content-Type), so the bucket needs
+  `r2-cors.json` applied (again after any change to it):
+  `npx wrangler r2 bucket cors set capturecat --file r2-cors.json`.
+- **Deploy order.** Apply `migrations/0026_cloud_projects.sql` to remote D1
+  BEFORE deploying this Worker: the shared storage sum reads the new tables,
+  so share uploads fail if the code runs ahead of the migration.
+- **Presigns.** PUTs are signed for the exact key, `Content-Type` and
+  `Content-Length`, 15 minutes; GETs carry a signed `response-content-type`,
+  15 minutes. The hourly cron deletes objects presigned but never verified
+  within 2 h.
+- **Limits.** Per-IP 300/min on `/api/cloud-projects/*`; per-uid 30/min for
+  stage/finalize/delete and 120/min for document saves.
+
+Go-live: apply `0026_cloud_projects.sql` **before** deploying (the shared
+storage sum reads its tables, so share uploads fail on a Worker that runs
+ahead of the migration). The browser fetches media straight from R2, so the
+`capturecat` bucket needs a CORS rule: origins `https://app.capturecat.so`
+(plus the local dev web origin when testing), methods `GET, HEAD`, headers
+`Range`, exposed `Content-Length, Content-Range, Content-Type, ETag`.
+
+Tests: `npm test` runs `src/routes/cloud-projects.test.ts` against the real
+migrations and SQL through Node's built-in SQLite (`src/test-support/`,
+Node ≥ 22.5); the session and S3 presigner are mocked and R2 is in-memory.
+The Mac side has `CaptureCat --cloud-sync-test`.
+
 ## Enterprise SSO
 
 Better Auth's SSO plugin (`/api/auth/sso/*`) does registration, sign-in and
