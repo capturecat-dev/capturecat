@@ -6,10 +6,11 @@
  */
 import type { ProjectSettings } from "../../core/model";
 import { BackgroundType, FrameShape, MenuBarReplacement, MenuBarTitleAlignment, VideoPlacement, enumValues } from "../../core/model/enums";
-import { Button, Chips, ColorSwatch, InspectorButton, InspectorField, PillSlider, Row, ToggleRow } from "../kit";
+import { Button, Caption, Chips, ColorSwatch, InspectorButton, InspectorField, PillSlider, Row, ToggleRow, type MenuEntry } from "../kit";
 import { Box, PaneStack } from "./layout";
 import { PropertyPreviewPad } from "./livePads";
-import { PlacementPad, WallpaperGrid, type WallpaperItem } from "./pads";
+import { PlacementPad, WallpaperGrid, WallpaperTiles, type WallpaperItem } from "./pads";
+import { hasPickerStatus, PickerStatusLine } from "./pickerStatus";
 import { sInt, srounded } from "../../core/math/swift";
 import { Cap, MenuRow, RowButton, degRounded, fixed, pctTrunc, toCodable, toRGBA } from "./shared";
 import { resolveFacts, type PaneProps } from "./types";
@@ -64,7 +65,7 @@ export function BackgroundPane({
   /** Catalog tiles (the Mac scans macOS wallpapers; the web has none unless
    *  the store supplies them). */
   wallpapers?: readonly WallpaperItem[];
-  /** The user's image library (Image tab grid). */
+  /** The user's image library (Image tab grid); default `actions.backgroundImages.library`. */
   libraryImages?: readonly WallpaperItem[];
 }) {
   const facts = resolveFacts(project, factOverrides);
@@ -80,6 +81,30 @@ export function BackgroundPane({
   const isCustom = s.videoCustomX != null || s.videoCustomY != null;
   const replacement = s.menuBarReplacement;
   const showsCustomBar = replacement === "Clean Dark" || replacement === "Clean Light";
+
+  // Image / Wallpaper tiles: the image library (+ the project's own image
+  // when it is not one of them — a Mac-uploaded wallpaper, say).
+  const images = actions?.backgroundImages;
+  const library: readonly WallpaperItem[] = libraryImages ?? images?.library ?? [];
+  const selectedPath = s.backgroundImagePath ?? null;
+  const current = images?.current ?? null;
+  const currentOnly = current && !library.some((t) => t.path === current.path) ? current : null;
+  const imageTiles = currentOnly ? [currentOnly, ...library] : library;
+  const bgStatus = actions?.pickerStatus?.background;
+  const selectTile = (path: string) => {
+    const tile = imageTiles.find((t) => t.path === path);
+    if (images && tile) images.onSelect(tile);
+    else pick({ backgroundImagePath: path });
+  };
+  const menuFor = (tile: WallpaperItem): MenuEntry[] | null => {
+    if (!images) return null;
+    const entries: MenuEntry[] = [];
+    if (images.onSetDefault) entries.push({ title: "Set as Default", onSelect: () => images.onSetDefault?.(tile) });
+    if (images.onRemoveFromLibrary && library.some((t) => t.path === tile.path)) {
+      entries.push({ title: "Remove from Library", onSelect: () => images.onRemoveFromLibrary?.(tile) });
+    }
+    return entries;
+  };
 
   return (
     <PaneStack
@@ -151,17 +176,52 @@ export function BackgroundPane({
                   ),
                 },
                 {
+                  key: "chooseStatus",
+                  show: type === "Image" && hasPickerStatus(bgStatus),
+                  attached: true,
+                  node: <PickerStatusLine status={bgStatus} />,
+                },
+                {
                   key: "images",
                   show: type === "Image",
                   attached: true,
-                  node: (
-                    <WallpaperGrid mode="images" items={libraryImages} selected={s.backgroundImagePath} onSelect={(p) => pick({ backgroundImagePath: p })} />
-                  ),
+                  node: <WallpaperGrid mode="images" items={imageTiles} selected={selectedPath} onSelect={selectTile} menuFor={menuFor} />,
                 },
                 {
                   key: "wallpapers",
                   show: type === "Wallpaper",
-                  node: <WallpaperGrid mode="catalog" items={wallpapers} selected={s.backgroundImagePath} onSelect={(p) => pick({ backgroundImagePath: p })} />,
+                  node: (
+                    <WallpaperGrid
+                      mode="catalog"
+                      items={wallpapers}
+                      selected={selectedPath}
+                      onSelect={(p) => pick({ backgroundImagePath: p })}
+                      menuFor={menuFor}
+                      empty={
+                        // No macOS catalog in a browser: the project's own wallpaper, the
+                        // image library and Choose Image… — never "No system wallpapers found".
+                        <div className="cc-wallgrid">
+                          {currentOnly && (
+                            <>
+                              <Caption>In this project</Caption>
+                              <WallpaperTiles items={[currentOnly]} selected={selectedPath} onSelect={(t) => selectTile(t.path)} menuFor={menuFor} />
+                            </>
+                          )}
+                          {library.length > 0 && (
+                            <>
+                              <Caption>Your images</Caption>
+                              <WallpaperTiles items={library} selected={selectedPath} onSelect={(t) => selectTile(t.path)} menuFor={menuFor} />
+                            </>
+                          )}
+                          <Button variant="secondary" symbol="photo" onClick={actions?.onChooseBackgroundImage} style={{ justifySelf: "start" }}>
+                            Choose Image…
+                          </Button>
+                          <PickerStatusLine status={bgStatus} />
+                          <Caption>System wallpapers are chosen in the Mac app. Images you add here are kept in this browser.</Caption>
+                        </div>
+                      }
+                    />
+                  ),
                 },
                 { key: "transparent", show: type === "Transparent", node: <Cap>No additional settings</Cap> },
               ]}

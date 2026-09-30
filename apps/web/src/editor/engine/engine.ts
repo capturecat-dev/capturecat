@@ -16,8 +16,9 @@ import { renderProjectFromJSON, type RenderMedia, type RenderProject } from "./c
 import { configureCanvas, EngineCapabilityError, initGpu, type GpuContext } from "./gpu/device";
 import { cardGeometry, cmTime600, resolvedOutputSize, type Size } from "./layout";
 import { IDENTITY, scaleAbout, type Mat3 } from "./mat3";
-import { disposeSceneAssets, EMPTY_ASSETS, loadSceneAssets, refsOf, type SceneAssets } from "./media/assets";
+import { disposeSceneAssets, EMPTY_ASSETS, loadSceneAssets, missingSceneAssets, refsOf, type SceneAssets } from "./media/assets";
 import { DemuxedVideo } from "./media/demux";
+import { currentUrl, LiveUrlTable, liveUrlEntries } from "./media/liveUrls";
 import { VideoStream } from "./media/videoStream";
 import { FrameGraph } from "./passes/frameGraph";
 import type { FrameState, Scene, SceneExtras } from "./passes/types";
@@ -119,6 +120,9 @@ export class Engine {
   private targetIndex = -1;
   private statsTimer: ReturnType<typeof setInterval> | null = null;
 
+  /** This engine's media URLs — readers follow refreshed ones (media/liveUrls.ts). */
+  private liveUrls = new LiveUrlTable({ onExpired: () => this.post({ type: "mediaExpired" }) });
+
   constructor(private readonly post: Post) {}
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -148,6 +152,7 @@ export class Engine {
 
   async load(requestId: number, rawProject: unknown, media: RenderMedia): Promise<void> {
     this.unload();
+    this.liveUrls.update(liveUrlEntries(media));
     const project = renderProjectFromJSON(rawProject);
     const [demux, assets] = await Promise.all([
       DemuxedVideo.open(media.video),
@@ -215,6 +220,7 @@ export class Engine {
     this.disposed = true;
     this.unload();
     if (this.statsTimer) clearInterval(this.statsTimer);
+    this.liveUrls.dispose();
     this.graph?.destroy();
     this.gpu?.device.destroy();
   }
@@ -244,8 +250,36 @@ export class Engine {
   }
 
   /** Swap in fresh media URLs (e.g. presigned GETs refreshed) without a reload. */
-  setMediaFiles(files: Record<string, string>): void {
-    this.renderMedia = { ...this.renderMedia, files };
+  setMediaFiles(files: Record<string, string>, opts: { video?: string; expiresAt?: number | null } = {}): void {
+    // Aliases first: every reader holding an old URL now follows the new one.
+    this.renewMediaUrls(files, opts);
+    // Keep the URL strings readers already hold (the camera stream keys on
+    // its URL) — a refresh must never look like a different file.
+    const previous = this.renderMedia.files ?? {};
+    const stable: Record<string, string> = { ...previous };
+    for (const [ref, url] of Object.entries(files)) stable[ref] = previous[ref] && currentUrl(previous[ref]) === url ? previous[ref] : url;
+    const video = opts.video && currentUrl(this.renderMedia.video) !== opts.video ? opts.video : this.renderMedia.video;
+    const keys = Object.keys(stable);
+    const same = video === this.renderMedia.video && keys.length === Object.keys(previous).length && keys.every((k) => stable[k] === previous[k]);
+    if (!same) this.renderMedia = { ...this.renderMedia, files: stable, video };
+    // A referenced file that just became available (a newly chosen image) loads now.
+    if (this.media && missingSceneAssets(this.doc, this.assets, stable, previous)) this.reloadAssets();
+  }
+
+  /** Point open readers (demuxers, audio) at fresh URLs — safe to apply out of order. */
+  renewMediaUrls(files: Record<string, string>, opts: { video?: string; expiresAt?: number | null } = {}): void {
+    this.liveUrls.update(liveUrlEntries({ video: opts.video, files }), opts.expiresAt);
+  }
+
+  private reloadAssets(): void {
+    const media = this.renderMedia;
+    void loadSceneAssets(this.doc, media).then((assets) => {
+      if (this.disposed || media !== this.renderMedia) return assets.images.forEach((b) => b.close());
+      disposeSceneAssets(this.assets);
+      this.assets = assets;
+      this.rebuildScene();
+      this.requestFrame(true);
+    });
   }
 
   /** What every pass sees about the project (shared with the exporter). */

@@ -34,6 +34,7 @@ import { EditorShell } from "./shell/EditorShell";
 import { ASPECT_RATIOS, type StageMount, type StageViewport, type TransportState } from "./shell/types";
 import { mountStageInteraction, type StageInteraction } from "./stage/StageInteraction";
 import type { TimelineSnapshot } from "./timeline/types";
+import { useMediaPickers } from "./useMediaPickers";
 
 /** The editor requires WebGPU (architecture §Stack) — say so plainly. */
 export function WebGPUGate({ children }: { children: ReactNode }) {
@@ -116,6 +117,8 @@ export function EditorPage({ projectId }: { projectId: string }) {
           project.origin === "cloud"
             ? {
                 save: async (document, baseRevision) => {
+                  // Never save a document that references a file still uploading.
+                  await project.media?.settled();
                   const r = await saveCloudProject(project.id, document, baseRevision);
                   return r.ok
                     ? { ok: true, revision: r.revision }
@@ -132,6 +135,13 @@ export function EditorPage({ projectId }: { projectId: string }) {
       alive = false;
     };
   }, [projectId, store]);
+
+  // Keep the project's presigned media URLs fresh while it is open.
+  useEffect(() => {
+    const media = loaded?.media;
+    if (!media) return;
+    return media.start();
+  }, [loaded]);
 
   // Unsaved cloud edits: flush on hide, guard unload, retry when back online.
   useEffect(() => {
@@ -188,8 +198,9 @@ export function EditorPage({ projectId }: { projectId: string }) {
 
   // The engine's slot on the stage. Rebuilt only when a different project
   // loads (the canvas can be transferred to a worker once).
-  const videoRef = loaded && store.getState().project ? store.getState().project!.videoURL : null;
-  const videoUrl = loaded ? loaded.mediaUrl(videoRef) : undefined;
+  // Resolved once per project: mediaUrl is live (refreshed URLs), and a new
+  // string here would remount the engine — refreshes reach it via setMediaFiles.
+  const videoUrl = useMemo(() => (loaded ? loaded.mediaUrl(store.getState().project?.videoURL ?? null) : undefined), [loaded, store]);
   const stage = useMemo<StageMount | undefined>(() => {
     if (!loaded) return undefined;
     let current: StageViewport | null = null;
@@ -197,6 +208,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
       mount(host, viewport) {
         current = viewport;
         let disposed = false;
+        let unbindMedia: (() => void) | undefined;
         const canvas = document.createElement("canvas");
         // Size + device-pixel snap come from the stage CSS (shell.css / snapCanvas).
         canvas.style.cssText = "display:block";
@@ -226,6 +238,8 @@ export function EditorPage({ projectId }: { projectId: string }) {
             }
             const loadedInfo = await client.load(doc, { video: videoUrl, files });
             if (disposed) return;
+            // Refreshed URLs + files chosen in the inspector reach the engine live.
+            unbindMedia = loaded.media?.bindEngine(client, store);
             setInfo(loadedInfo);
             if (current) {
               client.resize({ cssWidth: Math.round(current.cssWidth), cssHeight: Math.round(current.cssHeight), dpr: current.dpr });
@@ -243,6 +257,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
         })();
         return () => {
           disposed = true;
+          unbindMedia?.();
           stageRef.current?.dispose();
           stageRef.current = null;
           controller.hooks.armBlurDraw = undefined;
@@ -309,9 +324,10 @@ export function EditorPage({ projectId }: { projectId: string }) {
 
   const callbacks = useMemo(() => controller.shellCallbacks(), [controller]);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
+  const mediaActions = useMediaPickers(store, loaded);
   const panes = useInspectorPanes(store, {
     onAction: (a) => controller.timelineAction(a),
-    actions: { assetUrl: (fileName) => loaded?.mediaUrl(fileName) },
+    actions: { assetUrl: (fileName) => loaded?.mediaUrl(fileName), ...mediaActions },
   });
 
   if (loadError || state.parseError) {
