@@ -34,6 +34,7 @@ import { EditorShell } from "./shell/EditorShell";
 import { ASPECT_RATIOS, type StageMount, type StageViewport, type TransportState } from "./shell/types";
 import { mountStageInteraction, type StageInteraction } from "./stage/StageInteraction";
 import type { TimelineSnapshot } from "./timeline/types";
+import { useTimelineMedia } from "./timeline/media/useTimelineMedia";
 
 /** The editor requires WebGPU (architecture §Stack) — say so plainly. */
 export function WebGPUGate({ children }: { children: ReactNode }) {
@@ -306,6 +307,8 @@ export function EditorPage({ projectId }: { projectId: string }) {
     () => (project ? timelineSnapshot({ project, selection: state.selection, sliceArmed: state.sliceArmed, hasAudio }) : EMPTY_TIMELINE),
     [project, state.selection, state.sliceArmed, hasAudio],
   );
+  // Filmstrip + recording/voice waveforms, decoded in the timeline media worker.
+  const timelineWithMedia = useTimelineMedia(timeline, project, loaded, playing);
 
   const callbacks = useMemo(() => controller.shellCallbacks(), [controller]);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
@@ -380,7 +383,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
           transport={transport}
           playhead={playhead}
           callbacks={callbacks}
-          timeline={timeline}
+          timeline={timelineWithMedia}
           timelineIntents={intents}
           stage={stage}
           inspectorTab={state.inspectorTab}

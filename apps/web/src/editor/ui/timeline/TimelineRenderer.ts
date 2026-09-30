@@ -19,6 +19,7 @@ import type { VoiceOverClip } from "../../core/model";
 import { isSliceable, resolvedSliceTarget } from "../../core/time/videoSliceMath";
 import { VideoTrackEditMath } from "../../core/time/videoTrackEditMath";
 import { VoiceTrackEditMath } from "../../core/time/voiceTrackEditMath";
+import { layoutFilmstrip } from "../../core/time/filmstrip";
 import { canvasAreaHeight, M } from "./metrics";
 import {
   annotateRowCount,
@@ -41,6 +42,7 @@ import type {
   VideoClip,
   VoiceClip,
 } from "./types";
+import type { TimelineAssets, TimelineThumbnailImage } from "./types";
 
 export interface ContextMenuRequest {
   clientX: number;
@@ -756,7 +758,7 @@ export class TimelineRenderer {
     if (this.mouse.kind === "video" && this.mouse.drag.didDrag && this.mouse.drag.kind.type === "whole") ctx.globalAlpha = 0.8;
     const [vx0, vx1] = this.visibleRange();
     const assets = this.snap.assets;
-    const hasFilm = !!assets?.thumbnailAt;
+    const hasFilm = (assets?.thumbnails?.length ?? 0) > 0 || !!assets?.thumbnailAt;
     const hover = this.hoverVideo;
     const yellow = t.yellow;
     const orange = t.orange;
@@ -821,6 +823,10 @@ export class TimelineRenderer {
 
   private drawFilmstrip(ctx: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }, s0: number, s1: number) {
     const assets = this.snap.assets!;
+    if (assets.thumbnails && assets.thumbnails.length > 0) {
+      this.drawFilmstripTiles(ctx, r, s0, s1, assets.thumbnails, assets.sourceSegments);
+      return;
+    }
     const aspect = assets.thumbnailAspect ?? 16 / 9;
     const tileW = Math.max(10, r.h * aspect);
     const probeW = Math.max(12, r.h * aspect);
@@ -846,6 +852,32 @@ export class TimelineRenderer {
         else ctx.drawImage(img, x0, r.y, x1 - x0, r.h);
       }
       x += tileW;
+    }
+  }
+
+  /** VideoTrackRowNative.drawVideoFilmstrip over decoded thumbnails — the
+   *  tile walk is core/time/filmstrip `layoutFilmstrip` (Mac-exact); only the
+   *  tiles inside the visible window are drawn. */
+  private drawFilmstripTiles(
+    ctx: CanvasRenderingContext2D,
+    r: { x: number; y: number; w: number; h: number },
+    s0: number,
+    s1: number,
+    thumbs: readonly TimelineThumbnailImage[],
+    segments: TimelineAssets["sourceSegments"],
+  ) {
+    const [vx0, vx1] = this.visibleRange();
+    const dpr = this.dpr;
+    for (const tile of layoutFilmstrip({ x: r.x, width: r.w, height: r.h }, s0, s1, thumbs, segments, vx1)) {
+      if (tile.x + tile.width < vx0) continue;
+      const t = thumbs[tile.index];
+      const c = tile.crop ?? { x: 0, y: 0, width: t.width, height: t.height };
+      // Device-pixel tile edges (no antialiased seams); sample half a texel
+      // inside the source so bilinear filtering never blends in the edge.
+      const x0 = Math.round(tile.x * dpr) / dpr;
+      const x1 = Math.round((tile.x + tile.width) * dpr) / dpr;
+      if (c.width > 1 && c.height > 1) ctx.drawImage(t.image, c.x + 0.5, c.y + 0.5, c.width - 1, c.height - 1, x0, r.y, x1 - x0, r.h);
+      else ctx.drawImage(t.image, c.x, c.y, c.width, c.height, x0, r.y, x1 - x0, r.h);
     }
   }
 
