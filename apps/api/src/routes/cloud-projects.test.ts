@@ -19,25 +19,7 @@ import { createTestD1, type TestD1 } from "../test-support/d1-sqlite.js";
 import { sha256Hex } from "../lib/cloud-projects";
 import { storageUsageBytes } from "../lib/db";
 
-vi.mock("../lib/auth", () => ({
-  getAuth: (env: Env) => ({
-    api: {
-      getSession: async ({ headers }: { headers: Headers }) => {
-        const token = headers.get("Authorization")?.replace(/^Bearer /, "");
-        if (!token) return null;
-        const user = await env.DB.prepare(`SELECT id, email, tester, blocked FROM "user" WHERE id = ?`)
-          .bind(token)
-          .first<{ id: string; email: string; tester: number; blocked: number }>();
-        if (!user) return null;
-        return {
-          session: { expiresAt: new Date(Date.now() + 86_400_000) },
-          // Tester → the pro plan row; everyone else resolves to free.
-          user: { id: user.id, email: user.email, tester: user.tester === 1, blocked: user.blocked === 1 },
-        };
-      },
-    },
-  }),
-}));
+vi.mock("../lib/auth", () => import("../test-support/fake-session"));
 
 const presignCalls = vi.hoisted(() => ({
   put: [] as Array<Record<string, unknown>>,
