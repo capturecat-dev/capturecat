@@ -37,12 +37,16 @@ export function usePinnedSteps<T extends HTMLElement>() {
     const root = ref.current;
     if (!root || typeof IntersectionObserver === "undefined") return;
     const steps = Array.from(root.querySelectorAll<HTMLElement>("[data-pin-step]"));
+    const scenes = Array.from(root.querySelectorAll<HTMLElement>(".ccd-scene"));
     if (steps.length === 0) return;
 
     const activate = (index: number) => {
       if (root.dataset.step === String(index) && root.hasAttribute("data-ready")) return;
       root.dataset.step = String(index);
       steps.forEach((s, i) => s.toggleAttribute("data-active", i === index));
+      // Scenes carry the flag too, so a reused scene's loop can key off
+      // `.ccd-scene[data-active]` on any page.
+      scenes.forEach((s, i) => s.toggleAttribute("data-active", i === index));
     };
     root.setAttribute("data-ready", "");
     activate(Number(root.dataset.step ?? 0));

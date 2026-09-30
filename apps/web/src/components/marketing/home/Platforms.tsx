@@ -71,8 +71,9 @@ export default function Platforms() {
               <div className="ccd-webapp">
                 <div className="ccd-webside">
                   <span>Library</span>
-                  <span>Projects</span>
                   <span className="is-on">Record</span>
+                  <span>Projects</span>
+                  <span>Team</span>
                   <span>Settings</span>
                 </div>
                 <div className="ccd-webmain">

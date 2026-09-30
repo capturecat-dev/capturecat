@@ -270,7 +270,7 @@ autosaves and would overwrite the agent's changes.
     title: "Download CaptureCat for macOS",
     description:
       "Download CaptureCat, the free native screen recorder for macOS 14 and later. Builds for Apple Silicon and Intel. No account needed to record.",
-    lastModified: "2026-09-02",
+    lastModified: "2026-09-30",
     markdown: `# Download CaptureCat for macOS
 
 Free to record, edit, and export. No account needed until you want a share
@@ -289,6 +289,9 @@ Get the latest build from the [download page](${SITE_URL}/download).
 
 The app updates itself. Recordings are ordinary project folders on disk and
 stay where they are if you uninstall.
+
+Not on a Mac? CaptureCat also runs in the browser on Windows, Linux, and
+ChromeOS. See [CaptureCat for Mac and in your browser](${SITE_URL}/#anywhere).
 `,
   },
   {

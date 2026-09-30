@@ -1,6 +1,7 @@
 import { Container, SectionTitle, Ambient } from "../primitives";
 import { Canvas, Cursor, DemoFrame, EditorMock } from "./demo/parts";
 import { RecordingDesktop } from "./demo/RecordingScene";
+import { ExportScene } from "./demo/Scenes";
 import { useOffscreenPause, usePinnedSteps } from "./demo/hooks";
 
 const STEPS: Array<{ title: string; body: string }> = [
@@ -48,7 +49,7 @@ export default function HowItWorks() {
             <div ref={stageRef} className="ccd">
               <DemoFrame blur={false}>
                 <div className="ccd-stage" aria-hidden>
-                  <div className="ccd-scene ccd-scene-0">
+                  <div className="ccd-scene ccd-scene-0" data-active="">
                     <RecordingDesktop />
                   </div>
                   <div className="ccd-scene ccd-scene-1">
@@ -113,63 +114,8 @@ export default function HowItWorks() {
                       <Cursor />
                     </span>
                   </div>
-                  <div className="ccd-scene ccd-scene-3">
-                    <Canvas script="export" className="ccd-canvas--cover" />
-                    <div className="ccd-sheet-scrim" />
-                    <div className="ccd-sheet">
-                      <h5>Export</h5>
-                      <div className="ccd-sheet-body">
-                        <div className="ccd-sheet-form">
-                          <div className="ccd-sheet-row">
-                            Format
-                            <div className="ccd-seg">
-                              <span>MP4</span>
-                              <span>MOV</span>
-                              <span>GIF</span>
-                            </div>
-                          </div>
-                          <div className="ccd-sheet-row">
-                            Resolution
-                            <div className="ccd-seg" data-sel="1">
-                              <span>1080p</span>
-                              <span>4K</span>
-                              <span>Custom</span>
-                            </div>
-                          </div>
-                          <div className="ccd-sheet-row">
-                            Frame rate
-                            <div className="ccd-seg" data-n="2" data-sel="1">
-                              <span>30 fps</span>
-                              <span>60 fps</span>
-                            </div>
-                          </div>
-                          <div className="ccd-sheet-row">
-                            Share link after export
-                            <span className="ccd-sheet-toggle" />
-                          </div>
-                          <div className="ccd-sheet-foot">
-                            <span className="ccd-key">Cancel</span>
-                            <span className="ccd-key ccd-key--primary">
-                              Export
-                              <span className="ccd-rec-tint" />
-                            </span>
-                          </div>
-                        </div>
-                        <div className="ccd-sheet-progress">
-                          Exporting…
-                          <span className="ccd-bar">
-                            <i />
-                          </span>
-                          <span className="ccd-sheet-sub ccd-sub-a">4K · 60 fps · MP4</span>
-                          <span className="ccd-sheet-sub ccd-sub-b">Uploading to capturecat.so</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="ccd-link">
-                      <b>capturecat.so/share/7Kq2fX</b>
-                      <em>Anyone with the link</em>
-                      <span>✓ Copied</span>
-                    </div>
+                  <div className="ccd-scene ccd-scene-3 ccd-x-export">
+                    <ExportScene />
                   </div>
                 </div>
               </DemoFrame>
