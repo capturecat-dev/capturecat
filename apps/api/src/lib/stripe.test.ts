@@ -282,6 +282,39 @@ describe("checkout creation", () => {
     expect(decodeURIComponent(checkouts()[0].body)).toContain("line_items[0][quantity]=1");
   });
 
+  it("EXPLOIT: deleting the local trial history (via /subscription/cancel) does not earn a second free trial", async () => {
+    db.query(`UPDATE plan SET price_id = ?, trial_days = 7 WHERE name = 'pro'`, PRICE);
+    // Had a trial, cancelled it before paying anything.
+    db.query(
+      `INSERT INTO "subscription" (id, plan, referenceId, stripeCustomerId, stripeSubscriptionId, status, trialStart, trialEnd)
+       VALUES ('row_1', 'pro', ?, ?, 'sub_1', 'canceled', ?, ?)`,
+      USER, CUSTOMER, new Date(Date.now() - 20 * DAY * 1000).toISOString(), new Date(Date.now() - 13 * DAY * 1000).toISOString(),
+    );
+    fake.subscriptions.set("sub_1", subscriptionObject("canceled", { trial_start: now() - 20 * DAY, trial_end: now() - 13 * DAY }));
+
+    // The plugin's cancel endpoint DELETES a row whose Stripe subscription is
+    // no longer active — and with it the only record the plugin checks for
+    // "already had a trial".
+    const cancel = await buildAuth(env).handler(
+      new Request("http://localhost:8787/api/auth/subscription/cancel", {
+        method: "POST",
+        headers: { Authorization: "Bearer payer-token", "Content-Type": "application/json", Origin: "http://localhost:3200" },
+        body: JSON.stringify({ subscriptionId: "sub_1", returnUrl: "/" }),
+      }),
+    );
+    expect(cancel.status).toBe(400);
+    expect(db.query(`SELECT id FROM "subscription"`)).toEqual([]);
+
+    expect((await upgrade({ plan: "pro" })).status).toBe(200);
+    expect(decodeURIComponent(checkouts()[0].body)).not.toContain("trial_period_days");
+  });
+
+  it("a customer who never trialled still gets the plan's trial", async () => {
+    db.query(`UPDATE plan SET price_id = ?, trial_days = 7 WHERE name = 'pro'`, PRICE);
+    expect((await upgrade({ plan: "pro" })).status).toBe(200);
+    expect(decodeURIComponent(checkouts()[0].body)).toContain("subscription_data[trial_period_days]=7");
+  });
+
   it("another user's subscription or reference cannot be targeted", async () => {
     const iso = new Date().toISOString();
     db.query(

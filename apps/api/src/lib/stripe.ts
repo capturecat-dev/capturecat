@@ -310,6 +310,15 @@ export async function cancelDisputedSubscriptions(client: Stripe, dispute: Strip
   return cancelled;
 }
 
+/** Whether any subscription this customer EVER had (cancelled ones
+ *  included) started a trial. */
+async function customerHadTrial(client: Stripe, customer: string): Promise<boolean> {
+  for await (const sub of client.subscriptions.list({ customer, status: "all", limit: 100 })) {
+    if (sub.trial_start) return true;
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // THE PLUGIN BLOCK — imported by src/lib/auth.ts
 // ---------------------------------------------------------------------------
@@ -381,6 +390,21 @@ export function buildStripePlugin(env: StripeEnv) {
       // Sign-in is social-only (Google/Apple), both of which return a verified
       // email, so gating on verification would be a no-op.
       requireEmailVerification: false,
+
+      // ONE free trial per Stripe customer, decided from Stripe's history.
+      // The plugin grants a trial when no LOCAL subscription row carries
+      // trial dates — but its own /subscription/cancel deletes a row whose
+      // Stripe subscription is no longer active, so trial → cancel → cancel
+      // endpoint → upgrade was an endless series of free trials. Stripe keeps
+      // cancelled subscriptions (and their trial_start) forever. Returning an
+      // explicit `trial_period_days: undefined` overrides the plugin's
+      // row-based grant (the key is then omitted from the request).
+      getCheckoutSessionParams: async ({ user, plan, subscription }) => {
+        if (!plan.freeTrial) return {};
+        const customer = subscription.stripeCustomerId ?? (user as { stripeCustomerId?: string }).stripeCustomerId;
+        if (!customer || !(await customerHadTrial(client, customer))) return {};
+        return { params: { subscription_data: { trial_period_days: undefined } } };
+      },
 
       // Lifecycle logging only. State persistence is the plugin's job — these
       // hooks must NOT write entitlement anywhere, because the `subscription`
