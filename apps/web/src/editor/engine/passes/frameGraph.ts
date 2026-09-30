@@ -23,6 +23,7 @@ import { CameraFeature } from "./cameraBubble";
 import { LayerComposePass } from "./layer";
 import { StaticLayers } from "./staticLayers";
 import type { FrameEncoder, FrameState, PassContext, RenderPass, Scene, StaticTextures } from "./types";
+import type { StageHits } from "../stageHits";
 import { HighlightPass } from "./highlight";
 import { RegionVideoPass } from "./regionEffects";
 import { SubtitlePass } from "./subtitles";
@@ -137,6 +138,18 @@ export class FrameGraph {
     return this.statics.lastBakeMs;
   }
 
+  /** The editor hit rects the passes drew in the last `render` (engine/stageHits.ts). */
+  stageHits(): StageHits {
+    const out: StageHits = {};
+    for (const p of this.passes) if (p.stageHit?.current) out[p.stageHit.kind] = p.stageHit.current;
+    return out;
+  }
+
+  /** Every pass had the inputs it wanted for the last rendered frame (seek resolution). */
+  inputsReady(): boolean {
+    return this.passes.every((p) => p.inputsReady?.() ?? true);
+  }
+
   /** Export: let passes resolve async per-frame inputs (second decode stream) before `render`. */
   async prefetch(frame: FrameState): Promise<void> {
     const scene = this.scene;
@@ -179,6 +192,7 @@ export class FrameGraph {
       for (const p of this.passes) p.sceneChanged?.(ctx);
     }
     const ctx = this.context(statics);
+    for (const p of this.passes) if (p.stageHit) p.stageHit.current = null;
 
     const resources = {
       external: frame.video

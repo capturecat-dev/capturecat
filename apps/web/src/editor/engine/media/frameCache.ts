@@ -45,6 +45,14 @@ export class FrameCache {
     const old = this.frames.get(index);
     if (old) {
       if (old === frame) return;
+      // A re-decode of a PINNED index (a seek restarting the GOP under the
+      // frame on screen) keeps the pinned frame: whoever pinned it still
+      // holds that object and would import a closed frame on the next draw
+      // ("… video frame that doesn't have back resource"). Same pixels.
+      if (this.pins.has(index)) {
+        frame.close();
+        return;
+      }
       old.close();
       this.bytes -= this.frameBytes;
     }

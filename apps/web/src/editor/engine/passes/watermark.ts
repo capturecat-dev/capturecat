@@ -16,7 +16,8 @@
  */
 import { smax, smin } from "../../core/math/swift";
 import { IDENTITY } from "../mat3";
-import { watermarkPlacement } from "../raster/watermarkLayout";
+import { watermarkEdgePad, watermarkPlacement } from "../raster/watermarkLayout";
+import { stageHitRecorder, usableSpan } from "../stageHits";
 import { RasterOverlay } from "./rasterOverlay";
 import type { FrameEncoder, FrameState, PassContext, RenderPass } from "./types";
 
@@ -25,6 +26,7 @@ export class WatermarkPass implements RenderPass {
   readonly stage = "overlay" as const;
   private overlay = new RasterOverlay("watermark");
   private uploaded: { bitmap: ImageBitmap; space: string } | null = null;
+  readonly stageHit = stageHitRecorder("watermark");
 
   sceneChanged(ctx: PassContext): void {
     const bmp = this.bitmap(ctx);
@@ -48,6 +50,12 @@ export class WatermarkPass implements RenderPass {
     const s = ctx.scene.extras.project!.settings;
     const place = watermarkPlacement(bmp, ctx.scene.target, ctx.scene.geometry.canvasScale, s);
     if (!place) return;
+    // The Mac hit-tests the placed layer frame whatever its opacity (lastWatermarkRect).
+    this.stageHit.current = {
+      rect: place,
+      space: "canvas",
+      usable: usableSpan(ctx.scene.target, watermarkEdgePad(ctx.scene.geometry.canvasScale), place),
+    };
     const opacity = smin(1, smax(0, s.watermarkOpacity));
     if (!(opacity > 0)) return;
     this.overlay.draw(ctx, enc, place, IDENTITY, opacity, true);

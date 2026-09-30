@@ -254,6 +254,10 @@ export class EngineClient {
   resetStats(): void {
     this.post({ type: "resetStats" });
   }
+  /** The stage's label editor opened (id) / closed (null): the preview stops rastering it. */
+  setEditingAnnotation(id: string | null): void {
+    this.post({ type: "editingAnnotation", id });
+  }
 
   /** Playhead extrapolated from the last transport message — for UI, not rendering. */
   currentTime(): number {

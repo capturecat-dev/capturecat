@@ -12,6 +12,7 @@ import type { WorkingSpace } from "./color";
 import type { RenderMedia } from "./contract";
 import type { Rect, Size } from "./layout";
 import type { StreamStats } from "./media/videoStream";
+import type { StageHits } from "./stageHits";
 
 // ── Main → worker ───────────────────────────────────────────────────────────
 
@@ -44,6 +45,8 @@ export type ToWorker =
   | { type: "exportCancel" }
   | { type: "resetStats" }
   | { type: "bench"; requestId: number; frames: number; refit: boolean }
+  /** The stage's in-place label editor opened (id) or closed (null) — preview only. */
+  | { type: "editingAnnotation"; id: string | null }
   | { type: "dispose" };
 
 export interface ExportOptions {
@@ -201,6 +204,8 @@ export interface FrameInfo {
   videoRect: Rect;
   /** Card → canvas homography (row-major Mat3, Y-down px). */
   camera: number[];
+  /** Camera bubble / subtitle pill / watermark rects as drawn (engine/stageHits.ts). */
+  hits?: StageHits;
 }
 
 /** Saturated GPU cost: N back-to-back renders of the current frame, wall ms / N. */

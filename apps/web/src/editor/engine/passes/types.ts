@@ -31,6 +31,7 @@ import type { CardGeometry, Size } from "../layout";
 import type { Mat3 } from "../mat3";
 import type { CameraPath, MotionBlurFrame } from "../camera";
 import type { SceneAssets } from "../media/assets";
+import type { StageHitRecorder } from "../stageHits";
 import type { TimeMap } from "../time";
 
 /**
@@ -108,6 +109,12 @@ export interface FrameState {
    * visible when max(|pitch|, |yaw|) > 0.05°). Absent → no slab.
    */
   tilt?: FrameTilt;
+  /**
+   * PREVIEW ONLY: the annotation open in the stage's in-place label editor —
+   * omitted from the annotation raster (the Mac's `Chrome.editingID`), the
+   * field replaces it. The exporter never sets it.
+   */
+  editingAnnotationId?: string | null;
 }
 
 /** Baked scene-static textures (StaticLayers). */
@@ -213,6 +220,17 @@ export interface RenderPass {
   prefetch?(scene: Scene, frame: FrameState): Promise<void>;
   /** Drop per-frame caches (bench: force the full per-frame cost). */
   invalidate?(): void;
+  /**
+   * The editor hit rect this pass drew (camera bubble / subtitle pill /
+   * watermark — engine/stageHits.ts). The graph clears it before each frame.
+   */
+  readonly stageHit?: StageHitRecorder;
+  /**
+   * PREVIEW: false while an input this pass wants for the frame it last drew
+   * is still decoding (the webcam frame at a seek target) — the engine holds
+   * a seek's resolution on it. Absent = always ready.
+   */
+  inputsReady?(): boolean;
   /** Encode this frame's commands. Must not allocate pipelines. */
   encode(ctx: PassContext, frame: FrameState, enc: FrameEncoder): void;
   destroy?(): void;
