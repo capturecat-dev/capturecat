@@ -141,6 +141,15 @@ app.use("/api/auth/*", async (c, next) => {
   if (path === "/api/auth/get-session") {
     return sessionLimiter(c, next);
   }
+  // Stripe webhooks: no per-IP limit at all. Stripe delivers every event
+  // from a handful of shared IPs, so the credential limiter here 429'd
+  // legitimate bursts — which any customer can cause by toggling their
+  // subscription in the portal — and Stripe retries a 429 later and out of
+  // order, i.e. a throttled cancellation lands late. Each delivery is
+  // authenticated by its HMAC signature (cheap to refuse) and is idempotent.
+  if (path === "/api/auth/stripe/webhook") {
+    return next();
+  }
   // Identity-provider round trips: the OIDC callback and SAML ACS/SLO posts
   // arrive from a whole company behind one egress IP (or from the IdP
   // itself). They carry a state-bound code, not a guessable credential, so

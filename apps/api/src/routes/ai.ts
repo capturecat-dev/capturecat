@@ -11,6 +11,7 @@ import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import { requireAuth } from "../middleware/auth";
 import { requireEntitlement, userRateLimit } from "../lib/entitlement";
+import { planForEntitlement } from "../lib/plans";
 import { checkAssertion } from "./attest";
 
 const GEMINI_MODEL = "gemini-2.0-flash";
@@ -20,7 +21,9 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 /**
  * POST /ai/generate — thin generateContent proxy.
  * Body: { prompt: string, system?: string }
- * Tester/paid only; 20 requests/min per uid.
+ * Plans with `aiSummaries` only (the server-side AI feature — Business, not
+ * Pro); 20 requests/min per uid. Being paid is not enough: a Pro subscriber
+ * got an open, owner-billed Gemini proxy for any prompt.
  */
 aiRoutes.post(
   "/ai/generate",
@@ -29,6 +32,10 @@ aiRoutes.post(
   userRateLimit({ limit: 20, windowSec: 60, scope: "ai" }),
   checkAssertion(),
   async (c) => {
+    const plan = await planForEntitlement(c.env.DB, c.get("entitlement"));
+    if (!plan.features.aiSummaries) {
+      return c.json({ error: `AI is not included in the ${plan.displayName} plan`, code: "ai_required" }, 402);
+    }
     if (!c.env.GEMINI_API_KEY) {
       return c.json({ error: "AI is not configured on this deployment" }, 503);
     }
