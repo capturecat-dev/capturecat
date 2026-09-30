@@ -30,13 +30,19 @@
  *   hidden.
  * - The dip: `phase(t, boundaries = every device segment's start and end)`;
  *   when phase > 0.01 the composited CARD is scaled by `scale(phase)` about
- *   the (static) video rect's centre and faded to `opacity(phase)` (clamped
- *   0…1; CIColorMatrix multiplies all four premultiplied channels).
+ *   the (static) video rect's centre and faded by `fadeImage(opacity(phase))`
+ *   (clamped 0…1). CIColorMatrix runs on UNPREMULTIPLIED colour, so in
+ *   premultiplied terms RGB × a² and alpha × a — measured against the
+ *   exporter by parity fixture 14 (a plain × a misses by ~50/255 mid-dip).
+ *   The dip lands after the camera-layout squeeze + tile and before tilt /
+ *   zoom / offset / intro; its per-frame state for a Y-DOWN renderer is
+ *   `deviceSegmentFrame` (bottom of this file).
  */
 import type { RecordingSourceKind } from "../model/enums";
 import type { ProjectSourceSegment, Rect } from "../model/types";
 import {
   type AffineTransform,
+  flipRectY,
   identityTransform,
   maxY,
   midX,
@@ -212,4 +218,90 @@ export function curtainDeviceScreen(
     return { rect: { x: 0, y: 0, width: size.width, height: size.height }, cornerRadius: screenCornerRadius(size) };
   }
   return null;
+}
+
+// ── The Y-DOWN renderer's view (web preview AND web export) ────────────────
+//
+// The web engine keeps one convention — Y-DOWN output pixels — and flips at
+// the boundary (ARCHITECTURE.md). These wrap the golden-locked exporter rules
+// above so the renderer never re-derives them: the scene resolves
+// `segmentFramingYDown` once, and every frame resolves `deviceSegmentFrame`
+// from the SOURCE clock (the exporter's `currentTime`), so playback,
+// scrubbing and export agree by construction.
+
+/** One scene's stitched-device framing, for a Y-DOWN renderer. */
+export interface SegmentFraming {
+  /** The exporter's own (CI Y-UP) assets — the per-frame rules read these. */
+  assets: SegmentDeviceAssets;
+  /** `subRect` in Y-DOWN output px: the device screen every device segment is cropped to. */
+  screenRect: Rect;
+  screenCornerRadius: number;
+  /** The bezel's own drop-shadow rect (Y-DOWN) and continuous-corner radius. */
+  bezelRect: Rect;
+  bezelCornerRadius: number;
+  /** Phone aspect: the island layer exists (`makeDeviceIslandImage` non-nil). */
+  isPhone: boolean;
+}
+
+/**
+ * `segmentDeviceAssets` for a renderer whose `videoRect` is Y-DOWN in a
+ * canvas `canvasHeight` px tall: the exporter's rules run in its own Y-UP
+ * space (so the goldens lock them), then the rects are flipped once.
+ */
+export function segmentFramingYDown(
+  recordingSourceKind: RecordingSourceKind,
+  showDeviceFrame: boolean,
+  sourceSegments: readonly ProjectSourceSegment[],
+  videoRectYDown: Rect,
+  canvasHeight: number,
+): SegmentFraming | null {
+  const assets = segmentDeviceAssets(
+    recordingSourceKind,
+    showDeviceFrame,
+    sourceSegments,
+    flipRectY(videoRectYDown, canvasHeight),
+  );
+  if (!assets) return null;
+  return {
+    assets,
+    screenRect: flipRectY(assets.subRect, canvasHeight),
+    screenCornerRadius: assets.screenCornerRadius,
+    bezelRect: flipRectY(assets.bezelShadowRect, canvasHeight),
+    bezelCornerRadius: assets.bezelShadowCornerRadius,
+    isPhone: assets.hasIsland,
+  };
+}
+
+/** The per-frame device-segment decisions of `VideoExporter.export`. */
+export interface DeviceSegmentFrame {
+  /**
+   * `segmentDeviceAssets != nil && deviceSegmentActive(t)`: the video is
+   * clipped to the screen squircle, the bezel (+ its own shadow, side slab
+   * and island) replaces the card shadow, the replacement menu bar hides and
+   * the curtain clips to the device screen.
+   */
+  active: boolean;
+  /** `deviceBoundaryDip(t)` — 0 = undipped, 1 = fully dipped. */
+  dipPhase: number;
+  /**
+   * The card-over-transparency dip (phase > 0.01): a uniform scale about the
+   * STATIC video rect's centre — Y-DOWN here (the exporter's Y-UP matrix
+   * conjugated by the flip is the same scale about the flipped centre) —
+   * and the fade alpha (`fadeImage` clamp). Applied after the camera-layout
+   * squeeze and its tile, before tilt / zoom / offset / intro.
+   */
+  dip: { scale: number; transform: AffineTransform; alpha: number } | null;
+}
+
+const NO_SEGMENT: DeviceSegmentFrame = Object.freeze({ active: false, dipPhase: 0, dip: null });
+
+/** Resolves one frame at SOURCE time `time` (`videoRectYDown` = the static layout's). */
+export function deviceSegmentFrame(framing: SegmentFraming | null, time: number, videoRectYDown: Rect): DeviceSegmentFrame {
+  if (!framing) return NO_SEGMENT;
+  const dipPhase = deviceBoundaryDip(framing.assets, time);
+  return {
+    active: deviceSegmentActive(framing.assets, time),
+    dipPhase,
+    dip: deviceDipTransform(dipPhase, videoRectYDown),
+  };
 }

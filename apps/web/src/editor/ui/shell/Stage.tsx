@@ -7,7 +7,7 @@
  * The engine mounts into it via `StageMount.mount(host, viewport)` and gets
  * every size/zoom/DPR change through `onViewport` (see shell/types.ts).
  */
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { QuietButton } from "../kit";
 import { clampPreviewZoom, stageReferenceSize } from "../stage/stageLayout";
@@ -41,12 +41,15 @@ export function Stage({
   mount,
   zoom,
   onZoomChange,
+  notice,
 }: {
   /** Output canvas w/h. */
   aspect: number;
   mount?: StageMount;
   zoom: number;
   onZoomChange: (zoom: number) => void;
+  /** Non-blocking callout over the top of the stage (top-centred, inset 10). */
+  notice?: ReactNode;
 }) {
   const slotRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -239,6 +242,7 @@ export function Stage({
           />
         </div>
       </div>
+      {notice != null && <div className="cc-stagenotice">{notice}</div>}
       <div className="cc-zoompill">
         <QuietButton symbol="minus.magnifyingglass" paddingX={1} title="Zoom Out (⌘-)" disabled={zoom <= ZOOM_STEPS[0]} onClick={() => step(-1)} />
         <QuietButton paddingX={5} style={{ minWidth: 36 }} title="Reset zoom to 100%" onClick={() => onZoomChange(1)}>

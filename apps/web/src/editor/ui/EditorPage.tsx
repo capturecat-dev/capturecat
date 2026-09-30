@@ -34,6 +34,8 @@ import { AlertHost, AlertPresenter, Button, SFIcon, ThemeRoot } from "./kit";
 import { useInspectorPanes } from "./panes";
 import { EditorShell } from "./shell/EditorShell";
 import type { StageMount, StageViewport, TransportState } from "./shell/types";
+import { UnsupportedNotice } from "./shell/UnsupportedNotice";
+import { unsupportedFeatures } from "../engine/contract";
 import { mountStageInteraction, type StageInteraction } from "./stage/StageInteraction";
 import { engineViewport, stageCanvasAspect } from "./stage/stageLayout";
 import type { TimelineRenderer } from "./timeline/TimelineRenderer";
@@ -313,6 +315,10 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
   // WITH media — the filmstrip must not blink out while recording.
   const voiceOver = useVoiceOver({ store, controller, loaded, uploads, timeline: timelineWithMedia, rendererRef: timelineRendererRef, alerts });
 
+  // Anything the web engine can't draw yet — the engine's own detection, live
+  // from the document — is said over the stage, never rendered wrong silently.
+  const unsupported = useMemo(() => (project ? unsupportedFeatures(store.documentJSON(project)) : []), [project, store]);
+
   const callbacks = useMemo(() => controller.shellCallbacks(), [controller]);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
   const paneActions = useMemo(() => editorPaneActions(controller), [controller]);
@@ -397,6 +403,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
           inspectorTab={state.inspectorTab}
           inspectorRevealKey={inspectorRevealKey}
           topBarAccessory={accessory}
+          stageNotice={unsupported.length ? <UnsupportedNotice features={unsupported} /> : undefined}
           panes={panes}
           timelineRendererRef={timelineRendererRef}
         />

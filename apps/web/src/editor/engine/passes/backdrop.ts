@@ -12,7 +12,8 @@
  *     it (Mac: `frameBackground` scaled about the zoom anchor).
  *
  * CardShadowPass (stage "card", layer mode only): the shadow alone over
- * clear, drawn first into the card layer.
+ * clear, drawn first into the card layer — the device segment bezel's own
+ * shadow instead while a stitched take's device segment is framed.
  */
 import { L, Uniforms } from "../gpu/resources";
 import { blitWarpWGSL, blitWGSL, shadowComposeWGSL } from "../gpu/shaders";
@@ -70,8 +71,11 @@ export class CardShadowPass implements RenderPass {
   private u: Uniforms | null = null;
 
   encode(ctx: PassContext, frame: FrameState, enc: FrameEncoder): void {
+    // A framed device segment drops the card shadow for the bezel's own
+    // (`assets.bezel` = bezel over its tight shadow; same radius / opacity).
+    const shadow = frame.deviceSegment ? ctx.statics.segment?.shadow : ctx.statics.shadow;
     // Direct mode bakes the shadow into the backdrop; only the layer path draws it here.
-    if (!enc.layerMode || !frame.video || !ctx.statics.shadow || !ctx.scene.geometry.shadow) return;
+    if (!enc.layerMode || !frame.video || !shadow || !ctx.scene.geometry.shadow) return;
     this.u ??= new Uniforms(ctx.device, 4, "card-shadow-u");
     this.u.write([ctx.scene.geometry.shadow.offsetY, 1, 0, 0]);
     const { pipeline, layout } = ctx.pipelines.get({
@@ -84,7 +88,7 @@ export class CardShadowPass implements RenderPass {
       layout,
       entries: [
         { binding: 0, resource: { buffer: this.u.buffer } },
-        { binding: 1, resource: ctx.statics.shadow.view },
+        { binding: 1, resource: shadow.view },
         { binding: 2, resource: ctx.statics.background.view },
       ],
     }));

@@ -10,7 +10,13 @@
  *   card squeeze:     [layer]   card passes
  *                     [layer2]  layer∘squeeze → cardTop     (Mac: cardTransform, then the tile)
  *                     [target]  backdrop(bg) → layer2∘camera → overlays
+ *
+ * Stitched device segments (`withDeviceSegment`): a framed segment forces the
+ * layer path; the keynote dip is the innermost factor of `camera` and fades
+ * the layer (`cardOpacity`).
  */
+import type { AffineTransform } from "../../core/math/geometry";
+import { deviceSegmentFrame } from "../../core/math/deviceSegmentDip";
 import type { GpuContext } from "../gpu/device";
 import { PipelineCache, TexturePool } from "../gpu/resources";
 import { IDENTITY, isIdentity, multiply, type Mat3 } from "../mat3";
@@ -179,6 +185,7 @@ export class FrameGraph {
       for (const p of this.passes) p.sceneChanged?.(ctx);
     }
     const ctx = this.context(statics);
+    frame = withDeviceSegment(frame, statics, scene);
 
     const resources = {
       external: frame.video
@@ -225,7 +232,9 @@ export class FrameGraph {
     for (const p of this.passes) if (p.stage === "prepare") p.encode(ctx, frame, enc);
 
     const byStage = (stage: RenderPass["stage"]) => this.passes.filter((p) => p.stage === stage);
-    const direct = isIdentity(frame.camera) && !frame.motionBlur && !squeezed && !this.forceLayer;
+    // A framed device segment swaps the card's statics (no card shadow) — the
+    // Mac always composites these takes as a card over transparency.
+    const direct = isIdentity(frame.camera) && !frame.motionBlur && !squeezed && !frame.deviceSegment && !this.forceLayer;
     if (direct) {
       const pass = enc.beginPass({
         label: "canvas",
@@ -266,7 +275,7 @@ export class FrameGraph {
           colorAttachments: [{ view: squeezeLayer.view, loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }],
         });
         enc.pass = sp;
-        this.squeeze.encode(ctx, { ...frame, camera: cardPre, cameraClip: null, motionBlur: null }, sp, "rgba16float", layer);
+        this.squeeze.encode(ctx, { ...frame, camera: cardPre, cameraClip: null, motionBlur: null, cardOpacity: 1 }, sp, "rgba16float", layer);
         for (const p of byStage("cardTop")) p.encode(ctx, frame, enc);
         sp.end();
         composed = squeezeLayer;
@@ -312,6 +321,31 @@ export class FrameGraph {
     this.dummy.destroy();
     this.timer?.destroy();
   }
+}
+
+/**
+ * Stitched takes (VideoExporter device segments), resolved ONCE per frame for
+ * every pass from the SOURCE clock: `deviceSegment` (the segment framing is
+ * on) and the keynote dip — its scale folded into `camera` as the innermost
+ * card transform (the exporter dips the finished card after the camera-layout
+ * squeeze and its tile, before tilt / zoom / offset / intro) and its fade as
+ * `cardOpacity` on the layer resample.
+ */
+function withDeviceSegment(frame: FrameState, statics: StaticTextures, scene: Scene): FrameState {
+  const seg = deviceSegmentFrame(statics.segment?.framing ?? null, frame.sourceTime, scene.geometry.videoRect);
+  if (!seg.active && !seg.dip) return frame;
+  const dip = seg.dip;
+  return {
+    ...frame,
+    deviceSegment: seg.active,
+    camera: dip ? multiply(frame.camera, affineMat3(dip.transform)) : frame.camera,
+    cardOpacity: dip ? dip.alpha : frame.cardOpacity,
+  };
+}
+
+/** CoreGraphics affine (x' = a·x + c·y + tx, y' = b·x + d·y + ty) → Mat3. */
+function affineMat3(t: AffineTransform): Mat3 {
+  return [t.a, t.c, t.tx, t.b, t.d, t.ty, 0, 0, 1];
 }
 
 /**

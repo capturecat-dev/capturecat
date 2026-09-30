@@ -225,4 +225,6 @@ export interface EditorShellProps {
    * annotation). Any change reveals it; the value itself is opaque.
    */
   inspectorRevealKey?: number;
+  /** Non-blocking callout over the top of the stage (e.g. UnsupportedNotice). */
+  stageNotice?: ReactNode;
 }

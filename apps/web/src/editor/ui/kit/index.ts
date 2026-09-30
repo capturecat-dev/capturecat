@@ -19,6 +19,8 @@ export type { AnchorRect, Edge, GlideController } from "./Floating";
 export { MenuList, Select, ContextMenu, Popover } from "./Menu";
 export { AlertHost, AlertPresenter } from "./Alert";
 export type { AlertButton, AlertButtonRole, AlertSpec } from "./Alert";
+export { Callout } from "./Callout";
+export type { CalloutVariant } from "./Callout";
 export type { MenuEntry, MenuItem, SelectOption } from "./Menu";
 export {
   ColorPicker,

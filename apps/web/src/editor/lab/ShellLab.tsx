@@ -8,6 +8,7 @@
  *   ?tab=cursor|…              initial inspector tab
  *   ?shot=1                    hide the lab-only theme switch (capture parity)
  *   ?view=picker|editor        the auth-guarded production pages, unguarded
+ *   ?notice=sourceSegments,…   the stage's unsupported-features callout for these ids
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -15,6 +16,7 @@ import { Segmented, ThemeRoot, useCCTheme, type ThemeMode } from "../ui/kit";
 import type { Project, ProjectSettings } from "../core/model";
 import { inspectorPanes, selectionFromTarget, type PaneSelection, type RegionKind } from "../ui/panes";
 import { EditorShell } from "../ui/shell/EditorShell";
+import { UnsupportedNotice } from "../ui/shell/UnsupportedNotice";
 import {
   ASPECT_RATIOS,
   createPlayheadChannel,
@@ -91,6 +93,9 @@ const nextId = (p: string) => `${p}-${++idSeq}`;
 function LabShell({ perf, shot }: { perf: number | null; shot: boolean }) {
   // `?pane=<state>` loads one of the Mac `--pane-shots` fixture states.
   const paneParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("pane") : null;
+  const [notice] = useState(() =>
+    (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("notice") ?? "" : "").split(",").filter(Boolean),
+  );
   const [model, setModel] = useState<LabModel>(() => {
     const base = perf ? perfModel(perf) : shellProbeModel();
     if (!paneParam) return base;
@@ -407,6 +412,7 @@ function LabShell({ perf, shot }: { perf: number | null; shot: boolean }) {
       inspectorTab={tab}
       timelineRendererRef={rendererRef}
       topBarAccessory={shot ? undefined : <ThemeSwitch />}
+      stageNotice={notice.length ? <UnsupportedNotice features={notice} /> : undefined}
       panes={inspectorPanes({
         settings: model.project.settings,
         onSettingsChange: setSettings,

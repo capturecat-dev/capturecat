@@ -171,6 +171,19 @@
   z-index: 3;
 }
 
+/* Non-blocking callouts over the stage (UnsupportedNotice): top-centred,
+   inset 10 like the zoom pill; only the callout itself takes the pointer. */
+.cc-stagenotice {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, calc(100% - 20px));
+  z-index: 4;
+  pointer-events: none;
+}
+.cc-stagenotice > * { pointer-events: auto; }
+
 /* ── Timeline panel (TimelineViewController root) ─────────────────────── */
 .cc-tlpanel {
   flex: none;
