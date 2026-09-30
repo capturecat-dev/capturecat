@@ -117,7 +117,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     title: "AI agents",
     items: [
       "A built in MCP server: the app binary itself, no plugin",
-      "17 tools: start and stop recordings, search captures, add zooms and annotations, restyle, export, and render frames so the agent can see its own edits",
+      "28 tools: start and stop recordings, search captures, transcribe, add zooms, annotations, blurs, and speed ups in one undoable batch, restyle, export, and render frames so the agent can see its own edits",
       "One click setup for Claude, Codex, Cursor, VS Code, and Windsurf",
     ],
   },

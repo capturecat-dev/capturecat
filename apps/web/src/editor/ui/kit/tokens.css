@@ -1,0 +1,218 @@
+/*
+ * CCKit for the web editor — design tokens.
+ *
+ * Byte-for-byte mirrors of `Views/Shared/DesignKit/CCTheme.swift`
+ * (`CCThemeSpec.capDark` / `.capLight`) plus the derived constants the Mac
+ * material engine (`CCMaterial.swift`) and motion vocabulary (`CCMotion.swift`)
+ * hard-code. Everything under `.cc-theme` reads these; nothing in the editor
+ * may hard-code a colour, radius or curve.
+ *
+ * Theme switching is live: `data-cc-theme="dark" | "light" | "system"` on the
+ * `.cc-theme` root. "system" follows `prefers-color-scheme` (the Mac's
+ * `CCThemeMode.system`, which is also its launch default).
+ */
+
+/* Registered so fills can TRANSITION: the material gradients are derived from
+   --m-tint with color-mix, and an animatable registered colour lets a hover
+   wash cross-fade the whole gradient on the glide curve (CCMotion.fade). */
+@property --m-tint {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+.cc-theme {
+  /* ── capDark ─────────────────────────────────────────────── */
+  --cc-background: #131315;
+  --cc-card: #1c1c1e;
+  --cc-popover: #1c1c1e;
+  --cc-elevated: #232327;
+  --cc-foreground: rgb(255 255 255 / 0.92);
+  --cc-muted: rgb(255 255 255 / 0.55);
+  --cc-faint: rgb(255 255 255 / 0.35);
+  /* NSColor.controlAccentColor as the reference captures resolve it. */
+  --cc-primary: #007aff;
+  --cc-primary-foreground: #ffffff;
+  --cc-destructive: #ff453a;
+  --cc-border: rgb(255 255 255 / 0.07);
+  /* Ink ring — white on dark (blue rings vetoed 2026-09-01). */
+  --cc-ring: rgb(255 255 255 / 0.85);
+  --cc-hover: rgb(255 255 255 / 0.06);
+  --cc-active: rgb(255 255 255 / 0.1);
+  --cc-overlay: rgb(0 0 0 / 0.42);
+  /* "Ink" = the hard-contrast colour washes blend toward. */
+  --cc-ink: #ffffff;
+  --cc-ink-rgb: 255 255 255;
+  /* Washes pre-composited over `elevated` so materials never derive from
+     alpha soup (CCMaterial.solidified). */
+  --cc-hover-pct: 6%;
+  --cc-active-pct: 10%;
+  --cc-hover-solid: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) var(--cc-hover-pct));
+  --cc-active-solid: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) var(--cc-active-pct));
+  /* NSSplitView .thin divider as captured (black on dark, #DFDFE0 on light). */
+  --cc-split-divider: #000000;
+  --cc-disabled-alpha: 0.38;
+
+  /* System colours (dark appearance). */
+  --cc-system-red: #ff453a;
+  --cc-system-orange: #ff9f0a;
+  --cc-system-yellow: #ffd60a;
+  --cc-system-cyan: #3cd3fe;
+
+  /* ── CCMaterial constants (dark) ─────────────────────────── */
+  --cc-mat-lift: 10%;
+  --cc-mat-sink: 14%;
+  --cc-mat-under: 45%;
+  --cc-mat-toplight: 0.08;
+  --cc-mat-shadow: 0.45;
+  --cc-mat-chip-shadow: 0.35;
+  --cc-well-top: 14%;
+  --cc-well-bottom: 3%;
+  --cc-well-inner: 0.26;
+  --cc-well-bevel-top: 0.5;
+  --cc-well-bevel-bottom: 0.1;
+  --cc-press-wash: 0.1;
+
+  /* ── Geometry (CCRadius / CCSpace) ───────────────────────── */
+  --cc-radius-sm: 4px;
+  --cc-radius-md: 6px;
+  --cc-radius-lg: 10px;
+  --cc-radius-xl: 16px;
+  --cc-space-xxs: 2px;
+  --cc-space-xs: 4px;
+  --cc-space-sm: 8px;
+  --cc-space-md: 12px;
+  --cc-space-lg: 16px;
+  --cc-space-xl: 24px;
+
+  /* ── Type (CCTheme.fonts + EditorThemeKit scale) ─────────── */
+  --cc-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  --cc-font-mono: "SF Mono", SFMono-Regular, ui-monospace, Menlo, Monaco, monospace;
+
+  /* ── CCMotion ───────────────────────────────────────────── */
+  --cc-pace: 1;
+  --cc-ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --cc-ease-glide: cubic-bezier(0.4, 0, 0.2, 1);
+  --cc-ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --cc-dur-quick: 160ms;
+  --cc-dur-press: 80ms;
+  --cc-dur-settle: 280ms;
+  --cc-dur-run: 350ms;
+  --cc-dur-grow: 380ms;
+  /* --cc-spring-{snappy,smooth,bouncy} and their -dur twins are injected
+     inline by ThemeRoot (computed from the Mac's response/damping pairs). */
+
+  /* Timeline lane palette — CONTENT colours, identical in both themes
+     (EditorThemeKit block palettes). */
+  --cc-lane-effect-top: #ffb851;
+  --cc-lane-effect-bottom: #e8942b;
+  --cc-lane-blur-top: #6e86c8;
+  --cc-lane-blur-bottom: #4c63a6;
+  --cc-lane-highlight-top: #a78bfa;
+  --cc-lane-highlight-bottom: #7c5be0;
+  --cc-lane-annotate-top: #34d399;
+  --cc-lane-annotate-bottom: #0ea47a;
+  --cc-snap-guide: #ffdb26;
+
+  color-scheme: dark;
+  color: var(--cc-foreground);
+  font-family: var(--cc-font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── capLight ─────────────────────────────────────────────── */
+.cc-theme[data-cc-theme="light"] {
+  --cc-background: #f7f7f8;
+  --cc-card: #ffffff;
+  --cc-popover: #ffffff;
+  --cc-elevated: #efeff1;
+  --cc-foreground: rgb(0 0 0 / 0.88);
+  --cc-muted: rgb(0 0 0 / 0.55);
+  --cc-faint: rgb(0 0 0 / 0.34);
+  --cc-primary: #007aff;
+  --cc-primary-foreground: #ffffff;
+  --cc-destructive: #ff3b30;
+  --cc-border: rgb(0 0 0 / 0.09);
+  --cc-ring: rgb(0 0 0 / 0.55);
+  --cc-hover: rgb(0 0 0 / 0.05);
+  --cc-active: rgb(0 0 0 / 0.09);
+  --cc-overlay: rgb(0 0 0 / 0.28);
+  --cc-ink: #000000;
+  --cc-ink-rgb: 0 0 0;
+  --cc-hover-pct: 5%;
+  --cc-active-pct: 9%;
+  --cc-split-divider: #dfdfe0;
+  --cc-system-red: #ff3b30;
+  --cc-system-orange: #ff9500;
+  --cc-system-yellow: #ffcc00;
+  --cc-system-cyan: #00c0e8;
+  --cc-mat-lift: 14%;
+  --cc-mat-sink: 8%;
+  --cc-mat-under: 30%;
+  --cc-mat-toplight: 0.25;
+  --cc-mat-shadow: 0.2;
+  --cc-mat-chip-shadow: 0.15;
+  --cc-well-top: 8%;
+  --cc-well-bottom: 5%;
+  --cc-well-inner: 0.14;
+  --cc-well-bevel-top: 0.22;
+  --cc-well-bevel-bottom: 0.5;
+  --cc-press-wash: 0.08;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  .cc-theme[data-cc-theme="system"] {
+    --cc-background: #f7f7f8;
+    --cc-card: #ffffff;
+    --cc-popover: #ffffff;
+    --cc-elevated: #efeff1;
+    --cc-foreground: rgb(0 0 0 / 0.88);
+    --cc-muted: rgb(0 0 0 / 0.55);
+    --cc-faint: rgb(0 0 0 / 0.34);
+    --cc-primary: #007aff;
+    --cc-primary-foreground: #ffffff;
+    --cc-destructive: #ff3b30;
+    --cc-border: rgb(0 0 0 / 0.09);
+    --cc-ring: rgb(0 0 0 / 0.55);
+    --cc-hover: rgb(0 0 0 / 0.05);
+    --cc-active: rgb(0 0 0 / 0.09);
+    --cc-overlay: rgb(0 0 0 / 0.28);
+    --cc-ink: #000000;
+    --cc-ink-rgb: 0 0 0;
+    --cc-hover-pct: 5%;
+    --cc-active-pct: 9%;
+    --cc-split-divider: #dfdfe0;
+    --cc-system-red: #ff3b30;
+    --cc-system-orange: #ff9500;
+    --cc-system-yellow: #ffcc00;
+    --cc-system-cyan: #00c0e8;
+    --cc-mat-lift: 14%;
+    --cc-mat-sink: 8%;
+    --cc-mat-under: 30%;
+    --cc-mat-toplight: 0.25;
+    --cc-mat-shadow: 0.2;
+    --cc-mat-chip-shadow: 0.15;
+    --cc-well-top: 8%;
+    --cc-well-bottom: 5%;
+    --cc-well-inner: 0.14;
+    --cc-well-bevel-top: 0.22;
+    --cc-well-bevel-bottom: 0.5;
+    --cc-press-wash: 0.08;
+    color-scheme: light;
+  }
+}
+
+/* CCMotion.Pace — one knob for the whole kit (standard / relaxed / brisk). */
+.cc-theme[data-cc-pace="relaxed"] { --cc-pace: 0.7; }
+.cc-theme[data-cc-pace="brisk"] { --cc-pace: 1.45; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-theme *,
+  .cc-theme *::before,
+  .cc-theme *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}

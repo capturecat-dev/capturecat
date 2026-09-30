@@ -520,9 +520,9 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
         />
       )}
 
-      {/* Bulk-selection bar */}
+      {/* Bulk-selection bar — above the recording bar docked on every page. */}
       {selectedIds.size > 0 && (
-        <div className="fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit items-center gap-3 rounded-full border border-white/12 bg-background/80 px-4 py-2 shadow-2xl backdrop-blur-2xl">
+        <div className="fixed inset-x-0 bottom-[6.5rem] z-50 mx-auto flex w-fit items-center gap-3 rounded-full border border-white/12 bg-background/80 px-4 py-2 shadow-2xl backdrop-blur-2xl">
           <span className="text-sm tabular-nums">
             {selectedIds.size} selected
           </span>

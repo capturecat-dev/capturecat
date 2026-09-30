@@ -1,0 +1,824 @@
+/*
+ * CCKit primitives for the web editor. Each block cites the Swift control it
+ * mirrors; sizes are the Mac's point values 1:1 (1pt = 1 CSS px).
+ */
+
+/* Zero-specificity reset (:where) so every component rule below wins. */
+:where(.cc-theme) :where(button) {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  text-align: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+:where(.cc-theme) :where(input) {
+  font: inherit;
+  margin: 0;
+}
+
+.cc-theme .cc-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+/* ── CCButton ─────────────────────────────────────────────────────────── */
+/* --px includes AppKit's 2pt text-cell slop each side (CCButton sizes the
+   title by its cell, not the raw string). */
+.cc-button {
+  --h: 30px;
+  --px: 16px;
+  --fs: 12px;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: var(--h);
+  min-width: 0;
+  padding: 0 var(--px);
+  border-radius: var(--cc-radius-md);
+  font-size: var(--fs);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  color: var(--cc-foreground);
+  transition: opacity calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-button[data-size="sm"] { --h: 24px; --px: 12px; --fs: 11px; }
+.cc-button[data-size="lg"] { --h: 36px; --px: 20px; --fs: 13.5px; }
+.cc-button[data-icon-only="true"] { width: var(--h); padding: 0; }
+.cc-button[data-radius="full"] { border-radius: 999px; }
+.cc-button[data-radius="sm"] { border-radius: var(--cc-radius-sm); }
+.cc-button[data-radius="lg"] { border-radius: var(--cc-radius-lg); }
+.cc-button:disabled,
+.cc-button[aria-disabled="true"] { opacity: var(--cc-disabled-alpha); }
+
+/* The material rides a ::before so clear↔dressed can fade (ghost/outline). */
+.cc-button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  border: 1px solid var(--b-border, transparent);
+  box-sizing: border-box;
+  --m-tint: var(--b-tint, var(--cc-elevated));
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / var(--cc-mat-toplight)) 0, rgb(255 255 255 / 0) min(6px, 40%)),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--m-tint), #ffffff var(--cc-mat-lift)) 0%,
+      var(--m-tint) 55%,
+      color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-sink)) 100%
+    );
+  box-shadow:
+    0 2px 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
+    0 2px 6px 0 rgb(0 0 0 / var(--cc-mat-shadow));
+  opacity: var(--b-dressed, 1);
+  transition:
+    --m-tint calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    opacity calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    border-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+
+.cc-button[data-variant="primary"] {
+  --b-tint: var(--cc-primary);
+  color: var(--cc-primary-foreground);
+}
+.cc-button[data-variant="primary"]:not(:disabled):hover { --b-tint: color-mix(in srgb, var(--cc-primary), var(--cc-ink) 8%); }
+.cc-button[data-variant="primary"]:not(:disabled):active { --b-tint: color-mix(in srgb, var(--cc-primary), var(--cc-ink) 14%); }
+
+.cc-button[data-variant="destructive"] {
+  --b-tint: var(--cc-destructive);
+  color: #ffffff;
+}
+.cc-button[data-variant="destructive"]:not(:disabled):hover { --b-tint: color-mix(in srgb, var(--cc-destructive), var(--cc-ink) 8%); }
+.cc-button[data-variant="destructive"]:not(:disabled):active { --b-tint: color-mix(in srgb, var(--cc-destructive), var(--cc-ink) 14%); }
+
+.cc-button[data-variant="secondary"] {
+  --b-tint: var(--cc-elevated);
+  --b-border: var(--cc-border);
+}
+.cc-button[data-variant="secondary"]:not(:disabled):hover { --b-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 8%); }
+.cc-button[data-variant="secondary"]:not(:disabled):active { --b-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 14%); }
+
+/* Ghost / outline: bare at rest; the (solidified) hover/active wash is
+   dressed and fades in — CCButton.applyTheme's washed → dress path. */
+.cc-button[data-variant="ghost"],
+.cc-button[data-variant="outline"] {
+  --b-dressed: 0;
+  --b-tint: var(--cc-hover-solid);
+}
+.cc-button[data-variant="outline"] { box-shadow: inset 0 0 0 1px var(--cc-border); }
+.cc-button[data-variant="ghost"]:not(:disabled):hover,
+.cc-button[data-variant="outline"]:not(:disabled):hover { --b-dressed: 1; }
+.cc-button[data-variant="ghost"]:not(:disabled):active,
+.cc-button[data-variant="outline"]:not(:disabled):active { --b-dressed: 1; --b-tint: var(--cc-active-solid); }
+
+.cc-button[data-variant="link"] {
+  --b-dressed: 0;
+  color: var(--cc-primary);
+  padding: 0 2px;
+}
+.cc-button[data-variant="link"]:not(:disabled):hover { text-decoration: underline; }
+
+/* ── CaptureCatButton .quiet (zoom pill, pagers) ─────────────────────── */
+.cc-quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--q-h, 20px);
+  padding: 0 var(--q-px, 5px);
+  border-radius: var(--cc-radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cc-muted);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+  user-select: none;
+  transition:
+    background-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    opacity calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-quiet:not(:disabled):hover { background: rgb(var(--cc-ink-rgb) / 0.07); }
+.cc-quiet:not(:disabled):active { background: rgb(0 0 0 / 0.16); }
+.cc-quiet:disabled { opacity: var(--cc-disabled-alpha); }
+.cc-quiet[data-selected="true"] { background: var(--cc-active); color: var(--cc-foreground); }
+
+/* ── TimelineToolbarButton: every icon its own raised key ────────────── */
+.cc-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--cc-radius-md);
+  color: var(--k-ink, var(--cc-foreground));
+  cursor: default;
+  user-select: none;
+  --m-tint: var(--cc-elevated);
+  transition:
+    --m-tint calc(100ms / var(--cc-pace)) var(--cc-ease-glide),
+    opacity calc(100ms / var(--cc-pace)) var(--cc-ease-glide),
+    color calc(100ms / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-key:not(:disabled):hover { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 8%); }
+.cc-key[data-active="true"] { --m-tint: var(--cc-active-solid); }
+.cc-key:disabled { opacity: 0.35; }
+
+/* ── Transport separators (1×18 hairline in an 11pt slot) ────────────── */
+.cc-vsep {
+  width: 11px;
+  height: 18px;
+  flex: none;
+  display: flex;
+  justify-content: center;
+}
+.cc-vsep::before {
+  content: "";
+  width: 1px;
+  height: 100%;
+  background: var(--cc-border);
+}
+
+/* ── InspectorChipsControl ──────────────────────────────────────────── */
+.cc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 8px;
+  row-gap: 6px;
+  /* slack below: the under edge + soft shadow need room (Mac: 6pt) */
+  padding-bottom: 6px;
+  width: 100%;
+}
+.cc-chip {
+  --chip-pad: var(--chips-pad, 14px);
+  height: 32px;
+  padding: 0 var(--chip-pad);
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--cc-foreground);
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  --m-tint: var(--cc-elevated);
+  box-shadow:
+    0 2px 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
+    0 1px 4px 0 rgb(0 0 0 / var(--cc-mat-chip-shadow));
+}
+.cc-chip[aria-checked="true"] { --m-tint: var(--cc-active-solid); }
+.cc-chip-measure {
+  position: absolute;
+  visibility: hidden;
+  white-space: nowrap;
+  font-size: 13px;
+  pointer-events: none;
+}
+
+/* ── CCSlider: the pill carrying its own label, ticks and value ─────── */
+.cc-pill-slider {
+  position: relative;
+  height: 36px;
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid var(--cc-border);
+  box-sizing: border-box;
+  overflow: hidden;
+  touch-action: none;
+  cursor: default;
+  user-select: none;
+  --m-radius: 18px;
+}
+.cc-pill-slider[data-hover="true"] { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 6%); }
+.cc-pill-slider[aria-disabled="true"] { opacity: var(--cc-disabled-alpha); }
+.cc-pill-slider__title {
+  position: absolute;
+  left: 13px; /* 14 − the 1px border */
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cc-foreground);
+  white-space: nowrap;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cc-pill-slider__title .cc-icon { color: var(--cc-muted); }
+.cc-pill-slider__value {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--cc-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.cc-pill-slider__tick {
+  position: absolute;
+  top: calc(50% - 4px);
+  width: 1px;
+  height: 8px;
+  border-radius: 0.5px;
+  background: color-mix(in srgb, var(--cc-faint) 22%, transparent);
+  pointer-events: none;
+}
+/* The shipped thumb is a FLAT hard-contrast bar (white on dark, ink .85 on
+   light) with a soft shadow — CCSlider dresses it before it has a size, so on
+   the Mac the material never shows; match what ships. */
+.cc-pill-slider__thumb {
+  position: absolute;
+  top: 50%;
+  width: 4px;
+  height: 18px;
+  margin-top: -9px;
+  border-radius: 2px;
+  pointer-events: none;
+  background: #ffffff;
+  box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.35);
+  transition:
+    left calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle),
+    height var(--cc-spring-bouncy-dur) var(--cc-spring-bouncy),
+    margin-top var(--cc-spring-bouncy-dur) var(--cc-spring-bouncy);
+}
+[data-cc-resolved="light"] .cc-pill-slider__thumb { background: rgb(0 0 0 / 0.85); }
+.cc-pill-slider[data-dragging="true"] .cc-pill-slider__thumb {
+  height: 22px;
+  margin-top: -11px;
+  transition:
+    left 0s,
+    height var(--cc-spring-snappy-dur) var(--cc-spring-snappy),
+    margin-top var(--cc-spring-snappy-dur) var(--cc-spring-snappy);
+}
+
+/* ── InspectorSliderControl: bare rail + knob (timeline zoom) ───────── */
+.cc-rail-slider {
+  position: relative;
+  height: 16px;
+  flex: none;
+  touch-action: none;
+  cursor: default;
+}
+.cc-rail-slider__rail,
+.cc-rail-slider__fill {
+  position: absolute;
+  top: calc(50% - 1.5px);
+  height: 3px;
+  border-radius: 1.5px;
+  left: 0;
+}
+.cc-rail-slider__rail { right: 0; background: rgb(var(--cc-ink-rgb) / 0.12); }
+.cc-rail-slider__fill {
+  background: rgb(var(--cc-ink-rgb) / 0.85);
+  transition: width calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle);
+}
+.cc-rail-slider__knob {
+  position: absolute;
+  top: 50%;
+  width: var(--knob, 12px);
+  height: var(--knob, 12px);
+  margin-top: calc(var(--knob, 12px) / -2);
+  border-radius: 50%;
+  --m-tint: var(--cc-ink);
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
+    0 1px 4px 0 rgb(0 0 0 / 0.3);
+  transition:
+    left calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle),
+    width calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle),
+    height calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle),
+    margin-top calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle);
+}
+.cc-rail-slider:hover,
+.cc-rail-slider[data-dragging="true"] { --knob: 14px; }
+.cc-rail-slider[data-dragging="true"] .cc-rail-slider__knob,
+.cc-rail-slider[data-dragging="true"] .cc-rail-slider__fill { transition-duration: 80ms; }
+
+/* ── CCToggle ───────────────────────────────────────────────────────── */
+.cc-toggle {
+  position: relative;
+  width: 36px;
+  height: 21px;
+  flex: none;
+  border-radius: 999px;
+  box-sizing: border-box;
+  border: 1px solid var(--cc-border);
+  --m-tint: var(--cc-active-solid);
+  --m-radius: 10.5px;
+  cursor: default;
+}
+.cc-toggle[aria-checked="true"] {
+  --m-tint: var(--cc-primary);
+  border-color: transparent;
+}
+.cc-toggle:disabled { opacity: var(--cc-disabled-alpha); }
+.cc-toggle__thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  --m-tint: #ffffff;
+  --m-extrude: 1px;
+  box-shadow:
+    0 1px 0 0 color-mix(in srgb, #ffffff, #000000 var(--cc-mat-under)),
+    0 0.5px 4px 0 rgb(0 0 0 / 0.3);
+  transform: translateX(0);
+  transition: transform var(--cc-spring-bouncy-dur) var(--cc-spring-bouncy);
+}
+.cc-toggle[aria-checked="true"] .cc-toggle__thumb { transform: translateX(15px); }
+/* CaptureCatToggle (inspector rows): 30×18, 12pt ball at x 3 → 15. */
+.cc-toggle[data-size="sm"] {
+  width: 30px;
+  height: 18px;
+  --m-tint: var(--cc-elevated);
+  --m-radius: 9px;
+}
+.cc-toggle[data-size="sm"][aria-checked="true"] { --m-tint: color-mix(in srgb, var(--cc-primary) 88%, var(--cc-card)); }
+/* Its track reads as a flat fill (measured: no well gradient). */
+.cc-toggle.cc-mat-recessed[data-size="sm"] { background: var(--m-tint); }
+.cc-toggle[data-size="sm"] .cc-toggle__thumb { top: 2px; left: 2px; width: 12px; height: 12px; }
+.cc-toggle[data-size="sm"][aria-checked="true"] .cc-toggle__thumb { transform: translateX(12px); }
+
+/* ── CCSegmented ────────────────────────────────────────────────────── */
+.cc-seg {
+  --seg-h: 30px;
+  --seg-inset: 3px;
+  --seg-pad: 26px;
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  height: var(--seg-h);
+  padding: 0 var(--seg-inset);
+  box-sizing: border-box;
+  border-radius: var(--seg-radius, var(--cc-radius-md));
+  border: 1px solid var(--cc-border);
+  font-size: 12px;
+  font-weight: 500;
+  user-select: none;
+  cursor: default;
+}
+.cc-seg[data-size="sm"] { --seg-h: 24px; --seg-inset: 2px; --seg-pad: 18px; font-size: 11px; }
+.cc-seg[data-chrome="plain"] { border-color: transparent; background: none; box-shadow: none; }
+.cc-seg__item {
+  position: relative;
+  z-index: 1;
+  padding: 0 calc(var(--seg-pad) / 2);
+  color: var(--cc-muted);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-seg__item[aria-checked="true"] { color: var(--cc-foreground); }
+.cc-seg__chip,
+.cc-seg__hover {
+  position: absolute;
+  top: calc(var(--seg-inset) - 1px);
+  bottom: calc(var(--seg-inset) - 1px);
+  left: 0;
+  border-radius: var(--seg-chip-radius, var(--cc-radius-sm));
+  pointer-events: none;
+}
+.cc-seg__chip {
+  --m-tint: var(--cc-card);
+  transition:
+    transform var(--cc-spring-snappy-dur) var(--cc-spring-snappy),
+    width var(--cc-spring-snappy-dur) var(--cc-spring-snappy);
+  box-shadow:
+    0 2px 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
+    0 0 6px 0 rgb(0 0 0 / var(--cc-mat-chip-shadow));
+}
+.cc-seg[data-chrome="plain"] .cc-seg__chip {
+  --m-tint: var(--cc-active-solid);
+  box-shadow: 0 2px 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under));
+}
+.cc-seg__hover {
+  background: var(--cc-hover);
+  opacity: 0;
+  transition:
+    transform var(--cc-spring-snappy-dur) var(--cc-spring-snappy),
+    width var(--cc-spring-snappy-dur) var(--cc-spring-snappy),
+    opacity 100ms var(--cc-ease-glide);
+}
+
+/* ── InspectorColorWellControl ──────────────────────────────────────── */
+.cc-swatch {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: default;
+  background:
+    repeating-conic-gradient(rgb(255 255 255 / 0.25) 0 25%, rgb(255 255 255 / 0.08) 0 50%) 0 0 / 8px 8px;
+}
+.cc-swatch::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--swatch);
+}
+.cc-swatch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(var(--cc-ink-rgb) / 0.25);
+}
+
+/* ── Colour picker popover ──────────────────────────────────────────── */
+.cc-picker {
+  width: 232px;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+.cc-picker__sv {
+  position: relative;
+  height: 140px;
+  border-radius: var(--cc-radius-md);
+  touch-action: none;
+  background:
+    linear-gradient(to top, #000, transparent),
+    linear-gradient(to right, #fff, hsl(var(--hue) 100% 50%));
+}
+.cc-picker__strip {
+  position: relative;
+  height: 14px;
+  border-radius: 7px;
+  touch-action: none;
+}
+.cc-picker__strip--hue {
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.cc-picker__strip--alpha {
+  background:
+    linear-gradient(to right, transparent, var(--opaque)),
+    repeating-conic-gradient(#bbb 0 25%, #fff 0 50%) 0 0 / 8px 8px;
+}
+.cc-picker__handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.4);
+  pointer-events: none;
+}
+.cc-picker__strip .cc-picker__handle { top: 50%; }
+.cc-picker__row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.cc-picker__presets {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+}
+.cc-picker__preset {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(var(--cc-ink-rgb) / 0.2);
+}
+
+/* ── CCField (text input): recessed well + the ONE ring the kit allows ─ */
+.cc-field {
+  height: 30px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border-radius: var(--cc-radius-md);
+  border: 1px solid var(--cc-border);
+  font: inherit;
+  font-size: 13px;
+  color: var(--cc-foreground);
+  --m-radius: 6px;
+  transition: border-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-field::placeholder { color: var(--cc-faint); }
+.cc-field:focus { border-color: var(--cc-ring); }
+.cc-field[aria-invalid="true"]:not(:focus) { border-color: var(--cc-destructive); }
+.cc-field[data-size="sm"] { height: 26px; font-size: 12px; }
+
+/* ── CCCombobox / CCSelect trigger ──────────────────────────────────── */
+.cc-select {
+  --sel-h: 30px;
+  --sel-px: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: var(--sel-h);
+  padding: 0 calc(var(--sel-px) - 1px) 0 var(--sel-px);
+  box-sizing: border-box;
+  border-radius: var(--cc-radius-md);
+  border: 1px solid var(--cc-border);
+  font-size: 13px;
+  color: var(--cc-foreground);
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  --m-radius: 6px;
+}
+.cc-select[data-size="sm"] { --sel-h: 24px; --sel-px: 9px; font-size: 11.5px; }
+.cc-select[data-empty="true"] .cc-select__label { color: var(--cc-muted); }
+.cc-select__chev { color: var(--cc-muted); }
+.cc-select:hover { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 6%); }
+/* .plain chrome (title bars): bare at rest, quiet wash on hover/open */
+.cc-select[data-chrome="plain"] {
+  border-color: transparent;
+  background: none;
+  transition: background-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-select[data-chrome="plain"]:hover { background: var(--cc-hover); }
+.cc-select[data-chrome="plain"][data-open="true"] { background: var(--cc-active); }
+/* .flat (InspectorMenuControl): chevron leading the title, no field */
+.cc-select[data-chrome="flat"] {
+  /* InspectorMenuControl: 16pt tall, chevron leading the title. */
+  height: 16px;
+  padding: 0 8px;
+  gap: 6px;
+  border-color: transparent;
+  background: none;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  transition: background-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-select[data-chrome="flat"]:hover { background: var(--cc-hover); }
+
+/* ── Floating surfaces: menus, popovers ─────────────────────────────── */
+.cc-portal { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 50; }
+.cc-float {
+  position: fixed;
+  z-index: 60;
+  background: var(--cc-popover);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius-lg);
+  box-shadow: 0 6px 36px rgb(0 0 0 / 0.48);
+  color: var(--cc-foreground);
+  transform-origin: var(--float-origin, top center);
+  animation:
+    cc-float-in var(--cc-spring-smooth-dur) var(--cc-spring-smooth) both,
+    cc-fade-in calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide) both;
+}
+[data-cc-resolved="light"] .cc-float { box-shadow: 0 6px 36px rgb(0 0 0 / 0.2); }
+@keyframes cc-float-in { from { transform: scale(0.96); } to { transform: scale(1); } }
+@keyframes cc-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.cc-menu {
+  position: relative;
+  padding: 5px;
+  min-width: 160px;
+  max-height: calc(9.5 * 30px + 10px);
+  overflow-y: auto;
+  outline: none;
+}
+.cc-menu__search { padding: 6px 6px 6px; border-bottom: 1px solid var(--cc-border); margin: -5px -5px 5px; }
+.cc-menu__row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: var(--cc-radius-md);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+.cc-menu__row[aria-disabled="true"] { opacity: 0.4; }
+.cc-menu__row--destructive { color: var(--cc-destructive); }
+.cc-menu__sub { color: var(--cc-faint); font-size: 10.5px; }
+.cc-menu__check { margin-left: auto; color: var(--cc-primary); }
+.cc-menu__sep { height: 1px; margin: 4px 6px; background: var(--cc-border); }
+.cc-menu__empty { height: 44px; display: flex; align-items: center; justify-content: center; color: var(--cc-muted); font-size: 12px; }
+
+/* ── CCGlideHighlight: ONE travelling wash per sibling group ────────── */
+.cc-glide {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  border-radius: var(--cc-radius-md);
+  background: var(--cc-hover);
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+  transition:
+    transform var(--cc-spring-snappy-dur) var(--cc-spring-snappy),
+    width var(--cc-spring-snappy-dur) var(--cc-spring-snappy),
+    height var(--cc-spring-snappy-dur) var(--cc-spring-snappy),
+    opacity 100ms var(--cc-ease-glide);
+}
+.cc-glide[data-instant="true"] { transition: opacity 100ms var(--cc-ease-glide); }
+
+/* ── InspectorSectionBox + rows ─────────────────────────────────────── */
+.cc-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.cc-section {
+  display: flex;
+  flex-direction: column;
+}
+.cc-section__rule {
+  height: 1px;
+  background: var(--cc-border);
+  margin-bottom: 18px;
+}
+.cc-section[data-first="true"] > .cc-section__rule { display: none; }
+.cc-section__header {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--cc-muted);
+  margin-bottom: 10px;
+}
+.cc-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.cc-section__body > [data-attached="true"] { margin-top: -10px; } /* 16 → 6pt */
+.cc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* InspectorKitViews.row: the row is exactly its control's height
+     (menu 16, switch 18, swatch 22). */
+  min-height: 0;
+  line-height: 16px;
+  font-size: 13px;
+  color: var(--cc-foreground);
+}
+.cc-row__label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-caption {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--cc-faint);
+}
+.cc-label { font-size: 13px; color: var(--cc-foreground); }
+.cc-divider { height: 9px; display: flex; align-items: center; }
+.cc-divider::before { content: ""; flex: 1; height: 1px; background: var(--cc-border); }
+
+/* Reveal (.cc-grow): one conditional row/section; its spacing glides when a
+   neighbour's visibility changes the stack spacing above it. */
+.cc-grow {
+  display: flex;
+  flex-direction: column;
+  transition: margin-top calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle);
+}
+
+/* InspectorFlatTextField: pill, elevated fill, hairline; focus = chip wash + ink outline */
+.cc-ifield {
+  box-sizing: border-box;
+  height: 33px;
+  width: calc(100% + 4px);
+  min-width: 0;
+  margin: 0 -2px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--cc-border);
+  background: var(--cc-elevated);
+  font: inherit;
+  font-size: 13px;
+  color: var(--cc-foreground);
+  transition:
+    background-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    border-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-ifield[data-fixed="true"] { flex: none; margin: 0 -2px; }
+.cc-ifield::placeholder { color: var(--cc-faint); }
+.cc-ifield:focus {
+  background: var(--cc-active-solid);
+  border-color: var(--cc-ring);
+}
+
+/* InspectorButton: flat chip, raised, washes toward ink */
+.cc-ibutton {
+  position: relative;
+  isolation: isolate;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  /* 12pt medium label (15pt line) + 5pt top and bottom. */
+  height: 25px;
+  padding: 0 10px;
+  border-radius: var(--cc-radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cc-foreground);
+  cursor: default;
+  user-select: none;
+  --m-tint: var(--cc-elevated);
+}
+.cc-ibutton:not(:disabled):hover { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 6%); }
+.cc-ibutton:not(:disabled):active { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 10%); }
+.cc-ibutton[data-destructive="true"] { color: color-mix(in srgb, var(--cc-destructive) 90%, transparent); }
+.cc-ibutton:disabled { opacity: 0.4; }
+
+/* ── CCPreviewPad (recessed demo well) ──────────────────────────────── */
+.cc-pad {
+  position: relative;
+  height: 96px;
+  border-radius: var(--cc-radius-lg);
+  border: 1px solid rgb(var(--cc-ink-rgb) / 0.12);
+  box-sizing: border-box;
+  overflow: hidden;
+  --m-radius: 10px;
+  touch-action: none;
+}
+.cc-pad__dot {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 1.5px;
+  background: rgb(var(--cc-ink-rgb) / 0.18);
+  transition: left 150ms var(--cc-ease-glide), top 150ms var(--cc-ease-glide);
+}
+.cc-pad__card {
+  position: absolute;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.85);
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
+  transition:
+    left 150ms var(--cc-ease-glide),
+    top 150ms var(--cc-ease-glide),
+    width 150ms var(--cc-ease-glide),
+    height 150ms var(--cc-ease-glide),
+    border-radius 150ms var(--cc-ease-glide),
+    box-shadow 150ms var(--cc-ease-glide);
+}
+
+/* ── Tooltip (CCTooltip): native title is used; nothing to style. ─── */

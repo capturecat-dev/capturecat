@@ -1,0 +1,367 @@
+/*
+ * The editor shell — EditorShellViewController's layout, 1:1:
+ *   top bar 52 · stage card (inset 14, top 10, radius lg) · timeline panel
+ *   (12 below the card, inset 14, bottom flush, top corners only) · 1px
+ *   split divider · inspector column 380 (340…480) holding a card inset
+ *   top 10 / trailing 14 with the 84pt icon rail.
+ */
+
+.cc-editor {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 52px minmax(0, 1fr);
+  background: var(--cc-background);
+  overflow: hidden;
+  font-size: 13px;
+  line-height: normal;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Top bar (HeaderChromeView + EditorToolbarController) ─────────────── */
+.cc-topbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  min-width: 0;
+}
+.cc-topbar__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cc-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 34vw;
+  padding: 2px 4px;
+  margin-left: -4px;
+  border-radius: var(--cc-radius-sm);
+  cursor: default;
+}
+.cc-topbar__title-input {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  width: 260px;
+}
+.cc-topbar__cluster {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+}
+.cc-topbar__divider { width: 1px; height: 14px; background: var(--cc-border); }
+.cc-topbar__spacer { flex: 1; }
+.cc-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--cc-radius-md);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cc-muted);
+  white-space: nowrap;
+}
+.cc-sync[data-state="conflict"],
+.cc-sync[data-state="offline"] { color: var(--cc-system-orange); }
+.cc-sync[data-state="saving"] .cc-icon { animation: cc-spin 1s linear infinite; }
+@keyframes cc-spin { to { transform: rotate(360deg); } }
+
+/* ── Body split ──────────────────────────────────────────────────────── */
+.cc-body {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+.cc-stagecol {
+  flex: 1 1 auto;
+  min-width: 420px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.cc-split {
+  position: relative;
+  width: 1px;
+  flex: none;
+  background: var(--cc-split-divider);
+  cursor: col-resize;
+  z-index: 2;
+}
+.cc-split::before {
+  content: "";
+  position: absolute;
+  inset: 0 -4px;
+}
+.cc-split[data-hidden="true"] { background: transparent; cursor: default; }
+.cc-inspectorcol {
+  flex: none;
+  width: var(--insp-w, 380px);
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Stage (EditorStageViewController) ───────────────────────────────── */
+.cc-stagewrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 60px;
+  margin: 10px 14px 0;
+}
+.cc-stagecard {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--cc-radius-lg);
+  background: var(--cc-card);
+  overflow: hidden;
+  container-type: size;
+}
+.cc-stagescroll {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.cc-stagescroll[data-zoomed="true"] { overflow: auto; scrollbar-width: thin; }
+.cc-stageslot {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  width: calc(min(100cqw, 100cqh * var(--aspect)) * var(--zoom));
+  height: calc(min(100cqh, 100cqw / var(--aspect)) * var(--zoom));
+  transition:
+    width calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle),
+    height calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle);
+}
+.cc-stageslot[data-resizing="true"] { transition: none; }
+/* Exact backing size on the device-pixel grid (Stage.tsx snapCanvas) — never
+   stretched: a fractional resample blurs every frame in Safari. */
+.cc-stageslot > canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--cv-w, 100%);
+  height: var(--cv-h, 100%);
+  transform: translate(var(--cv-x, 0px), var(--cv-y, 0px));
+  display: block;
+}
+
+.cc-zoompill {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: var(--cc-elevated);
+  z-index: 3;
+}
+
+/* ── Timeline panel (TimelineViewController root) ─────────────────────── */
+.cc-tlpanel {
+  flex: none;
+  margin: 12px 14px 0;
+  box-sizing: border-box;
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius-lg) var(--cc-radius-lg) 0 0;
+  background: var(--cc-card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: height calc(var(--cc-dur-grow) / var(--cc-pace)) var(--cc-ease-bounce);
+}
+.cc-transport {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 41px;
+  flex: none;
+  box-sizing: border-box;
+  padding: 0 9px;
+  border-bottom: 1px solid var(--cc-border);
+}
+.cc-transport__group { display: flex; gap: 4px; }
+.cc-transport__spacer { flex: 1; min-width: 0; }
+.cc-timecode {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0 8px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.cc-timecode__now { font-size: 14px; font-weight: 600; color: var(--cc-foreground); }
+.cc-timecode__div { font-size: 12px; color: var(--cc-faint); }
+.cc-timecode__total { font-size: 12px; font-weight: 500; color: var(--cc-muted); }
+
+/* ── Inspector (EditorInspectorViewController + InspectorColumnAppKit) ── */
+/* Anchored at the column's LEFT with the open width, so collapsing slides the
+   card out past the window edge (the column clips) instead of squashing it. */
+.cc-inspector {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  width: calc(var(--insp-open, 380px) - 14px);
+  bottom: 0;
+  display: flex;
+  border-radius: var(--cc-radius-lg) var(--cc-radius-lg) 0 0;
+  background: var(--cc-card);
+  overflow: hidden;
+}
+.cc-inspector__scroll {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 220px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  user-select: text;
+}
+.cc-inspector__pane { padding: 18px 18px 34px; }
+.cc-inspector__hair { width: 1px; flex: none; background: var(--cc-border); }
+.cc-rail {
+  position: relative;
+  width: 84px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 10px;
+}
+.cc-railbtn {
+  position: relative;
+  z-index: 1;
+  width: 72px;
+  height: 56px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Mac: symbol view at top 9, label 4 below it. SF symbol images carry
+     less internal padding than a 24-grid glyph, so the web box sits higher
+     and the label tucks up to land on the same pixels. */
+  padding-top: 4px;
+  gap: 0;
+  box-sizing: border-box;
+  border-radius: var(--cc-radius-md);
+  color: var(--cc-muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 12px;
+  cursor: default;
+  transition: color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-railbtn[aria-selected="true"] {
+  background: var(--cc-elevated);
+  color: var(--cc-foreground);
+}
+.cc-railbtn__label { max-width: 68px; margin-top: -3.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Reveal tab — the "bring the sidebar back" grabber (InspectorRevealTab). */
+.cc-reveal {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 18px;
+  height: 64px;
+  margin-top: -32px;
+  box-sizing: border-box;
+  border: 1px solid var(--cc-border);
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+  background: var(--cc-card);
+  color: var(--cc-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  cursor: pointer;
+  transition:
+    background-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    opacity calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-reveal:hover { background: var(--cc-hover-solid); color: var(--cc-foreground); }
+
+/* ── Toolbar picker popover (TimelinePickerPopover) ───────────────────── */
+.cc-picker-pop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: var(--cc-card);
+  border-radius: inherit;
+}
+.cc-pickrow {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--cc-radius-md);
+  text-align: left;
+  cursor: default;
+}
+.cc-pickrow:disabled { opacity: 0.4; }
+.cc-pickrow__chip {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: var(--cc-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cc-muted);
+  transition: background-color 100ms var(--cc-ease-glide), color 100ms var(--cc-ease-glide);
+}
+.cc-pickrow[data-hover="true"] .cc-pickrow__chip { background: var(--cc-active); color: var(--cc-foreground); }
+.cc-pickrow__text { min-width: 0; flex: 1; }
+.cc-pickrow__title { font-size: 13px; font-weight: 600; color: var(--cc-foreground); white-space: nowrap; }
+/* One line, like the Mac's label rows (they clip rather than wrap). */
+.cc-pickrow__detail {
+  font-size: 11px;
+  color: var(--cc-muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Unsupported browser screen ───────────────────────────────────────── */
+.cc-gate {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--cc-background);
+  color: var(--cc-foreground);
+}
+.cc-gate__card {
+  max-width: 440px;
+  padding: 28px;
+  border-radius: var(--cc-radius-xl);
+  background: var(--cc-card);
+  border: 1px solid var(--cc-border);
+  text-align: center;
+  display: grid;
+  gap: 10px;
+}
+.cc-gate__title { font-size: 15px; font-weight: 600; }
+.cc-gate__body { font-size: 13px; color: var(--cc-muted); line-height: 1.45; }

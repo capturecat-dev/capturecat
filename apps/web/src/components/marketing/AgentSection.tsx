@@ -87,7 +87,7 @@ export default function AgentSection() {
               </div>
             </div>
             <p className="mt-4 text-center text-sm text-muted-foreground">
-              Real tool names. 17 tools in total, listed on the Agents page.
+              Real tool names. 28 tools in total, listed on the Agents page.
             </p>
           </div>
         </div>

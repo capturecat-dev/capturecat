@@ -52,22 +52,32 @@ const TOOL_GROUPS: Array<{ title: string; tools: Array<{ name: string; descripti
   {
     title: "Read and edit",
     tools: [
-      { name: "describe_project", description: "The full timeline plus an interaction digest: click clusters and idle spans from the recorded cursor data, so the agent knows where zooms belong." },
-      { name: "get_transcript", description: "The on device transcript with timestamps." },
+      { name: "describe_project", description: "The full timeline plus an interaction digest and a pacing digest: click clusters, idle spans, and quiet stretches with no motion, input, or sound, so the agent knows where zooms and speed ups belong." },
+      { name: "get_transcript", description: "The on device transcript with timestamps, per segment and per word." },
+      { name: "transcribe", description: "Generate the transcript on device with the same Whisper model the editor uses." },
+      { name: "apply_edits", description: "Apply a whole plan in one step. Every edit is checked first, and if one fails nothing is written." },
+      { name: "undo", description: "Step back through the agent's edits, up to 30 of them." },
       { name: "auto_zoom", description: "Run the same auto zoom pass the app runs after recording." },
       { name: "add_effect", description: "Add a zoom, tilt, or zoom tilt block to a time range. Overlapping spans are refused, the same as in the editor." },
       { name: "update_effect", description: "Change the range, scale, or focal point of an existing block." },
       { name: "remove_effect", description: "Delete a block." },
       { name: "add_annotation", description: "Add text, an arrow, a callout, or a shape at a time and position." },
+      { name: "update_annotation", description: "Move, retime, or reword an annotation." },
       { name: "remove_annotation", description: "Delete an annotation." },
+      { name: "add_blur", description: "Blur or pixelate part of the screen for a time range, for emails, keys, and anything private." },
+      { name: "remove_blur", description: "Delete a blur." },
+      { name: "set_speed", description: "Speed up or slow down a section, with the same speeds the editor offers." },
+      { name: "remove_speed", description: "Return a section to normal speed." },
+      { name: "set_trim", description: "Set where the video starts and ends." },
       { name: "cut_video", description: "Cut a section out of the recording." },
       { name: "set_style", description: "Wallpaper, padding, shadow, frame, cursor, and the other project settings, validated by the same rules the app enforces." },
+      { name: "style_options", description: "Every style setting with its allowed values and the project's current value." },
     ],
   },
   {
     title: "Check and export",
     tools: [
-      { name: "render_frames", description: "Render specific frames to images so the agent can look at its own edits before exporting." },
+      { name: "render_frames", description: "Render frames, or a labelled contact sheet of many frames in one image, so the agent can look at its own edits before exporting." },
       { name: "export_project", description: "Render the final video with the real export engine, in process." },
     ],
   },
@@ -205,7 +215,7 @@ function AgentsPage() {
       <section className="relative isolate py-16">
         <Container>
           <SectionTitle muted="Every tool is validated by the same rules the editor uses.">
-            17 tools
+            28 tools
           </SectionTitle>
           <div className="mt-10 space-y-8">
             {TOOL_GROUPS.map((group) => (

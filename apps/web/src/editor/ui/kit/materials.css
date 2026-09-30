@@ -1,0 +1,124 @@
+/*
+ * CCMaterial for the web — the skeuomorphic dressing every surface shares.
+ * Port of `Views/Shared/DesignKit/CCMaterial.swift`; everything derives from
+ * the element's `--m-tint` with color-mix, so ANY tint works (no assets).
+ *
+ *   .cc-mat-raised     lit, touchable key — buttons, chips, thumbs
+ *                      3-stop top-lit gradient (lift 0 / tint .55 / sink 1),
+ *                      soft top light (inner, ≤6px), a darker UNDER edge
+ *                      peeking 2px below that follows the radius (the key's
+ *                      "side"), and a soft drop shadow.
+ *   .cc-mat-matte      raised without the cast shadow (cards, dialogs)
+ *   .cc-mat-recessed   a well — fields, slider pills, tracks
+ *                      top-shaded gradient (shade 0 / tint .45 / light 1),
+ *                      quiet inner shadow off the top lip, 1px bevels that
+ *                      auto-hide on pill-ish surfaces (`.cc-mat-pill`).
+ *
+ * NO glass sheen, ever (vetoed on sight). No hard 1px lines on raised
+ * surfaces. Translucent washes are pre-composited over `elevated`
+ * (`--cc-hover-solid`, `--cc-active-solid`) before they reach a material;
+ * fully clear fills are simply not dressed.
+ *
+ * Press = the surface TINTS in place (`.cc-press` ink wash, 80ms glide) —
+ * never movement, never a scale, never a ring.
+ */
+
+.cc-mat-raised,
+.cc-mat-matte {
+  --m-tint: var(--cc-elevated);
+  --m-extrude: 2px;
+  background:
+    linear-gradient(
+      to bottom,
+      rgb(255 255 255 / var(--cc-mat-toplight)) 0,
+      rgb(255 255 255 / 0) min(6px, 40%)
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--m-tint), #ffffff var(--cc-mat-lift)) 0%,
+      var(--m-tint) 55%,
+      color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-sink)) 100%
+    );
+  box-shadow:
+    0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
+    0 2px 6px 0 rgb(0 0 0 / var(--cc-mat-shadow));
+  transition: --m-tint calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+
+/* Short surfaces: the top light turns to noise under 10px (Mac guard). */
+.cc-mat-raised.cc-mat-short,
+.cc-mat-matte.cc-mat-short {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--m-tint), #ffffff var(--cc-mat-lift)) 0%,
+    var(--m-tint) 55%,
+    color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-sink)) 100%
+  );
+}
+
+.cc-mat-matte,
+.cc-mat-raised.cc-mat-noshadow {
+  /* Dense bars / translucent hosts: stand on the under edge alone. */
+  box-shadow: 0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under));
+}
+
+.cc-mat-recessed {
+  --m-tint: var(--cc-elevated);
+  --m-bevel-inset: calc(var(--m-radius, 6px) * 0.6);
+  background:
+    /* bevel top: a 1px shade line inset from the corners */
+    linear-gradient(rgb(0 0 0 / var(--cc-well-bevel-top)), rgb(0 0 0 / var(--cc-well-bevel-top)))
+      center top / calc(100% - 2 * var(--m-bevel-inset)) 1px no-repeat,
+    /* bevel bottom: a sliver of light on the lower lip */
+    linear-gradient(rgb(255 255 255 / var(--cc-well-bevel-bottom)), rgb(255 255 255 / var(--cc-well-bevel-bottom)))
+      center bottom / calc(100% - 2 * var(--m-bevel-inset)) 1px no-repeat,
+    /* soft inner shadow falling from the top lip */
+    linear-gradient(to bottom, rgb(0 0 0 / var(--cc-well-inner)) 0, rgb(0 0 0 / 0) min(6px, 40%)),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--m-tint), #000000 var(--cc-well-top)) 0%,
+      var(--m-tint) 45%,
+      color-mix(in srgb, var(--m-tint), #ffffff var(--cc-well-bottom)) 100%
+    );
+  box-shadow: none;
+  transition: --m-tint calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+
+/* Pill-ish (radius > 35% of height) or narrow wells: straight bevel lines read
+   as floating dashes — suppress them (Mac `pillish` guard). */
+.cc-mat-recessed.cc-mat-pill {
+  background:
+    linear-gradient(to bottom, rgb(0 0 0 / var(--cc-well-inner)) 0, rgb(0 0 0 / 0) min(6px, 40%)),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--m-tint), #000000 var(--cc-well-top)) 0%,
+      var(--m-tint) 45%,
+      color-mix(in srgb, var(--m-tint), #ffffff var(--cc-well-bottom)) 100%
+    );
+}
+
+/* ── Press: ink wash fading in over the material, under the content ── */
+.cc-press {
+  position: relative;
+  isolation: isolate;
+}
+.cc-press::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--cc-ink);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity calc(var(--cc-dur-press) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-press:not([disabled]):not([aria-disabled="true"]):active::after,
+.cc-press[data-pressed="true"]::after {
+  opacity: var(--cc-press-wash);
+}
+
+/* ── Focus: an ink ring on TEXT INPUTS only. No rings on click/selection. ── */
+:where(.cc-theme) :focus {
+  outline: none;
+}

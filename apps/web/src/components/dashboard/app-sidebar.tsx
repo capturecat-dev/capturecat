@@ -1,7 +1,9 @@
 import * as React from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  CircleDotIcon,
   CreditCardIcon,
+  FolderOpenIcon,
   ListVideoIcon,
   SettingsIcon,
   UsersIcon,
@@ -27,6 +29,8 @@ import {
 
 const NAV_MAIN = [
   { title: "Library", url: "/app", icon: VideoIcon, exact: true },
+  { title: "Record", url: "/app/record", icon: CircleDotIcon },
+  { title: "Projects", url: "/app/projects", icon: FolderOpenIcon },
   { title: "Team", url: "/app/team", icon: UsersIcon },
   { title: "Settings", url: "/app/settings", icon: SettingsIcon },
   { title: "Billing", url: "/app/billing", icon: CreditCardIcon },

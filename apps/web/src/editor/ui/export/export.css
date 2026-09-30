@@ -1,0 +1,144 @@
+/* Export sheet — CCDialog (Views/Shared/DesignKit/CCDialog.swift) + the
+   ExportSheetController rows + CCProgressBar (CCProgress.swift). */
+
+.cc-export {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  font-family: var(--cc-font);
+}
+
+/* Scrim: CCTheme.color.overlay, fades on the glide curve. */
+.cc-export__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--cc-overlay);
+}
+
+/* The card: raised matte material on `elevated`, xl radius, 1px border,
+   28pt blur / 10pt drop shadow (0.5 dark, 0.25 light). */
+.cc-dialog {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  padding: var(--cc-space-lg);
+  border-radius: var(--cc-radius-xl);
+  border: 1px solid var(--cc-border);
+  --m-tint: var(--cc-elevated);
+  color: var(--cc-foreground);
+  box-shadow:
+    0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
+    0 10px 28px 0 rgb(0 0 0 / 0.5);
+}
+.cc-theme[data-cc-resolved="light"] .cc-dialog {
+  box-shadow:
+    0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
+    0 10px 28px 0 rgb(0 0 0 / 0.25);
+}
+
+.cc-dialog__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cc-space-xxs);
+}
+.cc-dialog__title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 19px;
+  color: var(--cc-foreground);
+}
+
+/* Scrollable middle: tracks its content until the 440pt cap; the height is
+   driven by the growth tween (top edge pinned, bottom is the pushed edge). */
+.cc-dialog__content {
+  margin-top: var(--cc-space-md);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.cc-dialog__stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cc-space-md);
+}
+
+.cc-dialog__footer {
+  margin-top: var(--cc-space-md);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cc-space-sm);
+}
+.cc-dialog__footer .cc-ibutton { align-self: auto; }
+
+/* Form rows: formStack spacing 12, every row full width. */
+.cc-export__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cc-export__size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cc-export__dim { width: 70px; text-align: left; }
+.cc-export__x {
+  font-size: 13px;
+  color: var(--cc-faint);
+}
+.cc-export__bitrate { margin-top: -6px; }
+.cc-export__error { color: var(--cc-system-red); }
+
+/* Exporting state: centred title / bar / percent, 12pt apart. */
+.cc-export__progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+.cc-export__progress-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cc-foreground);
+}
+.cc-export__percent {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--cc-font-mono);
+  color: var(--cc-faint);
+}
+
+/* CCProgressBar: 5pt recessed groove (active tint); the raised primary fill
+   stays track-sized inside a clip whose width springs (smooth). */
+.cc-progress {
+  position: relative;
+  width: 280px;
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  --m-tint: var(--cc-active-solid);
+}
+.cc-progress__clip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  transition: width var(--cc-spring-smooth-dur, 420ms) var(--cc-spring-smooth, cubic-bezier(0.22, 1, 0.36, 1));
+}
+.cc-progress__fill {
+  width: 280px;
+  height: 100%;
+  border-radius: 999px;
+  --m-tint: var(--cc-primary);
+  --m-extrude: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-progress__clip { transition: none; }
+}

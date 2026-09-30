@@ -23,6 +23,8 @@ tools/parakeet-cli/target/
 # Node / Turborepo
 node_modules/
 .next/
+# Synthetic (ffmpeg-generated) web-editor lab fixtures — never committed.
+apps/web/.fixtures/
 .turbo/
 dist/
 
