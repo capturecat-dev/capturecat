@@ -80,7 +80,9 @@ enum WaveformGenerator {
             var maxVal: Int16 = 0
             for j in start..<end {
                 let v = allSamples[j]
-                let abs = v < 0 ? -v : v
+                // -Int16.min overflows and traps (clipped audio decodes to
+                // -32768); cap it at Int16.max like the web port does.
+                let abs = v == .min ? .max : (v < 0 ? -v : v)
                 if abs > maxVal { maxVal = abs }
             }
             buckets.append(Float(maxVal) / Float(Int16.max))
