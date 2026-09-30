@@ -31,6 +31,8 @@ export interface ControllerHooks {
   toggleVoiceOver?(): void;
   showProjects?(): void;
   exportVideo?(): void;
+  /** Top-bar Share: export an MP4 + upload a share link (ui/export/useShareCenter). */
+  share?(): void;
 }
 
 export class EditorController {
@@ -325,6 +327,7 @@ export class EditorController {
     return {
       onShowProjects: () => this.hooks.showProjects?.(),
       onExport: () => this.hooks.exportVideo?.(),
+      onShare: () => this.hooks.share?.(),
       onSyncRetry: () => this.store.retrySave(),
       onRename: (name) => this.store.updateProject({ name }, "Rename"),
       onAspectChange: (id) => this.store.updateSettings({ aspectRatio: id as never }, "Aspect Ratio"),

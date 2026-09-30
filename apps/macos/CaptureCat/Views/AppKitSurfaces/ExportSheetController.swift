@@ -138,7 +138,12 @@ final class ExportSheetController: NSViewController {
         // Format
         formatMenu.items = ExportSettings.Format.allCases.map { .init(title: $0.rawValue) }
         formatMenu.onSelect = { [weak self] index in
-            self?.exportSettings.format = ExportSettings.Format.allCases[index]
+            guard let self else { return }
+            self.exportSettings.format = ExportSettings.Format.allCases[index]
+            // GIF: its own caption (GIFExportPolicy size / fps) and no share
+            // rows — share links are video-only.
+            self.refreshBitrateCaption()
+            self.applyOutputKindVisibility()
         }
         formatRow = addRow("Format", control: formatMenu)
 
@@ -170,6 +175,7 @@ final class ExportSheetController: NSViewController {
         fpsMenu.items = [.init(title: "30 fps"), .init(title: "60 fps")]
         fpsMenu.onSelect = { [weak self] index in
             self?.exportSettings.fps = index == 0 ? 30 : 60
+            self?.refreshBitrateCaption()
         }
         fpsRow = addRow("Frame Rate", control: fpsMenu)
 
@@ -258,9 +264,11 @@ final class ExportSheetController: NSViewController {
     }
 
     /// PNG output has no format/fps/quality/share — the resolution rows stay
-    /// (they size the rendered frame exactly as they size the video).
+    /// (they size the rendered frame exactly as they size the video). A GIF
+    /// cannot be shared either: share links carry video only.
     private func applyOutputKindVisibility() {
         let isImage = outputKind == .image
+        let canShare = !isImage && exportSettings.format != .gif
         outputKindChips.selectedIndex = isImage ? 0 : 1
         dialog.setTitle(isImage ? "Export Image" : "Export Video")
         // One animated re-fit for the whole row set (no-ops pre-presentation).
@@ -269,8 +277,8 @@ final class ExportSheetController: NSViewController {
             self.fpsRow?.isHidden = isImage
             self.qualityRow.isHidden = isImage
             self.bitrateCaption.isHidden = isImage
-            self.shareToggle.isHidden = isImage
-            self.commentsToggle.isHidden = isImage || !self.shareAfterExport
+            self.shareToggle.isHidden = !canShare
+            self.commentsToggle.isHidden = !canShare || !self.shareAfterExport
         }
     }
 
@@ -294,6 +302,13 @@ final class ExportSheetController: NSViewController {
         // The letterboxed preview canvas carries the resolved output aspect
         // (Auto = source aspect) — use it as the source-size stand-in so the
         // caption's WxH matches what the exporter will actually produce.
+        if exportSettings.format == .gif {
+            bitrateCaption.stringValue = GIFExportPolicy.caption(
+                outputSize: exportSettings.resolvedOutputSize(
+                    for: project.settings.aspectRatio, sourceSize: project.previewCanvasSize),
+                requestedFPS: exportSettings.fps)
+            return
+        }
         bitrateCaption.stringValue = exportSettings.estimatedBitRateDescription(
             for: project.settings.aspectRatio,
             sourceSize: project.previewCanvasSize)
@@ -441,7 +456,10 @@ final class ExportSheetController: NSViewController {
         // Auto-sync: a signed-in user with the setting on uploads every
         // export, even without ticking Share. Signed out → local only (the
         // background job cannot auth-gate).
-        let capturedShare = shareAfterExport || (appState.autoSyncExports && appState.isSignedIn)
+        // A GIF never uploads: share links are video-only (the API accepts
+        // MP4 / MOV / WebM) and the GIF's bytes are not a movie.
+        let capturedShare = exportSettings.format != .gif
+            && (shareAfterExport || (appState.autoSyncExports && appState.isSignedIn))
         let capturedAllowComments = allowComments
         Task {
             do {

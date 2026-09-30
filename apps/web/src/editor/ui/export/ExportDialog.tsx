@@ -3,13 +3,25 @@
  * on the editor kit: a CCDialog card (title / scrollable rows / trailing
  * footer, 430 wide, content capped at 440 then scrolling) with
  *
+ *   Type         Image (PNG) | Video (MP4)   (image-treatment stills only)
  *   Format       MP4 | MOV | GIF
  *   Resolution   720p | 1080p | 4K | Custom   (+ "Size  W × H" when Custom)
  *   Frame Rate   30 fps | 60 fps
  *   Quality      50–100 % (step 5 %) + the "Master • 1920x1080 @ 60 fps • ~31.1 Mbps" caption
  *   Fast export (collapse still frames)
- *   [Share link after export / Allow viewer comments — when the host can share]
+ *   [Share link after export / Allow viewer comments — when the host can share;
+ *    never for a GIF or a PNG: share links carry video only]
  *   error caption                                   [Cancel] [Export]
+ *
+ * PNG ("Export Image"): the Type row picks the still's settled frame
+ * (core/export/stillImage) — Format / Frame Rate / Quality / caption / share
+ * rows hide; the Resolution rows size the frame. GIF: the caption is
+ * GIFExportPolicy's ("GIF • 960x540 @ 20 fps • loops").
+ *
+ * Share after export: the sheet swaps to the share rows (SharePanel — the
+ * Mac's "Uploading to share..." + progress, "Finalizing share link...", the
+ * link + Copy, "Share failed: …" + Retry) with [Done]; closing never stops
+ * the upload (the top-bar Share key keeps showing it, like the Mac card).
  *
  * and the exporting state ("Exporting…", a 280-wide CCProgressBar whose fill
  * springs, "NN%"). Motion is the Mac's: the card enters with the Keynote
@@ -24,9 +36,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { defaultsToImageExport, offersImageExport } from "../../core/export/stillImage";
+import { parseProject } from "../../core/model";
 import type { EngineClient } from "../../engine/client";
+import type { ShareCenter } from "../../state/shareCenter";
 import { animateCurve, animateSpring, curves, durations, tween } from "../kit/motion";
-import { InspectorButton, PillSlider, Row, Select, TextField, ToggleRow, useCCTheme } from "../kit";
+import { Chips, InspectorButton, PillSlider, Row, Select, TextField, ToggleRow, useCCTheme } from "../kit";
+import { SharePanel, useShareState } from "./SharePanel";
 import {
   EXPORT_FORMATS,
   EXPORT_RESOLUTIONS,
@@ -35,6 +51,7 @@ import {
   exportProject,
   pickSaveTarget,
   sheetSettingsFromDoc,
+  type ExportKind,
   type ExportProjectResult,
   type SaveTarget,
   type SheetExportSettings,
@@ -60,6 +77,13 @@ export interface ExportDialogProps {
    * file here when sharing was ticked.
    */
   onShareAfterExport?: (file: ExportProjectResult, opts: { allowComments: boolean }) => void;
+  /** The job the share rows render (state/shareCenter.ts). */
+  shareCenter?: ShareCenter | null;
+  /**
+   * Upload every video export even without the toggle (the Mac's
+   * "auto-sync exports" setting for a signed-in user). No web setting yet.
+   */
+  autoShare?: boolean;
 }
 
 const WIDTH = 430;
@@ -89,10 +113,26 @@ function ExportSheet({
   sourceSize,
   onSettingsCommit,
   onShareAfterExport,
+  shareCenter = null,
+  autoShare = false,
   closing,
   onExited,
 }: ExportDialogProps & { closing: boolean; onExited: () => void }) {
   const { portal } = useCCTheme();
+  // Image (PNG) | Video (MP4) — image-treatment stills only; PNG unless the
+  // still has timed effects (ExportSheetController.buildForm).
+  const still = useMemo(() => {
+    try {
+      const p = project ? parseProject(project) : null;
+      return p ? { offers: offersImageExport(p), image: defaultsToImageExport(p) } : { offers: false, image: false };
+    } catch {
+      return { offers: false, image: false };
+    }
+  }, [project]);
+  const [kind, setKind] = useState<ExportKind>(() => (still.image ? "image" : "video"));
+  const isImage = still.offers && kind === "image";
+  const [sharing, setSharing] = useState(false);
+  const shareState = useShareState(shareCenter);
   const [settings, setSettings] = useState<SheetExportSettings>(() => sheetSettingsFromDoc(project));
   const [widthDraft, setWidthDraft] = useState(String(settings.customWidth));
   const [heightDraft, setHeightDraft] = useState(String(settings.customHeight));
@@ -115,6 +155,8 @@ function ExportSheet({
   const projectName = typeof project?.name === "string" ? project.name : "Untitled";
   const source = sourceSize ?? { width: 1920, height: 1080 };
   const caption = useMemo(() => estimatedBitRateDescription(settings, aspectRatio, source), [settings, aspectRatio, source.width, source.height]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Share links carry video only: no share rows for a PNG or a GIF.
+  const canShare = !!onShareAfterExport && !isImage && settings.format !== "GIF";
 
   // ── Presentation: scrim fade + Keynote scale-in; top edge pinned after.
   useLayoutEffect(() => {
@@ -207,11 +249,12 @@ function ExportSheet({
   const startExport = useCallback(async () => {
     if (!client || exporting) return;
     const s = commitCustomSize();
-    const fileName = exportFileName(projectName, s.format);
+    const format = isImage ? "PNG" : s.format;
+    const fileName = exportFileName(projectName, format);
     // The save location first, like NSSavePanel; a cancelled picker = no export.
     let target: SaveTarget | null = null;
     try {
-      target = await pickSaveTarget(fileName, s.format);
+      target = await pickSaveTarget(fileName, format);
     } catch (e) {
       if ((e as DOMException)?.name === "AbortError") return;
       target = null;
@@ -225,11 +268,24 @@ function ExportSheet({
     try {
       const file = await exportProject(
         client,
-        { settings: s, aspectRatio, sourceSize: source, projectName, delivery: target ?? "download", signal: abort.signal },
+        {
+          settings: s,
+          aspectRatio,
+          sourceSize: source,
+          projectName,
+          kind: isImage ? "image" : "video",
+          delivery: target ?? "download",
+          signal: abort.signal,
+        },
         (f) => setProgress(f),
       );
       setExporting(false);
-      if (share && onShareAfterExport) onShareAfterExport(file, { allowComments });
+      // Share after export (or auto-sync): the sheet shows the upload.
+      if (onShareAfterExport && !isImage && s.format !== "GIF" && (share || autoShare)) {
+        onShareAfterExport(file, { allowComments });
+        setSharing(true);
+        return;
+      }
       onClose();
     } catch (e) {
       setExporting(false);
@@ -237,7 +293,7 @@ function ExportSheet({
     } finally {
       abortRef.current = null;
     }
-  }, [client, exporting, commitCustomSize, projectName, onSettingsCommit, aspectRatio, source, share, onShareAfterExport, allowComments, onClose]);
+  }, [client, exporting, commitCustomSize, isImage, projectName, onSettingsCommit, aspectRatio, source, share, autoShare, onShareAfterExport, allowComments, onClose]);
 
   const cancel = useCallback(() => {
     if (exporting) abortRef.current?.abort();
@@ -256,26 +312,44 @@ function ExportSheet({
         className="cc-dialog cc-mat-matte"
         role="dialog"
         aria-modal="true"
-        aria-label="Export Video"
+        aria-label={isImage ? "Export Image" : "Export Video"}
         style={{ width: maxWidth, top: top ?? undefined, visibility: top === null ? "hidden" : undefined }}
       >
         <div className="cc-dialog__header">
-          <div className="cc-dialog__title">Export Video</div>
+          <div className="cc-dialog__title">{isImage ? "Export Image" : "Export Video"}</div>
         </div>
         <div ref={holderRef} className="cc-dialog__content">
           <div ref={stackRef} className="cc-dialog__stack">
-            {!exporting ? (
+            {sharing ? (
               <div className="cc-export__form">
-                <Row label="Format">
-                  <Select
-                    options={EXPORT_FORMATS.map((f) => ({ title: f }))}
-                    selectedIndex={Math.max(0, EXPORT_FORMATS.indexOf(settings.format))}
-                    onSelect={(i) => update({ format: EXPORT_FORMATS[i] })}
-                    size="sm"
-                    minTriggerWidth={120}
-                    ariaLabel="Format"
-                  />
-                </Row>
+                <SharePanel state={shareState} onCopy={() => shareCenter?.copyLink()} onRetry={() => void shareCenter?.retry()} />
+              </div>
+            ) : !exporting ? (
+              <div className="cc-export__form">
+                {still.offers && (
+                  <Row label="Type">
+                    <span className="cc-export__type">
+                      <Chips
+                        items={["Image (PNG)", "Video (MP4)"]}
+                        selectedIndex={isImage ? 0 : 1}
+                        onSelect={(i) => setKind(i === 0 ? "image" : "video")}
+                        ariaLabel="Type"
+                      />
+                    </span>
+                  </Row>
+                )}
+                {!isImage && (
+                  <Row label="Format">
+                    <Select
+                      options={EXPORT_FORMATS.map((f) => ({ title: f }))}
+                      selectedIndex={Math.max(0, EXPORT_FORMATS.indexOf(settings.format))}
+                      onSelect={(i) => update({ format: EXPORT_FORMATS[i] })}
+                      size="sm"
+                      minTriggerWidth={120}
+                      ariaLabel="Format"
+                    />
+                  </Row>
+                )}
                 <Row label="Resolution">
                   <Select
                     options={EXPORT_RESOLUTIONS.map((r) => ({ title: r }))}
@@ -315,32 +389,36 @@ function ExportSheet({
                     </span>
                   </Row>
                 )}
-                <Row label="Frame Rate">
-                  <Select
-                    options={[{ title: "30 fps" }, { title: "60 fps" }]}
-                    selectedIndex={settings.fps === 30 ? 0 : 1}
-                    onSelect={(i) => update({ fps: i === 0 ? 30 : 60 })}
-                    size="sm"
-                    minTriggerWidth={120}
-                    ariaLabel="Frame Rate"
-                  />
-                </Row>
-                <PillSlider
-                  title="Quality"
-                  value={settings.quality}
-                  min={0.5}
-                  max={1}
-                  step={0.05}
-                  format={(v) => `${Math.round(v * 100)}%`}
-                  onChange={(v) => update({ quality: v })}
-                />
-                <div className="cc-caption cc-export__bitrate">{caption}</div>
+                {!isImage && (
+                  <>
+                    <Row label="Frame Rate">
+                      <Select
+                        options={[{ title: "30 fps" }, { title: "60 fps" }]}
+                        selectedIndex={settings.fps === 30 ? 0 : 1}
+                        onSelect={(i) => update({ fps: i === 0 ? 30 : 60 })}
+                        size="sm"
+                        minTriggerWidth={120}
+                        ariaLabel="Frame Rate"
+                      />
+                    </Row>
+                    <PillSlider
+                      title="Quality"
+                      value={settings.quality}
+                      min={0.5}
+                      max={1}
+                      step={0.05}
+                      format={(v) => `${Math.round(v * 100)}%`}
+                      onChange={(v) => update({ quality: v })}
+                    />
+                    <div className="cc-caption cc-export__bitrate">{caption}</div>
+                  </>
+                )}
                 <ToggleRow
                   label="Fast export (collapse still frames)"
                   checked={settings.collapseStaticSpans}
                   onChange={(v) => update({ collapseStaticSpans: v })}
                 />
-                {onShareAfterExport && (
+                {canShare && (
                   <>
                     <ToggleRow label="Share link after export" checked={share} onChange={setShare} />
                     {share && <ToggleRow label="Allow viewer comments on the share page" checked={allowComments} onChange={setAllowComments} />}
@@ -362,10 +440,16 @@ function ExportSheet({
           </div>
         </div>
         <div className="cc-dialog__footer">
-          <InspectorButton onClick={cancel}>Cancel</InspectorButton>
-          <InspectorButton onClick={() => void startExport()} disabled={exporting || !client}>
-            Export
-          </InspectorButton>
+          {sharing ? (
+            <InspectorButton onClick={onClose}>Done</InspectorButton>
+          ) : (
+            <>
+              <InspectorButton onClick={cancel}>Cancel</InspectorButton>
+              <InspectorButton onClick={() => void startExport()} disabled={exporting || !client}>
+                Export
+              </InspectorButton>
+            </>
+          )}
         </div>
       </div>
     </div>,

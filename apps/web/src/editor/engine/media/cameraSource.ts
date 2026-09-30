@@ -80,6 +80,14 @@ export class CameraSource {
     return this.stream?.getStats() ?? null;
   }
 
+  /**
+   * EXPORT: PTS (seconds) of the sample the forward-only reader sits on; 0
+   * before the first (Mac: `currentCameraSampleTime` starts at `.zero`).
+   */
+  get exportSampleSeconds(): number {
+    return this.cursor >= 0 && this.demux ? this.demux.frames[this.cursor].pts : 0;
+  }
+
   /** Sample index for a camera time (−1 before the first sample). */
   indexAt(cameraTime: number): number {
     if (!this.demux || cameraTime < 0) return -1;

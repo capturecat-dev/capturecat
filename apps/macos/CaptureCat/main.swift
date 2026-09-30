@@ -721,6 +721,14 @@ if CommandLine.arguments.contains("--export-bench") {
     ExportBenchHarness.run()
 }
 
+// Export formats gate: GIF policy + a real animated-GIF export read back with
+// ImageIO (with an injected MP4-bytes defect that must fail), and fast-export
+// static-span collapse on a synthetic VFR fixture — plus the golden vectors
+// that lock the web exporter to both. Never reached in a normal launch.
+if CommandLine.arguments.contains("--export-formats-test") {
+    ExportFormatsHarness.run()
+}
+
 // Cloud projects (web editor) gate: manifest/hash/upload plan, finalize,
 // If-Match saves + conflicts, and the pull's atomic external-edit write —
 // real CloudProjectSync against an in-memory stub server and a throwaway
