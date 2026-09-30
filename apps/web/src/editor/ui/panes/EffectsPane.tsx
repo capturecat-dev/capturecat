@@ -29,6 +29,7 @@ import { cardOffsetLimit } from "../../core/math/zoomFocalMath";
 import { Chips, ColorSwatch, InspectorButton, PillSlider, Row, ToggleRow } from "../kit";
 import { Box, PaneStack } from "./layout";
 import { EffectPreviewPad, PropertyPreviewPad, TiltPad, ZoomFocusPad } from "./livePads";
+import { hasPickerStatus, PickerStatusLine } from "./pickerStatus";
 import { Cap, MenuRow, RowButton, WHITE, degRounded, fixed, pctRounded, pctTrunc, sig2, toCodable, toRGBA } from "./shared";
 import { selectedRegions, type PaneProps } from "./types";
 
@@ -251,12 +252,25 @@ export function EffectsPane({ settings: s, onSettingsChange, onCommit, selection
                     <div className="cc-pane-hstack">
                       <InspectorButton onClick={actions?.onChooseCurtainLogo}>{hasLogo ? "Replace Logo…" : "Choose Logo…"}</InspectorButton>
                       {hasLogo && (
-                        <InspectorButton destructive onClick={actions?.onRemoveCurtainLogo}>
+                        <InspectorButton
+                          destructive
+                          onClick={() => {
+                            // EffectsSettingsPaneAppKit.removeCurtainLogo: the setting clears.
+                            if (actions?.onRemoveCurtainLogo) actions.onRemoveCurtainLogo();
+                            else pick({ curtainLogoFileName: undefined });
+                          }}
+                        >
                           Remove Logo
                         </InspectorButton>
                       )}
                     </div>
                   ),
+                },
+                {
+                  key: "logoStatus",
+                  show: curtainOn && hasPickerStatus(actions?.pickerStatus?.curtainLogo),
+                  attached: true,
+                  node: <PickerStatusLine status={actions?.pickerStatus?.curtainLogo} />,
                 },
                 {
                   key: "logoOpacity",

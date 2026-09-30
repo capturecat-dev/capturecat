@@ -7,7 +7,7 @@ import type { TransportState } from "../engine/protocol";
 import type { RecordedVoiceOver } from "../record/voiceOverRecorder";
 import { EditorController } from "./controller";
 import { EditorStore } from "./store";
-import { UploadGate, VoiceOverSession, type VoiceOverMedia, type VoiceOverRecorderLike } from "./voiceOver";
+import { VoiceOverSession, type VoiceOverMedia, type VoiceOverRecorderLike } from "./voiceOver";
 
 const ID = "11111111-2222-4333-8444-555555555555";
 
@@ -249,28 +249,5 @@ describe("VoiceOverSession (EditorPlaybackController voice over)", () => {
     await session.toggle();
     await session.lastPersist;
     expect(alerts).toEqual(["The voice over couldn't be uploaded to the cloud. Storage limit reached"]);
-  });
-});
-
-describe("UploadGate", () => {
-  it("holds idle() until every tracked upload settles (even failures)", async () => {
-    const gate = new UploadGate();
-    let release!: () => void;
-    let fail!: (e: Error) => void;
-    const a = gate.track(new Promise<void>((r) => (release = r)));
-    const b = gate.track(new Promise<void>((_, j) => (fail = j)));
-    b.catch(() => undefined);
-    let idle = false;
-    const waiting = gate.idle().then(() => (idle = true));
-    await Promise.resolve();
-    expect(idle).toBe(false);
-    release();
-    await a;
-    await Promise.resolve();
-    expect(idle).toBe(false);
-    fail(new Error("x"));
-    await waiting;
-    expect(idle).toBe(true);
-    expect(gate.busy).toBe(false);
   });
 });

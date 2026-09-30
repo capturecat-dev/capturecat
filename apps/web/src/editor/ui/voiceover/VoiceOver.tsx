@@ -16,7 +16,7 @@ import { VoiceOverRecorder } from "../../record/voiceOverRecorder";
 import type { EditorController } from "../../state/controller";
 import type { LoadedEditorProject } from "../../state/projectSource";
 import type { EditorStore } from "../../state/store";
-import { UploadGate, VoiceOverSession } from "../../state/voiceOver";
+import { VoiceOverSession } from "../../state/voiceOver";
 import { createVoiceOverMedia } from "../../state/voiceOverMedia";
 import type { AlertPresenter } from "../kit";
 import type { TimelineRenderer } from "../timeline/TimelineRenderer";
@@ -36,13 +36,12 @@ export function useVoiceOver(opts: {
   store: EditorStore;
   controller: EditorController;
   loaded: LoadedEditorProject | null;
-  uploads: UploadGate;
   timeline: TimelineSnapshot;
   rendererRef: RefObject<TimelineRenderer | null>;
   /** The page's CCAlert queue — the Mac's `presentVoiceOverError`. */
   alerts: AlertPresenter;
 }): VoiceOverBinding {
-  const { store, controller, loaded, uploads, timeline, rendererRef, alerts } = opts;
+  const { store, controller, loaded, timeline, rendererRef, alerts } = opts;
   const [isRecording, setRecording] = useState(false);
   const sessionRef = useRef<VoiceOverSession | null>(null);
   const timelineRef = useRef(timeline);
@@ -53,7 +52,7 @@ export function useVoiceOver(opts: {
     const session = new VoiceOverSession({
       store,
       controller,
-      media: createVoiceOverMedia({ loaded, store, controller, uploads }),
+      media: createVoiceOverMedia({ media: loaded.media }),
       openRecorder: () => VoiceOverRecorder.open(),
       onAlert: (message) =>
         void alerts.present({ title: VOICE_OVER_ALERT_TITLE, message, buttons: [{ title: "OK", role: "primary" }] }),
@@ -71,7 +70,7 @@ export function useVoiceOver(opts: {
       if (controller.hooks.toggleVoiceOver) controller.hooks.toggleVoiceOver = undefined;
       setRecording(false);
     };
-  }, [loaded, store, controller, uploads, alerts]);
+  }, [loaded, store, controller, alerts]);
 
   const push = useCallback(() => {
     const renderer = rendererRef.current;
