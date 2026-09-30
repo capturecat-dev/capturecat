@@ -424,6 +424,11 @@ const LABELS = { camera: "Move Camera", subtitle: "Move Subtitles", watermark: "
  * restores the settings.
  */
 async function dragOverlay(page, kind, { toFraction, deltaCss, name, keep = true }) {
+  // A big magnified backing store (200%) renders slower than the fixed waits
+  // around a snapshot: wait for a frame that has drawn this overlay again.
+  await page
+    .waitForFunction((kd) => !!window.__editor.controller.client.lastFrame?.hits?.[kd], kind, { timeout: 5_000 })
+    .catch(() => undefined);
   const st = await state(page);
   const hit = st.frame.hits?.[kind];
   if (!check(!!hit, `${name}: engine reported no ${kind} hit rect`)) return null;
