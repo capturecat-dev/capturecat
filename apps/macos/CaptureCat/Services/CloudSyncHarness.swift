@@ -2,6 +2,7 @@ import AppKit
 import CryptoKit
 import Foundation
 import ImageIO
+import Network
 
 /// `CaptureCat --cloud-sync-test` — headless acceptance gate for cloud
 /// projects (web editor sync). No network and no real projects: it builds a
@@ -12,6 +13,12 @@ import ImageIO
 /// enforces the API's semantics: content-addressed objects, SHA-256 + size
 /// verification at finalize, If-Match revisions with 409 conflicts, byte-
 /// exact document storage, expiring presigns.
+///
+/// Media the web editor adds (voice-over takes, backgrounds, logos): the pull
+/// must download them — verified, before project.json is applied, nothing
+/// applied if one fails — and a later push must keep them in the manifest
+/// (`webMediaChecks`, `secondMacChecks`). The REAL HTTP download path is
+/// driven against a loopback server (`httpDownloadChecks`).
 ///
 /// Then the UI: the real editor top bar (hosted like the editor window hosts
 /// it) is measured at three widths with the Web Editor button clicked through
@@ -188,6 +195,12 @@ enum CloudSyncHarness {
             expect(ext?.source == fixture.external.path, "external file carries its exact project.json reference as source")
             expect(manifest.files.filter { $0.path != ext?.path }.allSatisfy { $0.source == nil },
                    "in-folder files need no source")
+            // The raw-JSON reference scan (what push/pull use to decide which
+            // cloud files a document needs) agrees with the model walk that
+            // builds the manifest — one set of references, two readers.
+            let scanned = CloudDocumentReferences.referencedPaths(by: try Data(contentsOf: fixture.json),
+                                                                  in: CloudFileIndex(manifest))
+            expect(scanned == paths, "project.json reference scan finds exactly the manifest's files (\(scanned?.count ?? -1))")
             // An image over the server's per-kind ceiling (64 MiB) is skipped
             // up front — sparse file, so the check costs no disk or hashing.
             let huge = fixture.root.appendingPathComponent("huge.png")
@@ -228,7 +241,7 @@ enum CloudSyncHarness {
                    "in-folder HEIC uploads as logo.heic.png, source = its relative path (got \(heicFile?.path ?? "nil"))")
             expect(tiffFile.map { $0.path.hasPrefix("external/") && $0.path.hasSuffix(".png") } == true,
                    "external TIFF uploads as external/<sha12>.png, source = the exact reference")
-            let decodes = heicFile.flatMap { CGImageSourceCreateWithURL($0.localURL as CFURL, nil) }
+            let decodes = heicFile?.localURL.flatMap { CGImageSourceCreateWithURL($0 as CFURL, nil) }
                 .flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) }
             expect(decodes?.width == 64 && decodes?.height == 48, "converted PNG decodes at the source size")
             expect(decodes?.colorSpace?.name == CGColorSpace.displayP3, "converted PNG keeps the Display P3 profile")
@@ -394,7 +407,12 @@ enum CloudSyncHarness {
             let url = CaptureCatAPI.webEditorURL(projectID: id).absoluteString
             expect(url.hasSuffix("/editor/\(id.uuidString)"), "web editor URL ends /editor/<projectId> (\(url))")
 
-            // ── 14. UI: the real top bar + progress dialog, real windows ────
+            // ── 14. Media the web editor added: pull brings it, push keeps it
+            try await webMediaChecks(checks, apiBase: apiBase)
+            try await secondMacChecks(checks, apiBase: apiBase)
+            await httpDownloadChecks(checks)
+
+            // ── 15. UI: the real top bar + progress dialog, real windows ────
             await probeUI(checks, project: fixture.project)
         } catch {
             checks.failures.append("unexpected error: \(error)")
@@ -408,6 +426,477 @@ enum CloudSyncHarness {
         print("CLOUD SYNC FAIL (\(checks.failures.count) of \(checks.passed + checks.failures.count)):")
         for failure in checks.failures { print("  ✘ \(failure)") }
         return false
+    }
+
+    // MARK: - Web-added media
+
+    /// The web editor adds files to a cloud project — voice-over takes
+    /// (`voiceover-<UUID>.m4a`, `.wav` from Firefox), a background image
+    /// (`backgroundImagePath` = `/CaptureCat/Projects/<UUID>/<name>`),
+    /// watermark and curtain logos — by restaging the whole manifest plus the
+    /// new file, then saving a project.json that names it. The Mac must
+    /// download those files BEFORE applying that document (or not apply it
+    /// at all), and a later Mac push must not drop them from the manifest.
+    private static func webMediaChecks(_ checks: Checks, apiBase: String) async throws {
+        let expect = checks.expect
+        let fm = FileManager.default
+        let fixture = try makeFixture()
+        defer { try? fm.removeItem(at: fixture.root) }
+        let id = fixture.project.id
+        let dir = fixture.dir
+        let server = StubCloudServer(ownerUID: "stub-owner")
+        let sync = CloudProjectSync(transport: server, apiBaseURL: apiBase)
+        func bytes(_ name: String) -> Data? { try? Data(contentsOf: dir.appendingPathComponent(name)) }
+        func exists(_ name: String) -> Bool { fm.fileExists(atPath: dir.appendingPathComponent(name).path) }
+        func leftovers() -> [String] {
+            ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? []).filter { $0.hasPrefix(".cloudsync-") && $0 != CloudSyncState.fileName }
+        }
+        func revision() -> Int? { CloudSyncState.load(from: dir, projectID: id, apiBaseURL: apiBase)?.revision }
+        func clip(_ fileName: String, at start: Double) -> [String: Any] {
+            ["id": UUID().uuidString, "fileName": fileName, "startTime": start, "sourceStartTime": 0,
+             "duration": 1.5, "sourceDuration": 1.5, "gain": 1, "label": "Web take"]
+        }
+        func pullFailure(_ label: String) async -> CloudSyncError? {
+            do {
+                let outcome = try await sync.pull(projectID: id, projectDirectory: dir)
+                expect(false, "\(label) (pull returned \(outcome))")
+            } catch let error as CloudSyncError {
+                return error
+            } catch {
+                expect(false, "\(label) (threw \(error))")
+            }
+            return nil
+        }
+
+        print("web media: path + type rules")
+        for good in ["voiceover-\(UUID().uuidString).m4a", "voiceover-\(UUID().uuidString).wav",
+                     "watermark-1A2B3C4D.png", "curtain-logo-9F8E7D6C.jpg", "bg-5e6f7a8b.webp"] {
+            expect(CloudPath.isValid(good), "valid: \(good)")
+        }
+        expect(CloudPath.accepts("audio/wav", for: "a.wav") && CloudPath.accepts("audio/x-wav", for: "a.wav")
+               && CloudPath.accepts("audio/x-m4a", for: "a.m4a") && !CloudPath.accepts("audio/mpeg", for: "a.wav"),
+               "content types mirror the API's aliases (wav, x-wav, x-m4a)")
+
+        _ = try await sync.push(project: fixture.project, projectDirectory: dir) // revision 1
+
+        // ── The web adds five files, then saves a document naming them ──
+        print("web media: pull downloads what the web added")
+        let voiceM4A = "voiceover-\(UUID().uuidString).m4a"
+        let voiceWAV = "voiceover-\(UUID().uuidString).wav"
+        let bgName = "bg-\(UUID().uuidString.prefix(8).lowercased()).png"
+        let wmName = "watermark-\(UUID().uuidString.prefix(8)).png"
+        let clName = "curtain-logo-\(UUID().uuidString.prefix(8)).png"
+        let bgRef = "/CaptureCat/Projects/\(id.uuidString)/\(bgName)"
+        let added: [String: Data] = [
+            voiceM4A: Data("web voice take, AAC in an MP4 box".utf8),
+            voiceWAV: Data("web voice take, Firefox PCM WAVE".utf8),
+            bgName: Data("web background PNG".utf8),
+            wmName: Data("web watermark PNG".utf8),
+            clName: Data("web curtain logo PNG".utf8),
+        ]
+        server.webAddFiles([
+            (voiceM4A, added[voiceM4A]!, "audio/mp4", nil),
+            (voiceWAV, added[voiceWAV]!, "audio/wav", nil),
+            (bgName, added[bgName]!, "image/png", nil),
+            (wmName, added[wmName]!, "image/png", nil),
+            (clName, added[clName]!, "image/png", nil),
+        ])
+        server.webSave(try webEditedJSON(server.document!) { doc, settings in
+            doc["name"] = "Web added media"
+            doc["webMediaKey"] = ["kept": true]
+            var clips = doc["voiceOverClips"] as? [[String: Any]] ?? []
+            clips.append(clip(voiceM4A, at: 2))
+            clips.append(clip(voiceWAV, at: 5))
+            doc["voiceOverClips"] = clips
+            settings["backgroundImagePath"] = bgRef
+            settings["watermarkFileName"] = wmName
+            settings["curtainLogoFileName"] = clName
+        }) // revision 2
+
+        let beforePull = try Data(contentsOf: fixture.json)
+        var documentAtDownload: [Bool] = []
+        server.onDownload = { _ in documentAtDownload.append((try? Data(contentsOf: fixture.json)) == beforePull) }
+        var downloadFractions: [Double] = []
+        let pulled = try await sync.pull(projectID: id, projectDirectory: dir) { step in
+            if step.phase == .downloading { downloadFractions.append(step.fraction) }
+        }
+        server.onDownload = nil
+        expect(pulled == .pulled(revision: 2), "pull of the web's media edit → revision 2 (got \(pulled))")
+        expect(Set(server.downloads) == Set(added.keys),
+               "downloaded exactly the 5 web-added files, nothing this Mac already had (got \(server.downloads.sorted()))")
+        expect(!documentAtDownload.isEmpty && documentAtDownload.allSatisfy { $0 },
+               "every download happened BEFORE project.json was replaced")
+        for (name, data) in added.sorted(by: { $0.key < $1.key }) {
+            expect(bytes(name) == data, "\(name) is in the project folder, byte-exact")
+        }
+        let local = try loadLocal(fixture)
+        let webClips = local.voiceOverClips.filter { $0.fileName == voiceM4A || $0.fileName == voiceWAV }
+        expect(webClips.count == 2 && webClips.allSatisfy { fm.fileExists(atPath: $0.resolvedURL(in: dir).path) },
+               "both web voice-overs (.m4a + .wav) resolve to files — ProjectAudioMix no longer skips them")
+        expect(local.settings.backgroundImagePath == dir.appendingPathComponent(bgName).path,
+               "backgroundImagePath re-pointed at the downloaded file (\(local.settings.backgroundImagePath ?? "nil"))")
+        expect(local.settings.backgroundImagePath.map { fm.fileExists(atPath: $0) } == true,
+               "… which exists — no fall-back to the base fill")
+        expect(local.watermarkImageURL.map { fm.fileExists(atPath: $0.path) } == true, "the web's watermark logo resolves")
+        expect(local.curtainLogoImageURL.map { fm.fileExists(atPath: $0.path) } == true, "the web's curtain logo resolves")
+        let written = String(decoding: try Data(contentsOf: fixture.json), as: UTF8.self)
+        expect(written.contains("webMediaKey") && local.name == "Web added media",
+               "the rest of the web's document (incl. unknown keys) applied as sent")
+        expect(leftovers().isEmpty, "no partial downloads left behind (\(leftovers()))")
+        expect(!downloadFractions.isEmpty && zip(downloadFractions, downloadFractions.dropFirst()).allSatisfy { $0 <= $1 }
+               && (downloadFractions.last ?? 0) >= 0.999,
+               "download progress is monotonic and reaches 100% (\(downloadFractions.count) updates)")
+        expect(revision() == 2, "sidecar advanced to revision 2")
+        server.resetCounters()
+        let settled = try await sync.pull(projectID: id, projectDirectory: dir)
+        expect(settled == .upToDate(revision: 2) && server.downloads.isEmpty,
+               "second pull → up to date, nothing downloaded (got \(settled), \(server.downloads))")
+
+        // ── A file whose SHA-256 differs is fetched again ─────────────────
+        print("web media: changed files")
+        server.resetCounters()
+        var tampered = added[voiceM4A]!
+        tampered[0] ^= 0x55 // same size: only the checksum can tell
+        try tampered.write(to: dir.appendingPathComponent(voiceM4A))
+        let keysV2 = Data(#"{"keys":[{"t":2.5,"k":"⌘S"}]}"#.utf8)
+        server.webAddFiles([("keys.json", keysV2, "application/json", nil)]) // another client replaced it
+        server.webSave(try webEdited(server.document!, name: "Web rev 3", extraKey: "rev3")) // revision 3
+        let changed = try await sync.pull(projectID: id, projectDirectory: dir)
+        expect(changed == .pulled(revision: 3), "pull → revision 3 (got \(changed))")
+        expect(Set(server.downloads) == [voiceM4A, "keys.json"],
+               "re-downloaded exactly the two files whose SHA-256 differs (got \(server.downloads.sorted()))")
+        expect(bytes(voiceM4A) == added[voiceM4A], "same-size local file with the wrong hash replaced by the cloud's bytes")
+        expect(bytes("keys.json") == keysV2, "a file the cloud replaced arrives in its new version")
+
+        // ── An expired presigned GET is re-signed once ───────────────────
+        print("web media: expired download link")
+        server.resetCounters()
+        let voice3 = "voiceover-\(UUID().uuidString).m4a"
+        server.webAddFiles([(voice3, Data("take three".utf8), "audio/x-m4a", nil)])
+        server.webSave(try webEditedJSON(server.document!) { doc, _ in
+            doc["voiceOverClips"] = (doc["voiceOverClips"] as? [[String: Any]] ?? []) + [clip(voice3, at: 8)]
+        }) // revision 4
+        server.expireNextDownload = true
+        let resigned = try await sync.pull(projectID: id, projectDirectory: dir)
+        expect(resigned == .pulled(revision: 4) && server.fileListCalls == 1 && server.downloads == [voice3],
+               "expired link → one GET …/files re-sign, download resumes (got \(resigned), lists \(server.fileListCalls))")
+
+        // ── A failed download: nothing is applied, and the UI says so ─────
+        print("web media: failed download")
+        server.resetCounters()
+        let voice4 = "voiceover-\(UUID().uuidString).m4a"
+        let bg2 = "bg-\(UUID().uuidString.prefix(8).lowercased()).jpg"
+        let cursorV2 = Data(#"{"events":[{"t":0.3,"x":0.2,"y":0.2}]}"#.utf8)
+        server.webAddFiles([
+            (voice4, Data("take four".utf8), "audio/mp4", nil),
+            (bg2, Data("second background".utf8), "image/jpeg", nil),
+            ("cursor.json", cursorV2, "application/json", nil),
+        ])
+        server.webSave(try webEditedJSON(server.document!) { doc, settings in
+            doc["voiceOverClips"] = (doc["voiceOverClips"] as? [[String: Any]] ?? []) + [clip(voice4, at: 10)]
+            settings["backgroundImagePath"] = "/CaptureCat/Projects/\(id.uuidString)/\(bg2)"
+        }) // revision 5
+        let safeDoc = try Data(contentsOf: fixture.json)
+        let cursorBefore = bytes("cursor.json")
+        server.failDownloads = [voice4]
+        if let error = await pullFailure("a failed voice-over download fails the pull") {
+            if case .downloadFailed(let paths, _) = error {
+                expect(paths == [voice4], "the failure names the file that did not arrive (\(paths))")
+            } else {
+                expect(false, "a failed download → downloadFailed (got \(error))")
+            }
+            let message = CloudSyncController.message(for: error)
+            expect(message.contains(voice4) && message.contains("not changed"),
+                   "the alert names the file and says the project was not changed")
+        }
+        expect(try Data(contentsOf: fixture.json) == safeDoc, "project.json NOT applied — it would name a missing file")
+        expect(revision() == 4, "sidecar still at revision 4")
+        expect(bytes("cursor.json") == cursorBefore, "a file the failed pull would have REPLACED is untouched")
+        expect(!exists(voice4), "the failed file is not in the folder")
+        expect(leftovers().isEmpty, "no partial downloads left behind")
+
+        server.failDownloads = []
+        server.corruptDownloads = [voice4]
+        if let error = await pullFailure("a corrupted transfer fails the pull") {
+            if case .downloadFailed(let paths, let detail) = error {
+                expect(paths == [voice4] && detail.lowercased().contains("checksum"),
+                       "right length, wrong bytes → refused by the SHA-256 check (\(detail))")
+            } else {
+                expect(false, "a corrupted transfer → downloadFailed (got \(error))")
+            }
+        }
+        expect(try Data(contentsOf: fixture.json) == safeDoc && !exists(voice4) && leftovers().isEmpty,
+               "…and again nothing applied, nothing left behind")
+
+        server.corruptDownloads = []
+        server.resetCounters()
+        let retried = try await sync.pull(projectID: id, projectDirectory: dir)
+        expect(retried == .pulled(revision: 5), "retry once the fault clears → revision 5 (got \(retried))")
+        expect(Set(server.downloads) == [voice4, "cursor.json"],
+               "the retry fetches only the failed file + the held-back replacement (\(server.downloads.sorted()))")
+        expect(bytes(voice4) == Data("take four".utf8) && bytes("cursor.json") == cursorV2, "both landed")
+        expect(try loadLocal(fixture).settings.backgroundImagePath == dir.appendingPathComponent(bg2).path,
+               "the second background is referenced by its local path")
+
+        // ── Repair: an earlier build pulled only project.json ────────────
+        print("web media: repair after a document-only pull")
+        try? fm.removeItem(at: dir.appendingPathComponent(voiceWAV))
+        server.resetCounters()
+        let repaired = try await sync.pull(projectID: id, projectDirectory: dir)
+        expect(repaired == .mediaRestored(revision: 5, files: 1) && exists(voiceWAV),
+               "document already current, a referenced take missing → downloaded (got \(repaired))")
+
+        // ── Push keeps what only the cloud holds ─────────────────────────
+        print("web media: push keeps web-added files")
+        // The web adds a take and saves; this Mac has not pulled. Its push
+        // (unchanged document) must not drop the take the cloud document uses.
+        server.resetCounters()
+        let voice5 = "voiceover-\(UUID().uuidString).wav"
+        let voice5Data = Data("take five".utf8)
+        server.webAddFiles([(voice5, voice5Data, "audio/x-wav", nil)])
+        server.webSave(try webEditedJSON(server.document!) { doc, _ in
+            doc["voiceOverClips"] = (doc["voiceOverClips"] as? [[String: Any]] ?? []) + [clip(voice5, at: 12)]
+        }) // revision 6
+        let notPulled = try await sync.push(project: try loadLocal(fixture), projectDirectory: dir)
+        expect(notPulled == .cloudIsNewer(revision: 6), "unchanged Mac → cloudIsNewer (got \(notPulled))")
+        expect(server.committedPaths.contains(voice5) && server.ready[CloudProjectManifest.sha256(of: voice5Data)] != nil,
+               "the web's take is still committed and stored (the web's document names it)")
+        expect(server.committedFiles.first { $0.path == voice5 }?.contentType == "audio/x-wav",
+               "…with the content type the web gave it")
+        expect(server.uploads.isEmpty, "nothing re-uploaded")
+        expect(Set(added.keys).subtracting([bgName]).isSubset(of: server.committedPaths),
+               "every web file this Mac's document still names stays committed")
+
+        // Both sides edited: the push conflicts, and still drops nothing.
+        let voice6 = "voiceover-\(UUID().uuidString).m4a"
+        server.webAddFiles([(voice6, Data("take six".utf8), "audio/mp4", nil)])
+        server.webSave(try webEditedJSON(server.document!) { doc, _ in
+            doc["voiceOverClips"] = (doc["voiceOverClips"] as? [[String: Any]] ?? []) + [clip(voice6, at: 14)]
+        }) // revision 7
+        let macEdit = try editLocal(fixture) { $0.name = "Mac edit during web edit" }
+        let conflicted = try await sync.push(project: macEdit, projectDirectory: dir)
+        expect(conflicted == .conflict(remoteRevision: 7), "both changed → conflict (got \(conflicted))")
+        expect(server.committedPaths.isSuperset(of: [voice5, voice6]), "a conflicting push drops none of the web's takes")
+
+        // Pull them (force: the Mac edit loses), then a Mac edit pushes
+        // with every file already in the cloud: no uploads at all.
+        _ = try await sync.pull(projectID: id, projectDirectory: dir, force: true)
+        expect(exists(voice5) && exists(voice6), "forced pull brought both takes")
+        server.resetCounters()
+        let edited = try editLocal(fixture) { $0.name = "Mac edit after pull" }
+        let pushed = try await sync.push(project: edited, projectDirectory: dir)
+        expect(pushed == .pushed(revision: 8), "Mac edit → revision 8 (got \(pushed))")
+        expect(server.uploads.isEmpty, "no file re-uploaded — every SHA-256 was already in the cloud")
+        expect(server.committedPaths.isSuperset(of: [voice4, voice5, voice6, voiceM4A, voiceWAV, bg2]),
+               "the Mac's manifest carries every web-added file it references")
+
+        // A document that names a file this Mac never downloaded (written by
+        // an older build's pull): the push keeps the cloud's copy, uploads
+        // nothing for it, and still saves.
+        server.resetCounters()
+        let voice7 = "voiceover-\(UUID().uuidString).m4a"
+        server.webAddFiles([(voice7, Data("take seven".utf8), "audio/mp4", nil)])
+        server.webSave(try webEditedJSON(server.document!) { doc, _ in
+            doc["voiceOverClips"] = (doc["voiceOverClips"] as? [[String: Any]] ?? []) + [clip(voice7, at: 16)]
+        }) // revision 9
+        try ProjectFileIO.writeProjectData(server.document!, to: fixture.json) // the old pull: document only
+        try CloudSyncState(projectID: id.uuidString, apiBaseURL: apiBase, revision: 9,
+                           documentSHA256: CloudProjectManifest.sha256(of: server.document!), syncedAt: Date()).save(to: dir)
+        let oldPull = try editLocal(fixture) { $0.name = "Edited after an old pull" }
+        expect(!exists(voice7), "fixture: the take is only in the cloud")
+        let keptPush = try await sync.push(project: oldPull, projectDirectory: dir)
+        expect(keptPush == .pushed(revision: 10), "push → revision 10 (got \(keptPush))")
+        expect(server.committedPaths.contains(voice7), "a take only the cloud holds, named by the pushed document, is kept")
+        expect(!server.uploads.contains { $0.paths.contains(voice7) }, "…without being uploaded")
+
+        // A cloud file NO document names any more is dropped (the Mac's push
+        // is the only garbage collection a web-added file ever gets).
+        server.resetCounters()
+        let orphan = "voiceover-\(UUID().uuidString).m4a"
+        server.webAddFiles([(orphan, Data("deleted take".utf8), "audio/mp4", nil)])
+        _ = try await sync.push(project: try loadLocal(fixture), projectDirectory: dir)
+        expect(!server.committedPaths.contains(orphan), "a cloud-only file no document references is dropped")
+        expect(server.committedPaths.contains(voice7), "…while the referenced one stays")
+
+        // The cloud lost a kept file's object (collected by a concurrent
+        // restage): the push leaves that entry out instead of failing.
+        server.resetCounters()
+        server.loseObject(path: voice7)
+        let lost = try await sync.push(project: try editLocal(fixture) { $0.name = "After a lost object" }, projectDirectory: dir)
+        expect(lost == .pushed(revision: 11), "a kept file the cloud lost does not fail the push (got \(lost))")
+        expect(!server.committedPaths.contains(voice7) && server.uploads.isEmpty,
+               "…its entry is left out (nothing to upload it from)")
+
+        // The progress dialog maps the new download phase onto its bar.
+        let weights = CloudSyncController.pullWeights
+        expect(weights[.downloading] != nil && weights[.hashing] != nil,
+               "pull progress weights cover checking + downloading")
+    }
+
+    /// A second Mac opens the project: its folder holds only an older
+    /// project.json, the wallpaper that lived OUTSIDE the first Mac's folder
+    /// does not exist there, and the web re-saved the recording reference the
+    /// way its recorder spells media (`file:///CaptureCat/Projects/<id>/…`).
+    private static func secondMacChecks(_ checks: Checks, apiBase: String) async throws {
+        let expect = checks.expect
+        let fm = FileManager.default
+        print("web media: pull onto another Mac")
+        let fixture = try makeFixture()
+        defer { try? fm.removeItem(at: fixture.root) }
+        let id = fixture.project.id
+        let server = StubCloudServer(ownerUID: "stub-owner")
+        let sync = CloudProjectSync(transport: server, apiBaseURL: apiBase)
+        _ = try await sync.push(project: fixture.project, projectDirectory: fixture.dir) // revision 1, Mac A
+        let manifest = server.committedFiles
+        let externalEntry = manifest.first { $0.path.hasPrefix("external/") }
+        server.webSave(try webEditedJSON(server.document!) { doc, _ in
+            doc["videoURL"] = "file:///CaptureCat/Projects/\(id.uuidString)/recording.mov"
+            doc["name"] = "Opened on Mac B"
+        }) // revision 2
+
+        let dirB = fixture.root.appendingPathComponent("MacB/Projects/\(id.uuidString)", isDirectory: true)
+        try fm.createDirectory(at: dirB, withIntermediateDirectories: true)
+        try Data(contentsOf: fixture.json).write(to: dirB.appendingPathComponent("project.json"))
+        try fm.removeItem(at: fixture.external)
+
+        let asked = try await sync.pull(projectID: id, projectDirectory: dirB)
+        expect(asked == .localChangesWouldBeLost(remoteRevision: 2),
+               "no sync history on this Mac → asks before replacing (got \(asked))")
+        let pulled = try await sync.pull(projectID: id, projectDirectory: dirB, force: true)
+        expect(pulled == .pulled(revision: 2), "forced pull → revision 2 (got \(pulled))")
+        let wrong = manifest.filter {
+            (try? Data(contentsOf: dirB.appendingPathComponent($0.path))).map(CloudProjectManifest.sha256(of:)) != $0.sha256
+        }
+        expect(wrong.isEmpty && server.downloads.count == manifest.count,
+               "all \(manifest.count) files (9 MiB recording, external/ subfolder) arrived verified (bad: \(wrong.map(\.path)))")
+        let project = try loadLocal(Fixture(root: fixture.root, dir: dirB, external: fixture.external, project: fixture.project))
+        expect(project.videoURL?.path == dirB.appendingPathComponent("recording.mov").path,
+               "the web recorder's file:///CaptureCat/Projects/<id>/recording.mov → this Mac's copy")
+        expect(externalEntry.map { project.settings.backgroundImagePath == dirB.appendingPathComponent($0.path).path } == true,
+               "a wallpaper from outside the first Mac's folder → this Mac's \(externalEntry?.path ?? "external/…")")
+        expect(project.watermarkImageURL.map { $0.deletingLastPathComponent().path == dirB.path && fm.fileExists(atPath: $0.path) } == true
+               && project.curtainLogoImageURL.map { fm.fileExists(atPath: $0.path) } == true,
+               "watermark + curtain logos resolve inside this Mac's folder")
+        expect(project.voiceOverClips.filter { fm.fileExists(atPath: $0.resolvedURL(in: dirB).path) }.count == 1,
+               "the recorded take resolves (the clip whose file never existed stays missing)")
+    }
+
+    /// The REAL `HTTPCloudProjectTransport.download` against a loopback
+    /// server: a multi-MiB body streamed to disk, byte progress, no session
+    /// token sent to the storage host, 403 → expired, 500 → error, and an
+    /// error body never written as the file.
+    private static func httpDownloadChecks(_ checks: Checks) async {
+        let expect = checks.expect
+        print("http download (real transport, loopback server)")
+        final class Log: @unchecked Sendable {
+            let lock = NSLock()
+            var heads: [String] = []
+            func record(_ head: String) { lock.withLock { heads.append(head) } }
+            var all: [String] { lock.withLock { heads } }
+        }
+        var rng = SplitMix64(seed: 0xD00D)
+        var body = Data(count: 3 * 1024 * 1024 + 77)
+        body.withUnsafeMutableBytes { raw in
+            for i in 0..<raw.count { raw[i] = UInt8(truncatingIfNeeded: rng.next()) }
+        }
+        let payload = body
+        let log = Log()
+        guard let listener = try? NWListener(using: .tcp, on: .any) else {
+            expect(false, "loopback listener starts")
+            return
+        }
+        listener.newConnectionHandler = { conn in
+            conn.start(queue: .global())
+            conn.receive(minimumIncompleteLength: 1, maximumLength: 1 << 16) { data, _, _, _ in
+                guard let data, let head = String(data: data, encoding: .utf8),
+                      let line = head.split(separator: "\r\n").first else { conn.cancel(); return }
+                log.record(head)
+                let target = line.split(separator: " ").dropFirst().first.map(String.init) ?? ""
+                let status: String, type: String, reply: Data
+                if target.hasPrefix("/ok") {
+                    (status, type, reply) = ("200 OK", "audio/mp4", payload)
+                } else if target.hasPrefix("/expired") {
+                    (status, type, reply) = ("403 Forbidden", "application/xml",
+                                             Data("<Error><Code>AccessDenied</Code><Message>Request has expired</Message></Error>".utf8))
+                } else {
+                    (status, type, reply) = ("500 Internal Server Error", "text/plain", Data("boom".utf8))
+                }
+                let header = "HTTP/1.1 \(status)\r\nContent-Type: \(type)\r\n"
+                    + "Content-Length: \(reply.count)\r\nConnection: close\r\n\r\n"
+                conn.send(content: Data(header.utf8) + reply, completion: .contentProcessed { _ in conn.cancel() })
+            }
+        }
+        listener.start(queue: .global())
+        defer { listener.cancel() }
+        var port: UInt16 = 0
+        for _ in 0..<100 {
+            if let value = listener.port?.rawValue, value != 0 { port = value; break }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        guard port != 0 else {
+            expect(false, "loopback listener has a port")
+            return
+        }
+
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory.appendingPathComponent("cloud-http-download-\(UUID().uuidString)", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: dir) }
+        let transport = HTTPCloudProjectTransport(baseURL: "http://127.0.0.1:9")
+        func file(_ route: String) -> CloudRemoteFile {
+            CloudRemoteFile(path: "voiceover-x.m4a", sha256: CloudProjectManifest.sha256(of: payload),
+                            bytes: Int64(payload.count), contentType: "audio/mp4", source: nil,
+                            url: URL(string: "http://127.0.0.1:\(port)\(route)?X-Amz-Signature=0123abcd"))
+        }
+
+        let okFile = dir.appendingPathComponent("ok.part")
+        var progress: [Int64] = []
+        do {
+            try await transport.download(file("/ok"), to: okFile) { progress.append($0) }
+            try? await Task.sleep(for: .milliseconds(150)) // progress hops to the main actor
+            let got = (try? Data(contentsOf: okFile)) ?? Data()
+            expect(got == payload, "3 MiB body streamed to disk byte-exact (\(got.count) bytes)")
+            expect(progress.max() == Int64(payload.count), "byte progress reaches the file size (\(progress.count) updates)")
+        } catch {
+            expect(false, "200 → downloaded (threw \(error))")
+        }
+        let head = log.all.first?.lowercased() ?? ""
+        expect(!head.isEmpty && !head.contains("authorization:") && !head.contains("x-app-token:"),
+               "the presigned GET carries no session token or app token")
+
+        let expiredFile = dir.appendingPathComponent("expired.part")
+        do {
+            try await transport.download(file("/expired"), to: expiredFile) { _ in }
+            expect(false, "403 → downloadURLExpired (no error)")
+        } catch {
+            expect((error as? CloudSyncError) == .downloadURLExpired, "403 → downloadURLExpired (got \(error))")
+        }
+        expect(((try? Data(contentsOf: expiredFile)) ?? Data([1])).isEmpty, "an error body is never written as the file")
+
+        do {
+            try await transport.download(file("/broken"), to: dir.appendingPathComponent("broken.part")) { _ in }
+            expect(false, "500 → error (no error)")
+        } catch {
+            if case .api(let status, _, _)? = error as? CloudSyncError {
+                expect(status == 500, "500 → api error with the status (\(status))")
+            } else {
+                expect(false, "500 → api error (got \(error))")
+            }
+        }
+    }
+
+    /// The web's JSON edit of a document: top level and `settings`.
+    private static func webEditedJSON(
+        _ document: Data,
+        _ mutate: (inout [String: Any], inout [String: Any]) -> Void
+    ) throws -> Data {
+        guard var object = try JSONSerialization.jsonObject(with: document) as? [String: Any] else {
+            throw CloudSyncError.invalidResponse
+        }
+        var settings = object["settings"] as? [String: Any] ?? [:]
+        mutate(&object, &settings)
+        object["settings"] = settings
+        return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
     }
 
     // MARK: - UI probe
@@ -524,6 +1013,11 @@ enum CloudSyncHarness {
         expect(dialog.probeStatus == "Uploading 3 files…", "status line follows the phase")
         dialog.update(CloudProjectSync.Progress(phase: .hashing, fraction: 1, message: "Preparing files…"), weights: weights)
         expect(dialog.probeBar.doubleValue >= 0.49, "the bar never runs backwards when a phase re-enters")
+        // Pull Web Edits drives the same card through its download phase.
+        dialog.update(CloudProjectSync.Progress(phase: .downloading, fraction: 0.5, message: "Downloading 3 files…"),
+                      weights: CloudSyncController.pullWeights)
+        expect(abs(dialog.probeBar.doubleValue - 0.56) < 1e-9 && dialog.probeStatus == "Downloading 3 files…",
+               "pull: downloading at 50% → overall 56%, status follows (\(dialog.probeBar.doubleValue))")
         try? await Task.sleep(for: .milliseconds(400)) // let the fill glide land before the shot
         writeShot(of: card, name: "cloud-progress.png")
         click(dialog.probeCancelButton)
@@ -628,8 +1122,12 @@ enum CloudSyncHarness {
 /// In-memory stand-in for /api/cloud-projects with the API's semantics (see
 /// apps/api/src/routes/cloud-projects.ts): objects content-addressed per
 /// project, pending until finalize verifies size AND SHA-256, a committed
-/// file set, unreferenced objects collected, the document stored byte-exact
-/// with If-Match revisions (409 on a stale base).
+/// file set (path, sha, size, type, source — what GET …/:id lists with a
+/// presigned GET each), unreferenced objects collected at finalize, the
+/// document stored byte-exact with If-Match revisions (409 on a stale base).
+/// `webAddFiles` is the web editor adding media: it restages the COMPLETE
+/// committed manifest plus the new files, exactly like apps/web's
+/// `addCloudProjectFile`.
 final class StubCloudServer: CloudProjectTransport {
     struct Upload {
         let sha256: String
@@ -643,16 +1141,34 @@ final class StubCloudServer: CloudProjectTransport {
     private var landed: [String: Data] = [:]
     private var staged: [CloudManifestFile] = []
     private var stagedTypes: [String: String] = [:]
-    private(set) var committed: [String: String] = [:] // path → sha
+    /// The committed manifest, in staging order.
+    private(set) var committedFiles: [CloudRemoteFile] = []
     private(set) var revision = 0
     private(set) var document: Data?
     private(set) var uploads: [Upload] = []
+    private(set) var downloads: [String] = []
     private(set) var stageCalls = 0
     private(set) var saveCalls = 0
+    private(set) var fileListCalls = 0
     private(set) var lastSaveBase: Int?
     private(set) var garbageCollected = 0
     var expireNextUpload = false
+    /// Next GET answers 403 "Request has expired" (presign lapsed mid-queue).
+    var expireNextDownload = false
+    /// Paths whose GET fails (HTTP 500).
+    var failDownloads: Set<String> = []
+    /// Paths whose GET delivers the right LENGTH of the wrong bytes.
+    var corruptDownloads: Set<String> = []
+    /// Called as each GET starts — lets the harness look at the project
+    /// folder at that moment.
+    var onDownload: ((CloudRemoteFile) -> Void)?
+    /// Presign generation: `files()` re-signs, and a URL from an older
+    /// generation is refused like an expired presign.
+    private var generation = 0
 
+    var committed: [String: String] {
+        Dictionary(committedFiles.map { ($0.path, $0.sha256) }, uniquingKeysWith: { first, _ in first })
+    }
     var committedPaths: Set<String> { Set(committed.keys) }
 
     init(ownerUID: String) {
@@ -661,8 +1177,10 @@ final class StubCloudServer: CloudProjectTransport {
 
     func resetCounters() {
         uploads = []
+        downloads = []
         stageCalls = 0
         saveCalls = 0
+        fileListCalls = 0
         lastSaveBase = nil
         garbageCollected = 0
     }
@@ -673,12 +1191,70 @@ final class StubCloudServer: CloudProjectTransport {
         document = data
     }
 
+    /// The web editor adding media (a voice-over take, a background or logo
+    /// image): list → stage(everything committed + the new files) → PUT →
+    /// finalize. A same-path file is replaced. The document is saved
+    /// separately (`webSave`), once the upload settled — as the web does.
+    func webAddFiles(_ added: [(path: String, data: Data, contentType: String, source: String?)]) {
+        var files = committedFiles
+        for file in added {
+            precondition(CloudPath.isValid(file.path) && CloudPath.accepts(file.contentType, for: file.path),
+                         "the API would refuse \(file.path) as \(file.contentType)")
+            let sha = CloudProjectManifest.sha256(of: file.data)
+            ready[sha] = file.data
+            files.removeAll { $0.path.lowercased() == file.path.lowercased() }
+            files.append(CloudRemoteFile(path: file.path, sha256: sha, bytes: Int64(file.data.count),
+                                         contentType: file.contentType, source: file.source, url: nil))
+        }
+        committedFiles = files
+        collect()
+    }
+
+    /// The object behind a committed path vanishes (a concurrent restage
+    /// collected it) while the committed manifest still lists the path.
+    func loseObject(path: String) {
+        guard let sha = committed[path] else { return }
+        ready[sha] = nil
+    }
+
     private var documentSHA: String? { document.map { CloudProjectManifest.sha256(of: $0) } }
+
+    private func presigned(_ file: CloudRemoteFile) -> CloudRemoteFile {
+        CloudRemoteFile(path: file.path, sha256: file.sha256, bytes: file.bytes, contentType: file.contentType,
+                        source: file.source,
+                        url: URL(string: "https://r2.stub.test/get/\(file.sha256)?g=\(generation)"))
+    }
+
+    /// Finalize's garbage collection: objects no committed path points at.
+    private func collect() {
+        let live = Set(committedFiles.map(\.sha256))
+        for sha in ready.keys where !live.contains(sha) {
+            ready[sha] = nil
+            garbageCollected += 1
+        }
+    }
 
     func stage(projectID: UUID, name: String, files: [CloudManifestFile]) async throws -> CloudStageResult {
         stageCalls += 1
-        for file in files where !CloudPath.isValid(file.path) || CloudPath.contentType(for: file.path) != file.contentType {
-            throw CloudSyncError.api(status: 400, code: "invalid_path", message: "\(file.path) refused")
+        // The server's rules: checkLogicalPath, per-extension content types
+        // (any accepted alias), unique paths case-insensitively, the
+        // manifest length cap, one size per SHA-256.
+        guard files.count <= CloudPath.maxManifestFiles else {
+            throw CloudSyncError.api(status: 400, code: "too_many_files", message: "manifest too long")
+        }
+        var seenPaths = Set<String>()
+        var sizes: [String: Int64] = [:]
+        for file in files {
+            guard CloudPath.isValid(file.path), CloudPath.accepts(file.contentType, for: file.path) else {
+                throw CloudSyncError.api(status: 400, code: "invalid_path", message: "\(file.path) refused")
+            }
+            guard seenPaths.insert(file.path.lowercased()).inserted else {
+                throw CloudSyncError.api(status: 400, code: "duplicate_path", message: "\(file.path) listed twice")
+            }
+            if let known = sizes[file.sha256], known != file.bytes {
+                throw CloudSyncError.api(status: 400, code: "inconsistent_manifest", message: "\(file.path) two sizes")
+            }
+            sizes[file.sha256] = file.bytes
         }
         staged = files
         var missing: [CloudUploadTarget] = []
@@ -725,18 +1301,45 @@ final class StubCloudServer: CloudProjectTransport {
             }
             ready[file.sha256] = bytes
         }
-        committed = Dictionary(staged.map { ($0.path, $0.sha256) }, uniquingKeysWith: { first, _ in first })
-        let live = Set(committed.values)
-        for sha in ready.keys where !live.contains(sha) {
-            ready[sha] = nil
-            garbageCollected += 1
+        committedFiles = staged.map {
+            CloudRemoteFile(path: $0.path, sha256: $0.sha256, bytes: $0.bytes,
+                            contentType: $0.contentType, source: $0.source, url: nil)
         }
+        collect()
         return .committed
     }
 
     func fetch(projectID: UUID) async throws -> CloudRemoteProject? {
-        guard revision > 0 || !committed.isEmpty else { return nil }
-        return CloudRemoteProject(revision: revision, documentSHA256: documentSHA, document: document)
+        guard revision > 0 || !committedFiles.isEmpty else { return nil }
+        return CloudRemoteProject(revision: revision, documentSHA256: documentSHA, document: document,
+                                  files: committedFiles.map(presigned))
+    }
+
+    func files(projectID: UUID) async throws -> [CloudRemoteFile] {
+        fileListCalls += 1
+        generation += 1
+        return committedFiles.map(presigned)
+    }
+
+    func download(_ file: CloudRemoteFile, to destination: URL, progress: @escaping (Int64) -> Void) async throws {
+        onDownload?(file)
+        if expireNextDownload {
+            expireNextDownload = false
+            generation += 1 // every URL handed out so far is now stale
+        }
+        guard file.url?.query == "g=\(generation)" else { throw CloudSyncError.downloadURLExpired }
+        if failDownloads.contains(file.path) {
+            throw CloudSyncError.api(status: 500, code: nil, message: "HTTP 500")
+        }
+        guard var data = ready[file.sha256] else {
+            throw CloudSyncError.api(status: 404, code: nil, message: "HTTP 404")
+        }
+        if corruptDownloads.contains(file.path), !data.isEmpty {
+            data[0] ^= 0xFF
+        }
+        downloads.append(file.path)
+        try data.write(to: destination)
+        for step in 1...4 { progress(Int64(data.count) * Int64(step) / 4) }
     }
 
     func save(projectID: UUID, document data: Data, baseRevision: Int) async throws -> CloudSaveResult {
