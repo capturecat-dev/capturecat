@@ -149,6 +149,17 @@ final class CloudSyncController {
                     self.finish {
                         if thenOpenWeb { NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: projectID)) }
                     }
+                case .mediaRestored(_, let files):
+                    // Same document, but files it names were missing here
+                    // (an earlier pull fetched only project.json). If the
+                    // document's references were re-pointed at them, the
+                    // external-edit poll reloads it like any pull.
+                    dialog.finish(message: files == 0 ? "Updated file references"
+                                  : files == 1 ? "Downloaded 1 missing file" : "Downloaded \(files) missing files")
+                    try? await Task.sleep(for: .milliseconds(450))
+                    self.finish {
+                        if thenOpenWeb { NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: projectID)) }
+                    }
                 case .upToDate:
                     self.finish {
                         if thenOpenWeb {
@@ -195,11 +206,13 @@ final class CloudSyncController {
     // MARK: - Shared
 
     /// Overall-bar share of each phase (they arrive in this order).
-    private static let pushWeights: [CloudProjectSync.Progress.Phase: ClosedRange<Double>] = [
+    static let pushWeights: [CloudProjectSync.Progress.Phase: ClosedRange<Double>] = [
         .hashing: 0...0.12, .uploading: 0.12...0.86, .verifying: 0.86...0.94, .saving: 0.94...1,
     ]
-    private static let pullWeights: [CloudProjectSync.Progress.Phase: ClosedRange<Double>] = [
-        .fetching: 0...0.6, .writing: 0.6...1,
+    /// Pull: fetch the document, check which referenced files this Mac
+    /// lacks (hashing), download them, then apply project.json.
+    static let pullWeights: [CloudProjectSync.Progress.Phase: ClosedRange<Double>] = [
+        .fetching: 0...0.08, .hashing: 0.08...0.2, .downloading: 0.2...0.92, .writing: 0.92...1,
     ]
 
     /// Signed in → true. Otherwise offers sign-in and re-runs `then` on success.

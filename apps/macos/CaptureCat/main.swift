@@ -730,9 +730,11 @@ if CommandLine.arguments.contains("--export-formats-test") {
 }
 
 // Cloud projects (web editor) gate: manifest/hash/upload plan, finalize,
-// If-Match saves + conflicts, and the pull's atomic external-edit write —
+// If-Match saves + conflicts, the pull's atomic external-edit write, and
+// media the web editor added (pull downloads it first, push keeps it) —
 // real CloudProjectSync against an in-memory stub server and a throwaway
-// temp project. No network, no real projects. Never reached in a normal launch.
+// temp project; the HTTP download path against a loopback server. No
+// internet, no real projects. Never reached in a normal launch.
 if CommandLine.arguments.contains("--cloud-sync-test") {
     MainActor.assumeIsolated { CloudSyncHarness.run() }
 }
