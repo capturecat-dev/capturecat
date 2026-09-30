@@ -10,6 +10,7 @@ import type { ProjectSettings } from "../../core/model";
 import { InspectorButton, PillSlider, SFIcon, ToggleRow } from "../kit";
 import { Box, PaneStack } from "./layout";
 import { WatermarkPad } from "./livePads";
+import { hasPickerStatus, PickerStatusLine } from "./pickerStatus";
 import { pctRounded } from "./shared";
 import type { PaneProps } from "./types";
 
@@ -69,6 +70,12 @@ export function BrandPane({ settings: s, onSettingsChange, onCommit, actions }: 
                       </div>
                     </div>
                   ),
+                },
+                {
+                  key: "status",
+                  show: hasPickerStatus(actions?.pickerStatus?.watermark),
+                  attached: true,
+                  node: <PickerStatusLine status={actions?.pickerStatus?.watermark} />,
                 },
               ]}
             />

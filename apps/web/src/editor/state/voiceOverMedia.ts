@@ -1,38 +1,21 @@
 /**
- * Where a recorded voice-over file goes — persisted "the way the project's
- * other media is":
+ * Where a recorded voice-over file goes — through the project's media
+ * (state/projectMedia.ts), exactly like an image the user picks:
  *
- *   cloud   uploaded into the cloud project's manifest (state/cloudMedia.ts);
- *           project saves wait for it (UploadGate), then the store's autosave
- *           carries the new clip to project.json so the Mac pulls it
+ *   cloud   ProjectMedia stages the complete manifest + the take, uploads,
+ *           finalizes; the page's project.json save waits for it
+ *           (`media.settled()`), so the Mac never pulls a clip whose file
+ *           the cloud does not have
  *   local   (dev server, the Mac's own folder, read-only) — the file lives in
  *           the tab like every other local edit
  *
- * Either way the file plays at once: its blob: URL is registered with the
- * engine (playback + export) and with the page's media resolver.
+ * Either way the file plays at once: ProjectMedia serves it from its object
+ * URL and pushes it to the engine (playback + export) as soon as it is added.
  */
 import type { RecordedVoiceOver } from "../record/voiceOverRecorder";
 import { CloudApiError } from "./cloud";
-import { addCloudProjectFile } from "./cloudMedia";
-import type { EditorController } from "./controller";
-import type { LoadedEditorProject } from "./projectSource";
-import type { EditorStore } from "./store";
-import type { UploadGate, VoiceOverMedia } from "./voiceOver";
-
-const overrides = new WeakMap<LoadedEditorProject, Map<string, string>>();
-
-/** `loaded.mediaUrl(ref)` resolves `ref` to `url` from now on (a file made in this tab). */
-export function registerTabMedia(loaded: LoadedEditorProject, ref: string, url: string): void {
-  let map = overrides.get(loaded);
-  if (!map) {
-    const extra = new Map<string, string>();
-    const base = loaded.mediaUrl.bind(loaded);
-    loaded.mediaUrl = (r) => (r ? extra.get(r) : undefined) ?? base(r);
-    overrides.set(loaded, extra);
-    map = extra;
-  }
-  map.set(ref, url);
-}
+import type { ProjectMedia } from "./projectMedia";
+import type { VoiceOverMedia } from "./voiceOver";
 
 /** Transient = worth retrying (offline, 5xx, rate limit). */
 function transient(error: unknown): boolean {
@@ -43,50 +26,48 @@ function transient(error: unknown): boolean {
 const RETRY_DELAYS_MS = [2_000, 5_000, 10_000];
 
 export function createVoiceOverMedia(opts: {
-  loaded: LoadedEditorProject;
-  store: EditorStore;
-  controller: EditorController;
-  uploads: UploadGate;
-  /** Test seam: the cloud upload. */
-  upload?: typeof addCloudProjectFile;
+  media: ProjectMedia | undefined;
+  /** Test seam. */
   sleep?: (ms: number) => Promise<void>;
 }): VoiceOverMedia {
-  const { loaded, store, controller, uploads } = opts;
-  const upload = opts.upload ?? addCloudProjectFile;
+  const { media } = opts;
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  // register() hands over the take's object URL; persist() (called next, with
+  // the take) adds the file under it — before the clip reaches the store.
+  const urls = new Map<string, string>();
 
   return {
     register(fileName, url) {
-      controller.client?.addMediaFiles({ [fileName]: url });
-      registerTabMedia(loaded, fileName, url);
+      urls.set(fileName, url);
     },
 
     blocker() {
-      if (loaded.origin === "cloud" && loaded.cloud && loaded.cloud.access !== "owner") {
-        return "Only the project's owner can add a voice over.";
-      }
-      return null;
+      return media && !media.canAddFiles ? "Only the project's owner can add a voice over." : null;
     },
 
     persist(take: RecordedVoiceOver) {
-      const cloud = loaded.cloud;
-      if (loaded.origin !== "cloud" || !cloud) return Promise.resolve();
-      const work = (async () => {
-        for (let attempt = 0; ; attempt++) {
+      if (!media) return Promise.resolve();
+      const add = () =>
+        media.addFile({
+          ref: take.fileName,
+          path: take.fileName,
+          blob: take.file,
+          contentType: take.contentType,
+          url: urls.get(take.fileName),
+        });
+      // The first add is synchronous up to the upload: the file resolves now.
+      const first = add();
+      return (async () => {
+        let attempt = 0;
+        let pending = first;
+        for (;;) {
           try {
-            const fresh = await upload(loaded.id, {
-              name: store.getState().project?.name ?? cloud.name,
-              path: take.fileName,
-              file: take.file,
-              contentType: take.contentType,
-            });
-            cloud.media = fresh.media;
-            cloud.sources = fresh.sources;
-            cloud.urlsExpireAt = fresh.urlsExpireAt;
+            await pending;
             return;
           } catch (error) {
             if (attempt < RETRY_DELAYS_MS.length && transient(error)) {
-              await sleep(RETRY_DELAYS_MS[attempt]);
+              await sleep(RETRY_DELAYS_MS[attempt++]);
+              pending = add();
               continue;
             }
             const reason = error instanceof Error && error.message ? ` ${error.message}` : "";
@@ -94,7 +75,6 @@ export function createVoiceOverMedia(opts: {
           }
         }
       })();
-      return uploads.track(work);
     },
   };
 }

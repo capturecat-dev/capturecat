@@ -29,6 +29,9 @@ let chain: Promise<void> = Promise.resolve();
 
 scope.addEventListener("message", (ev) => {
   const msg = ev.data;
+  // Fresh URLs unblock reads that are waiting on an expired one — some of
+  // those reads sit INSIDE the chain (a load), so never queue them behind it.
+  if (msg.type === "setMediaFiles") engine?.renewMediaUrls(msg.files, { video: msg.video, expiresAt: msg.expiresAt });
   chain = chain.then(() => handle(msg)).catch((e) => reportError(e, "requestId" in msg ? msg.requestId : undefined));
 });
 
@@ -45,9 +48,6 @@ async function handle(msg: ToWorker): Promise<void> {
       break;
     case "setProject":
       engine.setProject(msg.project);
-      break;
-    case "setMediaFiles":
-      engine.setMediaFiles(msg.files);
       break;
     case "play":
       engine.play();
@@ -88,6 +88,9 @@ async function handle(msg: ToWorker): Promise<void> {
       break;
     case "resetStats":
       engine.resetStats();
+      break;
+    case "setMediaFiles":
+      engine.setMediaFiles(msg.files, { video: msg.video, expiresAt: msg.expiresAt });
       break;
     case "dispose":
       engine.dispose();

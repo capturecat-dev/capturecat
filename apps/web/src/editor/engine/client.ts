@@ -9,6 +9,7 @@
 import { AudioPlayback } from "./audio";
 import { wallNow } from "./clock";
 import type { RenderMedia } from "./contract";
+import { LiveUrlTable, liveUrlEntries } from "./media/liveUrls";
 import type {
   BenchResult,
   EngineCapabilities,
@@ -49,6 +50,9 @@ export class EngineClient {
   private transportListeners = new Set<(s: TransportState) => void>();
   private errorListeners = new Set<(e: EngineError) => void>();
   private frameListeners = new Set<(f: FrameInfo) => void>();
+  private mediaExpiredListeners = new Set<() => void>();
+  /** Main-thread media URLs (the audio playback's readers follow refreshed ones). */
+  private liveUrls = new LiveUrlTable({ onExpired: () => this.emitMediaExpired() });
   /** Geometry of the last presented frame (stage editing chrome). */
   lastFrame: FrameInfo | null = null;
   private audio: AudioPlayback | null = null;
@@ -57,8 +61,6 @@ export class EngineClient {
   info: LoadedInfo | null = null;
   transport: TransportState | null = null;
   lastStats: EngineStats | null = null;
-  /** `RenderMedia.files` as loaded, plus files added since (addMediaFiles). */
-  private mediaFiles: Record<string, string> = {};
 
   private constructor(
     worker: Worker,
@@ -158,9 +160,16 @@ export class EngineClient {
         this.lastFrame = msg.info;
         for (const l of this.frameListeners) l(msg.info);
         break;
+      case "mediaExpired":
+        this.emitMediaExpired();
+        break;
       case "ready":
         break;
     }
+  }
+
+  private emitMediaExpired() {
+    for (const l of this.mediaExpiredListeners) l();
   }
 
   private emitError(e: EngineError) {
@@ -191,13 +200,13 @@ export class EngineClient {
     this.audio?.dispose();
     this.audio = null;
     if (this.clockTimer) clearInterval(this.clockTimer);
-    this.mediaFiles = { ...(media.files ?? {}) };
+    this.liveUrls.update(liveUrlEntries(media));
     const info = await this.request<LoadedInfo>((requestId) => ({ type: "load", requestId, project, media }));
     if (this.opts.audio !== false) {
       // The export's own mix (recorded tracks, voice-overs, click/key sounds)
       // — present even for a recording without an audio track.
       try {
-        const audio = await AudioPlayback.open({ recording: media.video, files: this.mediaFiles }, project);
+        const audio = await AudioPlayback.open({ recording: media.video, files: media.files ?? {} }, project);
         if (this.disposed) {
           audio.dispose();
           return info;
@@ -220,14 +229,20 @@ export class EngineClient {
   }
 
   /**
-   * Make more project.json references fetchable (e.g. a voice-over recorded
-   * in the editor, as a blob: URL) for playback AND export. Call before the
-   * project that references them is pushed.
+   * Fresh media URLs (refreshed presigned GETs, a newly added file) for the
+   * worker, its demuxers and the audio playback — no reload, playback keeps
+   * going. Post it BEFORE the `setProject` that references a new file.
    */
-  addMediaFiles(files: Record<string, string>): void {
-    this.mediaFiles = { ...this.mediaFiles, ...files };
-    this.post({ type: "setMediaFiles", files: this.mediaFiles });
-    this.audio?.setFiles(this.mediaFiles);
+  setMediaFiles(media: { video?: string; files: Record<string, string>; expiresAt?: number | null }): void {
+    this.liveUrls.update(liveUrlEntries(media), media.expiresAt);
+    this.audio?.setFiles(media.files);
+    this.post({ type: "setMediaFiles", video: media.video, files: media.files, expiresAt: media.expiresAt });
+  }
+
+  /** A reader (worker or main thread) found an expired URL — answer with `setMediaFiles`. */
+  onMediaExpired(cb: () => void): () => void {
+    this.mediaExpiredListeners.add(cb);
+    return () => this.mediaExpiredListeners.delete(cb);
   }
 
   play(): void {
@@ -308,6 +323,7 @@ export class EngineClient {
 
   dispose(): void {
     this.disposed = true;
+    this.liveUrls.dispose();
     this.audio?.dispose();
     if (this.clockTimer) clearInterval(this.clockTimer);
     this.post({ type: "dispose" });

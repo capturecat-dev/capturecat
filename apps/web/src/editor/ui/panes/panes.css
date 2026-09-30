@@ -275,3 +275,6 @@
 }
 .cc-logothumb img { max-width: 36px; max-height: 36px; object-fit: contain; }
 .cc-logobuttons { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+
+/* ── Image pickers (pickerStatus.tsx) ──────────────────────────────── */
+.cc-spin--sm { width: 12px; height: 12px; border-width: 1.5px; flex: none; }

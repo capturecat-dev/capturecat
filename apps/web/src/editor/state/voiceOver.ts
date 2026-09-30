@@ -217,10 +217,12 @@ export class VoiceOverSession {
     if (!clip) return; // too short: the Mac removes the file
     const url = (this.deps.objectUrl ?? ((f: Blob) => URL.createObjectURL(f)))(take.file);
     this.deps.media.register(take.fileName, url);
-    store.apply(addVoiceOverClip(clip));
+    // Persist BEFORE the clip lands: the file resolves (and reaches the
+    // engine) synchronously, so the edit never names a file the engine lacks.
     this.lastPersist = this.deps.media.persist(take).catch((error: unknown) => {
       if (!this.disposed) this.deps.onAlert(error instanceof Error ? error.message : String(error));
     });
+    store.apply(addVoiceOverClip(clip));
   }
 
   /** The timeline's live "Recording Voice Over" block for the playhead (OUTPUT s). */
@@ -262,32 +264,5 @@ export class VoiceOverSession {
 
   private changed(): void {
     if (!this.disposed) this.deps.onChange?.();
-  }
-}
-
-/**
- * Holds project saves while media uploads are in flight, so a saved
- * project.json never names a file the cloud does not have yet.
- */
-export class UploadGate {
-  private pending = new Set<Promise<unknown>>();
-
-  track<T>(work: Promise<T>): Promise<T> {
-    const entry = work.then(
-      () => undefined,
-      () => undefined,
-    );
-    this.pending.add(entry);
-    void entry.then(() => this.pending.delete(entry));
-    return work;
-  }
-
-  get busy(): boolean {
-    return this.pending.size > 0;
-  }
-
-  /** Resolves once nothing is uploading (never rejects). */
-  async idle(): Promise<void> {
-    while (this.pending.size > 0) await Promise.all([...this.pending]);
   }
 }
