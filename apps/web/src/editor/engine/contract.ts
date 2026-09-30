@@ -118,7 +118,8 @@ export interface RenderProject {
   settings: RenderSettings;
   /**
    * Features present in the project that this engine does not draw yet.
-   * Surfaced in the lab HUD / load result so a silent mismatch is impossible.
+   * Surfaced in the lab HUD / load result and, in the editor, as a notice over
+   * the stage (ui/shell/UnsupportedNotice) so a silent mismatch is impossible.
    */
   unsupportedFeatures: string[];
 }
@@ -253,21 +254,49 @@ function hiddenMenuBarCrop(p: Json, s: Json): number {
 }
 
 /** Everything the Mac exporter draws that this engine does not yet. */
-function detectUnsupported(p: Json, s: Json): string[] {
+function detectUnsupported(p: Json, _s: Json): string[] {
   const out: string[] = [];
   const nonEmpty = (k: string) => Array.isArray(p[k]) && (p[k] as unknown[]).length > 0;
-  for (const k of [
+  // Add a project key here (and its name to UNSUPPORTED_FEATURE_NAMES) for any
+  // Mac-drawn feature the engine cannot draw yet — the editor shows a notice.
+  const unsupportedKeys: string[] = [
     // Zoom/tilt (camera), blur/highlight/focus, subtitles, speed + clips (time
-    // map) and voice-overs (audio mix) all render on the web now.
-    "sourceSegments",
-  ]) {
+    // map), voice-overs (audio mix) and stitched device segments (per-frame
+    // bezel switch + keynote dip — core deviceSegmentDip, parity fixtures 14
+    // and 15) all render on the web now.
+  ];
+  for (const k of unsupportedKeys) {
     if (nonEmpty(k)) out.push(k);
   }
   // Backgrounds + every look filter, menu bar, device frames (passes/background,
   // menuBar, device), screen tilt / intro slide / motion blur (camera) all
-  // render on the web now. Stitched device segments (per-frame bezel switch +
-  // keynote dip) do not — flagged above via "sourceSegments".
+  // render on the web now.
   return out;
+}
+
+/**
+ * The unsupported-feature ids for a raw project.json — the SAME detection the
+ * engine reports in `LoadedInfo.unsupportedFeatures`, callable on the main
+ * thread so the editor's notice follows edits live.
+ */
+export function unsupportedFeatures(raw: unknown): string[] {
+  const p: Json = isObj(raw) ? raw : {};
+  return detectUnsupported(p, isObj(p.settings) ? p.settings : {});
+}
+
+/**
+ * How the editor names each unsupported feature (Mac vocabulary, sentence
+ * case). Ids the table does not know fall back to the key, de-camel-cased.
+ */
+export const UNSUPPORTED_FEATURE_NAMES: Readonly<Record<string, string>> = {
+  sourceSegments: "Stitched iPhone segments",
+};
+
+export function unsupportedFeatureName(id: string): string {
+  const known = UNSUPPORTED_FEATURE_NAMES[id];
+  if (known) return known;
+  const words = id.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 // ── Media ───────────────────────────────────────────────────────────────────

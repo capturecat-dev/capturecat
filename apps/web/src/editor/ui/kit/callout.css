@@ -1,0 +1,95 @@
+/*
+ * CCCallout (Callout.tsx) — raised matte panel, radius lg, padding md, a
+ * 14pt variant glyph centred on the 13pt semibold title, 12pt muted message
+ * two points under it; a ghost × (sm) at trailing sm. Arrives falling 6pt
+ * into place (spring smooth) while fading in over 0.22 s; dismissing lifts
+ * the bottom edge (glide 0.3 s) while the surface fades (0.2 s).
+ */
+.cc-theme {
+  /* A whisper of the variant hue in the opaque fill; tinted hairline. */
+  --cc-callout-whisper: 7.5%;
+  --cc-callout-edge: 26%;
+}
+.cc-theme[data-cc-theme="light"] {
+  --cc-callout-whisper: 5%;
+  --cc-callout-edge: 24%;
+}
+@media (prefers-color-scheme: light) {
+  .cc-theme[data-cc-theme="system"] {
+    --cc-callout-whisper: 5%;
+    --cc-callout-edge: 24%;
+  }
+}
+
+.cc-callout {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation:
+    cc-callout-fall var(--cc-spring-smooth-dur, 420ms) var(--cc-spring-smooth, var(--cc-ease-settle)) both,
+    cc-callout-fade calc(220ms / var(--cc-pace, 1)) linear both;
+  transition: grid-template-rows calc(300ms / var(--cc-pace, 1)) var(--cc-ease-glide);
+}
+.cc-callout[data-leaving] { grid-template-rows: 0fr; }
+
+/* The material's extruded under-edge peeks 2px below the surface. */
+.cc-callout__clip {
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 2px;
+}
+
+.cc-callout__surface {
+  --m-tint: color-mix(in srgb, var(--cc-card), var(--c-tint) var(--cc-callout-whisper));
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  column-gap: calc(var(--cc-space-sm) + 2px);
+  align-items: start;
+  padding: var(--cc-space-md);
+  border-radius: var(--cc-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--c-tint) var(--cc-callout-edge), transparent);
+  transition: opacity calc(200ms / var(--cc-pace, 1)) var(--cc-ease-glide);
+}
+.cc-callout[data-variant="info"] .cc-callout__surface {
+  --m-tint: var(--cc-card);
+  border-color: var(--cc-border);
+}
+.cc-callout[data-leaving] .cc-callout__surface { opacity: 0; }
+
+.cc-callout__icon {
+  color: var(--c-tint);
+  /* Centred on the title's 16px line. */
+  margin-top: calc((16px - 17px) / 2);
+}
+.cc-callout__text { min-width: 0; }
+.cc-callout__title {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--cc-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cc-callout[data-variant="destructive"] .cc-callout__title { color: var(--c-tint); }
+.cc-callout__message {
+  margin-top: calc(var(--cc-space-xxs) + 1px);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--cc-muted);
+  user-select: text;
+  -webkit-user-select: text;
+}
+.cc-callout__close {
+  /* Trailing sm, centred on the title line (the surface pads md). */
+  margin: -4px calc(var(--cc-space-sm) - var(--cc-space-md)) -4px var(--cc-space-xs);
+}
+
+@keyframes cc-callout-fall {
+  from { transform: translateY(-6px); }
+  to { transform: none; }
+}
+@keyframes cc-callout-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

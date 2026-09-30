@@ -17,6 +17,8 @@ export { PillSlider, RailSlider, defaultPercent } from "./Sliders";
 export { Floating, GlideWash, useGlide, rectOf } from "./Floating";
 export type { AnchorRect, Edge, GlideController } from "./Floating";
 export { MenuList, Select, ContextMenu, Popover } from "./Menu";
+export { Callout } from "./Callout";
+export type { CalloutVariant } from "./Callout";
 export type { MenuEntry, MenuItem, SelectOption } from "./Menu";
 export {
   ColorPicker,

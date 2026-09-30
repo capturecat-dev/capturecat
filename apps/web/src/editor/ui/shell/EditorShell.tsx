@@ -224,7 +224,7 @@ export function EditorShell(props: EditorShellProps & { timelineRendererRef?: { 
       />
       <div className="cc-body">
         <div className="cc-stagecol">
-          <Stage aspect={project.canvasAspect} mount={stage} zoom={zoom} onZoomChange={onZoom} />
+          <Stage aspect={project.canvasAspect} mount={stage} zoom={zoom} onZoomChange={onZoom} notice={props.stageNotice} />
           <div className="cc-tlpanel" style={{ height: panelHeight(effectsRows) }}>
             <TransportBar
               project={project}

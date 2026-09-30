@@ -46,6 +46,7 @@ import {
   Highlighter,
   Image,
   ImagePlus,
+  Info,
   Keyboard,
   Layers,
   LayoutGrid,
@@ -81,11 +82,13 @@ import {
   Sun,
   SunMoon,
   Trash2,
+  TriangleAlert,
   Undo2,
   UserX,
   Volume2,
   VolumeX,
   WandSparkles,
+  X,
   ZoomIn,
   ZoomOut,
   type LucideIcon,
@@ -152,6 +155,11 @@ const customs = {
     `<defs><mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/>` +
     `<g stroke="#000" stroke-width="${sw}" stroke-linecap="round"><path d="M6.5 9 H12"/><path d="M14.5 9 H17.5"/><path d="M6.5 12.5 H9.5"/><path d="M12 12.5 H17.5"/></g></mask></defs>` +
     `<path mask="url(#m)" fill="#000" d="M5 3.5 H19 A2.5 2.5 0 0 1 21.5 6 V14.5 A2.5 2.5 0 0 1 19 17 H10 L6 20.5 V17 H5 A2.5 2.5 0 0 1 2.5 14.5 V6 A2.5 2.5 0 0 1 5 3.5 Z"/>`,
+  /** SF `exclamationmark.triangle.fill`: round-cornered filled triangle, the "!" PUNCHED out. */
+  warningTriangleFill: (sw: number) =>
+    `<defs><mask id="w" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/>` +
+    `<path d="M12 9.5 V13.6" stroke="#000" stroke-width="${sw}" stroke-linecap="round"/><circle cx="12" cy="17.1" r="${(sw * 0.62).toFixed(2)}" fill="#000"/></mask></defs>` +
+    `<path mask="url(#w)" fill="#000" stroke="#000" stroke-width="2.4" stroke-linejoin="round" d="M12 3.6 L21.4 20 H2.6 Z"/>`,
 };
 
 /**
@@ -208,6 +216,11 @@ export const SF_SYMBOLS: Record<string, Entry> = {
   "icloud.and.arrow.up": { icon: CloudUpload },
   "checkmark.icloud": { icon: CloudCheck },
   "exclamationmark.icloud": { icon: CloudAlert },
+  // CCCallout variant glyphs + its dismiss key.
+  "exclamationmark.triangle": { icon: TriangleAlert },
+  "exclamationmark.triangle.fill": { svg: customs.warningTriangleFill, note: "custom — filled triangle, the ! punched out" },
+  "info.circle": { icon: Info },
+  xmark: { icon: X },
   "icloud.slash": { icon: CloudOff },
   "arrow.triangle.2.circlepath": { icon: Loader },
   "arrow.clockwise": { icon: RefreshCw },

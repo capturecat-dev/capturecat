@@ -108,6 +108,19 @@ export interface FrameState {
    * visible when max(|pitch|, |yaw|) > 0.05°). Absent → no slab.
    */
   tilt?: FrameTilt;
+  /**
+   * Stitched take: a device source segment is framed this frame (core
+   * `deviceSegmentFrame(…).active`) — the video clips to the segment's screen
+   * squircle and the segment bezel / side slab / island replace the card
+   * shadow. Resolved by the FrameGraph from `sourceTime`; absent = false.
+   */
+  deviceSegment?: boolean;
+  /**
+   * Opacity of the finished card layer (the keynote dip's `fadeImage`),
+   * applied where the layer is resampled through `camera`. Absent = 1.
+   * Resolved by the FrameGraph together with the dip's scale in `camera`.
+   */
+  cardOpacity?: number;
 }
 
 /** Baked scene-static textures (StaticLayers). */
@@ -126,6 +139,27 @@ export interface StaticTextures {
    * bezel into the card layer, the island pass draws above the video.
    */
   device?: import("./device/deviceRaster").DeviceSprites | null;
+  /**
+   * Stitched take with device source segments (`segmentDeviceAssets`): the
+   * framing shared by every device segment, baked once per scene.
+   */
+  segment?: SegmentStatics | null;
+}
+
+/** `SegmentDeviceAssets` as GPU layers (VideoExporter segmentDeviceAssets). */
+export interface SegmentStatics {
+  /** Core framing (exporter rules, Y-down rects) — the per-frame resolver reads it. */
+  framing: import("../../core/math/deviceSegmentDip").SegmentFraming;
+  /**
+   * The video clip during a device segment: the screen squircle (`screenMask`)
+   * × the outer frame clip it follows in the exporter — one raster, so the card
+   * shaders take it through their squircle slot unchanged.
+   */
+  mask: NonNullable<StaticTextures["outerMask"]>;
+  /** The bezel's own blurred shadow alpha (r16float, un-offset); null when the shadow guard fails. */
+  shadow: PooledTexture | null;
+  /** Bezel / side slab / island for the screen rect. */
+  sprites: import("./device/deviceRaster").DeviceSprites;
 }
 
 /** Card tilt the camera stage resolved for this frame (degrees). */

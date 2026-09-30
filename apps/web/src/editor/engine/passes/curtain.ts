@@ -4,7 +4,9 @@
  * active, `renderImage(state:, size: round(videoRect.size), style:)` with the
  * cover style (curtainColor, logo from `assets.images[curtainLogoFileName]`,
  * logo opacity / scale / tint) and the card clip (`cardClip(frameShape:
- * cornerRadius: outerCornerRadius, cardSize:, deviceScreen:)`), scaled back
+ * cornerRadius: outerCornerRadius, cardSize:, deviceScreen:)` — the device
+ * screen is a framed take's whole card, or a stitched take's segment screen
+ * while its device segment is framed: core `curtainDeviceScreen`), scaled back
  * onto the (fractional) video rect and composited — before the camera warp,
  * so the peel rides zoom / tilt / the intro slide like the Mac.
  *
@@ -17,7 +19,8 @@ import {
   curtainRecipe,
   state as curtainState,
 } from "../../core/math/curtainUnveilMath";
-import { screenCornerRadius } from "../../core/math/deviceFrameLayout";
+import { curtainDeviceScreen, deviceFrameActive } from "../../core/math/deviceSegmentDip";
+import { flipRectY } from "../../core/math/geometry";
 import { swiftRound } from "../layout";
 import { replayCurtain, type CurtainLogo } from "../raster/curtainReplay";
 import type { Ctx2D } from "../raster/cgReplay";
@@ -60,13 +63,18 @@ export class CurtainPass implements RenderPass {
     const h = Math.trunc(swiftRound(vr.height));
     if (!(w > 0 && h > 0)) return;
 
-    const key = `${scene.version}|${w}x${h}|${st.progress}|${this.logo ? "L" : ""}`;
+    // The device screen the peel is confined to changes at a stitched take's cuts.
+    const segmentActive = frame.deviceSegment === true;
+    const key = `${scene.version}|${w}x${h}|${st.progress}|${this.logo ? "L" : ""}|${segmentActive ? "S" : ""}`;
     if (key !== this.key) {
       this.key = key;
-      const deviceFrameActive = project.recordingSourceKind === "device" && s.showDeviceFrame;
-      const deviceScreen = deviceFrameActive
-        ? { rect: { x: 0, y: 0, width: vr.width, height: vr.height }, cornerRadius: screenCornerRadius({ width: vr.width, height: vr.height }) }
-        : null;
+      const deviceScreen = curtainDeviceScreen(
+        ctx.statics.segment?.framing.assets ?? null,
+        segmentActive,
+        deviceFrameActive(project.recordingSourceKind, s.showDeviceFrame),
+        // The exporter's (CI Y-UP) static video rect; the result is card-local Y-DOWN.
+        flipRectY(vr, scene.target.height),
+      );
       const style = coverStyle(
         s,
         this.logo ? { width: this.logo.image.width, height: this.logo.image.height } : null,
