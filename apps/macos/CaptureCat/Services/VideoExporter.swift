@@ -111,15 +111,10 @@ final class VideoExporter {
             sourceEnd: trimEnd,
             regions: project.speedRegions
         )
-        // Cap export at the last visible clip's OUTPUT-time end. Resizing or
-        // moving a clip shorter than the trim range would otherwise pad the
-        // output with trailing BG-only frames. We use output time (not source
-        // time) because a moved clip's source range may not be the rightmost
-        // clip on the timeline.
-        let lastVisibleOutput = project.effectiveVideoClipSegments
-            .map { timeMap.outputTime(forSource: $0.endTime) }
-            .max() ?? timeMap.outputDuration
-        let totalSeconds = max(0.0001, min(timeMap.outputDuration, lastVisibleOutput))
+        // Cap export at the last visible clip's OUTPUT-time end (shared with
+        // the MCP server's describe_project, so the length it reports is the
+        // length this writes — see Project.exportedOutputDuration).
+        let totalSeconds = project.exportedOutputDuration(timeMap: timeMap)
 
         // Load cursor data
         var cursorEvents: [CursorEvent] = []
@@ -623,6 +618,17 @@ final class VideoExporter {
                     k.offsetX, k.offsetY, k.tiltPitch, k.tiltYaw, k.tiltRoll))
             }
         }
+
+        let frameTap: (dir: URL, indices: Set<Int>?)? = {
+            let env = ProcessInfo.processInfo.environment
+            guard useBGRAOutput, let path = env["CAPTURECAT_EXPORT_FRAME_TAP"], !path.isEmpty else { return nil }
+            let dir = URL(fileURLWithPath: path, isDirectory: true)
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let indices = env["CAPTURECAT_EXPORT_FRAME_TAP_INDICES"].map {
+                Set($0.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) })
+            }
+            return (dir, indices)
+        }()
 
         let reader2 = try AVAssetReader(asset: asset)
         let readerOutput2 = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: readerOutputSettings)
@@ -2363,6 +2369,16 @@ final class VideoExporter {
                                            bounds: frameComposited.extent, colorSpace: renderSpace)
                 }
 
+                // Diagnostic: the exact pre-encode frame, lossless
+                // (CAPTURECAT_EXPORT_FRAME_TAP=<dir>, optional
+                // CAPTURECAT_EXPORT_FRAME_TAP_INDICES=0,5,…). Parity fixtures
+                // score against this, not a decoded HEVC frame whose
+                // compression noise no other renderer can reproduce.
+                if let tap = frameTap, tap.indices?.contains(frameAppendIndex) ?? true {
+                    Self.writeFrameTap(frameOutputBuffer, space: renderSpace,
+                                       to: tap.dir.appendingPathComponent(String(format: "%04d.png", frameAppendIndex)))
+                }
+
                 // ── Serial, PTS-ordered append with backpressure ──
                 await appender.append(
                     buffer: frameOutputBuffer,
@@ -3935,6 +3951,27 @@ final class VideoExporter {
     /// Writer failures surface as a bare "operation could not be completed" —
     /// include the NSError domain/code and any underlying error so headless
     /// callers can diagnose them.
+    /// Writes a rendered BGRA output buffer as a PNG tagged with the render
+    /// space (the frame-tap diagnostic; never on a normal export).
+    private static func writeFrameTap(_ buffer: CVPixelBuffer, space: CGColorSpace, to url: URL) {
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer),
+              let ctx = CGContext(
+                data: base,
+                width: CVPixelBufferGetWidth(buffer),
+                height: CVPixelBufferGetHeight(buffer),
+                bitsPerComponent: 8,
+                bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+                space: space,
+                bitmapInfo: CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue),
+              let image = ctx.makeImage(),
+              let dest = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil)
+        else { return }
+        CGImageDestinationAddImage(dest, image, nil)
+        CGImageDestinationFinalize(dest)
+    }
+
     private static func detailedWriterError(_ writer: AVAssetWriter, context: String) -> String {
         guard let error = writer.error else { return "Writer stopped (\(context)), no error" }
         let ns = error as NSError

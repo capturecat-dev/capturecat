@@ -2583,35 +2583,9 @@ final class TimelineViewController: NSViewController {
         let defaultDuration: TimeInterval = type == .drawing ? 10 : 3
         let end = max(start + 0.5, min(project.duration, start + defaultDuration))
         var annotation = Annotation(type: type, startTime: start, endTime: end)
-
-        switch type {
-        case .text:
-            annotation.text = "Label"
-        case .arrow:
-            annotation.x = 0.35; annotation.y = 0.45
-            annotation.arrowEndX = 0.55; annotation.arrowEndY = 0.55
-        case .rectangle, .ellipse:
-            annotation.x = 0.35; annotation.y = 0.375
-            annotation.arrowEndX = 0.65; annotation.arrowEndY = 0.625
-            annotation.color = CodableColor(NSColor.white)
-            annotation.backgroundColor = CodableColor(red: 1, green: 1, blue: 1, opacity: 0.25)
-            annotation.showBackground = false
-            annotation.lineWidth = 4
-        case .tap:
-            annotation.x = 0.5; annotation.y = 0.5
-            annotation.fontSize = 60 // reused as ripple size for taps
-        case .callout:
-            annotation.x = 0.4; annotation.y = 0.3
-            annotation.arrowEndX = 0.55; annotation.arrowEndY = 0.5
-            annotation.text = "Look here"
-        case .drawing:
-            // Ink fades. The default pop would SCALE the strokes about the
-            // drawing's (never-moved) placement point — which is also why a
-            // freshly-drawn stroke used to appear far from the pen on the
-            // mid-build frames.
-            annotation.enterEffect = .fade
-            annotation.exitEffect = .fade
-        }
+        // Per-type starting look — shared with the MCP add_annotation tool so
+        // a scripted annotation is born exactly like a hand-placed one.
+        annotation.applyNewAnnotationDefaults()
 
         // The pill's swatch color, when one was picked, wins over the
         // per-type defaults above — it is the user's explicit "draw in this".

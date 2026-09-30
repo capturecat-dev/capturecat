@@ -55,11 +55,17 @@ enum ShareIntelligence {
                 let words = segment.words
                     .filter { $0.endTime > trimStart && $0.startTime < trimEnd }
                     .map { word -> [String: Any] in
-                        [
+                        var entry: [String: Any] = [
                             "start": map.outputTime(forSource: max(word.startTime, trimStart)),
                             "end": map.outputTime(forSource: min(word.endTime, trimEnd)),
                             "text": String(word.text.prefix(80)),
                         ]
+                        // Word-exact edit coordinates (e.g. cutting one "um").
+                        if includeSourceTimes {
+                            entry["sourceStart"] = max(word.startTime, trimStart)
+                            entry["sourceEnd"] = min(word.endTime, trimEnd)
+                        }
+                        return entry
                     }
                 if !words.isEmpty { payload["words"] = words }
                 if includeSourceTimes {

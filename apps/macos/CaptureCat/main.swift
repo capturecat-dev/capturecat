@@ -14,6 +14,27 @@ if CommandLine.arguments.contains("--preview-parity") {
     MainActor.assumeIsolated { PreviewParityHarness.run() }
 }
 
+// Web editor gates (apps/web/src/editor): golden vectors from the REAL Swift
+// math for the TypeScript ports, a Codable round-trip check for
+// web-serialized project.json files, and exporter-rendered reference frames
+// for the web renderer's parity gate. Never reached in a normal launch.
+if CommandLine.arguments.contains("--web-vectors") {
+    MainActor.assumeIsolated { WebVectorsHarness.run() }
+}
+if CommandLine.arguments.contains("--web-roundtrip-check") {
+    MainActor.assumeIsolated { WebRoundtripCheck.run() }
+}
+if CommandLine.arguments.contains("--web-parity-fixtures") {
+    MainActor.assumeIsolated { WebParityFixtures.run() }
+}
+if CommandLine.arguments.contains("--web-cursor-sprites") {
+    MainActor.assumeIsolated { WebCursorSprites.run() }
+}
+
+if CommandLine.arguments.contains("--web-audio-fixtures") {
+    MainActor.assumeIsolated { WebAudioFixtures.run() }
+}
+
 // Inspector-column layout probe under the REAL hosting topology — repro tool
 // for the in-app empty-pane bug. Never reached in a normal launch.
 // URL capture pipeline: normalise -> load offscreen -> snapshot -> encode.
@@ -67,6 +88,27 @@ if CommandLine.arguments.contains("--keystroke-overlay-test") {
 // swap, and toggle motion mid-flight. Never reached in a normal launch.
 if CommandLine.arguments.contains("--capkit-shot") {
     MainActor.assumeIsolated { CCKitGalleryHarness.run() }
+}
+
+// CCKit extras probe: toast, tooltip, accordion, tabs, radio, avatar,
+// skeleton, stepper, text area, callout, empty state, progress ring — one
+// real gallery; topology, material, retheme, motion mid-flight (growth
+// overshoot + pinned top), responsive shrink. Never reached in a normal launch.
+if CommandLine.arguments.contains("--capkit-extras-shot") {
+    MainActor.assumeIsolated { CCKitExtrasHarness.run() }
+}
+
+// MCP catalog export for the web editor's WebMCP layer (same tools, schemas
+// and playbook as the desktop MCP server). Never reached in a normal launch.
+if CommandLine.arguments.contains("--mcp-catalog-json") {
+    MainActor.assumeIsolated { MCPServer.exportCatalogJSON() }
+}
+
+// Onboarding probe: both hosting topologies, per-step layout invariants,
+// stage motion mid-flight (camera push, transitions, mirrored grants),
+// live theme swap, resize. Never reached in a normal launch.
+if CommandLine.arguments.contains("--onboarding-shot") {
+    MainActor.assumeIsolated { OnboardingShotHarness.run() }
 }
 
 // Default-screenshot-tool diagnostics: permission state, tap creation, and
@@ -677,6 +719,14 @@ if CommandLine.arguments.contains("--cursor-export-parity") {
 // machine, not for quoting absolute numbers. Never reached in a normal launch.
 if CommandLine.arguments.contains("--export-bench") {
     ExportBenchHarness.run()
+}
+
+// Cloud projects (web editor) gate: manifest/hash/upload plan, finalize,
+// If-Match saves + conflicts, and the pull's atomic external-edit write —
+// real CloudProjectSync against an in-memory stub server and a throwaway
+// temp project. No network, no real projects. Never reached in a normal launch.
+if CommandLine.arguments.contains("--cloud-sync-test") {
+    MainActor.assumeIsolated { CloudSyncHarness.run() }
 }
 
 // Desktop auth acceptance test: PKCE generation, RFC 8252 redirect-URI

@@ -212,7 +212,7 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
             window.titleVisibility = .hidden
             window.identifier = NSUserInterfaceItemIdentifier("onboarding")
             window.title = "CaptureCat Onboarding"
-            window.setContentSize(NSSize(width: 920, height: 560))
+            window.setContentSize(NSSize(width: 960, height: 600))
             window.isReleasedWhenClosed = false
             window.center()
             onboardingWindowController = NSWindowController(window: window)

@@ -204,25 +204,22 @@ enum BrowserShotHarness {
 
         // ── Onboarding panes ─────────────────────────────────────────────
         // Permissions (1), account (2), finish (3) —
-        // forced via jumpToStep, captured at the wizard's fixed 560×600.
+        // forced via jumpToStep, captured at the wizard's fixed 960×600.
+        OnboardingViewController.harnessMode = true
         let onboarding = OnboardingViewController(appState: appState)
         let onboardingWindow = NSWindow(contentViewController: onboarding)
         onboardingWindow.styleMask = [.titled, .closable, .fullSizeContentView]
         onboardingWindow.titlebarAppearsTransparent = true
         onboardingWindow.titleVisibility = .hidden
         onboardingWindow.isReleasedWhenClosed = false
-        onboardingWindow.setContentSize(NSSize(width: 560, height: 600))
+        onboardingWindow.setContentSize(NSSize(width: 960, height: 600))
         onboardingWindow.setFrameOrigin(NSPoint(x: -6000, y: -6000))
         onboardingWindow.orderFrontRegardless()
         for (index, name) in [(1, "onboarding-permissions"), (2, "onboarding-account"), (3, "onboarding-default-tool"), (4, "onboarding-finish")] {
             onboarding.jumpToStep(index)
             await settle()
             // Vertical-rhythm report: frames of the page's stagger targets.
-            if let page = onboarding.view.subviews
-                .flatMap(\.subviews)
-                .compactMap({ $0 as? NSView })
-                .first(where: { String(describing: type(of: $0)).contains("StepPageView") }),
-               let stack = page.subviews.first(where: { $0 is NSStackView }) as? NSStackView {
+            if let stack = onboarding.probePageStack {
                 for sub in stack.arrangedSubviews {
                     let f = sub.superview!.convert(sub.frame, to: onboarding.view)
                     print("RHYTHM \(name) \(String(describing: type(of: sub))) y=\(Int(f.minY)) h=\(Int(f.height))")
