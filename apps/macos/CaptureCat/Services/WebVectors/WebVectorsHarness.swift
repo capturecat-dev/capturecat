@@ -49,6 +49,18 @@ enum WebVectorsHarness {
             }
             seen.insert(unit.name)
             if let only, !only.contains(unit.name) { continue }
+            // A unit whose inputs must be staged first (e.g. projectMerge's
+            // fixtures) is skipped — loudly — in a full run, and FAILS when
+            // it was asked for by name.
+            if let reason = unit.skipReason() {
+                if only != nil {
+                    print("WEB-VECTORS FAIL \(unit.name): \(reason)")
+                    failures += 1
+                } else {
+                    print("WEB-VECTORS SKIP \(unit.name): \(reason)")
+                }
+                continue
+            }
             let cases = unit.build()
             guard !cases.isEmpty else {
                 print("WEB-VECTORS FAIL \(unit.name): produced no cases")
@@ -113,6 +125,8 @@ struct WebVectorUnit {
     let name: String
     let notes: String
     let build: () -> [WV]
+    /// Non-nil when the unit cannot run yet (inputs not staged) — the reason.
+    var skipReason: () -> String? = { nil }
 }
 
 /// Units are grouped by cluster; each cluster lives in its own
@@ -127,6 +141,7 @@ enum WebVectors {
             + overlayUnits
             + regionUnits
             + styleUnits
+            + mergeUnits
     }
 
     /// One `{input, output}` case.
