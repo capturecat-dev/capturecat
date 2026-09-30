@@ -31,6 +31,8 @@ import { buildEditorToolHandlers, registerEditorWebMCP } from "../state/webmcpHa
 import { Button, SFIcon, ThemeRoot } from "./kit";
 import { useInspectorPanes } from "./panes";
 import { EditorShell } from "./shell/EditorShell";
+import { UnsupportedNotice } from "./shell/UnsupportedNotice";
+import { unsupportedFeatures } from "../engine/contract";
 import { ASPECT_RATIOS, type StageMount, type StageViewport, type TransportState } from "./shell/types";
 import { mountStageInteraction, type StageInteraction } from "./stage/StageInteraction";
 import type { TimelineSnapshot } from "./timeline/types";
@@ -307,6 +309,10 @@ export function EditorPage({ projectId }: { projectId: string }) {
     [project, state.selection, state.sliceArmed, hasAudio],
   );
 
+  // Anything the web engine can't draw yet — the engine's own detection, live
+  // from the document — is said over the stage, never rendered wrong silently.
+  const unsupported = useMemo(() => (project ? unsupportedFeatures(store.documentJSON(project)) : []), [project, store]);
+
   const callbacks = useMemo(() => controller.shellCallbacks(), [controller]);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
   const panes = useInspectorPanes(store, {
@@ -385,6 +391,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
           stage={stage}
           inspectorTab={state.inspectorTab}
           topBarAccessory={accessory}
+          stageNotice={unsupported.length ? <UnsupportedNotice features={unsupported} /> : undefined}
           panes={panes}
         />
         <ExportDialog

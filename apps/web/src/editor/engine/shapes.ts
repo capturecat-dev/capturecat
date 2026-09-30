@@ -113,3 +113,40 @@ export function rasterizeSquircle(rect: Rect, cornerRadius: number): ShapeRaster
   for (let i = 0; i < coverage.length; i++) coverage[i] = rgba[i * 4 + 3];
   return { originX, originY, width, height, coverage };
 }
+
+/** Rounded-box SDF, Y-down px — the float64 twin of WGSL `sdRoundRect` (shaders.ts `common`). */
+export function sdRoundRect(px: number, py: number, rect: Rect, radius: number): number {
+  const hx = rect.width / 2;
+  const hy = rect.height / 2;
+  const r = Math.max(0, Math.min(radius, Math.min(hx, hy)));
+  const qx = Math.abs(px - (rect.x + hx)) - hx + r;
+  const qy = Math.abs(py - (rect.y + hy)) - hy + r;
+  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+}
+
+/** Coverage 0…1 of a pixel-aligned raster at the target pixel containing (x, y); 0 outside it. */
+export function rasterCoverageAt(r: ShapeRaster, x: number, y: number): number {
+  const ix = Math.floor(x) - r.originX;
+  const iy = Math.floor(y) - r.originY;
+  if (ix < 0 || iy < 0 || ix >= r.width || iy >= r.height) return 0;
+  return r.coverage[iy * r.width + ix] / 255;
+}
+
+/**
+ * `raster` × a second clip evaluated at every texel centre (= target pixel
+ * centre; the rasters are pixel-aligned) — what CoreImage yields blending an
+ * image with two masks in turn. Returns a new raster; `coverageAt` is 0…1.
+ */
+export function multiplyRaster(raster: ShapeRaster, coverageAt: (x: number, y: number) => number): ShapeRaster {
+  const coverage = new Uint8Array(raster.coverage.length);
+  for (let j = 0; j < raster.height; j++) {
+    for (let i = 0; i < raster.width; i++) {
+      const k = j * raster.width + i;
+      const a = raster.coverage[k];
+      if (a === 0) continue;
+      const c = Math.max(0, Math.min(1, coverageAt(raster.originX + i + 0.5, raster.originY + j + 0.5)));
+      coverage[k] = Math.round(a * c);
+    }
+  }
+  return { ...raster, coverage };
+}

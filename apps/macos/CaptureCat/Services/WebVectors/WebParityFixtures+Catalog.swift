@@ -285,6 +285,67 @@ extension WebParityFixtures {
                         CameraLayoutRegion(id: id(1302), startTime: 3.0, endTime: 4.0, mode: .cameraOnly),
                     ]
                 }),
+            Fixture(
+                name: "14-source-segments-dip",
+                description: "Stitched take screen → iPhone → screen: the device segment is cropped to its content rect and bezel-framed (screen mask, bezel with its own shadow, island; the card shadow dropped), a Keynote dip straddles each cut, and a tilt region spans the second cut (side slab + dip under the warp). Frames on, beside and around both cuts.",
+                features: ["sourceSegments", "sourceSegments.deviceFraming", "deviceSegmentDip", "tilt.region", "deviceSide"],
+                duration: 5, sourceSize: screen, withCursor: false, withCamera: false,
+                frames: [0, 40, 45, 47, 48, 49, 52, 60, 80, 99, 101, 102, 103, 106, 125, 149],
+                configure: { p in
+                    let s = p.settings
+                    s.showDeviceFrame = true
+                    s.backgroundPadding = 56
+                    s.cornerRadius = 14
+                    s.windowCornerRadius = 10
+                    s.shadowRadius = 28
+                    s.shadowOpacity = 0.55
+                    p.sourceSegments = [
+                        stitchedSegment(start: 0, duration: 1.6, kind: .display, natural: screen),
+                        stitchedSegment(start: 1.6, duration: 1.8, kind: .device, natural: phone),
+                        stitchedSegment(start: 3.4, duration: 1.6, kind: .display, natural: screen),
+                    ]
+                    p.tiltRegions = [
+                        TiltRegion(id: id(1401), startTime: 2.9, endTime: 4.1, pitch: 12, yaw: -20, roll: 0,
+                                   animationStyle: .smooth),
+                    ]
+                }),
+            Fixture(
+                name: "15-segment-first-curtain",
+                description: "Stitched take that STARTS on the iPhone (a dip boundary at t = 0) with an off-grid cut, squircle frame, and a Curtain Unveil peeling across the cut — clipped to the phone screen, then to the card.",
+                features: ["sourceSegments", "sourceSegments.deviceFirst", "deviceSegmentDip", "curtainUnveil.deviceScreen", "frameShape.squircle"],
+                duration: 3, sourceSize: screen, withCursor: false, withCamera: false,
+                frames: [0, 9, 20, 30, 42, 45, 46, 50, 56, 70, 89],
+                configure: { p in
+                    let s = p.settings
+                    s.showDeviceFrame = true
+                    s.frameShape = .squircle
+                    s.cornerRadius = 26
+                    s.backgroundPadding = 72
+                    s.curtainUnveilCorner = .topLeft
+                    s.curtainUnveilStart = 0.3
+                    s.curtainUnveilDuration = 1.6
+                    s.curtainColor = CodableColor(red: 0.16, green: 0.1, blue: 0.24)
+                    p.sourceSegments = [
+                        stitchedSegment(start: 0, duration: 1.507, kind: .device, natural: phone),
+                        stitchedSegment(start: 1.507, duration: 1.493, kind: .display, natural: screen),
+                    ]
+                }),
         ]
+    }
+
+    /// A segment exactly as `RecordingStitcher.stitch` records it: `natural`
+    /// aspect-fit into the (screen-sized) render size, normalized top-left.
+    private static func stitchedSegment(start: TimeInterval, duration: TimeInterval,
+                                        kind: RecordingSourceKind, natural: CGSize) -> ProjectSourceSegment {
+        let render = screen
+        let scale = min(render.width / max(1, natural.width), render.height / max(1, natural.height))
+        let w = natural.width * scale
+        let h = natural.height * scale
+        return ProjectSourceSegment(
+            startTime: start, duration: duration, kind: kind,
+            contentX: Double((render.width - w) / 2 / render.width),
+            contentY: Double((render.height - h) / 2 / render.height),
+            contentWidth: Double(w / render.width),
+            contentHeight: Double(h / render.height))
     }
 }

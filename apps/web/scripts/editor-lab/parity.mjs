@@ -31,6 +31,19 @@ const FIX = new URL("../../.fixtures/parity/", import.meta.url).pathname;
 mkdirSync(OUT, { recursive: true });
 
 const manifest = JSON.parse(readFileSync(join(FIX, "manifest.json"), "utf8"));
+
+// Structural guard (CLAUDE.md §3: a mean diff is blind to small structural
+// defects). Fixtures listing one of these features also fail when the largest
+// 4-connected blob of pixels off by > BLOB_DIFF/255 (1-px eroded, so AA edge
+// lines never count) exceeds the limit (px). Injected-defect proof for device
+// segments: dropping the segment's Dynamic Island still scored mean 1.42 /
+// p99 9 (a pass on those two alone).
+const BLOB_DIFF = 32;
+const STRUCTURAL = { sourceSegments: 200 };
+const structuralLimit = (fx) => {
+  const limits = (fx.features ?? []).map((f) => STRUCTURAL[f]).filter((v) => v != null);
+  return limits.length ? Math.min(...limits) : null;
+};
 const browser = await chromium.launch({
   channel: "chrome",
   headless: true,
@@ -47,7 +60,7 @@ for (const fx of manifest.fixtures) {
   if (ONLY && !ONLY.has(fx.name)) continue;
   const base = `/.fixtures/parity/${fx.dir}`;
   const result = await page.evaluate(
-    async ({ base, fx, allSides }) => {
+    async ({ base, fx, allSides, blobLimit, blobDiff }) => {
       window.__paritySides = [];
       const client = window.__lab.client();
       const project = await (await fetch(`${base}/${fx.project}`)).json();
@@ -124,23 +137,64 @@ for (const fx of manifest.fixtures) {
             break;
           }
         }
-        rows.push({ t: f.outputTime, max, mean: sum / n, p99, over8: over8 / n, bbox: bx1 >= 0 ? [bx0, by0, bx1 - bx0 + 1, by1 - by0 + 1] : null });
+        // Structural guard: the largest 4-connected blob of pixels off by
+        // more than BLOB_DIFF (opt-in per fixture feature, see STRUCTURAL),
+        // after a 1-px erosion so AA edge lines (a sub-pixel edge shift) never
+        // count — only SOLID regions that are wrong do.
+        let blob = null;
+        if (blobLimit != null) {
+          const W = img.width;
+          const raw = new Uint8Array(n);
+          for (let i = 0; i < n; i++) {
+            const o = i * 4;
+            raw[i] = Math.max(Math.abs(web[o] - ref[o]), Math.abs(web[o + 1] - ref[o + 1]), Math.abs(web[o + 2] - ref[o + 2])) > blobDiff ? 1 : 0;
+          }
+          const hot = new Uint8Array(n);
+          for (let i = 0; i < n; i++) {
+            const x = i % W;
+            hot[i] = raw[i] && x > 0 && x < W - 1 && i >= W && i + W < n && raw[i - 1] && raw[i + 1] && raw[i - W] && raw[i + W] ? 1 : 0;
+          }
+          const stack = new Int32Array(n);
+          blob = 0;
+          for (let s = 0; s < n; s++) {
+            if (!hot[s]) continue;
+            let top = 0;
+            let size = 0;
+            stack[top++] = s;
+            hot[s] = 0;
+            while (top) {
+              const i = stack[--top];
+              size++;
+              const x = i % W;
+              if (x > 0 && hot[i - 1]) { hot[i - 1] = 0; stack[top++] = i - 1; }
+              if (x < W - 1 && hot[i + 1]) { hot[i + 1] = 0; stack[top++] = i + 1; }
+              if (i >= W && hot[i - W]) { hot[i - W] = 0; stack[top++] = i - W; }
+              if (i + W < n && hot[i + W]) { hot[i + W] = 0; stack[top++] = i + W; }
+            }
+            if (size > blob) blob = size;
+          }
+        }
+        rows.push({ t: f.outputTime, max, mean: sum / n, p99, over8: over8 / n, blob, bbox: bx1 >= 0 ? [bx0, by0, bx1 - bx0 + 1, by1 - by0 + 1] : null });
       }
       return rows;
     },
-    { base, fx, allSides: ALL_SIDES },
+    { base, fx, allSides: ALL_SIDES, blobLimit: structuralLimit(fx), blobDiff: BLOB_DIFF },
   );
   const sides = await page.evaluate(() => window.__paritySides ?? []);
   for (const side of sides) {
     const suffix = ALL_SIDES ? `-t${side.t.toFixed(3)}` : "";
     writeFileSync(join(OUT, `${fx.name}${suffix}-side.png`), Buffer.from(side.png));
   }
+  const blobLimit = structuralLimit(fx);
   for (const r of result) {
-    const bad = r.error || r.mean > 1.5 || r.p99 > 12;
+    const bad = r.error || r.mean > 1.5 || r.p99 > 12 || (blobLimit != null && r.blob > blobLimit);
     if (bad) failed++;
     console.log(
       `${bad ? "FAIL" : "ok  "} ${fx.name} t=${r.t.toFixed(3)} ` +
-        (r.error ?? `mean=${r.mean.toFixed(2)} p99=${r.p99} max=${r.max} >8:${(r.over8 * 100).toFixed(2)}% bbox=${JSON.stringify(r.bbox)}`),
+        (r.error ??
+          `mean=${r.mean.toFixed(2)} p99=${r.p99} max=${r.max} >8:${(r.over8 * 100).toFixed(2)}%` +
+            (r.blob != null ? ` blob>${BLOB_DIFF}=${r.blob}px(≤${blobLimit})` : "") +
+            ` bbox=${JSON.stringify(r.bbox)}`),
     );
   }
 }

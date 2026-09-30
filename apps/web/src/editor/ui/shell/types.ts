@@ -212,4 +212,6 @@ export interface EditorShellProps {
   panes: Partial<Record<InspectorTabId, ReactNode>>;
   /** Extra top-bar content right of the sync affordance (dev toggles). */
   topBarAccessory?: ReactNode;
+  /** Non-blocking callout over the top of the stage (e.g. UnsupportedNotice). */
+  stageNotice?: ReactNode;
 }
