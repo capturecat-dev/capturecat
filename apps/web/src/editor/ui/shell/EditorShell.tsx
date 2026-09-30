@@ -102,6 +102,16 @@ export function EditorShell(props: EditorShellProps & { timelineRendererRef?: { 
     [width],
   );
 
+  // Selecting a region / effect / annotation re-shows a collapsed inspector
+  // (the Mac's `selection.showInspector = true`).
+  const revealKey = props.inspectorRevealKey;
+  const lastReveal = useRef(revealKey);
+  useEffect(() => {
+    if (revealKey === lastReveal.current) return;
+    lastReveal.current = revealKey;
+    if (!visible) setInspectorVisible(true);
+  }, [revealKey, visible, setInspectorVisible]);
+
   // Divider drag → live width (clamped 340…480), committed + persisted on release.
   const onDividerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!visible || e.button !== 0) return;
@@ -150,10 +160,16 @@ export function EditorShell(props: EditorShellProps & { timelineRendererRef?: { 
   cbRef.current = callbacks;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
       const cb = cbRef.current;
       const mod = e.metaKey || e.ctrlKey;
+      // ⌘O "Browse Captures…" — a menu key equivalent, so it fires from text fields too.
+      if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        cb.onShowProjects?.();
+        return;
+      }
+      const target = e.target as HTMLElement | null;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
       if (mod && e.altKey && e.code === "KeyI") {
         e.preventDefault();
         setInspectorVisible(!visible);

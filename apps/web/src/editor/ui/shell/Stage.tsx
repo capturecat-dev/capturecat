@@ -10,6 +10,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 import { QuietButton } from "../kit";
+import { clampPreviewZoom, stageReferenceSize } from "../stage/stageLayout";
 import type { StageMount, StageViewport } from "./types";
 
 export const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4] as const;
@@ -48,22 +49,43 @@ export function Stage({
   onZoomChange: (zoom: number) => void;
 }) {
   const slotRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const viewport = useRef<StageViewport>({ cssWidth: 0, cssHeight: 0, dpr: 1, zoom });
   const mountRef = useRef(mount);
   mountRef.current = mount;
+  const aspectRef = useRef(aspect);
+  aspectRef.current = aspect;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const onZoomRef = useRef(onZoomChange);
+  onZoomRef.current = onZoomChange;
   const [resizing, setResizing] = useState(false);
+  // A pinch is in flight: the slot follows the fingers with no settle
+  // transition, and the point under them stays put (NSScrollView magnify).
+  const [pinching, setPinching] = useState(false);
+  const pinchAnchor = useRef<{ clientX: number; clientY: number; fx: number; fy: number } | null>(null);
+
+  /** Slot size + the unmagnified letterboxed canvas (`project.previewCanvasSize`). */
+  const measure = (slot: HTMLElement): StageViewport => {
+    const rect = slot.getBoundingClientRect();
+    const card = cardRef.current?.getBoundingClientRect();
+    const ref = card ? stageReferenceSize({ width: card.width, height: card.height }, aspectRef.current) : null;
+    return {
+      cssWidth: Math.round(rect.width),
+      cssHeight: Math.round(rect.height),
+      dpr: window.devicePixelRatio || 1,
+      zoom: zoomRef.current,
+      reference: ref && ref.width > 0 && ref.height > 0 ? { width: Math.round(ref.width), height: Math.round(ref.height) } : undefined,
+    };
+  };
 
   // Mount/unmount the engine into the slot.
   useLayoutEffect(() => {
     const slot = slotRef.current;
     if (!slot || !mount) return;
-    const rect = slot.getBoundingClientRect();
-    viewport.current = {
-      cssWidth: Math.round(rect.width),
-      cssHeight: Math.round(rect.height),
-      dpr: window.devicePixelRatio || 1,
-      zoom,
-    };
+    viewport.current = measure(slot);
     const cleanup = mount.mount(slot, viewport.current);
     return cleanup;
     // Mount identity only — viewport changes flow through onViewport.
@@ -76,16 +98,19 @@ export function Stage({
     if (!slot) return;
     let settle = 0;
     const report = () => {
-      const rect = slot.getBoundingClientRect();
-      snapCanvas(slot, rect);
-      const next: StageViewport = {
-        cssWidth: Math.round(rect.width),
-        cssHeight: Math.round(rect.height),
-        dpr: window.devicePixelRatio || 1,
-        zoom,
-      };
+      snapCanvas(slot, slot.getBoundingClientRect());
+      const next = measure(slot);
       const v = viewport.current;
-      if (next.cssWidth === v.cssWidth && next.cssHeight === v.cssHeight && next.dpr === v.dpr && next.zoom === v.zoom) return;
+      if (
+        next.cssWidth === v.cssWidth &&
+        next.cssHeight === v.cssHeight &&
+        next.dpr === v.dpr &&
+        next.zoom === v.zoom &&
+        next.reference?.width === v.reference?.width &&
+        next.reference?.height === v.reference?.height
+      ) {
+        return;
+      }
       viewport.current = next;
       mountRef.current?.onViewport?.(next);
     };
@@ -98,6 +123,7 @@ export function Stage({
       report();
     });
     ro.observe(slot);
+    if (cardRef.current) ro.observe(cardRef.current);
     // The slot also MOVES without resizing (sidebar, inspector) — re-snap.
     const onWindow = () => snapCanvas(slot, slot.getBoundingClientRect());
     window.addEventListener("resize", onWindow);
@@ -108,6 +134,68 @@ export function Stage({
       window.clearTimeout(settle);
     };
   }, [zoom]);
+
+  // Keep the pinched point under the fingers once the new size has laid out.
+  useLayoutEffect(() => {
+    const anchor = pinchAnchor.current;
+    const slot = slotRef.current;
+    const scroll = scrollRef.current;
+    if (!anchor || !slot || !scroll) return;
+    pinchAnchor.current = null;
+    const r = slot.getBoundingClientRect();
+    scroll.scrollLeft += r.left - (anchor.clientX - anchor.fx * r.width);
+    scroll.scrollTop += r.top - (anchor.clientY - anchor.fy * r.height);
+  }, [zoom]);
+
+  // Trackpad pinch → the SAME zoom the pill drives (the Mac scroll view's
+  // `allowsMagnification`, 0.25…4×, continuous). Chromium/Firefox deliver a
+  // pinch as ctrl+wheel; Safari as gesture events.
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    let settle = 0;
+    let gestureBase = 1;
+    const apply = (next: number, clientX: number, clientY: number) => {
+      const z = clampPreviewZoom(next);
+      if (Math.abs(z - zoomRef.current) < 1e-4) return;
+      const slot = slotRef.current;
+      if (slot) {
+        const r = slot.getBoundingClientRect();
+        const fx = r.width > 0 ? Math.min(1, Math.max(0, (clientX - r.left) / r.width)) : 0.5;
+        const fy = r.height > 0 ? Math.min(1, Math.max(0, (clientY - r.top) / r.height)) : 0.5;
+        pinchAnchor.current = { clientX, clientY, fx, fy };
+      }
+      setPinching(true);
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => setPinching(false), 160);
+      zoomRef.current = z;
+      onZoomRef.current(z);
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      apply(zoomRef.current * Math.exp(-dy * 0.01), e.clientX, e.clientY);
+    };
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      gestureBase = zoomRef.current;
+    };
+    const onGestureChange = (e: Event & { scale?: number; clientX?: number; clientY?: number }) => {
+      e.preventDefault();
+      const r = wrap.getBoundingClientRect();
+      apply(gestureBase * (e.scale ?? 1), e.clientX ?? r.left + r.width / 2, e.clientY ?? r.top + r.height / 2);
+    };
+    wrap.addEventListener("wheel", onWheel, { passive: false });
+    wrap.addEventListener("gesturestart", onGestureStart);
+    wrap.addEventListener("gesturechange", onGestureChange as EventListener);
+    return () => {
+      wrap.removeEventListener("wheel", onWheel);
+      wrap.removeEventListener("gesturestart", onGestureStart);
+      wrap.removeEventListener("gesturechange", onGestureChange as EventListener);
+      window.clearTimeout(settle);
+    };
+  }, []);
 
   const step = (dir: 1 | -1) => {
     if (dir > 0) {
@@ -139,14 +227,14 @@ export function Stage({
   });
 
   return (
-    <div className="cc-stagewrap">
-      <div className="cc-stagecard">
-        <div className="cc-stagescroll" data-zoomed={zoom > 1 || undefined}>
+    <div ref={wrapRef} className="cc-stagewrap">
+      <div ref={cardRef} className="cc-stagecard">
+        <div ref={scrollRef} className="cc-stagescroll" data-zoomed={zoom > 1 || undefined}>
           <div
             ref={slotRef}
             className="cc-stageslot"
             data-engine-slot=""
-            data-resizing={resizing || undefined}
+            data-resizing={resizing || pinching || undefined}
             style={{ "--aspect": aspect, "--zoom": zoom } as CSSProperties}
           />
         </div>

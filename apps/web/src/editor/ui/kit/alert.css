@@ -1,0 +1,66 @@
+/* CCAlert (Views/Shared/DesignKit/CCAlert.swift): scrim + raised matte card,
+   stack insets lg, title → message spacing sm, message → buttons spacing lg,
+   width 340…440 (clamped to the window − 2·lg, floor 280). */
+
+.cc-alert {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  font-family: var(--cc-font);
+}
+
+.cc-alert__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--cc-overlay);
+}
+
+.cc-alert__card {
+  --cc-alert-clamp: max(280px, calc(100vw - 2 * var(--cc-space-lg)));
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: min(340px, var(--cc-alert-clamp));
+  max-width: min(440px, var(--cc-alert-clamp));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--cc-space-lg);
+  border-radius: var(--cc-radius-xl);
+  border: 1px solid var(--cc-border);
+  --m-tint: var(--cc-elevated);
+  color: var(--cc-foreground);
+  box-shadow:
+    0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
+    0 10px 28px 0 rgb(0 0 0 / 0.5);
+}
+.cc-theme[data-cc-resolved="light"] .cc-alert__card {
+  box-shadow:
+    0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
+    0 10px 28px 0 rgb(0 0 0 / 0.25);
+}
+
+.cc-alert__title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 19px;
+  color: var(--cc-foreground);
+  overflow-wrap: anywhere;
+}
+
+.cc-alert__message {
+  margin-top: var(--cc-space-sm);
+  max-width: 296px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--cc-muted);
+}
+
+.cc-alert__buttons {
+  margin-top: var(--cc-space-lg);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cc-space-sm);
+}

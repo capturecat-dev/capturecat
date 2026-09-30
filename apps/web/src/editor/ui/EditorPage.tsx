@@ -28,11 +28,13 @@ import { loadEditorProject, type LoadedEditorProject } from "../state/projectSou
 import { EditorStore, useEditorStore, type EditorState, type Persistence } from "../state/store";
 import { timelineSnapshot } from "../state/timeline";
 import { buildEditorToolHandlers, registerEditorWebMCP } from "../state/webmcpHandlers";
-import { Button, SFIcon, ThemeRoot } from "./kit";
+import { REPLACE_ZOOM_BLOCKS, editorPaneActions, useInspectorRevealKey, usePendingSeek, useRecordingFacts } from "./editorPageWiring";
+import { AlertHost, AlertPresenter, Button, SFIcon, ThemeRoot } from "./kit";
 import { useInspectorPanes } from "./panes";
 import { EditorShell } from "./shell/EditorShell";
-import { ASPECT_RATIOS, type StageMount, type StageViewport, type TransportState } from "./shell/types";
+import type { StageMount, StageViewport, TransportState } from "./shell/types";
 import { mountStageInteraction, type StageInteraction } from "./stage/StageInteraction";
+import { engineViewport, stageCanvasAspect } from "./stage/stageLayout";
 import type { TimelineSnapshot } from "./timeline/types";
 
 /** The editor requires WebGPU (architecture §Stack) — say so plainly. */
@@ -69,12 +71,12 @@ const selectState = (s: EditorState) => s;
 
 // ── Page ────────────────────────────────────────────────────────────────
 
-export function EditorPage({ projectId }: { projectId: string }) {
+export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** `?t=` output seconds (deep link). */ pendingSeek?: number | null }) {
   // One initializer for the pair: StrictMode double-invokes initializers, and
   // the controller registers itself as the store's playhead provider.
-  const [{ store, controller }] = useState(() => {
+  const [{ store, controller, alerts }] = useState(() => {
     const s = new EditorStore();
-    return { store: s, controller: new EditorController(s) };
+    return { store: s, controller: new EditorController(s), alerts: new AlertPresenter() };
   });
   const state = useEditorStore(store, selectState);
   const [loaded, setLoaded] = useState<LoadedEditorProject | null>(null);
@@ -204,11 +206,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
         void (async () => {
           try {
             if (!videoUrl) throw new Error("This project has no screen recording the web can load.");
-            const client = await EngineClient.create(canvas, {
-              cssWidth: Math.max(1, Math.round(viewport.cssWidth)),
-              cssHeight: Math.max(1, Math.round(viewport.cssHeight)),
-              dpr: viewport.dpr,
-            });
+            const client = await EngineClient.create(canvas, engineViewport(viewport));
             if (disposed) return client.dispose();
             controller.client = client;
             client.onError((e) => setEngineError(`${e.code}: ${e.message}`));
@@ -227,9 +225,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
             const loadedInfo = await client.load(doc, { video: videoUrl, files });
             if (disposed) return;
             setInfo(loadedInfo);
-            if (current) {
-              client.resize({ cssWidth: Math.round(current.cssWidth), cssHeight: Math.round(current.cssHeight), dpr: current.dpr });
-            }
+            if (current) client.resize(engineViewport(current));
             // Edits made while the engine loaded.
             if (store.getState().project) client.setProject(store.documentJSON());
             await client.seek(playhead.get());
@@ -255,11 +251,9 @@ export function EditorPage({ projectId }: { projectId: string }) {
       },
       onViewport(viewport) {
         current = viewport;
-        controller.client?.resize({
-          cssWidth: Math.max(1, Math.round(viewport.cssWidth)),
-          cssHeight: Math.max(1, Math.round(viewport.cssHeight)),
-          dpr: viewport.dpr,
-        });
+        // Reference = the UNMAGNIFIED canvas: the zoom pill magnifies, it
+        // never re-lays-out point sizes — and export reads this reference.
+        controller.client?.resize(engineViewport(viewport));
         stageRef.current?.resize(viewport);
       },
     };
@@ -282,25 +276,23 @@ export function EditorPage({ projectId }: { projectId: string }) {
       const outcome = controller.apply(E.autoZoom(await pending));
       return outcome ? store.getState().project!.zoomRegions.filter((z) => z.isAuto === true).length : 0;
     };
-    controller.hooks.stillMotion = () => {
+    controller.hooks.stillMotion = async () => {
       const p = store.getState().project;
       // The Mac confirms before regenerating over existing zoom blocks (CCAlert).
-      if (p && p.zoomRegions.length > 0 && !window.confirm("Replace Zoom Blocks?\n\nMotion generates a new camera journey. Previously generated blocks will be replaced.")) {
-        return 0;
-      }
+      if (p && p.zoomRegions.length > 0 && (await alerts.present(REPLACE_ZOOM_BLOCKS)) !== 0) return 0;
       return controller.apply(E.stillMotion) ? 1 : 0;
     };
     return () => {
       controller.hooks.autoZoom = undefined;
       controller.hooks.stillMotion = undefined;
     };
-  }, [loaded, info, controller, store]);
+  }, [loaded, info, controller, store, alerts]);
 
   const settings = project?.settings;
   const aspectId = settings?.aspectRatio ?? "Auto";
-  const canvasAspect = info
-    ? info.outputSize.width / Math.max(1, info.outputSize.height)
-    : (ASPECT_RATIOS.find((a) => a.id === aspectId)?.ratio ?? 16 / 9);
+  // Re-letterboxed on every aspect / resolution / custom-size change, through
+  // the exporter's own output-size function (ZoomScrollView.canvasAspectProvider).
+  const canvasAspect = stageCanvasAspect(settings, info ? { width: info.width, height: info.height } : null);
   const hasAudio = info?.hasAudio ?? true;
   const timeline = useMemo(
     () => (project ? timelineSnapshot({ project, selection: state.selection, sliceArmed: state.sliceArmed, hasAudio }) : EMPTY_TIMELINE),
@@ -309,9 +301,14 @@ export function EditorPage({ projectId }: { projectId: string }) {
 
   const callbacks = useMemo(() => controller.shellCallbacks(), [controller]);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
+  const paneActions = useMemo(() => editorPaneActions(controller), [controller]);
+  const paneFacts = useRecordingFacts(project, loaded);
+  const inspectorRevealKey = useInspectorRevealKey(store);
+  usePendingSeek(store, controller, info != null, pendingSeek, projectId);
   const panes = useInspectorPanes(store, {
     onAction: (a) => controller.timelineAction(a),
-    actions: { assetUrl: (fileName) => loaded?.mediaUrl(fileName) },
+    actions: { assetUrl: (fileName) => loaded?.mediaUrl(fileName), ...paneActions },
+    facts: paneFacts,
   });
 
   if (loadError || state.parseError) {
@@ -384,9 +381,11 @@ export function EditorPage({ projectId }: { projectId: string }) {
           timelineIntents={intents}
           stage={stage}
           inspectorTab={state.inspectorTab}
+          inspectorRevealKey={inspectorRevealKey}
           topBarAccessory={accessory}
           panes={panes}
         />
+        <AlertHost presenter={alerts} />
         <ExportDialog
           open={exportOpen}
           onClose={() => setExportOpen(false)}

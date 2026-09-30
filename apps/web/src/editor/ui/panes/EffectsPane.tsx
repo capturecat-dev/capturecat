@@ -57,7 +57,6 @@ export function EffectsPane({ settings: s, onSettingsChange, onCommit, selection
   const commit = () => onCommit?.();
   const { zoom, tilt, highlight, focus: depth, blur } = selectedRegions(selection, project);
   const act = actions?.onAction;
-  const playhead = () => actions?.playheadTime?.() ?? 0;
   const [presetIndex, setPresetIndex] = useState(0);
 
   // "Cinematic" adds the missing half of the block first; the new region
@@ -378,7 +377,7 @@ export function EffectsPane({ settings: s, onSettingsChange, onCommit, selection
                       onChange={(on) => {
                         if (on) {
                           if (tilt) act?.({ type: "addZoomToBlock", tiltId: tilt.id });
-                          else act?.({ type: "addZoomAt", time: playhead() });
+                          else actions?.onAddZoomBlockAtPlayhead?.();
                         } else if (zoom) {
                           act?.({ type: "removeZoom", zoomId: zoom.id });
                         }
@@ -512,7 +511,7 @@ export function EffectsPane({ settings: s, onSettingsChange, onCommit, selection
                       onChange={(on) => {
                         if (on) {
                           if (zoom) act?.({ type: "addTiltToBlock", zoomId: zoom.id });
-                          else act?.({ type: "addTiltAt", time: playhead() });
+                          else actions?.onAddTiltBlockAtPlayhead?.();
                         } else if (tilt) {
                           act?.({ type: "removeTilt", tiltId: tilt.id });
                         }

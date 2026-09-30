@@ -135,6 +135,13 @@ export interface StageViewport {
   dpr: number;
   /** Preview magnification (0.25…4). */
   zoom: number;
+  /**
+   * The UNMAGNIFIED letterboxed canvas (CSS px) — the Mac's
+   * `project.previewCanvasSize`, which NSScrollView magnification never
+   * changes. Point-based settings scale against this, in the preview and in
+   * the export. Absent: cssWidth/Height ÷ zoom.
+   */
+  reference?: { width: number; height: number };
 }
 
 export interface StageMount {
@@ -212,4 +219,10 @@ export interface EditorShellProps {
   panes: Partial<Record<InspectorTabId, ReactNode>>;
   /** Extra top-bar content right of the sync affordance (dev toggles). */
   topBarAccessory?: ReactNode;
+  /**
+   * Bumps whenever a selection should re-show a collapsed inspector (the
+   * Mac's `selection.showInspector = true` on selecting a region / effect /
+   * annotation). Any change reveals it; the value itself is opaque.
+   */
+  inspectorRevealKey?: number;
 }
