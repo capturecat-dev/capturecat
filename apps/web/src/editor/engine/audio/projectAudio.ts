@@ -61,7 +61,7 @@ function parseSmpb(bytes: Uint8Array): { priming: number; validFrames: number } 
  * `moov` sits at the end) — what AVFoundation uses to hide AAC priming in
  * files without an edit list.
  */
-async function readGapless(url: string): Promise<{ priming: number; validFrames: number } | null> {
+export async function readGapless(url: string): Promise<{ priming: number; validFrames: number } | null> {
   try {
     const head = await fetch(url, { headers: { Range: "bytes=0-262143" } });
     if (!head.ok) return null;

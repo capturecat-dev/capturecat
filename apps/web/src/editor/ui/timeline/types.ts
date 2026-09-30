@@ -8,7 +8,7 @@
  * TimelineViewController's wrappers — the timeline never sees the model or
  * the time map.
  */
-import type { VoiceOverClip } from "../../core/model";
+import type { ProjectSourceSegment, VoiceOverClip } from "../../core/model";
 
 export interface EffectBlock {
   /** Stable key: "e:<zoomId|->:<tiltId|->". */
@@ -130,10 +130,23 @@ export interface VoiceRow {
   live?: { start: number; end: number; samples: ArrayLike<number> };
 }
 
+/** One decoded filmstrip frame (TimelineThumbnail): its requested source time + pixel size. */
+export interface TimelineThumbnailImage {
+  time: number;
+  image: CanvasImageSource;
+  width: number;
+  height: number;
+}
+
 /** Heavy, non-diffed media the lanes draw (filmstrip, waveform). */
 export interface TimelineAssets {
   /** Bumps whenever any asset below changes (triggers a redraw). */
   version: number;
+  /** Decoded thumbnails ascending by time — tiled exactly like the Mac
+   *  (core/time/filmstrip layoutFilmstrip). Takes precedence over `thumbnailAt`. */
+  thumbnails?: readonly TimelineThumbnailImage[];
+  /** project.sourceSegments: device-source tiles crop to their content rect. */
+  sourceSegments?: readonly ProjectSourceSegment[];
   /** Filmstrip tile for a SOURCE time; null = not decoded yet. */
   thumbnailAt?: (sourceSeconds: number) => CanvasImageSource | null;
   /** width / height of a thumbnail (source video aspect). */
