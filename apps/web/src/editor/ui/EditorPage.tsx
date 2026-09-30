@@ -26,6 +26,7 @@ import * as E from "../state/edits";
 import { loadInteractionInputs } from "../state/interactionInputs";
 import { loadEditorProject, type LoadedEditorProject } from "../state/projectSource";
 import { EditorStore, useEditorStore, type EditorState, type Persistence } from "../state/store";
+import { useSubtitleGeneration } from "../state/subtitleGeneration";
 import { timelineSnapshot } from "../state/timeline";
 import { buildEditorToolHandlers, registerEditorWebMCP } from "../state/webmcpHandlers";
 import { REPLACE_ZOOM_BLOCKS, editorPaneActions, useInspectorRevealKey, usePendingSeek, useRecordingFacts } from "./editorPageWiring";
@@ -335,12 +336,14 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
   const paneActions = useMemo(() => editorPaneActions(controller), [controller]);
   const mediaActions = useMediaPickers(store, loaded);
+  // Generate / Regenerate Subtitles: on-device Whisper (state/subtitleGeneration.ts).
+  const subtitleActions = useSubtitleGeneration(store, loaded?.mediaUrl);
   const paneFacts = useRecordingFacts(project, loaded);
   const inspectorRevealKey = useInspectorRevealKey(store);
   usePendingSeek(store, controller, info != null, pendingSeek, projectId);
   const panes = useInspectorPanes(store, {
     onAction: (a) => controller.timelineAction(a),
-    actions: { assetUrl: (fileName) => loaded?.mediaUrl(fileName), ...paneActions, ...mediaActions },
+    actions: { assetUrl: (fileName) => loaded?.mediaUrl(fileName), ...paneActions, ...mediaActions, ...subtitleActions },
     facts: paneFacts,
   });
 

@@ -24,9 +24,9 @@ import type {
 import { isImageCapture } from "../../core/model/helpers";
 import { chypot, smax, smin } from "../../core/math/swift";
 import { effectiveTrimEnd, effectiveTrimStart, effectiveVideoClipSegments } from "../../core/time/clips";
-import { SpeedTimeMap } from "../../core/time/speedTimeMap";
+import { transcriptPayload as corePayload } from "../../core/transcript";
 import { outputDuration } from "./edits";
-import { prefixChars, round3, trimWhitespacesAndNewlines } from "./json";
+import { round3 } from "./json";
 import { hexString } from "./style";
 import type { JSONObject } from "./types";
 
@@ -478,44 +478,10 @@ export function analyzeSilence(
 // ── get_transcript ────────────────────────────────────────────────────────
 
 /** `ShareIntelligence.transcriptPayload(for:includeSourceTimes:)` — subtitle
- * segments retimed to OUTPUT seconds on the exporter's trim+speed map. */
+ * segments retimed to OUTPUT seconds on the exporter's trim+speed map. One
+ * implementation (core/transcript.ts), shared with the share upload. */
 export function transcriptPayload(project: Project, includeSourceTimes = false): JSONObject[] {
-  const trimStart = effectiveTrimStart(project);
-  const trimEnd = smax(trimStart, effectiveTrimEnd(project));
-  if (!(trimEnd > trimStart) || project.subtitles.length === 0) return [];
-  const map = new SpeedTimeMap(trimStart, trimEnd, project.speedRegions);
-  const out: JSONObject[] = [];
-  for (const segment of byStart(project.subtitles.filter((s) => s.endTime > trimStart && s.startTime < trimEnd))) {
-    const text = trimWhitespacesAndNewlines(segment.text);
-    if (text.length === 0) continue;
-    const payload: JSONObject = {
-      start: map.outputTime(smax(segment.startTime, trimStart)),
-      end: map.outputTime(smin(segment.endTime, trimEnd)),
-      text: prefixChars(text, 500),
-    };
-    const words = segment.words
-      .filter((w) => w.endTime > trimStart && w.startTime < trimEnd)
-      .map((word) => {
-        const entry: JSONObject = {
-          start: map.outputTime(smax(word.startTime, trimStart)),
-          end: map.outputTime(smin(word.endTime, trimEnd)),
-          text: prefixChars(word.text, 80),
-        };
-        // Word-exact edit coordinates (e.g. cutting one "um").
-        if (includeSourceTimes) {
-          entry.sourceStart = smax(word.startTime, trimStart);
-          entry.sourceEnd = smin(word.endTime, trimEnd);
-        }
-        return entry;
-      });
-    if (words.length > 0) payload.words = words;
-    if (includeSourceTimes) {
-      payload.sourceStart = smax(segment.startTime, trimStart);
-      payload.sourceEnd = smin(segment.endTime, trimEnd);
-    }
-    out.push(payload);
-  }
-  return out;
+  return corePayload(project, includeSourceTimes) as unknown as JSONObject[];
 }
 
 /** `MCPServer.getTranscript` minus the load. */
