@@ -562,15 +562,15 @@ async function scenarioDenied(label, errorName, expected) {
   const { context, page, cloud, errors } = await openEditor(browser, { init });
   try {
     await clickMic(page);
-    await page.waitForSelector("[data-voice-over-alert] [role=alertdialog]", { timeout: 10_000 });
+    await page.waitForSelector(".cc-alert [role=alertdialog]", { timeout: 10_000 });
     await page.waitForTimeout(400);
-    const text = await page.locator("[data-voice-over-alert] [role=alertdialog]").innerText();
+    const text = await page.locator(".cc-alert [role=alertdialog]").innerText();
     await page.screenshot({ path: join(OUT, `${label}-alert.png`) });
     check(text.includes("Voice Over") && text.includes(expected) && text.includes("OK"), `${label}: house alert with the Mac's copy`, JSON.stringify(text));
     const rec = await page.evaluate(() => window.__editor.voiceOver.isRecording || window.__editor.controller.client.transport.playing);
     check(!rec, `${label}: nothing records or plays`);
     await page.keyboard.press("Enter");
-    await page.waitForSelector("[data-voice-over-alert]", { state: "detached", timeout: 5_000 });
+    await page.waitForSelector(".cc-alert", { state: "detached", timeout: 5_000 });
     check(true, `${label}: Return dismisses the alert`);
     check(cloud.state.events.length === 0, `${label}: nothing uploaded`);
     check(errors.length === 0, `${label}: no page errors`, errors.slice(0, 3).join(" | "));

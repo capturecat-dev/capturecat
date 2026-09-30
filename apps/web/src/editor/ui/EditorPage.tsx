@@ -311,7 +311,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
   // Voice over: the mic key, the live VOICE block, the "Voice Over" alert. It
   // pushes live snapshots straight into the renderer, so it gets the snapshot
   // WITH media — the filmstrip must not blink out while recording.
-  const voiceOver = useVoiceOver({ store, controller, loaded, uploads, timeline: timelineWithMedia, rendererRef: timelineRendererRef });
+  const voiceOver = useVoiceOver({ store, controller, loaded, uploads, timeline: timelineWithMedia, rendererRef: timelineRendererRef, alerts });
 
   const callbacks = useMemo(() => controller.shellCallbacks(), [controller]);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
@@ -411,7 +411,6 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
             store.updateSettings({ exportSettings: { ...(settings?.exportSettings ?? {}), ...s } } as never, "Export Settings")
           }
         />
-        {voiceOver.alert}
       </WebGPUGate>
     </ThemeRoot>
   );
