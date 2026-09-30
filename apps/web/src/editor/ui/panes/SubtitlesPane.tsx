@@ -1,7 +1,8 @@
 /**
  * The Subtitles tab, 1:1 with SubtitleSettingsPaneAppKit: show switch,
- * generate / manage (Whisper transcription is the store's job — progress,
- * error and the "N subtitles · Regenerate · Delete" row mirror the Mac),
+ * generate / manage (Whisper transcription is state/subtitleGeneration.ts's
+ * job — progress, error, Cancel and the "N subtitles · Regenerate · Delete"
+ * row mirror the Mac),
  * preset cards with live styled "Aa", Text (size, font, weight chips,
  * uppercase, colour), Style (position chips + drag pad, style chips,
  * background colour, karaoke + highlight) and the editable caption cards.
@@ -10,11 +11,16 @@ import type { ProjectSettings } from "../../core/model";
 import { SubtitlePosition, SubtitleStyle, SubtitleWeight, enumValues } from "../../core/model/enums";
 import { applySubtitlePreset, subtitlePresetMatches, subtitlePresets } from "../../core/model/helpers";
 import { Chips, ColorSwatch, InspectorButton, InspectorField, PillSlider, Row, ToggleRow } from "../kit";
+import { WHISPER_DOWNLOAD_MB } from "../../transcribe/model";
 import { formatTimecode } from "../timeline/snap";
 import { Box, PaneStack } from "./layout";
 import { SubtitlePositionPad, SubtitlePresetCard } from "./livePads";
 import { Cap, MenuRow, RowButton, toCodable, toRGBA } from "./shared";
 import type { PaneProps } from "./types";
+
+/** InspectorKit caption under Generate (the Mac's copy; the size is the web
+ *  model's WebGPU download — the editor requires WebGPU). */
+export const GENERATE_CAPTION = `Auto-transcribes audio with Whisper AI. The model downloads automatically on first use (~${WHISPER_DOWNLOAD_MB.webgpu} MB).`;
 
 const POSITIONS = enumValues(SubtitlePosition);
 const STYLES = enumValues(SubtitleStyle);
@@ -80,27 +86,34 @@ export function SubtitlesPane({ settings: s, onSettingsChange, onCommit, project
                   key: "generateCap",
                   show: show && !has && !busy,
                   attached: true,
-                  node: <Cap>Auto-transcribes audio with Whisper AI. The model downloads automatically on first use (~150 MB).</Cap>,
+                  node: <Cap>{GENERATE_CAPTION}</Cap>,
                 },
-                { key: "spinner", show: show && busy, node: <span className="cc-spin" aria-label="Transcribing" /> },
+                {
+                  key: "spinner",
+                  show: show && busy,
+                  node: (
+                    <div className="cc-pane-hstack">
+                      <span className="cc-spin" aria-label="Transcribing" />
+                      <span className="cc-spacer" />
+                      {actions?.onCancelSubtitles ? <InspectorButton onClick={actions.onCancelSubtitles}>Cancel</InspectorButton> : null}
+                    </div>
+                  ),
+                },
                 { key: "progress", show: show && busy, attached: true, node: <Cap>{actions?.subtitleStatus?.progress ?? ""}</Cap> },
                 { key: "error", show: show && !!error, attached: true, node: <div className="cc-pane-error">{error ?? ""}</div> },
                 {
                   key: "manage",
-                  show: show && has,
+                  // Hidden while a run is in flight, like the Mac (whose
+                  // Regenerate had already emptied the list).
+                  show: show && has && !busy,
                   node: (
                     <div className="cc-pane-hstack">
                       <span className="cc-pane-count">{subtitles.length} subtitles</span>
                       <span className="cc-spacer" />
-                      <InspectorButton
-                        onClick={() => {
-                          if (actions?.onRegenerateSubtitles) actions.onRegenerateSubtitles();
-                          else {
-                            onProjectChange?.({ subtitles: [] });
-                            actions?.onGenerateSubtitles?.();
-                          }
-                        }}
-                      >
+                      {/* Regenerate never clears first: the cues are replaced
+                          only once new ones exist (a failed or cancelled run
+                          keeps them). */}
+                      <InspectorButton onClick={() => (actions?.onRegenerateSubtitles ?? actions?.onGenerateSubtitles)?.()}>
                         Regenerate
                       </InspectorButton>
                       <InspectorButton

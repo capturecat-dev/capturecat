@@ -6,8 +6,12 @@ import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 
 import { localProjectsPlugin } from "./vite/localProjects";
+import { onnxRuntimeAlias } from "./vite/onnxRuntime";
 
 export default defineConfig({
+  // ONNX Runtime's non-bundled build for the transcription worker: the default
+  // one makes Vite emit a 26 MB wasm nothing loads (see vite/onnxRuntime.ts).
+  resolve: { alias: onnxRuntimeAlias() },
   // Own dep-optimizer cache: parallel dev servers from git worktrees symlink
   // this node_modules, and a second server re-optimizing into the shared
   // default `.vite` swapped the chunks under a running page — two Reacts,
