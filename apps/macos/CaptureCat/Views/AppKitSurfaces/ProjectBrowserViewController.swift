@@ -1067,6 +1067,15 @@ extension ProjectBrowserViewController: NSCollectionViewDataSource, NSCollection
             )
         }
         card.shareURLToCopy = library.sharedURLs[project.id]
+        card.cloudMenuItems = { [weak self] in
+            guard let self else { return [] }
+            return CloudSyncController.menuItems(
+                for: project,
+                appState: self.appState,
+                window: { [weak self] in self?.view.window },
+                makeItem: { Self.closureItem($0, handler: $1) }
+            )
+        }
         card.onRename = { [weak self] in self?.promptRename(project) }
         card.onDuplicate = { [weak self] in self?.duplicate(project) }
         card.onDelete = { [weak self] in self?.promptDelete(project) }
@@ -2189,6 +2198,9 @@ private final class ProjectCardItem: NSCollectionViewItem {
     var onShare: (() -> Void)?
     /// Set when the project already has a share link — enables "Copy Share Link".
     var shareURLToCopy: String?
+    /// "Open in Web Editor" / "Pull Web Edits", built by the browser (it owns
+    /// AppState); they sit with Share — both put the project in the cloud.
+    var cloudMenuItems: (() -> [NSMenuItem])?
     var onRename: (() -> Void)?
     var onDuplicate: (() -> Void)?
     var onDelete: (() -> Void)?
@@ -2432,6 +2444,9 @@ private final class ProjectCardItem: NSCollectionViewItem {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(url, forType: .string)
             })
+        }
+        for item in cloudMenuItems?() ?? [] {
+            menu.addItem(item)
         }
         menu.addItem(.separator())
         for item in organizeMenuItems?() ?? [] {

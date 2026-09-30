@@ -290,9 +290,188 @@ enum CCMotion {
         )
     }
 
+    // MARK: - Constraints (in-window growth)
+
+    private static var constraintTimers: [ObjectIdentifier: Timer] = [:]
+
+    /// Curve-true CONSTRAINT animation — the in-window twin of
+    /// `animateFrame`. Drives `constraint.constant` along the exact bezier at
+    /// 120 Hz and re-lays-out `root` every tick, so dressed surfaces REFIT
+    /// their material each frame. (Implicit layout animation moves a view's
+    /// bounds while `CCMaterial.refit` — actions disabled — parks the
+    /// material at the FINAL size: the surface snapped and only the content
+    /// bounced.) Defaults to the growth bounce; a new call on the same
+    /// constraint retargets from wherever it is. Unmounted views apply
+    /// instantly, so init-time configuration never animates.
+    ///
+    ///     CCMotion.animate(bodyHeight, to: 180, in: window.contentView)
+    static func animate(
+        _ constraint: NSLayoutConstraint,
+        to target: CGFloat,
+        in root: NSView?,
+        duration: TimeInterval = 0.38,
+        curve: (CGFloat, CGFloat, CGFloat, CGFloat) = bouncePoints,
+        completion: (() -> Void)? = nil
+    ) {
+        let key = ObjectIdentifier(constraint)
+        constraintTimers[key]?.invalidate()
+        constraintTimers[key] = nil
+        let start = constraint.constant
+        guard let root, root.window != nil, abs(target - start) > 0.01 else {
+            constraint.constant = target
+            completion?()
+            return
+        }
+        let total = paced(duration)
+        let began = CACurrentMediaTime()
+        let timer = Timer(timeInterval: 1.0 / 120.0, repeats: true) { [weak constraint, weak root] timer in
+            MainActor.assumeIsolated {
+                guard let constraint else { timer.invalidate(); return }
+                let t = CGFloat(min(1, (CACurrentMediaTime() - began) / total))
+                constraint.constant = t >= 1 ? target : start + (target - start) * bezierY(t, curve)
+                root?.layoutSubtreeIfNeeded()
+                if t >= 1 {
+                    timer.invalidate()
+                    constraintTimers[ObjectIdentifier(constraint)] = nil
+                    completion?()
+                }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        constraintTimers[key] = timer
+    }
+
+    /// True while `animate(_:to:in:)` is driving this constraint — layout
+    /// passes must not clobber an in-flight value.
+    static func isAnimating(_ constraint: NSLayoutConstraint) -> Bool {
+        constraintTimers[ObjectIdentifier(constraint)] != nil
+    }
+
+    // MARK: - Explicit-start springs, pops, fades, staggers
+
+    /// Spring from an explicit START (entrances start off-stage, not at the
+    /// current presentation value), optionally delayed — the delayed
+    /// animation holds its start value until it begins (staggers).
+    static func spring(
+        _ layer: CALayer,
+        keyPath: String,
+        from: Any?,
+        to value: Any?,
+        _ spring: Spring = .smooth,
+        delay: TimeInterval = 0
+    ) {
+        let animation = springAnimation(keyPath: keyPath, spring)
+        animation.fromValue = from
+        animation.toValue = value
+        if delay > 0 {
+            animation.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + paced(delay)
+            animation.fillMode = .backwards
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.setValue(value, forKeyPath: keyPath)
+        CATransaction.commit()
+        layer.add(animation, forKey: "capmotion.\(keyPath)")
+    }
+
+    /// A uniform scale about `pivot` (a point in the layer's bounds space)
+    /// that is correct for ANY anchorPoint. View backing layers belong to
+    /// AppKit (anchor (0,0), re-applied on relayout), so kit scale effects
+    /// compose the pivot into the transform instead of re-anchoring.
+    static func scaleTransform(_ scale: CGFloat, pivot: CGPoint, in layer: CALayer) -> CATransform3D {
+        let anchor = CGPoint(
+            x: layer.bounds.minX + layer.anchorPoint.x * layer.bounds.width,
+            y: layer.bounds.minY + layer.anchorPoint.y * layer.bounds.height
+        )
+        let p = CGPoint(x: pivot.x - anchor.x, y: pivot.y - anchor.y)
+        var t = CATransform3DMakeTranslation(p.x, p.y, 0)
+        t = CATransform3DScale(t, scale, scale, 1)
+        return CATransform3DTranslate(t, -p.x, -p.y, 0)
+    }
+
+    /// Acknowledge a content change with a small spring POP about the
+    /// view's center (badges, counters). Scale-only, anchor-safe.
+    static func pop(_ view: NSView, from scale: CGFloat = 0.86) {
+        guard view.window != nil, let layer = view.layer else { return }
+        let center = CGPoint(x: layer.bounds.midX, y: layer.bounds.midY)
+        spring(layer, keyPath: "transform",
+               from: NSValue(caTransform3D: scaleTransform(scale, pivot: center, in: layer)),
+               to: NSValue(caTransform3D: CATransform3DIdentity), .bouncy)
+    }
+
+    /// Fade a VIEW's alpha on the glide curve. Sets `alphaValue` (the model
+    /// AppKit re-syncs a backing layer's opacity from) and plays the fade on
+    /// the layer — fading `layer.opacity` directly gets overwritten by the
+    /// next AppKit sync. Optional delay holds the start value (staggers).
+    static func fadeAlpha(
+        _ view: NSView,
+        to alpha: CGFloat,
+        duration: TimeInterval = 0.2,
+        delay: TimeInterval = 0,
+        from: CGFloat? = nil
+    ) {
+        guard let layer = view.layer, view.window != nil else {
+            view.alphaValue = alpha
+            return
+        }
+        let start = from.map { Float($0) } ?? (layer.presentation() ?? layer).opacity
+        view.alphaValue = alpha
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = start
+        animation.toValue = Float(alpha)
+        animation.duration = paced(duration)
+        animation.timingFunction = glide
+        if delay > 0 {
+            animation.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + paced(delay)
+            animation.fillMode = .backwards
+        }
+        layer.add(animation, forKey: "capmotion.alpha")
+    }
+
+    /// Move a manually-framed view to `frame` and SPRING the visual there
+    /// (FLIP): the frame — hit-testing's truth — lands at once, and a
+    /// translation from where the view visibly WAS (in-flight offsets
+    /// included) springs back to zero. Retargeting mid-flight is seamless.
+    /// Uses `transform.translation`, so keep scale effects on a CHILD layer
+    /// (setting a translation component would corrupt a composed pivot).
+    ///
+    ///     CCMotion.glide(avatar, to: spreadFrame)
+    static func glide(_ view: NSView, to frame: NSRect, _ spring: Spring = .smooth) {
+        guard let layer = view.layer, view.window != nil else {
+            view.frame = frame
+            return
+        }
+        let shown = layer.presentation() ?? layer
+        let tx = (shown.value(forKeyPath: "transform.translation.x") as? CGFloat) ?? 0
+        let ty = (shown.value(forKeyPath: "transform.translation.y") as? CGFloat) ?? 0
+        let visual = CGPoint(x: view.frame.minX + tx, y: view.frame.minY + ty)
+        view.frame = frame
+        // Offsets live in the SUPERVIEW's space — the same space as frames,
+        // flipped or not — so the delta needs no sign juggling.
+        let dx = visual.x - frame.minX
+        let dy = visual.y - frame.minY
+        if abs(dx) > 0.1 { self.spring(layer, keyPath: "transform.translation.x", from: dx, to: 0, spring) }
+        if abs(dy) > 0.1 { self.spring(layer, keyPath: "transform.translation.y", from: dy, to: 0, spring) }
+    }
+
+    /// Staggered arrival: each view fades in and RISES `distance` pt into
+    /// place, `interval` after the previous one (empty states, lists).
+    /// Translation-only, so it is anchor-safe on view backing layers.
+    static func stagger(_ views: [NSView], distance: CGFloat = 8, interval: TimeInterval = 0.05) {
+        for (index, view) in views.enumerated() {
+            guard let layer = view.layer, view.window != nil else { continue }
+            let delay = interval * Double(index)
+            // "Below" in the SUPERVIEW's coordinate space: +y in a flipped
+            // superview (stacks), −y in an unflipped one.
+            let below = (view.superview?.isFlipped ?? false) ? distance : -distance
+            spring(layer, keyPath: "transform.translation.y", from: below, to: 0, .smooth, delay: delay)
+            fadeAlpha(view, to: 1, duration: 0.24, delay: delay, from: 0)
+        }
+    }
+
     /// Evaluate a cubic timing curve's y at progress x (P0 = 0, P3 = 1;
     /// bisection on the x polynomial).
-    private static func bezierY(
+    static func bezierY(
         _ x: CGFloat, _ p: (CGFloat, CGFloat, CGFloat, CGFloat)
     ) -> CGFloat {
         guard x > 0 else { return 0 }

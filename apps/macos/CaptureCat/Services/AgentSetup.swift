@@ -168,8 +168,14 @@ enum AgentSetup {
             "display_name": "CaptureCat",
             "icon": "icon.png",
             "version": version,
-            "description": "Drive CaptureCat: record the screen, edit recordings (zooms, annotations, styles), see rendered frames, read transcripts, and export — the app's real engine, not a wrapper.",
+            "description": "Drive CaptureCat: record the screen, edit recordings (zooms, speed-ups, trims, annotations, privacy blur, styles) in undoable batches, transcribe on-device, see rendered frames, and export — the app's real engine, not a wrapper.",
             "author": ["name": "CaptureCat"],
+            // Shown on the client's install screen; read from the server's
+            // own catalog so the list can't drift from tools/list.
+            "tools": MCPServer.toolDefinitions.compactMap { tool -> [String: String]? in
+                guard let name = tool["name"] as? String else { return nil }
+                return ["name": name, "description": tool["title"] as? String ?? name]
+            },
             "server": [
                 "type": "binary",
                 "entry_point": "capturecat-mcp.sh",

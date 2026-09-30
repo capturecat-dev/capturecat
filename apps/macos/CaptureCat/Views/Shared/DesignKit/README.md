@@ -85,14 +85,31 @@ CCThemeObservation { applyTheme() }              // keep a strong reference!
 | `CCFormRow` | label + control + hint | `setError("…")` glides an error line in; tints a CCField border |
 | `CCSelect` / `CCCombobox` | popup select (searchless / searchable) | `options`, `selectedIndex`, `onSelect`; keyboard ↑/↓/↩/⎋ |
 | `CCSearchField` | loupe + field | `radius:` (`.full` default), `onQueryChange`, `onCommand` (moveUp/moveDown/commit/cancel) |
-| `CCBadge` | status pill | variant subtle/primary/destructive/outline |
+| `CCBadge` | status pill | variant subtle/primary/destructive/outline · live `text` changes crossfade + spring pop + width glide |
 | `CCDivider` | 1pt hairline | `vertical:` pins width instead of height |
 | `CCCard` | surface container | `init(title:)`, `addContent(_:fullWidth:)` |
-| `CCProgressBar` / `CCSpinner` | progress | replaces NSProgressIndicator |
+| `CCProgressBar` / `CCSpinner` | progress | replaces NSProgressIndicator · bar fill SPRINGS to each value, `isIndeterminate` sweep · spinner is a breathing arc on a faint track |
 | `CCPreviewPad` | recessed demo well | `showsGridDots:`, draw inside `contentRect` |
 | `CCGlideHighlight` | wash that glides between rows | `update(row:active:)`; wash rides its own subview |
 | `CCAlert` | NSAlert replacement | `addButton(_:role:)`, `beginSheet`/`runModal`, `accessoryView`, `entrance` |
 | `CCDialog` | form dialog (header/scroll/footer) | `addContent`, `addFooter`, `setMaxContentHeight`, `onEscape`, `entrance` |
+| `CCToaster` / `CCToast` | Sonner toasts (in-window overlay) | `CCToaster(in: view)`, `show(title:message:variant:symbol:action:duration:)`, `maxVisible`, `dismissAll()`; variants default/success/warning/destructive; stack compresses behind the front toast, fans out on hover (countdowns pause), countdown hairline, `.init(title:){…}` action |
+| `CCTooltip` | hover tooltip for any view | `CCTooltip.attach(to:text:shortcut:placement:)`, `detach(from:)`; 0.5s delay, instant hand-off, flips at window edges, scale-in from the target-facing edge |
+| `CCAccordion` | shadcn Accordion | `init(mode: .single/.multiple, chrome: .card/.plain)`, `addItem(title:text:)` / `addItem(title:content:)`, `setExpanded(_:at:)`, `onChange`; space/return toggle, ↑/↓ focus |
+| `CCCollapsible` | reveal container | `init(content:expanded:)`, `toggle()`, `setExpanded(_:animated:)`, `onToggle`; bottom edge only, growth bounce |
+| `CCTabs` | tab list + panes | `init([(title, pane)], selectedIndex:listFillsWidth:size:)`, `selectedIndex`, `onChange`; CCSegmented list, directional crossfade |
+| `CCRadioGroup` | radio group | `init(options:selectedIndex:orientation:onChange:)`, `Option(title:detail:)`; bead springs in, arrows move |
+| `CCAvatar` / `CCAvatarGroup` | avatar(s) | `CCAvatar(name:image:size:status:)` (deterministic hue initials, `.live` pulse), `CCAvatarGroup(names:maxVisible:size:)` (ring gap, "+N", hover spread) |
+| `CCSkeleton` / `CCSkeletonReveal` | loading placeholders | `.line/.block/.circle`, `CCSkeleton.lines(n)`, synced opacity pulse (no sheen); `CCSkeletonReveal(placeholder:content:).reveal()` |
+| `CCStepper` | −/+ numeric stepper | `init(value:min:max:step:)`, `format`, `onChange`; rolling digits, hold-to-repeat with acceleration, ↑/↓ |
+| `CCRollingLabel` | odometer text | `setText(_:direction: .up/.down/.none)` — only changed glyphs roll |
+| `CCTextArea` | multi-line input | `init(placeholder:minLines:maxLines:)`, `text`, `onTextChange`; auto-grows (bounce, bottom edge), scrolls past `maxLines` |
+| `CCCallout` | inline alert | `init(title:message:variant:dismissible:)`, info/success/warning/destructive, `onDismiss`, `playEntrance()` |
+| `CCEmptyState` | empty state | `init(symbol:title:message:primary:secondary:)`, staggered entrance |
+| `CCProgressRing` | circular progress | `init(diameter:lineWidth:)`, `doubleValue`, `labelFormat`, `isIndeterminate`; arc springs, label counts |
+| `CCWrappingLabel` | multi-line label | re-wraps in its OWN layout; yields width below the window's resize priority |
+| `CCKbd` | shadcn Kbd keycap | `CCKbd("⌘", size: .sm/.regular/.lg)`, `CCKbd.group(["⇧","⌘","4"])`, `tap()` / `isPressed` (tints in place — never travels) |
+| `CCStepIndicator` | wizard / carousel dots | `CCStepIndicator(count:)`, `index` (the current dot springs into a capsule), `onSelect` for completed dots |
 
 Dialog/alert cards clamp to their parent window (width AND height, 280pt
 floor) and re-center live on parent resize — no work needed at call sites.
@@ -109,8 +126,27 @@ CCMotion.fadeContentSwap(label)        // crossfade text swaps (+ animateLayout)
 CCMotion.animateLayout(view)           // glide a width change through autolayout
 CCMotion.expand(view)                  // GROWTH: lands on the house bounce
 CCMotion.animateFrame(of: window, to:) // curve-true window-frame animation
+CCMotion.animate(constraint, to:, in:) // curve-true IN-WINDOW growth (120 Hz, relayout per tick)
+CCMotion.spring(layer, keyPath:from:to:_:delay:)  // explicit start + optional stagger delay
+CCMotion.glide(view, to: frame)        // FLIP: frame lands now, the visual springs there
+CCMotion.scaleTransform(s, pivot:in:)  // anchor-safe scale about any pivot (view layers)
+CCMotion.pop(view)                     // small spring pop for content changes
+CCMotion.fadeAlpha(view, to:)          // alphaValue-safe view fade (+ delay/from)
+CCMotion.stagger(views)                // staggered fade + rise arrivals
 CCMotion.pace = .relaxed/.standard/.brisk   // ONE knob scales all kit motion
 ```
+
+**In-window growth goes through `CCMotion.animate(constraint…)`**, not
+implicit layout animation: `CCMaterial.refit` runs with actions disabled, so
+under an implicit bounds animation the dressed surface parks at its FINAL
+size while only the content bounces. The constraint driver re-lays-out every
+tick, so material, content and siblings move in lockstep (collapsible,
+accordion card, tabs pane area, text area, badge width, callout collapse).
+
+**Scale effects never re-anchor a view's backing layer** — AppKit owns its
+anchorPoint; compose the pivot with `scaleTransform` instead. Keep scale and
+FLIP translation on different layers (toasts: scale on the card, glide on the
+container).
 
 **Growth bounces, and only the pushed edge moves.** Anything that grows —
 a dialog gaining rows, a title getting wider, an error line appearing — lands
@@ -151,6 +187,8 @@ otherwise every hop after a pause snaps instead of gliding (shipped bug,
 | `--capalert-shot` | alert: entrance mid-flight, parent-resize re-clamp, click-through, teardown |
 | `--capdialog-shot` | dialog: scroll body resolves, responsive re-clamp, `.slideUp` entrance mid-flight |
 | `--menu-hover-probe` / `--menu-hover-live` | menu wash glides between rows (synthetic / real cursor) |
+| `--capkit-extras-shot` | toast/tooltip/accordion/tabs/radio/avatar/skeleton/stepper/text area/callout/empty state/ring + polished bar/spinner/badge in ONE 3-column gallery: topology, material via probe seams, motion mid-flight (toast entrance + fan, accordion & text-area growth OVERSHOOT with top pinned, tab glide + directional crossfade, radio bead, digit roll, ring arc + counting label, tooltip scale pivot, badge pop, stagger, callout collapse, avatar spread), tooltip delay/hand-off/flip, toast auto-dismiss, live retheme (22 real-layer probes), responsive shrink incl. text re-wrap + radio hug. Prints `CAPKITX`; captures are upright 2x |
+| `--onboarding-shot` | the onboarding (uses `CCKbd` + `CCStepIndicator`) in BOTH hosts (own window + editor content switcher): per-step layout invariants, stage motion mid-flight (camera push, page glide, scene dissolve, step capsule stretch, mirrored switch spring), finish burst, retheme, resize, and a STRUCTURAL check that every material-dressed raw layer rounds its own fill (a square host paints a black box behind the pill) |
 
 Gate laws: probe inside the real hosting chain, assert animations **mid-flight**
 (never only settled frames), and prove a new assertion can fail by injecting
@@ -158,6 +196,18 @@ the defect once. Two measurement gotchas: constraints solve on **alignment
 rects** (NSTextField frames carry ~2pt slop), and a window won't shrink below
 its content's required minimum — assert against the resolved width. A
 CARenderer snapshot taken in the same runloop turn as a resize renders blank;
-defer it a beat.
+defer it a beat. **Sample motion BEFORE any CARenderer capture:** the renderer
+re-hosts the live layer tree and the window's next commit drops every
+in-flight animation (springs read as snapped, loops vanish) — capture last.
+
+Two AppKit layout traps (both shipped once in this kit's development and are
+now gated): `NSStackView` is **unflipped**, and a view's `isGeometryFlipped`
+is RELATIVE to its parent (AppKit toggles it so a view's sublayer space
+matches its own `isFlipped`) — CCMaterial orients by it, so containers of
+dressed views stay unflipped (pin to the top with constraints); for your own
+sublayer geometry use `layer.contentsAreFlipped()`. And a wrapping label must
+sync its wrap width in its OWN `layout()` (`CCWrappingLabel`), with horizontal
+compression resistance below 500, or text clips on shrink and the window
+can't narrow.
 
 **Press = tint in place.** Apple buttons never move: press darkens (light) or lightens (dark) the surface via the component wash or `CCMaterial.press(layer, down:)` — no travel, no scale, no restyle. Actions fire on mouseUp with an inside check, never bare mouseDown.

@@ -308,6 +308,9 @@ final class EditorShellViewController: NSSplitViewController {
             onToggleInspector: { [weak self] in
                 guard let self else { return }
                 self.selection.showInspector.toggle()
+            },
+            onWebEditor: appState == nil ? nil : { [weak self] anchor in
+                self?.showWebEditorMenu(from: anchor)
             }
         )
 
@@ -356,6 +359,21 @@ final class EditorShellViewController: NSSplitViewController {
 
     func installToolbar(on window: NSWindow) {
         toolbarController.install(on: window)
+    }
+
+    /// Open in Web Editor / Pull Web Edits, on the house menu surface.
+    private func showWebEditorMenu(from anchor: NSView) {
+        guard let appState else { return }
+        let menu = NSMenu()
+        for item in CloudSyncController.menuItems(
+            for: project,
+            appState: appState,
+            window: { [weak anchor] in anchor?.window },
+            makeItem: CloudMenuTarget.item
+        ) {
+            menu.addItem(item)
+        }
+        CaptureCatMenuPresenter.show(menu, from: anchor, edge: .below)
     }
 
     /// Single entry point for every inspector show/hide path (toolbar button,
@@ -633,6 +651,10 @@ final class EditorToolbarController: NSObject {
     private let onShowBrowser: () -> Void
     private let onExport: () -> Void
     private let onToggleInspector: () -> Void
+    /// Web editor menu (Open in Web Editor / Pull Web Edits), anchored to the
+    /// button. Nil — e.g. the `--editor-shell-shot` probe, which has no
+    /// AppState — leaves the button out entirely.
+    private let onWebEditor: ((NSView) -> Void)?
     // Kit controls in the title bar (user call 2026-08-17: the hand-rolled
     // capsule pills read as foreign chrome — every switcher is CCKit now).
     // macOS 26 wraps adjacent toolbar items in ONE Liquid Glass capsule with
@@ -650,12 +672,14 @@ final class EditorToolbarController: NSObject {
         project: Project,
         onShowBrowser: @escaping () -> Void,
         onExport: @escaping () -> Void,
-        onToggleInspector: @escaping () -> Void
+        onToggleInspector: @escaping () -> Void,
+        onWebEditor: ((NSView) -> Void)? = nil
     ) {
         self.project = project
         self.onShowBrowser = onShowBrowser
         self.onExport = onExport
         self.onToggleInspector = onToggleInspector
+        self.onWebEditor = onWebEditor
         treatmentSwitch = CCSegmented(
             segments: ["Image", "Video"],
             selectedIndex: project.stillTreatment == .image ? 0 : 1,
@@ -702,7 +726,7 @@ final class EditorToolbarController: NSObject {
     private var titleObservation: SurfaceObservation?
     private var themeObservation: CCThemeObservation?
 
-    /// Bar layout: [⌗ captures] [title] …[Image|Video │ 16:9]… [Export] [◧].
+    /// Bar layout: [⌗ captures] [title] …[Image|Video │ 16:9]… [◍ Web Editor] [Export] [◧].
     /// Centering the cluster is a preference (450); the required gaps to its
     /// neighbours win as the window narrows.
     private func buildBar() {
@@ -725,9 +749,29 @@ final class EditorToolbarController: NSObject {
         }
         inspector.toolTip = "Toggle Inspector"
 
-        for view in [captures, titleLabel, controlsCluster, exportButton, inspector] {
+        // Web editor: its own labeled key beside Export (same size, secondary
+        // weight), opening a house menu — Open in Web Editor / Pull Web Edits.
+        var webButton: CCButton?
+        if onWebEditor != nil {
+            let button = CCButton(title: "Web Editor", symbol: "globe", style: .secondary, size: .sm)
+            button.onClick = { [weak self, weak button] in
+                guard let button else { return }
+                self?.onWebEditor?(button)
+            }
+            button.toolTip = "Open this project in the web editor, or pull its web edits"
+            webButton = button
+        }
+        let trailingCluster: NSView = webButton ?? exportButton
+
+        for view in [captures, titleLabel, controlsCluster, exportButton, inspector] + (webButton.map { [$0] } ?? []) {
             view.translatesAutoresizingMaskIntoConstraints = false
             barView.addSubview(view)
+        }
+        if let webButton {
+            NSLayoutConstraint.activate([
+                webButton.trailingAnchor.constraint(equalTo: exportButton.leadingAnchor, constant: -CCSpace.sm),
+                webButton.centerYAnchor.constraint(equalTo: barView.centerYAnchor),
+            ])
         }
         let clusterCenter = controlsCluster.centerXAnchor.constraint(equalTo: barView.centerXAnchor)
         clusterCenter.priority = NSLayoutConstraint.Priority(450)
@@ -743,7 +787,7 @@ final class EditorToolbarController: NSObject {
             controlsCluster.leadingAnchor.constraint(
                 greaterThanOrEqualTo: titleLabel.trailingAnchor, constant: CCSpace.lg),
             controlsCluster.trailingAnchor.constraint(
-                lessThanOrEqualTo: exportButton.leadingAnchor, constant: -CCSpace.lg),
+                lessThanOrEqualTo: trailingCluster.leadingAnchor, constant: -CCSpace.lg),
             controlsCluster.centerYAnchor.constraint(equalTo: barView.centerYAnchor),
 
             inspector.trailingAnchor.constraint(equalTo: barView.trailingAnchor, constant: -CCSpace.md),

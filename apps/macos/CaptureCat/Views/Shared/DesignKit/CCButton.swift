@@ -72,6 +72,9 @@ final class CCButton: NSControl {
     }
 
     var onClick: (() -> Void)?
+    /// Fired when the button is clicked while DISABLED — wizards use it to
+    /// explain why ("Continue needs Screen Recording") instead of a dead click.
+    var onDisabledClick: (() -> Void)?
 
     var style: Style {
         didSet { applyTheme() }
@@ -345,7 +348,10 @@ final class CCButton: NSControl {
     // Press feedback is the darker wash alone (applyTheme's isPressed blend)
     // — Apple buttons tint in place; they never move or restyle on click.
     override func mouseDown(with event: NSEvent) {
-        guard isEnabled else { return }
+        guard isEnabled else {
+            onDisabledClick?()
+            return
+        }
         isPressed = true
         applyTheme(animated: true)
     }

@@ -16,9 +16,26 @@ final class CCBadge: NSView {
         case outline
     }
 
+    /// Live counts/statuses: a mounted badge CROSSFADES the text, gives a
+    /// small spring pop, and glides its width on the growth bounce (the
+    /// trailing edge only — it is curve-true, so the pill's material refits
+    /// every frame instead of snapping). Unmounted changes apply instantly.
     var text: String {
         get { label.stringValue }
-        set { label.stringValue = newValue; invalidateIntrinsicContentSize() }
+        set {
+            guard newValue != label.stringValue else { return }
+            let animate = window != nil
+            if animate { CCMotion.fadeContentSwap(label) }
+            label.stringValue = newValue
+            invalidateIntrinsicContentSize()
+            let target = intrinsicContentSize.width
+            if animate {
+                CCMotion.animate(widthConstraint, to: target, in: window?.contentView)
+                CCMotion.pop(self, from: 0.88)
+            } else {
+                widthConstraint.constant = target
+            }
+        }
     }
 
     var variant: Variant {
@@ -26,6 +43,7 @@ final class CCBadge: NSView {
     }
 
     private let label = NSTextField(labelWithString: "")
+    private var widthConstraint: NSLayoutConstraint!
     private var themeObservation: CCThemeObservation?
 
     override var intrinsicContentSize: NSSize {
@@ -41,13 +59,19 @@ final class CCBadge: NSView {
         label.font = CCTheme.font.caption
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
+        widthConstraint = widthAnchor.constraint(equalToConstant: intrinsicContentSize.width)
         NSLayoutConstraint.activate([
             label.centerXAnchor.constraint(equalTo: centerXAnchor),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
             heightAnchor.constraint(equalToConstant: 20),
+            widthConstraint,
         ])
         themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
     }
+
+    // MARK: - Harness seams
+
+    var probeWidthConstraint: NSLayoutConstraint { widthConstraint }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 

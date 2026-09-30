@@ -79,6 +79,14 @@ enum EditorShellProbeHarness {
         }
 
         let nativeProject = makeProject(videoURL: videoURL, name: "Shell Probe")
+        let paneShotsMode = CommandLine.arguments.contains("--pane-shots")
+        if paneShotsMode {
+            // The Camera pane only builds its detail sections when the
+            // project HAS a camera track (read once at column init), so the
+            // pane-shot fixture carries one — the fixture clip stands in.
+            nativeProject.cameraVideoURL = videoURL
+            nativeProject.settings.showCamera = true
+        }
 
         // ── Native shell window (real editor topology: top bar + shell) ──
         let native = EditorShellViewController(appState: nil, project: nativeProject)
@@ -97,6 +105,12 @@ enum EditorShellProbeHarness {
 
         let nativeShot = capture(window: nativeWindow)
         write(nativeShot, to: outDir.appendingPathComponent("shell-native.png"), label: "NATIVE")
+
+        if paneShotsMode {
+            await paneShots(shell: native, project: nativeProject, window: nativeWindow, outDir: outDir)
+            print("SHELLSHOT outDir \(outDir.path)")
+            return
+        }
 
         framingChecks(shot: nativeShot, window: nativeWindow)
 
@@ -266,6 +280,153 @@ enum EditorShellProbeHarness {
         print("BEHAVIOUR \(flushPass ? "PASS" : "FAIL") canvas-flush — bars read as panel surface: \(detail)panel=(\(Int(panelColor.0)),\(Int(panelColor.1)),\(Int(panelColor.2)))")
     }
 
+    // MARK: - Pane shots (web-editor parity references)
+
+    /// `--pane-shots`: every inspector tab, plus the selection-specific
+    /// sections (zoom / tilt block, highlight, blur, depth focus, each
+    /// annotation type) and the "everything switched on" variants, captured
+    /// inside the REAL shell topology. Each state writes
+    /// `panes-<theme>/<state>.png` at the probe window size and
+    /// `<state>-tall.png` with the window grown so the whole pane is on
+    /// screen. The web editor's lab renders the same fixture states for a
+    /// side-by-side diff. Deterministic: synthetic project, no user data.
+    private static func paneShots(
+        shell: EditorShellViewController, project: Project, window: NSWindow, outDir: URL
+    ) async {
+        let theme = CommandLine.arguments.contains("--light") ? "light" : "dark"
+        let dir = outDir.appendingPathComponent("panes-\(theme)")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let sel = shell.selection
+        let settings = project.settings
+
+        // Fixture regions (ids are fresh; the web lab mirrors the VALUES).
+        guard let zoom = project.zoomRegions.first,
+              let textAnnotation = project.annotations.first else { return }
+        let tilt = TiltRegion(startTime: zoom.startTime, endTime: zoom.endTime, pitch: 12, yaw: 0, roll: -3)
+        let highlight = HighlightRegion(startTime: 2.6, endTime: 3.2)
+        let blur = BlurRegion(startTime: 1.6, endTime: 2.4, style: .pixelate)
+        let focus = FocusRegion(startTime: 0.2, endTime: 1.2)
+        let arrow = Annotation(type: .arrow, startTime: 0.2, endTime: 0.9)
+        let rect = Annotation(type: .rectangle, startTime: 2.6, endTime: 3.4)
+        var drawing = Annotation(type: .drawing, startTime: 3.0, endTime: 3.8)
+        drawing.drawingStrokes = [
+            [CodablePoint(x: 0.2, y: 0.2), CodablePoint(x: 0.3, y: 0.3)],
+            [CodablePoint(x: 0.5, y: 0.5), CodablePoint(x: 0.6, y: 0.4)],
+        ]
+        let tap = Annotation(type: .tap, startTime: 3.4, endTime: 3.9)
+        project.highlightRegions = [highlight]
+        project.blurRegions = [blur]
+        project.focusRegions = [focus]
+        project.annotations = [textAnnotation, arrow, rect, drawing, tap]
+        await settle(0.4)
+
+        func clear() {
+            sel.selectedZoomID = nil
+            sel.selectedTiltID = nil
+            sel.selectedHighlightID = nil
+            sel.selectedBlurID = nil
+            sel.selectedDepthFocusID = nil
+            sel.selectedAnnotationID = nil
+            sel.introSelected = false
+            sel.curtainSelected = false
+        }
+        struct State {
+            let name: String
+            let tab: InspectorTab
+            let setup: @MainActor () -> Void
+            let teardown: @MainActor () -> Void
+        }
+        func state(_ name: String, _ tab: InspectorTab,
+                   setup: @escaping @MainActor () -> Void = {},
+                   teardown: @escaping @MainActor () -> Void = {}) -> State {
+            State(name: name, tab: tab, setup: setup, teardown: teardown)
+        }
+        let states: [State] = [
+            state("background", .background),
+            state("cursor", .cursor),
+            state("cursor-all", .cursor, setup: {
+                settings.autoHideCursor = true
+                settings.smoothCursor = true
+                settings.clickSoundEnabled = true
+                settings.keySoundEnabled = true
+            }, teardown: {
+                settings.autoHideCursor = false
+                settings.smoothCursor = false
+                settings.clickSoundEnabled = false
+                settings.keySoundEnabled = false
+            }),
+            state("camera", .camera),
+            state("audio", .audio),
+            state("effects", .effects),
+            state("effects-all", .effects, setup: {
+                settings.introSlideStyle = .bottom
+                settings.curtainUnveilCorner = .topLeft
+                settings.parallaxStrength = 0.4
+                settings.motionBlur = true
+            }, teardown: {
+                settings.introSlideStyle = .off
+                settings.curtainUnveilCorner = .off
+                settings.parallaxStrength = 0
+                settings.motionBlur = false
+            }),
+            state("effects-zoom", .effects, setup: { sel.selectedZoomID = zoom.id }),
+            state("effects-tilt", .effects, setup: {
+                project.tiltRegions = [tilt]
+                sel.selectedZoomID = zoom.id
+                sel.selectedTiltID = tilt.id
+            }, teardown: { project.tiltRegions = [] }),
+            state("effects-highlight", .effects, setup: { sel.selectedHighlightID = highlight.id }),
+            state("effects-blur", .effects, setup: { sel.selectedBlurID = blur.id }),
+            state("effects-focus", .effects, setup: { sel.selectedDepthFocusID = focus.id }),
+            state("motion", .motion),
+            state("subtitles", .subtitles),
+            state("subtitles-on", .subtitles, setup: {
+                settings.showSubtitles = true
+                project.subtitles = [
+                    SubtitleSegment(startTime: 0.2, endTime: 1.4, text: "Welcome to the probe"),
+                    SubtitleSegment(startTime: 1.6, endTime: 3.1, text: "Second caption line"),
+                ]
+            }, teardown: {
+                settings.showSubtitles = false
+                project.subtitles = []
+            }),
+            state("brand", .brand),
+            state("brand-on", .brand, setup: {
+                settings.showWatermark = true
+                settings.watermarkFileName = "watermark-probe.png"
+            }, teardown: {
+                settings.showWatermark = false
+                settings.watermarkFileName = nil
+            }),
+            state("annotations", .annotations),
+            state("annotations-text", .annotations, setup: { sel.selectedAnnotationID = textAnnotation.id }),
+            state("annotations-arrow", .annotations, setup: { sel.selectedAnnotationID = arrow.id }),
+            state("annotations-rectangle", .annotations, setup: { sel.selectedAnnotationID = rect.id }),
+            state("annotations-drawing", .annotations, setup: { sel.selectedAnnotationID = drawing.id }),
+            state("annotations-tap", .annotations, setup: { sel.selectedAnnotationID = tap.id }),
+        ]
+
+        let only = CommandLine.arguments.firstIndex(of: "--pane-only")
+            .flatMap { i in i + 1 < CommandLine.arguments.count ? CommandLine.arguments[i + 1] : nil }
+            .map { Set($0.split(separator: ",").map(String.init)) }
+        let tallSize = NSSize(width: windowSize.width, height: 3000)
+        for s in states {
+            if let only, !only.contains(s.name) { continue }
+            clear()
+            s.setup()
+            sel.inspectorTab = s.tab
+            await settle(0.9)
+            write(capture(window: window), to: dir.appendingPathComponent("\(s.name).png"), label: "PANE \(s.name)")
+            window.setContentSize(tallSize)
+            await settle(0.9)
+            write(capture(window: window), to: dir.appendingPathComponent("\(s.name)-tall.png"), label: "PANE \(s.name) tall")
+            window.setContentSize(windowSize)
+            await settle(0.3)
+            s.teardown()
+        }
+        clear()
+    }
+
     private static func settle(_ seconds: Double) async {
         let end = Date().addingTimeInterval(seconds)
         while Date() < end {
@@ -293,6 +454,11 @@ enum EditorShellProbeHarness {
         annotation.text = "Probe label"
         project.annotations = [annotation]
         return project
+    }
+
+    /// Probe window that never clamps its frame to a screen (pane shots only).
+    private final class UnclampedProbeWindow: NSWindow {
+        override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
     }
 
     /// Container mirroring EditorWindowContentViewController's editor
@@ -336,7 +502,11 @@ enum EditorShellProbeHarness {
     /// window — same styleMask, transparent titlebar, hidden title. Any config
     /// this probe skips is a topology the checks silently stop covering.
     private static func makeWindow(content: NSViewController, title: String, x: CGFloat) -> NSWindow {
-        let window = NSWindow(contentViewController: content)
+        // `--pane-shots` grows the window past the screen to capture whole
+        // panes; a stock window clamps its frame to the screen height.
+        let window: NSWindow = CommandLine.arguments.contains("--pane-shots")
+            ? UnclampedProbeWindow(contentViewController: content)
+            : NSWindow(contentViewController: content)
         window.styleMask.insert(.fullSizeContentView)
         window.toolbarStyle = .unified
         window.titlebarAppearsTransparent = true

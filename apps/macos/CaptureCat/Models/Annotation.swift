@@ -270,3 +270,41 @@ struct Annotation: Identifiable, Codable, Sendable {
         // keys still decode fine; unknown keys are simply not read.)
     }
 }
+
+extension Annotation {
+    /// Per-type starting look for a NEW annotation. SHARED by the editor's
+    /// toolbar add (TimelineViewController.addAnnotation) and the MCP
+    /// add_annotation tool, so a scripted rectangle / tap / callout is born
+    /// exactly like a hand-placed one (a tap's ripple size, a shape's hollow
+    /// outline, a callout's placement).
+    mutating func applyNewAnnotationDefaults() {
+        switch type {
+        case .text:
+            text = "Label"
+        case .arrow:
+            x = 0.35; y = 0.45
+            arrowEndX = 0.55; arrowEndY = 0.55
+        case .rectangle, .ellipse:
+            x = 0.35; y = 0.375
+            arrowEndX = 0.65; arrowEndY = 0.625
+            color = CodableColor(NSColor.white)
+            backgroundColor = CodableColor(red: 1, green: 1, blue: 1, opacity: 0.25)
+            showBackground = false
+            lineWidth = 4
+        case .tap:
+            x = 0.5; y = 0.5
+            fontSize = 60 // reused as ripple size for taps
+        case .callout:
+            x = 0.4; y = 0.3
+            arrowEndX = 0.55; arrowEndY = 0.5
+            text = "Look here"
+        case .drawing:
+            // Ink fades. The default pop would SCALE the strokes about the
+            // drawing's (never-moved) placement point — which is also why a
+            // freshly-drawn stroke used to appear far from the pen on the
+            // mid-build frames.
+            enterEffect = .fade
+            exitEffect = .fade
+        }
+    }
+}

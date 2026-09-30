@@ -137,3 +137,37 @@ struct SpeedTimeMap {
         return 1.0
     }
 }
+
+extension SpeedTimeMap {
+    /// The trim + speed map every OUTPUT-time consumer builds — the project's
+    /// effective trim window and its speed regions (the same construction the
+    /// share transcript and search seek use inline). Used by the MCP server so
+    /// agent-facing output times come from the one mapping, never a copy.
+    init(trimmedOutputOf project: Project) {
+        let trimStart = project.effectiveTrimStart
+        self.init(
+            sourceStart: trimStart,
+            sourceEnd: max(trimStart, project.effectiveTrimEnd),
+            regions: project.speedRegions
+        )
+    }
+}
+
+extension Project {
+    /// Exported length in OUTPUT seconds for `timeMap`: the map's output
+    /// duration, capped at the last visible clip's OUTPUT-time end. Resizing
+    /// or moving a clip shorter than the trim range would otherwise pad the
+    /// output with trailing BG-only frames. Output time (not source time)
+    /// because a moved clip's source range may not be the rightmost clip on
+    /// the timeline.
+    ///
+    /// SHARED by VideoExporter (the frame count it writes) and the MCP
+    /// server's describe_project / edit results, so the length an agent is
+    /// told is exactly the length export produces.
+    func exportedOutputDuration(timeMap: SpeedTimeMap) -> TimeInterval {
+        let lastVisibleOutput = effectiveVideoClipSegments
+            .map { timeMap.outputTime(forSource: $0.endTime) }
+            .max() ?? timeMap.outputDuration
+        return max(0.0001, min(timeMap.outputDuration, lastVisibleOutput))
+    }
+}
