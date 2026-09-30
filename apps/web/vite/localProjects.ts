@@ -30,10 +30,11 @@ import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 
-const PROJECTS_ROOT = path.join(
-  homedir(),
-  "Library/Containers/so.capturecat.CaptureCat/Data/Library/Application Support/CaptureCat/Projects",
-);
+// CAPTURECAT_PROJECTS_ROOT points a dev server at a folder of SYNTHETIC
+// projects instead (headless harnesses, e.g. the transcription check).
+const PROJECTS_ROOT =
+  process.env.CAPTURECAT_PROJECTS_ROOT ??
+  path.join(homedir(), "Library/Containers/so.capturecat.CaptureCat/Data/Library/Application Support/CaptureCat/Projects");
 
 const UUID_RE = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/;
 /** Swift's JSONEncoder default: Date as seconds since 2001-01-01T00:00:00Z. */

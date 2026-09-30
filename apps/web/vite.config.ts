@@ -6,8 +6,12 @@ import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 
 import { localProjectsPlugin } from "./vite/localProjects";
+import { onnxRuntimeAlias } from "./vite/onnxRuntime";
 
 export default defineConfig({
+  // ONNX Runtime's non-bundled build for the transcription worker: the default
+  // one makes Vite emit a 26 MB wasm nothing loads (see vite/onnxRuntime.ts).
+  resolve: { alias: onnxRuntimeAlias() },
   // Own dep-optimizer cache: parallel dev servers from git worktrees symlink
   // this node_modules, and a second server re-optimizing into the shared
   // default `.vite` swapped the chunks under a running page — two Reacts,
@@ -20,7 +24,7 @@ export default defineConfig({
     // next free one) web and admin started by `npm run dev` race for the
     // SAME fallback port whenever 9229 is taken, and the loser crashes the
     // whole turbo run (EADDRINUSE 127.0.0.1:9232, 2026-09-30).
-    cloudflare({ viteEnvironment: { name: "ssr" }, inspectorPort: 9331 }),
+    cloudflare({ viteEnvironment: { name: "ssr" }, inspectorPort: Number(process.env.CAPTURECAT_INSPECTOR_PORT ?? 9331) }),
     tanstackStart(),
     viteReact(),
     // DEV ONLY (`apply: "serve"`): the Mac app's local projects, read-only,

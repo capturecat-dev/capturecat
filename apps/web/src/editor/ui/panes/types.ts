@@ -85,8 +85,11 @@ export interface PaneActions {
   onChooseCurtainLogo?(): void;
   onRemoveCurtainLogo?(): void;
   onGenerateSubtitles?(): void;
+  /** Transcribe again; the current cues are replaced only on success. */
   onRegenerateSubtitles?(): void;
   onDeleteSubtitles?(): void;
+  /** Stop a running transcription (nothing is written). */
+  onCancelSubtitles?(): void;
   /** Transcription progress (TranscriptionService) while generating. */
   subtitleStatus?: { busy: boolean; progress?: string; error?: string | null };
   onPlayClickSound?(style: ClickSoundStyle, volume: number): void;
