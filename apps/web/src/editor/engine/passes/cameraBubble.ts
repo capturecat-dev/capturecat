@@ -63,7 +63,8 @@ import { apply, IDENTITY, invert, isIdentity, multiply, toRows, type Mat3 } from
 import { CameraSource, type CameraFrame } from "../media/cameraSource";
 import { stageHitRecorder } from "../stageHits";
 import { bakeCameraAssets, measureTag, type BakedAsset } from "./cameraAssets";
-import type { FrameEncoder, FrameState, PassContext, RenderPass, Scene } from "./types";
+import type { FrameEncoder, FrameState, PassContext, RenderPass, Scene, StaticKeyParts } from "./types";
+import { cameraLayoutKey } from "../../core/export/staticSpans";
 
 /** The poster the Mac saves beside the project (Project.cameraPosterURL). */
 export const CAMERA_POSTER_REF = "camera_poster.png";
@@ -226,6 +227,7 @@ export class CameraFeature {
       sceneChanged: (ctx) => self.sceneChanged(ctx),
       cardTransform: (ctx, frame) => self.cardTransform(ctx, frame),
       prefetch: (scene, frame) => self.prefetch(scene, frame),
+      staticKey: (scene, frame) => self.staticKey(scene, frame),
       encode: (ctx, frame, enc) => self.encodeGroup(ctx, frame, enc),
       destroy: () => self.destroy(),
       stageHit: this.hit,
@@ -400,6 +402,39 @@ export class CameraFeature {
     const p = scene.extras.project!;
     const f = await this.source.exact(frame.sourceTime - p.cameraTimeOffset);
     this.exact = { outputTime: frame.outputTime, frame: f };
+  }
+
+  /**
+   * Export fast path (StaticSpanCollapse.FrameKey): the camera sample the
+   * forward-only reader sits on and this frame's resolved layout as the key
+   * string — the same `exportFrameCamera` math `makePlan` renders with, over
+   * the pure statics (no GPU bake: a skipped frame never renders). Null when
+   * the project has no open camera stream (Mac: `cameraReaderOutput == nil`).
+   */
+  private keyStatics: { key: string; statics: ExportCameraStatics } | null = null;
+  private staticKey(scene: Scene, frame: FrameState): StaticKeyParts | null {
+    const project = this.project(scene);
+    const source = this.source;
+    if (!project || !source || !source.isOpen || source.url !== this.cameraUrl(scene)) return null;
+    const s = project.settings;
+    const target = scene.target;
+    const cs = scene.geometry.canvasScale;
+    const nat = source.naturalSize;
+    const key = JSON.stringify([target.width, target.height, cs, nat.width, nat.height, s.cameraSize, s.cameraShape, s.cameraOrientation]);
+    if (this.keyStatics?.key !== key) {
+      const reference = Math.abs(cs - 1) < 1e-9 ? { width: 0, height: 0 } : { width: target.width / cs, height: target.height / cs };
+      this.keyStatics = { key, statics: exportCameraStatics(s, target, reference, nat, source.isOpen, measureTag) };
+    }
+    const vr = scene.geometry.videoRect;
+    const videoRectYUp: Rect = { x: vr.x, y: target.height - vr.y - vr.height, width: vr.width, height: vr.height };
+    const cam = exportFrameCamera(this.keyStatics.statics, s, project.cameraLayoutRegions, videoRectYUp, target, project.cameraTimeOffset, {
+      currentTime: frame.sourceTime,
+      zoom: frame.cameraKey?.zoom ?? 1,
+      sourceVisible: frame.video !== null,
+      cameraFrameDecoded: true,
+      posterAvailable: false,
+    });
+    return { cameraSampleSeconds: source.exportSampleSeconds, cameraLayout: cameraLayoutKey(cam.layout) };
   }
 
   private cardTransform(ctx: PassContext, frame: FrameState): Mat3 | null {
