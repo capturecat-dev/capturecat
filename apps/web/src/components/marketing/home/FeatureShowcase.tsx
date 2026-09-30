@@ -148,7 +148,7 @@ export default function FeatureShowcase() {
             <div ref={stageRef} className="ccd">
               <DemoFrame blur={false}>
                 <div className="ccd-stage ccd-stage--wide" aria-hidden>
-                  <div className="ccd-scene ccd-scene-0">
+                  <div className="ccd-scene ccd-scene-0" data-active="">
                     <Canvas script="az" />
                   </div>
                   <div className="ccd-scene ccd-scene-1">

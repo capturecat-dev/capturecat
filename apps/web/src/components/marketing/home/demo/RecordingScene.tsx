@@ -8,6 +8,7 @@
  * being captured; the panel stays in setup while it runs, then morphs to the
  * live row (RecordingMotion: 0.45 s resize, rows crossfade out/in by halves).
  */
+import type { ReactNode } from "react";
 import {
   AppWindow,
   ArrowLeftRight,
@@ -151,7 +152,7 @@ export function CountdownDial() {
   );
 }
 
-export function MenuBar() {
+export function MenuBar({ children }: { children?: ReactNode }) {
   return (
     <div className="ccd-menubar">
       <AppleGlyph className="ccd-apple" />
@@ -160,7 +161,10 @@ export function MenuBar() {
       <span>Edit</span>
       <span>View</span>
       <span>Window</span>
-      <span className="ccd-menubar-r">Tue 9:41</span>
+      <span className="ccd-menubar-r">
+        {children}
+        Tue 9:41
+      </span>
     </div>
   );
 }

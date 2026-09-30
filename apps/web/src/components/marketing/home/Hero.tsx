@@ -4,8 +4,7 @@ import { Link } from "@tanstack/react-router";
 import CaptureCatMark from "@/components/brand/CaptureCatMark";
 import { TiltCard } from "../TiltCard";
 import { Ambient, AppleGlyph, PrimaryLink, SecondaryAnchor } from "../primitives";
-import { DemoFrame, EditorMock, KeysPill, CameraBubble } from "./demo/parts";
-import { useOffscreenPause } from "./demo/hooks";
+import { ProductLoop } from "./demo/ProductLoop";
 
 const PROOF = [
   "Free to record and export",
@@ -15,7 +14,6 @@ const PROOF = [
 ];
 
 export default function Hero() {
-  const demoRef = useOffscreenPause<HTMLDivElement>();
   return (
     <section className="relative isolate overflow-hidden">
       <Ambient variant="hero" />
@@ -104,39 +102,8 @@ export default function Hero() {
             className="absolute -inset-x-8 -top-8 bottom-10 -z-10 rounded-[3rem] bg-gradient-to-b from-white/[0.07] to-transparent blur-2xl"
           />
           <TiltCard>
-            <div ref={demoRef} className="ccd">
-              <DemoFrame>
-                <EditorMock
-                  script="hero"
-                  title="Launch video"
-                  duration={10}
-                  motionBlur
-                  lanes={[
-                    { name: "VIDEO" },
-                    { name: "VOICE" },
-                    {
-                      name: "EFFECTS",
-                      blocks: [
-                        { className: "ccd-b1", left: 11, width: 35, label: "Zoom 1.9×" },
-                        { className: "ccd-b2", left: 52, width: 32, label: "Zoom 1.9×" },
-                      ],
-                    },
-                  ]}
-                  overlays={
-                    <>
-                      <CameraBubble />
-                      <KeysPill keys={["⌘", "↩"]} />
-                    </>
-                  }
-                />
-              </DemoFrame>
-            </div>
+            <ProductLoop />
           </TiltCard>
-          <p className="sr-only">
-            A recreation of the CaptureCat editor: the cursor clicks a form field, the
-            preview zooms in on it, the name is typed, and the timeline shows the zoom
-            blocks auto zoom placed.
-          </p>
         </div>
       </div>
     </section>

@@ -2094,19 +2094,19 @@
   color: #04210f;
   font-weight: 650;
 }
-.ccd-how[data-step="3"] .ccd-scene-3 .ccd-sheet-scrim { animation: ccdScrim 7s infinite; }
-.ccd-how[data-step="3"] .ccd-scene-3 .ccd-sheet { animation: ccdSheet 7s infinite; }
-.ccd-how[data-step="3"] .ccd-scene-3 .ccd-sheet-form { animation: ccdSheetForm 7s infinite; }
-.ccd-how[data-step="3"] .ccd-scene-3 .ccd-sheet-progress { animation: ccdSheetProg 7s infinite; }
-.ccd-how[data-step="3"] .ccd-scene-3 .ccd-bar i { animation: ccdSheetBar 7s infinite; }
-.ccd-how[data-step="3"] .ccd-scene-3 .ccd-sheet-foot .ccd-rec-tint { animation: ccdSheetPress 7s infinite; }
-.ccd-how[data-step="3"] .ccd-scene-3 .ccd-link { animation: ccdLink 7s infinite; }
-.ccd-how[data-step="3"] .ccd-scene-3 .ccd-sub-a { animation: ccdSubA 7s infinite; }
-.ccd-how[data-step="3"] .ccd-scene-3 .ccd-sub-b { animation: ccdSubB 7s infinite; }
-.ccd-scene-3 .ccd-sheet-sub { position: absolute; top: 64%; }
-.ccd-scene-3 .ccd-sub-b { opacity: 0; }
-.ccd-scene-3 .ccd-sheet-form { opacity: 0; }
-.ccd-scene-3 .ccd-sheet-progress { opacity: 1; }
+.ccd-scene[data-active].ccd-x-export .ccd-sheet-scrim { animation: ccdScrim 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sheet { animation: ccdSheet 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sheet-form { animation: ccdSheetForm 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sheet-progress { animation: ccdSheetProg 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-bar i { animation: ccdSheetBar 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sheet-foot .ccd-rec-tint { animation: ccdSheetPress 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-link { animation: ccdLink 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sub-a { animation: ccdSubA 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sub-b { animation: ccdSubB 7s infinite; }
+.ccd-x-export .ccd-sheet-sub { position: absolute; top: 64%; }
+.ccd-x-export .ccd-sub-b { opacity: 0; }
+.ccd-x-export .ccd-sheet-form { opacity: 0; }
+.ccd-x-export .ccd-sheet-progress { opacity: 1; }
 @keyframes ccdScrim {
   0% { opacity: 0; }
   5%, 60% { opacity: 1; }
@@ -3008,9 +3008,9 @@
   .ccd-how .ccd-editor[data-script="how"] .ccd-track--main { transform: translate(36%, 42.6%); }
   .ccd-how .ccd-scene-2 .ccd-wall-b { opacity: 1; }
   .ccd-how .ccd-scene-2 .ccd-swatch-ring { transform: translateX(calc(100% + 8 * var(--u))); }
-  .ccd-how .ccd-scene-3 .ccd-link { opacity: 1; }
-  .ccd-how .ccd-scene-3 .ccd-sheet,
-  .ccd-how .ccd-scene-3 .ccd-sheet-scrim { opacity: 0; }
+  .ccd-x-export .ccd-link { opacity: 1; }
+  .ccd-x-export .ccd-sheet,
+  .ccd-x-export .ccd-sheet-scrim { opacity: 0; }
   .ccd-feat .ccd-scene-2 .ccd-caption > span:nth-child(3) b { opacity: 1; }
   .ccd-feat .ccd-scene-3 .ccd-vert,
   .ccd-feat .ccd-scene-3 .ccd-vert-dim { opacity: 1; }
