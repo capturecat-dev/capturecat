@@ -57,6 +57,8 @@ export class EngineClient {
   info: LoadedInfo | null = null;
   transport: TransportState | null = null;
   lastStats: EngineStats | null = null;
+  /** `RenderMedia.files` as loaded, plus files added since (addMediaFiles). */
+  private mediaFiles: Record<string, string> = {};
 
   private constructor(
     worker: Worker,
@@ -189,12 +191,13 @@ export class EngineClient {
     this.audio?.dispose();
     this.audio = null;
     if (this.clockTimer) clearInterval(this.clockTimer);
+    this.mediaFiles = { ...(media.files ?? {}) };
     const info = await this.request<LoadedInfo>((requestId) => ({ type: "load", requestId, project, media }));
     if (this.opts.audio !== false) {
       // The export's own mix (recorded tracks, voice-overs, click/key sounds)
       // — present even for a recording without an audio track.
       try {
-        const audio = await AudioPlayback.open({ recording: media.video, files: media.files ?? {} }, project);
+        const audio = await AudioPlayback.open({ recording: media.video, files: this.mediaFiles }, project);
         if (this.disposed) {
           audio.dispose();
           return info;
@@ -214,6 +217,17 @@ export class EngineClient {
   setProject(project: unknown): void {
     this.post({ type: "setProject", project });
     void this.audio?.setProject(project);
+  }
+
+  /**
+   * Make more project.json references fetchable (e.g. a voice-over recorded
+   * in the editor, as a blob: URL) for playback AND export. Call before the
+   * project that references them is pushed.
+   */
+  addMediaFiles(files: Record<string, string>): void {
+    this.mediaFiles = { ...this.mediaFiles, ...files };
+    this.post({ type: "setMediaFiles", files: this.mediaFiles });
+    this.audio?.setFiles(this.mediaFiles);
   }
 
   play(): void {

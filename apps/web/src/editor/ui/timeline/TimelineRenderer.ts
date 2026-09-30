@@ -1022,6 +1022,13 @@ export class TimelineRenderer {
       ctx.fill();
       this.strokeInside(ctx, r, M.voiceCorner, rgbaString(orange, 0.95), 1.75);
       this.drawVoiceContent(ctx, t, r, null, "Recording Voice Over", rgbaString(ink, 0.95), true, voice.live.samples, 0.56, 0.04);
+      // drawVoiceLiveBlock's edge grips (voiceOrange 0.92).
+      ctx.fillStyle = rgbaString(orange, 0.92);
+      for (const hx of [r.x + 5, r.x + r.w - 5 - 3]) {
+        ctx.beginPath();
+        ctx.roundRect(hx, r.y + r.h / 2 - 9, 3, 18, 1);
+        ctx.fill();
+      }
     }
     for (const clip of voice.clips) {
       const r = this.voiceClipRect(clip);
