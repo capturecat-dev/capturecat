@@ -28,7 +28,8 @@
  */
 
 import { stripe as stripePlugin, type StripePlan } from "@better-auth/stripe";
-import { stripePlansFromDB } from "./plans";
+import type { DBFieldAttribute } from "better-auth/db";
+import { planByName, stripePlansFromDB } from "./plans";
 import Stripe from "stripe";
 
 // ---------------------------------------------------------------------------
@@ -247,6 +248,68 @@ export function createStripeClient(env: StripeEnv): Stripe {
   });
 }
 
+/**
+ * Subscription webhooks act on Stripe's CURRENT state, never the event's copy.
+ *
+ * Stripe does not deliver events in order, and a delivery we failed (a 5xx,
+ * a 429) is retried hours or days later with its ORIGINAL payload. The
+ * plugin writes `event.data.object` straight onto the subscription row, so a
+ * late `customer.subscription.updated` (status active, period still open)
+ * landing after `customer.subscription.deleted` would resurrect a cancelled
+ * — possibly refunded — subscription until its period end. Re-reading the
+ * subscription after the signature check makes every such event idempotent
+ * and order-independent. A failed re-read fails the delivery (the plugin
+ * answers 400) so Stripe retries it, rather than applying the stale copy.
+ *
+ * `client.webhooks` is Stripe's SHARED static object, so the override goes on
+ * a per-client child of it rather than mutating it for every instance.
+ */
+export function withFreshSubscriptionEvents(client: Stripe): Stripe {
+  const shared = client.webhooks;
+  const webhooks = Object.create(shared) as Stripe.Webhooks;
+  webhooks.constructEventAsync = async (...args: Parameters<Stripe.Webhooks["constructEventAsync"]>) => {
+    const event = await shared.constructEventAsync(...args);
+    if (event.type.startsWith("customer.subscription.")) {
+      const stale = event.data.object as Stripe.Subscription;
+      (event.data as { object: Stripe.Subscription }).object = await client.subscriptions.retrieve(stale.id);
+    }
+    return event;
+  };
+  client.webhooks = webhooks;
+  return client;
+}
+
+/**
+ * A chargeback takes the money back; the service it paid for must not keep
+ * running on it. Without this a customer could pay, dispute the charge, and
+ * keep the plan until the period ends — a full year on an annual price.
+ * Cancelling in Stripe (rather than writing the row) keeps Stripe the single
+ * source of truth: the resulting `customer.subscription.deleted` is what
+ * revokes access, through the plugin like any other cancellation.
+ *
+ * Inquiries (`warning_*` statuses) move no money and are left alone. Every
+ * live subscription of the disputing customer is cancelled: a CaptureCat
+ * customer is one user, and a charge no longer names its invoice on this API
+ * version. Idempotent — a retried delivery skips what is already cancelled.
+ */
+export async function cancelDisputedSubscriptions(client: Stripe, dispute: Stripe.Dispute): Promise<string[]> {
+  if (dispute.status.startsWith("warning_")) return [];
+  const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id;
+  const charge = await client.charges.retrieve(chargeId);
+  const customer = typeof charge.customer === "string" ? charge.customer : charge.customer?.id;
+  if (!customer) return [];
+  const cancelled: string[] = [];
+  for await (const sub of client.subscriptions.list({ customer, status: "all", limit: 100 })) {
+    if (sub.status === "canceled" || sub.status === "incomplete_expired") continue;
+    await client.subscriptions.cancel(sub.id, {
+      cancellation_details: { comment: `Charge ${chargeId} disputed (${dispute.id})` },
+    });
+    cancelled.push(sub.id);
+  }
+  console.log(`stripe: dispute ${dispute.id} on ${customer} — cancelled ${cancelled.join(", ") || "nothing"}`);
+  return cancelled;
+}
+
 // ---------------------------------------------------------------------------
 // THE PLUGIN BLOCK — imported by src/lib/auth.ts
 // ---------------------------------------------------------------------------
@@ -272,8 +335,9 @@ export function createStripeClient(env: StripeEnv): Stripe {
  * `auth.handler(c.req.raw)` in src/index.ts.
  */
 export function buildStripePlugin(env: StripeEnv) {
-  return stripePlugin({
-    stripeClient: createStripeClient(env),
+  const client = withFreshSubscriptionEvents(createStripeClient(env));
+  return lockStripeCustomerId(stripePlugin({
+    stripeClient: client,
     stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
 
     // Create the Stripe customer at sign-up so `user.stripeCustomerId` is
@@ -296,11 +360,17 @@ export function buildStripePlugin(env: StripeEnv) {
       // so an edit takes effect immediately.
       //
       // Falls back to the hardcoded plan if the table cannot be read: a D1
-      // hiccup must not make checkout vanish for everyone.
+      // hiccup must not make checkout vanish for everyone. It also covers an
+      // ACTIVE pro row that was never Stripe-synced (the env price predates
+      // the sync button) — but never a pro row the admin HID: hidden means
+      // not for sale, and the fallback used to sell it anyway (a checkout
+      // that charged for a plan planForEntitlement then served as free).
       plans: async () => {
         try {
           const fromDB = await stripePlansFromDB(env);
           if (fromDB.length > 0) return fromDB;
+          const pro = await planByName(env.DB, "pro");
+          if (pro && !pro.isActive) return [];
           console.error("stripe: no sellable plans in the plan table — falling back");
         } catch (err) {
           console.error("stripe: plan lookup failed, falling back", err);
@@ -348,8 +418,15 @@ export function buildStripePlugin(env: StripeEnv) {
      * Nothing from the old `routes/webhooks.ts` lives here — the plugin covers
      * all three events it handled. This is the hook to extend if we ever want
      * `invoice.paid`, `invoice.payment_failed`, dunning email, etc.
+     *
+     * `charge.dispute.created` IS handled: see cancelDisputedSubscriptions.
+     * A throw here makes the plugin answer 400, so Stripe retries.
      */
     onEvent: async (event) => {
+      if (event.type === "charge.dispute.created") {
+        await cancelDisputedSubscriptions(client, event.data.object as Stripe.Dispute);
+        return;
+      }
       const OWNED = new Set([
         "checkout.session.completed",
         "customer.subscription.created",
@@ -360,5 +437,30 @@ export function buildStripePlugin(env: StripeEnv) {
         console.log(`stripe: unhandled event ${event.type} (${event.id})`);
       }
     },
-  });
+  }));
+}
+
+/**
+ * SECURITY: the plugin declares `user.stripeCustomerId` WITHOUT `input:
+ * false`, and Better Auth treats every plugin user field as client-settable
+ * unless told otherwise — so POST /api/auth/update-user could re-point the
+ * caller at ANOTHER user's Stripe customer. From there: checkout runs on the
+ * victim's customer (their saved cards), the billing portal opens the
+ * victim's billing, a dashboard-created comp for the victim maps to the
+ * attacker, and the plugin's own user-update hook rewrites the victim
+ * customer's email to the attacker's. The plugin writes this column itself
+ * through the internal adapter, which `input: false` does not affect.
+ *
+ * Plugin fields override `user.additionalFields`, and the plugin's
+ * `schema` option can only rename columns, so the flag is set here on a
+ * copy of the plugin's schema. src/lib/auth.test.ts pins it.
+ */
+function lockStripeCustomerId<P extends ReturnType<typeof stripePlugin>>(plugin: P): P {
+  const user = plugin.schema.user;
+  const locked = { ...user.fields.stripeCustomerId, input: false } satisfies DBFieldAttribute;
+  plugin.schema = {
+    ...plugin.schema,
+    user: { ...user, fields: { ...user.fields, stripeCustomerId: locked } },
+  } as P["schema"];
+  return plugin;
 }
