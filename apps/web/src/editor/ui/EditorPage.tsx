@@ -28,12 +28,15 @@ import { loadEditorProject, type LoadedEditorProject } from "../state/projectSou
 import { EditorStore, useEditorStore, type EditorState, type Persistence } from "../state/store";
 import { timelineSnapshot } from "../state/timeline";
 import { buildEditorToolHandlers, registerEditorWebMCP } from "../state/webmcpHandlers";
+import { UploadGate } from "../state/voiceOver";
 import { Button, SFIcon, ThemeRoot } from "./kit";
 import { useInspectorPanes } from "./panes";
 import { EditorShell } from "./shell/EditorShell";
 import { ASPECT_RATIOS, type StageMount, type StageViewport, type TransportState } from "./shell/types";
 import { mountStageInteraction, type StageInteraction } from "./stage/StageInteraction";
+import type { TimelineRenderer } from "./timeline/TimelineRenderer";
 import type { TimelineSnapshot } from "./timeline/types";
+import { useVoiceOver } from "./voiceover/VoiceOver";
 
 /** The editor requires WebGPU (architecture §Stack) — say so plainly. */
 export function WebGPUGate({ children }: { children: ReactNode }) {
@@ -86,6 +89,9 @@ export function EditorPage({ projectId }: { projectId: string }) {
   const playhead = controller.playhead;
   const transportRef = useRef<EngineTransport | null>(null);
   const stageRef = useRef<StageInteraction | null>(null);
+  const timelineRendererRef = useRef<TimelineRenderer | null>(null);
+  // Media uploads in flight (a recorded voice-over): saves wait for them.
+  const [uploads] = useState(() => new UploadGate());
 
   // Export button / ⌘E → the export sheet.
   useEffect(() => {
@@ -116,6 +122,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
           project.origin === "cloud"
             ? {
                 save: async (document, baseRevision) => {
+                  await uploads.idle();
                   const r = await saveCloudProject(project.id, document, baseRevision);
                   return r.ok
                     ? { ok: true, revision: r.revision }
@@ -131,7 +138,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
     return () => {
       alive = false;
     };
-  }, [projectId, store]);
+  }, [projectId, store, uploads]);
 
   // Unsaved cloud edits: flush on hide, guard unload, retry when back online.
   useEffect(() => {
@@ -306,6 +313,8 @@ export function EditorPage({ projectId }: { projectId: string }) {
     () => (project ? timelineSnapshot({ project, selection: state.selection, sliceArmed: state.sliceArmed, hasAudio }) : EMPTY_TIMELINE),
     [project, state.selection, state.sliceArmed, hasAudio],
   );
+  // Voice over: the mic key, the live VOICE block, the "Voice Over" alert.
+  const voiceOver = useVoiceOver({ store, controller, loaded, uploads, timeline, rendererRef: timelineRendererRef });
 
   const callbacks = useMemo(() => controller.shellCallbacks(), [controller]);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
@@ -334,7 +343,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
     canRedo: state.canRedo,
     canDelete: controller.canDelete(),
     sliceArmed: state.sliceArmed,
-    isRecordingVoiceOver: false,
+    isRecordingVoiceOver: voiceOver.isRecording,
     duration: timeline.outputDuration,
     hidesTime: timeline.timeless,
     timelessTimeline: project ? presentsTimelessTimeline(project) : false,
@@ -386,6 +395,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
           inspectorTab={state.inspectorTab}
           topBarAccessory={accessory}
           panes={panes}
+          timelineRendererRef={timelineRendererRef}
         />
         <ExportDialog
           open={exportOpen}
@@ -397,6 +407,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
             store.updateSettings({ exportSettings: { ...(settings?.exportSettings ?? {}), ...s } } as never, "Export Settings")
           }
         />
+        {voiceOver.alert}
       </WebGPUGate>
     </ThemeRoot>
   );

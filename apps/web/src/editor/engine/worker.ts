@@ -46,6 +46,9 @@ async function handle(msg: ToWorker): Promise<void> {
     case "setProject":
       engine.setProject(msg.project);
       break;
+    case "setMediaFiles":
+      engine.setMediaFiles(msg.files);
+      break;
     case "play":
       engine.play();
       break;

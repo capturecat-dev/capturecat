@@ -31,6 +31,8 @@ export type ToWorker =
   | { type: "init"; canvas: OffscreenCanvas; viewport: ViewportSpec }
   | { type: "load"; requestId: number; project: unknown; media: RenderMedia }
   | { type: "setProject"; project: unknown }
+  /** Replace `RenderMedia.files` (a voice-over recorded in the editor, refreshed URLs). */
+  | { type: "setMediaFiles"; files: Record<string, string> }
   | { type: "play" }
   | { type: "pause" }
   | { type: "seek"; requestId: number; time: number }

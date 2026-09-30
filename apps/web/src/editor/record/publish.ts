@@ -80,9 +80,10 @@ function filesOf(take: RecordedTake): LocalFile[] {
   return out;
 }
 
-class UploadExpiredError extends Error {}
+export class UploadExpiredError extends Error {}
 
-function putBlob(target: UploadTarget, blob: Blob, onBytes: (sent: number) => void, signal?: AbortSignal): Promise<void> {
+/** One presigned PUT straight to R2 (XHR, for upload progress). */
+export function putBlob(target: UploadTarget, blob: Blob, onBytes: (sent: number) => void, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open(target.method, target.uploadUrl);
