@@ -2,12 +2,14 @@
  * Route-level tests for cloud projects: authz, presign scoping, finalize
  * verification, quota refusal and optimistic-concurrency conflicts.
  *
- * Real: the Hono router, every migration + every SQL statement (node:sqlite
- * via test-support/d1-sqlite.js), requireEntitlement / userRateLimit / the
- * plan rows / checkUploadAllowance / the storage sum.
- * Mocked: the Better Auth session (a header names the caller) and the S3
- * presigner (deterministic URLs we can assert on). R2 is an in-memory bucket
- * — nothing here can reach the real one.
+ * Real: the Hono router, requireAuth (its blocked gate and cookie-CSRF gate),
+ * every migration + every SQL statement (node:sqlite via
+ * test-support/d1-sqlite.js), requireEntitlement / userRateLimit / the plan
+ * rows / checkUploadAllowance / the storage sum.
+ * Mocked: the Better Auth session STORE (a bearer token is the uid; the user
+ * row — tester, blocked — is read from D1 exactly as Better Auth would) and
+ * the S3 presigner (deterministic URLs we can assert on). R2 is an in-memory
+ * bucket — nothing here can reach the real one.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,23 +19,25 @@ import { createTestD1, type TestD1 } from "../test-support/d1-sqlite.js";
 import { sha256Hex } from "../lib/cloud-projects";
 import { storageUsageBytes } from "../lib/db";
 
-vi.mock("../middleware/auth", async () => {
-  const { createMiddleware } = await import("hono/factory");
-  return {
-    requireAuth: createMiddleware<{ Bindings: Env; Variables: Variables }>(async (c, next) => {
-      const uid = c.req.header("x-test-uid");
-      if (!uid) return c.json({ error: "Invalid or expired session" }, 401);
-      c.set("session", { expiresAt: new Date(Date.now() + 86_400_000).toISOString() });
-      c.set("user", {
-        uid,
-        email: `${uid}@test.local`,
-        // Tester → the pro plan row; everyone else resolves to free.
-        claims: { tester: c.req.header("x-test-tester") === "1", blocked: false },
-      });
-      await next();
-    }),
-  };
-});
+vi.mock("../lib/auth", () => ({
+  getAuth: (env: Env) => ({
+    api: {
+      getSession: async ({ headers }: { headers: Headers }) => {
+        const token = headers.get("Authorization")?.replace(/^Bearer /, "");
+        if (!token) return null;
+        const user = await env.DB.prepare(`SELECT id, email, tester, blocked FROM "user" WHERE id = ?`)
+          .bind(token)
+          .first<{ id: string; email: string; tester: number; blocked: number }>();
+        if (!user) return null;
+        return {
+          session: { expiresAt: new Date(Date.now() + 86_400_000) },
+          // Tester → the pro plan row; everyone else resolves to free.
+          user: { id: user.id, email: user.email, tester: user.tester === 1, blocked: user.blocked === 1 },
+        };
+      },
+    },
+  }),
+}));
 
 const presignCalls = vi.hoisted(() => ({
   put: [] as Array<Record<string, unknown>>,
@@ -138,10 +142,7 @@ beforeEach(() => {
 
 function call(uid: string | null, method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
   const h: Record<string, string> = { ...headers };
-  if (uid) {
-    h["x-test-uid"] = uid;
-    if (uid !== FREE) h["x-test-tester"] = "1";
-  }
+  if (uid) h["Authorization"] = `Bearer ${uid}`;
   let payload: BodyInit | undefined;
   if (typeof body === "string") payload = body;
   else if (body !== undefined) {
@@ -241,7 +242,14 @@ describe("authz", () => {
       ["PUT", `/cloud-projects/${ID}/project`],
       ["DELETE", `/cloud-projects/${ID}`],
     ] as const) {
-      expect((await call(null, method, path)).status, `${method} ${path}`).toBe(401);
+      // From a trusted web origin, so the CSRF gate passes and the missing
+      // session is what refuses it…
+      const res = await call(null, method, path, undefined, { Origin: "https://app.capturecat.so" });
+      expect(res.status, `${method} ${path}`).toBe(401);
+      // …and a cookie-style write from anywhere else never gets that far.
+      if (method !== "GET") {
+        expect((await call(null, method, path, undefined, { Origin: "https://evil.test" })).status).toBe(403);
+      }
     }
   });
 
@@ -301,6 +309,141 @@ describe("authz", () => {
     const res = await call(STRANGER, "PUT", `/cloud-projects/${ID}`, await manifest(baseFiles(), { orgId: ORG }));
     expect(res.status).toBe(403);
     expect(db.query(`SELECT * FROM cloud_projects`)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Team access (owner decision 2026-09-30): members may READ and SAVE the
+// document; only the owner stages/finalizes media, moves or deletes; every
+// byte and every entitlement is the OWNER's.
+// ---------------------------------------------------------------------------
+
+const BLOCKED = "blocked-member";
+
+function addUser(uid: string, opts: { tester?: boolean; blocked?: boolean; memberOf?: string } = {}) {
+  const now = new Date().toISOString();
+  db.query(
+    `INSERT INTO "user" (id, name, email, emailVerified, createdAt, updatedAt, tester, blocked)
+     VALUES (?, ?, ?, 1, ?, ?, ?, ?)`,
+    uid, uid, `${uid}@test.local`, now, now, opts.tester === false ? 0 : 1, opts.blocked ? 1 : 0,
+  );
+  if (opts.memberOf) {
+    db.query(
+      `INSERT INTO "member" (id, organizationId, userId, role, createdAt) VALUES (?, ?, ?, 'member', ?)`,
+      `m-${uid}`, opts.memberOf, uid, now,
+    );
+  }
+}
+
+describe("team access matrix", () => {
+  it("owner / member / non-member / blocked on read, list, save, stage, finalize and delete", async () => {
+    await syncedProject(baseFiles(), { orgId: ORG });
+    addUser(BLOCKED, { blocked: true, memberOf: ORG });
+    let revision = 1;
+    const save = (uid: string) =>
+      call(uid, "PUT", `/cloud-projects/${ID}/project`, projectJSON(`by ${uid}`), { "If-Match": `"${revision}"` });
+    const stage = async (uid: string) => call(uid, "PUT", `/cloud-projects/${ID}`, await manifest(baseFiles()));
+
+    type Row = [string, () => Response | Promise<Response>, number];
+    const matrix: Row[] = [
+      // read
+      ["owner GET", () => call(OWNER, "GET", `/cloud-projects/${ID}`), 200],
+      ["member GET", () => call(MEMBER, "GET", `/cloud-projects/${ID}`), 200],
+      ["non-member GET", () => call(STRANGER, "GET", `/cloud-projects/${ID}`), 404],
+      ["blocked GET", () => call(BLOCKED, "GET", `/cloud-projects/${ID}`), 403],
+      ["owner files", () => call(OWNER, "GET", `/cloud-projects/${ID}/files`), 200],
+      ["member files", () => call(MEMBER, "GET", `/cloud-projects/${ID}/files`), 200],
+      ["non-member files", () => call(STRANGER, "GET", `/cloud-projects/${ID}/files`), 404],
+      ["blocked files", () => call(BLOCKED, "GET", `/cloud-projects/${ID}/files`), 403],
+      // team listing
+      ["member list", () => call(MEMBER, "GET", `/cloud-projects?orgId=${ORG}`), 200],
+      ["non-member list", () => call(STRANGER, "GET", `/cloud-projects?orgId=${ORG}`), 403],
+      ["blocked list", () => call(BLOCKED, "GET", `/cloud-projects?orgId=${ORG}`), 403],
+      // save (document) — owner and member both may
+      ["non-member save", () => save(STRANGER), 404],
+      ["blocked save", () => save(BLOCKED), 403],
+      ["member save", () => save(MEMBER), 200],
+      ["owner save", () => { revision = 2; return save(OWNER); }, 200],
+      // media — owner only
+      ["member stage", () => stage(MEMBER), 403],
+      ["non-member stage", () => stage(STRANGER), 403],
+      ["blocked stage", () => stage(BLOCKED), 403],
+      ["member finalize", () => call(MEMBER, "POST", `/cloud-projects/${ID}/finalize`), 403],
+      ["non-member finalize", () => call(STRANGER, "POST", `/cloud-projects/${ID}/finalize`), 404],
+      ["blocked finalize", () => call(BLOCKED, "POST", `/cloud-projects/${ID}/finalize`), 403],
+      ["owner stage", () => stage(OWNER), 200],
+      ["owner finalize", () => call(OWNER, "POST", `/cloud-projects/${ID}/finalize`), 200],
+      // delete — owner only
+      ["member delete", () => call(MEMBER, "DELETE", `/cloud-projects/${ID}`), 403],
+      ["non-member delete", () => call(STRANGER, "DELETE", `/cloud-projects/${ID}`), 404],
+      ["blocked delete", () => call(BLOCKED, "DELETE", `/cloud-projects/${ID}`), 403],
+      ["owner delete", () => call(OWNER, "DELETE", `/cloud-projects/${ID}`), 200],
+    ];
+    for (const [label, run, expected] of matrix) {
+      expect((await run()).status, label).toBe(expected);
+    }
+  });
+
+  it("records WHO saved: a member's save is attributed to the member, not the owner", async () => {
+    await syncedProject(baseFiles(), { orgId: ORG });
+    expect(db.query(`SELECT updated_by FROM cloud_projects`)[0]).toEqual({ updated_by: OWNER });
+    const res = await call(MEMBER, "PUT", `/cloud-projects/${ID}/project`, projectJSON("team edit"), { "If-Match": '"1"' });
+    expect(res.status).toBe(200);
+    expect(db.query(`SELECT updated_by FROM cloud_projects`)[0]).toEqual({ updated_by: MEMBER });
+  });
+
+  it("entitlement and quota are the OWNER's: a free-plan member saves into a paid owner's project, charged to the owner", async () => {
+    await syncedProject(baseFiles(), { orgId: ORG });
+    addUser("free-member", { tester: false, memberOf: ORG });
+    const ownerBefore = await storageUsageBytes(db, OWNER);
+    const doc = projectJSON("Demo", { padding: "z".repeat(50) });
+    const res = await call("free-member", "PUT", `/cloud-projects/${ID}/project`, doc, { "If-Match": '"1"' });
+    expect(res.status).toBe(200); // the member's own (free) plan is irrelevant
+    const growth = new TextEncoder().encode(doc).byteLength - new TextEncoder().encode(projectJSON()).byteLength;
+    expect(await storageUsageBytes(db, OWNER)).toBe(ownerBefore + growth);
+    expect(await storageUsageBytes(db, "free-member")).toBe(0);
+    // The document object lives under the OWNER's prefix.
+    expect([...bucket.objects.keys()].filter((k) => k.includes("/doc/"))[0]).toMatch(
+      new RegExp(`^cloud-projects/${OWNER}/${ID}/doc/2-`),
+    );
+  });
+
+  it("team access is the owner's paid feature: when the owner's plan lapses, members lose the project and the owner keeps it", async () => {
+    await syncedProject(baseFiles(), { orgId: ORG });
+    db.query(`UPDATE "user" SET tester = 0 WHERE id = ?`, OWNER); // owner now resolves to the free plan
+    expect((await call(MEMBER, "GET", `/cloud-projects/${ID}`)).status).toBe(404);
+    expect((await call(MEMBER, "GET", `/cloud-projects/${ID}/files`)).status).toBe(404);
+    expect(
+      (await call(MEMBER, "PUT", `/cloud-projects/${ID}/project`, projectJSON("x"), { "If-Match": '"1"' })).status,
+    ).toBe(404);
+    expect((await json(await call(MEMBER, "GET", `/cloud-projects?orgId=${ORG}`))).projects).toEqual([]);
+    expect((await call(OWNER, "GET", `/cloud-projects/${ID}`)).status).toBe(200);
+    // A blocked owner is the same as a lapsed one.
+    db.query(`UPDATE "user" SET tester = 1, blocked = 1 WHERE id = ?`, OWNER);
+    expect((await call(MEMBER, "GET", `/cloud-projects/${ID}`)).status).toBe(404);
+  });
+
+  it("a member cannot enlarge the owner's storage by any path", async () => {
+    await syncedProject(baseFiles(), { orgId: ORG });
+    const before = await storageUsageBytes(db, OWNER);
+    setProLimits({ maxTotalStorageBytes: before + 10 });
+    const extra = [...baseFiles(), file("voiceover.m4a", "audio/mp4", "member-supplied-audio")];
+
+    // Media into the owner's project: stage (with or without an org move) and finalize.
+    expect((await call(MEMBER, "PUT", `/cloud-projects/${ID}`, await manifest(extra))).status).toBe(403);
+    expect((await call(MEMBER, "PUT", `/cloud-projects/${ID}`, await manifest(extra, { orgId: null }))).status).toBe(403);
+    expect((await call(MEMBER, "POST", `/cloud-projects/${ID}/finalize`)).status).toBe(403);
+    expect(presignCalls.put.filter((p) => String(p.key).includes(`/${OWNER}/`))).toHaveLength(3); // the owner's own sync only
+    // A document that would push the owner past their cap.
+    const huge = projectJSON("Demo", { padding: "z".repeat(100) });
+    const grow = await call(MEMBER, "PUT", `/cloud-projects/${ID}/project`, huge, { "If-Match": '"1"' });
+    expect(grow.status).toBe(413);
+    // Deleting is not a member's to do either (and would not enlarge anything).
+    expect((await call(MEMBER, "DELETE", `/cloud-projects/${ID}`)).status).toBe(403);
+
+    expect(await storageUsageBytes(db, OWNER)).toBe(before);
+    expect(db.query(`SELECT COUNT(*) AS n FROM cloud_project_objects WHERE status = 'pending'`)[0]).toEqual({ n: 0 });
+    expect(db.query(`SELECT revision, staged_manifest FROM cloud_projects`)[0]).toEqual({ revision: 1, staged_manifest: null });
   });
 });
 
@@ -571,6 +714,73 @@ describe("quota", () => {
     const smaller = projectJSON("D");
     const shrink = await call(OWNER, "PUT", `/cloud-projects/${ID}/project`, smaller, { "If-Match": '"1"' });
     expect(shrink.status).toBe(200);
+  });
+
+  it("replacing a recording at the cap still works: the dropped object is credit", async () => {
+    const a = file("recording.mov", "video/quicktime", "A".repeat(40));
+    await syncedProject([a]);
+    const used = await storageUsageBytes(db, OWNER);
+    setProLimits({ maxTotalStorageBytes: used });
+    const b = file("recording.mov", "video/quicktime", "B".repeat(40));
+    const stage = await json(await call(OWNER, "PUT", `/cloud-projects/${ID}`, await manifest([b])));
+    await uploadMissing(stage, [b]);
+    expect((await call(OWNER, "POST", `/cloud-projects/${ID}/finalize`)).status).toBe(200);
+    const got = await json(await call(OWNER, "GET", `/cloud-projects/${ID}`));
+    expect(got.files.map((f: { sha256: string }) => f.sha256)).toEqual([await sha256Hex(b.bytes)]);
+    expect(await storageUsageBytes(db, OWNER)).toBe(used);
+  });
+
+  it("EXPLOIT: a replacement accepted on credit cannot be committed alongside the object it replaced", async () => {
+    // At the cap with recording A committed.
+    const a = file("recording.mov", "video/quicktime", "A".repeat(40));
+    await syncedProject([a]);
+    const used = await storageUsageBytes(db, OWNER);
+    setProLimits({ maxTotalStorageBytes: used });
+
+    // Stage a same-size replacement B plus a zero-byte sidecar that is never
+    // uploaded: finalize verifies B, accepts it on A's credit, then stops
+    // short of committing (409 objects_missing) — so A is never collected.
+    const b = file("recording.mov", "video/quicktime", "B".repeat(40));
+    const never = file("never.json", "application/json", "");
+    const stage = await json(await call(OWNER, "PUT", `/cloud-projects/${ID}`, await manifest([b, never])));
+    await uploadMissing(stage, [b]);
+    expect((await call(OWNER, "POST", `/cloud-projects/${ID}/finalize`)).status).toBe(409);
+
+    // Restage naming BOTH objects: nothing is missing, so nothing is presigned
+    // or quota-checked at stage time…
+    const both = [a, file("replacement.mov", "video/quicktime", "B".repeat(40))];
+    expect((await call(OWNER, "PUT", `/cloud-projects/${ID}`, await manifest(both))).status).toBe(200);
+    // …and the commit is where the cap must hold.
+    const fin = await call(OWNER, "POST", `/cloud-projects/${ID}/finalize`);
+    expect(fin.status).toBe(413);
+    expect((await json(fin)).code).toBe("storage_limit_reached");
+    const got = await json(await call(OWNER, "GET", `/cloud-projects/${ID}`));
+    expect(got.files.map((f: { sha256: string }) => f.sha256)).toEqual([await sha256Hex(a.bytes)]);
+
+    // The uncommitted leftover still counts and is never credit again, so the
+    // trick cannot be repeated to ratchet storage up.
+    const c3 = file("recording.mov", "video/quicktime", "C".repeat(40));
+    const again = await call(OWNER, "PUT", `/cloud-projects/${ID}`, await manifest([c3, never]));
+    expect(again.status).toBe(413);
+  });
+
+  it("restaging one project with fresh hashes cannot mint presigns past the cap or the pending bound", async () => {
+    setProLimits({ maxTotalStorageBytes: 100 });
+    const first = await call(OWNER, "PUT", `/cloud-projects/${ID}`, await manifest([file("a.json", "application/json", "x".repeat(60))]));
+    expect(first.status).toBe(200);
+    // The first presign is still outstanding (its bytes may already be in R2).
+    const second = await call(OWNER, "PUT", `/cloud-projects/${ID}`, await manifest([file("b.json", "application/json", "y".repeat(60))]));
+    expect(second.status).toBe(413);
+
+    // Same for the COUNT of outstanding presigns (MAX_PENDING_OBJECTS = 200).
+    setProLimits({ maxTotalStorageBytes: 1_000_000 });
+    const batch = (tag: string) =>
+      Array.from({ length: 150 }, (_, i) => file(`${tag}${i}.json`, "application/json", `${tag}-${i}`));
+    const other = "11111111-2222-3333-4444-555555555555";
+    expect((await call(OWNER, "PUT", `/cloud-projects/${other}`, await manifest(batch("p")))).status).toBe(200);
+    const again = await call(OWNER, "PUT", `/cloud-projects/${other}`, await manifest(batch("q")));
+    expect(again.status).toBe(429);
+    expect((await json(again)).code).toBe("too_many_pending");
   });
 });
 

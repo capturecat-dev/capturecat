@@ -72,7 +72,10 @@ import {
  * (stage/finalize), org moves and delete stay owner-only: media counts
  * against the owner's storage. A non-member gets 404 on reads (a random
  * UUID's existence is not theirs to learn) and 403 on writes to an id
- * another account owns.
+ * another account owns. Team access is the OWNER's plan feature (`teams`),
+ * checked at use time like share links: once the owner's plan lapses, the
+ * members lose the project (the owner keeps it) — otherwise one month of a
+ * paid plan would buy a permanent team library on the free tier.
  *
  * App Attest (checkAssertion) is deliberately NOT chained: these routes are
  * the web editor's too, and a browser cannot attest. The boundary is the
@@ -116,9 +119,30 @@ async function loadForRead(c: Ctx): Promise<
   const id = normalizeProjectId(c.req.param("id"));
   if (!id) return { ok: false, res: c.json({ error: "Invalid project id" }, 400) };
   const project = await getCloudProject(c.env.DB, id);
-  const access = project ? await cloudProjectAccess(c.env.DB, project, c.get("user").uid) : "none";
+  let access = project ? await cloudProjectAccess(c.env.DB, project, c.get("user").uid) : "none";
+  if (project && access === "member" && !(await ownerHasTeams(c.env, project.ownerUid))) access = "none";
   if (!project || access === "none") return { ok: false, res: c.json({ error: "Project not found" }, 404) };
   return { ok: true, project, access };
+}
+
+/** Whether the owner's CURRENT plan still includes team access. */
+async function ownerHasTeams(env: Env, ownerUid: string): Promise<boolean> {
+  return (await planForUser(env, ownerUid)).features.teams;
+}
+
+/** Bytes of this project's ready objects that the COMMITTED file set
+ *  references but `wantedShas` drops — the only bytes a replacement may be
+ *  accepted on credit for, because only they are garbage-collected by the
+ *  commit. Uncommitted leftovers (a finalize that stopped short) are never
+ *  credit: they still count, so they cannot be traded twice. */
+function creditBytes(
+  objects: Array<{ sha256: string; bytes: number; status: string }>,
+  committedShas: Set<string>,
+  wantedShas: Set<string>,
+): number {
+  return objects
+    .filter((o) => o.status === "ready" && committedShas.has(o.sha256) && !wantedShas.has(o.sha256))
+    .reduce((sum, o) => sum + o.bytes, 0);
 }
 
 /** The plan as it applies to cloud-project MEDIA: the per-file cap lifts to
@@ -215,7 +239,15 @@ cloudProjectRoutes.get("/cloud-projects", requireAuth, requireEntitlement(), asy
       return c.json({ error: "Not a member of this team" }, 403);
     }
     const projects = await listOrgCloudProjects(c.env.DB, orgId);
-    return c.json({ projects: projects.map((p) => projectSummary(p, uid)) });
+    // Same use-time rule as loadForRead: a project whose owner's plan lost
+    // team access is not listed to the team (the owner still sees their own).
+    const visible = new Map<string, boolean>();
+    for (const owner of new Set(projects.map((p) => p.ownerUid))) {
+      visible.set(owner, owner === uid || (await ownerHasTeams(c.env, owner)));
+    }
+    return c.json({
+      projects: projects.filter((p) => visible.get(p.ownerUid)).map((p) => projectSummary(p, uid)),
+    });
   }
   const [projects, usedBytes, plan] = await Promise.all([
     listOwnedCloudProjects(c.env.DB, uid),
@@ -266,13 +298,25 @@ cloudProjectRoutes.put("/cloud-projects/:id", requireAuth, requireEntitlement(),
   if (!gate.ok) return c.json(gate.body, gate.status);
 
   const objects = existing ? await listCloudObjects(c.env.DB, id) : [];
+  const committedShas = new Set(existing ? (await listCloudFiles(c.env.DB, id)).map((f) => f.sha256) : []);
   const readyShas = new Set(objects.filter((o) => o.status === "ready").map((o) => o.sha256));
   const wanted = distinctObjects(body.files);
   const wantedShas = new Set(wanted.map((o) => o.sha256));
   const missing = wanted.filter((o) => !readyShas.has(o.sha256));
 
-  // Liability bound on outstanding presigns (their bytes are not yet counted).
+  // Liability bound on outstanding presigns (their bytes are not yet counted):
+  // other projects' pending objects AND this project's pending objects that
+  // the new manifest does not re-stage. Counting only other projects let one
+  // project be restaged with fresh hashes indefinitely, each restage minting
+  // new presigned PUTs while the earlier ones were never counted.
   const elsewhere = await pendingObjectsElsewhere(c.env.DB, uid, id);
+  const missingShas = new Set(missing.map((o) => o.sha256));
+  for (const o of objects) {
+    if (o.status === "pending" && !missingShas.has(o.sha256)) {
+      elsewhere.count += 1;
+      elsewhere.bytes += o.bytes;
+    }
+  }
   if (elsewhere.count + missing.length > MAX_PENDING_OBJECTS) {
     return c.json(
       { error: "Too many uploads in progress — finish or wait a moment before starting another.", code: "too_many_pending" },
@@ -281,12 +325,10 @@ cloudProjectRoutes.put("/cloud-projects/:id", requireAuth, requireEntitlement(),
   }
 
   // Quota at presign time (advisory — /finalize decides atomically on the
-  // verified bytes). Outstanding presigns elsewhere count as used; this
-  // project's ready objects that the new manifest drops count as freed.
+  // verified bytes). Outstanding presigns count as used; this project's
+  // committed objects that the new manifest drops count as freed.
   const used = await storageUsageBytes(c.env.DB, uid);
-  const credit = objects
-    .filter((o) => o.status === "ready" && !wantedShas.has(o.sha256))
-    .reduce((sum, o) => sum + o.bytes, 0);
+  const credit = creditBytes(objects, committedShas, wantedShas);
   let running = used + elsewhere.bytes - credit;
   const mediaPlan = cloudMediaPlan(plan);
   for (const obj of missing) {
@@ -383,9 +425,8 @@ cloudProjectRoutes.post("/cloud-projects/:id/finalize", requireAuth, requireEnti
   const bySha = new Map(objects.map((o) => [o.sha256, o]));
 
   const plan: PlanRecord = await planForEntitlement(c.env.DB, c.get("entitlement"));
-  const credit = objects
-    .filter((o) => o.status === "ready" && !wantedShas.has(o.sha256))
-    .reduce((sum, o) => sum + o.bytes, 0);
+  const committedShas = new Set((await listCloudFiles(c.env.DB, project.id)).map((f) => f.sha256));
+  const credit = creditBytes(objects, committedShas, wantedShas);
 
   const notUploaded: Array<{ sha256: string; paths: string[] }> = [];
   let verifiedBytes = 0;
@@ -473,7 +514,9 @@ cloudProjectRoutes.post("/cloud-projects/:id/finalize", requireAuth, requireEnti
 
   const committed = await commitCloudFiles(c.env.DB, {
     projectId: project.id,
+    ownerUid: uid,
     stagedAt: project.stagedAt,
+    limitBytes: plan.limits.maxTotalStorageBytes,
     files: staged.files.map((f) => ({
       path: f.path,
       sha256: f.sha256,
@@ -484,7 +527,13 @@ cloudProjectRoutes.post("/cloud-projects/:id/finalize", requireAuth, requireEnti
     })),
     now: nowIso(),
   });
-  if (!committed) {
+  if (committed === "over_quota") {
+    // Every object verified, but committing this set would leave the owner
+    // over the cap (e.g. a restage naming an object AND its replacement).
+    // Nothing was committed; the previous file set is still the live one.
+    return c.json(storageDeniedBody(plan, await storageUsageBytes(c.env.DB, uid)), 413);
+  }
+  if (committed !== "committed") {
     return c.json(
       { error: "The manifest was restaged while finalizing — finalize again", code: "manifest_changed" },
       409,
@@ -623,6 +672,7 @@ cloudProjectRoutes.put("/cloud-projects/:id/project", requireAuth, requireEntitl
   await c.env.R2.put(key, bytes, { httpMetadata: { contentType: "application/json" } });
   const swapped = await swapCloudDocument(c.env.DB, {
     uid,
+    actorUid: c.get("user").uid,
     projectId: project.id,
     expectedRevision: project.revision,
     newRevision,
