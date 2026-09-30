@@ -73,8 +73,15 @@ export interface PaneActions {
   /** Timeline actions (addZoomAt / addTiltAt / addTiltToBlock /
    *  addZoomToBlock / removeZoom / removeTilt / delete). */
   onAction?(action: TimelineAction): void;
-  /** Current playhead (OUTPUT seconds) — "At Playhead", add-at-playhead. */
+  /** Current playhead in SOURCE seconds (the Mac's `playback.currentTime`) —
+   *  annotation "At Playhead". */
   playheadTime?(): number;
+  /** Zoom / Tilt switched on with no block selected: a new block in the
+   *  EFFECTS lane's free slot at the playhead (the Mac's
+   *  `onAddZoomBlockAtPlayhead` / `onAddTiltBlockAtPlayhead` — beeps when
+   *  the lane has no room). */
+  onAddZoomBlockAtPlayhead?(): void;
+  onAddTiltBlockAtPlayhead?(): void;
   /** Slide switched on with a block selected: snap the slide onto that
    *  block's span (MotionPaneContext.onJoinSlideToSelectedBlock). Return
    *  false for a plain global slide. */
@@ -89,7 +96,10 @@ export interface PaneActions {
   onDeleteSubtitles?(): void;
   /** Transcription progress (TranscriptionService) while generating. */
   subtitleStatus?: { busy: boolean; progress?: string; error?: string | null };
-  onPlayClickSound?(style: ClickSoundStyle, volume: number): void;
+  /** One click tick (`ClickSoundPlayer.play`); `preview` = the throttled
+   *  `playPreview` the toggle and the volume drag use. */
+  onPlayClickSound?(style: ClickSoundStyle, volume: number, opts?: { preview?: boolean }): void;
+  /** The typing test burst (`KeySoundPlayer.playTestBurst`, self-throttled). */
   onPlayKeySound?(style: KeySoundStyle, volume: number): void;
   onRequestKeyPermission?(): void;
   /** Resolve a project-folder file (watermark / curtain logo) to a URL. */
