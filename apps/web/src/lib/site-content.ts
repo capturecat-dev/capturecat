@@ -13,6 +13,7 @@
 import { SITE_URL } from "./site-url";
 import { PSEO_SITE_PAGES } from "./pseo-content";
 import { FEATURE_INVENTORY_MARKDOWN } from "./feature-inventory";
+import { PLATFORMS_MARKDOWN } from "./platforms";
 
 export { SITE_URL };
 
@@ -33,7 +34,7 @@ const STATIC_PAGES: SitePage[] = [
     title: "CaptureCat: the Mac screen recorder that edits itself",
     description:
       "CaptureCat records your Mac and adds the zooms, cursor smoothing, and captions automatically. Native Swift, free to record and export, with share links and viewer analytics on Pro.",
-    lastModified: "2026-09-02",
+    lastModified: "2026-09-30",
     markdown: `# CaptureCat: record your screen, skip the editing
 
 CaptureCat is a Mac screen recorder that watches where you click and type,
@@ -43,6 +44,15 @@ you see in the preview is what you get in the file.
 Free to record and export. Open source under the AGPL-3.0 at
 https://github.com/capturecat-dev/capturecat. Native Swift, no Electron.
 macOS 14 or later.
+
+## CaptureCat for Mac, and CaptureCat in your browser
+
+The Mac app is native Swift and records clicks, keystrokes, and the cursor
+path as data. The browser app runs the same editor on WebGPU on Windows,
+Linux, ChromeOS, or a Mac, and records a display, a window, or a tab. Projects
+move between the two with Open in Web Editor and Pull Web Edits.
+
+${PLATFORMS_MARKDOWN}
 
 ## How a recording becomes a video
 
@@ -96,7 +106,12 @@ their work, and export with the same engine the editor uses. See
 
 - **Is it free?** Yes. Recording, the editor, auto zoom, captions, and full
   quality export are free with no time limit and no resolution cap. Pro is only for
-  share links, comments, and analytics.
+  share links, comments, analytics, and cloud projects for the browser app.
+- **Does it work on Windows, Linux, or ChromeOS?** Yes, in the browser. The
+  browser app records a display, a window, or a tab and runs the editor on
+  WebGPU. Cursor smoothing, click zooms, and the keystroke pill need a
+  recording made with the Mac app, because a browser cannot see clicks or
+  keystrokes outside the page.
 - **Does audio leave my Mac for captions?** No. Transcription runs on device.
 - **Will the export match the preview?** Yes. The preview and the encoder
   share one set of maths and are compared frame by frame before every release.

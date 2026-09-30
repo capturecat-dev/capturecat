@@ -8,15 +8,21 @@ import {
   WindsurfLogo,
 } from "./ProviderLogos";
 import { Ambient, Container, SectionTitle } from "./primitives";
+import { useOffscreenPause } from "./home/demo/hooks";
+
+const COMMAND = 'claude "add zooms where I clicked, then export"';
 
 /**
  * Home page teaser for /agents.
  *
  * The terminal loops a typed command and the tool calls the MCP server
  * actually makes (the tool names are real). Pure CSS animation, reduced
- * motion safe.
+ * motion safe. The command is typed a character at a time on opacity (its
+ * layout never changes, so nothing below it moves), and the loop pauses
+ * offscreen.
  */
 export default function AgentSection() {
+  const termRef = useOffscreenPause<HTMLDivElement>();
   return (
     <section className="relative isolate py-24">
       <Ambient variant="bottom" />
@@ -49,7 +55,7 @@ export default function AgentSection() {
             </Link>
           </div>
 
-          <div className="scroll-reveal">
+          <div className="scroll-reveal" ref={termRef}>
             <div className="relative overflow-hidden rounded-[24px] border border-white/12 bg-black/50 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
               <span
                 aria-hidden
@@ -65,7 +71,11 @@ export default function AgentSection() {
                 <div className="text-foreground">
                   <span className="text-muted-foreground">$ </span>
                   <span className="cc-type">
-                    claude &quot;add zooms where I clicked, then export&quot;
+                    {Array.from(COMMAND).map((ch, i) => (
+                      <span key={i} className="cc-ch" style={{ animationDelay: `${(i * 0.078).toFixed(3)}s` }}>
+                        {ch}
+                      </span>
+                    ))}
                   </span>
                   <span className="cc-caret text-muted-foreground">▌</span>
                 </div>
