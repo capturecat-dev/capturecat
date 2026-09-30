@@ -18,6 +18,7 @@ import type { SubtitleWeight } from "../../core/model/enums";
 import type { RenderMedia } from "../contract";
 import { loadCursorArt, type CursorArt } from "../passes/cursor/cursorArt";
 import { ensureFaces } from "../raster/fontCatalog";
+import { liveFetch } from "./liveUrls";
 
 /** (fontName, fontWeight) of every annotation in a raw project.json. */
 function annotationFonts(doc: Record<string, unknown>): { fontName: string | null; fontWeight: SubtitleWeight }[] {
@@ -67,10 +68,23 @@ export function refsOf(doc: Json): { cursor?: string; keystrokes?: string; camer
   };
 }
 
+/**
+ * A referenced sidecar/image that is not loaded and only NOW has a URL (a
+ * file added after load). A file that already had a URL and still failed
+ * (missing on the server) does not qualify — a URL refresh must not refetch it.
+ */
+export function missingSceneAssets(doc: Json, assets: SceneAssets, files: Record<string, string>, previous: Record<string, string> = {}): boolean {
+  const refs = refsOf(doc);
+  const fresh = (ref: string) => Boolean(files[ref]) && !previous[ref];
+  if (refs.cursor && assets.cursor == null && fresh(refs.cursor)) return true;
+  if (refs.keystrokes && assets.keystrokes == null && fresh(refs.keystrokes)) return true;
+  return refs.images.some((ref) => !assets.images.has(ref) && fresh(ref));
+}
+
 async function fetchJson(url: string | undefined): Promise<unknown | null> {
   if (!url) return null;
   try {
-    const res = await fetch(url);
+    const res = await liveFetch(url);
     return res.ok ? await res.json() : null;
   } catch {
     return null;
@@ -79,7 +93,7 @@ async function fetchJson(url: string | undefined): Promise<unknown | null> {
 
 async function fetchBitmap(url: string): Promise<ImageBitmap | null> {
   try {
-    const res = await fetch(url);
+    const res = await liveFetch(url);
     if (!res.ok) return null;
     // Full colour fidelity: no premultiply surprises, honour embedded profiles.
     return await createImageBitmap(await res.blob(), { premultiplyAlpha: "premultiply", colorSpaceConversion: "default" });

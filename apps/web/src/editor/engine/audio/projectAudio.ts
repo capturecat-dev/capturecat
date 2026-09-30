@@ -9,9 +9,10 @@
  * trims, speed regions, clips, voice-over placement, click/key settings) and
  * opens any newly referenced voice-over file.
  */
-import { ALL_FORMATS, Input, UrlSource } from "mediabunny";
+import { ALL_FORMATS, Input } from "mediabunny";
 import { exportSoundCues } from "../../core/audio/cues";
 import { buildAudioMixPlan, type AudioMixPlan } from "../../core/audio/mixPlan";
+import { liveFetch, liveUrlSource } from "../media/liveUrls";
 import { parseProject, type Project } from "../../core/model";
 import { AudioMixRenderer } from "./mixer";
 import { PcmTrackReader } from "./pcm";
@@ -29,7 +30,7 @@ export interface ProjectAudioInit {
 async function fetchJson(url: string | undefined): Promise<unknown> {
   if (!url) return null;
   try {
-    const res = await fetch(url);
+    const res = await liveFetch(url);
     return res.ok ? await res.json() : null;
   } catch {
     return null;
@@ -63,14 +64,14 @@ function parseSmpb(bytes: Uint8Array): { priming: number; validFrames: number } 
  */
 async function readGapless(url: string): Promise<{ priming: number; validFrames: number } | null> {
   try {
-    const head = await fetch(url, { headers: { Range: "bytes=0-262143" } });
+    const head = await liveFetch(url, { headers: { Range: "bytes=0-262143" } });
     if (!head.ok) return null;
     const bytes = new Uint8Array(await head.arrayBuffer());
     const found = parseSmpb(bytes);
     if (found) return found;
     const size = Number(head.headers.get("content-range")?.split("/")[1] ?? 0);
     if (!(size > bytes.length)) return null;
-    const tail = await fetch(url, { headers: { Range: `bytes=${Math.max(0, size - 262144)}-${size - 1}` } });
+    const tail = await liveFetch(url, { headers: { Range: `bytes=${Math.max(0, size - 262144)}-${size - 1}` } });
     return tail.ok ? parseSmpb(new Uint8Array(await tail.arrayBuffer())) : null;
   } catch {
     return null;
@@ -94,7 +95,7 @@ export class ProjectAudio {
   static async open(init: ProjectAudioInit, doc: unknown): Promise<ProjectAudio> {
     const pa = new ProjectAudio(init.files);
     if (typeof init.recording === "string") {
-      pa.input = new Input({ formats: ALL_FORMATS, source: new UrlSource(init.recording) });
+      pa.input = new Input({ formats: ALL_FORMATS, source: liveUrlSource(init.recording) });
       pa.ownsInput = true;
     } else {
       pa.input = init.recording;
@@ -164,7 +165,7 @@ export class ProjectAudio {
     if (existing) return existing;
     const url = this.files[fileName];
     if (!url) return null;
-    const input = new Input({ formats: ALL_FORMATS, source: new UrlSource(url) });
+    const input = new Input({ formats: ALL_FORMATS, source: liveUrlSource(url) });
     let reader: PcmTrackReader | null = null;
     try {
       const track = await input.getPrimaryAudioTrack();

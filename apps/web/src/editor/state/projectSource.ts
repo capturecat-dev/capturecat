@@ -12,7 +12,8 @@
  * Both resolve every project.json media reference (file:// URLs, absolute
  * paths, folder-relative names) to a URL the engine can fetch.
  */
-import { listCloudProjects, loadCloudProject, resolveMediaRef, type LoadedCloudProject } from "./cloud";
+import { listCloudProjects, loadCloudProject, type LoadedCloudProject } from "./cloud";
+import { ProjectMedia } from "./projectMedia";
 
 export type ProjectOrigin = "cloud" | "local";
 
@@ -34,9 +35,13 @@ export interface LoadedEditorProject {
   document: Record<string, unknown>;
   /** Cloud revision for optimistic saves; null for local projects. */
   revision: number | null;
-  /** project.json reference → fetchable URL (undefined = not available). */
+  /** project.json reference → fetchable URL (undefined = not available).
+   *  Live: cloud URLs are refreshed before they expire and files added this
+   *  session resolve at once (ProjectMedia). */
   mediaUrl(ref: string | null | undefined): string | undefined;
   cloud?: LoadedCloudProject;
+  /** The project's media (URL refresh, files added while editing). */
+  media?: ProjectMedia;
 }
 
 const LOCAL_BASE = "/__dev/local-projects";
@@ -93,13 +98,19 @@ async function loadLocal(id: string): Promise<LoadedEditorProject | null> {
   const res = await fetch(`${LOCAL_BASE}/${encodeURIComponent(id)}/project.json`, { cache: "no-store" });
   if (!res.ok) return null;
   const text = await res.text();
+  const media = new ProjectMedia({
+    projectId: id,
+    origin: "local",
+    localUrl: (ref) => `${LOCAL_BASE}/${encodeURIComponent(id)}/media?ref=${encodeURIComponent(ref)}`,
+  });
   return {
     id,
     origin: "local",
     text,
     document: JSON.parse(text) as Record<string, unknown>,
     revision: null,
-    mediaUrl: (ref) => (ref ? `${LOCAL_BASE}/${encodeURIComponent(id)}/media?ref=${encodeURIComponent(ref)}` : undefined),
+    mediaUrl: media.mediaUrl,
+    media,
   };
 }
 
@@ -108,14 +119,16 @@ async function loadCloud(id: string): Promise<LoadedEditorProject> {
   if (cloud.document === null) {
     throw new Error("This project's upload hasn't finished yet — open it from the Mac app again.");
   }
+  const media = new ProjectMedia({ projectId: id, origin: "cloud", cloud });
   return {
     id,
     origin: "cloud",
     text: cloud.document,
     document: JSON.parse(cloud.document) as Record<string, unknown>,
     revision: cloud.revision,
-    mediaUrl: (ref) => resolveMediaRef(cloud, ref)?.url,
+    mediaUrl: media.mediaUrl,
     cloud,
+    media,
   };
 }
 

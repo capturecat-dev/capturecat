@@ -44,7 +44,9 @@ export type ToWorker =
   | { type: "exportCancel" }
   | { type: "resetStats" }
   | { type: "bench"; requestId: number; frames: number; refit: boolean }
-  | { type: "dispose" };
+  | { type: "dispose" }
+  /** Fresh media URLs (refreshed presigned GETs, a newly added file) — no reload (media/liveUrls.ts). */
+  | { type: "setMediaFiles"; video?: string; files: Record<string, string>; expiresAt?: number | null };
 
 export interface ExportOptions {
   /** Output-time range; default the whole timeline. */
@@ -181,7 +183,9 @@ export type FromWorker =
   | { type: "exportProgress"; requestId: number; done: number; total: number }
   | { type: "exported"; requestId: number; result: ExportResult }
   | { type: "benchResult"; requestId: number; result: BenchResult }
-  | { type: "frame"; info: FrameInfo };
+  | { type: "frame"; info: FrameInfo }
+  /** A media read found its URL expired — answer with `setMediaFiles`. */
+  | { type: "mediaExpired" };
 
 /**
  * Geometry of the frame just presented — the web twin of the Mac preview's

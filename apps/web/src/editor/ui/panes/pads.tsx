@@ -4,14 +4,16 @@
  *    the mini card; click/drag snaps to the nine placements; the inset
  *    tracks Padding; a freeform placement shows the card where it really is.
  *  • WallpaperGrid — WallpaperGridControl: 3×2 paginated tiles (catalog), or
- *    the user's own image library (images). The macOS wallpaper catalog is a
- *    local-disk scan with no web equivalent, so the store passes whatever
- *    images the cloud bundle carries; with none, the Mac's empty states show.
+ *    the user's own image library (images), each tile with the Mac's
+ *    right-click menu. The macOS wallpaper catalog is a local-disk scan (and
+ *    Apple's CDN) with no web equivalent, so a catalog with no items shows
+ *    the host's `empty` state instead (BackgroundPane: the project's own
+ *    wallpaper, the image library, Choose Image…).
  */
-import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
 import type { VideoPlacement } from "../../core/model";
-import { Caption, QuietButton } from "../kit";
+import { Caption, ContextMenu, QuietButton, type MenuEntry } from "../kit";
 
 const FRACTIONS: Record<VideoPlacement, [number, number]> = {
   "Top Left": [0, 0],
@@ -104,38 +106,75 @@ export interface WallpaperItem {
 
 const PAGE = 6;
 
+/** WallpaperCell: thumbnail fill-crop, selection ring, right-click menu (Set as Default / Remove from Library). */
+export function WallpaperTiles({
+  items,
+  selected,
+  onSelect,
+  menuFor,
+}: {
+  items: readonly WallpaperItem[];
+  selected: string | null;
+  onSelect: (item: WallpaperItem) => void;
+  menuFor?: (item: WallpaperItem) => MenuEntry[] | null;
+}) {
+  const [menu, setMenu] = useState<{ at: { x: number; y: number }; entries: MenuEntry[] } | null>(null);
+  return (
+    <>
+      <div className="cc-wallgrid__tiles">
+        {items.map((item) => (
+          <button
+            key={item.path}
+            type="button"
+            className="cc-wallgrid__tile"
+            title={item.name}
+            aria-label={item.name}
+            aria-pressed={selected === item.path}
+            style={item.thumbnailUrl ? { backgroundImage: `url("${item.thumbnailUrl}")` } : undefined}
+            onPointerDown={(e) => e.button === 0 && onSelect(item)}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onSelect(item))}
+            onContextMenu={(e) => {
+              const entries = menuFor?.(item);
+              if (!entries?.length) return;
+              e.preventDefault();
+              setMenu({ at: { x: e.clientX, y: e.clientY }, entries });
+            }}
+          />
+        ))}
+      </div>
+      {menu && <ContextMenu at={menu.at} entries={menu.entries} onDismiss={() => setMenu(null)} />}
+    </>
+  );
+}
+
 export function WallpaperGrid({
   mode,
   items = [],
   selected,
   onSelect,
+  menuFor,
+  empty,
 }: {
   mode: "catalog" | "images";
   items?: readonly WallpaperItem[];
   selected: string | null;
   onSelect: (path: string) => void;
+  menuFor?: (item: WallpaperItem) => MenuEntry[] | null;
+  /** Catalog with no system wallpapers (the web): what to show instead. */
+  empty?: ReactNode;
 }) {
   const [page, setPage] = useState(0);
-  const tile = (item: WallpaperItem) => (
-    <button
-      key={item.path}
-      type="button"
-      className="cc-wallgrid__tile"
-      title={item.name}
-      aria-pressed={selected === item.path}
-      style={item.thumbnailUrl ? { backgroundImage: `url("${item.thumbnailUrl}")` } : undefined}
-      onPointerDown={(e) => e.button === 0 && onSelect(item.path)}
-    />
-  );
+  const pickItem = (item: WallpaperItem) => onSelect(item.path);
   if (mode === "images") {
     // `.customImages`: only the user's library — no pager, no captions.
     if (items.length === 0) return null;
     return (
       <div className="cc-wallgrid">
-        <div className="cc-wallgrid__tiles">{items.map(tile)}</div>
+        <WallpaperTiles items={items} selected={selected} onSelect={pickItem} menuFor={menuFor} />
       </div>
     );
   }
+  if (items.length === 0 && empty !== undefined) return <>{empty}</>;
   const pages = Math.max(1, Math.ceil(items.length / PAGE));
   const p = Math.min(page, pages - 1);
   const visible = items.slice(p * PAGE, p * PAGE + PAGE);
@@ -144,7 +183,7 @@ export function WallpaperGrid({
       {items.length === 0 ? (
         <Caption>No system wallpapers found</Caption>
       ) : (
-        <div className="cc-wallgrid__tiles">{visible.map(tile)}</div>
+        <WallpaperTiles items={visible} selected={selected} onSelect={pickItem} menuFor={menuFor} />
       )}
       <div className="cc-wallgrid__pager">
         <QuietButton symbol="chevron.left" height={26} paddingX={4} style={{ opacity: p === 0 ? 0.3 : 0.8 }} onClick={() => setPage(Math.max(0, p - 1))} />

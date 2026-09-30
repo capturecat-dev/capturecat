@@ -94,6 +94,38 @@ export interface PaneActions {
   onRequestKeyPermission?(): void;
   /** Resolve a project-folder file (watermark / curtain logo) to a URL. */
   assetUrl?(fileName: string): string | undefined;
+  /** Picker progress / errors, shown under each picker's button (the Mac Brand pane's error caption). */
+  pickerStatus?: Partial<Record<"background" | "watermark" | "curtainLogo", PickerStatus>>;
+  /** The Background pane's image tiles: this browser's image library + the project's own image. */
+  backgroundImages?: BackgroundImages;
+}
+
+export interface PickerStatus {
+  /** In progress ("Uploading image…"). */
+  busy?: string | null;
+  error?: string | null;
+}
+
+/** One tile of the Background pane's image grids (pads.tsx WallpaperItem). */
+export interface BackgroundImageTile {
+  /** The value compared with (and, for a project file, written to) backgroundImagePath. */
+  path: string;
+  name: string;
+  thumbnailUrl?: string;
+}
+
+/** WallpaperGridControl `.customImages` + its context menu, for the web. */
+export interface BackgroundImages {
+  /** The image library, newest first (CustomWallpaperStore.listItems). */
+  library: readonly BackgroundImageTile[];
+  /** The image the project uses when it is not a library tile (e.g. a macOS wallpaper the Mac uploaded). */
+  current?: BackgroundImageTile | null;
+  /** Use a tile (a library image is added to the project first). */
+  onSelect(tile: BackgroundImageTile): void;
+  /** "Set as Default" — new projects start with it. */
+  onSetDefault?(tile: BackgroundImageTile): void;
+  /** "Remove from Library" (library tiles only). */
+  onRemoveFromLibrary?(tile: BackgroundImageTile): void;
 }
 
 /** Recording facts the panes gate on. Derived from `project` when present;

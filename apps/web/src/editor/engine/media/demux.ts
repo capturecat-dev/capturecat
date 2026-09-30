@@ -6,9 +6,10 @@
  * and decode position, so "which frame is on screen at source time t" and
  * "which keyframe must decoding start from" are array lookups.
  */
-import { ALL_FORMATS, EncodedPacketSink, Input, UrlSource, type EncodedPacket, type InputVideoTrack } from "mediabunny";
+import { ALL_FORMATS, EncodedPacketSink, Input, type EncodedPacket, type InputVideoTrack } from "mediabunny";
 import { workingSpaceForPrimaries, type WorkingSpace } from "../color";
 import { EngineCapabilityError } from "../gpu/device";
+import { liveUrlSource } from "./liveUrls";
 
 export interface FrameEntry {
   /** Presentation timestamp, seconds. */
@@ -55,7 +56,7 @@ export class DemuxedVideo {
   ) {}
 
   static async open(url: string): Promise<DemuxedVideo> {
-    const input = new Input({ formats: ALL_FORMATS, source: new UrlSource(url) });
+    const input = new Input({ formats: ALL_FORMATS, source: liveUrlSource(url) });
     const track = await input.getPrimaryVideoTrack();
     if (!track) throw new Error("The recording has no video track.");
     const decoderConfig = await track.getDecoderConfig();
