@@ -30,7 +30,8 @@ import {
   type SubtitleTextLayout,
   type TextMeasurer,
 } from "../text/subtitleText";
-import { exportSpace } from "./regionPlan";
+import { exportSpace, fromExportRect } from "./regionPlan";
+import { stageHitRecorder } from "../stageHits";
 import type { FrameEncoder, FrameState, PassContext, RenderPass } from "./types";
 
 const RT = GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING;
@@ -66,6 +67,7 @@ export class SubtitlePass implements RenderPass {
   private unsubscribe: (() => void) | null = null;
   /** Rasters built (vs. reused) — lab stats. */
   rasters = 0;
+  readonly stageHit = stageHitRecorder("subtitle");
 
   sceneChanged(ctx: PassContext): void {
     this.dropRaster(ctx);
@@ -119,6 +121,13 @@ export class SubtitlePass implements RenderPass {
     }
     const r = this.raster;
     if (!r) return;
+    // The pill rect (the Mac's lastSubtitleRect) whatever the style, in card
+    // px (Y-up export → Y-down), and the free-placement span it moves in.
+    this.stageHit.current = {
+      rect: fromExportRect({ x: recipe.xPosition, y: recipe.yPosition, width: recipe.bgWidth, height: recipe.bgHeight }, sp),
+      space: "card",
+      usable: { width: recipe.usableW * sp.k, height: recipe.usableH * sp.k },
+    };
     this.draw(ctx, enc, r);
   }
 

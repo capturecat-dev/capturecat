@@ -34,6 +34,7 @@ import { createTimeMap, type TimeMap } from "./time";
 import { exportVideo } from "./export/exporter";
 import { ProjectAudio } from "./audio/projectAudio";
 import { encodeCopy, type PendingReadback } from "./gpu/readback";
+import { SeekInputGate } from "./seekGate";
 
 type Post = (msg: FromWorker, transfer?: Transferable[]) => void;
 
@@ -103,6 +104,10 @@ export class Engine {
   private pendingSeeks: PendingSeek[] = [];
   private pendingSnapshots: { requestId: number; png: boolean }[] = [];
   private debugCamera: { zoom: number; focalX: number; focalY: number } | null = null;
+  /** Seeks also wait for the webcam frame (engine/seekGate.ts). */
+  private seekGate = new SeekInputGate();
+  /** Preview-only: the annotation open in the stage's label editor (not rastered). */
+  private editingAnnotationId: string | null = null;
   private exporting = false;
   private exportCancelled = false;
   private disposed = false;
@@ -394,6 +399,13 @@ export class Engine {
     this.requestFrame(true);
   }
 
+  /** The stage's in-place label editor opened/closed (Mac `Chrome.editingID`). */
+  setEditingAnnotation(id: string | null): void {
+    if (this.editingAnnotationId === id) return;
+    this.editingAnnotationId = id;
+    this.requestFrame(true);
+  }
+
   snapshot(requestId: number, png: boolean): void {
     this.pendingSnapshots.push({ requestId, png });
     this.requestFrame(true);
@@ -420,6 +432,7 @@ export class Engine {
         contentRect: g.contentRect,
         videoRect: g.videoRect,
         camera: [...frame.camera],
+        hits: this.graph.stageHits(),
       },
     });
   }
@@ -527,6 +540,8 @@ export class Engine {
       const shown = show?.index ?? -1;
       this.pendingSeeks = this.pendingSeeks.filter((s) => {
         if (s.index === shown && (s.index < 0 || show?.frame === this.stream!.frame(s.index))) {
+          // …and the webcam frame for that time is drawn too (engine/seekGate.ts).
+          if (!this.seekGate.ready(s.requestId, this.graph.inputsReady())) return true;
           this.resolveSeek(s, shown, false);
           return false;
         }
@@ -555,6 +570,7 @@ export class Engine {
       sourceTime: this.timeMap!.sourceTime(t),
       video: show,
       ...camera,
+      editingAnnotationId: this.editingAnnotationId,
     };
     const texture = this.context.getCurrentTexture();
     const snaps = this.pendingSnapshots.splice(0);
@@ -619,6 +635,7 @@ export class Engine {
   }
 
   private resolveSeek(s: PendingSeek, frameIndex: number, superseded: boolean): void {
+    this.seekGate.forget(s.requestId);
     this.post({ type: "seeked", requestId: s.requestId, time: s.time, frameIndex, superseded });
   }
 

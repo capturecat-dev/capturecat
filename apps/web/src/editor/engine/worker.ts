@@ -86,6 +86,9 @@ async function handle(msg: ToWorker): Promise<void> {
     case "resetStats":
       engine.resetStats();
       break;
+    case "editingAnnotation":
+      engine.setEditingAnnotation(msg.id);
+      break;
     case "dispose":
       engine.dispose();
       engine = null;

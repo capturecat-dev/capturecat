@@ -33,6 +33,7 @@ import { useInspectorPanes } from "./panes";
 import { EditorShell } from "./shell/EditorShell";
 import { ASPECT_RATIOS, type StageMount, type StageViewport, type TransportState } from "./shell/types";
 import { mountStageInteraction, type StageInteraction } from "./stage/StageInteraction";
+import { AnnotationPill } from "./stage/AnnotationPill";
 import type { TimelineSnapshot } from "./timeline/types";
 
 /** The editor requires WebGPU (architecture §Stack) — say so plainly. */
@@ -387,6 +388,7 @@ export function EditorPage({ projectId }: { projectId: string }) {
           topBarAccessory={accessory}
           panes={panes}
         />
+        <AnnotationPill store={store} controller={controller} stageRef={stageRef} />
         <ExportDialog
           open={exportOpen}
           onClose={() => setExportOpen(false)}

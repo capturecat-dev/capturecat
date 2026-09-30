@@ -98,8 +98,10 @@ export class AnnotationsPass implements RenderPass {
     if (active.length === 0) return;
 
     const { width: W, height: H } = scene.target;
+    // Preview only: the label open in the stage editor is not rastered.
+    const editing = frame.editingAnnotationId ?? null;
     // Change key: everything the recipe reads that varies per frame.
-    let key = `${scene.version}|${W}x${H}|${fontEpoch}|${facesPending(active) ? "p" : "r"}`;
+    let key = `${scene.version}|${W}x${H}|${fontEpoch}|${facesPending(active) ? "p" : "r"}|${editing ?? "-"}`;
     for (const a of active) {
       const ph = effectPhase(a, t);
       key += `|${a.id}:${ph.alpha},${ph.scale},${ph.offsetY},${ph.strokeProgress}`;
@@ -109,12 +111,12 @@ export class AnnotationsPass implements RenderPass {
 
     if (key !== this.key) {
       this.key = key;
-      this.render(ctx, active, t, W, H);
+      this.render(ctx, active, t, W, H, editing);
     }
     if (this.hasContent) this.overlay.draw(ctx, enc, { x: 0, y: 0, width: W, height: H }, enc.cardToTarget);
   }
 
-  private render(ctx: PassContext, active: Annotation[], t: number, W: number, H: number): void {
+  private render(ctx: PassContext, active: Annotation[], t: number, W: number, H: number, editing: string | null): void {
     const scene = ctx.scene;
     if (!this.canvas || this.canvas.width !== W || this.canvas.height !== H) {
       this.canvas = new OffscreenCanvas(W, H);
@@ -129,7 +131,11 @@ export class AnnotationsPass implements RenderPass {
       t,
       scene.geometry.videoRect,
       exportAnnotationScale(W),
-      null,
+      // The exporter passes no chrome. Editing a label: `Chrome.editingID`
+      // drops that annotation's body (its backdrop stays, like the Mac);
+      // isPlaying keeps every other annotation on the exporter's clock-driven
+      // phases with no handles — identical to chrome nil otherwise.
+      editing ? { isPlaying: true, selectedID: null, editingID: editing } : null,
       1,
       outerCornerRadius(scene),
       measureAnnotation,

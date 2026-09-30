@@ -1,0 +1,41 @@
+/* ── Contextual annotation pill (AnnotationToolbarPill) ────────────────
+   A sibling of the stage card inside .cc-stagewrap (the card's corner mask
+   never clips it), positioned by AnnotationPill.tsx with a transform. The
+   Mac pill: panelElevated fill, 1pt hairline, capsule, NSStackView edge
+   insets 9/18 and spacing 8. */
+.cc-annpill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid var(--cc-border);
+  background: var(--cc-elevated);
+  white-space: nowrap;
+  transition: opacity calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+/* Hidden = gone at once (the Mac toggles isHidden); showing fades in. */
+.cc-annpill:not([data-visible="true"]) {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: none;
+}
+.cc-annpill .cc-select { --sel-h: 26px; }
+.cc-annpill__divider {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  background: var(--cc-border);
+}
+/* InspectorColorWellControl at the pill's 16pt size. */
+.cc-annpill__well { display: inline-flex; }
+.cc-annpill__well .cc-swatch {
+  width: 16px;
+  height: 16px;
+}
