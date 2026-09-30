@@ -454,6 +454,9 @@ button.studio-row:hover {
   --rec-resize: cubic-bezier(0.36, 1.1, 0.22, 1);
   --rec-morph: 450ms;
   --rec-fade: 150ms;
+  /* Growth (CCMotion.expand): the house bounce, ~10% overshoot. */
+  --rec-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --rec-grow: 380ms;
 }
 @keyframes rec-row-out {
   from { opacity: 1; }
@@ -469,7 +472,32 @@ button.studio-row:hover {
 .rec-row-in {
   animation: rec-row-in calc(var(--rec-morph) / 2) ease-in-out calc(var(--rec-morph) / 2) both;
 }
+
+/* Camera bubble (CameraFloatPreview): arrives with the Keynote scale-in —
+   0.96 → 1 on the settle curve while it fades in — and leaves with a short
+   tuck to 0.97 under a fade (CCMotion.enter / exit .scaleIn). The exit's
+   length is BUBBLE_EXIT_MS in cameraBubble.ts. */
+@keyframes rec-bubble-scale-in {
+  from { transform: scale(0.96); }
+}
+@keyframes rec-bubble-fade-in {
+  from { opacity: 0; }
+}
+@keyframes rec-bubble-scale-out {
+  to { transform: scale(0.97); }
+}
+@keyframes rec-bubble-fade-out {
+  to { opacity: 0; }
+}
+.rec-bubble-in {
+  animation: rec-bubble-scale-in 420ms var(--rec-settle) both, rec-bubble-fade-in 200ms ease-out both;
+}
+.rec-bubble-out {
+  animation: rec-bubble-scale-out 200ms var(--rec-settle) both, rec-bubble-fade-out var(--rec-fade) ease-in both;
+}
 @media (prefers-reduced-motion: reduce) {
-  :root { --rec-morph: 120ms; --rec-fade: 120ms; }
+  :root { --rec-morph: 120ms; --rec-fade: 120ms; --rec-grow: 0ms; }
   .rec-row-in { animation-name: rec-row-out; animation-direction: reverse; }
+  .rec-bubble-in { animation: rec-bubble-fade-in var(--rec-fade) ease-out both; }
+  .rec-bubble-out { animation: rec-bubble-fade-out var(--rec-fade) ease-in both; }
 }

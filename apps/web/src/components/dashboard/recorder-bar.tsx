@@ -17,6 +17,9 @@
  *              the first half, in over the second with a 0.98 → 1 settle
  *   press      the key tints in place; nothing moves, no ring
  * Reduce-motion keeps the fades (120 ms) and drops the movement.
+ *
+ * With a camera on, the dock also floats the camera bubble (camera-bubble.tsx,
+ * the Mac's CameraFloatPreview) over whichever dashboard page you're on.
  */
 import {
   createContext,
@@ -46,12 +49,14 @@ import {
   SquareIcon,
   Trash2Icon,
   TriangleAlertIcon,
+  VideoOffIcon,
   Volume2Icon,
   VolumeXIcon,
   XIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CameraBubble, CameraSquircle } from "@/components/dashboard/camera-bubble";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -66,6 +71,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { SurfaceKind } from "@/editor/record/capture";
+import { bubblePolicy } from "@/editor/record/cameraBubble";
 import {
   COUNTDOWN_CHOICES,
   LIMIT_CHOICES,
@@ -582,37 +588,76 @@ export function RecordingBar({ rec, compact = false }: { rec: Recorder; compact?
   );
 }
 
+/** A notice above the bar (the recorder's warnings, the bubble's note). */
+function DockNotice({ icon, children, onDismiss }: { icon: ReactNode; children: ReactNode; onDismiss: () => void }) {
+  return (
+    <div className="pointer-events-auto flex max-w-lg items-start gap-2 rounded-xl border border-white/10 bg-[#1b1b1e]/95 px-3.5 py-2 text-[12.5px] shadow-lg backdrop-blur-xl">
+      {icon}
+      <span className="flex-1">{children}</span>
+      <button type="button" aria-label="Dismiss" onClick={onDismiss} className="text-white/50 hover:text-white">
+        <XIcon className="size-3.5" />
+      </button>
+    </div>
+  );
+}
+
+/** How long the "bubble hidden" note stays up — brief, since a whole-screen take records the dock too. */
+const SCREEN_NOTE_MS = 4500;
+
+/** True for a few seconds each time the bubble steps aside for a whole-screen take. */
+function useScreenNote(active: boolean): [boolean, () => void] {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    setShown(active);
+    if (!active) return;
+    const t = window.setTimeout(() => setShown(false), SCREEN_NOTE_MS);
+    return () => window.clearTimeout(t);
+  }, [active]);
+  return [shown, () => setShown(false)];
+}
+
 /**
  * Docks the bar at the bottom of the dashboard content, riding the viewport
  * as pages scroll, with the recorder's notices just above it — plus the
- * floating Picture-in-Picture copy of the live controls.
+ * floating camera bubble and the floating Picture-in-Picture copy of the
+ * live controls (which carries the bubble while it's open).
  */
 export function RecorderDock() {
   const rec = useRecorderContext();
+  const bubble = bubblePolicy({
+    cameraOn: rec.armed && rec.prefs.camId !== null,
+    phase: rec.phase.kind,
+    surface: rec.sourceSurface,
+    starting: rec.starting,
+    floatingOpen: rec.floating !== null,
+  });
+  const [screenNote, dismissScreenNote] = useScreenNote(bubble.hiddenForScreen);
   if (!rec.support?.screen || !rec.support.encode) return null;
   return (
     <>
       <div className="pointer-events-none sticky bottom-5 z-40 mt-auto flex flex-col items-center gap-2 px-4 pb-1">
-        {rec.notice && (
-          <div className="pointer-events-auto flex max-w-lg items-start gap-2 rounded-xl border border-white/10 bg-[#1b1b1e]/95 px-3.5 py-2 text-[12.5px] shadow-lg backdrop-blur-xl">
-            <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0 text-amber-400" />
-            <span className="flex-1">{rec.notice}</span>
-            <button type="button" aria-label="Dismiss" onClick={() => rec.setNotice(null)} className="text-white/50 hover:text-white">
-              <XIcon className="size-3.5" />
-            </button>
-          </div>
+        {screenNote && (
+          <DockNotice icon={<VideoOffIcon className="mt-0.5 size-3.5 shrink-0 text-white/60" />} onDismiss={dismissScreenNote}>
+            Camera bubble hidden while recording your whole screen — your camera is still being recorded.
+          </DockNotice>
         )}
-        <div className="max-w-[calc(100%-1rem)] overflow-x-auto overflow-y-visible">
+        {rec.notice && (
+          <DockNotice icon={<TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0 text-amber-400" />} onDismiss={() => rec.setNotice(null)}>
+            {rec.notice}
+          </DockNotice>
+        )}
+        <div data-recorder-dock className="max-w-[calc(100%-1rem)] overflow-x-auto overflow-y-visible">
           <RecordingBar rec={rec} />
         </div>
       </div>
+      <CameraBubble stream={rec.camStream} show={bubble.host === "page"} />
       {rec.floating &&
         createPortal(
           <div className="dark flex size-full items-center justify-center bg-background p-3 text-foreground">
             <div className="flex flex-col items-center gap-2">
-              {rec.camStream && rec.phase.kind !== "countdown" && (
-                <div className="aspect-square w-40 overflow-hidden rounded-[28%] border border-white/15">
-                  <StreamVideo stream={rec.camStream} mirrored className="size-full object-cover" />
+              {bubble.host === "floating" && (
+                <div className="relative size-40">
+                  <CameraSquircle stream={rec.camStream} />
                 </div>
               )}
               <RecordingBar rec={rec} compact />

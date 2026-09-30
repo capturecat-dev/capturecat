@@ -33,6 +33,7 @@ import {
   type DeviceLists,
   type SurfaceKind,
 } from "./capture";
+import { BUBBLE_EXIT_MS } from "./cameraBubble";
 import { closeControlsWindow, openControlsWindow, pipSupported } from "./pip";
 import { publishTake, type PublishProgress } from "./publish";
 import { discardTakeFiles, leftoverTakes, warmRecorder, type RecordedTake } from "./session";
@@ -155,6 +156,8 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
   const [camStream, setCamStream] = useState<MediaStream | null>(null);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [phase, setPhase] = useState<RecorderPhase>({ kind: "setup" });
+  /** Record pressed, take not live yet (the floating window / countdown / start). */
+  const [starting, setStarting] = useState(false);
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -418,15 +421,28 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
   const record = useCallback(async () => {
     if (!screen || phase.kind !== "setup") return;
     setNotice(null);
-    if (prefs.floatControls && pipSupported() && surfaceOf(screen) !== "monitor") {
-      const opened = await openControlsWindow({ width: 440, height: prefs.camId ? 280 : 72 }, () => setFloating(null));
-      if (opened) setFloating(opened);
+    setStarting(true);
+    const pressed = performance.now();
+    try {
+      if (prefs.floatControls && pipSupported() && surfaceOf(screen) !== "monitor") {
+        const opened = await openControlsWindow({ width: 440, height: prefs.camId ? 280 : 72 }, () => setFloating(null));
+        if (opened) setFloating(opened);
+      }
+      for (let left = prefs.countdown; left > 0; left--) {
+        setPhase({ kind: "countdown", left });
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      // A whole-screen share records this page, so the camera bubble steps
+      // aside from the Record press (cameraBubble.ts bubblePolicy). Without a
+      // countdown, let its exit finish before the first frame is captured.
+      if (prefs.camId && surfaceOf(screen) === "monitor") {
+        const wait = BUBBLE_EXIT_MS + 50 - (performance.now() - pressed);
+        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      }
+      await begin();
+    } finally {
+      setStarting(false);
     }
-    for (let left = prefs.countdown; left > 0; left--) {
-      setPhase({ kind: "countdown", left });
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-    await begin();
   }, [screen, phase.kind, prefs.floatControls, prefs.countdown, prefs.camId, begin]);
 
   const pauseResume = useCallback(() => {
@@ -490,6 +506,7 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     /** What the chosen capture really delivers (size, fps) — shown on the Record page. */
     captureInfo: screen ? captureInfo : null,
     sourceSurface: screen ? surfaceOf(screen) : null,
+    starting,
     chooseSource,
     clearSource,
     camStream,
