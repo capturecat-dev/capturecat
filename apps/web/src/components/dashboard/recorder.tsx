@@ -71,6 +71,9 @@ function Stage({ rec }: { rec: Recorder }) {
             <Button size="sm" variant="outline" onClick={() => download(phase.take.screen, "recording.mov")}>
               <DownloadIcon /> Download
             </Button>
+            <Button size="sm" variant="ghost" onClick={rec.keepForLater}>
+              Record Another
+            </Button>
             <Button size="sm" onClick={() => void rec.publish(phase.take)}>
               <CloudUploadIcon /> Try again
             </Button>

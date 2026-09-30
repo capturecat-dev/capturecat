@@ -198,11 +198,20 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
   // A take's session stops the live camera/mic when it ends. Back in setup
   // still armed (an upload that failed or was cancelled), open fresh ones —
   // otherwise the next take records a dead camera.
-  const [deviceEpoch, setDeviceEpoch] = useState(0);
+  // Once per ended stream (a re-render must not cancel the reopen in flight),
+  // and per device (a live mic is left alone when only the camera died).
+  const [camEpoch, setCamEpoch] = useState(0);
+  const [micEpoch, setMicEpoch] = useState(0);
+  const reopened = useRef(new WeakSet<MediaStream>());
   useEffect(() => {
     if (phase.kind !== "setup") return;
-    const ended = (s: MediaStream | null) => !!s && s.getTracks().some((t) => t.readyState === "ended");
-    if (ended(camStream) || ended(micStream)) setDeviceEpoch((e) => e + 1);
+    const reopen = (s: MediaStream | null, bump: (f: (e: number) => number) => void) => {
+      if (!s || reopened.current.has(s) || !s.getTracks().some((t) => t.readyState === "ended")) return;
+      reopened.current.add(s);
+      bump((e) => e + 1);
+    };
+    reopen(camStream, setCamEpoch);
+    reopen(micStream, setMicEpoch);
   }, [phase.kind, camStream, micStream]);
 
   // Live mic: the level meter now, the take's mic track later.
@@ -227,7 +236,7 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
       alive = false;
       stopStream(stream);
     };
-  }, [armed, prefs.micId, support?.screen, refreshDevices, deviceEpoch]);
+  }, [armed, prefs.micId, support?.screen, refreshDevices, micEpoch]);
 
   // Live camera: the preview bubble now, the take's camera track later.
   useEffect(() => {
@@ -253,7 +262,7 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
       alive = false;
       stopStream(stream);
     };
-  }, [armed, prefs.camId, setPrefs, deviceEpoch]);
+  }, [armed, prefs.camId, setPrefs, camEpoch]);
 
   useEffect(() => () => stopStream(screen), [screen]);
 
@@ -382,6 +391,12 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
   );
 
   const cancelUpload = useCallback(() => abortRef.current?.abort(), []);
+
+  /** Leave a failed upload for later: the take stays on this device (a leftover). */
+  const keepForLater = useCallback(() => {
+    setPhase((p) => (p.kind === "failed" ? { kind: "setup" } : p));
+    void leftoverTakes().then(setLeftovers);
+  }, []);
 
   const stop = useCallback(async () => {
     const session = sessionRef.current;
@@ -538,6 +553,7 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     remove,
     publish,
     cancelUpload,
+    keepForLater,
     leftovers,
     deleteLeftover,
     floating,
