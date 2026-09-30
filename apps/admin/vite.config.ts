@@ -9,7 +9,11 @@ export default defineConfig({
   plugins: [
     tsConfigPaths({ projects: ["./tsconfig.json"] }),
     tailwindcss(),
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
+    // Fixed, app-unique inspector port: with the default (9229, then the
+    // next free one) web and admin started by `npm run dev` race for the
+    // SAME fallback port whenever 9229 is taken, and the loser crashes the
+    // whole turbo run (EADDRINUSE 127.0.0.1:9232, 2026-09-30).
+    cloudflare({ viteEnvironment: { name: "ssr" }, inspectorPort: 9332 }),
     tanstackStart(),
     viteReact(),
   ],

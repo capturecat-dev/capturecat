@@ -1,0 +1,43 @@
+/* Timeline canvas area (TimelineViewController.buildCanvasArea). */
+.cc-tl-area {
+  position: relative;
+  display: flex;
+  /* canvasArea: 12 from the panel's outer edge each side (the 1px CSS border
+     sits inside that), 10 below the toolbar. */
+  margin: 10px 11px 0;
+  flex: none;
+  overflow: hidden;
+}
+.cc-tl-labels {
+  position: relative;
+  width: 84px;
+  flex: none;
+  overflow: hidden;
+}
+.cc-tl-labels__inner { will-change: transform; }
+.cc-tl-label {
+  display: flex;
+  align-items: center;
+  padding-left: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  line-height: 12px;
+  color: var(--cc-faint);
+  user-select: none;
+}
+.cc-tl-viewport {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  touch-action: none;
+  outline: none;
+}
+.cc-tl-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+}
+.cc-tl-canvas--overlay { pointer-events: none; }

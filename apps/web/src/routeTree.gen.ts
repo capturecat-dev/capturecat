@@ -15,6 +15,7 @@ import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as BetaRouteImport } from './routes/beta'
 import { Route as DownloadRouteImport } from './routes/download'
+import { Route as EditorLabRouteImport } from './routes/editor-lab'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as LoginRouteImport } from './routes/login'
@@ -28,8 +29,11 @@ import { Route as AlternativesSlugRouteImport } from './routes/alternatives.$slu
 import { Route as ApiOembedRouteImport } from './routes/api/oembed'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppBillingRouteImport } from './routes/app/billing'
+import { Route as AppProjectsRouteImport } from './routes/app/projects'
+import { Route as AppRecordRouteImport } from './routes/app/record'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppTeamRouteImport } from './routes/app/team'
+import { Route as AppEditorRouteImport } from './routes/app_.editor'
 import { Route as CompareIndexRouteImport } from './routes/compare.index'
 import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
 import { Route as EmbedVideoIdRouteImport } from './routes/embed.$videoId'
@@ -37,6 +41,7 @@ import { Route as MdShareVideoIdRouteImport } from './routes/md-share.$videoId'
 import { Route as MdSplatRouteImport } from './routes/md.$'
 import { Route as ShareVideoIdRouteImport } from './routes/share.$videoId'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc.$'
+import { Route as AppEditorProjectIdRouteImport } from './routes/app_.editor.$projectId'
 import { Route as AppVideosVideoIdIndexRouteImport } from './routes/app/videos.$videoId.index'
 import { Route as AppVideosVideoIdAnalyticsRouteImport } from './routes/app/videos.$videoId.analytics'
 
@@ -68,6 +73,11 @@ const BetaRoute = BetaRouteImport.update({
 const DownloadRoute = DownloadRouteImport.update({
   id: '/download',
   path: '/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EditorLabRoute = EditorLabRouteImport.update({
+  id: '/editor-lab',
+  path: '/editor-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeaturesRoute = FeaturesRouteImport.update({
@@ -136,6 +146,16 @@ const AppBillingRoute = AppBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppProjectsRoute = AppProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppRecordRoute = AppRecordRouteImport.update({
+  id: '/record',
+  path: '/record',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -145,6 +165,11 @@ const AppTeamRoute = AppTeamRouteImport.update({
   id: '/team',
   path: '/team',
   getParentRoute: () => AppRouteRoute,
+} as any)
+const AppEditorRoute = AppEditorRouteImport.update({
+  id: '/app_/editor',
+  path: '/app/editor',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const CompareIndexRoute = CompareIndexRouteImport.update({
   id: '/compare/',
@@ -181,6 +206,11 @@ const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
   path: '/api/trpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppEditorProjectIdRoute = AppEditorProjectIdRouteImport.update({
+  id: '/$projectId',
+  path: '/$projectId',
+  getParentRoute: () => AppEditorRoute,
+} as any)
 const AppVideosVideoIdIndexRoute = AppVideosVideoIdIndexRouteImport.update({
   id: '/videos/$videoId/',
   path: '/videos/$videoId/',
@@ -200,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
   '/download': typeof DownloadRoute
+  '/editor-lab': typeof EditorLabRoute
   '/features': typeof FeaturesRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
@@ -212,8 +243,11 @@ export interface FileRoutesByFullPath {
   '/alternatives/$slug': typeof AlternativesSlugRoute
   '/api/oembed': typeof ApiOembedRoute
   '/app/billing': typeof AppBillingRoute
+  '/app/projects': typeof AppProjectsRoute
+  '/app/record': typeof AppRecordRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/team': typeof AppTeamRoute
+  '/app/editor': typeof AppEditorRouteWithChildren
   '/compare/$slug': typeof CompareSlugRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
@@ -222,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/compare/': typeof CompareIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/app/editor/$projectId': typeof AppEditorProjectIdRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
   '/app/videos/$videoId/': typeof AppVideosVideoIdIndexRoute
 }
@@ -231,6 +266,7 @@ export interface FileRoutesByTo {
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
   '/download': typeof DownloadRoute
+  '/editor-lab': typeof EditorLabRoute
   '/features': typeof FeaturesRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
@@ -243,8 +279,11 @@ export interface FileRoutesByTo {
   '/alternatives/$slug': typeof AlternativesSlugRoute
   '/api/oembed': typeof ApiOembedRoute
   '/app/billing': typeof AppBillingRoute
+  '/app/projects': typeof AppProjectsRoute
+  '/app/record': typeof AppRecordRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/team': typeof AppTeamRoute
+  '/app/editor': typeof AppEditorRouteWithChildren
   '/compare/$slug': typeof CompareSlugRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
@@ -253,6 +292,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/compare': typeof CompareIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/app/editor/$projectId': typeof AppEditorProjectIdRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
   '/app/videos/$videoId': typeof AppVideosVideoIdIndexRoute
 }
@@ -264,6 +304,7 @@ export interface FileRoutesById {
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
   '/download': typeof DownloadRoute
+  '/editor-lab': typeof EditorLabRoute
   '/features': typeof FeaturesRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
@@ -276,8 +317,11 @@ export interface FileRoutesById {
   '/alternatives/$slug': typeof AlternativesSlugRoute
   '/api/oembed': typeof ApiOembedRoute
   '/app/billing': typeof AppBillingRoute
+  '/app/projects': typeof AppProjectsRoute
+  '/app/record': typeof AppRecordRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/team': typeof AppTeamRoute
+  '/app_/editor': typeof AppEditorRouteWithChildren
   '/compare/$slug': typeof CompareSlugRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
@@ -286,6 +330,7 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/compare/': typeof CompareIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/app_/editor/$projectId': typeof AppEditorProjectIdRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
   '/app/videos/$videoId/': typeof AppVideosVideoIdIndexRoute
 }
@@ -298,6 +343,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/beta'
     | '/download'
+    | '/editor-lab'
     | '/features'
     | '/llms.txt'
     | '/login'
@@ -310,8 +356,11 @@ export interface FileRouteTypes {
     | '/alternatives/$slug'
     | '/api/oembed'
     | '/app/billing'
+    | '/app/projects'
+    | '/app/record'
     | '/app/settings'
     | '/app/team'
+    | '/app/editor'
     | '/compare/$slug'
     | '/embed/$videoId'
     | '/md-share/$videoId'
@@ -320,6 +369,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/compare/'
     | '/api/trpc/$'
+    | '/app/editor/$projectId'
     | '/app/videos/$videoId/analytics'
     | '/app/videos/$videoId/'
   fileRoutesByTo: FileRoutesByTo
@@ -329,6 +379,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/beta'
     | '/download'
+    | '/editor-lab'
     | '/features'
     | '/llms.txt'
     | '/login'
@@ -341,8 +392,11 @@ export interface FileRouteTypes {
     | '/alternatives/$slug'
     | '/api/oembed'
     | '/app/billing'
+    | '/app/projects'
+    | '/app/record'
     | '/app/settings'
     | '/app/team'
+    | '/app/editor'
     | '/compare/$slug'
     | '/embed/$videoId'
     | '/md-share/$videoId'
@@ -351,6 +405,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/compare'
     | '/api/trpc/$'
+    | '/app/editor/$projectId'
     | '/app/videos/$videoId/analytics'
     | '/app/videos/$videoId'
   id:
@@ -361,6 +416,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/beta'
     | '/download'
+    | '/editor-lab'
     | '/features'
     | '/llms.txt'
     | '/login'
@@ -373,8 +429,11 @@ export interface FileRouteTypes {
     | '/alternatives/$slug'
     | '/api/oembed'
     | '/app/billing'
+    | '/app/projects'
+    | '/app/record'
     | '/app/settings'
     | '/app/team'
+    | '/app_/editor'
     | '/compare/$slug'
     | '/embed/$videoId'
     | '/md-share/$videoId'
@@ -383,6 +442,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/compare/'
     | '/api/trpc/$'
+    | '/app_/editor/$projectId'
     | '/app/videos/$videoId/analytics'
     | '/app/videos/$videoId/'
   fileRoutesById: FileRoutesById
@@ -394,6 +454,7 @@ export interface RootRouteChildren {
   AgentsRoute: typeof AgentsRoute
   BetaRoute: typeof BetaRoute
   DownloadRoute: typeof DownloadRoute
+  EditorLabRoute: typeof EditorLabRoute
   FeaturesRoute: typeof FeaturesRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
@@ -405,6 +466,7 @@ export interface RootRouteChildren {
   AcceptInvitationInvitationIdRoute: typeof AcceptInvitationInvitationIdRoute
   AlternativesSlugRoute: typeof AlternativesSlugRoute
   ApiOembedRoute: typeof ApiOembedRoute
+  AppEditorRoute: typeof AppEditorRouteWithChildren
   CompareSlugRoute: typeof CompareSlugRoute
   EmbedVideoIdRoute: typeof EmbedVideoIdRoute
   MdShareVideoIdRoute: typeof MdShareVideoIdRoute
@@ -456,6 +518,13 @@ declare module '@tanstack/react-router' {
       path: '/download'
       fullPath: '/download'
       preLoaderRoute: typeof DownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/editor-lab': {
+      id: '/editor-lab'
+      path: '/editor-lab'
+      fullPath: '/editor-lab'
+      preLoaderRoute: typeof EditorLabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/features': {
@@ -549,6 +618,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBillingRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/app/projects': {
+      id: '/app/projects'
+      path: '/projects'
+      fullPath: '/app/projects'
+      preLoaderRoute: typeof AppProjectsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/record': {
+      id: '/app/record'
+      path: '/record'
+      fullPath: '/app/record'
+      preLoaderRoute: typeof AppRecordRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/app/settings': {
       id: '/app/settings'
       path: '/settings'
@@ -562,6 +645,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/team'
       preLoaderRoute: typeof AppTeamRouteImport
       parentRoute: typeof AppRouteRoute
+    }
+    '/app_/editor': {
+      id: '/app_/editor'
+      path: '/app/editor'
+      fullPath: '/app/editor'
+      preLoaderRoute: typeof AppEditorRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/compare/': {
       id: '/compare/'
@@ -612,6 +702,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTrpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app_/editor/$projectId': {
+      id: '/app_/editor/$projectId'
+      path: '/$projectId'
+      fullPath: '/app/editor/$projectId'
+      preLoaderRoute: typeof AppEditorProjectIdRouteImport
+      parentRoute: typeof AppEditorRoute
+    }
     '/app/videos/$videoId/': {
       id: '/app/videos/$videoId/'
       path: '/videos/$videoId'
@@ -631,6 +728,8 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteRouteChildren {
   AppBillingRoute: typeof AppBillingRoute
+  AppProjectsRoute: typeof AppProjectsRoute
+  AppRecordRoute: typeof AppRecordRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -640,6 +739,8 @@ interface AppRouteRouteChildren {
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppBillingRoute: AppBillingRoute,
+  AppProjectsRoute: AppProjectsRoute,
+  AppRecordRoute: AppRecordRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
@@ -651,6 +752,18 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
   AppRouteRouteChildren,
 )
 
+interface AppEditorRouteChildren {
+  AppEditorProjectIdRoute: typeof AppEditorProjectIdRoute
+}
+
+const AppEditorRouteChildren: AppEditorRouteChildren = {
+  AppEditorProjectIdRoute: AppEditorProjectIdRoute,
+}
+
+const AppEditorRouteWithChildren = AppEditorRoute._addFileChildren(
+  AppEditorRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
@@ -658,6 +771,7 @@ const rootRouteChildren: RootRouteChildren = {
   AgentsRoute: AgentsRoute,
   BetaRoute: BetaRoute,
   DownloadRoute: DownloadRoute,
+  EditorLabRoute: EditorLabRoute,
   FeaturesRoute: FeaturesRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
@@ -669,6 +783,7 @@ const rootRouteChildren: RootRouteChildren = {
   AcceptInvitationInvitationIdRoute: AcceptInvitationInvitationIdRoute,
   AlternativesSlugRoute: AlternativesSlugRoute,
   ApiOembedRoute: ApiOembedRoute,
+  AppEditorRoute: AppEditorRouteWithChildren,
   CompareSlugRoute: CompareSlugRoute,
   EmbedVideoIdRoute: EmbedVideoIdRoute,
   MdShareVideoIdRoute: MdShareVideoIdRoute,

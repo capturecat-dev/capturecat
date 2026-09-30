@@ -195,7 +195,7 @@ by the subscription.
     title: "Agents and MCP",
     description:
       "CaptureCat has a built in MCP server. Let Claude, Codex, Cursor, Copilot, or Windsurf record, inspect, edit, restyle, and export your recordings.",
-    lastModified: "2026-09-02",
+    lastModified: "2026-09-29",
     markdown: `# Agents and MCP
 
 CaptureCat ships a Model Context Protocol (MCP) server inside the app binary.
@@ -203,21 +203,29 @@ No plugin, no sidecar. \`CaptureCat --mcp\` speaks MCP over stdio. Tell Claude
 Code, Codex, Cursor, Copilot, or Windsurf what you want and it uses the same
 engine as the editor.
 
-## Tools (17)
+## Tools (28)
 
 Record and find: \`list_capture_targets\`, \`start_recording\`,
 \`stop_recording\`, \`list_projects\`, \`search_captures\`, \`list_notes\`.
 
-Read and edit: \`describe_project\` (timeline plus click clusters and idle
-spans), \`get_transcript\`, \`auto_zoom\`, \`add_effect\`, \`update_effect\`,
-\`remove_effect\`, \`add_annotation\`, \`remove_annotation\`, \`cut_video\`,
-\`set_style\`.
+Read and edit: \`describe_project\` (timeline plus click clusters, idle
+spans, and quiet stretches), \`get_transcript\`, \`transcribe\`,
+\`apply_edits\` (a whole plan in one all-or-nothing step), \`undo\`,
+\`auto_zoom\`, \`add_effect\`, \`update_effect\`, \`remove_effect\`,
+\`add_annotation\`, \`update_annotation\`, \`remove_annotation\`,
+\`add_blur\`, \`remove_blur\`, \`set_speed\`, \`remove_speed\`, \`set_trim\`,
+\`cut_video\`, \`set_style\`, \`style_options\`.
 
-Check and export: \`render_frames\` (so the agent can look at its own edits),
-\`export_project\`.
+Check and export: \`render_frames\` (single frames or a labelled contact
+sheet, so the agent can look at its own edits), \`export_project\`.
 
-Edits are written atomically with a backup. Media files are never touched.
-Invalid edits are refused with a readable error.
+The server also ships an editing playbook the agent reads on connect, and
+four workflow prompts: polish a recording, tighten pacing, make a vertical
+social cut, and record and edit a demo.
+
+Edits are written atomically with a backup, and the last 30 agent edits can
+be undone. Media files are never touched. Invalid edits are refused with a
+readable error.
 
 ## Install
 

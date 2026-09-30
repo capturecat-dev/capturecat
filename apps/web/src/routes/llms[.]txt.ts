@@ -28,7 +28,7 @@ export const Route = createFileRoute("/llms.txt")({
           "on-device captions, blur/highlight/depth-focus regions, camera-bubble",
           "layouts, annotations, wallpaper framing, and device bezels. Exports match",
           "the preview frame-for-frame (MP4/MOV up to 4K 60fps), and one-click share",
-          "links add viewer comments and analytics. A built-in MCP server (17 tools)",
+          "links add viewer comments and analytics. A built-in MCP server (28 tools)",
           "lets AI agents record, search, edit, restyle, export, and even render",
           "frames to see their own edits. The full feature list is on the home page.",
           "",

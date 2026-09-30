@@ -1,0 +1,13 @@
+/*
+ * The web editor's stylesheet — loaded ONLY by the editor routes (as a head
+ * <link>, via `?url`), never by the marketing/dashboard pages. Order matters:
+ * tokens → materials → primitives → surfaces.
+ */
+@import "./kit/tokens.css";
+@import "./kit/materials.css";
+@import "./kit/kit.css";
+@import "./shell/shell.css";
+@import "./timeline/timeline.css";
+@import "./panes/panes.css";
+@import "./picker/picker.css";
+@import "./export/export.css";

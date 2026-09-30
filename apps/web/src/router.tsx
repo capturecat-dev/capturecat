@@ -1,6 +1,7 @@
 import { createRouter } from "@tanstack/react-router";
 
 import { routeTree } from "./routeTree.gen";
+import { withEditorLabRoutes } from "./editor/lab/labRoutes";
 
 /** Dashboard hosts where the internal /app prefix must never show in URLs —
  *  app.capturecat.so/billing IS /app/billing. */
@@ -10,7 +11,9 @@ function isAppHost(host: string): boolean {
 
 export function getRouter() {
   return createRouter({
-    routeTree,
+    // DEV-only editor labs are code routes attached here (never in prod
+    // bundles: the branch is dead code and the lab module is dropped).
+    routeTree: import.meta.env.DEV ? withEditorLabRoutes(routeTree) : routeTree,
     // On the app subdomain the /app route prefix is an internal detail:
     // input maps the clean visible URL onto the internal /app routes, output
     // strips the prefix back off every href the router generates — so links,

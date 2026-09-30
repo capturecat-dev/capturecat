@@ -3,6 +3,7 @@ import { ThemeProvider } from "next-themes";
 
 import { fetchSession } from "@/lib/session-fns";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
+import { RecorderDock, RecorderProvider } from "@/components/dashboard/recorder-bar";
 import { HeaderUser } from "@/components/dashboard/header-user";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -37,6 +38,8 @@ export const Route = createFileRoute("/app")({
 /** Ordered most-specific first: the analytics prefix must win over the
  *  video prefix it extends. */
 const CRUMBS: Array<{ prefix: string; label: string; parent?: { to: "/app"; label: string } }> = [
+  { prefix: "/app/record", label: "Record" },
+  { prefix: "/app/projects", label: "Projects" },
   { prefix: "/app/settings", label: "Settings" },
   { prefix: "/app/billing", label: "Billing" },
   { prefix: "/app/team", label: "Team" },
@@ -127,12 +130,17 @@ function AppLayout() {
             </div>
           </header>
           {/* One content width for every page so panels line up as you
-              move between them. */}
-          <div className="flex flex-1 flex-col">
-            <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-5 md:px-8 md:py-7">
-              <Outlet />
+              move between them. The recording bar (the Mac recording panel)
+              docks at the bottom of every page — the recorder lives here, so
+              a take keeps running while you browse. */}
+          <RecorderProvider>
+            <div className="flex flex-1 flex-col">
+              <div className="mx-auto w-full max-w-6xl flex-1 px-4 pb-6 pt-5 md:px-8 md:pt-7">
+                <Outlet />
+              </div>
+              <RecorderDock />
             </div>
-          </div>
+          </RecorderProvider>
         </SidebarInset>
       </SidebarProvider>
       </TooltipProvider>
