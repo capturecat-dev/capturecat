@@ -15,13 +15,18 @@ export interface WatermarkPlacement {
   height: number;
 }
 
+/** `edgePad` — the watermark's inset from every canvas edge (also the drag's usable span). */
+export function watermarkEdgePad(canvasScale: number): number {
+  return 20 * canvasScale;
+}
+
 export function watermarkPlacement(
   raw: { width: number; height: number },
   output: { width: number; height: number },
   canvasScale: number,
   s: { watermarkSize: number; watermarkX: number; watermarkY: number },
 ): WatermarkPlacement | null {
-  const edgePad = 20 * canvasScale;
+  const edgePad = watermarkEdgePad(canvasScale);
   const rawW = raw.width;
   const rawH = raw.height;
   if (!(rawW > 0 && rawH > 0)) return null;

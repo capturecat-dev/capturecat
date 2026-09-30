@@ -92,6 +92,9 @@ async function handle(msg: ToWorker): Promise<void> {
     case "setMediaFiles":
       engine.setMediaFiles(msg.files, { video: msg.video, expiresAt: msg.expiresAt });
       break;
+    case "editingAnnotation":
+      engine.setEditingAnnotation(msg.id);
+      break;
     case "dispose":
       engine.dispose();
       engine = null;

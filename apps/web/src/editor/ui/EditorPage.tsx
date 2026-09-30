@@ -39,6 +39,7 @@ import { unsupportedFeatures } from "../engine/contract";
 import { mountStageInteraction, type StageInteraction } from "./stage/StageInteraction";
 import { engineViewport, stageCanvasAspect } from "./stage/stageLayout";
 import type { TimelineRenderer } from "./timeline/TimelineRenderer";
+import { AnnotationPill } from "./stage/AnnotationPill";
 import type { TimelineSnapshot } from "./timeline/types";
 import { useTimelineMedia } from "./timeline/media/useTimelineMedia";
 import { useMediaPickers } from "./useMediaPickers";
@@ -424,6 +425,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
           timelineRendererRef={timelineRendererRef}
         />
         <AlertHost presenter={alerts} />
+        <AnnotationPill store={store} controller={controller} stageRef={stageRef} />
         <ExportDialog
           open={exportOpen}
           onClose={() => setExportOpen(false)}
