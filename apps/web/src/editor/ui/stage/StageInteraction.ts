@@ -20,9 +20,10 @@
  * (freehand pen on the selected drawing), annotation (body move),
  * annotationHandle (arrow endpoint / shape corner), regionMove,
  * regionResize, regionSlider (the value pill), blockOffset (card drag
- * inside a zoom block) and placement (card drag). The Mac's camera /
- * subtitle / watermark drags need canvas-level rects the engine doesn't
- * report yet and are not ported.
+ * inside a zoom block), placement (card drag) and overlay — the Mac's
+ * `.camera` / `.subtitle` / `.watermark` drags, hit-tested against the rects
+ * the engine reports it DREW (FrameInfo.hits, engine/stageHits.ts) with the
+ * fraction math + magnetism in ./overlayDrag.ts.
  */
 import type { BlurStyle, Project, Rect } from "../../core/model";
 import { highlightCornerRadiusFor, highlightRegionRectInViewSpace, focusRegionRectInViewSpace } from "../../core/math/regionGeometry";
@@ -60,6 +61,16 @@ import {
   type RegionHit,
 } from "./stageGeometry";
 import { boundsOf, canvasFromClient, canvasToCard, cardToCanvas, localScale, projectRect, type Pt } from "./stageMapping";
+import {
+  OVERLAY_LABEL,
+  applySettingsPatch,
+  overlayDragFraction,
+  overlayDragPatch,
+  overlayHitTest,
+  overlayInitialFraction,
+  overlayReleasePatch,
+  type OverlayKind,
+} from "./overlayDrag";
 
 export interface StageInteractionDeps {
   store: EditorStore;
@@ -85,6 +96,28 @@ export interface StageInteraction {
   /** True while a canvas drag is mutating geometry (the Mac hides the
    * contextual toolbar meanwhile — `isDraggingOnCanvas`). */
   readonly isDraggingOnCanvas: boolean;
+  /** The host element the engine canvas + this layer live in. */
+  readonly host: HTMLElement;
+  readonly isDisposed: boolean;
+  /**
+   * Fires whenever the chrome re-lays out (a presented frame, a store /
+   * playhead / transport change, a resize) or a drag starts / ends — what the
+   * contextual annotation pill re-positions on (ESVC.repositionAnnotationPill).
+   */
+  subscribe(listener: () => void): () => void;
+}
+
+/** Stage interactions mounted/unmounted — lets the pill (re)bind to the live surface. */
+const stageMountListeners = new Set<() => void>();
+export function onStageInteractionMount(listener: () => void): () => void {
+  stageMountListeners.add(listener);
+  return () => stageMountListeners.delete(listener);
+}
+function announceStageMount(): void {
+  // After the caller stored the instance (EditorPage assigns stageRef on return).
+  queueMicrotask(() => {
+    for (const l of [...stageMountListeners]) l();
+  });
 }
 
 export function mountStageInteraction(host: HTMLElement, viewport: StageViewport, deps: StageInteractionDeps): StageInteraction {
@@ -110,7 +143,9 @@ type DragMode =
   | { kind: "regionResize"; ref: RegionRef; initial: Rect; edges: { left: boolean; right: boolean; top: boolean; bottom: boolean } }
   | { kind: "regionSlider"; ref: RegionRef; track: { minX: number; width: number } }
   | { kind: "placement"; moved: boolean; grab: Pt }
-  | { kind: "blockOffset"; id: string; initial: Pt; moved: boolean };
+  | { kind: "blockOffset"; id: string; initial: Pt; moved: boolean }
+  /** `.camera` / `.watermark` / `.subtitle`: `initial` = the fraction at mousedown. */
+  | { kind: "overlay"; overlay: OverlayKind; initial: Pt };
 
 type SelectionStep = Parameters<typeof assignAll>[1];
 
@@ -153,9 +188,12 @@ class StageInteractionSurface implements StageInteraction {
   private drewChrome = false;
   private disposed = false;
   private readonly cleanups: Array<() => void> = [];
+  private readonly listeners = new Set<() => void>();
+  /** The pointer is over a draggable overlay while idle (hover cursor). */
+  private hoverOverlay = false;
 
   constructor(
-    private readonly host: HTMLElement,
+    readonly host: HTMLElement,
     private viewport: StageViewport,
     private readonly deps: StageInteractionDeps,
   ) {
@@ -174,6 +212,7 @@ class StageInteractionSurface implements StageInteraction {
     on(overlay, "pointermove", this.onPointerMove);
     on(overlay, "pointerup", this.onPointerUp);
     on(overlay, "pointercancel", this.onPointerCancel);
+    on(overlay, "pointerleave", () => this.setHover(false));
     // Capture lost without a pointerup (window blur, OS gesture): end the drag.
     on(overlay, "lostpointercapture", (e) => {
       if (this.mode.kind !== "idle") this.finish(e, true);
@@ -188,6 +227,7 @@ class StageInteractionSurface implements StageInteraction {
     this.cleanups.push(store.subscribe(() => this.schedule()));
     this.cleanups.push(controller.playhead.subscribe(() => this.schedule()));
     if (client.lastFrame) this.setFrame(client.lastFrame);
+    announceStageMount();
   }
 
   // ── Public contract ──────────────────────────────────────────────────────
@@ -233,6 +273,15 @@ class StageInteractionSurface implements StageInteraction {
     return { x: b.x / k, y: b.y / k, width: b.width / k, height: b.height / k };
   }
 
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private notify(): void {
+    for (const l of [...this.listeners]) l();
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -240,6 +289,13 @@ class StageInteractionSurface implements StageInteraction {
     cancelAnimationFrame(this.raf);
     for (const c of this.cleanups.splice(0)) c();
     this.overlay.remove();
+    this.notify();
+    this.listeners.clear();
+    announceStageMount();
+  }
+
+  get isDisposed(): boolean {
+    return this.disposed;
   }
 
   // ── Frame / state ────────────────────────────────────────────────────────
@@ -365,6 +421,8 @@ class StageInteractionSurface implements StageInteraction {
     const cp = this.cardPoint(p);
     const labelRect = this.labelRectFn(g);
     const annotations = project.annotations;
+    // Drags begin here; the pill hides for their duration (isDraggingOnCanvas).
+    queueMicrotask(() => this.notify());
 
     // Double-click a text/callout → edit the label in place.
     if (clicks === 2 && !playing) {
@@ -390,6 +448,15 @@ class StageInteractionSurface implements StageInteraction {
           return;
         }
       }
+    }
+
+    // 1 — canvas-level chrome, topmost first (watermark > camera > subtitle),
+    // against the rects the engine drew this frame.
+    const overlay = overlayHitTest(this.frame?.hits, p, cp, g.u);
+    if (overlay) {
+      this.mode = { kind: "overlay", overlay: overlay.kind, initial: overlayInitialFraction(overlay.kind, project.settings) };
+      this.updateCursor();
+      return;
     }
 
     // 2-pre — pen-down on the SELECTED drawing annotation starts a stroke.
@@ -508,7 +575,11 @@ class StageInteractionSurface implements StageInteraction {
   }
 
   private onPointerMove = (e: PointerEvent): void => {
-    if (this.mode.kind === "idle" || !this.frame) return;
+    if (!this.frame) return;
+    if (this.mode.kind === "idle") {
+      this.updateHover(e);
+      return;
+    }
     const g = this.geometry();
     if (!g) return;
     const p = this.canvasPoint(e);
@@ -519,6 +590,20 @@ class StageInteractionSurface implements StageInteraction {
       case "blurDraw":
         this.schedule();
         return;
+      case "overlay": {
+        // The live rect (the Mac reads ctx.<x>Rect per drag event; none → no write).
+        const hit = this.frame.hits?.[mode.overlay];
+        if (!hit) return;
+        // Delta in the space the overlay is drawn in: canvas px for the bubble
+        // and watermark, card px (through the camera) for subtitles / the tile.
+        const a = hit.space === "canvas" ? this.downCanvas : this.cardPoint(this.downCanvas);
+        const b = hit.space === "canvas" ? p : this.cardPoint(p);
+        const f = overlayDragFraction(mode.overlay, mode.initial, { x: b.x - a.x, y: b.y - a.y }, hit.usable);
+        if (!f) return;
+        const patch = overlayDragPatch(mode.overlay, f);
+        this.write(OVERLAY_LABEL[mode.overlay], (d) => applySettingsPatch(d.settings, patch));
+        return;
+      }
       case "zoomFocal": {
         const n = normalizedVideoPoint(this.cardPoint(p), g);
         this.write("Edit Zoom", (d) => {
@@ -674,6 +759,14 @@ class StageInteractionSurface implements StageInteraction {
           });
         }
         break;
+      case "overlay": {
+        // mouseUp magnetism — camera corners, watermark edges, subtitle
+        // anchors collapse back to the clean enum. Same gesture = same undo step.
+        const s = this.project()?.settings;
+        const patch = s ? overlayReleasePatch(mode.overlay, s) : null;
+        if (patch) this.write(OVERLAY_LABEL[mode.overlay], (d) => applySettingsPatch(d.settings, patch));
+        break;
+      }
       case "placement": {
         // Only the CENTRE anchor magnetizes (a centred custom position and
         // the centre enum render identically, so the collapse is invisible).
@@ -694,6 +787,8 @@ class StageInteractionSurface implements StageInteraction {
     this.endGesture();
     this.updateCursor();
     this.schedule();
+    // The shell re-shows the contextual pill (the Mac's onDragEnded).
+    this.notify();
   }
 
   private onKeyDown(e: KeyboardEvent): void {
@@ -709,8 +804,24 @@ class StageInteractionSurface implements StageInteraction {
 
   private updateCursor(): void {
     const m = this.mode;
-    const grabbing = (m.kind === "placement" || m.kind === "blockOffset") && m.moved;
-    this.overlay.style.cursor = this.armedStyle != null ? "crosshair" : grabbing ? "grabbing" : "";
+    const grabbing = ((m.kind === "placement" || m.kind === "blockOffset") && m.moved) || m.kind === "overlay";
+    const grab = m.kind === "idle" && this.hoverOverlay;
+    this.overlay.style.cursor = this.armedStyle != null ? "crosshair" : grabbing ? "grabbing" : grab ? "grab" : "";
+  }
+
+  /** Idle pointer over the camera bubble / subtitle / watermark → an open hand (they drag). */
+  private updateHover(e: PointerEvent): void {
+    const f = this.frame;
+    const g = this.geometry();
+    if (!f || !g || !f.hits) return this.setHover(false);
+    const p = this.canvasPoint(e);
+    this.setHover(overlayHitTest(f.hits, p, this.cardPoint(p), g.u) !== null);
+  }
+
+  private setHover(on: boolean): void {
+    if (this.hoverOverlay === on) return;
+    this.hoverOverlay = on;
+    this.updateCursor();
   }
 
   // ── Chrome ───────────────────────────────────────────────────────────────
@@ -720,6 +831,7 @@ class StageInteractionSurface implements StageInteraction {
     this.raf = requestAnimationFrame(() => {
       this.raf = 0;
       this.draw();
+      this.notify();
     });
   }
 
@@ -856,6 +968,9 @@ class StageInteractionSurface implements StageInteraction {
     this.host.appendChild(backing);
     this.host.appendChild(input);
     this.editor = editor;
+    // The engine omits this annotation from the preview raster NOW (Mac:
+    // Chrome.editingID + requestRender) — the field replaces it, no twin.
+    this.syncEditingAnnotation();
     this.layoutEditor();
     input.focus({ preventScroll: true });
     input.select();
@@ -939,7 +1054,22 @@ class StageInteractionSurface implements StageInteraction {
         this.deps.store.endCoalescing();
       }
     }
+    // Un-hide it in the raster only AFTER the committed text reaches the
+    // engine: the controller pushes the project on the next animation frame,
+    // and rAF callbacks (then worker messages) run in order — un-hiding now
+    // would flash the OLD label for a frame.
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => this.syncEditingAnnotation());
+    else this.syncEditingAnnotation();
     this.schedule();
+  }
+
+  /** Tells the engine which label the editor replaces (null: none). */
+  private syncEditingAnnotation(): void {
+    try {
+      this.deps.client.setEditingAnnotation(this.disposed ? null : (this.editor?.id ?? null));
+    } catch {
+      /* the engine is gone (page teardown) */
+    }
   }
 }
 

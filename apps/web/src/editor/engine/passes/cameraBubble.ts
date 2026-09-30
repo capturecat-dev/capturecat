@@ -61,6 +61,7 @@ import {
 import { CAMERA_FILTER_LUTS, CAMERA_LUT_SIZE } from "../gpu/cameraFilterLuts";
 import { apply, IDENTITY, invert, isIdentity, multiply, toRows, type Mat3 } from "../mat3";
 import { CameraSource, type CameraFrame } from "../media/cameraSource";
+import { stageHitRecorder } from "../stageHits";
 import { bakeCameraAssets, measureTag, type BakedAsset } from "./cameraAssets";
 import type { FrameEncoder, FrameState, PassContext, RenderPass, Scene } from "./types";
 
@@ -204,6 +205,14 @@ export class CameraFeature {
   private camU: Uniforms | null = null;
   private shadowU: Uniforms | null = null;
   private composeU: Uniforms | null = null;
+  /** The rect the bubble / tile was composited at this frame (stage hit-testing). */
+  private readonly hit = stageHitRecorder("camera");
+  /**
+   * Preview: the camera frame the last plan wanted vs. the one it drew. A
+   * seek resolves only once they match (EditorPlaybackController seeks the
+   * camera player with zero tolerance) — see `inputsReady`.
+   */
+  private wait = { wanted: -1, drawn: -1, waiting: false };
 
   readonly prepare: RenderPass;
   readonly tile: RenderPass;
@@ -219,6 +228,8 @@ export class CameraFeature {
       prefetch: (scene, frame) => self.prefetch(scene, frame),
       encode: (ctx, frame, enc) => self.encodeGroup(ctx, frame, enc),
       destroy: () => self.destroy(),
+      stageHit: this.hit,
+      inputsReady: () => !self.wait.waiting,
     };
     this.tile = {
       name: "camera-tile",
@@ -242,6 +253,12 @@ export class CameraFeature {
       path: this.plan?.path ?? "none",
       source: this.plan?.source?.kind ?? null,
       liveIndex: this.plan?.source?.kind === "live" ? this.plan.source.frame.index : -1,
+      /** VideoFrame.timestamp (µs) of the camera frame drawn. */
+      liveTimestamp: this.plan?.source?.kind === "live" ? this.plan.source.frame.frame.timestamp : null,
+      /** Sample index the playhead wants (−1: before the camera starts / no stream). */
+      wantedIndex: this.wait.wanted,
+      /** A seek is being held for the wanted camera frame. */
+      waiting: this.wait.waiting,
       rect: this.plan?.rect ?? null,
       chrome: this.plan?.cam.layout.chromeOpacity ?? null,
       counters: this.source?.counters ?? null,
@@ -391,6 +408,7 @@ export class CameraFeature {
   }
 
   private makePlan(ctx: PassContext, frame: FrameState): Plan | null {
+    this.wait = { wanted: -1, drawn: -1, waiting: false };
     const scene = ctx.scene;
     const project = this.project(scene);
     const source = this.ensureSource(scene);
@@ -422,6 +440,9 @@ export class CameraFeature {
       cameraFrameDecoded: live !== null,
       posterAvailable,
     });
+    if (!(this.exact && this.exact.outputTime === frame.outputTime)) {
+      this.wait = previewWait(source, target, live, frame.video !== null, cam.layout.cameraOpacity);
+    }
     const squeeze = yDown(cam.cardTransform, H);
     const plan: Plan = {
       outputTime: frame.outputTime,
@@ -740,6 +761,18 @@ export class CameraFeature {
     const plan = this.plan;
     if (!plan || plan.path !== path || plan.outputTime !== frame.outputTime || !this.group || !enc.pass) return;
     const { device, pipelines, scene } = ctx;
+    // Hit rect = the rect the group was built at: canvas space for the bubble
+    // (overlay, after the warp), card space for the layout tile (cardTop).
+    // Usable span = ReactiveCameraLayout.cameraRect's (W − 2·padding − w).
+    const pad = this.statics?.statics.cameraPadding ?? 0;
+    this.hit.current = {
+      rect: plan.rect,
+      space: path === "plain" ? "canvas" : "card",
+      usable: {
+        width: scene.target.width - 2 * pad - plan.rect.width,
+        height: scene.target.height - 2 * pad - plan.rect.height,
+      },
+    };
     this.composeU ??= new Uniforms(device, 32, "camera-compose-u");
     const b = plan.bounds;
     this.composeU.write([
@@ -787,4 +820,24 @@ export class CameraFeature {
     this.shadowCache = null;
     this.poster = null;
   }
+}
+
+/**
+ * Preview seek gate: does the frame just planned still want a camera sample
+ * that has not decoded? Nothing to wait for when no camera is drawn (before
+ * the camera starts, clip hidden, layout fades it out) or the stream failed;
+ * while the stream is still opening, wait (the plan draws no live frame yet).
+ */
+function previewWait(
+  source: CameraSource,
+  cameraTime: number,
+  live: CameraFrame | null,
+  sourceVisible: boolean,
+  cameraOpacity: number,
+): { wanted: number; drawn: number; waiting: boolean } {
+  const drawn = live?.index ?? -1;
+  if (!source.isOpen) return { wanted: -1, drawn, waiting: source.error === null };
+  const wanted = source.indexAt(cameraTime);
+  const needed = wanted >= 0 && sourceVisible && cameraOpacity > 0.001;
+  return { wanted, drawn, waiting: needed && drawn !== wanted };
 }

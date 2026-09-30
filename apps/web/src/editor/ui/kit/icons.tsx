@@ -160,6 +160,10 @@ const customs = {
     `<defs><mask id="w" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/>` +
     `<path d="M12 9.5 V13.6" stroke="#000" stroke-width="${sw}" stroke-linecap="round"/><circle cx="12" cy="17.1" r="${(sw * 0.62).toFixed(2)}" fill="#000"/></mask></defs>` +
     `<path mask="url(#w)" fill="#000" stroke="#000" stroke-width="2.4" stroke-linejoin="round" d="M12 3.6 L21.4 20 H2.6 Z"/>`,
+  /** SF `square.fill.on.square`: a solid square in front of an outlined one (back-top-right). */
+  squareFillOnSquare: (sw: number) =>
+    S(sw, `<path d="M8.5 5.5 V4.5 A2 2 0 0 1 10.5 2.5 H19.5 A2 2 0 0 1 21.5 4.5 V13.5 A2 2 0 0 1 19.5 15.5 H18.5"/>`) +
+    F(`<rect x="2.5" y="8.5" width="13" height="13" rx="2.5"/>`),
 };
 
 /**
@@ -261,6 +265,8 @@ export const SF_SYMBOLS: Record<string, Entry> = {
   "photo.badge.plus": { icon: ImagePlus },
   "seal.fill": { icon: Badge, fill: true, note: "lucide Badge is the scalloped seal outline — filled" },
   "hand.point.up.left": { icon: Pointer },
+  // Annotation pill (AnnotationToolbarPill): background / fill on-off chip.
+  "square.fill.on.square": { svg: customs.squareFillOnSquare, note: "custom — lucide has no filled square over an outlined one" },
 
   // ── Toolbar picker popovers (showZoomMenu / showFocusMenu) ──
   "sparkle.magnifyingglass": { icon: ScanSearch },
