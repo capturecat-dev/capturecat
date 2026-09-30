@@ -27,7 +27,7 @@ export interface ControllerHooks {
   autoZoom?(): Promise<number> | number;
   /** Motion (StillMotionApplier) for image captures. */
   stillMotion?(): Promise<number> | number;
-  /** Voice-over recording (not available on the web yet). */
+  /** The mic key: start/stop voice-over recording (ui/voiceover/VoiceOver.tsx). */
   toggleVoiceOver?(): void;
   showProjects?(): void;
   exportVideo?(): void;
