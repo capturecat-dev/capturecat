@@ -41,18 +41,35 @@ extension CaptureCatAPI {
 /// manifest the server will refuse. Source of truth: `CLOUD_FILE_TYPES` and
 /// `checkLogicalPath` in apps/api/src/lib/cloud-projects.ts — keep in step.
 nonisolated enum CloudPath {
-    /// Extension → the canonical content type the server accepts for it.
-    static let contentTypes: [String: String] = [
-        "mov": "video/quicktime", "mp4": "video/mp4", "m4v": "video/mp4",
-        "m4a": "audio/mp4", "aac": "audio/aac", "mp3": "audio/mpeg", "wav": "audio/wav", "caf": "audio/x-caf",
-        "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "heic": "image/heic",
-        "webp": "image/webp", "gif": "image/gif",
-        "json": "application/json",
+    /// Extension → every content type the server accepts for it; the FIRST
+    /// is the canonical one this Mac sends for its own files. The others
+    /// arrive on files the web editor added (Firefox records voice-overs as
+    /// `.wav`, some browsers label them `audio/x-wav`) and are passed back
+    /// unchanged when a push keeps those files.
+    static let acceptedTypes: [String: [String]] = [
+        "mov": ["video/quicktime"], "mp4": ["video/mp4"], "m4v": ["video/mp4", "video/x-m4v"],
+        "m4a": ["audio/mp4", "audio/x-m4a"], "aac": ["audio/aac"], "mp3": ["audio/mpeg"],
+        "wav": ["audio/wav", "audio/x-wav"], "caf": ["audio/x-caf"],
+        "png": ["image/png"], "jpg": ["image/jpeg"], "jpeg": ["image/jpeg"], "heic": ["image/heic"],
+        "webp": ["image/webp"], "gif": ["image/gif"],
+        "json": ["application/json"],
     ]
+
+    /// Extension → the canonical content type the server accepts for it.
+    static let contentTypes: [String: String] = acceptedTypes.compactMapValues(\.first)
+
+    /// Files per manifest (`MAX_MANIFEST_FILES` on the server).
+    static let maxManifestFiles = 200
 
     static func contentType(for path: String) -> String? {
         let ext = (path as NSString).pathExtension.lowercased()
         return contentTypes[ext]
+    }
+
+    /// Whether the server accepts `contentType` for `path`'s extension.
+    static func accepts(_ contentType: String, for path: String) -> Bool {
+        let ext = (path as NSString).pathExtension.lowercased()
+        return acceptedTypes[ext]?.contains(contentType.lowercased()) == true
     }
 
     /// Per-kind ceiling (`KIND_MAX_BYTES` on the server), independent of the
@@ -98,7 +115,10 @@ nonisolated struct CloudManifestFile: Equatable, Sendable {
     /// simply `path` (an absolute backgroundImagePath, a media URL that points
     /// outside the project folder). The web resolves references through it.
     let source: String?
-    let localURL: URL
+    /// Where the bytes are on this Mac. Nil for a file only the cloud holds
+    /// (one the web editor added), which a push keeps in the manifest
+    /// without ever uploading it.
+    let localURL: URL?
 }
 
 nonisolated struct CloudManifest: Sendable {
@@ -110,7 +130,7 @@ nonisolated struct CloudManifest: Sendable {
     var totalBytes: Int64 { files.reduce(0) { $0 + $1.bytes } }
 
     func localURL(forSHA256 sha: String) -> URL? {
-        files.first { $0.sha256 == sha }?.localURL
+        files.first { $0.sha256 == sha && $0.localURL != nil }?.localURL
     }
 }
 
@@ -367,11 +387,27 @@ nonisolated enum CloudFinalizeResult: Equatable, Sendable {
     case objectsMissing
 }
 
+/// One committed file of a cloud project, as GET /cloud-projects/:id (and
+/// …/files) lists it — the manifest the last finalize committed, whoever
+/// staged it (this Mac, another Mac, or the web editor adding a voice-over
+/// or an image).
+nonisolated struct CloudRemoteFile: Equatable, Sendable {
+    let path: String
+    let sha256: String
+    let bytes: Int64
+    let contentType: String
+    let source: String?
+    /// Presigned GET, valid ~15 minutes (refresh through `files`).
+    let url: URL?
+}
+
 nonisolated struct CloudRemoteProject: Equatable, Sendable {
     let revision: Int
     let documentSHA256: String?
     /// project.json bytes exactly as stored; nil before the first save.
     let document: Data?
+    /// The committed file manifest.
+    var files: [CloudRemoteFile] = []
 }
 
 nonisolated enum CloudSaveResult: Equatable, Sendable {
@@ -389,6 +425,10 @@ nonisolated enum CloudSyncError: LocalizedError, Equatable {
     case invalidRemoteDocument(String)
     case projectMismatch
     case tooManyRetries
+    case downloadURLExpired
+    /// Media the pulled project.json references could not be brought to
+    /// this Mac. Nothing was applied.
+    case downloadFailed(paths: [String], detail: String)
 
     var errorDescription: String? {
         switch self {
@@ -402,6 +442,12 @@ nonisolated enum CloudSyncError: LocalizedError, Equatable {
             return "The web editor's version could not be opened on this Mac (\(detail)). Nothing was changed."
         case .projectMismatch: return "The cloud copy belongs to a different project. Nothing was changed."
         case .tooManyRetries: return "The upload could not be completed. Try again in a moment."
+        case .downloadURLExpired: return "A download link expired before the file arrived."
+        case .downloadFailed(let paths, let detail):
+            let names = paths.prefix(3).joined(separator: ", ") + (paths.count > 3 ? " and \(paths.count - 3) more" : "")
+            let what = paths.count == 1 ? "a file" : "\(paths.count) files"
+            return "The web editor’s version uses \(what) that could not be downloaded (\(names): \(detail)). "
+                + "This Mac’s copy of the project was not changed — try again in a moment."
         }
     }
 
@@ -412,13 +458,19 @@ nonisolated enum CloudSyncError: LocalizedError, Equatable {
     }
 }
 
-/// The five network steps of a cloud sync. `HTTPCloudProjectTransport` talks
-/// to the API; the `--cloud-sync-test` harness swaps in an in-memory server.
+/// The network steps of a cloud sync. `HTTPCloudProjectTransport` talks to
+/// the API; the `--cloud-sync-test` harness swaps in an in-memory server.
 protocol CloudProjectTransport: AnyObject {
     func stage(projectID: UUID, name: String, files: [CloudManifestFile]) async throws -> CloudStageResult
     func upload(fileAt url: URL, to target: CloudUploadTarget, progress: @escaping (Int64) -> Void) async throws
     func finalize(projectID: UUID) async throws -> CloudFinalizeResult
+    /// Document + committed manifest (with presigned GETs); nil = no cloud copy.
     func fetch(projectID: UUID) async throws -> CloudRemoteProject?
+    /// Fresh presigned GETs for the committed manifest.
+    func files(projectID: UUID) async throws -> [CloudRemoteFile]
+    /// Stream one committed file's bytes to `destination` (created or
+    /// truncated). Throws `downloadURLExpired` when the presign lapsed.
+    func download(_ file: CloudRemoteFile, to destination: URL, progress: @escaping (Int64) -> Void) async throws
     func save(projectID: UUID, document: Data, baseRevision: Int) async throws -> CloudSaveResult
 }
 
@@ -426,22 +478,29 @@ protocol CloudProjectTransport: AnyObject {
 
 /// Mirrors a Mac project to a cloud project and back.
 ///
-/// PUSH ("Open in Web Editor"): hash the referenced files → stage the
-/// manifest → upload only what the cloud lacks (presigned PUTs, streamed from
-/// disk) → finalize (server verifies size + SHA-256) → save project.json
-/// with the revision this Mac last agreed with the cloud.
+/// PUSH ("Open in Web Editor"): hash the referenced files → add the files
+/// only the cloud holds that a document still uses (the web editor adds
+/// voice-overs, backgrounds and logos; a stage REPLACES the manifest, so
+/// leaving them out would delete them) → stage the manifest → upload only
+/// what the cloud lacks (presigned PUTs, streamed from disk) → finalize
+/// (server verifies size + SHA-256) → save project.json with the revision
+/// this Mac last agreed with the cloud.
 ///
-/// PULL ("Pull Web Edits"): fetch the cloud document; if it moved and this
-/// Mac has no unsynced edits (or the user said to replace them), validate it
-/// with the app's own Codable and write it through `ProjectFileIO` — the
-/// atomic external-edit path the GUI already reloads from.
+/// PULL ("Pull Web Edits"): fetch the cloud document and manifest; if it
+/// moved and this Mac has no unsynced edits (or the user said to replace
+/// them), validate it with the app's own Codable, download every committed
+/// file this Mac lacks or holds with a different SHA-256 (verified, atomic,
+/// all BEFORE the document — a failure applies nothing), and write it
+/// through `ProjectFileIO` — the atomic external-edit path the GUI already
+/// reloads from. See CloudProjectMedia.swift.
 ///
 /// The document is moved as BYTES in both directions: what the web saved is
-/// what lands on disk (only media URLs that point outside this Mac's project
-/// folder are re-based), so keys this build does not know survive.
+/// what lands on disk (only references to files this Mac holds elsewhere —
+/// foreign media URLs, the web's background path — are re-pointed), so keys
+/// this build does not know survive.
 final class CloudProjectSync {
     struct Progress: Equatable {
-        enum Phase: Equatable { case hashing, uploading, verifying, saving, fetching, writing }
+        enum Phase: Equatable { case hashing, uploading, verifying, saving, fetching, downloading, writing }
         let phase: Phase
         /// 0…1 within the phase.
         let fraction: Double
@@ -463,6 +522,11 @@ final class CloudProjectSync {
     enum PullOutcome: Equatable {
         case pulled(revision: Int)
         case upToDate(revision: Int)
+        /// project.json was already this revision, but files it references
+        /// were missing here (an earlier build's pull wrote only the
+        /// document): `files` were downloaded, and references still spelled
+        /// the web's way were re-pointed at them.
+        case mediaRestored(revision: Int, files: Int)
         case noCloudCopy
         /// The cloud moved AND this Mac has edits it never sent. Nothing
         /// was written; pull again with `force` to replace them.
@@ -495,14 +559,39 @@ final class CloudProjectSync {
         let state = CloudSyncState.load(from: projectDirectory, projectID: projectID, apiBaseURL: apiBaseURL)
 
         progress(Progress(phase: .hashing, fraction: 0, message: "Preparing files…"))
-        let manifest = try await CloudProjectManifest.build(project: project, projectDirectory: projectDirectory) { done, total in
+        // What the cloud holds now: files the web editor added exist only
+        // there, and a stage REPLACES the manifest — anything it leaves out,
+        // finalize deletes.
+        let remote = try await transport.fetch(projectID: projectID)
+        var manifest = try await CloudProjectManifest.build(project: project, projectDirectory: projectDirectory) { done, total in
             progress(Progress(phase: .hashing, fraction: total > 0 ? Double(done) / Double(total) : 1, message: "Preparing files…"))
         }
         if !manifest.skipped.isEmpty {
             cloudLogger.info("cloud push skipped \(manifest.skipped.count) reference(s): \(manifest.skipped.joined(separator: ", "), privacy: .public)")
         }
+        if let remote, !remote.files.isEmpty {
+            let kept = Self.cloudOnlyFiles(remote.files, localManifest: manifest, referencedBy: [document, remote.document])
+            if !kept.isEmpty {
+                cloudLogger.info("cloud push keeps \(kept.count) cloud-only file(s): \(kept.map(\.path).joined(separator: ", "), privacy: .public)")
+                manifest.files.append(contentsOf: kept)
+            }
+        }
+        guard manifest.files.count <= CloudPath.maxManifestFiles else {
+            throw CloudSyncError.api(
+                status: 400, code: "too_many_files",
+                message: "This project uses \(manifest.files.count) files; the web editor takes at most \(CloudPath.maxManifestFiles).")
+        }
 
         var stage = try await transport.stage(projectID: projectID, name: project.name, files: manifest.files)
+        // A kept file whose object the cloud no longer has (collected by a
+        // concurrent restage) cannot be uploaded from here: leave it out.
+        let lost = Set(stage.missing.map(\.sha256).filter { manifest.localURL(forSHA256: $0) == nil })
+        if !lost.isEmpty {
+            let dropped = manifest.files.filter { $0.localURL == nil && lost.contains($0.sha256) }.map(\.path)
+            cloudLogger.info("cloud push drops \(dropped.count) file(s) the cloud lost: \(dropped.joined(separator: ", "), privacy: .public)")
+            manifest.files.removeAll { $0.localURL == nil && lost.contains($0.sha256) }
+            stage = try await transport.stage(projectID: projectID, name: project.name, files: manifest.files)
+        }
         try await uploadMissing(stage.missing, manifest: manifest, projectID: projectID, name: project.name, progress: progress) {
             stage = $0
         }
@@ -630,20 +719,51 @@ final class CloudProjectSync {
         let remoteSHA = remote.documentSHA256 ?? CloudProjectManifest.sha256(of: remoteDocument)
         let state = CloudSyncState.load(from: projectDirectory, projectID: projectID, apiBaseURL: apiBaseURL)
 
+        // This Mac already agrees with the cloud on the document when the
+        // bytes match, or when it has not edited since the last sync and that
+        // sync was at least this revision (the file on disk is the re-based
+        // copy of it). Then only the media may be behind: an earlier build's
+        // pull wrote project.json without the files it names.
+        var agreedRevision: Int?
         if remoteSHA == localSHA {
-            try saveState(revision: remote.revision, sha: localSHA, in: projectDirectory, projectID: projectID)
-            return .upToDate(revision: remote.revision)
-        }
-        if !force {
+            agreedRevision = remote.revision
+        } else if !force {
             // Unsynced local edits = the file changed since the last agreed
             // state (or there never was one, so nothing proves otherwise).
             let localChanged = state.map { $0.documentSHA256 != localSHA } ?? true
             if localChanged { return .localChangesWouldBeLost(remoteRevision: remote.revision) }
-            if let state, state.revision >= remote.revision { return .upToDate(revision: state.revision) }
+            if let state, state.revision >= remote.revision { agreedRevision = state.revision }
+        }
+        if let revision = agreedRevision {
+            let fetched = try await syncMedia(remote.files, referencedBy: local, projectID: projectID,
+                                              projectDirectory: projectDirectory, progress: progress)
+            // A document an earlier build pulled may still name a web file
+            // by the web's path — point it at the copy now here.
+            let repaired = (try? Self.validatedDocument(local, projectID: projectID, projectDirectory: projectDirectory,
+                                                        files: remote.files)) ?? local
+            if repaired != local {
+                try ProjectFileIO.writeProjectData(repaired, to: docURL)
+            }
+            if repaired != local || remoteSHA == localSHA {
+                try saveState(revision: revision, sha: CloudProjectManifest.sha256(of: repaired),
+                              in: projectDirectory, projectID: projectID)
+            }
+            return fetched > 0 || repaired != local
+                ? .mediaRestored(revision: revision, files: fetched)
+                : .upToDate(revision: revision)
         }
 
+        // Refuse a document this Mac cannot open BEFORE moving any bytes.
+        _ = try Self.checkedProject(remoteDocument, projectID: projectID)
+        // Every file the web's document names lands here first — the editor
+        // must never see a project.json that points at a missing file. A
+        // failure throws `downloadFailed` and leaves project.json untouched.
+        _ = try await syncMedia(remote.files, referencedBy: remoteDocument, projectID: projectID,
+                                projectDirectory: projectDirectory, progress: progress)
+
         progress(Progress(phase: .writing, fraction: 0.5, message: "Applying web edits…"))
-        let data = try Self.validatedDocument(remoteDocument, projectID: projectID, projectDirectory: projectDirectory)
+        let data = try Self.validatedDocument(remoteDocument, projectID: projectID, projectDirectory: projectDirectory,
+                                              files: remote.files)
         try ProjectFileIO.writeProjectData(data, to: docURL)
         try saveState(revision: remote.revision, sha: CloudProjectManifest.sha256(of: data), in: projectDirectory, projectID: projectID)
         progress(Progress(phase: .writing, fraction: 1, message: "Pulled revision \(remote.revision)"))
@@ -651,13 +771,10 @@ final class CloudProjectSync {
         return .pulled(revision: remote.revision)
     }
 
-    /// The web's document, proven decodable by THIS build's Project Codable
-    /// and bound to this project, before it may touch disk. Returned
-    /// byte-for-byte unless a media URL points outside this Mac's project
-    /// folder (the project was first uploaded from another Mac, say) while
-    /// the same file exists here — then only those URL keys are re-based,
-    /// at the JSON level so every other key (known or not) is kept.
-    static func validatedDocument(_ data: Data, projectID: UUID, projectDirectory: URL) throws -> Data {
+    /// `data` decoded by THIS build's Project Codable and bound to this
+    /// project — or the reason it cannot be opened here.
+    @discardableResult
+    static func checkedProject(_ data: Data, projectID: UUID) throws -> Project {
         let decoded: Project
         do {
             decoded = try JSONDecoder().decode(Project.self, from: data)
@@ -665,30 +782,66 @@ final class CloudProjectSync {
             throw CloudSyncError.invalidRemoteDocument(String(describing: error).prefix(160).description)
         }
         guard decoded.id == projectID else { throw CloudSyncError.projectMismatch }
+        return decoded
+    }
 
-        let fm = FileManager.default
-        var rebased: [String: String] = [:]
-        let mediaKeys: [(String, URL?)] = [
-            ("videoURL", decoded.videoURL),
-            ("cursorDataURL", decoded.cursorDataURL),
-            ("keystrokeDataURL", decoded.keystrokeDataURL),
-            ("cameraVideoURL", decoded.cameraVideoURL),
-        ]
-        for (key, url) in mediaKeys {
-            guard let url, url.isFileURL,
-                  CloudProjectManifest.relativePath(of: url, in: projectDirectory) == nil else { continue }
-            let local = projectDirectory.appendingPathComponent(url.lastPathComponent)
-            if fm.fileExists(atPath: local.path) { rebased[key] = local.absoluteString }
-        }
-        guard !rebased.isEmpty else { return data }
-
-        guard var object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+    /// The web's document, proven decodable by THIS build's Project Codable
+    /// and bound to this project, before it may touch disk. Returned
+    /// byte-for-byte unless a reference points at a file this Mac holds
+    /// somewhere else — then only those keys are re-pointed, at the JSON
+    /// level so every other key (known or not) is kept:
+    ///  - a media URL outside this Mac's project folder (uploaded from
+    ///    another Mac, or a web recording's `file:///CaptureCat/Projects/…`)
+    ///    → the committed file it names (`files`, resolved the way the web
+    ///    resolves it) when that is here, else the same file name in the
+    ///    project folder;
+    ///  - a `backgroundImagePath` that does not exist here (the web's
+    ///    `/CaptureCat/Projects/<id>/<name>`, another Mac's wallpaper) → the
+    ///    absolute path of the downloaded copy — how the Mac spells a
+    ///    background image.
+    /// Voice-over, watermark and curtain-logo names are relative to the
+    /// project folder and download under the same name: nothing to change.
+    static func validatedDocument(
+        _ data: Data,
+        projectID: UUID,
+        projectDirectory: URL,
+        files: [CloudRemoteFile] = []
+    ) throws -> Data {
+        try checkedProject(data, projectID: projectID)
+        guard var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             throw CloudSyncError.invalidRemoteDocument("not a JSON object")
         }
-        for (key, value) in rebased { object[key] = value }
+
+        let fm = FileManager.default
+        let index = CloudFileIndex(files)
+        var changed = false
+        for key in ["videoURL", "cursorDataURL", "keystrokeDataURL", "cameraVideoURL"] {
+            guard let raw = object[key] as? String, let url = URL(string: raw), url.isFileURL,
+                  CloudProjectManifest.relativePath(of: url, in: projectDirectory) == nil else { continue }
+            var local: URL?
+            if !fm.fileExists(atPath: url.path) {
+                local = CloudProjectMedia.localCopy(of: raw, index: index, in: projectDirectory)
+            }
+            if local == nil {
+                let sameName = projectDirectory.appendingPathComponent(url.lastPathComponent)
+                if fm.fileExists(atPath: sameName.path) { local = sameName }
+            }
+            if let local, local.absoluteString != raw {
+                object[key] = local.absoluteString
+                changed = true
+            }
+        }
+        if var settings = object["settings"] as? [String: Any],
+           let path = settings["backgroundImagePath"] as? String, !path.isEmpty, !fm.fileExists(atPath: path),
+           let local = CloudProjectMedia.localCopy(of: path, index: index, in: projectDirectory), local.path != path {
+            settings["backgroundImagePath"] = local.path
+            object["settings"] = settings
+            changed = true
+        }
+        guard changed else { return data }
+
         let out = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .withoutEscapingSlashes])
-        let check = try JSONDecoder().decode(Project.self, from: out)
-        guard check.id == projectID else { throw CloudSyncError.projectMismatch }
+        try checkedProject(out, projectID: projectID)
         return out
     }
 }
@@ -814,8 +967,61 @@ final class HTTPCloudProjectTransport: CloudProjectTransport {
         return CloudRemoteProject(
             revision: (object["revision"] as? NSNumber)?.intValue ?? 0,
             documentSHA256: object["documentSha256"] as? String,
-            document: (object["document"] as? String).map { Data($0.utf8) }
+            document: (object["document"] as? String).map { Data($0.utf8) },
+            files: Self.remoteFiles(object["files"])
         )
+    }
+
+    func files(projectID: UUID) async throws -> [CloudRemoteFile] {
+        let request = try request("GET", "/\(projectID.uuidString)/files")
+        let (data, http) = try await send(request)
+        guard http.statusCode == 200 else { throw apiError(data, http) }
+        return Self.remoteFiles(try json(data)["files"])
+    }
+
+    /// The API's `files` array (presignFiles in routes/cloud-projects.ts).
+    private static func remoteFiles(_ value: Any?) -> [CloudRemoteFile] {
+        (value as? [[String: Any]] ?? []).compactMap { entry in
+            guard let path = entry["path"] as? String,
+                  let sha = (entry["sha256"] as? String)?.lowercased(),
+                  let bytes = (entry["bytes"] as? NSNumber)?.int64Value,
+                  let type = entry["contentType"] as? String else { return nil }
+            let source = (entry["source"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            return CloudRemoteFile(path: path, sha256: sha, bytes: bytes, contentType: type, source: source,
+                                   url: (entry["url"] as? String).flatMap(URL.init(string:)))
+        }
+    }
+
+    /// A plain GET of the presigned URL — no session headers: R2 checks the
+    /// signature in the query, and the bearer token must never leave for a
+    /// storage host. Bytes stream to `destination` as they arrive (a
+    /// multi-GB recording never sits in memory); the caller verifies size +
+    /// SHA-256 before the file is used.
+    func download(_ file: CloudRemoteFile, to destination: URL, progress: @escaping (Int64) -> Void) async throws {
+        guard let url = file.url else { throw CloudSyncError.downloadURLExpired }
+        FileManager.default.createFile(atPath: destination.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: destination)
+        defer { try? handle.close() }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 600
+        let delegate = CloudDownloadDelegate(handle: handle) { received in
+            Task { @MainActor in progress(received) }
+        }
+        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+        let task = session.dataTask(with: request)
+        let outcome = try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CloudDownloadDelegate.Outcome, Error>) in
+                delegate.start(task, continuation: continuation)
+            }
+        } onCancel: {
+            task.cancel()
+        }
+        guard (200...299).contains(outcome.status) else {
+            // R2 answers an expired presign with 403 AccessDenied / "Request has expired".
+            if outcome.status == 403 { throw CloudSyncError.downloadURLExpired }
+            throw CloudSyncError.api(status: outcome.status, code: nil, message: "HTTP \(outcome.status)")
+        }
     }
 
     func save(projectID: UUID, document: Data, baseRevision: Int) async throws -> CloudSaveResult {
@@ -855,5 +1061,70 @@ nonisolated final class CloudUploadDelegate: NSObject, URLSessionTaskDelegate, @
         totalBytesExpectedToSend: Int64
     ) {
         onProgress(totalBytesSent)
+    }
+}
+
+/// Streams one presigned GET into a file handle. Every callback arrives on
+/// the session's serial delegate queue, so the state below is only ever
+/// touched from one thread at a time.
+nonisolated final class CloudDownloadDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    struct Outcome: Sendable {
+        let status: Int
+        let bytes: Int64
+    }
+
+    private let handle: FileHandle
+    private let onProgress: @Sendable (Int64) -> Void
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Outcome, Error>?
+    private var status = 0
+    private var received: Int64 = 0
+    private var writeError: Error?
+
+    init(handle: FileHandle, onProgress: @escaping @Sendable (Int64) -> Void) {
+        self.handle = handle
+        self.onProgress = onProgress
+    }
+
+    func start(_ task: URLSessionDataTask, continuation: CheckedContinuation<Outcome, Error>) {
+        lock.withLock { self.continuation = continuation }
+        task.resume()
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
+        status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        // An error body (403 XML…) is not the file — never written.
+        guard (200...299).contains(status), writeError == nil else { return }
+        do {
+            try handle.write(contentsOf: data)
+            received += Int64(data.count)
+            onProgress(received)
+        } catch {
+            writeError = error
+            dataTask.cancel()
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        let pending = lock.withLock { () -> CheckedContinuation<Outcome, Error>? in
+            defer { continuation = nil }
+            return continuation
+        }
+        if let writeError {
+            pending?.resume(throwing: writeError)
+        } else if let error {
+            pending?.resume(throwing: error)
+        } else {
+            pending?.resume(returning: Outcome(status: status, bytes: received))
+        }
     }
 }
