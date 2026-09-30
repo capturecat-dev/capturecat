@@ -1,0 +1,69 @@
+{
+  "rules": [
+    {
+      "id": "web-editor-media",
+      "allowed": {
+        "origins": [
+          "https://app.capturecat.so",
+          "https://capturecat.so",
+          "https://www.capturecat.so",
+          "http://localhost:3200",
+          "http://localhost:3201",
+          "http://localhost:3202",
+          "http://localhost:3203",
+          "http://localhost:3204",
+          "http://localhost:3205",
+          "http://localhost:3206",
+          "http://localhost:3207",
+          "http://localhost:3208",
+          "http://localhost:3209"
+        ],
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "headers": [
+          "Range"
+        ]
+      },
+      "exposeHeaders": [
+        "Content-Length",
+        "Content-Range",
+        "Content-Type",
+        "ETag",
+        "Accept-Ranges"
+      ],
+      "maxAgeSeconds": 3600
+    },
+    {
+      "id": "web-recorder-upload",
+      "allowed": {
+        "origins": [
+          "https://app.capturecat.so",
+          "https://capturecat.so",
+          "https://www.capturecat.so",
+          "http://localhost:3200",
+          "http://localhost:3201",
+          "http://localhost:3202",
+          "http://localhost:3203",
+          "http://localhost:3204",
+          "http://localhost:3205",
+          "http://localhost:3206",
+          "http://localhost:3207",
+          "http://localhost:3208",
+          "http://localhost:3209"
+        ],
+        "methods": [
+          "PUT"
+        ],
+        "headers": [
+          "Content-Type"
+        ]
+      },
+      "exposeHeaders": [
+        "ETag"
+      ],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

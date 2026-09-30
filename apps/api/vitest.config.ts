@@ -6,6 +6,11 @@ import { defineConfig } from "vitest/config";
 // Browser Rendering REST call — cannot run here at all; live verification is
 // `wrangler dev` (with real CF_ACCOUNT_ID/BROWSER_RENDERING_TOKEN in
 // .dev.vars) against a NON-prod target, never `wrangler deploy` from a test.
+//
+// Exception by construction: src/routes/cloud-projects.test.ts drives a Hono
+// router in Node against the REAL migrations/SQL through node:sqlite
+// (src/test-support/d1-sqlite.js, Node ≥ 22.5), with the session and the S3
+// presigner mocked and R2 in memory — it never reaches Cloudflare.
 export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],

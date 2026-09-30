@@ -21,6 +21,8 @@ import { aiRoutes } from "./routes/ai";
 import { betaRoutes } from "./routes/beta";
 import { screenshotRoutes } from "./routes/screenshot";
 import { ssoRoutes } from "./routes/sso";
+import { cloudProjectRoutes } from "./routes/cloud-projects";
+import { stalePendingObjects } from "./lib/cloud-projects-db";
 import { rateLimit } from "./middleware/rate-limit";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -57,7 +59,10 @@ app.use(
   cors({
     origin: (origin, c) => webOrigins(c.env).includes(origin) ? origin : null,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    // If-Match: the web editor's project.json saves name the revision they
+    // were based on (PUT /api/cloud-projects/:id/project → 409 on conflict).
+    allowHeaders: ["Content-Type", "Authorization", "If-Match"],
+    exposeHeaders: ["ETag"],
     // REQUIRED: without this the browser will not send the session cookie to
     // /api/me, /api/videos, /api/video or /api/admin, so a cookie-authenticated
     // web client gets 401 on every one of them even though requireAuth now
@@ -177,6 +182,12 @@ app.use("/api/screenshot/*", async (c, next) => {
   }
   return screenshotTakeLimiter(c, next);
 });
+// Cloud projects (web editor): the cheap per-IP outer layer. The editor
+// refreshes presigned media URLs and autosaves (debounced), and one Mac sync
+// is ~3 writes; the per-uid D1 limits inside the router are the real bound.
+// One pattern only: Hono's `/*` also matches the bare `/api/cloud-projects`
+// (the list), so registering both would count that request twice.
+app.use("/api/cloud-projects/*", rateLimit({ limit: 300, windowSec: 60, prefix: "cloudproj" }));
 // Public beta waitlist sign-up: 5 per minute per IP. This is the outer bound on
 // sign-up spam; the route itself adds a honeypot + Turnstile + email dedupe.
 app.use("/api/beta", rateLimit({ limit: 5, windowSec: 60, prefix: "beta" }));
@@ -233,6 +244,11 @@ app.route("/api", betaRoutes);
 // feature gate + monthly D1 quota inside). Engine is Browser Rendering's REST
 // endpoint — see src/lib/screenshot/renderer.ts for the cost rationale.
 app.route("/api", screenshotRoutes);
+// Cloud projects for the web editor (app.capturecat.so/editor): Mac upload
+// (manifest → presigned PUTs → verified finalize), presigned media GETs, and
+// project.json saves with If-Match optimistic concurrency. Owner writes; org
+// members read. See src/routes/cloud-projects.ts.
+app.route("/api", cloudProjectRoutes);
 
 // Catch-all — block everything else
 app.all("*", (c) => c.json({ error: "Not found" }, 404));
@@ -265,6 +281,15 @@ async function sweep(env: Env): Promise<void> {
     await env.DB.prepare(
       "DELETE FROM video_versions WHERE video_id = ? AND version_number = ? AND status = 'pending'"
     ).bind(row.video_id, row.version_number).run();
+  }
+  // Cloud-project objects presigned but never verified by /finalize: the PUT
+  // may have landed (billed, invisible to the quota) — delete bytes + row.
+  // A verified (ready) object is never touched here.
+  for (const obj of await stalePendingObjects(env.DB, cutoff)) {
+    await env.R2.delete(obj.r2Key).catch(() => {});
+    await env.DB.prepare(
+      "DELETE FROM cloud_project_objects WHERE project_id = ? AND sha256 = ? AND status = 'pending'"
+    ).bind(obj.projectId, obj.sha256).run();
   }
   await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
     .bind(Math.floor(Date.now() / 1000) - 86_400).run();
