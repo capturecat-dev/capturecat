@@ -195,6 +195,16 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     return () => navigator.mediaDevices?.removeEventListener?.("devicechange", refreshDevices);
   }, [refreshDevices]);
 
+  // A take's session stops the live camera/mic when it ends. Back in setup
+  // still armed (an upload that failed or was cancelled), open fresh ones —
+  // otherwise the next take records a dead camera.
+  const [deviceEpoch, setDeviceEpoch] = useState(0);
+  useEffect(() => {
+    if (phase.kind !== "setup") return;
+    const ended = (s: MediaStream | null) => !!s && s.getTracks().some((t) => t.readyState === "ended");
+    if (ended(camStream) || ended(micStream)) setDeviceEpoch((e) => e + 1);
+  }, [phase.kind, camStream, micStream]);
+
   // Live mic: the level meter now, the take's mic track later.
   useEffect(() => {
     if (!armed || prefs.micId === null || !support?.screen) {
@@ -217,7 +227,7 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
       alive = false;
       stopStream(stream);
     };
-  }, [armed, prefs.micId, support?.screen, refreshDevices]);
+  }, [armed, prefs.micId, support?.screen, refreshDevices, deviceEpoch]);
 
   // Live camera: the preview bubble now, the take's camera track later.
   useEffect(() => {
@@ -243,7 +253,7 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
       alive = false;
       stopStream(stream);
     };
-  }, [armed, prefs.camId, setPrefs]);
+  }, [armed, prefs.camId, setPrefs, deviceEpoch]);
 
   useEffect(() => () => stopStream(screen), [screen]);
 
