@@ -90,6 +90,10 @@
   color: var(--cc-faint);
 }
 .cc-export__bitrate { margin-top: -6px; }
+.cc-export__form .cc-row__label { flex: none; }
+/* Type row (Image (PNG) | Video (MP4)): chips sized to their labels, trailing. */
+.cc-export__type { flex: 0 1 auto; min-width: 0; }
+.cc-export__type .cc-chips { width: auto; justify-content: flex-end; }
 .cc-export__error { color: var(--cc-system-red); }
 
 /* Exporting state: centred title / bar / percent, 12pt apart. */
@@ -141,4 +145,56 @@
 
 @media (prefers-reduced-motion: reduce) {
   .cc-progress__clip { transition: none; }
+}
+
+/* Share rows — ExportSheetController's shareRow (status caption + Copy,
+   8pt apart) over the full-width shareProgress bar; failures read red. */
+.cc-share {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cc-share__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+}
+.cc-share__status {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cc-share__status[data-phase="done"] {
+  color: var(--cc-foreground);
+  user-select: all;
+}
+.cc-share__status[data-phase="failed"] {
+  color: var(--cc-system-red);
+  white-space: normal;
+}
+.cc-share .cc-ibutton { flex: none; }
+/* Full-width bar: the fill stays track-sized inside the springing clip. */
+.cc-share__progress {
+  width: 100%;
+  container-type: inline-size;
+}
+.cc-share__progress .cc-progress__fill { width: 100cqw; }
+
+/* Top bar key + its status popover. */
+.cc-share-key { display: inline-flex; }
+.cc-share-pop {
+  width: 300px;
+  padding: var(--cc-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: var(--cc-font);
+}
+.cc-share-pop__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cc-space-sm);
 }

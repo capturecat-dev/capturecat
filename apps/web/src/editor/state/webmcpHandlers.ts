@@ -158,7 +158,8 @@ export function buildEditorToolHandlers(ctx: WebMCPContext): ToolHandlers {
       const project = openProject(args);
       const client = controller.client;
       if (!client?.info) throw new ops.ToolError("the editor is still loading the recording — retry in a moment");
-      const result = await client.export();
+      // HeadlessRunner exports with the project's own settings — fast export included.
+      const result = await client.export({ collapseStaticSpans: project.settings.exportSettings.collapseStaticSpans });
       const filename = `${(project.name || "CaptureCat").replace(/[\\/:*?"<>|]+/g, "-")}.mp4`;
       const url = URL.createObjectURL(new Blob([result.buffer], { type: result.mimeType }));
       const a = document.createElement("a");

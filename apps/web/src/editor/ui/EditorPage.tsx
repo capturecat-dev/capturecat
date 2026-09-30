@@ -18,6 +18,8 @@ import { parseProjectText, serializeProjectText, type ProjectSettings } from "..
 import { presentsTimelessTimeline } from "../core/model/helpers";
 import { EngineClient } from "../engine/client";
 import { ExportDialog } from "./export/ExportDialog";
+import { ShareButton } from "./export/SharePanel";
+import { useShareCenter } from "./export/useShareCenter";
 import type { LoadedInfo, TransportState as EngineTransport } from "../engine/protocol";
 import { refsOf } from "../engine/media/assets";
 import { saveCloudProject } from "../state/cloud";
@@ -334,6 +336,8 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
   const unsupported = useMemo(() => (project ? unsupportedFeatures(store.documentJSON(project)) : []), [project, store]);
 
   const callbacks = useMemo(() => controller.shellCallbacks(), [controller]);
+  // Share links: the top-bar Share key and the sheet's share-after-export.
+  const shareCenter = useShareCenter(store, controller, info ? { width: info.width, height: info.height } : null);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
   const paneActions = useMemo(() => editorPaneActions(controller), [controller]);
   const mediaActions = useMediaPickers(store, loaded);
@@ -421,6 +425,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
           inspectorRevealKey={inspectorRevealKey}
           topBarAccessory={accessory}
           stageNotice={unsupported.length ? <UnsupportedNotice features={unsupported} /> : undefined}
+          topBarShare={callbacks.onShare ? <ShareButton center={shareCenter} onShare={callbacks.onShare} /> : undefined}
           panes={panes}
           timelineRendererRef={timelineRendererRef}
         />
@@ -435,6 +440,8 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
           onSettingsCommit={(s) =>
             store.updateSettings({ exportSettings: { ...(settings?.exportSettings ?? {}), ...s } } as never, "Export Settings")
           }
+          onShareAfterExport={(file, o) => void shareCenter.shareExported(file.blob, file.fileName, { commentsEnabled: o.allowComments })}
+          shareCenter={shareCenter}
         />
       </WebGPUGate>
     </ThemeRoot>

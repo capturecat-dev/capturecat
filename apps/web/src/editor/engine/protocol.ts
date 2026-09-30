@@ -65,8 +65,14 @@ export interface ExportOptions {
   bitrate?: number;
   /** Output frame indices whose pre-encode RGBA should be returned (parity tests). */
   captureFrames?: number[];
-  /** Container (`ExportSettings.Format`). The Mac writes an MPEG-4 file for "GIF" too. Default MP4. */
-  format?: "MP4" | "MOV" | "GIF";
+  /**
+   * Output (`ExportSettings.Format`, plus the still sheet's PNG): MP4 / MOV
+   * movies, an animated GIF at core/export/gifPolicy's fps + size, or one PNG
+   * frame of a still (core/export/stillImage). Default MP4.
+   */
+  format?: "MP4" | "MOV" | "GIF" | "PNG";
+  /** Fast export: collapse static spans into long VFR samples (core/export/staticSpans). Movies only. */
+  collapseStaticSpans?: boolean;
   /** Mux the project's audio mix (default true). */
   audio?: boolean;
   /** Return the pre-encode interleaved PCM mix (parity tests). */
@@ -163,6 +169,10 @@ export interface ExportResult {
   encodeMs: number;
   /** Source frame index rendered at each output frame (timing proof). */
   sourceIndices: number[];
+  /** Presentation timestamps (µs) of the frames actually written — fewer than `frames` after a fast-export collapse. */
+  timestamps?: number[];
+  /** Output frames the fast export collapsed away (VFR). */
+  collapsedFrames?: number;
   captures: { frame: number; rgba: ArrayBuffer }[];
   /** The muxed audio track (null: the project exports without audio). */
   audio: {

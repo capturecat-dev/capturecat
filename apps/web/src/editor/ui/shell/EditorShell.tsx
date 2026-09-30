@@ -46,7 +46,7 @@ function writeStored(key: string, value: string) {
 }
 
 export function EditorShell(props: EditorShellProps & { timelineRendererRef?: { current: TimelineRenderer | null } }) {
-  const { project, transport, playhead, callbacks, timeline, timelineIntents, stage, panes, topBarAccessory } = props;
+  const { project, transport, playhead, callbacks, timeline, timelineIntents, stage, panes, topBarAccessory, topBarShare } = props;
 
   const [tabState, setTabState] = useState<InspectorTabId>(props.inspectorTab ?? "background");
   const tab = props.inspectorTab ?? tabState;
@@ -237,6 +237,7 @@ export function EditorShell(props: EditorShellProps & { timelineRendererRef?: { 
         inspectorVisible={visible}
         onToggleInspector={() => setInspectorVisible(!visible)}
         accessory={topBarAccessory}
+        share={topBarShare}
       />
       <div className="cc-body">
         <div className="cc-stagecol">

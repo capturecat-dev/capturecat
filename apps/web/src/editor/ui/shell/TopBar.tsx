@@ -23,12 +23,15 @@ export function TopBar({
   inspectorVisible,
   onToggleInspector,
   accessory,
+  share,
 }: {
   project: ShellProjectInfo;
   callbacks: EditorShellCallbacks;
   inspectorVisible: boolean;
   onToggleInspector: () => void;
   accessory?: ReactNode;
+  /** The Share slot's live key (ui/export/SharePanel ShareButton). */
+  share?: ReactNode;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(project.name);
@@ -113,11 +116,12 @@ export function TopBar({
           {sync.label}
         </button>
       )}
-      {callbacks.onShare && (
-        <Button variant="ghost" size="sm" symbol="square.and.arrow.up" onClick={callbacks.onShare}>
-          Share
-        </Button>
-      )}
+      {callbacks.onShare &&
+        (share ?? (
+          <Button variant="ghost" size="sm" symbol="square.and.arrow.up" onClick={callbacks.onShare}>
+            Share
+          </Button>
+        ))}
       <Button variant="primary" size="sm" onClick={callbacks.onExport}>
         Export…
       </Button>
