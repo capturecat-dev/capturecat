@@ -67,6 +67,29 @@ function kernel(): Float32Array {
   return t;
 }
 
+/**
+ * A track's media timeline as AVFoundation presents it: its duration and the
+ * native priming frames its container timestamps run ahead by. `gapless` is
+ * the file's iTunSMPB (priming / valid sample count), honoured when no edit
+ * list already moved the first sample before 0. Shared by the playback/export
+ * reader and the timeline waveform decoder (ui/timeline/media).
+ */
+export async function trackTimeline(
+  track: InputAudioTrack,
+  gapless?: { priming: number; validFrames: number } | null,
+): Promise<{ duration: number; priming: number }> {
+  let duration = await track.computeDuration();
+  let priming = 0;
+  if (gapless && gapless.priming > 0) {
+    const first = await track.getFirstTimestamp().catch(() => 0);
+    if (first >= -1e-6) {
+      priming = gapless.priming;
+      duration = gapless.validFrames > 0 ? gapless.validFrames / track.sampleRate : duration - priming / track.sampleRate;
+    }
+  }
+  return { duration, priming };
+}
+
 export class PcmTrackReader {
   readonly rate: number;
   readonly channels: number;
@@ -107,15 +130,7 @@ export class PcmTrackReader {
     gapless?: { priming: number; validFrames: number } | null,
   ): Promise<PcmTrackReader | null> {
     if (!(await track.canDecode())) return null;
-    let duration = await track.computeDuration();
-    let priming = 0;
-    if (gapless && gapless.priming > 0) {
-      const first = await track.getFirstTimestamp().catch(() => 0);
-      if (first >= -1e-6) {
-        priming = gapless.priming;
-        duration = gapless.validFrames > 0 ? gapless.validFrames / track.sampleRate : duration - priming / track.sampleRate;
-      }
-    }
+    const { duration, priming } = await trackTimeline(track, gapless);
     return new PcmTrackReader(track, duration, priming);
   }
 
