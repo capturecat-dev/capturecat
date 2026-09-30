@@ -28,9 +28,12 @@ const LEGACY_REDIRECTS: Record<string, string> = {
   "/dashboard": "/app",
 };
 
-/** Hosts on the zone that belong to OTHER Workers. With the `*\/*` route
- *  Cloudflare for SaaS needs, this Worker sees their traffic first and must
- *  hand it on untouched — Workers routes run before Workers custom domains. */
+/** Hosts on the zone that belong to OTHER Workers (api., admin.). They reach
+ *  their own Workers through their Custom Domains and must never land here.
+ *  If one does, a zone route is misconfigured: answer 421 and NEVER re-fetch
+ *  it — `fetch(request)` to our own zone re-enters our own route. A `*\/*`
+ *  route to this Worker once took api. and admin. down with Cloudflare 1019
+ *  (2026-09-30); see apps/api/scripts/setup-saas.sh. */
 function isSiblingHost(host: string): boolean {
   return host.endsWith(".capturecat.so") && !CAPTURECAT_HOSTS.has(host);
 }
@@ -76,9 +79,8 @@ async function rewrite(request: Request): Promise<Request | Response> {
   const path = url.pathname;
 
   if (isSiblingHost(host)) {
-    // api.capturecat.so / admin.capturecat.so: not ours. Pass through to the
-    // Worker bound to that custom domain.
-    return fetch(request);
+    // Not ours, and never proxied (see isSiblingHost): no subrequest, no loop.
+    return new Response("Misdirected request", { status: 421 });
   }
 
   // Share-page markdown twin: /share/<id>.md → /md-share/<id> (per-video

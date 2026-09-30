@@ -294,11 +294,14 @@ npx wrangler secret put CF_SAAS_API_TOKEN     # SSL and Certificates: Edit
 ```
 
 The script creates the originless `customers.capturecat.so` record (AAAA
-`100::`, proxied), makes it the SaaS fallback origin, and adds the `*/*`
-Workers route to the web Worker — the only route pattern Cloudflare matches
-for custom hostnames. Because routes run before Workers custom domains, the
-web Worker passes `api.` and `admin.` traffic straight through (`fetch(request)`
-in apps/web/src/server.ts).
+`100::`, proxied) and makes it the SaaS fallback origin. It does **not** add a
+Workers route, and refuses to run while a `*/*` route exists: a `*/*` route to
+the web Worker took `api.` and `admin.` down with Cloudflare 1019 on
+2026-09-30 (it collided with their Workers Custom Domains). Routing customer
+hostnames to the web Worker needs a design proven on a non-production zone
+first; the web Worker answers any `api.`/`admin.` request that reaches it with
+421 and never re-fetches it (apps/web/src/server.ts), so no route can make it
+recurse.
 
 ## Cloud projects (web editor)
 
