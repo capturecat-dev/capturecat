@@ -1,8 +1,9 @@
 /**
  * DEV-ONLY: the dashboard pages the web editor adds (Record, Projects),
  * rendered in the dashboard's content column WITHOUT a session — for
- * screenshots/harnesses. `?page=record|projects`. The real pages live under
- * the /app layout (sidebar + auth).
+ * screenshots/harnesses. `?page=record|projects`, `&theme=light` for the
+ * light-theme chrome (the real dashboard forces dark). The real pages live
+ * under the /app layout (sidebar + auth).
  */
 import { ThemeProvider } from "next-themes";
 
@@ -11,9 +12,11 @@ import { Recorder } from "@/components/dashboard/recorder";
 import { RecorderDock, RecorderProvider } from "@/components/dashboard/recorder-bar";
 
 export default function DashboardLab() {
-  const page = typeof window === "undefined" ? "record" : (new URLSearchParams(window.location.search).get("page") ?? "record");
+  const params = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
+  const page = params.get("page") ?? "record";
+  const theme = params.get("theme") === "light" ? "light" : "dark";
   return (
-    <ThemeProvider attribute="class" forcedTheme="dark" disableTransitionOnChange>
+    <ThemeProvider attribute="class" forcedTheme={theme} disableTransitionOnChange>
       <div className="relative isolate min-h-screen bg-background text-foreground">
         <div
           aria-hidden
