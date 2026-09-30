@@ -8,7 +8,7 @@ export interface FaqItem {
 export const HOME_FAQ: FaqItem[] = [
   {
     q: "Is it actually free?",
-    a: "Yes. Recording, the full editor, auto zoom, captions, and full quality export are free with no time limit and no resolution cap. Pro is only for the hosted features: share links, comments, and viewer analytics.",
+    a: "Yes. Recording, the full editor, auto zoom, captions, and full quality export are free with no time limit and no resolution cap. Pro is only for the hosted features: share links, comments, viewer analytics, and cloud projects for the browser app.",
   },
   {
     q: "Is it open source?",
@@ -29,6 +29,10 @@ export const HOME_FAQ: FaqItem[] = [
   {
     q: "What Macs does it run on?",
     a: "Any Mac on macOS 14 Sonoma or later. There are separate builds for Apple Silicon and Intel. iPhone and iPad recording needs a USB cable.",
+  },
+  {
+    q: "Does it work on Windows, Linux, or ChromeOS?",
+    a: "Yes, in the browser. The CaptureCat browser app records a display, a window, or a tab, and runs the editor on WebGPU in Chrome or Edge 113 and later, Safari 26, or Firefox 141. A browser cannot see your clicks or keystrokes outside the page, so cursor smoothing, click zooms, and the keystroke pill need a recording made with the Mac app. The browser app keeps projects in your cloud storage, which comes with Pro.",
   },
   {
     q: "Is it Electron?",
