@@ -165,7 +165,7 @@ export interface EditorShellCallbacks {
   /** "Captures" — back to the project picker. */
   onShowProjects?(): void;
   onExport?(): void;
-  /** Placeholder share/web-sync affordances (wired by state/cloud later). */
+  /** Top-bar Share: export + upload a share link (ControllerHooks.share). */
   onShare?(): void;
   onSyncRetry?(): void;
   onRename?(name: string): void;
@@ -212,4 +212,6 @@ export interface EditorShellProps {
   panes: Partial<Record<InspectorTabId, ReactNode>>;
   /** Extra top-bar content right of the sync affordance (dev toggles). */
   topBarAccessory?: ReactNode;
+  /** The Share slot's live key (job state + popover); default = a plain Share button. */
+  topBarShare?: ReactNode;
 }

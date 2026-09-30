@@ -9,6 +9,7 @@
  * chosen BEFORE rendering when the browser has one (the Mac asks for the
  * location first too), otherwise a download once the file exists.
  */
+import { gifCaption } from "../../core/export/gifPolicy";
 import { estimatedVideoBitRate, qualityPresetName, resolvedOutputSize } from "../../core/math/aspectRatio";
 import { formatFixed } from "../../core/math/swift";
 import type { AspectRatio } from "../../core/model/enums";
@@ -37,6 +38,11 @@ export const DEFAULT_SHEET_SETTINGS: SheetExportSettings = {
 };
 
 export const EXPORT_FORMATS = ["MP4", "MOV", "GIF"] as const;
+
+/** What the sheet produces: a still's PNG (Type row "Image (PNG)") or a movie / GIF. */
+export type ExportKind = "image" | "video";
+/** A file the sheet can write: the movie formats plus the still's PNG. */
+export type ExportFileFormat = SheetExportSettings["format"] | "PNG";
 export const EXPORT_RESOLUTIONS = ["720p", "1080p", "4K", "Custom"] as const;
 
 type Json = Record<string, unknown>;
@@ -84,16 +90,20 @@ export function exportGeometry(s: SheetExportSettings, aspectRatio: string, sour
   };
 }
 
-/** `ExportSettings.estimatedBitRateDescription(for:sourceSize:)` — "Master • 1920x1080 @ 60 fps • ~31.1 Mbps". */
+/**
+ * `ExportSettings.estimatedBitRateDescription(for:sourceSize:)` — "Master • 1920x1080 @ 60 fps • ~31.1 Mbps";
+ * for GIF the sheet shows `GIFExportPolicy.caption` ("GIF • 960x540 @ 20 fps • loops").
+ */
 export function estimatedBitRateDescription(s: SheetExportSettings, aspectRatio: string, sourceSize: { width: number; height: number }): string {
   const g = exportGeometry(s, aspectRatio, sourceSize);
+  if (s.format === "GIF") return gifCaption(g, s.fps);
   const mbps = g.bitrate / 1_000_000;
   return `${qualityPresetName(s)} • ${g.width}x${g.height} @ ${s.fps} fps • ~${formatFixed(mbps, 1)} Mbps`;
 }
 
 /** The file name the Mac's save panel proposes: "<project name>.<ext>". */
-export function exportFileName(projectName: string, format: SheetExportSettings["format"]): string {
-  const ext = format === "MOV" ? "mov" : format === "GIF" ? "gif" : "mp4";
+export function exportFileName(projectName: string, format: ExportFileFormat): string {
+  const ext = format === "MOV" ? "mov" : format === "GIF" ? "gif" : format === "PNG" ? "png" : "mp4";
   const base = (projectName || "Untitled").replace(/[\\/:*?"<>|]+/g, "-").trim() || "Untitled";
   return `${base}.${ext}`;
 }
@@ -117,10 +127,17 @@ type SavePicker = (opts: {
  * then the finished file downloads instead. Throws `AbortError` when the user
  * cancels (the Mac's `panel.runModal() != .OK` → no export).
  */
-export async function pickSaveTarget(fileName: string, format: SheetExportSettings["format"]): Promise<SaveTarget | null> {
+export async function pickSaveTarget(fileName: string, format: ExportFileFormat): Promise<SaveTarget | null> {
   const picker = (globalThis as { showSaveFilePicker?: SavePicker }).showSaveFilePicker;
   if (!picker) return null;
-  const [mime, ext] = format === "MOV" ? ["video/quicktime", ".mov"] : format === "GIF" ? ["image/gif", ".gif"] : ["video/mp4", ".mp4"];
+  const [mime, ext] =
+    format === "MOV"
+      ? ["video/quicktime", ".mov"]
+      : format === "GIF"
+        ? ["image/gif", ".gif"]
+        : format === "PNG"
+          ? ["image/png", ".png"]
+          : ["video/mp4", ".mp4"];
   return picker({ suggestedName: fileName, types: [{ description: `${format} file`, accept: { [mime]: [ext] } }] });
 }
 
@@ -145,6 +162,8 @@ export interface ExportProjectOptions {
   /** The recording's natural size (LoadedInfo width/height) — decides "Auto". */
   sourceSize: { width: number; height: number };
   projectName: string;
+  /** "image" = the still's PNG (StillImageExporter); default "video" (`settings.format`). */
+  kind?: ExportKind;
   /** Where the file goes: a picked file, "download" (default), or "none" (caller handles the blob). */
   delivery?: SaveTarget | "download" | "none";
   /** Aborting stops the render (the engine's `cancelExport`). */
@@ -170,12 +189,23 @@ export async function exportProject(
   const { settings, aspectRatio, sourceSize, signal } = options;
   if (signal?.aborted) throw new DOMException("Export cancelled.", "AbortError");
   const g = exportGeometry(settings, aspectRatio, sourceSize);
+  const format: ExportFileFormat = options.kind === "image" ? "PNG" : settings.format;
   const onAbort = () => client.cancelExport();
   signal?.addEventListener("abort", onAbort, { once: true });
   let result: ExportResult;
   try {
     result = await client.export(
-      { width: g.width, height: g.height, fps: g.fps, bitrate: g.bitrate, format: settings.format },
+      {
+        // GIF: the exporter applies core/export/gifPolicy to this size + fps.
+        width: g.width,
+        height: g.height,
+        fps: g.fps,
+        bitrate: g.bitrate,
+        format,
+        // Fast export (VFR) — movies only; GIFs are always dense.
+        collapseStaticSpans: (format === "MP4" || format === "MOV") && settings.collapseStaticSpans,
+        audio: format === "MP4" || format === "MOV",
+      },
       (done, total) => onProgress?.(total > 0 ? done / total : 0),
     );
   } catch (e) {
@@ -185,7 +215,7 @@ export async function exportProject(
     signal?.removeEventListener("abort", onAbort);
   }
   onProgress?.(1);
-  const fileName = exportFileName(options.projectName, settings.format);
+  const fileName = exportFileName(options.projectName, format);
   const blob = new Blob([result.buffer], { type: result.mimeType });
   const delivery = options.delivery ?? "download";
   if (delivery === "download") downloadBlob(blob, fileName);

@@ -99,7 +99,25 @@ final class VideoExporter {
         try? FileManager.default.removeItem(at: outputURL)
 
         let settings = project.settings
-        let exportSettings = settings.exportSettings
+        // Animated GIF: chosen by the DESTINATION's extension (the sheet's save
+        // panel pins `.gif` for the GIF format), so every internal caller that
+        // renders a temp `.mp4` — StillImageExporter, ShareJobCenter, MCP
+        // render_frames — keeps getting a movie even when the project's saved
+        // format is GIF. The frames render at GIFExportPolicy's fps / size
+        // through the unchanged pipeline (the HEVC writer still runs, into a
+        // throwaway temp movie), and each pre-encode frame is ALSO handed to
+        // an ImageIO GIF writer. This used to write MP4 bytes into the .gif.
+        let writesGIF = outputURL.pathExtension.lowercased() == "gif"
+        var exportSettings = settings.exportSettings
+        if writesGIF {
+            exportSettings.fps = GIFExportPolicy.frameRate(forRequested: exportSettings.fps)
+            exportSettings.collapseStaticSpans = false
+        }
+        let movieURL = writesGIF
+            ? FileManager.default.temporaryDirectory
+                .appendingPathComponent("capturecat-gif-\(UUID().uuidString.prefix(8)).mov")
+            : outputURL
+        defer { if writesGIF { try? FileManager.default.removeItem(at: movieURL) } }
         let asset = AVURLAsset(url: videoURL)
         let duration = try await asset.load(.duration)
         let fullDuration = duration.seconds
@@ -158,9 +176,12 @@ final class VideoExporter {
                     .flatMap { try? KeystrokeTracker.loadRecording(from: $0).events } ?? [],
                 scopedTo: project)
             : []
-        let preparedAudio = try await ProjectAudioMix.prepare(
-            for: asset, project: project, clickTimes: clickTimes, keystrokes: keystrokes
-        )
+        // A GIF has no soundtrack — its temp movie skips the audio track.
+        let preparedAudio = writesGIF
+            ? ProjectAudioMix.PreparedAudio(asset: asset, tracks: [], audioMix: nil)
+            : try await ProjectAudioMix.prepare(
+                for: asset, project: project, clickTimes: clickTimes, keystrokes: keystrokes
+            )
 
         // Set up source video track
         let videoTrack = try await asset.loadTracks(withMediaType: .video).first
@@ -218,13 +239,14 @@ final class VideoExporter {
         // derives its `.auto` aspect from the SOURCE natural size, exactly
         // like the editor's letterboxed preview canvas (preview == export).
         let naturalSize = try await videoTrack.load(.naturalSize)
-        let resolvedOutputSize = exportSettings.resolvedOutputSize(
+        let videoOutputSize = exportSettings.resolvedOutputSize(
             for: settings.aspectRatio, sourceSize: naturalSize)
+        let resolvedOutputSize = writesGIF ? GIFExportPolicy.frameSize(for: videoOutputSize) : videoOutputSize
         let outputWidth = Int(resolvedOutputSize.width)
         let outputHeight = Int(resolvedOutputSize.height)
 
-        let fileType: AVFileType = exportSettings.format == .mov ? .mov : .mp4
-        let writer = try AVAssetWriter(outputURL: outputURL, fileType: fileType)
+        let fileType: AVFileType = writesGIF || exportSettings.format == .mov ? .mov : .mp4
+        let writer = try AVAssetWriter(outputURL: movieURL, fileType: fileType)
         // Faster finish: skip the moov-atom rewrite. We're writing to disk,
         // not streaming, so progressive layout isn't needed and saves several
         // seconds on a long file.
@@ -267,7 +289,8 @@ final class VideoExporter {
         // where the conversion may be CPU-side (older Intel) — same pixels
         // either way, the attachments below steer CI to the writer's exact
         // 709 matrix.
-        let useBGRAOutput = ProcessInfo.processInfo.environment["CAPTURECAT_EXPORT_NV12"] == nil
+        // A GIF reads its frames back as BGRA (GIFFrameSink.sRGBImage).
+        let useBGRAOutput = writesGIF || ProcessInfo.processInfo.environment["CAPTURECAT_EXPORT_NV12"] == nil
         let outputPixelFormat: OSType = useBGRAOutput
             ? kCVPixelFormatType_32BGRA
             : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
@@ -1239,178 +1262,25 @@ final class VideoExporter {
 
         // ── Fast export: static-span collapse (VFR) ─────────────────────────
         //
-        // When NOTHING that reaches the pixels changes between two output
-        // frames, the second frame is not rendered or appended — the previous
-        // sample simply lasts longer (mp4 sample durations come from PTS
-        // deltas). Pixels at every presentation time are IDENTICAL to the CFR
-        // output; only the sample count changes. Screen recordings are mostly
-        // static, so this is the difference between encoding 60 copies of a
-        // still second and encoding one.
-        //
-        // The skip predicate is deliberately conservative and built from the
-        // same inputs the compositor consumes — a frame is skippable only if:
-        //  • the decoded source sample did not advance (ScreenCaptureKit only
-        //    emits frames on change, so this is the true "screen is static"
-        //    signal — no pixel compare needed),
-        //  • the camera (webcam) sample did not advance,
-        //  • the precomputed CameraKey (zoom/focal/tilt springs) is equal,
-        //  • the smoothed cursor position, hide-state, and backdrop dim are
-        //    equal, and no cursor event fired in the trailing physics window
-        //    (pose springs + click ripples are all driven by events),
-        //  • the time is not inside/near any blur, focus, highlight, subtitle,
-        //    or annotation span (their renders consume raw currentTime),
-        //  • the device-segment flag is unchanged.
-        // Any doubt = render the frame. GIF exports never collapse (the GIF
-        // converter assumes dense frames), and a keyframe is forced at least
-        // every `maxStaticGap` seconds so players seek precisely.
-        let collapseStatic = exportSettings.collapseStaticSpans && exportSettings.format != .gif
-        let maxStaticGap: Double = 5
-        /// Trailing window in which a cursor MOVEMENT can still influence
-        /// pixels (pose springs, click ripples, hide fades — the longest,
-        /// ripples, run 0.45s; springs settle ~1s). 2s is still generous, and
-        /// the frame key's quantized cursor position independently forces a
-        /// render whenever the drawn cursor is actually mid-motion. Measured
-        /// on a real 5-min recording: 5s left 4% of frames collapsible, 2s
-        /// makes 21% collapsible.
-        let cursorQuietWindow: Double = 2
-        var animationHotSpans: [(start: Double, end: Double)] = []
-        if collapseStatic {
-            // Layout morphs run for `transitionDuration` after every edge.
-            for r in project.cameraLayoutRegions {
-                let d = CameraLayoutMath.transitionDuration
-                animationHotSpans.append((r.startTime - 0.1, r.startTime + d + 0.1))
-                animationHotSpans.append((r.endTime - 0.1, r.endTime + d + 0.1))
-            }
-            for r in project.blurRegions { animationHotSpans.append((r.startTime - 1, r.endTime + 1)) }
-            for r in project.focusRegions { animationHotSpans.append((r.startTime - 1, r.endTime + 1)) }
-            for r in project.highlightRegions {
-                animationHotSpans.append((r.startTime - transitionDuration - 1, r.endTime + transitionDuration + 1))
-            }
-            for s in project.subtitles { animationHotSpans.append((s.startTime - 0.5, s.endTime + 0.5)) }
-            for a in project.annotations { animationHotSpans.append((a.startTime - 1, a.endTime + 1)) }
-            // Shortcut pills animate from keyboard events, which the cursor
-            // quiet-window can't see — without a hot span a pill firing in a
-            // static stretch would freeze mid-fade in the export.
-            for e in keystrokeDisplayEvents {
-                let pillLife = KeystrokeOverlayMath.fadeIn + KeystrokeOverlayMath.hold
-                    + KeystrokeOverlayMath.fadeOut
-                animationHotSpans.append((e.time - 0.1, e.time + pillLife + 0.1))
-            }
-            // Device-segment boundary dips (Gaussian, sigma 0.15s) animate on
-            // the same source clock — without a span the ease halves collapse
-            // into a hard pop the moment the cursor happens to be quiet.
-            if let assets = segmentDeviceAssets {
-                let dipHalf = DeviceSegmentDip.sigma * 4
-                for boundary in assets.ranges.flatMap({ [$0.start, $0.end] }) {
-                    animationHotSpans.append((boundary - dipHalf, boundary + dipHalf))
-                }
-            }
-            animationHotSpans.sort { $0.start < $1.start }
-        }
-        // Curtain unveil and intro slide animate on the OUTPUT clock
-        // (`outputTime.seconds`), so their guard spans live in a separate
-        // output-time list — appending them to the source-time spans above
-        // would misplace them inside any speed-ramped timeline.
-        var outputHotSpans: [(start: Double, end: Double)] = []
-        if collapseStatic {
-            if settings.curtainUnveilCorner != .off {
-                outputHotSpans.append((settings.curtainUnveilStart - 0.1,
-                                       settings.curtainUnveilStart + settings.curtainUnveilDuration + 0.1))
-            }
-            if settings.introSlideStyle != .off {
-                outputHotSpans.append((settings.introSlideStart - 0.1,
-                                       settings.introSlideStart + settings.introSlideDuration + 0.1))
-            }
-            outputHotSpans.sort { $0.start < $1.start }
-        }
-        func inOutputHotSpan(_ t: Double) -> Bool {
-            for span in outputHotSpans {
-                if span.start > t { return false }
-                if t <= span.end { return true }
-            }
-            return false
-        }
-        func inAnimationHotSpan(_ t: Double) -> Bool {
-            // Spans are few (tens); linear scan with early exit is fine.
-            for span in animationHotSpans {
-                if span.start > t { return false }
-                if t <= span.end { return true }
-            }
-            return false
-        }
-        // The tracker appends a sample every poll tick (30 Hz) even while the
-        // mouse rests, so "any event in the window" kept whole recordings
-        // collapse-free — the single biggest reason long static exports ran at
-        // full rate. Pixels only move on actual MOTION or a click edge, so
-        // quietness is measured from those. Slow sub-threshold drift is still
-        // safe: the frame key's quantized cursorPosition forces a render the
-        // moment the interpolated position moves a visible amount.
-        var cursorTimestamps: [TimeInterval] = []
-        var cursorAnchor: CursorEvent?
-        for e in cursorEvents {
-            if let a = cursorAnchor {
-                if abs(e.x - a.x) > 0.5 || abs(e.y - a.y) > 0.5 || e.isClick != a.isClick {
-                    cursorTimestamps.append(e.timestamp)
-                    cursorAnchor = e
-                }
-            } else {
-                cursorTimestamps.append(e.timestamp)
-                cursorAnchor = e
-            }
-        }
-        func cursorQuiet(at t: Double) -> Bool {
-            guard !cursorTimestamps.isEmpty else { return true }
-            // Index of first timestamp > t − window; quiet when nothing in
-            // (t − window, t]. Future events flip the key when they arrive.
-            var lo = 0, hi = cursorTimestamps.count
-            while lo < hi {
-                let mid = (lo + hi) / 2
-                if cursorTimestamps[mid] <= t - cursorQuietWindow { lo = mid + 1 } else { hi = mid }
-            }
-            return lo >= cursorTimestamps.count || cursorTimestamps[lo] > t
-        }
-        struct StaticFrameKey: Equatable {
-            var videoSampleSeconds: Double
-            var cameraSampleSeconds: Double
-            var cam: CameraKey
-            var cursorPosition: CGPoint?
-            var cursorHidden: Bool
-            var dimAlpha: Double
-            var deviceSegment: Bool
-            /// Interpolated camera-layout geometry — a morph must never be
-            /// collapsed away. Quantized like the other continuous fields.
-            var cameraLayout: String
+        // Nothing that reaches the pixels changed → the frame is neither
+        // rendered nor appended; the previous sample lasts longer. The skip
+        // predicate (and its full rationale) lives in StaticSpanCollapse —
+        // one value type the web exporter ports 1:1 (golden vectors from
+        // `--export-formats-test`). GIF exports never collapse.
+        var staticCollapse = StaticSpanCollapse(
+            enabled: exportSettings.collapseStaticSpans && !writesGIF,
+            project: project,
+            transitionDuration: transitionDuration,
+            keystrokeDisplayEvents: keystrokeDisplayEvents,
+            deviceSegmentBoundaries: segmentDeviceAssets.map { $0.ranges.flatMap { [$0.start, $0.end] } },
+            cursorEvents: cursorEvents)
+        let collapseStatic = staticCollapse.enabled
 
-            /// Springs asymptote — they never return to BIT-exact rest, so an
-            /// exact compare collapses nothing after the first zoom. Quantized
-            /// below visual resolution instead: 1e-6 of the canvas is ~1/250
-            /// of a 4K pixel. Comparison is always against the LAST APPENDED
-            /// key (not the previous frame), so sub-quantum drift accumulates
-            /// until it crosses one quantum and then a frame is appended —
-            /// total positional error is bounded by the quantum itself.
-            func quantized() -> StaticFrameKey {
-                func q(_ v: Double, _ s: Double) -> Double { (v * s).rounded() / s }
-                var k = self
-                k.videoSampleSeconds = q(videoSampleSeconds, 1e6)
-                k.cameraSampleSeconds = q(cameraSampleSeconds, 1e6)
-                k.cam.zoom = q(cam.zoom, 1e6)
-                k.cam.focalX = q(cam.focalX, 1e6)
-                k.cam.focalY = q(cam.focalY, 1e6)
-                k.cam.offsetX = q(cam.offsetX, 1e6)
-                k.cam.offsetY = q(cam.offsetY, 1e6)
-                k.cam.tiltPitch = q(cam.tiltPitch, 1e4)
-                k.cam.tiltYaw = q(cam.tiltYaw, 1e4)
-                k.cam.tiltRoll = q(cam.tiltRoll, 1e4)
-                if let p = cursorPosition {
-                    k.cursorPosition = CGPoint(x: q(Double(p.x), 1e3), y: q(Double(p.y), 1e3))
-                }
-                k.dimAlpha = q(dimAlpha, 1e4)
-                return k
-            }
-        }
-        var lastAppendedKey: StaticFrameKey?
-        var lastAppendedSeconds = -Double.greatestFiniteMagnitude
-        var collapsedFrameCount = 0
+        // Animated GIF: every rendered frame, in order, at GIFExportPolicy's
+        // fixed delay, looping forever.
+        let gifSink: GIFFrameSink? = writesGIF
+            ? try GIFFrameSink(url: outputURL, frameCount: outputFrameTimes.count, frameRate: exportSettings.fps)
+            : nil
 
 
         for (frameIndex, outputTime) in outputFrameTimes.enumerated() {
@@ -1513,37 +1383,30 @@ final class VideoExporter {
 
             // Static-span collapse: identical inputs → the previous appended
             // sample keeps playing; nothing is rendered or encoded for this
-            // output time. See the predicate rationale above the loop.
+            // output time. See StaticSpanCollapse for the predicate.
             if collapseStatic {
-                let frameKey = StaticFrameKey(
+                let frameKey = StaticSpanCollapse.FrameKey(
                     videoSampleSeconds: CMTimeGetSeconds(currentVideoSampleTime),
                     cameraSampleSeconds: cameraReaderOutput != nil
                         ? CMTimeGetSeconds(currentCameraSampleTime) : 0,
-                    cam: cam,
+                    zoom: cam.zoom, focalX: cam.focalX, focalY: cam.focalY,
+                    offsetX: cam.offsetX, offsetY: cam.offsetY,
+                    tiltPitch: cam.tiltPitch, tiltYaw: cam.tiltYaw, tiltRoll: cam.tiltRoll,
                     cursorPosition: cursorPosition,
                     cursorHidden: settings.showCursor && !cursorEvents.isEmpty
                         ? shouldHideCursor(at: currentTime, cursorEvents: cursorEvents, settings: settings)
                         : false,
                     dimAlpha: backdropDimAlpha,
                     deviceSegment: segmentDeviceAssets != nil && deviceSegmentActive(currentTime),
-                    cameraLayout: String(
-                        format: "%.0f,%.0f,%.0f,%.0f,%.3f,%.3f,%.4f,%.1f",
-                        camLayout.cameraRect?.minX ?? -1, camLayout.cameraRect?.minY ?? -1,
-                        camLayout.cameraRect?.width ?? -1, camLayout.cameraRect?.height ?? -1,
-                        camLayout.cameraOpacity, camLayout.chromeOpacity,
-                        camLayout.cardScale, camLayout.cardTranslationX)
+                    cameraLayout: StaticSpanCollapse.cameraLayoutKey(camLayout)
                 )
-                let outputSeconds = CMTimeGetSeconds(outputTime)
-                let quantizedKey = frameKey.quantized()
-                let skippable = frameIndex > 0
-                    && frameIndex < outputFrameTimes.count - 1
-                    && quantizedKey == lastAppendedKey
-                    && outputSeconds - lastAppendedSeconds < maxStaticGap
-                    && cursorQuiet(at: currentTime)
-                    && !inAnimationHotSpan(currentTime)
-                    && !inOutputHotSpan(outputSeconds)
-                if skippable {
-                    collapsedFrameCount += 1
+                if staticCollapse.shouldSkip(
+                    frameIndex: frameIndex,
+                    frameCount: outputFrameTimes.count,
+                    outputSeconds: CMTimeGetSeconds(outputTime),
+                    sourceTime: currentTime,
+                    key: frameKey
+                ) {
                     let p = Double(frameIndex + 1) / Double(outputFrameTimes.count)
                     let progressElapsed = CMTimeGetSeconds(CMTimeSubtract(
                         CMClockGetTime(CMClockGetHostTimeClock()), lastProgressHostTime))
@@ -1553,8 +1416,6 @@ final class VideoExporter {
                     }
                     continue
                 }
-                lastAppendedKey = quantizedKey
-                lastAppendedSeconds = outputSeconds
             }
 
             var composited = dimmedBackdrop(cachedBackground.cropped(to: outputRect))
@@ -2379,6 +2240,13 @@ final class VideoExporter {
                                        to: tap.dir.appendingPathComponent(String(format: "%04d.png", frameAppendIndex)))
                 }
 
+                // GIF: an sRGB copy of this exact pre-encode frame, taken
+                // before the buffer returns to the writer's pool.
+                if let gifSink {
+                    let image = GIFFrameSink.sRGBImage(from: frameOutputBuffer, space: renderSpace)
+                    await gifSink.add(image, index: frameAppendIndex)
+                }
+
                 // ── Serial, PTS-ordered append with backpressure ──
                 await appender.append(
                     buffer: frameOutputBuffer,
@@ -2443,6 +2311,8 @@ final class VideoExporter {
         if writer.status == .failed {
             throw ExportError.writeFailed(Self.detailedWriterError(writer, context: "finish"))
         }
+        // Every frame Task has drained (above), so the sink holds them all.
+        try await gifSink?.finalize()
 
         let exportEndHostTime = CMClockGetTime(CMClockGetHostTimeClock())
         let wallClock = CMTimeGetSeconds(CMTimeSubtract(exportEndHostTime, exportStartHostTime))
@@ -2451,7 +2321,7 @@ final class VideoExporter {
         FileHandle.standardOutput.write(
             Data(String(format: "[Export] done — %.1fs wall clock for %d frames @ %d×%d %dfps (%.1f fps encoded, %.2f× realtime, %d static frames collapsed)\n",
                         wallClock, frameCount, outputWidth, outputHeight, exportSettings.fps,
-                        fpsOut, totalSeconds / max(0.001, wallClock), collapsedFrameCount).utf8)
+                        fpsOut, totalSeconds / max(0.001, wallClock), staticCollapse.collapsedFrameCount).utf8)
         )
 
         progress = 1.0

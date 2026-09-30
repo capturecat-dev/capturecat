@@ -22,7 +22,7 @@ import { KeystrokePillPass } from "./cursor/keystrokePass";
 import { CameraFeature } from "./cameraBubble";
 import { LayerComposePass } from "./layer";
 import { StaticLayers } from "./staticLayers";
-import type { FrameEncoder, FrameState, PassContext, RenderPass, Scene, StaticTextures } from "./types";
+import type { FrameEncoder, FrameState, PassContext, RenderPass, Scene, StaticKeyParts, StaticTextures } from "./types";
 import { HighlightPass } from "./highlight";
 import { RegionVideoPass } from "./regionEffects";
 import { SubtitlePass } from "./subtitles";
@@ -142,6 +142,18 @@ export class FrameGraph {
     const scene = this.scene;
     if (!scene) return;
     await Promise.all(this.passes.map((p) => p.prefetch?.(scene, frame)));
+  }
+
+  /** Export fast path: the passes' inputs to the static-span key for `frame` (after `prefetch`). */
+  staticKeyParts(frame: FrameState): Partial<StaticKeyParts> {
+    const scene = this.scene;
+    if (!scene) return {};
+    let parts: Partial<StaticKeyParts> = {};
+    for (const p of this.passes) {
+      const own = p.staticKey?.(scene, frame);
+      if (own) parts = { ...parts, ...own };
+    }
+    return parts;
   }
 
   private context(statics: StaticTextures): PassContext {

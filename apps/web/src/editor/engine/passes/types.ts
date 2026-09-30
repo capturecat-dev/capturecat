@@ -110,6 +110,14 @@ export interface FrameState {
   tilt?: FrameTilt;
 }
 
+/** Pass-owned inputs to the exporter's static-span key (the webcam's). */
+export interface StaticKeyParts {
+  /** PTS of the camera sample the forward-only export reader sits on (Mac: `currentCameraSampleTime`). */
+  cameraSampleSeconds: number;
+  /** `StaticSpanCollapse.cameraLayoutKey` of this frame's resolved camera layout. */
+  cameraLayout: string;
+}
+
 /** Baked scene-static textures (StaticLayers). */
 export interface StaticTextures {
   /** Background in the working space, premultiplied rgba8unorm. */
@@ -211,6 +219,12 @@ export interface RenderPass {
    * calls it (it re-renders when late inputs land).
    */
   prefetch?(scene: Scene, frame: FrameState): Promise<void>;
+  /**
+   * Export fast path (`StaticSpanCollapse.FrameKey`, core/export/staticSpans):
+   * this pass's per-frame inputs to the static-span key, read after
+   * `prefetch` and WITHOUT rendering (a skipped frame is never encoded).
+   */
+  staticKey?(scene: Scene, frame: FrameState): Partial<StaticKeyParts> | null;
   /** Drop per-frame caches (bench: force the full per-frame cost). */
   invalidate?(): void;
   /** Encode this frame's commands. Must not allocate pipelines. */

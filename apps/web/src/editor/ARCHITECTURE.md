@@ -70,7 +70,9 @@ engine/          the renderer (worker side)
   gpu/           device, pipelines, WGSL shaders, texture/pool utils
   passes/        one pass per feature (background, card, cursor, …)
   media/         demux (mediabunny), decode, frame cache/seek, audio
-  export/        VideoEncoder + mp4 mux (same passes → frame-identical)
+  export/        VideoEncoder + mp4 mux (same passes → frame-identical), fast-export
+                 VFR (core/export/staticSpans), GIF (gif/, core/export/gifPolicy),
+                 still PNG (core/export/stillImage)
   client.ts      main-thread proxy (typed postMessage API)
 state/           store, selectors, undo, persistence (cloud + local)
 ui/              React: shell, top bar, stage, transport, timeline (canvas),
