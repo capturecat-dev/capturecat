@@ -2,8 +2,9 @@
  * Record — the web recorder page (/app/record). The recorder and its bar live
  * in the /app layout (recorder-bar.tsx: RecorderProvider + RecorderDock, on
  * every dashboard page); this page adds what only makes sense here: the big
- * live preview of the shared surface (camera bubble where the editor puts
- * it), the take's name, and recordings left on this device.
+ * live preview of the shared surface, the take's name, and recordings left
+ * on this device. The camera shows in the floating bubble the dock puts over
+ * every page (camera-bubble.tsx) — never a second copy here.
  */
 import { useEffect, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
@@ -115,11 +116,6 @@ function Stage({ rec }: { rec: Recorder }) {
           <span className={cn("size-1.5 rounded-full bg-red-500", !rec.paused && "animate-pulse")} />
           {rec.paused ? "Paused" : "Rec"}
         </span>
-      )}
-      {rec.camStream && phase.kind !== "saving" && phase.kind !== "failed" && (
-        <div className="absolute bottom-3 right-3 aspect-square w-[18%] min-w-24 overflow-hidden rounded-[28%] border border-white/15 shadow-2xl">
-          <StreamVideo stream={rec.camStream} mirrored className="size-full object-cover" />
-        </div>
       )}
       {overlay}
     </div>
