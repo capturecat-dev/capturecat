@@ -38,6 +38,7 @@ import { mountStageInteraction, type StageInteraction } from "./stage/StageInter
 import { engineViewport, stageCanvasAspect } from "./stage/stageLayout";
 import type { TimelineRenderer } from "./timeline/TimelineRenderer";
 import type { TimelineSnapshot } from "./timeline/types";
+import { useTimelineMedia } from "./timeline/media/useTimelineMedia";
 import { useVoiceOver } from "./voiceover/VoiceOver";
 
 /** The editor requires WebGPU (architecture §Stack) — say so plainly. */
@@ -305,8 +306,12 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
     () => (project ? timelineSnapshot({ project, selection: state.selection, sliceArmed: state.sliceArmed, hasAudio }) : EMPTY_TIMELINE),
     [project, state.selection, state.sliceArmed, hasAudio],
   );
-  // Voice over: the mic key, the live VOICE block, the "Voice Over" alert.
-  const voiceOver = useVoiceOver({ store, controller, loaded, uploads, timeline, rendererRef: timelineRendererRef });
+  // Filmstrip + recording/voice waveforms, decoded in the timeline media worker.
+  const timelineWithMedia = useTimelineMedia(timeline, project, loaded, playing);
+  // Voice over: the mic key, the live VOICE block, the "Voice Over" alert. It
+  // pushes live snapshots straight into the renderer, so it gets the snapshot
+  // WITH media — the filmstrip must not blink out while recording.
+  const voiceOver = useVoiceOver({ store, controller, loaded, uploads, timeline: timelineWithMedia, rendererRef: timelineRendererRef });
 
   const callbacks = useMemo(() => controller.shellCallbacks(), [controller]);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
@@ -386,7 +391,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
           transport={transport}
           playhead={playhead}
           callbacks={callbacks}
-          timeline={timeline}
+          timeline={timelineWithMedia}
           timelineIntents={intents}
           stage={stage}
           inspectorTab={state.inspectorTab}
