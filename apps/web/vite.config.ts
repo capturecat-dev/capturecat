@@ -20,7 +20,7 @@ export default defineConfig({
     // next free one) web and admin started by `npm run dev` race for the
     // SAME fallback port whenever 9229 is taken, and the loser crashes the
     // whole turbo run (EADDRINUSE 127.0.0.1:9232, 2026-09-30).
-    cloudflare({ viteEnvironment: { name: "ssr" }, inspectorPort: 9331 }),
+    cloudflare({ viteEnvironment: { name: "ssr" }, inspectorPort: Number(process.env.CAPTURECAT_INSPECTOR_PORT ?? 9331) }),
     tanstackStart(),
     viteReact(),
     // DEV ONLY (`apply: "serve"`): the Mac app's local projects, read-only,
