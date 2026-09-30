@@ -29,6 +29,7 @@ import {
   type Span,
 } from "./rows";
 import { formatRulerTime, formatScrub, majorInterval, resolveBlockDrag, snappedEdge, type DragMode } from "./snap";
+import { drawScissors, scissorsWidth, SNIP_DURATION, snipState, stripGap } from "./scissorsGlyph";
 import type {
   AnnotateBlock,
   EffectBlock,
@@ -176,6 +177,8 @@ export class TimelineRenderer {
   private hoverVoice: string | null = null;
   private sliceHoverX: number | null = null;
   private sliceSnapped = false;
+  /** The cut's snip animation (TimelineCanvasView.snipAnimation): x + start (s). */
+  private snip: { x: number; start: number } | null = null;
   private cursor = "default";
   private scrollerShownAt = -Infinity;
 
@@ -483,14 +486,85 @@ export class TimelineRenderer {
 
     this.drawRuler(ctx, t);
     this.drawSeparators(ctx, t);
-    if (this.snap.video) this.drawVideoLane(ctx, t);
+    if (this.snap.video) this.drawVideoLaneSnipping(ctx, t);
     if (this.snap.voice) this.drawVoiceLane(ctx, t);
     this.drawEffectsLane(ctx, t);
     this.drawFocusLane(ctx, t);
     this.drawAnnotateLane(ctx, t);
     this.drawEmptyLaneHints(ctx, t);
     this.drawSliceIndicator(ctx, t);
+    this.drawSnipAnimation(ctx, t);
     ctx.restore();
+    // The snip is driven by timed redraws of the base (the Mac's 60 Hz timer);
+    // one more paint after it expires lands the settled lane.
+    if (this.snip) {
+      if (this.snipElapsed() == null) this.snip = null;
+      this.dirtyBase = true;
+      this.schedule();
+    }
+  }
+
+  // ── Snip (TimelineCanvasView "Snip animation") ───────────────────────
+
+  private static snipNow(): number {
+    return performance.now() / 1000;
+  }
+
+  /** `startSnipAnimation(atX:)` — the cut's scissors close, ride up the lane, and fade. */
+  startSnip(x: number, elapsed = 0) {
+    this.snip = { x, start: TimelineRenderer.snipNow() - elapsed };
+    this.invalidate();
+  }
+
+  /** Seconds into the running snip; clears it once it has played out. */
+  private snipElapsed(): number | null {
+    const s = this.snip;
+    if (!s) return null;
+    const elapsed = TimelineRenderer.snipNow() - s.start;
+    if (elapsed > SNIP_DURATION) {
+      this.snip = null;
+      return null;
+    }
+    return elapsed;
+  }
+
+  /** Strip separation: the two clip halves lean away from the cut while the
+   *  blades pass, then breathe shut onto the real split geometry. */
+  private drawVideoLaneSnipping(ctx: CanvasRenderingContext2D, t: CanvasTokens) {
+    const s = this.snip;
+    const elapsed = this.snipElapsed();
+    if (!s || elapsed == null) {
+      this.drawVideoLane(ctx, t);
+      return;
+    }
+    const gap = stripGap(elapsed, 5);
+    const lane = this.laneRect(M.videoLaneY);
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.beginPath();
+      if (side < 0) ctx.rect(0, lane.y - 4, s.x, lane.h + 8);
+      else ctx.rect(s.x, lane.y - 4, this.trackWidth - s.x, lane.h + 8);
+      ctx.clip();
+      ctx.translate(side * gap, 0);
+      this.drawVideoLane(ctx, t);
+      ctx.restore();
+    }
+  }
+
+  private drawSnipAnimation(ctx: CanvasRenderingContext2D, t: CanvasTokens) {
+    const s = this.snip;
+    const elapsed = s ? TimelineRenderer.snipNow() - s.start : null;
+    if (!s || elapsed == null || elapsed > SNIP_DURATION) return;
+    const state = snipState(elapsed);
+    const lane = this.laneRect(M.videoLaneY);
+    const glyphHeight = 24;
+    const laneMaxY = lane.y + lane.h;
+    // Blades lead the cut UPWARD: enter at the lane's bottom edge, ride to the top.
+    const y = laneMaxY - glyphHeight + 2 - state.travel * (lane.h - glyphHeight + 2);
+    // The cut line trails BELOW the blades — the part already cut.
+    ctx.fillStyle = rgbaString(t.red, 0.9 * state.alpha);
+    ctx.fillRect(s.x - 0.75, y + glyphHeight * 0.3, 1.5, Math.max(0, laneMaxY - y - glyphHeight * 0.3));
+    drawScissors(ctx, s.x - scissorsWidth(glyphHeight) / 2, y, glyphHeight, state.open, state.alpha);
   }
 
   private visibleRange(): [number, number] {
@@ -1301,8 +1375,9 @@ export class TimelineRenderer {
     const x = this.sliceHoverX;
     ctx.fillStyle = rgbaString(t.red, 0.9);
     ctx.fillRect(x - 0.75, M.videoLaneY, 1.5, M.trackHeight);
-    const g = canvasGlyph("scissors", 18, rgbaString(t.red), this.dpr, () => this.invalidate());
-    if (g) ctx.drawImage(g, x - 9, M.videoLaneY + 2, 18, 18);
+    // Open scissors straddling the cut line, blades up, pinned to the lane's
+    // top edge — they close with a snip when the cut lands.
+    drawScissors(ctx, x - scissorsWidth(24) / 2, M.videoLaneY + 2, 24, 1);
   }
 
   // ── Painting: overlay ────────────────────────────────────────────────
@@ -1820,6 +1895,8 @@ export class TimelineRenderer {
         if (target != null) intents.sliceAt?.(target.time);
         this.sliceHoverX = null;
         this.sliceSnapped = false;
+        // placeSlice → startSnipAnimation(atX:)
+        if (target != null) this.startSnip(target.x);
         break;
       }
       case "chipMove":

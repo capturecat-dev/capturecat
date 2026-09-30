@@ -414,7 +414,12 @@ function LabShell({ perf, shot }: { perf: number | null; shot: boolean }) {
         project: model.project,
         onRegionChange: setRegion,
         onProjectChange: (patch) => live((m) => ({ ...m, project: { ...m.project, ...patch } })),
-        actions: { onAction: act, playheadTime: () => playhead.get() },
+        actions: {
+          onAction: act,
+          playheadTime: () => playhead.get(),
+          onAddZoomBlockAtPlayhead: () => act({ type: "addZoomAt", time: playhead.get() }),
+          onAddTiltBlockAtPlayhead: () => act({ type: "addTiltAt", time: playhead.get() }),
+        },
       })}
     />
   );

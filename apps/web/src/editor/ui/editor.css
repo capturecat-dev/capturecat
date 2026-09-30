@@ -6,6 +6,7 @@
 @import "./kit/tokens.css";
 @import "./kit/materials.css";
 @import "./kit/kit.css";
+@import "./kit/alert.css";
 @import "./shell/shell.css";
 @import "./timeline/timeline.css";
 @import "./panes/panes.css";

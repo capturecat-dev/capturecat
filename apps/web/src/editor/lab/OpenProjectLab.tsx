@@ -4,10 +4,14 @@
  * projects; `/editor-lab/open?id=<UUID>` opens one. Attached by labRoutes.tsx
  * inside an `import.meta.env.DEV` branch, so it never ships.
  */
+import { parsePendingSeek } from "../state/pendingSeek";
 import { EditorPage } from "../ui/EditorPage";
 import { ProjectPicker } from "../ui/picker/ProjectPicker";
 
 export default function OpenProjectLab() {
-  const id = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("id");
-  return id ? <EditorPage projectId={id} /> : <ProjectPicker linkBase="/editor-lab/open" />;
+  const params = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
+  const id = params?.get("id") ?? null;
+  // `&t=<seconds>` — the same pending seek as /app/editor/<id>?t=.
+  const t = parsePendingSeek(params?.get("t") ?? undefined);
+  return id ? <EditorPage projectId={id} pendingSeek={t} /> : <ProjectPicker linkBase="/editor-lab/open" />;
 }

@@ -15,6 +15,7 @@ import type { AnnotationPick, EditorShellCallbacks, EffectsPick, FocusPick, Insp
 import { createPlayheadChannel } from "../ui/shell/types";
 import type { LaneId, TimelineAction, TimelineIntents, TimelineTarget } from "../ui/timeline/types";
 import * as E from "./edits";
+import { escapeSelection } from "./escapeSelection";
 import { assign, assignAll, type Selection } from "./selection";
 import type { EditorStore } from "./store";
 
@@ -344,7 +345,8 @@ export class EditorController {
       onStep: (delta) => this.step(delta),
       onDuplicate: () => void this.apply(E.duplicateSelectedRegion),
       onEscape: () => {
-        if (this.selection.clipId) this.selectClip(null);
+        const next = escapeSelection(this.selection);
+        if (next) this.store.select(next);
       },
       onInspectorTabChange: (tab) => this.setInspectorTab(tab),
     };

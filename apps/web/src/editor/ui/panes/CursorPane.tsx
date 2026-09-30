@@ -40,7 +40,9 @@ export function CursorPane({ settings: s, onSettingsChange, onCommit, project, a
   const hasKeyPermission = facts.hasKeyPermission;
   const overlayActive = s.showKeystrokes && facts.hasShortcutData;
   const scopeShown = overlayActive && facts.isWindowRecording;
-  const playClick = (style = s.clickSoundStyle, volume = s.clickSoundVolume) => actions?.onPlayClickSound?.(style, volume);
+  // ClickSoundPlayer.play (style pick / Test) vs the throttled playPreview (toggle / volume drag).
+  const playClick = (style = s.clickSoundStyle, volume = s.clickSoundVolume, preview = false) =>
+    actions?.onPlayClickSound?.(style, volume, preview ? { preview: true } : undefined);
   const playKeys = (style = s.keySoundStyle, volume = s.keySoundVolume) => actions?.onPlayKeySound?.(style, volume);
 
   return (
@@ -189,7 +191,7 @@ export function CursorPane({ settings: s, onSettingsChange, onCommit, project, a
                       checked={s.clickSoundEnabled}
                       onChange={(v) => {
                         pick({ clickSoundEnabled: v });
-                        if (v) playClick();
+                        if (v) playClick(s.clickSoundStyle, s.clickSoundVolume, true);
                       }}
                     />
                   ),
@@ -223,7 +225,7 @@ export function CursorPane({ settings: s, onSettingsChange, onCommit, project, a
                       format={pctRounded}
                       onChange={(v) => {
                         set({ clickSoundVolume: v });
-                        playClick(s.clickSoundStyle, v);
+                        playClick(s.clickSoundStyle, v, true);
                       }}
                       onCommit={commit}
                     />
