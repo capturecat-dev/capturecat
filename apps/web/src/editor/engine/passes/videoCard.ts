@@ -14,6 +14,20 @@ import { cardFromLayerWGSL } from "../gpu/regionShaders";
 import { invert, inverseFootprint, toRows } from "../mat3";
 import type { FrameEncoder, FrameState, PassContext, RenderPass } from "./types";
 
+/**
+ * The outer clip for this frame: the frame-clip mask (kind 0 none, 1 rounded
+ * SDF, 2 squircle raster) — or, while a stitched take's device segment is
+ * framed, the segment's screen squircle × that clip as one raster
+ * (VideoExporter: `CIBlendWithMask` with `cachedOuterMask`, then with
+ * `assets.screenMask`).
+ */
+function outerClip(ctx: PassContext, frame: FrameState) {
+  const seg = frame.deviceSegment ? ctx.statics.segment : null;
+  if (seg) return { sq: seg.mask, outerKind: 2 };
+  const g = ctx.scene.geometry;
+  return { sq: ctx.statics.outerMask, outerKind: g.outer.kind === "none" ? 0 : g.outer.kind === "squircle" ? 2 : 1 };
+}
+
 export class VideoCardPass implements RenderPass {
   readonly name = "video-card";
   readonly stage = "card" as const;
@@ -24,7 +38,7 @@ export class VideoCardPass implements RenderPass {
     const video = frame.video;
     const external = enc.resources.external;
     if (!video || !external) return;
-    if (enc.resources.videoLayer) return this.encodeLayer(ctx, enc, enc.resources.videoLayer);
+    if (enc.resources.videoLayer) return this.encodeLayer(ctx, frame, enc, enc.resources.videoLayer);
     const g = ctx.scene.geometry;
     const fitted = enc.resources.fitted;
     const fwd = enc.cardToTarget;
@@ -38,7 +52,7 @@ export class VideoCardPass implements RenderPass {
     const bx1 = Math.min(vr.x + vr.width, cr.x + cr.width) + 1;
     const by1 = Math.min(vr.y + vr.height, cr.y + cr.height) + 1;
     if (bx1 <= bx0 || by1 <= by0) return;
-    const sq = ctx.statics.outerMask;
+    const { sq, outerKind } = outerClip(ctx, frame);
     const footprint = inverseFootprint(inv, t.width / 2, t.height / 2);
     const sampleW = fitted ? fitted.width : video.frame.displayWidth;
     const sampleH = fitted ? fitted.height : video.frame.displayHeight;
@@ -51,7 +65,7 @@ export class VideoCardPass implements RenderPass {
       cr.x, cr.y, cr.width, cr.height,
       bx0, by0, bx1 - bx0, by1 - by0,
       g.inner.radius, g.inner.kind === "none" ? 0 : 1, 0, 0,
-      g.outer.radius, g.outer.kind === "none" ? 0 : g.outer.kind === "squircle" ? 2 : 1, 0, 0,
+      g.outer.radius, outerKind, 0, 0,
       sq?.originX ?? 0, sq?.originY ?? 0, sq?.width ?? 1, sq?.height ?? 1,
       sampleW, sampleH, g.videoScale, g.sourceCropTop,
     ]);
@@ -84,7 +98,7 @@ export class VideoCardPass implements RenderPass {
    * baked into the layer (VideoExporter: blur/focus run on the window-masked
    * layer BEFORE the outer clip). Same uniform layout; `bounds` = the layer.
    */
-  private encodeLayer(ctx: PassContext, enc: FrameEncoder, layer: NonNullable<FrameEncoder["resources"]["videoLayer"]>): void {
+  private encodeLayer(ctx: PassContext, frame: FrameState, enc: FrameEncoder, layer: NonNullable<FrameEncoder["resources"]["videoLayer"]>): void {
     const g = ctx.scene.geometry;
     const fwd = enc.cardToTarget;
     const inv = invert(fwd);
@@ -93,7 +107,7 @@ export class VideoCardPass implements RenderPass {
     const cr = g.contentRect;
     const b = layer.rect;
     if (b.width <= 0 || b.height <= 0) return;
-    const sq = ctx.statics.outerMask;
+    const { sq, outerKind } = outerClip(ctx, frame);
     const footprint = inverseFootprint(inv, t.width / 2, t.height / 2);
     this.lu ??= new Uniforms(ctx.device, 56, "card-layer-u");
     this.lu.write([
@@ -104,7 +118,7 @@ export class VideoCardPass implements RenderPass {
       cr.x, cr.y, cr.width, cr.height,
       b.x, b.y, b.width, b.height,
       0, 0, 0, 0,
-      g.outer.radius, g.outer.kind === "none" ? 0 : g.outer.kind === "squircle" ? 2 : 1, 0, 0,
+      g.outer.radius, outerKind, 0, 0,
       sq?.originX ?? 0, sq?.originY ?? 0, sq?.width ?? 1, sq?.height ?? 1,
       b.width, b.height, 1, 0,
     ]);

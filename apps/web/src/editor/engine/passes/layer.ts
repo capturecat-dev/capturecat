@@ -95,7 +95,10 @@ export class LayerComposePass {
     u.write([
       ...toRows(invert(frame.camera)),
       ...toRows(clip ?? IDENTITY),
-      width, height, clip ? 1 : 0, 0,
+      // cardOpacity: the keynote dip's `fadeImage` (premultiplied RGB × a²,
+      // alpha × a — CIColorMatrix runs unpremultiplied); per-pixel linear
+      // scales, so it commutes with the resample.
+      width, height, clip ? 1 : 0, Math.min(1, Math.max(0, frame.cardOpacity ?? 1)),
     ]);
   }
 
