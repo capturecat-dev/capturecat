@@ -22,7 +22,10 @@ import { betaRoutes } from "./routes/beta";
 import { screenshotRoutes } from "./routes/screenshot";
 import { ssoRoutes } from "./routes/sso";
 import { cloudProjectRoutes } from "./routes/cloud-projects";
+import { cloudProjectHistoryRoutes } from "./routes/cloud-project-history";
 import { stalePendingObjects } from "./lib/cloud-projects-db";
+import { sweepCloudProjectHistory } from "./lib/project-history-db";
+import { planForUser } from "./lib/entitlement";
 import { rateLimit } from "./middleware/rate-limit";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -61,7 +64,19 @@ app.use(
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     // If-Match: the web editor's project.json saves name the revision they
     // were based on (PUT /api/cloud-projects/:id/project → 409 on conflict).
-    allowHeaders: ["Content-Type", "Authorization", "If-Match"],
+    // X-CC-*: the optional history headers of a save (docs/project-history.md
+    // §6) — without them in the preflight a browser could not send any.
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "If-Match",
+      "X-CC-Client",
+      "X-CC-Client-Id",
+      "X-CC-Source",
+      "X-CC-Change",
+      "X-CC-Checkpoint",
+      "X-CC-Merged-From",
+    ],
     exposeHeaders: ["ETag"],
     // REQUIRED: without this the browser will not send the session cookie to
     // /api/me, /api/videos, /api/video or /api/admin, so a cookie-authenticated
@@ -258,6 +273,10 @@ app.route("/api", screenshotRoutes);
 // project.json saves with If-Match optimistic concurrency. Owner writes; org
 // members read. See src/routes/cloud-projects.ts.
 app.route("/api", cloudProjectRoutes);
+// Their history: versions list/preview, name, restore, delete, free up.
+// Members read, name and restore; the owner deletes. See
+// src/routes/cloud-project-history.ts and docs/project-history.md.
+app.route("/api", cloudProjectHistoryRoutes);
 
 // Catch-all — block everything else
 app.all("*", (c) => c.json({ error: "Not found" }, 404));
@@ -268,7 +287,8 @@ app.all("*", (c) => c.json({ error: "Not found" }, 404));
  *    with any bytes that made it to R2 (a presigned PUT can succeed without
  *    /complete ever being called — those objects are billed but invisible
  *    to the storage quota);
- *  - rate_limits rows whose window ended over a day ago.
+ *  - rate_limits rows whose window ended over a day ago;
+ *  - cloud-project history retention + orphaned manifests (0027).
  */
 async function sweep(env: Env): Promise<void> {
   const cutoff = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
@@ -302,6 +322,12 @@ async function sweep(env: Env): Promise<void> {
   }
   await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
     .bind(Math.floor(Date.now() / 1000) - 86_400).run();
+  // Cloud-project history retention under each owner's CURRENT plan (a
+  // downgrade trims here), then orphaned manifests. Saves prune a few
+  // versions inline; this catches up the rest.
+  await sweepCloudProjectHistory(env, Date.now(), async (uid) => (await planForUser(env, uid)).limits).catch(
+    (err) => console.error("history sweep failed", err),
+  );
 }
 
 export default {

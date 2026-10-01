@@ -321,7 +321,29 @@ types, sizes, document check, keys): `src/lib/cloud-projects.ts`; SQL:
 | `GET /api/cloud-projects/:id` | owner, org members | `document` (raw project.json text, byte-exact), `revision` (+ `ETag`), `files[]` with presigned GETs, `urlsExpireAt` |
 | `GET /api/cloud-projects/:id/files` | owner, org members | fresh presigned GETs only |
 | `PUT /api/cloud-projects/:id/project` | owner, org members | body = project.json; **`If-Match: "<revision>"` required** (428 without). Stale → `409 revision_conflict` with the current `revision` + `document` |
-| `DELETE /api/cloud-projects/:id` | owner | rows + every R2 object |
+| `DELETE /api/cloud-projects/:id` | owner | rows + every R2 object (version snapshots included) |
+
+**History** (migration 0027; contract: `docs/project-history.md` §6 at the
+repo root). Every save extends or opens a VERSION — a gzipped snapshot of
+project.json plus the media manifest it was saved against — in the same D1
+batch as the revision CAS. Versions pin their media (never collected, never
+credit, still counted); version documents are not counted but are capped per
+project (1000 / 256 MB). Retention is the owner's plan (`maxHistoryDays` /
+`maxNamedVersions`: Pro 30/25, Business 365/500, Free 0/0); saves prune a few
+inline and the hourly cron sweeps the rest. Routes in
+`src/routes/cloud-project-history.ts` (rules: `src/lib/project-history.ts`,
+SQL: `src/lib/project-history-db.ts`):
+
+| Endpoint | Who | What |
+|---|---|---|
+| `GET /api/cloud-projects/:id/head` | owner, org members | revision + `headVersionId` (poll) |
+| `GET /api/cloud-projects/:id/versions?before=&limit=` | owner, org members | history newest first, retention, pinned / freeable media bytes |
+| `GET /api/cloud-projects/:id/versions/:vid` | owner, org members | that version's document + presigned media from its manifest |
+| `GET /api/cloud-projects/:id/revisions/:rev/document` | owner, org members | a retained revision's document (merge base) |
+| `PATCH /api/cloud-projects/:id/versions/:vid` | owner, org members | `{label}` name / un-name (cap: owner's plan) |
+| `POST /api/cloud-projects/:id/versions/:vid/restore` | owner, org members | `If-Match` required; new revision + `restore` version; re-commits its media (no quota effect) |
+| `DELETE /api/cloud-projects/:id/versions/:vid` | owner | never the head |
+| `POST /api/cloud-projects/:id/history/free-up` | owner | delete the unnamed versions pinning removed media |
 
 - **Auth.** `requireAuth` — the session cookie (web; non-GET needs a trusted
   `Origin`) or a bearer token (desktop). The owner does everything; if the
@@ -347,7 +369,8 @@ types, sizes, document check, keys): `src/lib/cloud-projects.ts`; SQL:
   the plan's share-upload `maxFileSizeBytes` is LIFTED to the 5 GiB single-PUT
   ceiling for project media — a cloud project carries the raw recording the
   web editor renders from, not an exported mp4) with other projects' outstanding presigns counted as
-  used and dropped objects credited; finalize re-decides on verified bytes
+  used and dropped objects credited (unless a version pins them — then they
+  stay and keep counting); finalize re-decides on verified bytes
   inside one conditional UPDATE and deletes what does not fit. A document
   save that grows is quota-checked; one that shrinks always succeeds.
   Per-kind ceilings (video 5 GiB, image 64 MB, audio 1 GB, JSON 512 MB) and
