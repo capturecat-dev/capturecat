@@ -351,31 +351,79 @@ extension CloudSyncHarness {
         _ = try await sync.push(project: try loadLocal(fixture), projectDirectory: dir)
         _ = try editLocal(fixture) { $0.name = "Unsynced before restore" } // pushed first by restore
         let versionsBefore = server.versions.count
+        server.resetCounters()
+        server.raceNextRestore = true // the first POST answers 409 files_changed
         let restored = try await client.restore(versionID: upload.id, project: try loadLocal(fixture), projectDirectory: dir)
         expect(restored == .restored(revision: server.revision), "restore → a NEW head revision (got \(restored))")
+        expect(server.restoreCalls == 2, "409 files_changed (a media commit raced) → retried once (\(server.restoreCalls) POSTs)")
         expect(server.versions.count == versionsBefore + 2 && server.versions.last?.kind == "restore"
                && server.versions.last?.restoredFrom == upload.id,
                "unsynced Mac edits were pushed first (kept in History), then a restore version")
         expect(try server.document == upload.document && (try Data(contentsOf: fixture.json)) == server.document,
                "disk and cloud hold the restored version's bytes")
         expect((try? Data(contentsOf: watermark)) == oldWatermark, "the media that version pinned came back too")
-        expect(server.restoreCalls == 1, "one POST …/restore")
 
         guard let afterRestore = try await client.page(projectID: id) else { return }
-        let candidates = CloudHistoryClient.freeUpCandidates(afterRestore)
-        expect(afterRestore.pinnedMediaBytes > 0 && !candidates.isEmpty && !candidates.contains { $0.isNamed },
-               "History keeps \(afterRestore.pinnedMediaBytes) B of removed media; Free up targets only unnamed versions")
-        let freed = try await client.freeUp(projectID: id, page: afterRestore)
+        expect(afterRestore.pinnedMediaBytes > 0 && afterRestore.freeableBytes > 0
+               && afterRestore.freeableBytes <= afterRestore.pinnedMediaBytes && afterRestore.isOwner == true,
+               "History keeps \(afterRestore.pinnedMediaBytes) B of removed media, \(afterRestore.freeableBytes) B freeable (access owner)")
+        let freed = try await client.freeUp(projectID: id)
         guard let afterFree = try await client.page(projectID: id) else { return }
-        expect(freed == candidates.count && afterFree.pinnedMediaBytes < afterRestore.pinnedMediaBytes
-               && server.stubVersion(upload.id) != nil,
-               "Free up deleted \(freed) unnamed version(s), pinned media shrank, the named one stays")
+        expect(!freed.deletedVersions.isEmpty && freed.releasedBytes > 0 && afterFree.freeableBytes == 0
+               && afterFree.pinnedMediaBytes == freed.pinnedMediaBytes && server.stubVersion(upload.id) != nil
+               && !freed.deletedVersions.contains(upload.id),
+               "POST /history/free-up deleted \(freed.deletedVersions.count) unnamed version(s), released \(freed.releasedBytes) B; the named one stays")
         do {
             try await client.delete(projectID: id, versionID: server.versions.last!.id)
             expect(false, "the head version can't be deleted")
         } catch {
-            expect((error as? CloudSyncError)?.apiCode == "version_is_head", "the head version can't be deleted")
+            expect((error as? CloudSyncError)?.apiCode == "head_version"
+                   && CloudHistoryClient.message(for: error) == "The current version can't be deleted.",
+                   "the head version can't be deleted (409 head_version, in words)")
         }
+        server.access = "member"
+        let memberPage = try await client.page(projectID: id)
+        do {
+            try await client.delete(projectID: id, versionID: server.versions.first!.id)
+            expect(false, "a member cannot delete versions")
+        } catch {
+            expect(memberPage?.isOwner == false && (error as? CloudSyncError)?.apiCode == "not_owner",
+                   "access member → not the owner; DELETE answers 403 not_owner")
+        }
+        server.access = "owner"
+        server.namedLimit = server.versions.filter { $0.label != nil }.count
+        do {
+            _ = try await client.rename(projectID: id, versionID: server.versions.dropLast().last!.id, label: "One too many")
+            expect(false, "the named-version cap is enforced")
+        } catch {
+            expect((error as? CloudSyncError)?.apiCode == "named_version_limit",
+                   "naming past the plan's cap → 402 named_version_limit")
+        }
+        server.namedLimit = 25
+
+        // The parser against the contract's own example payloads (§6.1).
+        let sample = Data("""
+        {"projectId":"p","revision":15,"headVersionId":"a1b2","access":"member","versions":[
+          {"id":"a1b2","seq":7,"kind":"edit","label":null,"namedBy":null,"namedAt":null,
+           "actor":{"uid":"u-ana","name":"Ana"},"client":"web","source":"agent","firstRevision":12,"revision":15,
+           "documentBytes":48213,"documentSha256":"ff","change":{"v":1,"items":{},"settings":{"background":["backgroundPadding"]},"fields":[]},
+           "restoredFrom":null,"mergedFromRevision":14,"openedAt":"2026-09-28T15:40:01.000Z",
+           "updatedAt":"2026-09-28T15:42:09.123Z","isHead":true}],
+         "nextBefore":null,"retention":{"maxHistoryDays":30,"maxNamedVersions":25,"namedCount":3},
+         "pinnedMediaBytes":1048576,"freeableBytes":524288}
+        """.utf8)
+        let parsed = CloudHistoryParse.page(sample)
+        let v = parsed?.versions.first
+        expect(v?.actorName == "Ana" && v?.clientLabel == "Agent via Web" && v?.isHead == true && v?.firstRevision == 12
+               && v?.mergedFromRevision == 14 && v?.summary == "Background changed" && v?.documentBytes == 48213
+               && parsed?.isOwner == false && parsed?.retention?.maxNamed == 25 && parsed?.retention?.namedCount == 3
+               && parsed?.freeableBytes == 524_288 && parsed?.nextBefore == nil,
+               "CloudHistoryParse reads the contract's version list exactly (actor, client, source, change, retention, bytes)")
+        let conflictBody: [String: Any] = ["code": "revision_conflict", "revision": 9, "documentSha256": "aa",
+                                           "updatedAt": "2026-09-28T15:42:09.123Z", "document": "{}", "headVersionId": "h9"]
+        let parsedConflict = HTTPCloudProjectTransport.conflict(conflictBody)
+        expect(parsedConflict.revision == 9 && parsedConflict.headVersionID == "h9" && parsedConflict.updatedAt != nil,
+               "a 409 revision_conflict body parses with its headVersionId and updatedAt")
         let preview = try await client.previewProject(projectID: id, versionID: upload.id, projectDirectory: dir)
         expect(preview.isPreview && preview.id == id, "a version opens as a read-only preview project")
         expect(try !ProjectStore.persists(preview) && ProjectStore.persists(try loadLocal(fixture)),

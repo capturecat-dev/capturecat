@@ -11,6 +11,9 @@ import Observation
 final class EditorShellSelection {
     var inspectorTab: InspectorTab = .background
     var showInspector = true
+    /// The inspector column shows the History pane instead of the tabs
+    /// (the top bar's clock key, or Web Editor ▸ History…).
+    var showHistory = false
     var selectedHighlightID: UUID?
     var selectedTiltID: UUID?
     var selectedZoomID: UUID?
@@ -96,32 +99,22 @@ final class EditorWindowContentViewController: NSViewController {
         editorTopBar?.removeFromSuperview()
         editorTopBar = nil
         addChild(next)
-        next.view.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(next.view)
         // The editor gets the house top bar pinned above its shell — an
         // in-content HeaderChromeView, never an NSToolbar (no system Liquid
         // Glass, house rule). Browser and onboarding stay full-bleed; they
         // draw their own headers.
         if let shell = next as? EditorShellViewController {
-            let bar = shell.topBarView
-            bar.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview(bar)
-            editorTopBar = bar
-            NSLayoutConstraint.activate([
-                bar.topAnchor.constraint(equalTo: view.topAnchor),
-                bar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-                bar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-                bar.heightAnchor.constraint(equalToConstant: 52),
-                next.view.topAnchor.constraint(equalTo: bar.bottomAnchor),
-            ])
+            editorTopBar = Self.pinEditor(shell, in: view)
         } else {
-            next.view.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
+            next.view.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(next.view)
+            NSLayoutConstraint.activate([
+                next.view.topAnchor.constraint(equalTo: view.topAnchor),
+                next.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                next.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                next.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            ])
         }
-        NSLayoutConstraint.activate([
-            next.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            next.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            next.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
         current = next
 
         // Only the editor puts a toolbar on the window; the browser and
@@ -130,6 +123,30 @@ final class EditorWindowContentViewController: NSViewController {
             (next as? EditorShellViewController)?.installToolbar(on: window)
             if !(next is EditorShellViewController) { window.toolbar = nil }
         }
+    }
+
+    /// The editor's hosting chain: the shell's in-content top bar pinned 52 pt
+    /// tall across the top of `root`, the shell filling the rest. ONE
+    /// implementation — the probes (`--history-panel-shot`) host the shell
+    /// through this same function, so they test the app's real topology.
+    @discardableResult
+    static func pinEditor(_ shell: EditorShellViewController, in root: NSView) -> NSView {
+        shell.view.translatesAutoresizingMaskIntoConstraints = false
+        if shell.view.superview !== root { root.addSubview(shell.view) }
+        let bar = shell.topBarView
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(bar)
+        NSLayoutConstraint.activate([
+            bar.topAnchor.constraint(equalTo: root.topAnchor),
+            bar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            bar.heightAnchor.constraint(equalToConstant: 52),
+            shell.view.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            shell.view.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            shell.view.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            shell.view.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+        ])
+        return bar
     }
 
     override func viewDidAppear() {
@@ -174,7 +191,13 @@ final class EditorShellViewController: NSSplitViewController {
 
     private var stageController: EditorStageViewController!
     private(set) var inspectorItem: NSSplitViewItem!
-    private var toolbarController: EditorToolbarController!
+    // Internal, not private: `--history-panel-shot` probes the History pane
+    // swap inside the real inspector and clicks the real top-bar key.
+    private(set) var inspectorController: EditorInspectorViewController!
+    private(set) var toolbarController: EditorToolbarController!
+    /// Cloud history (the History pane); nil hides the History key.
+    let history: EditorHistoryEnvironment?
+    private var lastShowHistory = false
     // Internal, not private: `--editor-shell-shot` asserts the reveal tab
     // appears when the inspector (column + icon rail) is fully hidden.
     private(set) var revealTab: InspectorRevealTab!
@@ -208,9 +231,10 @@ final class EditorShellViewController: NSSplitViewController {
     private var lastCurrentTime: Double = -1
     private var lastIsPlaying = false
 
-    init(appState: AppState?, project: Project) {
+    init(appState: AppState?, project: Project, history: EditorHistoryEnvironment? = nil) {
         self.appState = appState
         self.project = project
+        self.history = history ?? appState.map { EditorHistoryEnvironment.live(appState: $0) }
         self.playback = EditorPlaybackController(appState: appState)
         self.lastShowCamera = project.settings.showCamera
         self.lastMuted = project.settings.muteRecordedAudio
@@ -264,8 +288,10 @@ final class EditorShellViewController: NSSplitViewController {
         let inspectorController = EditorInspectorViewController(
             project: project,
             playback: playback,
-            selection: selection
+            selection: selection,
+            history: history
         )
+        self.inspectorController = inspectorController
         // A PLAIN split item, not `inspectorWithViewController:` — the system
         // inspector item wraps the view in its own chrome, and on macOS 26
         // that chrome draws a Liquid-Glass hairline around the column while
@@ -311,8 +337,14 @@ final class EditorShellViewController: NSSplitViewController {
             },
             onWebEditor: appState == nil ? nil : { [weak self] anchor in
                 self?.showWebEditorMenu(from: anchor)
+            },
+            onHistory: history == nil ? nil : { [weak self] in
+                guard let self else { return }
+                self.selection.showHistory.toggle()
             }
         )
+        // A History preview opens with the History pane beside it.
+        if project.isPreview, history != nil { selection.showHistory = true }
 
         // Reveal tab — the discoverable "bring the sidebar back" affordance.
         // With the inspector (column + icon rail) fully hidden, a slim
@@ -330,8 +362,22 @@ final class EditorShellViewController: NSSplitViewController {
             revealTab.centerYAnchor.constraint(equalTo: view.centerYAnchor),
         ])
 
+        // History preview: the stage says so, with [Restore] [Back to Current].
+        if let callout = VersionPreviewController.shared.makeCallout(
+            for: project, window: { [weak self] in self?.view.window }) {
+            stageController.showCallout(callout)
+        }
+
         startObserving()
     }
+
+    /// Show a stage callout (the History preview banner) — internal so the
+    /// `--history-panel-shot` probe can mount the same banner.
+    func showStageCallout(_ callout: CCCallout) {
+        stageController.showCallout(callout)
+    }
+
+    var probeStageCallout: CCCallout? { stageController.callout }
 
     override func viewDidAppear() {
         super.viewDidAppear()
@@ -361,7 +407,7 @@ final class EditorShellViewController: NSSplitViewController {
         toolbarController.install(on: window)
     }
 
-    /// Open in Web Editor / Pull Web Edits, on the house menu surface.
+    /// Open in Web Editor / Pull Web Edits / History…, on the house menu surface.
     private func showWebEditorMenu(from anchor: NSView) {
         guard let appState else { return }
         let menu = NSMenu()
@@ -373,7 +419,24 @@ final class EditorShellViewController: NSSplitViewController {
         ) {
             menu.addItem(item)
         }
+        if history != nil {
+            menu.addItem(.separator())
+            menu.addItem(CloudMenuTarget.item("History…") { [weak self] in self?.showHistory() })
+        }
         CaptureCatMenuPresenter.show(menu, from: anchor, edge: .below)
+    }
+
+    /// Swap the inspector column to the History pane (showing the column
+    /// first if it was hidden).
+    func showHistory() {
+        selection.showInspector = true
+        selection.showHistory = true
+    }
+
+    /// Selecting a region asks for its inspector tab: History steps aside
+    /// (except in a preview, where the pane IS the way back).
+    private func leaveHistoryForInspector() {
+        if selection.showHistory, !project.isPreview { selection.showHistory = false }
     }
 
     /// Single entry point for every inspector show/hide path (toolbar button,
@@ -478,7 +541,13 @@ final class EditorShellViewController: NSSplitViewController {
             let tilt = self.selection.selectedTiltID
             let zoom = self.selection.selectedZoomID
             let annotation = self.selection.selectedAnnotationID
+            let history = self.selection.showHistory
 
+            if history != self.lastShowHistory {
+                self.lastShowHistory = history
+                if history, !show { self.selection.showInspector = true }
+                self.inspectorController.setHistoryVisible(history, animated: self.view.window != nil)
+            }
             if show != self.lastShowInspector {
                 self.lastShowInspector = show
                 self.inspectorItem.animator().isCollapsed = !show
@@ -488,27 +557,27 @@ final class EditorShellViewController: NSSplitViewController {
             self.revealTab?.isHidden = show
             if highlight != self.lastHighlightID {
                 self.lastHighlightID = highlight
-                if highlight != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true }
+                if highlight != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true; self.leaveHistoryForInspector() }
             }
             if depthFocus != self.lastDepthFocusID {
                 self.lastDepthFocusID = depthFocus
-                if depthFocus != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true }
+                if depthFocus != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true; self.leaveHistoryForInspector() }
             }
             if blurRegion != self.lastBlurRegionID {
                 self.lastBlurRegionID = blurRegion
-                if blurRegion != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true }
+                if blurRegion != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true; self.leaveHistoryForInspector() }
             }
             if tilt != self.lastTiltID {
                 self.lastTiltID = tilt
-                if tilt != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true }
+                if tilt != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true; self.leaveHistoryForInspector() }
             }
             if zoom != self.lastZoomID {
                 self.lastZoomID = zoom
-                if zoom != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true }
+                if zoom != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true; self.leaveHistoryForInspector() }
             }
             if annotation != self.lastAnnotationID {
                 self.lastAnnotationID = annotation
-                if annotation != nil { self.selection.inspectorTab = .annotations; self.selection.showInspector = true }
+                if annotation != nil { self.selection.inspectorTab = .annotations; self.selection.showInspector = true; self.leaveHistoryForInspector() }
             }
         }
 
@@ -655,6 +724,10 @@ final class EditorToolbarController: NSObject {
     /// button. Nil — e.g. the `--editor-shell-shot` probe, which has no
     /// AppState — leaves the button out entirely.
     private let onWebEditor: ((NSView) -> Void)?
+    /// History pane toggle (the clock key left of Web Editor). Nil — no
+    /// cloud history environment — leaves the key out.
+    private let onHistory: (() -> Void)?
+    private(set) var historyButton: CCButton?
     // Kit controls in the title bar (user call 2026-08-17: the hand-rolled
     // capsule pills read as foreign chrome — every switcher is CCKit now).
     // macOS 26 wraps adjacent toolbar items in ONE Liquid Glass capsule with
@@ -673,13 +746,15 @@ final class EditorToolbarController: NSObject {
         onShowBrowser: @escaping () -> Void,
         onExport: @escaping () -> Void,
         onToggleInspector: @escaping () -> Void,
-        onWebEditor: ((NSView) -> Void)? = nil
+        onWebEditor: ((NSView) -> Void)? = nil,
+        onHistory: (() -> Void)? = nil
     ) {
         self.project = project
         self.onShowBrowser = onShowBrowser
         self.onExport = onExport
         self.onToggleInspector = onToggleInspector
         self.onWebEditor = onWebEditor
+        self.onHistory = onHistory
         treatmentSwitch = CCSegmented(
             segments: ["Image", "Video"],
             selectedIndex: project.stillTreatment == .image ? 0 : 1,
@@ -761,9 +836,21 @@ final class EditorToolbarController: NSObject {
             button.toolTip = "Open this project in the web editor, or pull its web edits"
             webButton = button
         }
-        let trailingCluster: NSView = webButton ?? exportButton
+        // History: a ghost clock key just left of Web Editor (CCTooltip, not
+        // the system tooltip — house chrome), swapping the inspector column
+        // to the History pane.
+        if onHistory != nil {
+            let button = CCButton(symbol: "clock.arrow.circlepath", style: .ghost, size: .sm) { [weak self] in
+                self?.onHistory?()
+            }
+            button.setAccessibilityLabel("History")
+            CCTooltip.attach(to: button, text: "History", placement: .bottom)
+            historyButton = button
+        }
+        let trailingCluster: NSView = historyButton ?? webButton ?? exportButton
 
-        for view in [captures, titleLabel, controlsCluster, exportButton, inspector] + (webButton.map { [$0] } ?? []) {
+        for view in [captures, titleLabel, controlsCluster, exportButton, inspector]
+            + (webButton.map { [$0] } ?? []) + (historyButton.map { [$0] } ?? []) {
             view.translatesAutoresizingMaskIntoConstraints = false
             barView.addSubview(view)
         }
@@ -771,6 +858,13 @@ final class EditorToolbarController: NSObject {
             NSLayoutConstraint.activate([
                 webButton.trailingAnchor.constraint(equalTo: exportButton.leadingAnchor, constant: -CCSpace.sm),
                 webButton.centerYAnchor.constraint(equalTo: barView.centerYAnchor),
+            ])
+        }
+        if let historyButton {
+            let neighbour: NSView = webButton ?? exportButton
+            NSLayoutConstraint.activate([
+                historyButton.trailingAnchor.constraint(equalTo: neighbour.leadingAnchor, constant: -CCSpace.sm),
+                historyButton.centerYAnchor.constraint(equalTo: barView.centerYAnchor),
             ])
         }
         let clusterCenter = controlsCluster.centerXAnchor.constraint(equalTo: barView.centerXAnchor)
@@ -842,6 +936,27 @@ final class EditorStageViewController: NSViewController {
     /// Focus lands on the timeline's root view — the single first responder
     /// that owns the panel's keyboard handling.
     var timelineFocusView: NSView? { timelineController?.view }
+
+    /// The History-preview banner over the top of the preview card.
+    private(set) var callout: CCCallout?
+
+    /// Mount a banner over the top of the preview card — a sibling of the
+    /// card (like the zoom pill) so the card's corner mask never clips it.
+    func showCallout(_ callout: CCCallout) {
+        _ = view
+        self.callout?.removeFromSuperview()
+        callout.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(callout)
+        let preferred = callout.widthAnchor.constraint(equalToConstant: 560)
+        preferred.priority = .init(600)
+        NSLayoutConstraint.activate([
+            callout.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
+            callout.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+            callout.widthAnchor.constraint(lessThanOrEqualTo: card.widthAnchor, constant: -24),
+            preferred,
+        ])
+        self.callout = callout
+    }
 
     private var previewObservation: SurfaceObservation?
     private var zoomObservation: SurfaceObservation?
@@ -1341,13 +1456,88 @@ final class EditorInspectorViewController: NSViewController {
     private let panel = NSView()
     private var contextObservation: SurfaceObservation?
     private var themeObservation: CCThemeObservation?
+    private let history: EditorHistoryEnvironment?
+    /// Built on first show; then kept (its list survives hide/show).
+    private(set) var historyPane: HistoryPaneAppKit?
+    private(set) var isHistoryVisible = false
+    /// Bumped per transition so a stale completion never hides the wrong side.
+    private var transitionToken = 0
 
-    init(project: Project, playback: EditorPlaybackController, selection: EditorShellSelection) {
+    /// The swap's travel (pt) and timings — the History pane slides in from
+    /// the trailing edge while the tabs drift the other way and fade.
+    static let historySlide: CGFloat = 28
+    /// Defect injection for `--history-panel-shot` (proves the mid-flight
+    /// assertion can fail): swap without animating.
+    static var debugSnapHistoryTransition = false
+
+    init(project: Project, playback: EditorPlaybackController, selection: EditorShellSelection,
+         history: EditorHistoryEnvironment? = nil) {
         self.project = project
         self.playback = playback
         self.selection = selection
+        self.history = history
         super.init(nibName: nil, bundle: nil)
     }
+
+    /// Swap the column ⇄ the History pane. Animated: the pane springs in
+    /// from the trailing edge (translation) while fading up; the tabs fade
+    /// and drift out, and are hidden once they are invisible.
+    func setHistoryVisible(_ visible: Bool, animated: Bool) {
+        guard let history, visible != isHistoryVisible else { return }
+        _ = view
+        isHistoryVisible = visible
+        transitionToken += 1
+        let token = transitionToken
+        if visible, historyPane == nil {
+            let pane = HistoryPaneAppKit(project: project, environment: history)
+            pane.onClose = { [weak self] in self?.selection.showHistory = false }
+            pane.translatesAutoresizingMaskIntoConstraints = false
+            panel.addSubview(pane)
+            NSLayoutConstraint.activate([
+                pane.leadingAnchor.constraint(equalTo: panel.leadingAnchor),
+                pane.trailingAnchor.constraint(equalTo: panel.trailingAnchor),
+                pane.topAnchor.constraint(equalTo: panel.topAnchor),
+                pane.bottomAnchor.constraint(equalTo: panel.bottomAnchor),
+            ])
+            pane.isHidden = true
+            historyPane = pane
+        }
+        guard let pane = historyPane else { return }
+        let incoming: NSView = visible ? pane : column
+        let outgoing: NSView = visible ? column : pane
+        pane.setActive(visible)
+        incoming.isHidden = false
+        let animate = animated && view.window != nil && !Self.debugSnapHistoryTransition
+        guard animate, let inLayer = incoming.layer, let outLayer = outgoing.layer else {
+            incoming.alphaValue = 1
+            outgoing.isHidden = true
+            outgoing.alphaValue = 1
+            incoming.layer?.setValue(0, forKeyPath: "transform.translation.x")
+            outgoing.layer?.setValue(0, forKeyPath: "transform.translation.x")
+            return
+        }
+        // History enters from the trailing edge; returning to the tabs, they
+        // come back from the leading side — direction tells where you went.
+        let enterFrom: CGFloat = visible ? Self.historySlide : -Self.historySlide * 0.5
+        let exitTo: CGFloat = visible ? -Self.historySlide * 0.5 : Self.historySlide
+        CCMotion.spring(inLayer, keyPath: "transform.translation.x", from: enterFrom, to: 0, .smooth)
+        CCMotion.fadeAlpha(incoming, to: 1, duration: 0.26, from: 0)
+        CCMotion.spring(outLayer, keyPath: "transform.translation.x", from: 0, to: exitTo, .snappy)
+        CCMotion.fadeAlpha(outgoing, to: 0, duration: 0.16)
+        DispatchQueue.main.asyncAfter(deadline: .now() + CCMotion.paced(0.3)) { [weak self] in
+            guard let self, token == self.transitionToken else { return }
+            outgoing.isHidden = true
+            outgoing.alphaValue = 1
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            outLayer.setValue(0, forKeyPath: "transform.translation.x")
+            CATransaction.commit()
+        }
+    }
+
+    // Probe seams (`--history-panel-shot`).
+    var probeColumn: NSView { column }
+    var probePanel: NSView { panel }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 

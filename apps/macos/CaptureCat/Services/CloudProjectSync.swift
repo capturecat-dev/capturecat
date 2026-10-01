@@ -450,6 +450,8 @@ nonisolated struct CloudConflict: Equatable, Sendable {
     let document: Data?
     var documentSHA256: String? = nil
     var updatedAt: Date? = nil
+    /// The head version (project-history servers add it to the 409).
+    var headVersionID: String? = nil
 }
 
 nonisolated enum CloudSaveResult: Equatable, Sendable {
@@ -1169,7 +1171,8 @@ final class HTTPCloudProjectTransport: CloudProjectTransport {
             revision: (object["revision"] as? NSNumber)?.intValue ?? 0,
             document: (object["document"] as? String).map { Data($0.utf8) },
             documentSHA256: object["documentSha256"] as? String,
-            updatedAt: CloudAPIDate.parse(object["updatedAt"])
+            updatedAt: CloudAPIDate.parse(object["updatedAt"]),
+            headVersionID: CloudJSON.string(object["headVersionId"])
         )
     }
 

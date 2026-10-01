@@ -1365,8 +1365,8 @@ final class StubCloudServer: CloudProjectTransport {
         lastSaveBase = baseRevision
         lastSaveContext = context
         guard baseRevision == revision else {
-            return .conflict(CloudConflict(revision: revision, document: document,
-                                           documentSHA256: documentSHA, updatedAt: updatedAt))
+            return .conflict(CloudConflict(revision: revision, document: document, documentSHA256: documentSHA,
+                                           updatedAt: updatedAt, headVersionID: versions.last?.id))
         }
         let previous = document
         revision += 1
@@ -1490,11 +1490,23 @@ final class StubCloudServer: CloudProjectTransport {
         pinsVersionMedia ? Set(versions.flatMap { $0.files.map(\.sha256) }) : []
     }
 
+    /// `{projectId, revision, versionId, documentSha256, document}` when some
+    /// version holds `rev`; 404 `revision_not_retained` (nil) otherwise.
     func revisionDocument(projectID: UUID, revision rev: Int) async throws -> Data? {
         revisionDocumentCalls += 1
-        guard retainsRevisions else { return nil }
-        return versions.last { $0.revision == rev }?.document
+        guard retainsRevisions, let holder = versions.last(where: { $0.revision == rev }) else { return nil }
+        let body: [String: Any] = [
+            "projectId": projectID.uuidString, "revision": rev, "versionId": holder.id,
+            "documentSha256": CloudProjectManifest.sha256(of: holder.document),
+            "document": String(decoding: holder.document, as: UTF8.self),
+        ]
+        return CloudHistoryParse.revisionDocument((try? JSONSerialization.data(withJSONObject: body)) ?? Data())
     }
+
+    /// `access` of the versions list ("owner" | "member").
+    var access = "owner"
+    /// The owner's plan's `maxNamedVersions` (Pro 25).
+    var namedLimit = 25
 
     func stubVersion(_ id: String) -> StubVersion? { versions.first { $0.id == id } }
 
@@ -1504,72 +1516,141 @@ final class StubCloudServer: CloudProjectTransport {
         versions[index].label = label
     }
 
-    private func cloudVersion(_ v: StubVersion) -> CloudVersion {
-        CloudVersion(
-            id: v.id, seq: v.seq, revision: v.revision, firstRevision: v.firstRevision, kind: v.kind,
-            label: v.label, namedBy: v.label == nil ? nil : ownerUID, namedAt: nil, actorUID: v.actorUID,
-            actorName: displayNames[v.actorUID], clientKind: v.clientKind, clientID: v.clientID, source: v.source,
-            change: v.change, docBytes: Int64(v.document.count),
-            manifestSHA: CloudProjectManifest.sha256(of: Data(v.files.map { "\($0.path)=\($0.sha256)" }.sorted().joined(separator: "\n").utf8)),
-            restoredFrom: v.restoredFrom, mergedFromRevision: v.mergedFrom, openedAt: v.openedAt, updatedAt: v.updatedAt)
+    /// The API's version object `V` (docs/project-history.md §6.1), built as
+    /// JSON and read back through `CloudHistoryParse` — so every history
+    /// check also exercises the client's parser on the real wire shape.
+    private func versionJSON(_ v: StubVersion) -> [String: Any] {
+        func orNull(_ value: Any?) -> Any { value ?? NSNull() }
+        let change: Any = v.change
+            .flatMap { try? JSONSerialization.jsonObject(with: Data($0.json.canonical.utf8)) } ?? NSNull()
+        return [
+            "id": v.id, "seq": v.seq, "kind": v.kind, "label": orNull(v.label),
+            "namedBy": v.label == nil ? NSNull() : ["uid": ownerUID, "name": orNull(displayNames[ownerUID])] as [String: Any],
+            "namedAt": v.label == nil ? NSNull() : CloudAPIDate.string(v.updatedAt),
+            "actor": ["uid": v.actorUID, "name": orNull(displayNames[v.actorUID])] as [String: Any],
+            "client": v.clientKind, "source": v.source,
+            "firstRevision": v.firstRevision, "revision": v.revision,
+            "documentBytes": v.document.count, "documentSha256": CloudProjectManifest.sha256(of: v.document),
+            "change": change, "restoredFrom": orNull(v.restoredFrom), "mergedFromRevision": orNull(v.mergedFrom),
+            "openedAt": CloudAPIDate.string(v.openedAt), "updatedAt": CloudAPIDate.string(v.updatedAt),
+            "isHead": v.id == versions.last?.id,
+        ]
     }
+
+    private func wire(_ object: [String: Any]) -> Data {
+        (try? JSONSerialization.data(withJSONObject: object)) ?? Data()
+    }
+
+    /// Media the committed set dropped that versions still pin, and the part
+    /// pinned ONLY by unnamed non-head versions (what Free up releases).
+    func mediaStats() -> (pinned: Int64, freeable: Int64) {
+        let current = Set(committedFiles.map(\.sha256))
+        let headID = versions.last?.id
+        var pinned: [String: Int64] = [:]
+        var keptByProtected = Set<String>()
+        for version in versions {
+            for file in version.files where !current.contains(file.sha256) {
+                pinned[file.sha256] = file.bytes
+                if version.label != nil || version.id == headID { keptByProtected.insert(file.sha256) }
+            }
+        }
+        let freeable = pinned.filter { !keptByProtected.contains($0.key) }.values.reduce(0, +)
+        return (pinned.values.reduce(0, +), freeable)
+    }
+
+    /// Next restore answers 409 `files_changed` (a media commit raced it).
+    var raceNextRestore = false
 }
 
 extension StubCloudServer: CloudHistoryTransport {
     func head(projectID: UUID) async throws -> CloudHead? {
         guard revision > 0 else { return nil }
-        return CloudHead(revision: revision, documentSHA256: document.map { CloudProjectManifest.sha256(of: $0) },
-                         updatedAt: updatedAt, updatedBy: versions.last?.actorUID, headVersionID: versions.last?.id)
+        let body: [String: Any] = [
+            "projectId": projectID.uuidString, "revision": revision,
+            "documentSha256": document.map { CloudProjectManifest.sha256(of: $0) } ?? NSNull(),
+            "updatedAt": updatedAt.map(CloudAPIDate.string) ?? NSNull(),
+            "updatedBy": versions.last?.actorUID ?? NSNull(), "headVersionId": versions.last?.id ?? NSNull(),
+        ]
+        return CloudHistoryParse.head(wire(body))
     }
 
     func versions(projectID: UUID, before: Int?, limit: Int) async throws -> CloudVersionPage? {
         if let versionsDelay { try await Task.sleep(for: versionsDelay) }
         guard revision > 0 else { return nil }
+        let pageSize = max(1, min(limit, 200))
         let newestFirst = versions.reversed().filter { before == nil || $0.seq < before! }
-        let slice = Array(newestFirst.prefix(limit))
-        // "History keeps X of removed media": bytes only old versions pin.
-        let current = Set(committedFiles.map(\.sha256))
-        var pinned: [String: Int64] = [:]
-        for version in versions {
-            for file in version.files where !current.contains(file.sha256) { pinned[file.sha256] = file.bytes }
-        }
-        return CloudVersionPage(
-            versions: slice.map(cloudVersion),
-            nextBefore: newestFirst.count > slice.count ? slice.last?.seq : nil,
-            retention: CloudRetention(historyDays: 30, maxNamed: 25, namedCount: versions.filter { $0.label != nil }.count),
-            pinnedMediaBytes: pinned.values.reduce(0, +),
-            headVersionID: versions.last?.id,
-            isOwner: true)
+        let slice = Array(newestFirst.prefix(pageSize))
+        let stats = mediaStats()
+        let body: [String: Any] = [
+            "projectId": projectID.uuidString, "revision": revision,
+            "headVersionId": versions.last?.id ?? NSNull(), "access": access,
+            "versions": slice.map(versionJSON),
+            "nextBefore": slice.count == pageSize ? (slice.last?.seq as Any) : NSNull(),
+            "retention": ["maxHistoryDays": 30, "maxNamedVersions": namedLimit,
+                          "namedCount": versions.filter { $0.label != nil }.count],
+            "pinnedMediaBytes": stats.pinned, "freeableBytes": stats.freeable,
+        ]
+        guard let page = CloudHistoryParse.page(wire(body)) else { throw CloudSyncError.invalidResponse }
+        return page
     }
 
     func version(projectID: UUID, versionID: String) async throws -> CloudVersionDetail {
         guard let version = stubVersion(versionID) else {
-            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "No such version")
+            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "Version not found")
         }
-        return CloudVersionDetail(version: cloudVersion(version), document: version.document,
-                                  files: version.files.map { presigned($0) })
+        let files = version.files.map { file -> [String: Any] in
+            let signed = presigned(file)
+            return ["path": file.path, "sha256": file.sha256, "bytes": file.bytes, "contentType": file.contentType,
+                    "source": file.source ?? NSNull(), "url": signed.url?.absoluteString ?? NSNull()]
+        }
+        let body: [String: Any] = [
+            "projectId": projectID.uuidString, "version": versionJSON(version),
+            "document": String(decoding: version.document, as: UTF8.self), "files": files,
+            "missingPaths": version.files.filter { ready[$0.sha256] == nil }.map(\.path),
+            "urlsExpireAt": CloudAPIDate.string(Date().addingTimeInterval(900)),
+        ]
+        guard let detail = CloudHistoryParse.detail(wire(body)) else { throw CloudSyncError.invalidResponse }
+        return detail
     }
 
     func renameVersion(projectID: UUID, versionID: String, label: String?) async throws -> CloudVersion? {
         guard let index = versions.firstIndex(where: { $0.id == versionID }) else {
-            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "No such version")
+            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "Version not found")
         }
-        versions[index].label = (label?.isEmpty ?? true) ? nil : label
-        return cloudVersion(versions[index])
+        let trimmed = label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard trimmed.count <= 100, !trimmed.unicodeScalars.contains(where: { $0.properties.generalCategory == .control }) else {
+            throw CloudSyncError.api(status: 400, code: "invalid_label", message: "Invalid label")
+        }
+        if !trimmed.isEmpty, versions[index].label == nil, versions.filter({ $0.label != nil }).count >= namedLimit {
+            throw CloudSyncError.api(status: 402, code: "named_version_limit", message: "Named version limit reached")
+        }
+        versions[index].label = trimmed.isEmpty ? nil : trimmed
+        let body = wire(["projectId": projectID.uuidString, "version": versionJSON(versions[index])])
+        let object = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
+        return CloudHistoryParse.version(object?["version"])
     }
 
-    /// Server-side restore (§4): the version's paths are re-committed,
-    /// unioned with the current files (old-version paths win), then its
-    /// document is saved as a NEW revision + version of kind `restore`.
+    /// Server-side restore (§6.1): the version's media paths are re-committed
+    /// into the current set (version paths win, current ones stay), then its
+    /// document is saved as a NEW revision + `restore` version.
     func restoreVersion(projectID: UUID, versionID: String, baseRevision: Int,
                         context: CloudSaveContext) async throws -> CloudRestoreResult {
         restoreCalls += 1
         guard let old = stubVersion(versionID) else {
-            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "No such version")
+            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "Version not found")
         }
         guard baseRevision == revision else {
-            return .conflict(CloudConflict(revision: revision, document: document,
-                                           documentSHA256: documentSHA, updatedAt: updatedAt))
+            return .conflict(CloudConflict(revision: revision, document: document, documentSHA256: documentSHA,
+                                           updatedAt: updatedAt, headVersionID: versions.last?.id))
+        }
+        if raceNextRestore {
+            raceNextRestore = false
+            return .filesChanged
+        }
+        let missing = old.files.filter { ready[$0.sha256] == nil }.map(\.path)
+        guard missing.isEmpty else {
+            throw CloudSyncError.api(status: 409, code: "version_media_missing",
+                                     message: "Some of this version's media is no longer stored")
         }
         var files = old.files
         let oldPaths = Set(files.map { $0.path.lowercased() })
@@ -1587,14 +1668,42 @@ extension StubCloudServer: CloudHistoryTransport {
     }
 
     func deleteVersion(projectID: UUID, versionID: String) async throws {
+        guard access == "owner" else {
+            throw CloudSyncError.api(status: 403, code: "not_owner", message: "Only the owner can delete versions")
+        }
         guard versions.last?.id != versionID else {
-            throw CloudSyncError.api(status: 409, code: "version_is_head", message: "The current version can't be deleted")
+            throw CloudSyncError.api(status: 409, code: "head_version", message: "The current version cannot be deleted")
         }
         guard let index = versions.firstIndex(where: { $0.id == versionID }) else {
-            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "No such version")
+            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "Version not found")
         }
         versions.remove(at: index)
         deletedVersions.append(versionID)
         collect()
+    }
+
+    /// POST …/history/free-up: every UNNAMED, non-head version that pins
+    /// media the committed set dropped is deleted.
+    func freeUp(projectID: UUID) async throws -> CloudFreeUpResult {
+        guard access == "owner" else {
+            throw CloudSyncError.api(status: 403, code: "not_owner", message: "Only the owner can free up History")
+        }
+        let before = mediaStats()
+        let current = Set(committedFiles.map(\.sha256))
+        let headID = versions.last?.id
+        let doomed = versions.filter { v in
+            v.id != headID && v.label == nil && v.files.contains { !current.contains($0.sha256) }
+        }.map(\.id)
+        versions.removeAll { doomed.contains($0.id) }
+        deletedVersions += doomed
+        collect()
+        let after = mediaStats()
+        let body: [String: Any] = [
+            "projectId": projectID.uuidString, "deletedVersions": doomed,
+            "releasedBytes": before.pinned - after.pinned,
+            "pinnedMediaBytes": after.pinned, "freeableBytes": after.freeable,
+        ]
+        guard let result = CloudHistoryParse.freeUp(wire(body)) else { throw CloudSyncError.invalidResponse }
+        return result
     }
 }

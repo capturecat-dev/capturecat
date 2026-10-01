@@ -17,21 +17,7 @@ final class EditorWindowController: NSWindowController {
         let window = NSWindow(contentViewController: hosting)
         window.identifier = NSUserInterfaceItemIdentifier("editor")
         window.title = "Editor"
-        window.styleMask.insert(.fullSizeContentView)
-        window.toolbarStyle = .unified
-        window.titlebarAppearsTransparent = true
-        // The in-content top bar (EditorToolbarController) draws its own
-        // title label — with the system title left visible the two rendered
-        // on top of each other ("Untitled Recording" twice, overlapping).
-        // window.title stays set for Mission Control / the Window menu.
-        window.titleVisibility = .hidden
-        window.isReleasedWhenClosed = false
-        // Normal-Mac-window contract: resizable (default styleMask), a sane
-        // floor, and title-bar double-click honoring the system pref. The
-        // fullSizeContentView chrome puts app views under the (transparent)
-        // title-bar region, so the browser/editor top chrome forwards
-        // double-clicks via TitlebarDoubleClick.
-        window.contentMinSize = NSSize(width: 900, height: 600)
+        Self.configureChrome(window)
         window.setContentSize(NSSize(width: 1100, height: 700))
         window.center()
         // Restores the user's saved frame when one exists (overrides the
@@ -53,6 +39,26 @@ final class EditorWindowController: NSWindowController {
             let wantsSheet = appState.showExport && appState.currentProject != nil
             self.syncExportSheet(wantsSheet: wantsSheet, appState: appState)
         }
+    }
+
+    /// The editor window's chrome — shared with `--history-panel-shot`, so
+    /// the probe's window is this window, not a lookalike.
+    static func configureChrome(_ window: NSWindow) {
+        window.styleMask.insert(.fullSizeContentView)
+        window.toolbarStyle = .unified
+        window.titlebarAppearsTransparent = true
+        // The in-content top bar (EditorToolbarController) draws its own
+        // title label — with the system title left visible the two rendered
+        // on top of each other ("Untitled Recording" twice, overlapping).
+        // window.title stays set for Mission Control / the Window menu.
+        window.titleVisibility = .hidden
+        window.isReleasedWhenClosed = false
+        // Normal-Mac-window contract: resizable (default styleMask), a sane
+        // floor, and title-bar double-click honoring the system pref. The
+        // fullSizeContentView chrome puts app views under the (transparent)
+        // title-bar region, so the browser/editor top chrome forwards
+        // double-clicks via TitlebarDoubleClick.
+        window.contentMinSize = NSSize(width: 900, height: 600)
     }
 
     private func syncExportSheet(wantsSheet: Bool, appState: AppState) {

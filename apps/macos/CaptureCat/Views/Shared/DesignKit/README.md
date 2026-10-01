@@ -104,7 +104,7 @@ CCThemeObservation { applyTheme() }              // keep a strong reference!
 | `CCStepper` | −/+ numeric stepper | `init(value:min:max:step:)`, `format`, `onChange`; rolling digits, hold-to-repeat with acceleration, ↑/↓ |
 | `CCRollingLabel` | odometer text | `setText(_:direction: .up/.down/.none)` — only changed glyphs roll |
 | `CCTextArea` | multi-line input | `init(placeholder:minLines:maxLines:)`, `text`, `onTextChange`; auto-grows (bounce, bottom edge), scrolls past `maxLines` |
-| `CCCallout` | inline alert | `init(title:message:variant:dismissible:)`, info/success/warning/destructive, `onDismiss`, `playEntrance()` |
+| `CCCallout` | inline alert | `init(title:message:variant:dismissible:)`, info/success/warning/destructive, `onDismiss`, `playEntrance()`, `setActions([CCButton])` (a button row under the text — "[Restore] [Back to Current]") |
 | `CCEmptyState` | empty state | `init(symbol:title:message:primary:secondary:)`, staggered entrance |
 | `CCProgressRing` | circular progress | `init(diameter:lineWidth:)`, `doubleValue`, `labelFormat`, `isIndeterminate`; arc springs, label counts |
 | `CCWrappingLabel` | multi-line label | re-wraps in its OWN layout; yields width below the window's resize priority |
