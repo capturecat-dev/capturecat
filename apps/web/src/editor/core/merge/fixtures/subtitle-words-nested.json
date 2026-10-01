@@ -1,0 +1,243 @@
+{
+  "name": "subtitle-words-nested",
+  "description": "Nested words merge by id: mine retimes word 3, theirs retexts word 4 and the caption text.",
+  "covers": ["policy:nested-words"],
+  "mineWins": true,
+  "base": {
+    "id": "F0000000-0000-4000-8000-000000000038",
+    "name": "Merge fixture",
+    "createdAt": 780000000,
+    "videoURL": "file:///merge-fixture/recording.mov",
+    "cursorDataURL": null,
+    "cameraVideoURL": null,
+    "cameraTimeOffset": 0,
+    "settings": {
+      "backgroundType": "Gradient",
+      "gradientStartColor": {"red":0.5,"green":0.2,"blue":0.9,"opacity":1},
+      "gradientEndColor": {"red":0.1,"green":0.4,"blue":1,"opacity":1},
+      "solidColor": {"red":0,"green":0,"blue":0,"opacity":1},
+      "backgroundPadding": 48,
+      "cornerRadius": 12,
+      "shadowRadius": 20,
+      "shadowOpacity": 0.5,
+      "cursorScale": 1.5,
+      "autoHideDelay": 3,
+      "smoothingFactor": 0.15,
+      "showCamera": false,
+      "cameraPosition": "Bottom Right",
+      "cameraSize": 120,
+      "cameraShape": "Circle",
+      "systemAudioVolume": 1,
+      "microphoneVolume": 1,
+      "animationSpeed": "Mellow",
+      "motionBlur": false,
+      "aspectRatio": "16:9",
+      "exportSettings": {"format":"MP4","resolution":"1080p","fps":60,"quality":0.85,"customWidth":1920,"customHeight":1080,"collapseStaticSpans":true}
+    },
+    "zoomRegions": [],
+    "tiltRegions": [],
+    "blurRegions": [],
+    "highlightRegions": [],
+    "focusRegions": [],
+    "cameraLayoutRegions": [],
+    "annotations": [],
+    "voiceOverClips": [],
+    "subtitles": [
+      {
+        "id": "2A000000-0000-4000-8000-000000000001",
+        "startTime": 0,
+        "endTime": 2,
+        "text": "Hello there",
+        "words": [
+          {"id":"2B000000-0000-4000-8000-000000000001","startTime":0,"endTime":1,"text":"Hello"},
+          {"id":"2B000000-0000-4000-8000-000000000002","startTime":1,"endTime":2,"text":"there"}
+        ]
+      },
+      {
+        "id": "2A000000-0000-4000-8000-000000000002",
+        "startTime": 2,
+        "endTime": 4,
+        "text": "This is",
+        "words": [
+          {"id":"2B000000-0000-4000-8000-000000000003","startTime":2,"endTime":3,"text":"This"},
+          {"id":"2B000000-0000-4000-8000-000000000004","startTime":3,"endTime":4,"text":"is"}
+        ]
+      },
+      {
+        "id": "2A000000-0000-4000-8000-000000000003",
+        "startTime": 4,
+        "endTime": 6,
+        "text": "CaptureCat",
+        "words": [{"id":"2B000000-0000-4000-8000-000000000005","startTime":4,"endTime":6,"text":"CaptureCat"}]
+      }
+    ],
+    "speedRegions": [],
+    "splitPoints": [],
+    "videoClipSegments": [],
+    "duration": 30,
+    "trimStart": 0,
+    "trimEnd": 0,
+    "recordingSourceKind": "display",
+    "sourceSegments": [],
+    "isStillCapture": false,
+    "stillTreatment": "video"
+  },
+  "mine": {
+    "id": "F0000000-0000-4000-8000-000000000038",
+    "name": "Merge fixture",
+    "createdAt": 780000000,
+    "videoURL": "file:///merge-fixture/recording.mov",
+    "cursorDataURL": null,
+    "cameraVideoURL": null,
+    "cameraTimeOffset": 0,
+    "settings": {
+      "backgroundType": "Gradient",
+      "gradientStartColor": {"red":0.5,"green":0.2,"blue":0.9,"opacity":1},
+      "gradientEndColor": {"red":0.1,"green":0.4,"blue":1,"opacity":1},
+      "solidColor": {"red":0,"green":0,"blue":0,"opacity":1},
+      "backgroundPadding": 48,
+      "cornerRadius": 12,
+      "shadowRadius": 20,
+      "shadowOpacity": 0.5,
+      "cursorScale": 1.5,
+      "autoHideDelay": 3,
+      "smoothingFactor": 0.15,
+      "showCamera": false,
+      "cameraPosition": "Bottom Right",
+      "cameraSize": 120,
+      "cameraShape": "Circle",
+      "systemAudioVolume": 1,
+      "microphoneVolume": 1,
+      "animationSpeed": "Mellow",
+      "motionBlur": false,
+      "aspectRatio": "16:9",
+      "exportSettings": {"format":"MP4","resolution":"1080p","fps":60,"quality":0.85,"customWidth":1920,"customHeight":1080,"collapseStaticSpans":true}
+    },
+    "zoomRegions": [],
+    "tiltRegions": [],
+    "blurRegions": [],
+    "highlightRegions": [],
+    "focusRegions": [],
+    "cameraLayoutRegions": [],
+    "annotations": [],
+    "voiceOverClips": [],
+    "subtitles": [
+      {
+        "id": "2A000000-0000-4000-8000-000000000001",
+        "startTime": 0,
+        "endTime": 2,
+        "text": "Hello there",
+        "words": [
+          {"id":"2B000000-0000-4000-8000-000000000001","startTime":0,"endTime":1,"text":"Hello"},
+          {"id":"2B000000-0000-4000-8000-000000000002","startTime":1,"endTime":2,"text":"there"}
+        ]
+      },
+      {
+        "id": "2A000000-0000-4000-8000-000000000002",
+        "startTime": 2,
+        "endTime": 4,
+        "text": "This is",
+        "words": [
+          {"id":"2B000000-0000-4000-8000-000000000003","startTime":2.1,"endTime":2.9,"text":"This"},
+          {"id":"2B000000-0000-4000-8000-000000000004","startTime":3,"endTime":4,"text":"is"}
+        ]
+      },
+      {
+        "id": "2A000000-0000-4000-8000-000000000003",
+        "startTime": 4,
+        "endTime": 6,
+        "text": "CaptureCat",
+        "words": [{"id":"2B000000-0000-4000-8000-000000000005","startTime":4,"endTime":6,"text":"CaptureCat"}]
+      }
+    ],
+    "speedRegions": [],
+    "splitPoints": [],
+    "videoClipSegments": [],
+    "duration": 30,
+    "trimStart": 0,
+    "trimEnd": 0,
+    "recordingSourceKind": "display",
+    "sourceSegments": [],
+    "isStillCapture": false,
+    "stillTreatment": "video"
+  },
+  "theirs": {
+    "id": "F0000000-0000-4000-8000-000000000038",
+    "name": "Merge fixture",
+    "createdAt": 780000000,
+    "videoURL": "file:///merge-fixture/recording.mov",
+    "cursorDataURL": null,
+    "cameraVideoURL": null,
+    "cameraTimeOffset": 0,
+    "settings": {
+      "backgroundType": "Gradient",
+      "gradientStartColor": {"red":0.5,"green":0.2,"blue":0.9,"opacity":1},
+      "gradientEndColor": {"red":0.1,"green":0.4,"blue":1,"opacity":1},
+      "solidColor": {"red":0,"green":0,"blue":0,"opacity":1},
+      "backgroundPadding": 48,
+      "cornerRadius": 12,
+      "shadowRadius": 20,
+      "shadowOpacity": 0.5,
+      "cursorScale": 1.5,
+      "autoHideDelay": 3,
+      "smoothingFactor": 0.15,
+      "showCamera": false,
+      "cameraPosition": "Bottom Right",
+      "cameraSize": 120,
+      "cameraShape": "Circle",
+      "systemAudioVolume": 1,
+      "microphoneVolume": 1,
+      "animationSpeed": "Mellow",
+      "motionBlur": false,
+      "aspectRatio": "16:9",
+      "exportSettings": {"format":"MP4","resolution":"1080p","fps":60,"quality":0.85,"customWidth":1920,"customHeight":1080,"collapseStaticSpans":true}
+    },
+    "zoomRegions": [],
+    "tiltRegions": [],
+    "blurRegions": [],
+    "highlightRegions": [],
+    "focusRegions": [],
+    "cameraLayoutRegions": [],
+    "annotations": [],
+    "voiceOverClips": [],
+    "subtitles": [
+      {
+        "id": "2A000000-0000-4000-8000-000000000001",
+        "startTime": 0,
+        "endTime": 2,
+        "text": "Hello there",
+        "words": [
+          {"id":"2B000000-0000-4000-8000-000000000001","startTime":0,"endTime":1,"text":"Hello"},
+          {"id":"2B000000-0000-4000-8000-000000000002","startTime":1,"endTime":2,"text":"there"}
+        ]
+      },
+      {
+        "id": "2A000000-0000-4000-8000-000000000002",
+        "startTime": 2,
+        "endTime": 4,
+        "text": "This IS",
+        "words": [
+          {"id":"2B000000-0000-4000-8000-000000000003","startTime":2,"endTime":3,"text":"This"},
+          {"id":"2B000000-0000-4000-8000-000000000004","startTime":3,"endTime":4,"text":"IS"}
+        ]
+      },
+      {
+        "id": "2A000000-0000-4000-8000-000000000003",
+        "startTime": 4,
+        "endTime": 6,
+        "text": "CaptureCat",
+        "words": [{"id":"2B000000-0000-4000-8000-000000000005","startTime":4,"endTime":6,"text":"CaptureCat"}]
+      }
+    ],
+    "speedRegions": [],
+    "splitPoints": [],
+    "videoClipSegments": [],
+    "duration": 30,
+    "trimStart": 0,
+    "trimEnd": 0,
+    "recordingSourceKind": "display",
+    "sourceSegments": [],
+    "isStillCapture": false,
+    "stillTreatment": "video"
+  }
+}
