@@ -25,7 +25,12 @@ async function apiFailure(res: Response, what: string): Promise<TRPCError> {
   const body = (await res.json().catch(() => null)) as { message?: string; code?: string; error?: string } | null;
   const reason = body?.message ?? body?.error;
   console.error(`billing: ${what} failed`, res.status, body);
-  return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: reason ? `${what}: ${reason}` : what });
+  // A 5xx is ours or Stripe's, not something the customer can fix — say so
+  // plainly; a 4xx carries the API's reason (a hidden plan, one seat only…).
+  if (res.status >= 500 || !reason) {
+    return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `${what}. Billing is temporarily unavailable — please try again in a moment.` });
+  }
+  return new TRPCError({ code: "BAD_REQUEST", message: `${what}: ${reason}` });
 }
 
 export const billingRouter = createTRPCRouter({
