@@ -32,12 +32,21 @@ function download(file: Blob, name: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+/**
+ * The live stage. Its live chrome (the preview, Rec badge, countdown) is
+ * recorder UI too: while a take could record this page (`rec.uiHidden`) the
+ * stage stays empty, so none of it — and no hall-of-mirrors preview — is in
+ * the output.
+ */
 function Stage({ rec }: { rec: Recorder }) {
   const { phase } = rec;
+  const live = !rec.uiHidden;
   let overlay: ReactNode = null;
-  if (phase.kind === "countdown") {
+  if (!live) {
+    overlay = null;
+  } else if (phase.kind === "countdown") {
     overlay = (
-      <div key={phase.left} className="absolute inset-0 grid place-items-center bg-black/55 backdrop-blur-sm">
+      <div data-rec-ui="countdown" key={phase.left} className="absolute inset-0 grid place-items-center bg-black/55 backdrop-blur-sm">
         <span className="animate-in zoom-in-50 fade-in text-8xl font-semibold tabular-nums text-white duration-300">{phase.left}</span>
       </div>
     );
@@ -84,7 +93,7 @@ function Stage({ rec }: { rec: Recorder }) {
   const showPreview = rec.screen && phase.kind !== "saving" && phase.kind !== "failed";
   return (
     <div className="relative w-full flex-1 overflow-hidden bg-[radial-gradient(70%_60%_at_50%_45%,rgba(120,140,255,0.08),transparent_70%),rgba(0,0,0,0.55)]">
-      {showPreview ? (
+      {!live ? null : showPreview ? (
         <StreamVideo stream={rec.screen!} className="absolute inset-0 size-full object-contain" />
       ) : (
         phase.kind === "setup" && (
@@ -102,8 +111,9 @@ function Stage({ rec }: { rec: Recorder }) {
           </div>
         )
       )}
-      {rec.captureInfo && rec.captureInfo.width > 0 && phase.kind !== "saving" && phase.kind !== "failed" && (
+      {live && rec.captureInfo && rec.captureInfo.width > 0 && phase.kind !== "saving" && phase.kind !== "failed" && (
         <span
+          data-rec-ui="badge"
           title={
             rec.captureInfo.maxFps !== null && rec.captureInfo.fps < 55
               ? `This browser's screen capture tops out at ${Math.round(rec.captureInfo.maxFps)} fps`
@@ -114,8 +124,8 @@ function Stage({ rec }: { rec: Recorder }) {
           {rec.captureInfo.width} × {rec.captureInfo.height} · {rec.captureInfo.fps || "–"} fps
         </span>
       )}
-      {phase.kind === "recording" && (
-        <span className="dsh-pop absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-white backdrop-blur">
+      {live && phase.kind === "recording" && (
+        <span data-rec-ui="badge" className="dsh-pop absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-white backdrop-blur">
           {rec.paused ? (
             <span aria-hidden className="size-1.5 rounded-full bg-red-500/60" />
           ) : (
@@ -203,11 +213,16 @@ export function Recorder() {
       ) : (
         <section className="glass-panel hairline-top studio-panel dsh-rise flex min-h-[360px] flex-1 flex-col overflow-hidden">
           <Stage rec={rec} />
-          {phase.kind === "recording" && (
-            <p className="border-t border-white/8 px-4 py-2.5 text-xs text-muted-foreground">
+          {(phase.kind === "recording" || phase.kind === "countdown") && (
+            // There before the first frame and hidden in place, so the page doesn't shift in the recording.
+            <p
+              data-rec-ui="hint"
+              className="border-t border-white/8 px-4 py-2.5 text-xs text-muted-foreground"
+              style={rec.uiHidden ? { visibility: "hidden" } : undefined}
+            >
               {rec.floating
                 ? "The controls are also floating above your other windows."
-                : "Stop from the bar below or the browser's sharing indicator."}
+                : `Stop from the bar below, with ${rec.stopShortcut}, or from the browser's sharing indicator.`}
             </p>
           )}
         </section>

@@ -258,40 +258,40 @@ describe("squircle", () => {
 });
 
 describe("policy", () => {
-  const base: BubblePolicyInput = { cameraOn: true, phase: "setup", surface: null, starting: false, floatingOpen: false };
+  const base: BubblePolicyInput = { cameraOn: true, phase: "setup", conceal: "none", starting: false, floatingOpen: false };
 
   it("shows on the page while setting up with a camera on", () => {
     expect(bubblePolicy(base)).toEqual({ host: "page", hiddenForScreen: false });
-    expect(bubblePolicy({ ...base, surface: "monitor" })).toEqual({ host: "page", hiddenForScreen: false });
+    expect(bubblePolicy({ ...base, conceal: "reveal" })).toEqual({ host: "page", hiddenForScreen: false });
     expect(bubblePolicy({ ...base, cameraOn: false }).host).toBe("none");
   });
 
-  it("stays for window and tab takes", () => {
-    for (const surface of ["window", "browser"] as const) {
-      for (const phase of ["countdown", "recording"] as const) {
-        expect(bubblePolicy({ ...base, surface, phase })).toEqual({ host: "page", hiddenForScreen: false });
-      }
+  it("stays for a share of another tab (it can't contain this page)", () => {
+    for (const phase of ["countdown", "recording"] as const) {
+      expect(bubblePolicy({ ...base, conceal: "none", phase })).toEqual({ host: "page", hiddenForScreen: false });
     }
   });
 
-  it("hides for a whole-screen take from the moment Record is pressed", () => {
+  it("hides from the moment Record is pressed when the share could record it", () => {
     const hidden = { host: "none", hiddenForScreen: true };
-    expect(bubblePolicy({ ...base, surface: "monitor", starting: true })).toEqual(hidden);
-    expect(bubblePolicy({ ...base, surface: "monitor", phase: "countdown" })).toEqual(hidden);
-    expect(bubblePolicy({ ...base, surface: "monitor", phase: "recording" })).toEqual(hidden);
+    expect(bubblePolicy({ ...base, conceal: "reveal", starting: true })).toEqual(hidden);
+    expect(bubblePolicy({ ...base, conceal: "reveal", phase: "countdown" })).toEqual(hidden);
+    expect(bubblePolicy({ ...base, conceal: "reveal", phase: "recording" })).toEqual(hidden);
+    // A window share before its floating window opens.
+    expect(bubblePolicy({ ...base, conceal: "reveal", starting: true, floatingOpen: false })).toEqual(hidden);
     // Back once the take is over (deleted → setup).
-    expect(bubblePolicy({ ...base, surface: "monitor", phase: "setup" }).host).toBe("page");
+    expect(bubblePolicy({ ...base, conceal: "reveal", phase: "setup" }).host).toBe("page");
   });
 
   it("rides in the floating controls window while it is open", () => {
-    expect(bubblePolicy({ ...base, surface: "window", phase: "recording", floatingOpen: true })).toEqual({
-      host: "floating",
-      hiddenForScreen: false,
-    });
+    const floating = { host: "floating", hiddenForScreen: false };
+    expect(bubblePolicy({ ...base, conceal: "floating", phase: "recording", floatingOpen: true })).toEqual(floating);
+    // A tab share of another tab with the floating controls up.
+    expect(bubblePolicy({ ...base, conceal: "none", phase: "recording", floatingOpen: true })).toEqual(floating);
   });
 
   it("is gone while the take uploads (the camera is released)", () => {
-    expect(bubblePolicy({ ...base, surface: "window", phase: "saving" }).host).toBe("none");
-    expect(bubblePolicy({ ...base, surface: "monitor", phase: "failed" })).toEqual({ host: "none", hiddenForScreen: false });
+    expect(bubblePolicy({ ...base, conceal: "floating", phase: "saving" }).host).toBe("none");
+    expect(bubblePolicy({ ...base, conceal: "reveal", phase: "failed" })).toEqual({ host: "none", hiddenForScreen: false });
   });
 });

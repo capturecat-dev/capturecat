@@ -48,6 +48,24 @@ describe("web take → project.json", () => {
     expect(doc.cameraTimeOffset).toBe(0);
   });
 
+  it("cuts the moments the recorder UI was on screen (non-destructively: trim + clips)", () => {
+    const t = { ...take(false), surface: "monitor" as const, uiReveals: [[0, 0.6], [4, 5.2], [11.8, 12.5]] as Array<[number, number]> };
+    const text = projectDocumentFor(t);
+    const doc = JSON.parse(text);
+    expect(doc.duration).toBe(12.5);
+    expect(doc.trimStart).toBeCloseTo(0.7, 9);
+    expect(doc.trimEnd).toBeCloseTo(11.7, 9);
+    expect(doc.videoClipSegments.map((c: { startTime: number; endTime: number }) => [c.startTime, c.endTime])).toEqual([
+      [expect.closeTo(0.7, 9), expect.closeTo(3.9, 9)],
+      [expect.closeTo(5.3, 9), expect.closeTo(11.7, 9)],
+    ]);
+    expect(doc.splitPoints).toEqual([expect.closeTo(5.3, 9)]);
+    expect(serializeProjectText(parseProjectText(text))).toBe(text);
+    // A take from before uiReveals existed (a leftover's take.json) publishes uncut.
+    const old = JSON.parse(projectDocumentFor(take(false)));
+    expect([old.trimStart, old.trimEnd, old.videoClipSegments.length]).toEqual([0, 0, 0]);
+  });
+
   it("media refs resolve to the uploaded logical paths", () => {
     const id = take(true).id;
     const file = (path: string) => ({ path, sha256: "x", bytes: 1, contentType: "video/quicktime", source: null, url: `https://r2/${path}` });

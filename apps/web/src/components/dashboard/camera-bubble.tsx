@@ -221,6 +221,7 @@ function FloatingBubble({ stream, leaving }: { stream: MediaStream | null; leavi
 
   return (
     <div
+      data-rec-ui="bubble"
       data-camera-bubble={leaving ? "out" : "in"}
       data-diameter={diameter}
       className={cn("pointer-events-none fixed z-[45]", leaving ? "rec-bubble-out" : "rec-bubble-in")}

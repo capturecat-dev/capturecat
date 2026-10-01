@@ -33,6 +33,7 @@ import {
   type InputVideoTrack,
 } from "mediabunny";
 
+import { TakeTimeline, type TakeClock } from "./barHidden";
 import { stopStream, surfaceLabel, surfaceOf, type SurfaceKind } from "./capture";
 import {
   AUDIO_BITRATE,
@@ -169,9 +170,12 @@ export class MediaRecorderSession {
   private pausedTotal = 0;
   private screenStart = 0;
   private cameraStart = 0;
+  /** performance.now() when the screen recorder was told to start. */
+  private screenCalledAt = 0;
   private size = { width: 0, height: 0 };
   private hasSystemAudio = false;
   private hasMic = false;
+  private readonly timeline = new TakeTimeline();
   private readonly surface: SurfaceKind;
   private readonly label: string;
 
@@ -230,6 +234,7 @@ export class MediaRecorderSession {
     }
 
     // 1 s slices: data leaves the recorder steadily instead of all at stop.
+    this.screenCalledAt = performance.now();
     this.screenRec.recorder.start(1000);
     this.cameraRec?.recorder.start(1000);
     [this.screenStart, this.cameraStart] = await Promise.all([
@@ -237,7 +242,20 @@ export class MediaRecorderSession {
       this.cameraRec?.started ?? Promise.resolve(0),
     ]);
     this.startedAt = performance.now();
+    // Provisional media zero; stop() moves it to the first frame once the
+    // file says where that is.
+    this.timeline.zeroMs = this.screenCalledAt;
     this.state = "recording";
+  }
+
+  /** The page's recorder UI came on screen (true) or left it (false) at `at` (performance.now ms). */
+  markUi(visible: boolean, at = performance.now()): void {
+    if (visible) this.timeline.reveals.reveal(at);
+    else this.timeline.reveals.conceal(at);
+  }
+
+  clock(now = performance.now()): TakeClock | null {
+    return this.timeline.zeroMs === null ? null : this.timeline.clock(now, this.timeline.zeroMs);
   }
 
   pause(): void {
@@ -245,19 +263,24 @@ export class MediaRecorderSession {
     this.screenRec?.recorder.pause();
     this.cameraRec?.recorder.pause();
     this.pausedAt = performance.now();
+    this.timeline.pause(this.pausedAt);
     this.state = "paused";
   }
 
   resume(): void {
     if (this.state !== "paused") return;
-    this.pausedTotal += performance.now() - this.pausedAt;
+    const now = performance.now();
+    this.pausedTotal += now - this.pausedAt;
     this.screenRec?.recorder.resume();
     this.cameraRec?.recorder.resume();
+    this.timeline.resume(now);
     this.state = "recording";
   }
 
   async stop(): Promise<RecordedTake> {
     if (this.state !== "recording" && this.state !== "paused") throw new Error("Not recording");
+    // No frame captured after this instant reaches the file.
+    const stopAt = performance.now();
     this.state = "stopping";
     const screen = this.screenRec!;
     const cam = this.cameraRec;
@@ -276,6 +299,11 @@ export class MediaRecorderSession {
       ? Math.max(0, (this.cameraStart - this.screenStart) / 1000 + cameraMov.shift - screenMov.shift)
       : 0;
     const duration = await fileDuration(screenFile).catch(() => this.elapsed());
+    // The remux put the first frame at 0. The recorder takes frames from its
+    // start() call (its `start` event fires tens of ms later — measured in
+    // Chrome: the file's first frame was drawn ~68 ms before it), so media
+    // zero = that call + the first frame's offset in the file.
+    this.timeline.zeroMs = this.screenCalledAt + screenMov.shift * 1000;
     const take: RecordedTake = {
       id: this.id,
       screen: screenFile,
@@ -290,6 +318,7 @@ export class MediaRecorderSession {
       hasSystemAudio: this.hasSystemAudio,
       hasMic: this.hasMic,
       folder: null,
+      uiReveals: this.timeline.mediaReveals(stopAt, this.screenCalledAt),
     };
     // Recovery copy on this device, where the browser allows OPFS writes.
     try {
