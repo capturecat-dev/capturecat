@@ -21,10 +21,10 @@ function PlansPage() {
         <CardHeader>
           <CardTitle className="text-2xl">Plans</CardTitle>
           <CardDescription>
-            Tiers and the features they unlock. Edits take effect on the next
-            request — the API reads plans from the database, so nothing needs
-            deploying. A plan with no Stripe price cannot be sold and is only
-            used as a fallback tier.
+            Tiers, their prices and sales, and the features they unlock.
+            Saving a plan syncs it to Stripe — one product per plan, a price
+            per interval, a coupon per sale — so nothing is pasted by hand and
+            nothing needs deploying. A plan with no price cannot be sold.
           </CardDescription>
         </CardHeader>
         <CardContent>
