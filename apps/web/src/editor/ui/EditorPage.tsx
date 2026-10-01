@@ -145,7 +145,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
                   const r = await saveCloudProject(project.id, document, baseRevision, { history });
                   return r.ok
                     ? { ok: true, revision: r.revision }
-                    : { ok: false, conflict: true, revision: r.revision, document: r.document, updatedAt: r.updatedAt };
+                    : { ok: false, conflict: true, revision: r.revision, document: r.document, updatedAt: r.updatedAt, headVersionId: r.headVersionId };
                 },
               }
             : null;
@@ -213,6 +213,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
       const w = window as unknown as { __editor?: Record<string, unknown> };
       if (w.__editor) {
         w.__editor.mcp = buildEditorToolHandlers(ctx);
+        w.__editor.media = loaded.media; // the history harness drives an upload through it
         w.__editor.normalize = (text: string) => serializeProjectText(parseProjectText(text));
       }
     }
@@ -454,7 +455,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
           inspectorRevealKey={inspectorRevealKey}
           topBarAccessory={accessory}
           stageNotice={
-            <HistoryNotices history={history} store={store} extra={unsupported.length ? <UnsupportedNotice features={unsupported} /> : undefined} />
+            <HistoryNotices history={history} store={store} media={loaded?.media} extra={unsupported.length ? <UnsupportedNotice features={unsupported} /> : undefined} />
           }
           inspectorOverlay={history ? <HistoryOverlay history={history} store={store} /> : undefined}
           topBarShare={callbacks.onShare ? <ShareButton center={shareCenter} onShare={callbacks.onShare} /> : undefined}

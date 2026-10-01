@@ -93,9 +93,11 @@ function freshServer() {
     j.settings.gradientStartColor = { red: 0.98, green: 0.45, blue: 0.1, opacity: 1 };
     j.settings.gradientEndColor = { red: 0.85, green: 0.1, blue: 0.25, opacity: 1 };
   });
+  // The API's V object (docs/project-history.md §6.1); isHead is set per response.
   const version = (id, seq, revision, extra) => ({
-    id, seq, revision, firstRevision: revision, kind: "edit", label: null, actor: { uid: "u-ana", name: "Ana" },
-    clientKind: "web", source: "human", change: null, openedAt: extra.updatedAt, ...extra,
+    id, seq, kind: "edit", label: null, namedBy: null, namedAt: null, actor: { uid: "u-ana", name: "Ana" },
+    client: "web", source: "human", firstRevision: revision, revision, documentBytes: 6000, documentSha256: "0".repeat(64),
+    change: null, restoredFrom: null, mergedFromRevision: null, openedAt: extra.updatedAt, ...extra,
   });
   return {
     revision: 3,
@@ -104,10 +106,17 @@ function freshServer() {
     docs: { v1, v2, v3 },
     versions: [
       version("v3", 3, 3, { updatedAt: iso(2 * HOUR), change: { v: 1, items: { zoomRegions: { added: [ZOOM_ID] } }, settings: { background: ["backgroundPadding"] }, fields: [] } }),
-      version("v2", 2, 2, { updatedAt: iso(DAY + HOUR), actor: { uid: "u-ben", name: "Ben" }, clientKind: "mac", source: "agent", change: { v: 1, items: {}, settings: { background: ["backgroundPadding", "gradientEndColor", "gradientStartColor"] }, fields: ["name"] } }),
-      version("v1", 1, 1, { kind: "upload", updatedAt: iso(3 * DAY), actor: { uid: "u-ben", name: "Ben" }, clientKind: "mac" }),
+      version("v2", 2, 2, { updatedAt: iso(DAY + HOUR), actor: { uid: "u-ben", name: "Ben" }, client: "mac", source: "agent", change: { v: 1, items: {}, settings: { background: ["backgroundPadding", "gradientEndColor", "gradientStartColor"] }, fields: ["name"] } }),
+      version("v1", 1, 1, { kind: "upload", updatedAt: iso(3 * DAY), actor: { uid: "u-ben", name: "Ben" }, client: "mac" }),
     ],
     nextSeq: 4,
+    pinnedMediaBytes: 356 * 1024 * 1024,
+    freeableBytes: 120 * 1024 * 1024,
+    capBlocked: false,
+    stages: 0,
+    freeUps: 0,
+    r2Puts: 0,
+    extraFiles: [],
     puts: [],
     restores: [],
     patches: [],
@@ -138,7 +147,9 @@ page.on("pageerror", (e) => pageErrors.push(e.message));
 const json = (route, status, body) =>
   route.fulfill({ status, body: JSON.stringify(body), headers: { ...cors(route.request()), "Content-Type": "application/json" } });
 const file = (p, type) => ({ path: p, sha256: "0".repeat(64), bytes: 1, contentType: type, source: null, url: `${BASE}/__fixture/${p}` });
-const FILES = () => [file("recording.mp4", "video/mp4"), file("cursor.json", "application/json")];
+const FILES = () => [file("recording.mp4", "video/mp4"), file("cursor.json", "application/json"), ...S.extraFiles];
+const conflict = () => ({ code: "revision_conflict", error: "This project changed since your copy was loaded", revision: S.revision, documentSha256: "0".repeat(64), updatedAt: S.updatedAt, headVersionId: S.versions[0]?.id ?? null, document: S.doc });
+const V = (v) => ({ ...v, isHead: v.id === S.versions[0]?.id });
 
 await context.route(`${API}/**`, async (route) => {
   const req = route.request();
@@ -160,6 +171,31 @@ await context.route(`${API}/**`, async (route) => {
     });
   }
   if (rest === "/files") return json(route, 200, { revision: S.revision, files: FILES(), urlsExpireAt: new Date(Date.now() + 3600_000).toISOString() });
+  // Stage / finalize (ProjectMedia uploads): at the cap while history keeps removed media → 413.
+  if (rest === "" && req.method() === "PUT") {
+    S.stages++;
+    if (S.capBlocked) return json(route, 413, { error: "Storage limit reached (1 GB). Delete shared videos or old versions before uploading more.", code: "storage_limit_reached", usedBytes: 1e9, limitBytes: 1e9, remainingBytes: 0 });
+    const manifest = JSON.parse(req.postData() ?? "{}");
+    const known = new Set(FILES().map((f) => f.sha256));
+    const missing = manifest.files.filter((f) => !known.has(f.sha256)).map((f) => ({ sha256: f.sha256, bytes: f.bytes, contentType: f.contentType, paths: [f.path], method: "PUT", uploadUrl: `https://r2.mock.invalid/put/${f.sha256}`, headers: {} }));
+    S.staged = manifest.files;
+    return json(route, 200, { projectId: pid, revision: S.revision, documentSha256: null, missing, presentCount: manifest.files.length - missing.length, expiresIn: 900 });
+  }
+  if (rest === "/finalize" && req.method() === "POST") {
+    const known = new Set(FILES().map((f) => f.sha256));
+    for (const f of S.staged ?? []) if (!known.has(f.sha256)) S.extraFiles.push({ path: f.path, sha256: f.sha256, bytes: f.bytes, contentType: f.contentType, source: null, url: `${BASE}/__fixture/cursor.json` });
+    return json(route, 200, { projectId: pid, revision: S.revision, fileCount: FILES().length, totalBytes: 1 });
+  }
+  if (rest === "/history/free-up" && req.method() === "POST") {
+    S.freeUps++;
+    const victims = S.versions.slice(1).filter((v) => !v.label && v.kind !== "upload");
+    S.versions = S.versions.filter((v) => !victims.includes(v));
+    const released = S.freeableBytes;
+    S.pinnedMediaBytes -= released;
+    S.freeableBytes = 0;
+    S.capBlocked = false;
+    return json(route, 200, { projectId: pid, deletedVersions: victims.map((v) => v.id), releasedBytes: released, pinnedMediaBytes: S.pinnedMediaBytes, freeableBytes: 0 });
+  }
   if (rest === "/project" && req.method() === "PUT") {
     const body = req.postData() ?? "";
     const rec = { at: Date.now(), ifMatch: headers["if-match"], headers: Object.fromEntries(Object.entries(headers).filter(([k]) => k.startsWith("x-cc-"))), body };
@@ -170,7 +206,7 @@ await context.route(`${API}/**`, async (route) => {
       if (r) return json(route, r.status, r.body);
     }
     if (headers["if-match"] !== `"${S.revision}"`) {
-      return json(route, 409, { code: "revision_conflict", error: "changed", revision: S.revision, updatedAt: S.updatedAt, document: S.doc });
+      return json(route, 409, conflict());
     }
     S.revision++;
     S.doc = body;
@@ -179,18 +215,28 @@ await context.route(`${API}/**`, async (route) => {
     S.docs[id] = body;
     const checkpoint = headers["x-cc-checkpoint"];
     S.versions.unshift({
-      id, seq: S.nextSeq++, revision: S.revision, firstRevision: S.revision, kind: checkpoint === "merge" ? "merge" : "edit", label: null,
-      actor: { uid: "u-me", name: "Mike" }, clientKind: headers["x-cc-client"] ?? "unknown", source: headers["x-cc-source"] ?? "human",
-      change: headers["x-cc-change"] ? unb64(headers["x-cc-change"]) : null, openedAt: S.updatedAt, updatedAt: S.updatedAt,
+      id, seq: S.nextSeq++, kind: checkpoint === "merge" || headers["x-cc-merged-from"] ? "merge" : "edit", label: null, namedBy: null, namedAt: null,
+      actor: { uid: "u-me", name: "Mike" }, client: headers["x-cc-client"] ?? "unknown", source: headers["x-cc-source"] ?? "human",
+      firstRevision: S.revision, revision: S.revision, documentBytes: body.length, documentSha256: "0".repeat(64),
+      change: headers["x-cc-change"] ? unb64(headers["x-cc-change"]) : null, restoredFrom: null, openedAt: S.updatedAt, updatedAt: S.updatedAt,
       mergedFromRevision: headers["x-cc-merged-from"] ? Number(headers["x-cc-merged-from"]) : null,
     });
     rec.status = 200;
-    return json(route, 200, { revision: S.revision, documentSha256: "0".repeat(64), updatedAt: S.updatedAt, version: { id, seq: S.nextSeq - 1, extended: false } });
+    return json(route, 200, { projectId: pid, revision: S.revision, documentSha256: "0".repeat(64), updatedAt: S.updatedAt, version: { id, seq: S.nextSeq - 1, extended: false } });
   }
   if (rest === "/versions" && req.method() === "GET") {
     S.lists++;
-    if (free) return json(route, 200, { versions: [], headVersionId: null, retention: { maxHistoryDays: 0, maxNamedVersions: 0 }, pinnedMediaBytes: 0 });
-    return json(route, 200, { versions: S.versions, headVersionId: S.versions[0]?.id ?? null, retention: { days: 30, maxNamed: 25 }, pinnedMediaBytes: 356 * 1024 * 1024 });
+    const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") ?? 50)));
+    if (free) {
+      const head = { ...S.versions[0], id: "vfree", isHead: true };
+      return json(route, 200, { projectId: pid, revision: 1, headVersionId: "vfree", access: "owner", versions: [head], nextBefore: null, retention: { maxHistoryDays: 0, maxNamedVersions: 0, namedCount: 0 }, pinnedMediaBytes: 0, freeableBytes: 0 });
+    }
+    return json(route, 200, {
+      projectId: pid, revision: S.revision, headVersionId: S.versions[0]?.id ?? null, access: "owner",
+      versions: S.versions.slice(0, limit).map(V), nextBefore: S.versions.length > limit ? S.versions[limit - 1].seq : null,
+      retention: { maxHistoryDays: 30, maxNamedVersions: 25, namedCount: S.versions.filter((v) => v.label).length },
+      pinnedMediaBytes: S.pinnedMediaBytes, freeableBytes: S.freeableBytes,
+    });
   }
   const vm = /^\/versions\/([^/]+)(\/restore)?$/.exec(rest);
   if (vm) {
@@ -200,19 +246,19 @@ await context.route(`${API}/**`, async (route) => {
     if (vm[2] && req.method() === "POST") {
       S.restores.push({ vid, ifMatch: headers["if-match"] });
       if (headers["if-match"] !== `"${S.revision}"`) {
-        return json(route, 409, { code: "revision_conflict", revision: S.revision, updatedAt: S.updatedAt, document: S.doc });
+        return json(route, 409, conflict());
       }
       S.revision++;
       S.doc = S.docs[vid];
       S.updatedAt = new Date().toISOString();
       const id = `v${S.nextSeq}`;
       S.docs[id] = S.doc;
-      S.versions.unshift({ ...v, id, seq: S.nextSeq++, revision: S.revision, kind: "restore", label: null, restoredFrom: vid, updatedAt: S.updatedAt, actor: { uid: "u-me", name: "Mike" }, clientKind: "web" });
-      return json(route, 200, { revision: S.revision, documentSha256: null, updatedAt: S.updatedAt, version: { id, seq: S.nextSeq - 1, extended: false } });
+      S.versions.unshift({ ...v, id, seq: S.nextSeq++, revision: S.revision, firstRevision: S.revision, kind: "restore", label: null, namedBy: null, namedAt: null, restoredFrom: vid, updatedAt: S.updatedAt, actor: { uid: "u-me", name: "Mike" }, client: headers["x-cc-client"] ?? "unknown" });
+      return json(route, 200, { projectId: pid, revision: S.revision, documentSha256: "0".repeat(64), updatedAt: S.updatedAt, restoredFrom: vid, version: { id, seq: S.nextSeq - 1, extended: false }, fileCount: FILES().length });
     }
     if (req.method() === "GET") {
       return json(route, 200, {
-        version: v, document: S.docs[vid],
+        projectId: pid, version: V(v), document: S.docs[vid], missingPaths: [],
         files: [{ ...file("recording.mp4", "video/mp4"), url: `${BASE}/__fixture/recording.mp4?version=${vid}` }, file("cursor.json", "application/json")],
         urlsExpireAt: new Date(Date.now() + 900_000).toISOString(),
       });
@@ -220,16 +266,24 @@ await context.route(`${API}/**`, async (route) => {
     if (req.method() === "PATCH") {
       const { label } = JSON.parse(req.postData() ?? "{}");
       S.patches.push({ vid, label });
-      v.label = label;
-      return json(route, 200, { version: v });
+      v.label = label || null;
+      v.namedBy = v.label ? { uid: "u-me", name: "Mike" } : null;
+      return json(route, 200, { projectId: pid, version: V(v) });
     }
     if (req.method() === "DELETE") {
       S.deletes.push(vid);
       S.versions = S.versions.filter((x) => x.id !== vid);
-      return json(route, 200, { ok: true });
+      return json(route, 200, { projectId: pid, deleted: true, versionId: vid, releasedBytes: 0 });
     }
   }
   return json(route, 404, { error: `unmocked ${req.method()} ${rest}` });
+});
+await context.route("https://r2.mock.invalid/**", (route) => {
+  const req = route.request();
+  const h = { "Access-Control-Allow-Origin": req.headers()["origin"] ?? BASE, "Access-Control-Allow-Methods": "PUT", "Access-Control-Allow-Headers": "Content-Type" };
+  if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: h });
+  S.r2Puts++;
+  return route.fulfill({ status: 200, headers: h, body: "" });
 });
 await context.route("**/__fixture/**", (route) => {
   const name = decodeURIComponent(new URL(route.request().url()).pathname.replace(/^.*\/__fixture\//, ""));
@@ -335,7 +389,8 @@ try {
   check((await page.locator('[data-version-id="v2"] .cc-hbadge', { hasText: "Agent" }).count()) === 1, "v2: Agent badge");
   check((await page.locator('[data-version-id="v3"] .cc-hrow__caption').innerText()).includes("Zoom added · Background changed"), "v3: change summary caption");
   check((await page.locator(".cc-hrow[data-current]").innerText()).includes("Current"), "Current top row");
-  check((await page.locator(".cc-history__foot").innerText()).includes("History keeps 356 MB of removed media"), "owner footer: pinned media + Free up");
+  check((await page.locator(".cc-history__foot").innerText()).includes("History keeps 356 MB of removed media"), "owner footer: pinned media");
+  check((await page.locator(".cc-history__foot").getByRole("button", { name: "Free Up 120 MB" }).count()) === 1, "owner footer: Free Up shows the freeable bytes");
 
   // ── preview ─────────────────────────────────────────────────────────────
   const putsBefore = S.puts.length;
@@ -413,7 +468,7 @@ try {
       S.doc = JSON.stringify(theirs, null, 2);
       S.updatedAt = new Date(Date.now() - 60_000).toISOString();
       S.docs[`v${S.nextSeq}`] = S.doc;
-      S.versions.unshift({ id: `v${S.nextSeq}`, seq: S.nextSeq++, revision: S.revision, firstRevision: S.revision, kind: "edit", label: null, actor: { uid: "u-ana", name: "Ana" }, clientKind: "web", source: "human", change: { v: 1, items: {}, settings: {}, fields: ["name"] }, updatedAt: S.updatedAt, openedAt: S.updatedAt });
+      S.versions.unshift({ id: `v${S.nextSeq}`, seq: S.nextSeq++, revision: S.revision, firstRevision: S.revision, kind: "edit", label: null, actor: { uid: "u-ana", name: "Ana" }, client: "web", source: "human", change: { v: 1, items: {}, settings: {}, fields: ["name"] }, updatedAt: S.updatedAt, openedAt: S.updatedAt });
       return { status: 409, body: { code: "revision_conflict", error: "changed", revision: S.revision, updatedAt: S.updatedAt, document: S.doc } };
     });
     await page.evaluate(() => window.__editor.store.updateSettings({ backgroundPadding: 48 }));
@@ -455,7 +510,7 @@ try {
       S.revision++;
       S.doc = JSON.stringify(theirs, null, 2);
       S.updatedAt = new Date(Date.now() - 30_000).toISOString();
-      S.versions.unshift({ id: `v${S.nextSeq}`, seq: S.nextSeq++, revision: S.revision, firstRevision: S.revision, kind: "edit", label: null, actor: { uid: "u-ana", name: "Ana" }, clientKind: "web", source: "human", change: { v: 1, items: { zoomRegions: { removed: ["x"] } }, settings: {}, fields: [] }, updatedAt: S.updatedAt, openedAt: S.updatedAt });
+      S.versions.unshift({ id: `v${S.nextSeq}`, seq: S.nextSeq++, revision: S.revision, firstRevision: S.revision, kind: "edit", label: null, actor: { uid: "u-ana", name: "Ana" }, client: "web", source: "human", change: { v: 1, items: { zoomRegions: { removed: ["x"] } }, settings: {}, fields: [] }, updatedAt: S.updatedAt, openedAt: S.updatedAt });
       return { status: 409, body: { code: "revision_conflict", error: "changed", revision: S.revision, updatedAt: S.updatedAt, document: S.doc } };
     });
     // We edit that zoom (the conflict) and the padding (merges cleanly either way).
@@ -487,6 +542,41 @@ try {
     st = await editorState();
     check(st.sync === "saved" && st.review === null, `review: resolved (sync ${st.sync})`);
     await shot("11-review-resolved");
+  }
+
+  // ── storage cap: an upload history blocks → Free up history → the retry lands ──
+  {
+    S.capBlocked = true;
+    const stages0 = S.stages;
+    const outcome = page.evaluate(async () => {
+      const bytes = new TextEncoder().encode("a fresh logo, not in the project yet");
+      const d = await crypto.subtle.digest("SHA-256", bytes);
+      const sha = [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+      try {
+        await window.__editor.media.addFile({ ref: "logo-new.png", path: "logo-new.png", blob: new Blob([bytes], { type: "image/png" }), sha256: sha, contentType: "image/png" });
+        return "ok";
+      } catch (e) {
+        return `${e.name}: ${e.message}`;
+      }
+    });
+    check((await outcome) === "HistoryStorageError: History is keeping 120 MB of removed media — Free up history to make room.", `upload at the cap: ${await outcome}`);
+    const callout = page.locator(".cc-callout", { hasText: "History is keeping 120 MB of removed media — Free up history to make room." });
+    await callout.waitFor({ timeout: 5000 });
+    await wait(500);
+    await shot("13-storage-cap-callout");
+    await callout.getByRole("button", { name: "Free Up History" }).click();
+    await page.locator(".cc-alert__card").waitFor();
+    check((await page.locator(".cc-alert__card").innerText()).includes("History is keeping media this project no longer uses"), "free up confirm explains the upload");
+    await shot("14-free-up-confirm");
+    await page.locator(".cc-alert__card").getByRole("button", { name: "Free Up" }).click();
+    await page.waitForFunction(() => !window.__editor.media.historyBlock && !window.__editor.media.uploading, null, { timeout: 10_000 });
+    await wait(600);
+    await shot("15-freed-and-uploaded");
+    check(S.freeUps === 1, "free up: POST …/history/free-up");
+    check(S.stages === stages0 + 2 && S.r2Puts >= 1, `free up: the upload retried and landed (stages ${S.stages - stages0}, R2 PUTs ${S.r2Puts})`);
+    check((await callout.count()) === 0, "free up: the callout is gone");
+    const foot = await page.locator(".cc-history__foot").innerText().catch(() => "");
+    check(!foot.includes("Free Up"), `footer after free up: “${foot.replace(/\s+/g, " ").trim()}”`);
   }
 
   // ── gated (Free) ───────────────────────────────────────────────────────

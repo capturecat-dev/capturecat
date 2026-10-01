@@ -23,10 +23,14 @@ import { INSPECTOR_TABS, type InspectorTabId } from "../ui/shell/types";
 import {
   CloudApiError,
   deleteProjectVersion,
+  freeUpHistory,
   getProjectVersion,
+  HISTORY_ERRORS,
   listProjectVersions,
   nameProjectVersion,
   restoreProjectVersion,
+  webClientId,
+  type FreeUpResult,
   type HistoryRetention,
   type ProjectVersion,
   type RestoreResult,
@@ -42,7 +46,8 @@ export interface HistoryApi {
   get(versionId: string): Promise<VersionDetail>;
   name(versionId: string, label: string | null): Promise<ProjectVersion | null>;
   restore(versionId: string, baseRevision: number): Promise<RestoreResult>;
-  remove(versionId: string): Promise<void>;
+  remove(versionId: string): Promise<{ releasedBytes: number }>;
+  freeUp(): Promise<FreeUpResult>;
 }
 
 /** The real routes (state/cloud.ts) for one project. */
@@ -51,8 +56,10 @@ export function cloudHistoryApi(projectId: string): HistoryApi {
     list: (opts) => listProjectVersions(projectId, opts),
     get: (vid) => getProjectVersion(projectId, vid),
     name: (vid, label) => nameProjectVersion(projectId, vid, label),
-    restore: (vid, rev) => restoreProjectVersion(projectId, vid, rev),
+    // A restore is a human action from this browser (the version it opens is attributed).
+    restore: (vid, rev) => restoreProjectVersion(projectId, vid, rev, { history: { client: "web", clientId: webClientId(), source: "human" } }),
     remove: (vid) => deleteProjectVersion(projectId, vid),
+    freeUp: () => freeUpHistory(projectId),
   };
 }
 
@@ -483,10 +490,51 @@ export function describeAutoResolved(path: string, docs: ReadonlyArray<Json | un
   return parts[0] === "settings" ? SETTING_NAMES[last] ?? humanize(last) : humanize(last || path);
 }
 
+// ── Errors (the §6.1 codes, said plainly) ─────────────────────────────────
+
+/** A requireEntitlement denial (`{ error, tier }`): the account's plan or standing. */
+export function isEntitlementError(e: unknown): boolean {
+  return e instanceof CloudApiError && e.status === 403 && typeof e.body.tier === "string";
+}
+
+/** What went wrong with a history request, in the pane's words. */
+export function historyErrorMessage(e: unknown): string {
+  if (!(e instanceof CloudApiError)) return e instanceof Error ? e.message : String(e);
+  const missing = Array.isArray(e.body.missing) ? (e.body.missing as unknown[]).filter((p): p is string => typeof p === "string") : [];
+  switch (e.code) {
+    case HISTORY_ERRORS.versionNotFound:
+      return "That version is no longer in History.";
+    case HISTORY_ERRORS.documentMissing:
+      return "This version’s document is no longer stored, so it can’t be opened or restored.";
+    case HISTORY_ERRORS.revisionRequired:
+      return "The restore didn’t say which version it replaces — reload the project and try again.";
+    case HISTORY_ERRORS.filesChanged:
+      return "The project’s media changed while restoring — try again.";
+    case HISTORY_ERRORS.mediaMissing:
+      return `Some of this version’s media is no longer stored${missing.length ? ` (${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""})` : ""}, so it can’t be restored.`;
+    case HISTORY_ERRORS.namedLimit: {
+      const limit = typeof e.body.limit === "number" ? e.body.limit : null;
+      if (limit === 0) return "Named versions are part of Pro — upgrade to keep versions by name.";
+      return e.message || `This project already has ${limit} named versions — remove a name first.`;
+    }
+    case HISTORY_ERRORS.invalidLabel:
+      return "Names can be up to 100 characters, on one line.";
+    case HISTORY_ERRORS.headVersion:
+      return "The current version can’t be deleted.";
+    case HISTORY_ERRORS.notOwner:
+      return "Only the project’s owner can do that.";
+  }
+  if (e.status === 401) return "Your session ended — sign in again.";
+  if (e.status === 403) return isEntitlementError(e) ? e.message : e.message === "Account blocked" ? "This account is blocked." : e.message;
+  if (e.status === 404) return "This project isn’t available anymore.";
+  if (e.status === 429) return "Too many requests — try again in a moment.";
+  return e.message;
+}
+
 // ── Controller ──────────────────────────────────────────────────────────
 
 export type HistoryMode = "list" | "compare" | "review";
-/** gated: the plan has no cloud history (upsell); unavailable: no history API for this project. */
+/** gated: the owner's plan keeps no history (retention 0 / 0 → upsell); unavailable: no history for this project. */
 export type HistoryStatus = "idle" | "loading" | "ready" | "gated" | "unavailable" | "error";
 
 export interface CompareState {
@@ -504,8 +552,13 @@ export interface HistoryState {
   error: string | null;
   versions: ProjectVersion[];
   headVersionId: string | null;
+  /** The caller's access, as the list says (owner deletes / frees up). */
+  access: "owner" | "member" | null;
   retention: HistoryRetention | null;
+  /** Removed media history still keeps (counts toward storage). */
   pinnedMediaBytes: number;
+  /** The part Free up would release. */
+  freeableBytes: number;
   nextBefore: string | null;
   loadingMore: boolean;
   /** "Compare with…" armed on this version: the next row picked is compared with it. */
@@ -513,7 +566,7 @@ export interface HistoryState {
   compare: CompareState | null;
   /** Row whose inline name field is open. */
   naming: string | null;
-  /** Row with a request in flight (preview / restore / name / delete). */
+  /** Row with a request in flight (preview / restore / name / delete), or "free-up". */
   busy: string | null;
   /** A failed action, said in the pane (dismissed by the next action). */
   message: string | null;
@@ -526,10 +579,14 @@ export interface HistoryState {
 export interface HistoryControllerOptions {
   store: EditorStore;
   api: HistoryApi;
-  /** Owner-only actions (Delete, Free up). */
+  /** Owner-only actions (Delete, Free up) — until the list says otherwise. */
   isOwner: boolean;
-  /** The project's media (preview resolves through the version's manifest). */
-  media?: { setOverride(urls: { media: VersionDetail["media"]; sources: VersionDetail["sources"] } | null): void; readonly hasOverride: boolean } | null;
+  /** The project's media (preview resolves through the version's manifest; uploads retry after Free up). */
+  media?: {
+    setOverride(urls: { media: VersionDetail["media"]; sources: VersionDetail["sources"] } | null): void;
+    readonly hasOverride: boolean;
+    retryUploads?(): void;
+  } | null;
   /** AlertPresenter.present-shaped confirm (index 0 = the default button). */
   confirm?: (spec: { title: string; message?: string; buttons?: Array<{ title: string; role?: "primary" | "secondary" | "destructive" }> }) => Promise<number>;
   /** Compare row → the timeline (SOURCE seconds). */
@@ -546,8 +603,10 @@ const INITIAL: HistoryState = {
   error: null,
   versions: [],
   headVersionId: null,
+  access: null,
   retention: null,
   pinnedMediaBytes: 0,
+  freeableBytes: 0,
   nextBefore: null,
   loadingMore: false,
   comparePick: null,
@@ -560,16 +619,14 @@ const INITIAL: HistoryState = {
 };
 
 const PAGE = 50;
+/** `PATCH {label}`: trimmed, ≤ 100 characters (§6.1). */
+export const LABEL_MAX = 100;
 
 function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return historyErrorMessage(e);
 }
 
-/** A 403 that is about the plan (requireEntitlement's "This feature requires a … plan"). */
-function isPlanGate(e: unknown): boolean {
-  if (!(e instanceof CloudApiError) || (e.status !== 403 && e.status !== 402)) return false;
-  return /plan|upgrade|pro\b/i.test(e.message) || /plan|upgrade|entitlement/i.test(e.code ?? "");
-}
+const code = (e: unknown) => (e instanceof CloudApiError ? e.code : undefined);
 
 export class HistoryController {
   private state: HistoryState = INITIAL;
@@ -594,16 +651,15 @@ export class HistoryController {
         this.set({ open: true, mode: "review", comparePick: null, reviewAuthor: null });
         const rev = s.review?.serverRevision;
         if (rev != null) {
-          void this.authorOf(rev).then((v) => {
+          void this.authorOf(rev, s.conflict?.headVersionId ?? null).then((v) => {
             if (v && opts.store.getState().review?.serverRevision === rev) this.set({ reviewAuthor: v.actorName ?? null });
           });
         }
-      }
-      else if (s.sync !== "review" && lastSync === "review" && this.state.mode === "review") this.set({ mode: "list" });
+      } else if (s.sync !== "review" && lastSync === "review" && this.state.mode === "review") this.set({ mode: "list" });
       lastSync = s.sync;
       if (s.mergeNotice && s.mergeNotice.id !== lastNotice) {
         lastNotice = s.mergeNotice.id;
-        void this.resolveMergeAuthor(s.mergeNotice.id, s.mergeNotice.serverRevision);
+        void this.resolveMergeAuthor(s.mergeNotice.id, s.mergeNotice.serverRevision, s.mergeNotice.headVersionId);
       }
       if (s.revision !== lastRevision) {
         lastRevision = s.revision;
@@ -630,8 +686,9 @@ export class HistoryController {
     for (const l of [...this.listeners]) l();
   }
 
+  /** Owner-only actions: the list's `access` once loaded, else what the project load said. */
   get isOwner(): boolean {
-    return this.opts.isOwner;
+    return this.state.access ? this.state.access === "owner" : this.opts.isOwner;
   }
 
   // ── Pane ──────────────────────────────────────────────────────────────
@@ -675,19 +732,22 @@ export class HistoryController {
     try {
       const page = await this.opts.api.list({ limit: PAGE });
       if (seq !== this.listSeq) return;
+      // The OWNER's plan keeps no history (Free: retention 0 / 0, only the head) → upsell.
       const gated = page.retention != null && page.retention.days <= 0 && page.retention.maxNamed <= 0;
       this.set({
         status: gated ? "gated" : "ready",
         error: null,
         versions: page.versions,
-        headVersionId: page.headVersionId ?? page.versions[0]?.id ?? null,
+        headVersionId: page.headVersionId ?? page.versions.find((v) => v.isHead)?.id ?? null,
+        access: page.access,
         retention: page.retention,
         pinnedMediaBytes: page.pinnedMediaBytes,
-        nextBefore: page.nextBefore ?? (page.versions.length >= PAGE ? String(page.versions[page.versions.length - 1].seq) : null),
+        freeableBytes: page.freeableBytes,
+        nextBefore: page.nextBefore,
       });
     } catch (e) {
       if (seq !== this.listSeq) return;
-      if (isPlanGate(e)) this.set({ status: "gated", error: null });
+      if (isEntitlementError(e)) this.set({ status: "gated", error: null });
       else if (e instanceof CloudApiError && e.status === 404) this.set({ status: "unavailable", error: null });
       else this.set({ status: this.state.status === "ready" ? "ready" : "error", error: errorText(e) });
     }
@@ -702,7 +762,7 @@ export class HistoryController {
       const known = new Set(this.state.versions.map((v) => v.id));
       this.set({
         versions: [...this.state.versions, ...page.versions.filter((v) => !known.has(v.id))],
-        nextBefore: page.nextBefore ?? (page.versions.length >= PAGE ? String(page.versions[page.versions.length - 1].seq) : null),
+        nextBefore: page.nextBefore,
         loadingMore: false,
       });
     } catch (e) {
@@ -735,10 +795,11 @@ export class HistoryController {
       if (!store.getState().preview) await store.flush();
       const d = await this.detail(versionId);
       this.opts.media?.setOverride({ media: d.media, sources: d.sources });
-      store.previewVersion({ versionId, title: versionTitle(this.version(versionId) ?? d.version), text: d.document });
+      store.previewVersion({ versionId, title: versionTitle(this.version(versionId) ?? d.version), text: d.document, missingPaths: d.missingPaths });
     } catch (e) {
       if (!store.getState().preview) this.opts.media?.setOverride(null);
-      this.set({ message: `Couldn’t open that version: ${errorText(e)}` });
+      this.set({ message: `Couldn’t open that version. ${errorText(e)}` });
+      if (code(e) === HISTORY_ERRORS.versionNotFound) void this.refresh();
     } finally {
       this.set({ busy: null });
     }
@@ -772,26 +833,36 @@ export class HistoryController {
     if (choice !== 0) return false;
     this.set({ busy: versionId, message: null });
     try {
-      await store.flush();
-      const now = store.getState();
-      if (now.conflict || now.revision == null) {
-        this.set({ message: "This project changed elsewhere — review the merge, then restore again." });
-        return false;
+      for (let attempt = 0; ; attempt++) {
+        await store.flush();
+        const now = store.getState();
+        if (now.conflict || now.revision == null) {
+          this.set({ message: "This project changed elsewhere — review the merge, then restore again." });
+          return false;
+        }
+        let result: RestoreResult;
+        try {
+          result = await this.opts.api.restore(versionId, now.revision);
+        } catch (e) {
+          // A media commit raced the restore: the API says retry.
+          if (code(e) === HISTORY_ERRORS.filesChanged && attempt === 0) continue;
+          throw e;
+        }
+        if (!result.ok) {
+          // Someone saved first: merge their version in; the user restores again if still wanted.
+          store.handleConflict({ serverRevision: result.revision, serverDocument: result.document, updatedAt: result.updatedAt, headVersionId: result.headVersionId ?? null });
+          this.set({ message: "Someone saved while you were restoring. Their changes were merged — restore again if you still want this version." });
+          return false;
+        }
+        // The restore response carries no document: it is that version's (fetched for preview).
+        const text = (await this.detail(versionId)).document;
+        store.applyRestore({ text, revision: result.revision });
+        this.opts.media?.setOverride(null);
+        void this.refresh();
+        return true;
       }
-      const result = await this.opts.api.restore(versionId, now.revision);
-      if (!result.ok) {
-        // Someone saved first: merge their version in; the user restores again if still wanted.
-        store.handleConflict({ serverRevision: result.revision, serverDocument: result.document, updatedAt: result.updatedAt });
-        this.set({ message: "Someone saved while you were restoring. Their changes were merged — restore again if you still want this version." });
-        return false;
-      }
-      const text = result.document ?? (await this.detail(versionId)).document;
-      store.applyRestore({ text, revision: result.revision });
-      this.opts.media?.setOverride(null);
-      void this.refresh();
-      return true;
     } catch (e) {
-      this.set({ message: `Couldn’t restore: ${errorText(e)}` });
+      this.set({ message: `Couldn’t restore. ${errorText(e)}` });
       return false;
     } finally {
       this.set({ busy: null });
@@ -808,21 +879,24 @@ export class HistoryController {
     if (this.state.naming) this.set({ naming: null });
   }
 
-  /** Enter in the row's field: PATCH the label (empty = unname). */
+  /** Enter in the row's field: PATCH the label (empty = un-name). */
   async commitName(versionId: string, label: string): Promise<boolean> {
-    const trimmed = label.trim().slice(0, 120);
+    const trimmed = label.trim().slice(0, LABEL_MAX);
     const v = this.version(versionId);
     this.set({ naming: null });
     if (v && (v.label ?? "") === trimmed) return true;
     this.set({ busy: versionId, message: null });
     try {
       const updated = await this.opts.api.name(versionId, trimmed || null);
+      const retention = this.state.retention;
+      const delta = (trimmed ? 1 : 0) - (v?.label ? 1 : 0);
       this.set({
         versions: this.state.versions.map((x) => (x.id === versionId ? (updated ?? { ...x, label: trimmed || null }) : x)),
+        retention: retention && retention.namedCount != null ? { ...retention, namedCount: Math.max(0, retention.namedCount + delta) } : retention,
       });
       return true;
     } catch (e) {
-      this.set({ message: `Couldn’t name it: ${errorText(e)}` });
+      this.set({ message: `Couldn’t name it. ${errorText(e)}` });
       return false;
     } finally {
       this.set({ busy: null });
@@ -848,7 +922,7 @@ export class HistoryController {
       void this.refresh();
       return true;
     } catch (e) {
-      this.set({ message: `Couldn’t delete: ${errorText(e)}` });
+      this.set({ message: `Couldn’t delete. ${errorText(e)}` });
       return false;
     } finally {
       this.set({ busy: null });
@@ -856,35 +930,41 @@ export class HistoryController {
   }
 
   /**
-   * "History keeps X of removed media [Free up]": delete the unnamed
-   * versions (never the current one) so the media only they keep is
-   * released. Named versions stay.
+   * "History keeps X of removed media [Free up]": POST …/history/free-up —
+   * the server deletes the unnamed, non-head versions pinning removed media
+   * and releases what only they kept. Named versions stay. `reason`
+   * "upload": an upload hit the storage cap (then the failed uploads retry).
+   * Returns the bytes released (0 = cancelled / nothing to free).
    */
-  async freeUp(): Promise<number> {
+  async freeUp(reason: "pane" | "upload" = "pane"): Promise<number> {
     if (!this.isOwner) return 0;
-    const victims = this.state.versions.filter((v) => !v.label && v.id !== this.state.headVersionId);
-    if (!victims.length) return 0;
+    const freeable = this.state.freeableBytes;
     const choice = await this.ask({
-      title: `Free up ${formatBytes(this.state.pinnedMediaBytes)}?`,
-      message: `Deletes ${victims.length} unnamed version${victims.length === 1 ? "" : "s"} and the removed media only they keep. Named versions and the current version stay.`,
+      title: freeable > 0 ? `Free up ${formatBytes(freeable)}?` : "Free up history?",
+      message:
+        (reason === "upload" ? "History is keeping media this project no longer uses, so the upload doesn’t fit. " : "") +
+        "This deletes the unnamed versions that keep removed media. Named versions and the current version stay.",
       buttons: [{ title: "Free Up", role: "destructive" }, { title: "Cancel" }],
     });
     if (choice !== 0) return 0;
     this.set({ busy: "free-up", message: null });
-    let done = 0;
     try {
-      for (const v of victims) {
-        await this.opts.api.remove(v.id);
-        this.details.delete(v.id);
-        done++;
-      }
+      const r = await this.opts.api.freeUp();
+      for (const id of r.deletedVersions) this.details.delete(id);
+      this.set({
+        versions: this.state.versions.filter((v) => !r.deletedVersions.includes(v.id)),
+        pinnedMediaBytes: r.pinnedMediaBytes,
+        freeableBytes: r.freeableBytes,
+      });
+      this.opts.media?.retryUploads?.();
+      return r.releasedBytes;
     } catch (e) {
-      this.set({ message: `Freed ${done} of ${victims.length}: ${errorText(e)}` });
+      this.set({ message: `Couldn’t free up history. ${errorText(e)}` });
+      return 0;
     } finally {
       this.set({ busy: null });
-      await this.refresh();
+      if (this.state.status === "ready" || this.state.status === "gated") void this.refresh();
     }
-    return done;
   }
 
   // ── Compare ───────────────────────────────────────────────────────────
@@ -950,32 +1030,37 @@ export class HistoryController {
     if (row.tab) this.opts.revealTab?.(row.tab);
   }
 
-  // ── Merge callout ─────────────────────────────────────────────────────
+  // ── Who saved theirs (merge callout, Merge Review) ────────────────────
 
-  /** The version holding a server revision (its head, or within its range). */
-  private async authorOf(revision: number): Promise<ProjectVersion | null> {
+  /**
+   * The version holding a server revision — cheapest first: the loaded list
+   * (no request), then the newest version alone (`limit=1`, the head the 409
+   * named), then the latest few (the head moved on again).
+   */
+  private async authorOf(revision: number, headVersionId: string | null): Promise<ProjectVersion | null> {
+    const match = (list: readonly ProjectVersion[]) =>
+      list.find((x) => (headVersionId ? x.id === headVersionId : false)) ??
+      list.find((x) => x.revision === revision) ??
+      list.find((x) => x.firstRevision <= revision && revision <= x.revision) ??
+      null;
+    const cached = match(this.state.versions);
+    if (cached && (cached.revision === revision || cached.id === headVersionId)) return cached;
     try {
-      const page = await this.opts.api.list({ limit: 10 });
-      return (
-        page.versions.find((x) => x.revision === revision) ??
-        page.versions.find((x) => x.firstRevision <= revision && revision <= x.revision) ??
-        null
-      );
+      const head = await this.opts.api.list({ limit: 1 });
+      const hit = match(head.versions);
+      if (hit) return hit;
+      return match((await this.opts.api.list({ limit: 10 })).versions);
     } catch {
       return null;
     }
   }
 
-  private async resolveMergeAuthor(noticeId: number, revision: number): Promise<void> {
-    try {
-      const v = await this.authorOf(revision);
-      if (!v) return;
-      const client = clientName(v);
-      const who = v.source === "agent" ? `an agent${client ? ` (${client})` : ""}` : `${v.actorName ?? "a teammate"}${client ? ` (${client})` : ""}`;
-      if (this.opts.store.getState().mergeNotice?.id === noticeId) this.set({ mergedFrom: { noticeId, who } });
-    } catch {
-      // The callout says "Merged N changes" without a name.
-    }
+  private async resolveMergeAuthor(noticeId: number, revision: number, headVersionId: string | null): Promise<void> {
+    const v = await this.authorOf(revision, headVersionId);
+    if (!v) return;
+    const client = clientName(v);
+    const who = v.source === "agent" ? `an agent${client ? ` (${client})` : ""}` : `${v.actorName ?? "a teammate"}${client ? ` (${client})` : ""}`;
+    if (this.opts.store.getState().mergeNotice?.id === noticeId) this.set({ mergedFrom: { noticeId, who } });
   }
 
   private async ask(spec: Parameters<NonNullable<HistoryControllerOptions["confirm"]>>[0]): Promise<number> {

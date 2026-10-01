@@ -113,6 +113,24 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
     });
   }, []);
 
+  // History keeping removed media blocked the upload: offer Free up, then the retry.
+  const freeUpAction = useCallback(
+    (kind: ImagePickerKind): PickerStatus["action"] => {
+      if (!media?.historyBlock || !media.canFreeUpHistory) return null;
+      return {
+        title: "Free Up History",
+        run: () => {
+          setKind(kind, { busy: "Freeing up history…" });
+          void media.requestFreeUp().then(() => {
+            const block = media.historyBlock;
+            setKind(kind, block ? { error: block.message, action: freeUpAction(kind) } : null);
+          });
+        },
+      };
+    },
+    [media, setKind],
+  );
+
   const run = useCallback(
     async (kind: ImagePickerKind, task: () => Promise<void>) => {
       setKind(kind, { busy: "Preparing image…" });
@@ -120,10 +138,10 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
         await task();
         setKind(kind, null);
       } catch (error) {
-        setKind(kind, { error: messageOf(error) });
+        setKind(kind, { error: messageOf(error), action: freeUpAction(kind) });
       }
     },
-    [setKind],
+    [setKind, freeUpAction],
   );
 
   const apply = useCallback(

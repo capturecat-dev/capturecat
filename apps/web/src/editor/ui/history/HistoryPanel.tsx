@@ -35,6 +35,7 @@ import {
   type HistoryApi,
   type HistoryState,
 } from "../../state/history";
+import type { ProjectMedia } from "../../state/projectMedia";
 import type { LoadedEditorProject } from "../../state/projectSource";
 import { useEditorStore, type EditorState, type EditorStore } from "../../state/store";
 import {
@@ -81,7 +82,17 @@ export function useProjectHistory(opts: {
       revealTab: (tab) => store.setInspectorTab(tab),
     });
   }, [store, controller, loaded, alerts, api]);
-  useEffect(() => () => history?.dispose(), [history]);
+  useEffect(() => {
+    const media = loaded?.media;
+    if (!history || !media) return () => history?.dispose();
+    // An upload that hits the storage cap because history keeps removed
+    // media frees up through the pane's confirmed Free up, then retries.
+    media.freeUpHandler = () => history.freeUp("upload");
+    return () => {
+      if (media.freeUpHandler) media.freeUpHandler = null;
+      history.dispose();
+    };
+  }, [history, loaded]);
   return history;
 }
 
@@ -461,18 +472,22 @@ function Upsell() {
 
 function HistoryFooter({ history }: { history: HistoryController }) {
   const pinned = useHistory(history, (s) => s.pinnedMediaBytes);
+  const freeable = useHistory(history, (s) => s.freeableBytes);
   const retention = useHistory(history, (s) => s.retention);
   const status = useHistory(history, (s) => s.status);
+  const access = useHistory(history, (s) => s.access);
   const named = useHistory(history, (s) => s.versions.filter((v) => v.label).length);
   const busy = useHistory(history, (s) => s.busy === "free-up");
   if (status !== "ready") return null;
-  if (history.isOwner && pinned > 0) {
+  if (pinned > 0 && (access ?? (history.isOwner ? "owner" : "member")) === "owner") {
     return (
-      <footer className="cc-history__foot">
-        <span>History keeps {formatBytes(pinned)} of removed media</span>
-        <Button size="sm" disabled={busy} onClick={() => void history.freeUp()}>
-          {busy ? "Freeing…" : "Free Up"}
-        </Button>
+      <footer className="cc-history__foot" data-history-footer="">
+        <span title={freeable < pinned ? "Named versions keep the rest" : undefined}>History keeps {formatBytes(pinned)} of removed media</span>
+        {freeable > 0 && (
+          <Button size="sm" disabled={busy} onClick={() => void history.freeUp()}>
+            {busy ? "Freeing…" : `Free Up ${formatBytes(freeable)}`}
+          </Button>
+        )}
       </footer>
     );
   }
@@ -489,8 +504,21 @@ function HistoryFooter({ history }: { history: HistoryController }) {
 // ── Stage callouts ──────────────────────────────────────────────────────
 
 /** Preview + merged callouts for the stage's notice slot (null when neither shows). */
-export function HistoryNotices({ history, store, extra }: { history: HistoryController | null; store: EditorStore; extra?: ReactNode }) {
+export function HistoryNotices({
+  history,
+  store,
+  media,
+  extra,
+}: {
+  history: HistoryController | null;
+  store: EditorStore;
+  /** The project's media: an upload history's storage blocks gets the Free up callout. */
+  media?: ProjectMedia | null;
+  extra?: ReactNode;
+}) {
   const preview = useEditorStore(store, (s) => s.preview);
+  const block = useMediaHistoryBlock(media);
+  const [freeing, setFreeing] = useState(false);
   const notice = useEditorStore(store, (s) => s.mergeNotice);
   const busy = useHistoryOrNull(history, (s) => s.busy);
   const mergedFrom = useHistoryOrNull(history, (s) => s.mergedFrom);
@@ -503,7 +531,7 @@ export function HistoryNotices({ history, store, extra }: { history: HistoryCont
   }, [notice, store]);
 
   const who = notice && mergedFrom?.noticeId === notice.id ? mergedFrom.who : null;
-  if (!preview && !notice && !extra) return null;
+  if (!preview && !notice && !extra && !block) return null;
   return (
     <div className="cc-hnotices">
       {preview && history && (
@@ -513,7 +541,9 @@ export function HistoryNotices({ history, store, extra }: { history: HistoryCont
           title={`Viewing ${preview.title}`}
           message={
             <>
-              Read-only — edits are off while you look.
+              {preview.missingPaths?.length
+                ? `Read-only. ${preview.missingPaths.length === 1 ? "1 file" : `${preview.missingPaths.length} files`} from this version ${preview.missingPaths.length === 1 ? "is" : "are"} no longer stored (${preview.missingPaths.slice(0, 2).join(", ")}${preview.missingPaths.length > 2 ? "…" : ""}).`
+                : "Read-only — edits are off while you look."}
               <span className="cc-hnotice__actions">
                 <Button size="sm" variant="primary" disabled={busy === preview.versionId} onClick={() => void history.restore(preview.versionId)}>
                   Restore
@@ -540,9 +570,44 @@ export function HistoryNotices({ history, store, extra }: { history: HistoryCont
           onDismiss={() => store.dismissMergeNotice()}
         />
       )}
+      {block && (
+        <Callout
+          key="history-storage"
+          variant="warning"
+          title="This upload doesn’t fit your storage"
+          message={
+            <>
+              {block.message}
+              {media?.canFreeUpHistory && (
+                <span className="cc-hnotice__actions">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={freeing}
+                    data-history-free-up=""
+                    onClick={() => {
+                      setFreeing(true);
+                      void media.requestFreeUp().finally(() => setFreeing(false));
+                    }}
+                  >
+                    {freeing ? "Freeing Up…" : "Free Up History"}
+                  </Button>
+                </span>
+              )}
+            </>
+          }
+        />
+      )}
       {extra}
     </div>
   );
+}
+
+/** The upload history's storage is blocking, live. */
+function useMediaHistoryBlock(media: ProjectMedia | null | undefined) {
+  const [, force] = useState(0);
+  useEffect(() => media?.subscribe(() => force((n) => n + 1)), [media]);
+  return media?.historyBlock ?? null;
 }
 
 const noop = () => () => {};

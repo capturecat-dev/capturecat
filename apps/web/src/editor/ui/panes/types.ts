@@ -117,6 +117,8 @@ export interface PickerStatus {
   /** In progress ("Uploading image…"). */
   busy?: string | null;
   error?: string | null;
+  /** A way out of the error (history keeping removed media → "Free Up History"). */
+  action?: { title: string; run: () => void } | null;
 }
 
 /** One tile of the Background pane's image grids (pads.tsx WallpaperItem). */

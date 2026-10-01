@@ -20,6 +20,13 @@
  *   settled()       resolves once every upload has finished — the page's
  *                   project.json save waits for it, so the cloud document
  *                   never references a file the cloud does not have yet.
+ *   storage cap     an upload refused 413 `storage_limit_reached` while
+ *                   history keeps removed media (every version pins its
+ *                   media — docs/project-history.md §6) fails with a
+ *                   HistoryStorageError ("History is keeping the old
+ *                   recording — Free up history to replace it");
+ *                   `requestFreeUp()` frees history (the page wires the
+ *                   History pane's confirmed Free up) and retries.
  *   bindEngine(…)   pushes the engine's media map (EngineClient.setMediaFiles)
  *                   whenever URLs refresh, a file is added, or an edit
  *                   references a file the engine was not told about; and
@@ -29,7 +36,7 @@ import type { Project } from "../core/model";
 import { refsOf } from "../engine/media/assets";
 import { commitCloudFiles } from "../record/publish";
 import { sha256Blob } from "../record/sha256";
-import { resolveMediaRef, type LoadedCloudProject, type ManifestFile, type MediaUrls } from "./cloud";
+import { CloudApiError, freeUpHistory, listProjectVersions, resolveMediaRef, type LoadedCloudProject, type ManifestFile, type MediaUrls } from "./cloud";
 import { projectFilePath } from "./imageImport";
 import { MediaUrlRefresher } from "./mediaRefresh";
 
@@ -49,6 +56,44 @@ export interface SessionFile {
   error?: string;
   /** The upload's original error (a CloudApiError keeps its status for retry decisions). */
   cause?: unknown;
+}
+
+/**
+ * An upload the storage cap refused because history keeps media the project
+ * dropped (pinned media still counts toward the owner's storage). Still a
+ * 413 `storage_limit_reached` CloudApiError — with the message a person
+ * acts on and what Free up would release.
+ */
+export class HistoryStorageError extends CloudApiError {
+  /** What Free up would release (bytes), as the list said. */
+  readonly freeableBytes: number;
+  /** "recording" / "voice over" / "image" when the upload replaces a file of that kind. */
+  readonly replaces: string | null;
+
+  constructor(cause: CloudApiError, info: { freeableBytes: number; replaces: string | null }) {
+    super(cause.status, { ...cause.body, error: historyStorageMessage(info) });
+    this.name = "HistoryStorageError";
+    this.freeableBytes = info.freeableBytes;
+    this.replaces = info.replaces;
+  }
+}
+
+function historyStorageMessage(info: { freeableBytes: number; replaces: string | null }): string {
+  if (info.replaces) return `History is keeping the old ${info.replaces} — Free up history to replace it.`;
+  return `History is keeping ${formatSize(info.freeableBytes)} of removed media — Free up history to make room.`;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function kindOf(contentType: string): string {
+  if (contentType.startsWith("video/")) return "recording";
+  if (contentType.startsWith("audio/")) return "voice over";
+  if (contentType.startsWith("image/")) return "image";
+  return "file";
 }
 
 /** What the engine needs (EngineClient.setMediaFiles). */
@@ -84,6 +129,10 @@ export interface ProjectMediaOptions {
   /** Upload override (tests). */
   commitFiles?: typeof commitCloudFiles;
   createObjectURL?: (blob: Blob) => string;
+  /** History's freeable bytes (default: GET …/versions?limit=1). */
+  historyStats?: () => Promise<{ freeableBytes: number }>;
+  /** Free up when no page handler is wired (default: POST …/history/free-up). */
+  freeUp?: () => Promise<unknown>;
 }
 
 /** Files every project folder may hold that an added image must not shadow. */
@@ -98,6 +147,13 @@ export class ProjectMedia {
   private readonly localUrl: ((ref: string) => string | undefined) | null;
   private readonly commit: typeof commitCloudFiles;
   private readonly objectURL: (blob: Blob) => string;
+  private readonly historyStats: () => Promise<{ freeableBytes: number }>;
+  private readonly freeUpDirect: () => Promise<unknown>;
+  /**
+   * The page's Free up (the History pane's confirm + POST + refresh), set
+   * while History is available; resolves with the bytes released.
+   */
+  freeUpHandler: (() => Promise<number>) | null = null;
   private session = new Map<string, SessionFile>();
   /** A previewed version's manifest (History): consulted before everything else. */
   private override: Pick<MediaUrls, "media" | "sources"> | null = null;
@@ -113,6 +169,8 @@ export class ProjectMedia {
     this.localUrl = opts.localUrl ?? null;
     this.commit = opts.commitFiles ?? commitCloudFiles;
     this.objectURL = opts.createObjectURL ?? ((blob) => URL.createObjectURL(blob));
+    this.historyStats = opts.historyStats ?? (() => listProjectVersions(opts.projectId, { limit: 1 }));
+    this.freeUpDirect = opts.freeUp ?? (() => freeUpHistory(opts.projectId));
     this.refresher =
       opts.refresher ??
       (opts.origin === "cloud" && opts.cloud
@@ -191,6 +249,11 @@ export class ProjectMedia {
   /** New files can be added (a team member cannot change a project's media). */
   get canAddFiles(): boolean {
     return this.origin === "local" || this.cloudAccess === "owner";
+  }
+
+  /** History can be freed from here (POST …/history/free-up is the owner's). */
+  get canFreeUpHistory(): boolean {
+    return this.origin === "cloud" && this.cloudAccess === "owner";
   }
 
   /** Files added this session live only in this tab (a local project's folder is read-only). */
@@ -352,7 +415,8 @@ export class ProjectMedia {
       // Pick up the committed files' presigned URLs (and their sha/paths for
       // the next manifest). The session's object URLs keep serving them.
       void this.refresher?.refreshNow();
-    } catch (error) {
+    } catch (raw) {
+      const error = await this.explainUploadError(raw, batch);
       const message = error instanceof Error ? error.message : String(error);
       for (const f of batch) {
         f.state = "failed";
@@ -363,6 +427,56 @@ export class ProjectMedia {
       this.pending = Math.max(0, this.pending - 1);
       this.emit();
     }
+  }
+
+  // ── Storage cap vs history ────────────────────────────────────────────
+
+  /**
+   * A 413 `storage_limit_reached` while history keeps removed media → a
+   * HistoryStorageError (replacing a file → "History is keeping the old
+   * recording…"). Any other error passes through.
+   */
+  private async explainUploadError(error: unknown, batch: SessionFile[]): Promise<unknown> {
+    if (!(error instanceof CloudApiError) || error.status !== 413 || error.code !== "storage_limit_reached") return error;
+    const live = Object.values(this.urls?.media ?? {});
+    const replaced = batch.find((f) => live.some((m) => m.path.toLowerCase() === f.path.toLowerCase() && m.sha256 !== f.sha256));
+    let freeableBytes = 0;
+    try {
+      freeableBytes = (await this.historyStats()).freeableBytes;
+    } catch {
+      // unknown — only a replacement still says why
+    }
+    if (!replaced && freeableBytes <= 0) return error;
+    return new HistoryStorageError(error, { freeableBytes, replaces: replaced ? kindOf(replaced.contentType) : null });
+  }
+
+  /** The first upload history's storage is blocking (the stage callout / picker / voice-over action). */
+  get historyBlock(): HistoryStorageError | null {
+    for (const f of this.session.values()) if (f.state === "failed" && f.cause instanceof HistoryStorageError) return f.cause;
+    return null;
+  }
+
+  /** Upload every failed file again (after Free up). */
+  retryUploads(): void {
+    if (![...this.session.values()].some((f) => f.state === "failed")) return;
+    this.pending++;
+    const job = this.queue.then(() => this.upload());
+    this.queue = job.catch(() => undefined);
+    this.emit();
+  }
+
+  /**
+   * "Free up history" from an upload that hit the cap: the page's handler
+   * (confirmed in the History pane's words), else the route directly; then
+   * the failed uploads retry. Resolves once they have settled.
+   */
+  async requestFreeUp(): Promise<void> {
+    if (this.freeUpHandler) await this.freeUpHandler();
+    else {
+      await this.freeUpDirect();
+      this.retryUploads();
+    }
+    await this.settled();
   }
 
   // ── Engine ────────────────────────────────────────────────────────────
