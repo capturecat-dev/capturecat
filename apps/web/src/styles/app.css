@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+/* The signed-in dashboard's motion + empty-state recreations. */
+@import "./dashboard.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -338,6 +340,8 @@
   cursor: not-allowed;
 }
 textarea.studio-input {
+  /* Block: an inline textarea leaves a descender gap under itself. */
+  display: block;
   height: auto;
   border-radius: 1.125rem;
   padding: 0.625rem 0.875rem;

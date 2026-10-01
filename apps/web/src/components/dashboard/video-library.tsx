@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowUpDown,
+  CircleIcon,
+  Download,
   HardDrive,
   LayoutGrid,
   ListVideo,
@@ -9,11 +11,11 @@ import {
   Rows3,
   Search,
   Trash2,
-  Video as VideoIcon,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { SITE_URL } from "@/lib/api-url";
 import { trpc } from "@/lib/trpc/client";
 import { cn } from "@/lib/utils";
 import {
@@ -26,15 +28,10 @@ import type { DashboardVideo } from "@/components/dashboard/video-types";
 import { formatSize } from "@/components/dashboard/video-format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LibrarySkeleton } from "@/components/dashboard/page-skeletons";
-import { PageHeader } from "@/components/dashboard/studio";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { LibrarySkeleton, MEDIA_GRID } from "@/components/dashboard/page-skeletons";
+import { EmptyStage, LiveDot, Meter, PageHeader } from "@/components/dashboard/studio";
+import { LibraryArt } from "@/components/dashboard/empty-art";
+import { usePill } from "@/components/dashboard/motion";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -93,17 +90,10 @@ function StorageMeter({
 }) {
   if (!limitBytes) return null;
   const ratio = Math.min(1, usedBytes / limitBytes);
-  const barColor =
-    ratio >= 0.95 ? "bg-red-500" : ratio >= 0.8 ? "bg-amber-500" : "bg-primary";
   return (
-    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+    <div className="flex items-center gap-3 rounded-full border border-white/8 bg-white/[0.03] py-1.5 pl-3 pr-3.5 text-xs text-muted-foreground">
       <HardDrive className="size-3.5 shrink-0" />
-      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-white/10">
-        <div
-          className={cn("h-full rounded-full transition-[width]", barColor)}
-          style={{ width: `${Math.max(1, ratio * 100)}%` }}
-        />
-      </div>
+      <Meter value={Math.max(0.01, ratio)} className="w-28" />
       <span className="tabular-nums">
         {formatSize(usedBytes)} / {formatSize(limitBytes)}
       </span>
@@ -165,6 +155,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
   const [searchQ, setSearchQ] = useState("");
   const [sort, setSort] = useState<SortKey>("newest");
   const [view, setView] = useState<"grid" | "list">("grid");
+  const viewPill = usePill<HTMLDivElement>(view);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteTargets, setDeleteTargets] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
@@ -252,17 +243,30 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
 
   if (allItems.length === 0 && activeUploads.length === 0) {
     return (
-      <Empty className="glass-panel hairline-top min-h-[420px] border-dashed border-white/12">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <VideoIcon />
-          </EmptyMedia>
-          <EmptyTitle>No videos yet</EmptyTitle>
-          <EmptyDescription>
-            Record and share a video from the CaptureCat app to see it here.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <div className="space-y-6">
+        <PageHeader eyebrow="Library" title="Your videos" description="Everything you share lands here." />
+        <section className="glass-panel hairline-top studio-panel dsh-rise overflow-hidden">
+          <EmptyStage
+            art={<LibraryArt />}
+            title="No videos yet"
+            description="Record and share a video from the CaptureCat app to see it here."
+            actions={
+              <>
+                <Button size="sm" className="bg-red-500 text-white hover:bg-red-500/90" asChild>
+                  <Link to="/app/record">
+                    <CircleIcon className="fill-current" /> Record in the browser
+                  </Link>
+                </Button>
+                <Button size="sm" variant="outline" asChild>
+                  <a href={`${SITE_URL}/download`}>
+                    <Download /> Get the Mac app
+                  </a>
+                </Button>
+              </>
+            }
+          />
+        </section>
+      </div>
     );
   }
 
@@ -294,10 +298,16 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
             : "Your videos"
         }
         description={
-          <>
-            {items.length} video{items.length === 1 ? "" : "s"}
-            {activeUploads.length > 0 && ` · ${activeUploads.length} uploading`}
-          </>
+          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="tabular-nums">
+              {items.length} video{items.length === 1 ? "" : "s"}
+            </span>
+            {activeUploads.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-cyan-200/90">
+                <LiveDot /> {activeUploads.length} uploading
+              </span>
+            )}
+          </span>
         }
         meta={
           <StorageMeter
@@ -308,14 +318,14 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
       />
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="dsh-rise flex flex-wrap items-center gap-2" style={{ "--i": 3 } as CSSProperties}>
         <div className="relative min-w-52 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchQ}
             onChange={(e) => setSearchQ(e.target.value)}
             placeholder="Search titles and transcripts…"
-            className="rounded-full border-white/10 bg-white/[0.04] pl-9 backdrop-blur-xl"
+            className="rounded-full border-white/10 bg-white/[0.04] pl-9 backdrop-blur-xl transition-colors hover:border-white/16 focus-visible:border-cyan-300/40"
           />
           {searchQ && (
             <button
@@ -345,23 +355,30 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="flex overflow-hidden rounded-full border border-white/10 bg-white/[0.04]">
+        {/* Grid / list: ONE pill that springs between the two keys. */}
+        <div
+          ref={viewPill.hostRef}
+          className="relative flex rounded-full border border-white/10 bg-white/[0.04] p-0.5"
+        >
+          {viewPill.pillStyle && <span aria-hidden className="dsh-pill" style={viewPill.pillStyle} />}
           <button
             aria-label="Grid view"
+            data-pill-key="grid"
             onClick={() => setView("grid")}
             className={cn(
-              "px-3 py-1.5 transition-colors",
-              view === "grid" ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+              "relative rounded-full px-3 py-1.5 transition-colors duration-200",
+              view === "grid" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <LayoutGrid className="size-4" />
           </button>
           <button
             aria-label="List view"
+            data-pill-key="list"
             onClick={() => setView("list")}
             className={cn(
-              "px-3 py-1.5 transition-colors",
-              view === "list" ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+              "relative rounded-full px-3 py-1.5 transition-colors duration-200",
+              view === "list" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Rows3 className="size-4" />
@@ -370,14 +387,14 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
       </div>
 
       {/* Playlist chips */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="dsh-rise flex flex-wrap items-center gap-2" style={{ "--i": 4 } as CSSProperties}>
         <button
           onClick={() => void navigate({ to: "/app", search: {} })}
           className={cn(
-            "rounded-full px-3 py-1 text-sm transition-colors",
+            "rounded-full border px-3 py-1 text-sm transition-colors duration-200",
             !selectedPlaylist
-              ? "bg-primary text-primary-foreground"
-              : "bg-white/[0.06] text-muted-foreground hover:text-foreground"
+              ? "border-transparent bg-primary text-primary-foreground"
+              : "border-white/8 bg-white/[0.04] text-muted-foreground hover:border-white/14 hover:text-foreground"
           )}
         >
           All videos
@@ -393,15 +410,15 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
               })
             }
             className={cn(
-              "rounded-full px-3 py-1 text-sm transition-colors",
+              "rounded-full border px-3 py-1 text-sm transition-colors duration-200",
               playlistFilter === p.playlistId
-                ? "bg-primary text-primary-foreground"
-                : "bg-white/[0.06] text-muted-foreground hover:text-foreground"
+                ? "border-transparent bg-primary text-primary-foreground"
+                : "border-white/8 bg-white/[0.04] text-muted-foreground hover:border-white/14 hover:text-foreground"
             )}
           >
             {p.emoji ? `${p.emoji} ` : ""}
             {p.name}
-            <span className="ml-1 opacity-60">{p.videoIds.length}</span>
+            <span className="ml-1 tabular-nums opacity-60">{p.videoIds.length}</span>
           </button>
         ))}
         {creatingPlaylist ? (
@@ -429,7 +446,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
         ) : (
           <button
             onClick={() => setCreatingPlaylist(true)}
-            className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/12 px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-white/25 hover:text-foreground"
           >
             <Plus className="size-3.5" /> New playlist
           </button>
@@ -451,8 +468,9 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
 
       {/* Transcript matches */}
       {searchQ.trim().length >= 2 && (
-        <div className="glass-panel hairline-top p-4 text-sm">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="glass-panel hairline-top studio-panel dsh-rise p-4 text-sm">
+          <p className="studio-eyebrow mb-2 flex items-center gap-2">
+            {transcriptSearch.isFetching && <LiveDot />}
             Transcript matches
           </p>
           {(transcriptSearch.data?.results ?? []).length === 0 ? (
@@ -492,7 +510,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
 
       {/* Content */}
       {view === "grid" ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className={MEDIA_GRID}>
           {activeUploads.map((job) => (
             <UploadingCard
               key={job.jobId}
@@ -502,8 +520,8 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
               completing={job.state === "completing"}
             />
           ))}
-          {items.map((v) => (
-            <VideoCard key={v.videoId} {...cardProps(v)} />
+          {items.map((v, i) => (
+            <VideoCard key={v.videoId} {...cardProps(v)} index={i + activeUploads.length} />
           ))}
         </div>
       ) : (
@@ -522,8 +540,9 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
 
       {/* Bulk-selection bar — above the recording bar docked on every page. */}
       {selectedIds.size > 0 && (
-        <div className="fixed inset-x-0 bottom-[6.5rem] z-50 mx-auto flex w-fit items-center gap-3 rounded-full border border-white/12 bg-background/80 px-4 py-2 shadow-2xl backdrop-blur-2xl">
-          <span className="text-sm tabular-nums">
+        <div className="dsh-dock-in fixed inset-x-0 bottom-[6.5rem] z-50 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-3 rounded-full border border-white/12 bg-[#1b1b1e]/90 px-4 py-2 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl">
+          <span className="inline-flex items-center gap-2 text-sm tabular-nums">
+            <span aria-hidden className="size-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(103,232,249,0.8)]" />
             {selectedIds.size} selected
           </span>
           {playlists.length > 0 && (

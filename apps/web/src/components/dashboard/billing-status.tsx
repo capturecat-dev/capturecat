@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { CreditCard, HardDrive, Heart, Sparkles } from "lucide-react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { Check, CreditCard, Gauge, HardDrive, Heart, Sparkles } from "lucide-react";
 import { API_URL } from "@/lib/api-url";
 import { toast } from "sonner";
 
@@ -7,7 +7,7 @@ import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { BillingSkeleton } from "@/components/dashboard/page-skeletons";
 import { formatSize } from "@/components/dashboard/video-format";
-import { Panel, PlanChip, Section, Sections } from "@/components/dashboard/studio";
+import { IconKey, LiveDot, Meter, Panel, PlanChip, Section, Sections } from "@/components/dashboard/studio";
 
 type PublicPlans = {
   available?: boolean;
@@ -97,18 +97,33 @@ export function BillingStatus({ success }: { success: boolean }) {
   return (
     <div className="space-y-4">
       {success && (
-        <Panel className="border-emerald-400/30 bg-emerald-400/[0.06]" padding="px-5 py-4">
-          <p className="text-sm text-emerald-300">
-            Payment successful — your account is on Pro. Thank you: $5 of your
-            subscription goes directly to people in need.
+        <Panel className="dsh-pop max-w-3xl border-emerald-400/30! bg-emerald-400/[0.07]!" padding="px-5 py-4">
+          <p className="flex items-start gap-3 text-sm text-emerald-300">
+            <IconKey className="border-emerald-300/30 text-emerald-300">
+              <Check />
+            </IconKey>
+            <span className="pt-1">
+              Payment successful — your account is on Pro. Thank you: $5 of your
+              subscription goes directly to people in need.
+            </span>
           </p>
         </Panel>
       )}
 
       <Sections className="max-w-3xl">
         <Section
+          icon={<Sparkles />}
           title="Current plan"
-          badge={isPaid ? <PlanChip plan="pro" /> : undefined}
+          badge={
+            isPaid ? (
+              <span className="inline-flex items-center gap-2">
+                <PlanChip plan="pro" />
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-300">
+                  <LiveDot tone="green" className="size-1.5" /> Active
+                </span>
+              </span>
+            ) : undefined
+          }
           description={
             isPaid
               ? "Cloud sharing, comments, analytics, AI summaries, team libraries, and custom domains."
@@ -147,20 +162,14 @@ export function BillingStatus({ success }: { success: boolean }) {
           {limit > 0 ? (
             <>
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-2xl font-semibold tabular-nums tracking-[-0.02em]">
+                <span className="text-[28px] font-semibold leading-none tabular-nums tracking-[-0.025em]">
                   {formatSize(used)}
                 </span>
-                <span className="text-xs text-muted-foreground tabular-nums">of {formatSize(limit)}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {Math.round(ratio * 100)}% of {formatSize(limit)}
+                </span>
               </div>
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className={
-                    "h-full rounded-full transition-[width] " +
-                    (ratio >= 0.95 ? "bg-red-500" : ratio >= 0.8 ? "bg-amber-500" : "bg-primary")
-                  }
-                  style={{ width: `${Math.max(used > 0 ? 1 : 0, ratio * 100)}%` }}
-                />
-              </div>
+              <Meter value={used > 0 ? Math.max(0.01, ratio) : 0} className="mt-4 h-2" />
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -170,17 +179,17 @@ export function BillingStatus({ success }: { success: boolean }) {
         </Section>
 
         {!isPaid && pro?.limits && (
-          <Section title="What Pro includes">
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+          <Section icon={<Gauge />} title="What Pro includes">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
               {[
                 ["Cloud storage", formatSize(pro.limits.maxTotalStorageBytes ?? 0)],
                 ["Per video", formatSize(pro.limits.maxFileSizeBytes ?? 0)],
                 ["Max length", `${Math.round((pro.limits.maxDurationSeconds ?? 0) / 60)} min`],
                 ["Shares per day", String(pro.limits.maxUploadsPerDay ?? 0)],
-              ].map(([label, value]) => (
-                <div key={label}>
+              ].map(([label, value], i) => (
+                <div key={label} className="dsh-rise" style={{ "--i": i + 2 } as CSSProperties}>
                   <dt className="studio-eyebrow">{label}</dt>
-                  <dd className="mt-1 text-lg font-semibold tabular-nums tracking-[-0.02em]">{value}</dd>
+                  <dd className="mt-1 text-xl font-semibold tabular-nums tracking-[-0.02em]">{value}</dd>
                 </div>
               ))}
             </dl>

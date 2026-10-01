@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { toast } from "sonner";
 import {
   BadgeCheck,
   Copy,
   KeyRound,
+  PlayIcon,
   ShieldCheck,
   Trash2,
   UserPlus,
@@ -17,9 +18,61 @@ import { trpc } from "@/lib/trpc/client";
 import type { SsoProvider } from "@/lib/trpc/routers/sso";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TeamAvatar } from "@/components/dashboard/team-avatar";
 import { TeamSkeleton, SkeletonLines } from "@/components/dashboard/page-skeletons";
-import { EmptyNote, Field, Panel, PlanChip, Row, Section, Sections, UpgradeNote } from "@/components/dashboard/studio";
+import {
+  EmptyStage,
+  Field,
+  LiveDot,
+  Panel,
+  PlanChip,
+  Row,
+  Section,
+  Sections,
+  UpgradeNote,
+} from "@/components/dashboard/studio";
+import { LibraryArt, SsoArt, TeamArt } from "@/components/dashboard/empty-art";
+import { cn } from "@/lib/utils";
+
+/** A teammate: initials on a hue derived from their name (TeamAvatar's
+ *  recipe), round where the team's mark is square. */
+function PersonAvatar({ name }: { name: string }) {
+  const initials = name
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("");
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const hue = hash % 360;
+  return (
+    <span
+      aria-hidden
+      className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]"
+      style={{ background: `linear-gradient(135deg, hsl(${hue} 70% 55%), hsl(${(hue + 40) % 360} 65% 42%))` }}
+    >
+      {initials || "?"}
+    </span>
+  );
+}
+
+/** Member rows while the organization loads — the rows' own height. */
+function MemberRowsSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 3 }, (_, i) => (
+        <Skeleton key={i} className="h-[50px] w-full rounded-[0.875rem]" />
+      ))}
+    </>
+  );
+}
+
+const ROLE_BADGE: Record<string, string> = {
+  owner: "border-cyan-300/30 bg-cyan-400/10 text-cyan-200",
+  admin: "border-violet-300/25 bg-violet-400/10 text-violet-200",
+};
 
 /**
  * Teams — members and the shared library ride the Better Auth organization
@@ -82,8 +135,14 @@ function CreateTeamCard() {
       title="Create your team"
       description="A shared library for your company’s recordings — invite teammates, collect every share in one place, and (on Business) bring your own single sign-on."
     >
+      <EmptyStage
+        compact
+        art={<TeamArt />}
+        title="Everyone’s shares, one library"
+        description="Name your team, then invite teammates with a link. Their shared videos collect here."
+      />
       <form
-        className="flex gap-2"
+        className="mt-4 flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           void create();
@@ -114,13 +173,23 @@ function TeamDetail({ orgId, orgName }: { orgId: string; orgName: string }) {
     if (data) setFull(data as unknown as FullOrg);
   }, [orgId]);
 
+  // Settled = the first members fetch finished, with or without data (a
+  // failed fetch still shows the page, as before, with members loading).
+  const [membersSettled, setMembersSettled] = useState(false);
   useEffect(() => {
-    void refresh();
+    void refresh().finally(() => setMembersSettled(true));
   }, [refresh]);
+
+  const library = useTeamLibrary(orgId);
 
   const myRole =
     full?.members.find((m) => m.user.id === session?.user.id)?.role ?? "member";
   const canManage = myRole === "owner" || myRole === "admin";
+
+  // One skeleton until the members AND the team library are in, then the
+  // whole surface lands at once — groups growing one after another would
+  // push the ones below them down (layout shift).
+  if (!membersSettled || !library.loaded) return <TeamSkeleton />;
 
   return (
     <Sections className="max-w-3xl">
@@ -131,7 +200,7 @@ function TeamDetail({ orgId, orgName }: { orgId: string; orgName: string }) {
         canManage={canManage}
         refresh={refresh}
       />
-      <TeamLibraryCard orgId={orgId} />
+      <TeamLibraryCard videos={library.videos} loaded={library.loaded} />
       {canManage && <SsoCard orgId={orgId} />}
     </Sections>
   );
@@ -195,15 +264,21 @@ function MembersCard({
       actions={canManage ? <LogoUploadButton orgId={orgId} onUploaded={refresh} /> : undefined}
     >
       <div className="space-y-2">
-        {!full && <SkeletonLines lines={3} />}
-        {(full?.members ?? []).map((m) => (
-          <Row key={m.id}>
-            <div className="min-w-0">
-              <span className="truncate text-sm">{m.user.name || m.user.email}</span>
-              <span className="ml-2 text-xs text-muted-foreground">{m.user.email}</span>
+        {!full && <MemberRowsSkeleton />}
+        {(full?.members ?? []).map((m, i) => (
+          <Row key={m.id} className="dsh-rise" index={i}>
+            <div className="flex min-w-0 items-center gap-3">
+              <PersonAvatar name={m.user.name || m.user.email} />
+              <div className="min-w-0">
+                <span className="block truncate text-sm">{m.user.name || m.user.email}</span>
+                <span className="block truncate text-xs text-muted-foreground">{m.user.email}</span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={m.role === "owner" ? "default" : "secondary"} className="text-[10px]">
+              <Badge
+                variant="outline"
+                className={cn("text-[10px] capitalize", ROLE_BADGE[m.role] ?? "border-white/12 bg-white/[0.04] text-muted-foreground")}
+              >
                 {m.role}
               </Badge>
               {canManage && m.role !== "owner" && (
@@ -228,10 +303,14 @@ function MembersCard({
         ))}
 
         {pending.map((i) => (
-          <Row key={i.id} dashed>
-            <div className="min-w-0">
+          <Row key={i.id} dashed className="dsh-rise">
+            <div className="flex min-w-0 items-center gap-3">
+              <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full border border-dashed border-white/25 text-muted-foreground">
+                <UserPlus className="size-3.5" />
+              </span>
               <span className="truncate text-sm">{i.email}</span>
-              <Badge variant="outline" className="ml-2 text-[10px]">
+              <Badge variant="outline" className="gap-1.5 border-amber-400/25 bg-amber-400/10 text-[10px] text-amber-200">
+                <LiveDot tone="amber" className="size-1.5" />
                 invited
               </Badge>
             </div>
@@ -338,10 +417,11 @@ function LogoUploadButton({
   );
 }
 
-function TeamLibraryCard({ orgId }: { orgId: string }) {
-  const [videos, setVideos] = useState<
-    Array<{ videoId: string; fileName: string; createdAt: string; url: string }>
-  >([]);
+type TeamVideo = { videoId: string; fileName: string; createdAt: string; url: string };
+
+/** The team's shared videos (the API's REST route, credentialed). */
+function useTeamLibrary(orgId: string) {
+  const [videos, setVideos] = useState<TeamVideo[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -363,6 +443,10 @@ function TeamLibraryCard({ orgId }: { orgId: string }) {
     };
   }, [orgId]);
 
+  return { videos, loaded };
+}
+
+function TeamLibraryCard({ videos, loaded }: { videos: TeamVideo[]; loaded: boolean }) {
   return (
     <Section
       icon={<Video />}
@@ -372,10 +456,32 @@ function TeamLibraryCard({ orgId }: { orgId: string }) {
     >
       <div className="space-y-2">
         {!loaded && <SkeletonLines lines={2} />}
-        {loaded && videos.length === 0 && <EmptyNote>Nothing here yet.</EmptyNote>}
-        {videos.map((v) => (
-          <a key={v.videoId} href={v.url} target="_blank" rel="noreferrer" className="studio-row">
-            <span className="truncate text-sm">{v.fileName}</span>
+        {loaded && videos.length === 0 && (
+          <EmptyStage
+            compact
+            art={<LibraryArt />}
+            title="Nothing here yet."
+            description="Shares added to the team land here for everyone in it."
+          />
+        )}
+        {videos.map((v, i) => (
+          <a
+            key={v.videoId}
+            href={v.url}
+            target="_blank"
+            rel="noreferrer"
+            className="studio-row dsh-rise group"
+            style={{ "--i": i } as CSSProperties}
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <span
+                aria-hidden
+                className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05] text-white/70 transition-colors group-hover:text-white"
+              >
+                <PlayIcon className="size-3 fill-current" />
+              </span>
+              <span className="truncate text-sm">{v.fileName}</span>
+            </span>
             <span className="text-xs text-muted-foreground tabular-nums">
               {new Date(v.createdAt).toLocaleDateString()}
             </span>
@@ -448,19 +554,24 @@ function ProviderRow({
   });
 
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.025]">
+    <div className="dsh-rise rounded-[0.875rem] border border-white/8 bg-white/[0.025]">
       <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
+          {provider.domainVerified ? (
+            <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
+          ) : (
+            <LiveDot tone="amber" className="size-1.5" />
+          )}
           <span className="truncate text-sm">{provider.domain}</span>
           <Badge variant="outline" className="text-[10px] uppercase">
             {provider.type}
           </Badge>
           {provider.domainVerified ? (
-            <Badge className="gap-1 text-[10px]">
+            <Badge variant="outline" className="gap-1 border-emerald-400/25 bg-emerald-400/10 text-[10px] text-emerald-300">
               <BadgeCheck /> verified
             </Badge>
           ) : (
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="outline" className="border-amber-400/25 bg-amber-400/10 text-[10px] text-amber-200">
               pending DNS
             </Badge>
           )}
@@ -623,7 +734,12 @@ function SsoCard({ orgId }: { orgId: string }) {
       ) : (
         <div className="space-y-4">
           {providers.length === 0 && !adding ? (
-            <EmptyNote>No identity provider connected yet.</EmptyNote>
+            <EmptyStage
+              compact
+              art={<SsoArt />}
+              title="No identity provider connected yet."
+              description="Once it’s connected, teammates on your email domain sign in with one press and join this team."
+            />
           ) : (
             <div className="space-y-2">
               {providers.map((p) => (
@@ -634,7 +750,7 @@ function SsoCard({ orgId }: { orgId: string }) {
 
           {adding && data?.enabled && (
             <form
-              className="space-y-4 rounded-xl border border-white/8 bg-white/[0.025] p-4"
+              className="dsh-rise space-y-4 rounded-[0.875rem] border border-white/8 bg-white/[0.025] p-4"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (canSubmit && !busy) submit();

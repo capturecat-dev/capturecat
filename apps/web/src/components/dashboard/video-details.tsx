@@ -1,25 +1,28 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   BarChart3,
   Copy,
   ExternalLink,
-  Globe,
+  Eye,
   History,
-  Lock,
+  MousePointerClick,
   RotateCcw,
+  ShieldCheck,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { API_URL } from "@/lib/api-url";
+import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc/client";
 import { formatDateTime, formatDuration, formatSize } from "@/components/dashboard/video-format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { VideoDetailSkeleton } from "@/components/dashboard/page-skeletons";
-import { PageHeader } from "@/components/dashboard/studio";
+import { LiveDot, PageHeader, Section, Sections, SettingRow } from "@/components/dashboard/studio";
+import { VisibilityBadge } from "@/components/dashboard/video-card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,24 +33,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 /**
  * Per-video details page — the YouTube-Studio-style home for one share link:
- * preview + link on the right, settings on the left, version history below.
- * Versions exist because a re-share from the app replaces the file at the
- * same link instead of minting a new one.
+ * the preview + link in a media bezel on the right (first on phones), and
+ * the settings as ONE surface on the left — visibility, access, call to
+ * action, version history. Versions exist because a re-share from the app
+ * replaces the file at the same link instead of minting a new one.
  */
-
-
-
 
 export function VideoDetails({ videoId }: { videoId: string }) {
   const utils = trpc.useUtils();
@@ -166,44 +159,67 @@ export function VideoDetails({ videoId }: { videoId: string }) {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        {/* Left column — settings */}
-        <div className="space-y-4">
-          <section className="glass-panel hairline-top p-5">
-            <h2 className="text-sm font-semibold">Visibility</h2>
-            <div className="mt-3 space-y-4">
-              <label className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">Public link</p>
-                  <p className="text-xs text-muted-foreground">
-                    Anyone with the link can watch.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={!video.isPrivate}
-                    onCheckedChange={(checked) =>
-                      setPrivacy.mutate({ videoId: video.videoId, isPrivate: !checked })
-                    }
-                    disabled={setPrivacy.isPending}
-                  />
-                  <Badge variant={video.isPrivate ? "secondary" : "default"} className="text-xs">
-                    {video.isPrivate ? (
-                      <><Lock className="mr-1 h-3 w-3" />Private</>
-                    ) : (
-                      <><Globe className="mr-1 h-3 w-3" />Public</>
-                    )}
-                  </Badge>
-                </div>
-              </label>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        {/* Preview + link — the media itself, in the site's glass bezel.
+            First on phones; beside the settings (and pinned) on wide screens. */}
+        <aside className="dsh-pop min-w-0 max-w-3xl xl:sticky xl:top-20 xl:order-2 xl:max-w-none">
+          <div className="relative rounded-[22px] border border-white/12 bg-white/[0.04] p-1.5 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.85)] backdrop-blur-2xl">
+            <span
+              aria-hidden
+              className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent"
+            />
+            <div className="overflow-hidden rounded-[16px] bg-black">
+              <video
+                key={previewUrl}
+                src={previewUrl}
+                controls
+                playsInline
+                className="aspect-video w-full"
+              />
+            </div>
+            <div className="px-2.5 pb-2 pt-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="studio-eyebrow">Share link</p>
+                <VisibilityBadge isPrivate={video.isPrivate} />
+              </div>
+              <div className="mt-2 flex min-w-0 items-center gap-2">
+                <code className="studio-well block min-w-0 flex-1 truncate px-3 py-2 text-xs">
+                  {video.url}
+                </code>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(video.url);
+                    toast.success("Link copied");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                This link never changes — re-shared edits replace the video in place.
+              </p>
+            </div>
+          </div>
+        </aside>
 
-              <label className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">Allow downloads</p>
-                  <p className="text-xs text-muted-foreground">
-                    Viewers get a download button on the share page.
-                  </p>
-                </div>
+        {/* Settings — ONE surface, hairline-divided sections. */}
+        <Sections className="max-w-3xl xl:order-1 xl:max-w-none">
+          <Section icon={<Eye />} title="Visibility">
+            <div className="divide-y divide-white/8">
+              <SettingRow label="Public link" description="Anyone with the link can watch.">
+                <Switch
+                  checked={!video.isPrivate}
+                  onCheckedChange={(checked) =>
+                    setPrivacy.mutate({ videoId: video.videoId, isPrivate: !checked })
+                  }
+                  disabled={setPrivacy.isPending}
+                />
+              </SettingRow>
+
+              <SettingRow label="Allow downloads" description="Viewers get a download button on the share page.">
                 <Switch
                   checked={video.allowDownload}
                   onCheckedChange={(checked) =>
@@ -211,15 +227,9 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                   }
                   disabled={update.isPending}
                 />
-              </label>
+              </SettingRow>
 
-              <label className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">List on my profile</p>
-                  <p className="text-xs text-muted-foreground">
-                    Show this video on your public profile page.
-                  </p>
-                </div>
+              <SettingRow label="List on my profile" description="Show this video on your public profile page.">
                 <Switch
                   checked={video.profileVisible}
                   onCheckedChange={(checked) =>
@@ -227,15 +237,12 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                   }
                   disabled={update.isPending}
                 />
-              </label>
+              </SettingRow>
 
-              <label className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">Show version history</p>
-                  <p className="text-xs text-muted-foreground">
-                    Viewers can see past versions of this video and play them.
-                  </p>
-                </div>
+              <SettingRow
+                label="Show version history"
+                description="Viewers can see past versions of this video and play them."
+              >
                 <Switch
                   checked={history?.showVersionHistory ?? video.showVersionHistory}
                   onCheckedChange={(checked) =>
@@ -243,30 +250,23 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                   }
                   disabled={update.isPending}
                 />
-              </label>
+              </SettingRow>
             </div>
-          </section>
+          </Section>
 
-          <section className="glass-panel hairline-top p-5">
-            <h2 className="text-sm font-semibold">Access controls</h2>
-            <div className="mt-3 space-y-4">
+          <Section icon={<ShieldCheck />} title="Access controls">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <label className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium">Password</p>
-                    <p className="text-xs text-muted-foreground">
-                      Viewers must enter it before watching.
-                    </p>
-                  </div>
+                <SettingRow label="Password" description="Viewers must enter it before watching.">
                   <Switch checked={effPasswordEnabled} onCheckedChange={setPasswordEnabled} />
-                </label>
+                </SettingRow>
                 {effPasswordEnabled && (
                   <input
                     type="text"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={video.hasPassword ? "Unchanged — type to replace" : "Choose a password"}
-                    className="studio-input"
+                    className="studio-input dsh-rise"
                   />
                 )}
               </div>
@@ -324,15 +324,14 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                 </Button>
               </div>
             </div>
-          </section>
+          </Section>
 
-          <section className="glass-panel hairline-top p-5">
-            <h2 className="text-sm font-semibold">Call to action</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              A button on the share page — clicks are tracked in analytics as a
-              play → watch → click funnel.
-            </p>
-            <div className="mt-3 grid min-w-0 grid-cols-[1fr_1.5fr_auto] gap-2">
+          <Section
+            icon={<MousePointerClick />}
+            title="Call to action"
+            description="A button on the share page — clicks are tracked in analytics as a play → watch → click funnel."
+          >
+            <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[1fr_1.5fr_auto]">
               <input
                 type="text"
                 value={ctaLabel ?? (video.ctaLabel ?? "")}
@@ -348,7 +347,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                 placeholder="https://example.com/demo"
                 className="studio-input"
               />
-              <div className="flex gap-1">
+              <div className="flex justify-end gap-1">
                 <Button
                   size="sm"
                   disabled={update.isPending}
@@ -380,125 +379,77 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                 )}
               </div>
             </div>
-          </section>
+          </Section>
 
-          <section className="glass-panel hairline-top p-5">
-            <div className="flex items-center gap-2">
-              <History className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Version history</h2>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Re-sharing this capture from the app replaces the video at the same
-              link — every previous cut is kept here. Restore one to make it live
-              again, or delete it to free storage.
-            </p>
-            <div className="studio-well mt-3 overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Version</TableHead>
-                    <TableHead className="hidden sm:table-cell">Uploaded</TableHead>
-                    <TableHead className="hidden sm:table-cell">Duration</TableHead>
-                    <TableHead className="hidden md:table-cell">Size</TableHead>
-                    <TableHead className="w-[180px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(history?.versions ?? []).map((v) => (
-                    <TableRow key={v.version}>
-                      <TableCell className="font-medium">
-                        <span className="tabular-nums">v{v.version}</span>
-                        {v.current && (
-                          <Badge className="ml-2 text-xs" variant="default">Live</Badge>
-                        )}
-                        {v.status === "pending" && (
-                          <Badge className="ml-2 text-xs" variant="secondary">Uploading</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">
-                        {formatDateTime(v.createdAt)}
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">
-                        {formatDuration(v.durationSeconds)}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {v.fileSizeBytes > 0 ? formatSize(v.fileSizeBytes) : "—"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {!v.current && v.status === "ready" && (
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={restore.isPending}
-                              onClick={() =>
-                                restore.mutate({ videoId: video.videoId, version: v.version })
-                              }
-                            >
-                              <RotateCcw className="mr-1 h-3.5 w-3.5" /> Restore
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              disabled={deleteVersion.isPending}
-                              onClick={() => setDeleteVersionTarget(v.version)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {(history?.versions ?? []).length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
-                        {history ? "No versions recorded yet." : "Loading…"}
-                      </TableCell>
-                    </TableRow>
+          <Section
+            icon={<History />}
+            title="Version history"
+            description="Re-sharing this capture from the app replaces the video at the same link — every previous cut is kept here. Restore one to make it live again, or delete it to free storage."
+          >
+            <div className="studio-well divide-y divide-white/8 overflow-hidden">
+              {(history?.versions ?? []).map((v, i) => (
+                <div
+                  key={v.version}
+                  className={cn(
+                    "dsh-rise flex items-center gap-3 px-3.5 py-2.5",
+                    v.current && "bg-cyan-400/[0.04]",
                   )}
-                </TableBody>
-              </Table>
+                  style={{ "--i": i } as CSSProperties}
+                >
+                  <span className="w-9 shrink-0 text-sm font-medium tabular-nums">v{v.version}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm">{formatDateTime(v.createdAt)}</span>
+                    <span className="block truncate text-xs tabular-nums text-muted-foreground">
+                      {formatDuration(v.durationSeconds)}
+                      {v.fileSizeBytes > 0 && ` · ${formatSize(v.fileSizeBytes)}`}
+                    </span>
+                  </span>
+                  {v.current && (
+                    <Badge
+                      variant="outline"
+                      className="gap-1.5 border-cyan-300/30 bg-cyan-400/10 text-xs text-cyan-200"
+                    >
+                      <LiveDot className="size-1.5" />
+                      Live
+                    </Badge>
+                  )}
+                  {v.status === "pending" && (
+                    <Badge className="text-xs" variant="secondary">Uploading</Badge>
+                  )}
+                  {!v.current && v.status === "ready" && (
+                    <div className="flex shrink-0 justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={restore.isPending}
+                        onClick={() =>
+                          restore.mutate({ videoId: video.videoId, version: v.version })
+                        }
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 sm:mr-1" />
+                        <span className="sr-only sm:not-sr-only">Restore</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        disabled={deleteVersion.isPending}
+                        onClick={() => setDeleteVersionTarget(v.version)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {(history?.versions ?? []).length === 0 && (
+                <p className="px-3.5 py-4 text-center text-sm text-muted-foreground">
+                  {history ? "No versions recorded yet." : "Loading…"}
+                </p>
+              )}
             </div>
-          </section>
-        </div>
-
-        {/* Right column — preview + link */}
-        <div className="space-y-4">
-          <section className="studio-well overflow-hidden rounded-2xl bg-black">
-            <video
-              key={previewUrl}
-              src={previewUrl}
-              controls
-              playsInline
-              className="aspect-video w-full"
-            />
-          </section>
-
-          <section className="glass-panel hairline-top p-5">
-            <p className="studio-eyebrow">Share link</p>
-            <div className="mt-1 flex min-w-0 items-center gap-2">
-              <code className="studio-well block min-w-0 flex-1 truncate px-3 py-2 text-xs">
-                {video.url}
-              </code>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={() => {
-                  void navigator.clipboard.writeText(video.url);
-                  toast.success("Link copied");
-                }}
-              >
-                <Copy className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              This link never changes — re-shared edits replace the video in place.
-            </p>
-          </section>
-        </div>
+          </Section>
+        </Sections>
       </div>
 
       <AlertDialog

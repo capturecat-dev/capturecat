@@ -11,7 +11,7 @@
  *
  *   /editor-lab/shell   the editor shell + fixtures (see ShellLab.tsx for params)
  *   /editor-lab/open    the REAL editor page, no login (this Mac's projects)
- *   /editor-lab/dashboard  the dashboard's Record / Projects pages, no login
+ *   /editor-lab/dashboard  every signed-in dashboard page, no login (canned data)
  *   /editor-lab/share-test bare getDisplayMedia probes (browser capability checks)
  *
  * It is a SIBLING of the engine's file route /editor-lab (a leaf), not a
