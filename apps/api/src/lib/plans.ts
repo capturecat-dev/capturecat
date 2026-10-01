@@ -70,6 +70,11 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
  *   maxUploadsPerDay        New shares per UTC day. 0 = no uploads.
  *   maxScreenshotsPerMonth  Screenshot API renders per UTC calendar month;
  *                           0 = none.
+ *   maxHistoryDays          Cloud-project history: unnamed versions are kept
+ *                           this many days (lib/project-history.ts). 0 = no
+ *                           cloud history (only the current version).
+ *   maxNamedVersions        Named versions per project, exempt from the day
+ *                           window. 0 = naming is not included.
  */
 export const LIMIT_KEYS = [
   "maxTotalStorageBytes",
@@ -77,6 +82,8 @@ export const LIMIT_KEYS = [
   "maxDurationSeconds",
   "maxUploadsPerDay",
   "maxScreenshotsPerMonth",
+  "maxHistoryDays",
+  "maxNamedVersions",
 ] as const;
 export type LimitKey = (typeof LIMIT_KEYS)[number];
 

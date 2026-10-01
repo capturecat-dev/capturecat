@@ -58,13 +58,20 @@ class Statement {
   }
 }
 
-export function createTestD1() {
+export function createTestD1(options = {}) {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("PRAGMA foreign_keys = ON;"); // D1 enforces foreign keys
+  // `before`: stop at the first migration whose file name sorts at or after
+  // it — to put data in an OLD schema and then `migrate()` the next file.
   for (const file of readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort()) {
+    if (options.before && file >= options.before) break;
     sqlite.exec(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
   }
   return {
+    /** Test helper: apply one migration file (by name) now. */
+    migrate(file) {
+      sqlite.exec(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
+    },
     prepare(sql) {
       return new Statement(sqlite, sql);
     },

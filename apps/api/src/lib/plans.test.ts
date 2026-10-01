@@ -66,6 +66,8 @@ describe("stored plan JSON (lenient, deny-by-default)", () => {
       maxDurationSeconds: 1800,
       maxUploadsPerDay: 10,
       maxScreenshotsPerMonth: 0,
+      maxHistoryDays: 0,
+      maxNamedVersions: 0,
     });
   });
 });
