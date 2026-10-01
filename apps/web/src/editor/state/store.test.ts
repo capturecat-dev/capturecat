@@ -4,7 +4,8 @@ import { newProject, newSpeedRegion, newZoomRegion, parseProjectText, serializeP
 import { deepClone, reconcile } from "./draft";
 import * as E from "./edits";
 import { EMPTY_SELECTION } from "./selection";
-import { EditorStore, type Persistence, type SaveResult } from "./store";
+import { decodeChangeHeader, diff, encodeChangeHeader } from "../core/merge";
+import { EditorStore, type Persistence, type SaveMeta, type SaveResult } from "./store";
 import { timelineSnapshot } from "./timeline";
 
 function fixture(mut?: (p: Project) => void): string {
@@ -126,7 +127,8 @@ describe("EditorStore — cloud autosave", () => {
     expect(JSON.parse(calls[0][0]).settings.backgroundPadding).toBe(13);
     expect(store.getState()).toMatchObject({ sync: "saved", revision: 2, dirty: false });
 
-    next = { ok: false, conflict: true, revision: 5, document: fixture(), updatedAt: "now" };
+    // No server document → no merge base: the two-way Keep mine / Load theirs fallback.
+    next = { ok: false, conflict: true, revision: 5, document: null, updatedAt: "now" };
     store.updateSettings({ backgroundPadding: 30 });
     await vi.advanceTimersByTimeAsync(900);
     expect(store.getState().sync).toBe("conflict");
@@ -235,5 +237,220 @@ describe("timeline edits (TimelineViewController rules)", () => {
       [0, 2, 2, "4s · 2x"],
       [2, 18, 1, "16s · 1x"],
     ]);
+  });
+});
+
+// ── Project history (docs/project-history.md §7) ──────────────────────────
+
+describe("EditorStore — project history", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const T = Date.parse("2026-09-30T12:00:00.000Z");
+  type Call = { doc: string; rev: number; meta: SaveMeta | undefined };
+
+  /** A cloud store at revision 1 whose saves are recorded and answered by `answer`. */
+  function cloud(text: string, answer: (call: Call, n: number) => SaveResult, clock = () => T) {
+    const calls: Call[] = [];
+    const store = new EditorStore({ clock });
+    store.load({
+      text,
+      origin: "cloud",
+      revision: 1,
+      persistence: {
+        save: async (doc, rev, meta) => {
+          const call = { doc, rev, meta };
+          calls.push(call);
+          return answer(call, calls.length);
+        },
+      },
+    });
+    return { store, calls };
+  }
+
+  /** `fixture()` with a JSON-level edit (theirs). */
+  function edited(text: string, mut: (j: Record<string, any>) => void): string {
+    const j = JSON.parse(text);
+    mut(j);
+    return JSON.stringify(j, null, 2);
+  }
+
+  const Z1 = "AAAAAAAA-BBBB-4CCC-8DDD-000000000001";
+  const withZoom = () => fixture((p) => p.zoomRegions.push(newZoomRegion(2, 5, Z1)));
+
+  it("preview never marks the project dirty or saves; exit restores the live project", async () => {
+    const text = fixture();
+    const { store, calls } = cloud(text, () => ({ ok: true, revision: 2 }));
+    const old = edited(text, (j) => {
+      j.name = "Old cut";
+      j.settings.backgroundPadding = 3;
+    });
+    store.previewVersion({ versionId: "v1", title: "Sep 28, 3:42 PM — Ana on Web", text: old });
+    expect(store.getState()).toMatchObject({ dirty: false, canUndo: false, preview: { versionId: "v1" } });
+    expect(store.getState().project!.name).toBe("Old cut");
+    expect(store.documentText()).toBe(old); // the engine renders the version's exact document
+
+    // Every edit path is off while previewing.
+    store.updateSettings({ backgroundPadding: 99 });
+    store.updateProject({ name: "nope" });
+    expect(store.apply(E.addZoomRegion())).toBeNull();
+    expect(() => store.transact("Agent: x", (d) => void (d.name = "agent"))).toThrow(/read-only/);
+    expect(store.undo()).toBeNull();
+    await vi.advanceTimersByTimeAsync(5000);
+    await store.flush();
+    expect(calls).toHaveLength(0);
+    expect(store.getState()).toMatchObject({ dirty: false, sync: "saved" });
+    expect(store.getState().project!.settings.backgroundPadding).toBe(3);
+
+    store.exitPreview();
+    expect(store.getState().preview).toBeNull();
+    expect(store.documentText()).toBe(text);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("unsaved live edits wait out a preview, then save the LIVE document", async () => {
+    const text = fixture();
+    const { store, calls } = cloud(text, () => ({ ok: true, revision: 2 }));
+    store.updateSettings({ backgroundPadding: 21 });
+    store.previewVersion({ versionId: "v1", title: "t", text: edited(text, (j) => (j.name = "Old")) });
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(calls).toHaveLength(0);
+    expect(store.getState().dirty).toBe(true); // still the LIVE flag
+    store.exitPreview();
+    await vi.advanceTimersByTimeAsync(900);
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(calls[0].doc)).toMatchObject({ name: "Untitled Recording", settings: { backgroundPadding: 21 } });
+    expect(store.getState().canUndo).toBe(true);
+  });
+
+  it("a clean merge on 409 saves exactly once, with the merge headers", async () => {
+    const text = fixture();
+    const theirs = edited(text, (j) => (j.name = "Renamed by Ana"));
+    const { store, calls } = cloud(text, (_c, n) =>
+      n === 1 ? { ok: false, conflict: true, revision: 5, document: theirs, updatedAt: "2026-09-30T11:00:00.000Z" } : { ok: true, revision: 6 },
+    );
+    store.updateSettings({ backgroundPadding: 30 });
+    await vi.advanceTimersByTimeAsync(900);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(calls).toHaveLength(2);
+    const [first, second] = calls;
+    expect(first.rev).toBe(1);
+    expect(first.meta).toMatchObject({ source: "human" });
+    expect(first.meta!.checkpoint).toBeUndefined();
+    // The merge save: against theirs, both edits in, a merge checkpoint.
+    expect(second.rev).toBe(5);
+    const merged = JSON.parse(second.doc);
+    expect(merged).toMatchObject({ name: "Renamed by Ana", settings: { backgroundPadding: 30 } });
+    expect(merged.futureKey).toEqual({ nested: [1, 2, 3] });
+    expect(second.meta).toMatchObject({ checkpoint: "merge", mergedFrom: 5, source: "human" });
+    expect(second.meta!.change).toBe(encodeChangeHeader(diff(JSON.parse(theirs), merged)));
+    expect(decodeChangeHeader(second.meta!.change!)).toMatchObject({ settings: { background: ["backgroundPadding"] } });
+    expect(store.getState()).toMatchObject({ sync: "saved", revision: 6, dirty: false, conflict: null, review: null });
+    expect(store.getState().mergeNotice).toMatchObject({ count: 1, serverRevision: 5 });
+    // ONE undo entry for the merge; undoing it steps back to mine-only.
+    expect(store.getState().undoLabel).toBe("Merge Changes");
+    store.undo();
+    expect(store.getState().project!.name).toBe("Untitled Recording");
+    expect(store.getState().project!.settings.backgroundPadding).toBe(30);
+  });
+
+  it("mineWins: ties go to theirs; a later local edit wins", async () => {
+    const text = fixture();
+    const run = async (serverAt: number) => {
+      const theirs = edited(text, (j) => (j.settings.backgroundPadding = 77));
+      const { store, calls } = cloud(text, (_c, n) =>
+        n === 1 ? { ok: false, conflict: true, revision: 3, document: theirs, updatedAt: new Date(serverAt).toISOString() } : { ok: true, revision: 4 },
+      );
+      store.updateSettings({ backgroundPadding: 11 }); // local edit at T
+      await vi.advanceTimersByTimeAsync(900);
+      await vi.advanceTimersByTimeAsync(900);
+      return { store, calls };
+    };
+    // Same instant → theirs (nothing left to save: merged == theirs).
+    const tie = await run(T);
+    expect(tie.store.getState().project!.settings.backgroundPadding).toBe(77);
+    expect(tie.calls).toHaveLength(1);
+    expect(tie.store.getState()).toMatchObject({ dirty: false, revision: 3, sync: "saved" });
+    // Server saved before the local edit → mine.
+    const mine = await run(T - 1);
+    expect(mine.store.getState().project!.settings.backgroundPadding).toBe(11);
+    expect(mine.calls).toHaveLength(2);
+    expect(mine.calls[1].meta).toMatchObject({ checkpoint: "merge", mergedFrom: 3 });
+    // Server saved after → theirs.
+    const later = await run(T + 1);
+    expect(later.store.getState().project!.settings.backgroundPadding).toBe(77);
+  });
+
+  it("real conflicts → review: nothing saves until resolved, then one merge save", async () => {
+    const text = withZoom();
+    const theirs = edited(text, (j) => (j.zoomRegions = [])); // they deleted Z1
+    const { store, calls } = cloud(text, (_c, n) =>
+      n === 1 ? { ok: false, conflict: true, revision: 9, document: theirs, updatedAt: "2026-09-30T11:00:00.000Z" } : { ok: true, revision: 10 },
+    );
+    store.updateRegion("zoom", Z1, { zoomLevel: 3 }); // we edited it
+    await vi.advanceTimersByTimeAsync(900);
+    expect(store.getState().sync).toBe("review");
+    const review = store.getState().review!;
+    expect(review.conflicts).toHaveLength(1);
+    expect(review.conflicts[0]).toMatchObject({ kind: "deleteVsModify", deletedBy: "theirs", defaultResolution: "mine" });
+    expect(store.reviewDocuments()).not.toBeNull();
+
+    // More edits while reviewing still never save.
+    store.updateSettings({ backgroundPadding: 50 });
+    await vi.advanceTimersByTimeAsync(5000);
+    await store.flush();
+    expect(calls).toHaveLength(1);
+    expect(store.getState().sync).toBe("review");
+
+    // Pick theirs (delete), apply → exactly one save, a merge checkpoint.
+    store.setReviewChoice(review.conflicts[0].id, "theirs");
+    expect(store.getState().review!.conflicts[0].resolution).toBe("theirs");
+    expect(store.applyReview()).toBe(true);
+    await vi.advanceTimersByTimeAsync(900);
+    expect(calls).toHaveLength(2);
+    const saved = JSON.parse(calls[1].doc);
+    expect(saved.zoomRegions).toEqual([]);
+    expect(saved.settings.backgroundPadding).toBe(50);
+    expect(calls[1]).toMatchObject({ rev: 9, meta: { checkpoint: "merge", mergedFrom: 9 } });
+    expect(store.getState()).toMatchObject({ sync: "saved", review: null, conflict: null, revision: 10 });
+  });
+
+  it("restore is ONE undo step, 'Restore Version'; undoing it re-saves the previous document", async () => {
+    const text = fixture();
+    const { store, calls } = cloud(text, () => ({ ok: true, revision: 8 }));
+    store.updateSettings({ backgroundPadding: 12 });
+    await vi.advanceTimersByTimeAsync(900);
+    expect(calls).toHaveLength(1);
+    const depth = store.history().length;
+    const old = edited(text, (j) => (j.name = "September cut"));
+    store.previewVersion({ versionId: "v1", title: "t", text: old });
+    store.applyRestore({ text: old, revision: 7 });
+    expect(store.getState()).toMatchObject({ preview: null, revision: 7, dirty: false, sync: "saved", undoLabel: "Restore Version" });
+    expect(store.history()).toHaveLength(depth + 1);
+    expect(store.documentText()).toBe(old); // the server's bytes, verbatim
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(calls).toHaveLength(1); // the API saved it — no PUT
+    store.undo();
+    expect(store.getState().project!.settings.backgroundPadding).toBe(12);
+    expect(store.getState().dirty).toBe(true);
+    await vi.advanceTimersByTimeAsync(900);
+    expect(calls).toHaveLength(2);
+    expect(calls[1].rev).toBe(7);
+  });
+
+  it("X-CC-Source comes from the undo entries: human, agent, mixed", async () => {
+    const { store, calls } = cloud(fixture(), (_c, n) => ({ ok: true, revision: 1 + n }));
+    store.transact("Agent: set_style", (d) => void (d.settings.backgroundPadding = 5), { source: "mcp", forceEntry: true });
+    await vi.advanceTimersByTimeAsync(900);
+    store.updateSettings({ backgroundPadding: 6 });
+    await vi.advanceTimersByTimeAsync(900);
+    store.transact("Agent: x", (d) => void (d.settings.backgroundPadding = 7), { source: "mcp" });
+    store.updateSettings({ shadowRadius: 9 } as never);
+    await vi.advanceTimersByTimeAsync(900);
+    store.undo({ source: "mcp" }); // the WebMCP undo tool
+    await vi.advanceTimersByTimeAsync(900);
+    expect(calls.map((c) => c.meta!.source)).toEqual(["agent", "human", "mixed", "agent"]);
+    expect(decodeChangeHeader(calls[0].meta!.change!)).toMatchObject({ settings: { background: ["backgroundPadding"] } });
   });
 });

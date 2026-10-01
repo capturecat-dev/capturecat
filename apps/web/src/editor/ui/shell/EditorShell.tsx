@@ -272,6 +272,7 @@ export function EditorShell(props: EditorShellProps & { timelineRendererRef?: { 
           style={{ "--insp-open": `${width}px` } as CSSProperties}
         >
           <Inspector selected={tab} onSelect={selectTab} panes={panes} />
+          {props.inspectorOverlay}
         </div>
         {!visible && <RevealTab onClick={() => setInspectorVisible(true)} />}
       </div>

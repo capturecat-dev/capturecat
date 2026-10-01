@@ -22,7 +22,7 @@ import { ShareButton } from "./export/SharePanel";
 import { useShareCenter } from "./export/useShareCenter";
 import type { LoadedInfo, TransportState as EngineTransport } from "../engine/protocol";
 import { refsOf } from "../engine/media/assets";
-import { saveCloudProject } from "../state/cloud";
+import { saveCloudProject, webClientId } from "../state/cloud";
 import { EditorController } from "../state/controller";
 import * as E from "../state/edits";
 import { loadInteractionInputs } from "../state/interactionInputs";
@@ -46,6 +46,8 @@ import type { TimelineSnapshot } from "./timeline/types";
 import { useTimelineMedia } from "./timeline/media/useTimelineMedia";
 import { useMediaPickers } from "./useMediaPickers";
 import { useVoiceOver } from "./voiceover/VoiceOver";
+import { HistoryNotices, HistoryOverlay, useProjectHistory } from "./history/HistoryPanel";
+import { useHistory, type HistoryController } from "../state/history";
 
 /** The editor requires WebGPU (architecture §Stack) — say so plainly. */
 export function WebGPUGate({ children }: { children: ReactNode }) {
@@ -78,6 +80,12 @@ function extrapolate(t: EngineTransport): number {
 }
 
 const selectState = (s: EditorState) => s;
+
+/** Local (dev) projects have no History: a controller that is never open. */
+const NO_HISTORY = { subscribe: () => () => {}, getState: () => ({ open: false }) } as unknown as HistoryController;
+function useHistoryOpen(history: HistoryController | null): boolean {
+  return useHistory(history ?? NO_HISTORY, (s) => s.open);
+}
 
 // ── Page ────────────────────────────────────────────────────────────────
 
@@ -128,11 +136,13 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
         const persistence: Persistence | null =
           project.origin === "cloud"
             ? {
-                save: async (document, baseRevision) => {
+                save: async (document, baseRevision, meta) => {
                   // Never save a document that references a file still uploading
                   // (a picked image, a recorded voice over).
                   await project.media?.settled();
-                  const r = await saveCloudProject(project.id, document, baseRevision);
+                  // History metadata (docs/project-history.md §6): who/what/why.
+                  const history = meta ? { client: "web" as const, clientId: webClientId(), ...meta } : undefined;
+                  const r = await saveCloudProject(project.id, document, baseRevision, { history });
                   return r.ok
                     ? { ok: true, revision: r.revision }
                     : { ok: false, conflict: true, revision: r.revision, document: r.document, updatedAt: r.updatedAt };
@@ -335,7 +345,19 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
   // from the document — is said over the stage, never rendered wrong silently.
   const unsupported = useMemo(() => (project ? unsupportedFeatures(store.documentJSON(project)) : []), [project, store]);
 
-  const callbacks = useMemo(() => controller.shellCallbacks(), [controller]);
+  // History (cloud projects): the pane, preview/restore, Merge Review.
+  const history = useProjectHistory({ store, controller, loaded, alerts });
+  const historyOpen = useHistoryOpen(history);
+  const callbacks = useMemo(() => {
+    const base = controller.shellCallbacks();
+    if (!history) return base;
+    return {
+      ...base,
+      onShowHistory: () => history.toggle(),
+      // "Needs review" opens Merge Review; the other states retry as before.
+      onSyncRetry: () => (store.getState().sync === "review" ? history.open() : base.onSyncRetry?.()),
+    };
+  }, [controller, history, store]);
   // Share links: the top-bar Share key and the sheet's share-after-export.
   const shareCenter = useShareCenter(store, controller, info ? { width: info.width, height: info.height } : null);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
@@ -344,7 +366,13 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
   // Generate / Regenerate Subtitles: on-device Whisper (state/subtitleGeneration.ts).
   const subtitleActions = useSubtitleGeneration(store, loaded?.mediaUrl);
   const paneFacts = useRecordingFacts(project, loaded);
-  const inspectorRevealKey = useInspectorRevealKey(store);
+  const selectionRevealKey = useInspectorRevealKey(store);
+  // Opening History re-shows a collapsed inspector column (it lives there).
+  const [historyReveals, setHistoryReveals] = useState(0);
+  useEffect(() => {
+    if (historyOpen) setHistoryReveals((n) => n + 1);
+  }, [historyOpen]);
+  const inspectorRevealKey = selectionRevealKey + historyReveals;
   usePendingSeek(store, controller, info != null, pendingSeek, projectId);
   const panes = useInspectorPanes(store, {
     onAction: (a) => controller.timelineAction(a),
@@ -378,7 +406,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
     timelessTimeline: project ? presentsTimelessTimeline(project) : false,
   };
 
-  const conflict = state.conflict;
+  const conflict = state.sync === "conflict" ? state.conflict : null;
   const accessory = conflict ? (
     <span className="cc-caption" style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
       <span style={{ color: "var(--cc-destructive)" }}>Changed elsewhere</span>
@@ -414,6 +442,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
             hasCursorData: project?.cursorDataURL != null,
             hasRecordedCamera: project?.cameraVideoURL != null,
             syncState: state.sync,
+            historyOpen,
           }}
           transport={transport}
           playhead={playhead}
@@ -424,7 +453,10 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
           inspectorTab={state.inspectorTab}
           inspectorRevealKey={inspectorRevealKey}
           topBarAccessory={accessory}
-          stageNotice={unsupported.length ? <UnsupportedNotice features={unsupported} /> : undefined}
+          stageNotice={
+            <HistoryNotices history={history} store={store} extra={unsupported.length ? <UnsupportedNotice features={unsupported} /> : undefined} />
+          }
+          inspectorOverlay={history ? <HistoryOverlay history={history} store={store} /> : undefined}
           topBarShare={callbacks.onShare ? <ShareButton center={shareCenter} onShare={callbacks.onShare} /> : undefined}
           panes={panes}
           timelineRendererRef={timelineRendererRef}

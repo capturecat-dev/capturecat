@@ -73,7 +73,9 @@
   white-space: nowrap;
 }
 .cc-sync[data-state="conflict"],
+.cc-sync[data-state="review"],
 .cc-sync[data-state="offline"] { color: var(--cc-system-orange); }
+.cc-topbar__history[aria-pressed="true"] { background: var(--cc-active-solid); color: var(--cc-foreground); }
 .cc-sync[data-state="saving"] .cc-icon { animation: cc-spin 1s linear infinite; }
 @keyframes cc-spin { to { transform: rotate(360deg); } }
 

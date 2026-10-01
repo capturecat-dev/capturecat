@@ -12,7 +12,12 @@
  *     ({tool, summary, at}); results carry `undoSteps` like commitEdit;
  *   - `undo` walks the MCP entries of the store history with the Mac's rules
  *     ("changed outside MCP" = the user edited after the last MCP write);
- *   - render_frames grabs the engine's frames (preview == export passes).
+ *   - render_frames grabs the engine's frames (preview == export passes);
+ *   - attribution (docs/project-history.md phase 4): writes are `source:
+ *     "mcp"` undo steps and the `undo` tool undoes as "mcp", so the next
+ *     save says X-CC-Source: agent (or mixed alongside the user's edits);
+ *   - writes refuse while an old version is previewed (store.transact
+ *     throws — the agent sees the error, the version is never edited).
  * `id` is optional on the web and must name the project open in this tab.
  */
 import { applyAutoZoom, applyStillMotion } from "../core/edit/autoZoom";
@@ -147,7 +152,8 @@ export function buildEditorToolHandlers(ctx: WebMCPContext): ToolHandlers {
       const steps = ops.planUndo(args, history.map((e) => e.mcp!), changedOutside);
       const target = history[steps - 1];
       for (;;) {
-        const undone = store.undo();
+        // An agent's undo is an agent edit (X-CC-Source: agent / mixed).
+        const undone = store.undo({ source: "mcp" });
         if (!undone || undone === target) break;
       }
       const restored = asLoaded(store.getState().project!);

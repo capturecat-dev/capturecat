@@ -56,7 +56,8 @@ export const ASPECT_RATIOS: ReadonlyArray<{ id: string; title: string; hint: str
 
 // ── Presentation facts the chrome needs ─────────────────────────────────
 
-export type SyncState = "saved" | "saving" | "offline" | "conflict" | "local";
+/** `review`: a 409 merge has structural conflicts waiting in Merge Review (nothing saves). */
+export type SyncState = "saved" | "saving" | "offline" | "conflict" | "review" | "local";
 
 export interface ShellProjectInfo {
   name: string;
@@ -72,6 +73,8 @@ export interface ShellProjectInfo {
   hasRecordedCamera?: boolean;
   /** Cloud sync affordance (placeholder until state/cloud.ts lands). */
   syncState?: SyncState;
+  /** The History pane is showing (the top-bar History key reads pressed). */
+  historyOpen?: boolean;
 }
 
 /** Transport/tool state the toolbar reflects (re-render on change — NOT per frame). */
@@ -175,6 +178,8 @@ export interface EditorShellCallbacks {
   /** Top-bar Share: export + upload a share link (ControllerHooks.share). */
   onShare?(): void;
   onSyncRetry?(): void;
+  /** Top-bar History key (cloud projects): swap the inspector column to the History pane. */
+  onShowHistory?(): void;
   onRename?(name: string): void;
   onAspectChange?(aspectId: string): void;
   onStillTreatmentChange?(treatment: "image" | "video"): void;
@@ -229,4 +234,10 @@ export interface EditorShellProps {
   stageNotice?: ReactNode;
   /** The Share slot's live key (job state + popover); default = a plain Share button. */
   topBarShare?: ReactNode;
+  /**
+   * A pane that covers the inspector card in the same column (the History
+   * pane — ui/history). The inspector stays mounted underneath; the overlay
+   * owns its own entrance/exit motion.
+   */
+  inspectorOverlay?: ReactNode;
 }

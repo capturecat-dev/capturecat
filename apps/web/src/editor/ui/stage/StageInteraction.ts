@@ -350,7 +350,8 @@ class StageInteractionSurface implements StageInteraction {
 
   /** One undo step per gesture: every write of the drag shares a coalesce key. */
   private write(label: string, recipe: (draft: Project) => void): void {
-    if (!this.project()) return;
+    // An old version on screen (History preview) is read-only.
+    if (!this.project() || this.deps.store.getState().preview) return;
     this.gestureWrote = true;
     this.deps.store.transact(label, recipe, { coalesceKey: this.gestureKey ?? undefined });
   }
