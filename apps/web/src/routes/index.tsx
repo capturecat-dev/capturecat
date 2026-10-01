@@ -15,6 +15,8 @@ import OpenSource from "@/components/marketing/home/OpenSource";
 import FeatureInventory from "@/components/marketing/FeatureInventory";
 import Faq, { HOME_FAQ } from "@/components/marketing/home/Faq";
 import FinalCta from "@/components/marketing/home/FinalCta";
+import Platforms from "@/components/marketing/home/Platforms";
+import demosCss from "@/styles/demos.css?url";
 
 const jsonLdData = {
   "@context": "https://schema.org",
@@ -55,7 +57,7 @@ export const Route = createFileRoute("/")({
           "CaptureCat records your Mac and adds the zooms, cursor smoothing, and captions automatically. Native Swift, free to record and export, with share links and viewer analytics on Pro.",
       },
     ],
-    links: markdownAlternateLinks("/"),
+    links: [{ rel: "stylesheet", href: demosCss }, ...markdownAlternateLinks("/")],
   }),
   component: Home,
 });
@@ -69,6 +71,7 @@ function Home() {
       />
       <Navbar />
       <Hero />
+      <Platforms />
       <BeforeAfter />
       <HowItWorks />
       <FeatureShowcase />

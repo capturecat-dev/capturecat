@@ -8,9 +8,9 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-import { MediaPlaceholder } from "../MediaPlaceholder";
 import { Container, IconTile, SectionTitle } from "../primitives";
-import type { ShotId } from "@/lib/media-shots";
+import { CameraBubble, Canvas, DemoFrame, FakeApp, Timeline } from "./demo/parts";
+import { useOffscreenPause, usePinnedSteps } from "./demo/hooks";
 
 interface Showcase {
   icon: typeof Crosshair;
@@ -18,7 +18,6 @@ interface Showcase {
   title: string;
   body: string;
   details: string[];
-  shot: ShotId;
 }
 
 const SHOWCASES: Showcase[] = [
@@ -34,7 +33,6 @@ const SHOWCASES: Showcase[] = [
       "Follow cursor mode for long drags and scrolls",
       "Your manual zooms are respected. Auto zoom routes around them",
     ],
-    shot: "feature-auto-zoom",
   },
   {
     icon: MousePointer2,
@@ -48,7 +46,6 @@ const SHOWCASES: Showcase[] = [
       "Click ripples, plus Thock, Clacky, and Typewriter key sounds",
       "Auto hide when idle, freeze at the end for a clean last frame",
     ],
-    shot: "feature-cursor",
   },
   {
     icon: Captions,
@@ -62,7 +59,6 @@ const SHOWCASES: Showcase[] = [
       "Edit any word without re-running the transcript",
       "Optional keystroke overlay pill for shortcut heavy tutorials",
     ],
-    shot: "feature-captions",
   },
   {
     icon: Frame,
@@ -76,7 +72,6 @@ const SHOWCASES: Showcase[] = [
       "A clean replacement menu bar with your app name and a 9:41 clock",
       "Motion blur and background parallax for depth",
     ],
-    shot: "feature-framing",
   },
   {
     icon: Video,
@@ -90,7 +85,6 @@ const SHOWCASES: Showcase[] = [
       "Per span layouts on the timeline",
       "Mic with Voice Isolation, system audio, and voice over on separate faders",
     ],
-    shot: "feature-camera",
   },
   {
     icon: EyeOff,
@@ -104,7 +98,6 @@ const SHOWCASES: Showcase[] = [
       "Depth focus: one region sharp, the rest tilt shifted",
       "All of it drawn directly on the preview",
     ],
-    shot: "feature-focus",
   },
   {
     icon: SlidersHorizontal,
@@ -118,13 +111,22 @@ const SHOWCASES: Showcase[] = [
       "Text, arrows, callouts, shapes, freehand, and tap indicators",
       "Intro slide and curtain openers with your logo",
     ],
-    shot: "feature-timeline",
   },
 ];
 
+const CAPTION_WORDS = ["Click", "New", "project,", "give", "it", "a", "name,", "then", "save."];
+
+/**
+ * Pinned: one stage, a mode per feature. The copy scrolls; the stage swaps
+ * to that feature's recreation (zooming across fields, smoothed vs raw
+ * cursor, karaoke captions, backgrounds and 9:16, the camera bubble, blur
+ * and spotlight, the five-lane timeline).
+ */
 export default function FeatureShowcase() {
+  const rootRef = usePinnedSteps<HTMLElement>();
+  const stageRef = useOffscreenPause<HTMLDivElement>();
   return (
-    <section id="features" className="relative isolate py-24">
+    <section id="features" ref={rootRef} className="ccd-pin ccd-feat relative isolate py-24" data-step="0">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div
           className="scroll-parallax-fast absolute left-[10%] top-[20%] h-96 w-96 rounded-full blur-3xl"
@@ -141,13 +143,101 @@ export default function FeatureShowcase() {
           The parts that used to be an afternoon in a video editor.
         </SectionTitle>
 
-        <div className="mt-16 space-y-24">
-          {SHOWCASES.map((item, i) => (
-            <div
-              key={item.eyebrow}
-              className="scroll-reveal grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-14"
-            >
-              <div className={`lg:col-span-5 ${i % 2 === 1 ? "lg:order-2" : ""}`}>
+        <div className="ccd-pin-grid ccd-pin-grid--flip mt-6 lg:mt-0">
+          <div className="ccd-pin-stagecol">
+            <div ref={stageRef} className="ccd">
+              <DemoFrame blur={false}>
+                <div className="ccd-stage ccd-stage--wide" aria-hidden>
+                  <div className="ccd-scene ccd-scene-0" data-active="">
+                    <Canvas script="az" />
+                  </div>
+                  <div className="ccd-scene ccd-scene-1">
+                    <Canvas script="cursor" />
+                  </div>
+                  <div className="ccd-scene ccd-scene-2">
+                    <Canvas script="captions">
+                      <CameraBubble shape="circle" />
+                      <div className="ccd-caption">
+                        {CAPTION_WORDS.map((w, i) => (
+                          <span key={w}>
+                            {w}
+                            <b style={{ animationDelay: `${0.3 + i * 0.45}s` }}>{w}</b>
+                          </span>
+                        ))}
+                      </div>
+                    </Canvas>
+                  </div>
+                  <div className="ccd-scene ccd-scene-3">
+                    <Canvas script="framing">
+                      <div className="ccd-vert-dim" />
+                      <div className="ccd-vert">
+                        <div className="ccd-wall" />
+                        <div className="ccd-vert-card">
+                          <FakeApp />
+                        </div>
+                      </div>
+                    </Canvas>
+                  </div>
+                  <div className="ccd-scene ccd-scene-4">
+                    <Canvas script="camera">
+                      <CameraBubble tag shape="both" />
+                    </Canvas>
+                  </div>
+                  <div className="ccd-scene ccd-scene-5">
+                    <Canvas script="focus">
+                      <div className="ccd-blurbox" />
+                      <div className="ccd-spot" />
+                    </Canvas>
+                  </div>
+                  <div className="ccd-scene ccd-scene-6">
+                    <div className="ccd-tl-host">
+                      <div className="ccd-tl-toolbar">
+                        <span className="ccd-key ccd-kb">Split ⌘B</span>
+                        <span className="ccd-key">Cut</span>
+                        <span className="ccd-key">Speed 2×</span>
+                      </div>
+                      <Timeline
+                        duration={12}
+                        clicks={[0.2, 0.52, 0.81]}
+                        videoExtras={
+                          <>
+                            <span className="ccd-split" />
+                            <span className="ccd-speed">2×</span>
+                          </>
+                        }
+                        lanes={[
+                          { name: "VIDEO" },
+                          { name: "VOICE" },
+                          {
+                            name: "EFFECTS",
+                            blocks: [
+                              { className: "ccd-b1", left: 12, width: 20, label: "Zoom 2×" },
+                              { className: "ccd-b2", left: 44, width: 18, label: "Zoom 2.6×" },
+                            ],
+                          },
+                          {
+                            name: "FOCUS",
+                            blocks: [{ className: "ccd-b3", left: 64, width: 22, label: "Blur" }],
+                          },
+                          {
+                            name: "ANNOTATE",
+                            blocks: [
+                              { className: "ccd-b4", left: 6, width: 16, label: "Title" },
+                              { className: "ccd-b5", left: 70, width: 14, label: "Arrow" },
+                            ],
+                          },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </DemoFrame>
+            </div>
+          </div>
+
+          <div>
+            {SHOWCASES.map((item, i) => (
+              <div key={item.eyebrow} data-pin-step className="ccd-pin-step" {...(i === 0 ? { "data-active": "" } : {})}>
                 <IconTile>
                   <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                 </IconTile>
@@ -157,29 +247,18 @@ export default function FeatureShowcase() {
                 <h3 className="mt-2 text-balance text-2xl font-medium tracking-[-0.02em] text-foreground md:text-3xl">
                   {item.title}
                 </h3>
-                <p className="mt-4 text-[15.5px] leading-relaxed text-muted-foreground">
-                  {item.body}
-                </p>
+                <p className="mt-4 text-[15.5px] leading-relaxed text-muted-foreground">{item.body}</p>
                 <ul className="mt-5 space-y-2">
                   {item.details.map((d) => (
-                    <li
-                      key={d}
-                      className="flex gap-2.5 text-[14px] leading-relaxed text-muted-foreground"
-                    >
-                      <span
-                        aria-hidden
-                        className="mt-[8px] h-1 w-1 shrink-0 rounded-full bg-cyan-300/60"
-                      />
+                    <li key={d} className="flex gap-2.5 text-[14px] leading-relaxed text-muted-foreground">
+                      <span aria-hidden className="mt-[8px] h-1 w-1 shrink-0 rounded-full bg-cyan-300/60" />
                       {d}
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className={`lg:col-span-7 ${i % 2 === 1 ? "lg:order-1" : ""}`}>
-                <MediaPlaceholder id={item.shot} />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </Container>
     </section>

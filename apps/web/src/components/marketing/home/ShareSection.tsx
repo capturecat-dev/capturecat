@@ -1,8 +1,8 @@
 import { Link2, BarChart3, MessageSquare, Lock } from "lucide-react";
 
-import { MediaPlaceholder } from "../MediaPlaceholder";
 import { Container, Eyebrow, GlassCard, IconTile, Lede, SectionTitle } from "../primitives";
 import { SpotlightGroup } from "../SpotlightGroup";
+import { AnalyticsDemo, SharePageDemo } from "./demo/ShareDemos";
 
 const POINTS = [
   {
@@ -44,11 +44,11 @@ export default function ShareSection() {
 
         <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div className="scroll-reveal">
-            <MediaPlaceholder id="share-page" />
+            <SharePageDemo />
             <p className="mt-3 text-sm text-muted-foreground">A share page, with comments.</p>
           </div>
           <div className="scroll-reveal">
-            <MediaPlaceholder id="share-analytics" />
+            <AnalyticsDemo />
             <p className="mt-3 text-sm text-muted-foreground">
               The analytics tab for the same video.
             </p>

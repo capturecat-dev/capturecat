@@ -5,7 +5,10 @@ import { markdownAlternateLinks } from "@/lib/site-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
 import { DownloadButtons } from "@/components/marketing/download-buttons";
-import { MediaPlaceholder } from "@/components/marketing/MediaPlaceholder";
+import { PinnedStory } from "@/components/marketing/home/demo/PinnedStory";
+import { DmgScene, ExportScene, MenuBarScene, PermissionScene, SceneSlot } from "@/components/marketing/home/demo/Scenes";
+import demosCss from "@/styles/demos.css?url";
+import demosPagesCss from "@/styles/demos-pages.css?url";
 import {
   Ambient,
   Container,
@@ -43,7 +46,11 @@ export const Route = createFileRoute("/download")({
           "Download CaptureCat, the free native screen recorder for macOS 14 and later. Builds for Apple Silicon and Intel. No account needed to record.",
       },
     ],
-    links: markdownAlternateLinks("/download"),
+    links: [
+      { rel: "stylesheet", href: demosCss },
+      { rel: "stylesheet", href: demosPagesCss },
+      ...markdownAlternateLinks("/download"),
+    ],
   }),
   component: DownloadPage,
 });
@@ -107,39 +114,54 @@ function DownloadPage() {
               The download is not available right now. Try again in a few minutes.
             </p>
           )}
+          <a
+            href="/#anywhere"
+            className="group mt-8 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.06] px-4 py-1.5 text-[13px] text-muted-foreground backdrop-blur-xl transition-colors hover:border-white/20 hover:text-foreground"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-300/80" />
+            Not on a Mac? CaptureCat also runs in the browser
+            <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
+              ›
+            </span>
+          </a>
         </Container>
       </section>
 
       <section className="relative isolate py-16">
         <Container>
-          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 lg:gap-14">
-            <div className="lg:col-span-5">
-              <SectionTitle muted="About two minutes, most of it macOS asking permission.">
-                After the download
-              </SectionTitle>
-              <ol className="mt-8 space-y-6">
-                {STEPS.map((step, i) => (
-                  <li key={step.title} className="flex gap-4">
-                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.07] text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
-                      {i + 1}
-                    </span>
-                    <div>
-                      <h3 className="text-[16px] font-medium tracking-[-0.01em] text-foreground">
-                        {step.title}
-                      </h3>
-                      <p className="mt-1.5 text-[14.5px] leading-relaxed text-muted-foreground">
-                        {step.body}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-            <div className="flex flex-col gap-6 lg:col-span-7">
-              <MediaPlaceholder id="download-first-launch" />
-              <MediaPlaceholder id="download-menu-bar" />
-            </div>
-          </div>
+          <SectionTitle muted="About two minutes, most of it macOS asking permission.">
+            After the download
+          </SectionTitle>
+          <PinnedStory
+            className="ccd-dl mt-6 lg:mt-0"
+            stage={
+              <>
+                <SceneSlot index={0}>
+                  <DmgScene />
+                </SceneSlot>
+                <SceneSlot index={1}>
+                  <PermissionScene />
+                </SceneSlot>
+                <SceneSlot index={2}>
+                  <MenuBarScene />
+                </SceneSlot>
+                <SceneSlot index={3} className="ccd-x-export">
+                  <ExportScene />
+                </SceneSlot>
+              </>
+            }
+            steps={STEPS.map((step, i) => (
+              <div className="flex gap-4">
+                <span className="ccd-stepnum inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.07] text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
+                  {i + 1}
+                </span>
+                <div>
+                  <h3 className="text-xl font-medium tracking-[-0.02em] text-foreground md:text-2xl">{step.title}</h3>
+                  <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">{step.body}</p>
+                </div>
+              </div>
+            ))}
+          />
         </Container>
       </section>
 

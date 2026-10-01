@@ -241,59 +241,18 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Hero demo — an 8s loop: cursor glides in, clicks, auto-zoom fires   */
-/* ------------------------------------------------------------------ */
-
-@keyframes ccDemoCursor {
-  0%   { transform: translate(-120px, 70px); }
-  22%  { transform: translate(0, 0); }
-  78%  { transform: translate(0, 0); }
-  100% { transform: translate(-120px, 70px); }
-}
-.cc-demo-cursor { animation: ccDemoCursor 8s ease-in-out infinite; }
-
-@keyframes ccDemoRipple {
-  0%, 24% { opacity: 0; transform: scale(0.3); }
-  27% { opacity: 0.9; transform: scale(0.5); }
-  36% { opacity: 0; transform: scale(1.6); }
-  100% { opacity: 0; transform: scale(1.6); }
-}
-.cc-demo-ripple { animation: ccDemoRipple 8s ease-out infinite; }
-
-/* The auto-zoom push-in, springing toward the click point. */
-@keyframes ccDemoZoom {
-  0%, 26% { transform: scale(1); }
-  38% { transform: scale(1.14); }
-  66% { transform: scale(1.14); }
-  82%, 100% { transform: scale(1); }
-}
-.cc-demo-zoom {
-  transform-origin: 42% 58%;
-  animation: ccDemoZoom 8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-}
-
-@keyframes ccDemoCaption {
-  0%, 30% { opacity: 0; transform: translateY(8px); }
-  38%, 72% { opacity: 1; transform: translateY(0); }
-  80%, 100% { opacity: 0; transform: translateY(8px); }
-}
-.cc-demo-caption { animation: ccDemoCaption 8s ease-out infinite; }
-
-/* ------------------------------------------------------------------ */
 /* Agent terminal typewriter                                           */
 /* ------------------------------------------------------------------ */
 
-@keyframes ccType {
-  0% { width: 0; }
-  45%, 92% { width: 100%; }
-  100% { width: 100%; }
+/* Typed one character at a time on opacity: the command's layout is fixed
+   from the first frame, so it never reflows the lines below it. */
+@keyframes ccTypeChar {
+  0% { opacity: 0; }
+  0.1%, 92% { opacity: 1; }
+  92.1%, 100% { opacity: 0; }
 }
-.cc-type {
-  display: inline-block;
-  overflow: hidden;
-  white-space: nowrap;
-  vertical-align: bottom;
-  animation: ccType 9s steps(52, end) infinite;
+.cc-type .cc-ch {
+  animation: ccTypeChar 9s infinite both;
 }
 
 @keyframes ccCaret {
@@ -312,8 +271,7 @@
 .cc-tool-line-4 { animation-delay: 2.7s; }
 
 @media (prefers-reduced-motion: reduce) {
-  .cc-demo-cursor, .cc-demo-ripple, .cc-demo-zoom, .cc-demo-caption,
-  .cc-type, .cc-caret, .cc-tool-line {
+  .cc-type .cc-ch, .cc-caret, .cc-tool-line {
     animation: none;
   }
   .cc-tool-line { opacity: 1; }
