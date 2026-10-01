@@ -29,6 +29,7 @@ import {
 } from "../state/cloud";
 import { backgroundFileName, projectFilePath } from "../state/imageImport";
 import { imageLibrary } from "../state/imageLibrary";
+import { applyRevealCuts, cutsForReveals } from "./barHidden";
 import type { RecordedTake } from "./session";
 import { sha256Blob } from "./sha256";
 
@@ -77,6 +78,10 @@ export function projectDocumentFor(take: RecordedTake, name?: string, background
   });
   // No cursor.json: the cursor overlay has nothing to draw (the system
   // cursor is burned into the frames) — settings stay the Mac's defaults.
+  // Wherever the recorder's own UI had to come on screen mid-take, the
+  // output skips it (a trim at the ends, clip cuts in the middle) — the
+  // raw recording.mov keeps the frames, so un-cutting restores them.
+  applyRevealCuts(project, cutsForReveals(take.duration, take.uiReveals ?? []));
   if (background) {
     // CustomWallpaperStore.applyDefaultBackground — applied by AppState's
     // creation flows, never by Project.init (newProject stays the init).

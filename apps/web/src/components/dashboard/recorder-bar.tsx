@@ -49,6 +49,7 @@ import {
   AppWindowIcon,
   ChevronDownIcon,
   CircleDotIcon,
+  EyeOffIcon,
   GlobeIcon,
   MonitorIcon,
   PauseIcon,
@@ -59,7 +60,6 @@ import {
   SquareIcon,
   Trash2Icon,
   TriangleAlertIcon,
-  VideoOffIcon,
   Volume2Icon,
   VolumeXIcon,
   XIcon,
@@ -126,11 +126,20 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     withResolver: true,
   });
   const uploading = rec.phase.kind === "saving";
+  const blocked = blocker.status === "blocked";
+  // Mid-take this dialog is recorder UI on the page: logged (before it
+  // paints) and cut like any return of the bar.
+  const { showUiFor, hideUiAfter } = rec;
+  useLayoutEffect(() => {
+    if (!blocked) return;
+    showUiFor("dialog");
+    return () => hideUiAfter("dialog");
+  }, [blocked, showUiFor, hideUiAfter]);
   return (
     <RecorderContext.Provider value={rec}>
       {children}
-      <AlertDialog open={blocker.status === "blocked"} onOpenChange={(open) => !open && blocker.reset?.()}>
-        <AlertDialogContent>
+      <AlertDialog open={blocked} onOpenChange={(open) => !open && blocker.reset?.()}>
+        <AlertDialogContent data-rec-ui="dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>{uploading ? "Your recording is still uploading" : "A recording is in progress"}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -612,7 +621,13 @@ export function RecordingBar({ rec, compact = false }: { rec: Recorder; compact?
   const phase = rec.phase.kind;
   const phaseKey = phase === "recording" ? "live" : phase === "setup" ? "setup" : "status";
   return (
-    <div className={SHELL} onPointerOver={glide.onPointerOver} onPointerLeave={glide.onPointerLeave} aria-label="Recording panel">
+    <div
+      data-rec-ui="bar"
+      className={SHELL}
+      onPointerOver={glide.onPointerOver}
+      onPointerLeave={glide.onPointerLeave}
+      aria-label="Recording panel"
+    >
       {glide.wash}
       <MorphShell phaseKey={phaseKey}>
         {phaseKey === "live" ? <LiveRow rec={rec} compact={compact} /> : phaseKey === "setup" ? <SetupRow rec={rec} /> : <StatusRow rec={rec} />}
@@ -622,31 +637,21 @@ export function RecordingBar({ rec, compact = false }: { rec: Recorder; compact?
 }
 
 /** A notice above the bar (the recorder's warnings, the bubble's note). */
-function DockNotice({ icon, children, onDismiss }: { icon: ReactNode; children: ReactNode; onDismiss: () => void }) {
+function DockNotice({ icon, children, onDismiss }: { icon: ReactNode; children: ReactNode; onDismiss?: () => void }) {
   return (
-    <div className="pointer-events-auto flex max-w-lg items-start gap-2 rounded-xl border border-white/10 bg-[#1b1b1e]/95 px-3.5 py-2 text-[12.5px] shadow-lg backdrop-blur-xl">
+    <div
+      data-rec-ui="notice"
+      className="pointer-events-auto flex max-w-lg items-start gap-2 rounded-xl border border-white/10 bg-[#1b1b1e]/95 px-3.5 py-2 text-[12.5px] shadow-lg backdrop-blur-xl"
+    >
       {icon}
       <span className="flex-1">{children}</span>
-      <button type="button" aria-label="Dismiss" onClick={onDismiss} className="text-white/50 hover:text-white">
-        <XIcon className="size-3.5" />
-      </button>
+      {onDismiss && (
+        <button type="button" aria-label="Dismiss" onClick={onDismiss} className="text-white/50 hover:text-white">
+          <XIcon className="size-3.5" />
+        </button>
+      )}
     </div>
   );
-}
-
-/** How long the "bubble hidden" note stays up — brief, since a whole-screen take records the dock too. */
-const SCREEN_NOTE_MS = 4500;
-
-/** True for a few seconds each time the bubble steps aside for a whole-screen take. */
-function useScreenNote(active: boolean): [boolean, () => void] {
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    setShown(active);
-    if (!active) return;
-    const t = window.setTimeout(() => setShown(false), SCREEN_NOTE_MS);
-    return () => window.clearTimeout(t);
-  }, [active]);
-  return [shown, () => setShown(false)];
 }
 
 /**
@@ -654,24 +659,41 @@ function useScreenNote(active: boolean): [boolean, () => void] {
  * as pages scroll, with the recorder's notices just above it — plus the
  * floating camera bubble and the floating Picture-in-Picture copy of the
  * live controls (which carries the bubble while it's open).
+ *
+ * The output never shows any of it (barHidden.ts): for a share that could
+ * contain this page the whole dock fades out before the take's first frame
+ * (`rec.uiHidden`; it keeps its layout, so nothing on the page moves) and
+ * comes back only when you come back for it — those moments are cut.
  */
 export function RecorderDock() {
   const rec = useRecorderContext();
   const bubble = bubblePolicy({
     cameraOn: rec.armed && rec.prefs.camId !== null,
     phase: rec.phase.kind,
-    surface: rec.sourceSurface,
+    conceal: rec.concealMode,
     starting: rec.starting,
     floatingOpen: rec.floating !== null,
   });
-  const [screenNote, dismissScreenNote] = useScreenNote(bubble.hiddenForScreen);
   if (!rec.support?.screen || !rec.support.encode) return null;
+  const hidesForTake = rec.concealMode === "reveal" && rec.phase.kind === "countdown";
   return (
     <>
-      <div className="pointer-events-none sticky bottom-5 z-40 mt-auto flex flex-col items-center gap-2 px-4 pb-1">
-        {screenNote && (
-          <DockNotice icon={<VideoOffIcon className="mt-0.5 size-3.5 shrink-0 text-white/60" />} onDismiss={dismissScreenNote}>
-            Camera bubble hidden while recording your whole screen — your camera is still being recorded.
+      <div
+        data-recorder-dock-root
+        data-concealed={rec.uiHidden}
+        aria-hidden={rec.uiHidden || undefined}
+        className="rec-conceal pointer-events-none sticky bottom-5 z-40 mt-auto flex flex-col items-center gap-2 px-4 pb-1"
+      >
+        {rec.revealed && (
+          <DockNotice icon={<EyeOffIcon className="mt-0.5 size-3.5 shrink-0 text-white/60" />}>
+            Recording — the bar is hidden from your recording.
+          </DockNotice>
+        )}
+        {hidesForTake && (
+          <DockNotice icon={<EyeOffIcon className="mt-0.5 size-3.5 shrink-0 text-white/60" />}>
+            This bar hides while you record, so it stays out of your video
+            {bubble.hiddenForScreen ? " — so does the camera bubble; your camera is still recorded" : ""}. Come back to
+            this tab to stop, or press <kbd className="font-sans font-semibold">{rec.stopShortcut}</kbd> here.
           </DockNotice>
         )}
         {rec.notice && (

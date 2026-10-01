@@ -457,6 +457,17 @@ button.studio-row:hover {
 .rec-bubble-out {
   animation: rec-bubble-scale-out 200ms var(--rec-settle) both, rec-bubble-fade-out var(--rec-fade) ease-in both;
 }
+/* Recorder UI kept out of a take (editor/record/barHidden.ts): it fades over
+   --rec-fade (CONCEAL_FADE_MS), then leaves the frame entirely — visibility,
+   so it keeps its layout and nothing on the page shifts in the recording. */
+.rec-conceal {
+  transition: opacity var(--rec-fade) ease-out, visibility 0s;
+}
+.rec-conceal[data-concealed="true"] {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--rec-fade) ease-in, visibility 0s linear var(--rec-fade);
+}
 @media (prefers-reduced-motion: reduce) {
   :root { --rec-morph: 120ms; --rec-fade: 120ms; --rec-grow: 0ms; }
   .rec-row-in { animation-name: rec-row-out; animation-direction: reverse; }

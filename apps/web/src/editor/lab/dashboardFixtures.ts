@@ -12,6 +12,9 @@
  *   tier=free|paid billing tier (default paid)
  *   team=owner|none  team page as an owner, or with no team yet
  *   uploads=0      no in-flight desktop upload in the library
+ *   cloud=network  a project's own cloud routes (/api/cloud-projects/<id>…:
+ *                  stage, finalize, save) go to the network, where a harness
+ *                  answers them — the recorder gate publishes real takes
  */
 import superjson from "superjson";
 
@@ -20,6 +23,8 @@ export interface LabOptions {
   tier: "free" | "paid";
   team: "owner" | "none";
   uploads: boolean;
+  /** Pass /api/cloud-projects/<id>… through to the network (a harness mocks it). */
+  cloudNetwork: boolean;
 }
 
 // Fixed "now" so relative dates and sort orders never drift between runs.
@@ -385,6 +390,7 @@ function installDashboardMocks(o: LabOptions): void {
       url.pathname.startsWith("/api/") ||
       url.pathname === "/__dev/local-projects";
     if (!handled) return real(input, init);
+    if (o.cloudNetwork && /\/api\/cloud-projects\/./.test(url.pathname)) return real(input, init);
     if (o.state === "loading") return new Promise<Response>(() => {});
     await new Promise((r) => setTimeout(r, 60)); // a beat, like a network round trip
     if (url.pathname.includes("/api/trpc/")) return respondTrpc(url, o);
@@ -400,6 +406,7 @@ export const labOptions: LabOptions = {
   tier: query.get("tier") === "free" ? "free" : "paid",
   team: query.get("team") === "none" ? "none" : "owner",
   uploads: query.get("uploads") !== "0",
+  cloudNetwork: query.get("cloud") === "network",
 };
 
 // Installed while this module evaluates — DashboardLab imports it FIRST, so

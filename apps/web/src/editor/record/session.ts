@@ -37,6 +37,7 @@ import {
   type VideoCodec,
 } from "mediabunny";
 
+import { TakeTimeline, type TakeClock } from "./barHidden";
 import { stopStream, surfaceLabel, surfaceOf, type SurfaceKind } from "./capture";
 
 export interface SessionStreams {
@@ -62,6 +63,12 @@ export interface RecordedTake {
   hasMic: boolean;
   /** OPFS folder holding the files (removed by `discardTakeFiles`). */
   folder: string | null;
+  /**
+   * When the page's recorder UI was on screen during the take, in media
+   * seconds (unpadded) — the project cuts these out (barHidden.ts). Absent
+   * on takes recorded before it existed.
+   */
+  uiReveals?: Array<[number, number]>;
 }
 
 export type SessionState = "idle" | "recording" | "paused" | "stopping" | "stopped" | "discarded";
@@ -290,6 +297,11 @@ export async function fileDuration(file: File): Promise<number> {
   }
 }
 
+/** mediabunny's shared zero for an output (seconds on the performance clock), once its first chunk arrived. */
+function firstMediaStreamTimestamp(o: Output | undefined): number | null {
+  return (o as unknown as { _firstMediaStreamTimestamp?: number | null } | undefined)?._firstMediaStreamTimestamp ?? null;
+}
+
 export class RecordingSession {
   readonly id: string;
   state: SessionState = "idle";
@@ -308,6 +320,7 @@ export class RecordingSession {
   private size = { width: 0, height: 0 };
   private hasSystemAudio = false;
   private hasMic = false;
+  private readonly timeline = new TakeTimeline();
   private readonly surface: SurfaceKind;
   private readonly label: string;
 
@@ -417,7 +430,24 @@ export class RecordingSession {
     // timestamp), and the clock should not run over a black first second.
     await this.firstFrames(3000);
     this.startedAt = performance.now();
+    // Media time 0: mediabunny's "synced-zero" — performance.now() when the
+    // first chunk (of any source) reached this output; every frame after is
+    // stamped on that clock (a constant-rate tick, paused frames dropped
+    // with their time).
+    const zero = firstMediaStreamTimestamp(screen.output);
+    this.timeline.zeroMs = zero !== null ? zero * 1000 : this.startedAt;
     this.state = "recording";
+  }
+
+  /** The page's recorder UI came on screen (true) or left it (false) at `at` (performance.now ms). */
+  markUi(visible: boolean, at = performance.now()): void {
+    if (visible) this.timeline.reveals.reveal(at);
+    else this.timeline.reveals.conceal(at);
+  }
+
+  /** The take's media clock so far (null before the first frame). */
+  clock(now = performance.now()): TakeClock | null {
+    return this.timeline.zeroMs === null ? null : this.timeline.clock(now, this.timeline.zeroMs);
   }
 
   private async firstFrames(timeoutMs: number): Promise<void> {
@@ -431,29 +461,32 @@ export class RecordingSession {
     if (this.state !== "recording") return;
     for (const s of [...this.videoSources, ...this.audioSources]) s.pause();
     this.pausedAt = performance.now();
+    this.timeline.pause(this.pausedAt);
     this.state = "paused";
   }
 
   resume(): void {
     if (this.state !== "paused") return;
-    this.pausedTotal += performance.now() - this.pausedAt;
+    const now = performance.now();
+    this.pausedTotal += now - this.pausedAt;
     for (const s of [...this.videoSources, ...this.audioSources]) s.resume();
+    this.timeline.resume(now);
     this.state = "recording";
   }
 
   /** Finish the files. The capture streams stay open (the page releases them). */
   async stop(): Promise<RecordedTake> {
     if (this.state !== "recording" && this.state !== "paused") throw new Error("Not recording");
+    // No frame captured after this instant reaches the file.
+    const stopAt = performance.now();
     this.state = "stopping";
     const screen = this.screenSink!;
     const cam = this.cameraSink;
-    const firstOf = (o: Output | undefined) =>
-      (o as unknown as { _firstMediaStreamTimestamp?: number | null } | undefined)?._firstMediaStreamTimestamp ?? null;
     // finalize() also closes the OPFS stream (StreamTarget holds its writer).
     await Promise.all([screen.output.finalize(), cam?.output.finalize()]);
 
-    const screenZero = firstOf(screen.output);
-    const camZero = firstOf(cam?.output);
+    const screenZero = firstMediaStreamTimestamp(screen.output);
+    const camZero = firstMediaStreamTimestamp(cam?.output);
     const cameraTimeOffset = cam && screenZero !== null && camZero !== null ? Math.max(0, camZero - screenZero) : 0;
 
     const screenFile = await sinkFile(screen, "video/quicktime");
@@ -474,6 +507,7 @@ export class RecordingSession {
       hasSystemAudio: this.hasSystemAudio,
       hasMic: this.hasMic,
       folder: this.folderHandle ? this.id : null,
+      uiReveals: this.timeline.mediaReveals(stopAt, this.startedAt),
     };
     if (this.folderHandle) await persistTake(this.folderHandle, take, { movies: false });
     this.state = "stopped";

@@ -129,6 +129,54 @@ export function surfaceOf(stream: MediaStream): SurfaceKind {
   return s?.displaySurface === "window" || s?.displaySurface === "browser" ? s.displaySurface : "monitor";
 }
 
+// ── this tab's capture handle (Chrome's Capture Handle API) ─────────────────
+
+interface CaptureHandle {
+  handle?: string;
+  origin?: string;
+}
+
+/** A per-tab id this page publishes to tab captures — so a share can tell it caught THIS tab. */
+let ownHandle: string | null = null;
+
+/**
+ * Publish this tab's capture handle (to captures from this origin only).
+ * `selfBrowserSurface: "exclude"` keeps this tab out of the picker, but a
+ * browser may ignore it (Chrome's auto-select does, and "Share this tab
+ * instead" can switch a share mid-take); the handle is how we notice.
+ */
+export function claimCaptureHandle(): void {
+  const md = typeof navigator === "undefined" ? undefined : (navigator.mediaDevices as MediaDevices & {
+    setCaptureHandleConfig?: (c: { handle: string; exposeOrigin: boolean; permittedOrigins: string[] }) => void;
+  });
+  if (!md?.setCaptureHandleConfig || ownHandle) return;
+  try {
+    ownHandle = `capturecat-recorder:${crypto.randomUUID()}`;
+    md.setCaptureHandleConfig({ handle: ownHandle, exposeOrigin: true, permittedOrigins: [location.origin] });
+  } catch {
+    ownHandle = null; // not the top-level document, or unsupported: no proof either way
+  }
+}
+
+/** True when the share is this very tab (its capture handle is ours). */
+export function capturesThisTab(stream: MediaStream | null): boolean {
+  const track = stream?.getVideoTracks()[0] as (MediaStreamTrack & { getCaptureHandle?: () => CaptureHandle | null }) | undefined;
+  if (!track || !ownHandle) return false;
+  try {
+    return track.getCaptureHandle?.()?.handle === ownHandle;
+  } catch {
+    return false;
+  }
+}
+
+/** Call `fn` whenever the shared surface's capture handle changes (a tab share switched). */
+export function onCaptureHandleChange(stream: MediaStream, fn: () => void): () => void {
+  const track = stream.getVideoTracks()[0];
+  if (!track) return () => undefined;
+  track.addEventListener("capturehandlechange", fn);
+  return () => track.removeEventListener("capturehandlechange", fn);
+}
+
 /** Human label for the in-recording source chip ("Entire Screen", a window title…). */
 export function surfaceLabel(stream: MediaStream): string {
   const track = stream.getVideoTracks()[0];

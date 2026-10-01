@@ -21,7 +21,7 @@
  */
 import type { Rect, Size } from "../core/model/types";
 import { squircleExponent, superellipsePath } from "../core/math/cameraStyleMath";
-import type { SurfaceKind } from "./capture";
+import type { ConcealMode } from "./barHidden";
 
 // ── metrics (CameraFloatMetrics) ────────────────────────────────────────────
 
@@ -271,8 +271,8 @@ export interface BubblePolicyInput {
   /** Armed with a camera chosen (the stream may still be opening). */
   cameraOn: boolean;
   phase: "setup" | "countdown" | "recording" | "saving" | "failed";
-  /** The chosen share's surface (null = nothing chosen yet). */
-  surface: SurfaceKind | null;
+  /** How the chosen share keeps the page's UI out of the take (barHidden.ts concealModeFor). */
+  conceal: ConcealMode;
   /** Record was pressed and the take isn't live yet. */
   starting: boolean;
   /** The floating controls window (Document Picture-in-Picture) is open. */
@@ -282,24 +282,25 @@ export interface BubblePolicyInput {
 export interface BubblePolicy {
   /** page: floating over the dashboard · floating: inside the floating controls window · none. */
   host: "page" | "floating" | "none";
-  /** Hidden only because a whole-screen take would record it (the dock says so). */
+  /** Hidden only because the take could record it (the dock says so). */
   hiddenForScreen: boolean;
 }
 
 /**
  * The Mac excludes its bubble from capture (`sharingType = .none`); a page
- * can't keep an element out of getDisplayMedia. A window or tab share of
- * something else never contains this page, so the bubble stays. A
- * whole-screen take WOULD record it — on top of camera.mov, which the editor
- * composites anyway — so it steps aside from Record until the take ends.
- * While the floating controls window is up (window/tab takes) the bubble
- * rides in it, above everything like the Mac's panel — one camera preview at
- * a time. After Stop the camera is released for the upload: nothing to show.
+ * can't keep an element out of getDisplayMedia. A tab share of another tab
+ * never contains this page, so the bubble stays. A share that could — a
+ * display, a window, this tab — would record it (on top of camera.mov, which
+ * the editor composites anyway), so it steps aside from Record until the
+ * take ends. While the floating controls window is up (window/tab takes) the
+ * bubble rides in it, above everything like the Mac's panel — one camera
+ * preview at a time, and that window isn't part of a window or tab capture.
+ * After Stop the camera is released for the upload: nothing to show.
  */
 export function bubblePolicy(s: BubblePolicyInput): BubblePolicy {
   if (!s.cameraOn || s.phase === "saving" || s.phase === "failed") return { host: "none", hiddenForScreen: false };
   const takeLive = s.starting || s.phase === "countdown" || s.phase === "recording";
-  if (takeLive && s.surface === "monitor") return { host: "none", hiddenForScreen: true };
-  if (takeLive && s.floatingOpen) return { host: "floating", hiddenForScreen: false };
+  if (takeLive && s.floatingOpen && s.conceal !== "reveal") return { host: "floating", hiddenForScreen: false };
+  if (takeLive && s.conceal !== "none") return { host: "none", hiddenForScreen: true };
   return { host: "page", hiddenForScreen: false };
 }

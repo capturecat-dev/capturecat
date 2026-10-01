@@ -13,13 +13,22 @@
  *
  * A share ended from outside (the browser's "Stop sharing") stops and saves
  * the take, like the Mac when its source disappears.
+ *
+ * The recorder's own UI never reaches the output (barHidden.ts): for a share
+ * that could contain this page it is hidden before the first frame, and any
+ * moment it has to come back is logged and cut from the new project. ⌘⇧S
+ * (the Mac's Stop Recording) or Esc stops a take while the page has focus.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { newUUID } from "../core/model";
 import { CloudApiError } from "../state/cloud";
+import { concealModeFor, recorderProbe, type ConcealMode } from "./barHidden";
 import {
+  capturesThisTab,
+  claimCaptureHandle,
   listDevices,
+  onCaptureHandleChange,
   preferFrameRate,
   openCamera,
   openMic,
@@ -38,6 +47,7 @@ import { closeControlsWindow, openControlsWindow, pipSupported } from "./pip";
 import { publishTake, type PublishProgress } from "./publish";
 import { discardTakeFiles, leftoverTakes, warmRecorder, type RecordedTake } from "./session";
 import { createTakeRecorder, recorderEngine, type TakeRecorder } from "./takeRecorder";
+import { useConceal } from "./useConceal";
 
 export const RECORD_FPS = 60;
 export const COUNTDOWN_CHOICES = [0, 3, 5, 10] as const;
@@ -95,6 +105,29 @@ export function formatClock(seconds: number): string {
 export function limitTitle(limit: number): string {
   if (limit === 0) return "No Limit";
   return limit < 60 ? `${limit}s` : `${limit / 60} min`;
+}
+
+function isMacLike(): boolean {
+  return typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
+}
+
+/** The Mac's Stop Recording key equivalent (StatusMenuBuilder: ⌘⇧S), as this platform spells it. */
+export function stopShortcutLabel(): string {
+  return isMacLike() ? "⌘⇧S" : "Ctrl+Shift+S";
+}
+
+/** ⌘⇧S / Ctrl+Shift+S. */
+export function isStopShortcut(e: Pick<KeyboardEvent, "metaKey" | "ctrlKey" | "shiftKey" | "altKey" | "code" | "key">): boolean {
+  return (e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && (e.code === "KeyS" || e.key.toLowerCase() === "s");
+}
+
+/** Esc stops a take only when nothing else on the page wants it (a field, a menu, a dialog). */
+function escapeIsFree(e: KeyboardEvent): boolean {
+  if (e.key !== "Escape" || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return false;
+  const doc = (e.target as Node | null)?.ownerDocument ?? document;
+  const el = e.target as HTMLElement | null;
+  if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return false;
+  return !doc.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]');
 }
 
 export type RecorderPhase =
@@ -174,6 +207,28 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
   const [armed, setArmed] = useState(false);
   const sessionRef = useRef<TakeRecorder | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  /** The share is THIS tab (a browser that ignored selfBrowserSurface: "exclude"). */
+  const [ownTab, setOwnTab] = useState(false);
+  const concealMode: ConcealMode = concealModeFor({
+    surface: screen ? surfaceOf(screen) : null,
+    capturesThisTab: ownTab,
+    floatingOpen: floating !== null,
+  });
+  const concealModeRef = useRef(concealMode);
+  concealModeRef.current = concealMode;
+  const conceal = useConceal({ mode: concealMode, sessionRef });
+  const { hideForTake, release: releaseUi } = conceal;
+
+  useEffect(() => claimCaptureHandle(), []);
+  useEffect(() => {
+    if (!screen) {
+      setOwnTab(false);
+      return;
+    }
+    const sync = () => setOwnTab(capturesThisTab(screen));
+    sync();
+    return onCaptureHandleChange(screen, sync);
+  }, [screen]);
 
   const setPrefs = useCallback((patch: Partial<RecorderPrefs>) => {
     setPrefsState((p) => {
@@ -403,19 +458,30 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     if (!session || busy) return;
     setBusy(true);
     try {
+      // The UI stays as it is until the files are final: no frame is
+      // captured after this resolves.
       const take = await session.stop();
+      recorderProbe("take", {
+        id: take.id,
+        engine: recorderEngine(),
+        duration: take.duration,
+        uiReveals: take.uiReveals ?? [],
+        clock: session.clock(),
+      });
       session.releaseStreams();
       sessionRef.current = null;
+      releaseUi();
       setScreen(null);
       setPaused(false);
       await publish(take);
     } catch (error) {
+      releaseUi();
       setNotice(error instanceof Error ? error.message : String(error));
       setPhase({ kind: "setup" });
     } finally {
       setBusy(false);
     }
-  }, [busy, publish]);
+  }, [busy, publish, releaseUi]);
   const stopRef = useRef(stop);
   stopRef.current = stop;
 
@@ -426,17 +492,19 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     sessionRef.current = session;
     try {
       await session.start();
+      recorderProbe("start", { engine: recorderEngine(), clock: session.clock(), mode: concealModeRef.current });
       setPaused(false);
       setElapsed(0);
       setPhase({ kind: "recording" });
     } catch (error) {
       sessionRef.current = null;
       await session.discard();
+      releaseUi();
       closeFloating();
       setNotice(error instanceof Error ? error.message : String(error));
       setPhase({ kind: "setup" });
     }
-  }, [screen, camStream, micStream, closeFloating]);
+  }, [screen, camStream, micStream, closeFloating, releaseUi]);
 
   useEffect(() => {
     if (phase.kind === "recording" && prefs.limit > 0 && elapsed >= prefs.limit) void stop();
@@ -448,27 +516,36 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     setNotice(null);
     setStarting(true);
     const pressed = performance.now();
+    const surface = surfaceOf(screen);
     try {
-      if (prefs.floatControls && pipSupported() && surfaceOf(screen) !== "monitor") {
+      // The controls float above everything for a share that can't contain
+      // that window (never a display: it would record it).
+      let floatWin: Window | null = null;
+      if (prefs.floatControls && pipSupported() && surface !== "monitor") {
         const opened = await openControlsWindow({ width: 440, height: prefs.camId ? 280 : 72 }, () => setFloating(null));
-        if (opened) setFloating(opened);
+        if (opened) {
+          setFloating(opened);
+          floatWin = opened.win;
+        }
       }
       for (let left = prefs.countdown; left > 0; left--) {
         setPhase({ kind: "countdown", left });
         await new Promise((r) => setTimeout(r, 1000));
       }
-      // A whole-screen share records this page, so the camera bubble steps
-      // aside from the Record press (cameraBubble.ts bubblePolicy). Without a
-      // countdown, let its exit finish before the first frame is captured.
-      if (prefs.camId && surfaceOf(screen) === "monitor") {
-        const wait = BUBBLE_EXIT_MS + 50 - (performance.now() - pressed);
-        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-      }
+      // Before the first frame: the recorder UI (countdown included) leaves
+      // any share that could contain this page — and the camera bubble,
+      // which stepped aside at the press, has finished its exit.
+      const mode = concealModeFor({
+        surface,
+        capturesThisTab: capturesThisTab(screen),
+        floatingOpen: floatWin !== null && !floatWin.closed,
+      });
+      await hideForTake(mode, prefs.camId ? BUBBLE_EXIT_MS - (performance.now() - pressed) : 0);
       await begin();
     } finally {
       setStarting(false);
     }
-  }, [screen, phase.kind, prefs.floatControls, prefs.countdown, prefs.camId, begin]);
+  }, [screen, phase.kind, prefs.floatControls, prefs.countdown, prefs.camId, begin, hideForTake]);
 
   const pauseResume = useCallback(() => {
     const s = sessionRef.current;
@@ -485,8 +562,10 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     sessionRef.current = null;
     await s.discard();
     setBusy(false);
+    // Pressed in a revealed bar: it leaves the screen again before the new take's first frame.
+    await hideForTake(concealModeRef.current);
     await begin();
-  }, [begin]);
+  }, [begin, hideForTake]);
 
   const remove = useCallback(async () => {
     const s = sessionRef.current;
@@ -495,10 +574,34 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     sessionRef.current = null;
     await s.discard();
     setBusy(false);
+    releaseUi();
     closeFloating();
     setPaused(false);
     setPhase({ kind: "setup" });
-  }, [closeFloating]);
+  }, [closeFloating, releaseUi]);
+
+  // ⌘⇧S (the Mac's Stop Recording) or Esc stops a live take — from the page
+  // or the floating controls — without bringing any UI on screen.
+  useEffect(() => {
+    if (phase.kind !== "recording") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.isComposing) return;
+      if (isStopShortcut(e)) {
+        e.preventDefault();
+        recorderProbe("shortcut", { key: "stop" });
+        void stopRef.current();
+      } else if (escapeIsFree(e)) {
+        recorderProbe("shortcut", { key: "escape" });
+        void stopRef.current();
+      }
+    };
+    const targets: Window[] = [window];
+    if (floating?.win) targets.push(floating.win);
+    for (const w of targets) w.addEventListener("keydown", onKey);
+    return () => {
+      for (const w of targets) w.removeEventListener("keydown", onKey);
+    };
+  }, [phase.kind, floating]);
 
   const deleteLeftover = useCallback(async (take: RecordedTake) => {
     await discardTakeFiles(take.folder);
@@ -558,6 +661,16 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     deleteLeftover,
     floating,
     pipSupported: pipSupported(),
+    /** How this share keeps the page's recorder UI out of the take (barHidden.ts). */
+    concealMode,
+    /** The page's recorder UI (dock, notices, bubble, the Record page's live chrome) must be off screen now. */
+    uiHidden: conceal.hidden,
+    /** Mid-take the UI is back on screen, and those frames are being cut ("return" / "edge" / "dialog"). */
+    revealed: conceal.revealed,
+    /** Recorder UI outside the dock must show mid-take (a dialog): logged and cut like a return. */
+    showUiFor: conceal.showFor,
+    hideUiAfter: conceal.hideAfter,
+    stopShortcut: stopShortcutLabel(),
   };
 }
 
