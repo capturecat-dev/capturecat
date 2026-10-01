@@ -1,0 +1,1223 @@
+/*
+ * The signed-in dashboard (app.capturecat.so) — the studio kit's motion and
+ * the small live product recreations its empty states show. Same glass
+ * language as the rest of app.css; same motion family as the recording bar:
+ *
+ *   --rec-settle  cubic-bezier(0.32, 1.12, 0.24, 1)  arrivals, pills, glides
+ *   --rec-bounce  cubic-bezier(0.34, 1.56, 0.64, 1)  growth lands on a bounce
+ *   --rec-fade    150 ms                              hover washes
+ *
+ * Rules: only transform and opacity animate. Loops pause offscreen
+ * (`[data-offscreen]`, set by useOffscreenPause). prefers-reduced-motion
+ * drops every movement and loop; each recreation's resting frame is chosen
+ * so it still shows what the feature does.
+ */
+
+/* Everything below sits in the components layer so Tailwind utilities on the
+   same element (size-*, absolute, h-*) still win, as they do for shadcn. */
+@layer components {
+/* ── Arrival ────────────────────────────────────────────────────────────── */
+
+@keyframes dsh-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+}
+@keyframes dsh-fade {
+  from {
+    opacity: 0;
+  }
+}
+/* Growth: scale up from just under, landing on the house bounce. */
+@keyframes dsh-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+/* A meter fill grows from its leading edge to its inline scaleX. */
+@keyframes dsh-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes dsh-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+/* Staggered arrival: set --i on the element (0, 1, 2 …). */
+.dsh-rise {
+  animation: dsh-rise 560ms var(--rec-settle) backwards;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+.dsh-pop {
+  animation: dsh-pop var(--rec-grow) var(--rec-bounce) backwards;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+/* Sections inside the one surface arrive one after another. */
+.studio-sections > * {
+  animation: dsh-rise 560ms var(--rec-settle) backwards;
+}
+.studio-sections > :nth-child(2) { animation-delay: 60ms; }
+.studio-sections > :nth-child(3) { animation-delay: 120ms; }
+.studio-sections > :nth-child(4) { animation-delay: 180ms; }
+.studio-sections > :nth-child(5) { animation-delay: 240ms; }
+.studio-sections > :nth-child(n + 6) { animation-delay: 300ms; }
+
+/* ── Surfaces ───────────────────────────────────────────────────────────── */
+
+
+/* A raised key for a section's icon (the Mac toolbar's keys, in glass). */
+.studio-key {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.03));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 6px 14px -8px rgb(0 0 0 / 0.8);
+  color: rgb(255 255 255 / 0.78);
+}
+.studio-key > svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+/* Page eyebrow: the marketing site's pill, compact. */
+.studio-pill-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 1.5rem;
+  padding: 0 0.7rem;
+  border-radius: 9999px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.05);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.studio-pill-eyebrow::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgb(103 232 249 / 0.8);
+  box-shadow: 0 0 10px rgb(103 232 249 / 0.6);
+}
+
+/* ── Live bits ──────────────────────────────────────────────────────────── */
+
+/* A status dot with a ring that breathes out of it (opacity + scale). */
+.dsh-live {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--dsh-live, rgb(103 232 249));
+}
+.dsh-live::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: dsh-breathe 1.8s ease-out infinite;
+}
+@keyframes dsh-breathe {
+  0% { opacity: 0.6; transform: scale(1); }
+  70%, 100% { opacity: 0; transform: scale(2.8); }
+}
+.dsh-live--rec { --dsh-live: #ff453a; }
+.dsh-live--amber { --dsh-live: rgb(251 191 36); }
+.dsh-live--green { --dsh-live: rgb(52 211 153); }
+
+/* Meter: a track and a fill that grows from its leading edge. The fill's
+   inline transform is its value; changes glide, the first paint grows. */
+.dsh-meter {
+  position: relative;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.35);
+}
+.dsh-meter > i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, rgb(103 232 249 / 0.85), rgb(129 140 248 / 0.95));
+  box-shadow: 0 0 12px rgb(103 232 249 / 0.35);
+  animation: dsh-grow-x 900ms var(--rec-bounce) backwards;
+  animation-delay: calc(150ms + var(--i, 0) * 70ms);
+  transition: transform 600ms var(--rec-settle);
+}
+.dsh-meter[data-tone="warn"] > i {
+  background: linear-gradient(90deg, rgb(251 191 36 / 0.9), rgb(245 158 11));
+  box-shadow: 0 0 12px rgb(251 191 36 / 0.35);
+}
+.dsh-meter[data-tone="full"] > i {
+  background: linear-gradient(90deg, rgb(248 113 113), rgb(239 68 68));
+  box-shadow: 0 0 12px rgb(239 68 68 / 0.4);
+}
+.dsh-meter[data-tone="plain"] > i {
+  background: rgb(255 255 255 / 0.32);
+  box-shadow: none;
+}
+
+/* Analytics funnel steps grow in, one after another. */
+.dsh-funnel-bar {
+  transform-origin: 0 50%;
+  animation: dsh-grow-x 900ms var(--rec-bounce) backwards;
+  animation-delay: calc(200ms + var(--i, 0) * 90ms);
+  transition: transform 600ms var(--rec-settle);
+}
+
+/* A light sweep across an in-flight surface (uploads). */
+.dsh-sweep {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.dsh-sweep::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.07), transparent);
+  animation: dsh-sweep 1.9s cubic-bezier(0.45, 0.05, 0.3, 1) infinite;
+}
+@keyframes dsh-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(260%); }
+}
+
+/* ── Glide wash + pills ─────────────────────────────────────────────────── */
+
+.dsh-glide-wash {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  background: rgb(255 255 255 / 0.06);
+  will-change: transform, opacity;
+}
+.dsh-pill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.12);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 6px 16px -8px rgb(0 0 0 / 0.9);
+}
+
+/* Sidebar: the active row's pill and the hover wash, one of each. */
+.dsh-nav-pill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  pointer-events: none;
+  border-radius: 0.5rem;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.06));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.09),
+    0 8px 18px -10px rgb(0 0 0 / 0.9);
+}
+.dsh-nav-pill::before {
+  content: "";
+  position: absolute;
+  left: -0.5rem;
+  top: 25%;
+  bottom: 25%;
+  width: 3px;
+  border-radius: 9999px;
+  background: rgb(103 232 249 / 0.85);
+  box-shadow: 0 0 10px rgb(103 232 249 / 0.6);
+}
+[data-collapsible="icon"] .dsh-nav-pill::before {
+  display: none;
+}
+
+/* ── Media cards (Library, Projects) ────────────────────────────────────── */
+
+.dsh-card {
+  transition:
+    transform 420ms var(--rec-settle),
+    border-color 200ms,
+    background-color 200ms,
+    box-shadow 420ms var(--rec-settle);
+}
+.dsh-card:hover {
+  transform: translate3d(0, -3px, 0);
+  box-shadow: 0 26px 50px -28px rgb(0 0 0 / 0.95);
+}
+/* The still zooms a touch while it previews (Tailwind's scale-* sets the
+   individual `scale` property). */
+.dsh-thumb-media {
+  transition: scale 700ms var(--rec-settle);
+}
+/* The fade at a thumbnail's foot, under the duration chip. */
+.dsh-thumb-shade {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 45%;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.55), transparent);
+  pointer-events: none;
+}
+.dsh-card .dsh-hover-hint {
+  opacity: 0;
+  transform: translate3d(0, 4px, 0);
+  transition:
+    opacity 200ms ease-out,
+    transform 320ms var(--rec-settle);
+}
+.dsh-card:hover .dsh-hover-hint,
+.dsh-card:focus-visible .dsh-hover-hint {
+  opacity: 1;
+  transform: none;
+}
+
+/* A project with no saved still: the editor's canvas, drawn. */
+.dsh-proj-ph {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 80% at 20% 15%, rgb(255 255 255 / 0.1), transparent 60%),
+    linear-gradient(135deg, rgb(191 90 242 / 0.55), rgb(125 92 240 / 0.5) 45%, rgb(10 132 255 / 0.55));
+}
+.dsh-proj-ph::before {
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 14%;
+  bottom: 14%;
+  border-radius: 6px;
+  background:
+    linear-gradient(rgb(255 255 255 / 0.92), rgb(255 255 255 / 0.92)) 0 0 / 100% 12% no-repeat,
+    linear-gradient(rgb(240 240 244), rgb(240 240 244)) 0 12% / 22% 88% no-repeat,
+    #fbfbfd;
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.35);
+}
+
+/* The library's bulk-selection dock: arrives on the bounce. */
+@keyframes dsh-dock-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.96);
+  }
+}
+.dsh-dock-in {
+  animation: dsh-dock-in var(--rec-grow) var(--rec-bounce) backwards;
+}
+
+/* ── Ambient light behind the content (drifts very slowly) ─────────────── */
+
+.dsh-ambient {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -10;
+}
+.dsh-ambient > i {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  will-change: transform;
+}
+.dsh-ambient > i:nth-child(1) {
+  left: 10%;
+  top: -220px;
+  width: 70%;
+  height: 420px;
+  background: rgb(120 140 255 / 0.11);
+  animation: dsh-drift-a 38s ease-in-out infinite alternate;
+}
+.dsh-ambient > i:nth-child(2) {
+  right: -10%;
+  top: 40px;
+  width: 45%;
+  height: 340px;
+  background: rgb(80 220 255 / 0.06);
+  animation: dsh-drift-b 46s ease-in-out infinite alternate;
+}
+@keyframes dsh-drift-a {
+  to { transform: translate3d(8%, 30px, 0) scale(1.08); }
+}
+@keyframes dsh-drift-b {
+  to { transform: translate3d(-12%, -20px, 0) scale(0.92); }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Empty-state recreations. Design space 320 × 180: `--u` is one design
+   pixel of the nearest .dsh-art, so each scales as one picture.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.dsh-art {
+  --u: calc(100cqw / 320);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  width: 100%;
+  container-type: inline-size;
+  aspect-ratio: 16 / 9;
+  color: rgb(255 255 255 / 0.9);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+.dsh-art * {
+  box-sizing: border-box;
+}
+.dsh-art[data-offscreen] *,
+.dsh-art[data-offscreen] *::before,
+.dsh-art[data-offscreen] *::after {
+  animation-play-state: paused !important;
+}
+/* Staggered loops hold their first frame through their delay. */
+.dsh-art *,
+.dsh-art *::before,
+.dsh-art *::after {
+  animation-fill-mode: backwards !important;
+}
+.dsh-art .a {
+  position: absolute;
+}
+.dsh-art .cursor {
+  position: absolute;
+  width: calc(9 * var(--u));
+  height: calc(13 * var(--u));
+}
+
+/* A dark app window. */
+.dsh-art .win {
+  position: absolute;
+  overflow: hidden;
+  border-radius: calc(10 * var(--u));
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: #121214;
+  box-shadow:
+    0 calc(18 * var(--u)) calc(40 * var(--u)) rgb(0 0 0 / 0.55),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+.dsh-art .bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: calc(16 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(3.5 * var(--u));
+  padding: 0 calc(7 * var(--u));
+  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+  background: rgb(255 255 255 / 0.03);
+  font-size: calc(6.5 * var(--u));
+  color: rgb(255 255 255 / 0.45);
+}
+.dsh-art .bar > i {
+  width: calc(5 * var(--u));
+  height: calc(5 * var(--u));
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.16);
+}
+.dsh-art .bar > span {
+  margin-left: calc(6 * var(--u));
+}
+.dsh-art .line {
+  position: absolute;
+  height: calc(4 * var(--u));
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.12);
+}
+.dsh-art .thumb {
+  position: absolute;
+  border-radius: calc(3.5 * var(--u));
+  background: linear-gradient(135deg, #bf5af2, #7d5cf0 45%, #0a84ff);
+}
+.dsh-art .thumb[data-t="1"] { background: linear-gradient(135deg, #1f3b8f, #7a3d8a 55%, #ff9f5a); }
+.dsh-art .thumb[data-t="2"] { background: linear-gradient(135deg, #0f766e, #0e7490 50%, #38bdf8); }
+.dsh-art .thumb[data-t="3"] { background: linear-gradient(135deg, #4338ca, #7c3aed 50%, #db2777); }
+.dsh-art .chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(3 * var(--u));
+  height: calc(12 * var(--u));
+  padding: 0 calc(6 * var(--u));
+  border-radius: 9999px;
+  font-size: calc(6 * var(--u));
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dsh-art .chip--cyan { background: rgb(103 232 249 / 0.14); color: rgb(165 243 252 / 0.95); }
+.dsh-art .chip--green { background: rgb(52 211 153 / 0.16); color: rgb(110 231 183); }
+.dsh-art .chip--red { background: rgb(0 0 0 / 0.55); color: #fff; }
+.dsh-art .toast {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: calc(4 * var(--u));
+  height: calc(18 * var(--u));
+  padding: 0 calc(9 * var(--u));
+  border-radius: 9999px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(30 30 33 / 0.97);
+  box-shadow: 0 calc(10 * var(--u)) calc(24 * var(--u)) rgb(0 0 0 / 0.55);
+  font-size: calc(7 * var(--u));
+  white-space: nowrap;
+  translate: -50% 0;
+}
+.dsh-art .toast b {
+  color: rgb(110 231 183);
+}
+
+/* ── Library: a share lands, its link is copied (7 s) ──────────────────── */
+
+.dsh-art--library .win { inset: calc(8 * var(--u)) calc(22 * var(--u)) calc(8 * var(--u)); }
+.dsh-art--library .head { left: calc(12 * var(--u)); top: calc(24 * var(--u)); font-size: calc(9 * var(--u)); font-weight: 600; }
+.dsh-art--library .search {
+  right: calc(12 * var(--u));
+  top: calc(22 * var(--u));
+  width: calc(80 * var(--u));
+  height: calc(13 * var(--u));
+  border-radius: 9999px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.04);
+}
+.dsh-art--library .list { left: calc(12 * var(--u)); right: calc(12 * var(--u)); top: calc(44 * var(--u)); bottom: 0; }
+.dsh-art--library .row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(26 * var(--u));
+  border-radius: calc(6 * var(--u));
+  border: 1px solid rgb(255 255 255 / 0.06);
+  background: rgb(255 255 255 / 0.025);
+}
+.dsh-art--library .row .thumb { left: calc(5 * var(--u)); top: calc(4 * var(--u)); width: calc(30 * var(--u)); height: calc(17 * var(--u)); }
+.dsh-art--library .row .line { left: calc(42 * var(--u)); top: calc(7 * var(--u)); width: calc(70 * var(--u)); }
+.dsh-art--library .row .line + .line { top: calc(15 * var(--u)); width: calc(40 * var(--u)); opacity: 0.6; }
+.dsh-art--library .rows { left: 0; right: 0; top: 0; bottom: 0; }
+.dsh-art--library .rows .row:nth-child(1) { top: calc(31 * var(--u)); }
+.dsh-art--library .rows .row:nth-child(2) { top: calc(62 * var(--u)); }
+.dsh-art--library .rows .row:nth-child(3) { top: calc(93 * var(--u)); }
+.dsh-art--library .new { top: 0; border-color: rgb(103 232 249 / 0.25); background: rgb(103 232 249 / 0.04); }
+.dsh-art--library .new .title { left: calc(42 * var(--u)); top: calc(5 * var(--u)); font-size: calc(7 * var(--u)); font-weight: 600; }
+.dsh-art--library .up {
+  left: calc(42 * var(--u));
+  top: calc(16 * var(--u));
+  width: calc(90 * var(--u));
+  height: calc(3 * var(--u));
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.1);
+  overflow: hidden;
+}
+.dsh-art--library .up > i {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, rgb(103 232 249), rgb(129 140 248));
+}
+.dsh-art--library .done { left: calc(42 * var(--u)); top: calc(14 * var(--u)); font-size: calc(6 * var(--u)); color: rgb(255 255 255 / 0.5); }
+.dsh-art--library .new .chip { right: calc(30 * var(--u)); top: calc(7 * var(--u)); }
+.dsh-art--library .views { right: calc(8 * var(--u)); top: calc(9 * var(--u)); font-size: calc(6.5 * var(--u)); color: rgb(255 255 255 / 0.7); }
+.dsh-art--library .toast { bottom: calc(16 * var(--u)); }
+
+.dsh-art--library .rows { animation: dshLibRows 7s infinite; }
+.dsh-art--library .new { animation: dshLibNew 7s infinite; }
+.dsh-art--library .up { animation: dshLibUp 7s infinite; }
+.dsh-art--library .up > i { animation: dshLibBar 7s infinite; }
+.dsh-art--library .done,
+.dsh-art--library .new .chip { animation: dshLibDone 7s infinite; }
+.dsh-art--library .new .chip { animation-name: dshLibBadge; }
+.dsh-art--library .toast { animation: dshLibToast 7s infinite; }
+@keyframes dshLibRows {
+  0%, 8% { transform: translateY(calc(-31 * var(--u))); animation-timing-function: var(--rec-settle); }
+  16%, 90% { transform: none; animation-timing-function: var(--rec-settle); }
+  98%, 100% { transform: translateY(calc(-31 * var(--u))); }
+}
+@keyframes dshLibNew {
+  0%, 11% { opacity: 0; transform: scale(0.97); }
+  18%, 88% { opacity: 1; transform: none; }
+  93%, 100% { opacity: 0; transform: none; }
+}
+@keyframes dshLibUp { 0%, 41% { opacity: 1; } 43%, 100% { opacity: 0; } }
+@keyframes dshLibBar {
+  0%, 18% { transform: scaleX(0.02); animation-timing-function: cubic-bezier(0.45, 0.05, 0.3, 1); }
+  41%, 100% { transform: scaleX(1); }
+}
+@keyframes dshLibDone { 0%, 42% { opacity: 0; } 45%, 100% { opacity: 1; } }
+@keyframes dshLibBadge {
+  0%, 43% { opacity: 0; transform: scale(0.6); animation-timing-function: var(--rec-bounce); }
+  50%, 100% { opacity: 1; transform: none; }
+}
+@keyframes dshLibToast {
+  0%, 50% { opacity: 0; transform: translateY(40%); animation-timing-function: var(--rec-bounce); }
+  56%, 78% { opacity: 1; transform: none; }
+  83%, 100% { opacity: 0; transform: none; }
+}
+
+/* ── Projects: the editor plays a project; the auto-zoom kicks in (6 s) ── */
+
+.dsh-art--editor .win { inset: calc(6 * var(--u)) calc(18 * var(--u)); }
+.dsh-art--editor .canvas {
+  left: calc(10 * var(--u));
+  right: calc(10 * var(--u));
+  top: calc(22 * var(--u));
+  height: calc(92 * var(--u));
+  overflow: hidden;
+  border-radius: calc(5 * var(--u));
+  background:
+    radial-gradient(60% 70% at 18% 20%, rgb(255 255 255 / 0.18), transparent 60%),
+    linear-gradient(135deg, #bf5af2 0%, #7d5cf0 45%, #0a84ff 100%);
+}
+.dsh-art--editor .plane {
+  inset: 0;
+  transform-origin: 62% 46%;
+}
+.dsh-art--editor .card {
+  left: 14%;
+  top: 11%;
+  width: 72%;
+  height: 78%;
+  border-radius: calc(4 * var(--u));
+  background: #fbfbfd;
+  box-shadow: 0 calc(6 * var(--u)) calc(16 * var(--u)) rgb(0 0 0 / 0.35);
+  overflow: hidden;
+}
+.dsh-art--editor .card .side { left: 0; top: 0; bottom: 0; width: 24%; background: #f0f0f4; }
+.dsh-art--editor .card .l1 { left: 32%; top: 16%; width: 40%; height: 7%; border-radius: 9999px; background: #1d1d1f; }
+.dsh-art--editor .card .l2 { left: 32%; top: 30%; width: 55%; height: 5%; border-radius: 9999px; background: #c7c7cc; }
+.dsh-art--editor .card .btn { left: 32%; top: 62%; width: 26%; height: 12%; border-radius: 9999px; background: #0a84ff; }
+.dsh-art--editor .cursor {
+  left: 52%;
+  top: 66%;
+}
+.dsh-art--editor .tl {
+  left: calc(10 * var(--u));
+  right: calc(10 * var(--u));
+  top: calc(122 * var(--u));
+  height: calc(40 * var(--u));
+  border-radius: calc(5 * var(--u));
+  background: rgb(255 255 255 / 0.03);
+  border: 1px solid rgb(255 255 255 / 0.06);
+}
+.dsh-art--editor .clip {
+  left: calc(6 * var(--u));
+  right: calc(6 * var(--u));
+  top: calc(6 * var(--u));
+  height: calc(12 * var(--u));
+  border-radius: calc(3 * var(--u));
+  background: linear-gradient(90deg, rgb(10 132 255 / 0.55), rgb(10 132 255 / 0.4));
+  border: 1px solid rgb(10 132 255 / 0.7);
+}
+.dsh-art--editor .zoom {
+  left: 38%;
+  width: 26%;
+  top: calc(22 * var(--u));
+  height: calc(11 * var(--u));
+  border-radius: calc(3 * var(--u));
+  background: rgb(191 90 242 / 0.4);
+  border: 1px solid rgb(191 90 242 / 0.8);
+  font-size: calc(5.5 * var(--u));
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  padding-left: calc(4 * var(--u));
+  color: rgb(240 210 255);
+  transform-origin: 0 50%;
+}
+.dsh-art--editor .head {
+  left: calc(6 * var(--u));
+  top: calc(2 * var(--u));
+  bottom: calc(2 * var(--u));
+  width: 1.5px;
+  background: #fff;
+  box-shadow: 0 0 6px rgb(255 255 255 / 0.6);
+}
+.dsh-art--editor .head::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  border-radius: 1px 1px 50% 50%;
+  background: #fff;
+  translate: -50% 0;
+}
+
+.dsh-art--editor .zoom { animation: dshEdZoomPill 6s infinite; }
+.dsh-art--editor .head { animation: dshEdHead 6s linear infinite; }
+.dsh-art--editor .plane { animation: dshEdCam 6s infinite; }
+@keyframes dshEdZoomPill {
+  0%, 4% { opacity: 0; transform: scaleX(0.4); animation-timing-function: var(--rec-bounce); }
+  12%, 92% { opacity: 1; transform: none; }
+  98%, 100% { opacity: 0; transform: none; }
+}
+@keyframes dshEdHead {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(252 * var(--u))); }
+}
+@keyframes dshEdCam {
+  0%, 36% { transform: none; animation-timing-function: var(--ease-out); }
+  46%, 60% { transform: scale(1.55); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  72%, 100% { transform: none; }
+}
+
+/* ── Team: teammates arrive, the shared library fills (6 s) ────────────── */
+
+.dsh-art--team .win { inset: calc(10 * var(--u)) calc(40 * var(--u)); }
+.dsh-art--team .avs { left: calc(18 * var(--u)); top: calc(28 * var(--u)); height: calc(34 * var(--u)); display: flex; }
+.dsh-art--team .av {
+  position: relative;
+  width: calc(32 * var(--u));
+  height: calc(32 * var(--u));
+  margin-right: calc(-9 * var(--u));
+  border-radius: 9999px;
+  border: calc(2 * var(--u)) solid #121214;
+  display: grid;
+  place-items: center;
+  font-size: calc(9 * var(--u));
+  font-weight: 700;
+  color: #fff;
+}
+.dsh-art--team .av:nth-child(1) { background: linear-gradient(135deg, #0a84ff, #5e5ce6); }
+.dsh-art--team .av:nth-child(2) { background: linear-gradient(135deg, #ff9f0a, #ff375f); }
+.dsh-art--team .av:nth-child(3) { background: linear-gradient(135deg, #30d158, #0f766e); }
+.dsh-art--team .av:nth-child(4) {
+  background: rgb(255 255 255 / 0.06);
+  border-style: dashed;
+  border-color: rgb(255 255 255 / 0.25);
+  color: rgb(255 255 255 / 0.6);
+  font-weight: 500;
+}
+.dsh-art--team .name { left: calc(18 * var(--u)); top: calc(70 * var(--u)); font-size: calc(8.5 * var(--u)); font-weight: 600; }
+.dsh-art--team .sub { left: calc(18 * var(--u)); top: calc(82 * var(--u)); font-size: calc(6.5 * var(--u)); color: rgb(255 255 255 / 0.5); }
+.dsh-art--team .row {
+  position: absolute;
+  left: calc(14 * var(--u));
+  right: calc(14 * var(--u));
+  height: calc(22 * var(--u));
+  border-radius: calc(5 * var(--u));
+  border: 1px solid rgb(255 255 255 / 0.06);
+  background: rgb(255 255 255 / 0.025);
+}
+.dsh-art--team .row .thumb { left: calc(4 * var(--u)); top: calc(3.5 * var(--u)); width: calc(24 * var(--u)); height: calc(13.5 * var(--u)); }
+.dsh-art--team .row .line { left: calc(34 * var(--u)); top: calc(9 * var(--u)); width: calc(60 * var(--u)); }
+.dsh-art--team .row .chip { right: calc(5 * var(--u)); top: calc(4.5 * var(--u)); }
+.dsh-art--team .r1 { top: calc(98 * var(--u)); }
+.dsh-art--team .r2 { top: calc(125 * var(--u)); }
+
+.dsh-art--team .av { animation: dshTeamAv 6s infinite; }
+.dsh-art--team .av:nth-child(2) { animation-delay: 0.35s; }
+.dsh-art--team .av:nth-child(3) { animation-delay: 0.7s; }
+.dsh-art--team .av:nth-child(4) { animation-name: dshTeamInvite; }
+.dsh-art--team .r1 { animation: dshTeamRow 6s infinite; }
+.dsh-art--team .r2 { animation: dshTeamRow 6s infinite 0.4s; }
+@keyframes dshTeamAv {
+  0%, 4% { opacity: 0; transform: scale(0.4); animation-timing-function: var(--rec-bounce); }
+  12%, 90% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: none; }
+}
+@keyframes dshTeamInvite {
+  0%, 22% { opacity: 0; transform: scale(0.4); animation-timing-function: var(--rec-bounce); }
+  30%, 90% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: none; }
+}
+@keyframes dshTeamRow {
+  0%, 34% { opacity: 0; transform: translateY(calc(8 * var(--u))); animation-timing-function: var(--rec-settle); }
+  44%, 88% { opacity: 1; transform: none; }
+  94%, 100% { opacity: 0; transform: none; }
+}
+
+/* ── Custom domain: the share link moves to your domain (6 s) ──────────── */
+
+.dsh-art--domain .win { inset: calc(12 * var(--u)) calc(26 * var(--u)); }
+.dsh-art--domain .url {
+  left: calc(46 * var(--u));
+  right: calc(12 * var(--u));
+  top: calc(3 * var(--u));
+  height: calc(11 * var(--u));
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.06);
+  font-size: calc(6.3 * var(--u));
+}
+.dsh-art--domain .url > .from,
+.dsh-art--domain .url > .to {
+  position: absolute;
+  left: calc(14 * var(--u));
+  top: 50%;
+  translate: 0 -50%;
+  white-space: nowrap;
+  color: rgb(255 255 255 / 0.75);
+}
+.dsh-art--domain .url b { color: #fff; font-weight: 600; }
+.dsh-art--domain .lock {
+  left: calc(5 * var(--u));
+  top: calc(3 * var(--u));
+  width: calc(5 * var(--u));
+  height: calc(5 * var(--u));
+  border-radius: calc(1 * var(--u));
+  background: rgb(110 231 183 / 0.85);
+}
+.dsh-art--domain .ok { right: calc(4 * var(--u)); top: calc(1.5 * var(--u)); height: calc(8 * var(--u)); font-size: calc(5 * var(--u)); padding: 0 calc(4 * var(--u)); }
+.dsh-art--domain .video {
+  left: calc(14 * var(--u));
+  top: calc(24 * var(--u));
+  width: calc(150 * var(--u));
+  height: calc(84 * var(--u));
+  border-radius: calc(5 * var(--u));
+  background:
+    radial-gradient(60% 70% at 18% 20%, rgb(255 255 255 / 0.18), transparent 60%),
+    linear-gradient(135deg, #1f3b8f, #7a3d8a 55%, #ff9f5a);
+}
+.dsh-art--domain .video::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(18 * var(--u));
+  height: calc(18 * var(--u));
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.9) no-repeat center / 40% 40%;
+  translate: -50% -50%;
+  box-shadow: 0 calc(4 * var(--u)) calc(12 * var(--u)) rgb(0 0 0 / 0.35);
+}
+.dsh-art--domain .play {
+  left: calc(86 * var(--u));
+  top: calc(61 * var(--u));
+  width: 0;
+  height: 0;
+  border-left: calc(6 * var(--u)) solid #1d1d1f;
+  border-top: calc(4 * var(--u)) solid transparent;
+  border-bottom: calc(4 * var(--u)) solid transparent;
+  z-index: 1;
+}
+.dsh-art--domain .t1 { left: calc(174 * var(--u)); top: calc(28 * var(--u)); width: calc(70 * var(--u)); height: calc(6 * var(--u)); background: rgb(255 255 255 / 0.5); }
+.dsh-art--domain .t2 { left: calc(174 * var(--u)); top: calc(42 * var(--u)); width: calc(84 * var(--u)); }
+.dsh-art--domain .t3 { left: calc(174 * var(--u)); top: calc(52 * var(--u)); width: calc(60 * var(--u)); }
+.dsh-art--domain .cta {
+  left: calc(174 * var(--u));
+  top: calc(68 * var(--u));
+  width: calc(48 * var(--u));
+  height: calc(13 * var(--u));
+  border-radius: 9999px;
+  background: #0a84ff;
+}
+.dsh-art--domain .brand {
+  left: calc(14 * var(--u));
+  top: calc(118 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(5 * var(--u));
+  font-size: calc(6.5 * var(--u));
+  color: rgb(255 255 255 / 0.55);
+}
+.dsh-art--domain .brand i {
+  width: calc(12 * var(--u));
+  height: calc(12 * var(--u));
+  border-radius: calc(3 * var(--u));
+  background: linear-gradient(135deg, #ff9f0a, #ff375f);
+}
+
+.dsh-art--domain .from { animation: dshDomFrom 6s infinite; }
+.dsh-art--domain .to { animation: dshDomTo 6s infinite; }
+.dsh-art--domain .ok { animation: dshDomOk 6s infinite; }
+.dsh-art--domain .brand { animation: dshDomTo 6s infinite; }
+@keyframes dshDomFrom {
+  0%, 30% { opacity: 1; transform: none; }
+  36%, 92% { opacity: 0; transform: translateY(-40%); }
+  98%, 100% { opacity: 1; transform: none; }
+}
+@keyframes dshDomTo {
+  0%, 33% { opacity: 0; transform: translateY(40%); animation-timing-function: var(--rec-settle); }
+  40%, 90% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: none; }
+}
+@keyframes dshDomOk {
+  0%, 44% { opacity: 0; transform: scale(0.5); animation-timing-function: var(--rec-bounce); }
+  52%, 90% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: none; }
+}
+
+/* ── Single sign-on: Continue with SSO → in the team (6 s) ─────────────── */
+
+.dsh-art--sso .win { inset: calc(12 * var(--u)) calc(80 * var(--u)); }
+.dsh-art--sso .logo {
+  left: 50%;
+  top: calc(24 * var(--u));
+  width: calc(20 * var(--u));
+  height: calc(20 * var(--u));
+  translate: -50% 0;
+  border-radius: calc(6 * var(--u));
+  background: linear-gradient(135deg, #ff9f0a, #ff375f);
+}
+.dsh-art--sso .ttl { left: 0; right: 0; top: calc(50 * var(--u)); text-align: center; font-size: calc(8 * var(--u)); font-weight: 600; }
+.dsh-art--sso .field {
+  left: calc(14 * var(--u));
+  right: calc(14 * var(--u));
+  top: calc(68 * var(--u));
+  height: calc(17 * var(--u));
+  border-radius: 9999px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(255 255 255 / 0.04);
+  font-size: calc(6.5 * var(--u));
+  display: flex;
+  align-items: center;
+  padding-left: calc(8 * var(--u));
+  color: rgb(255 255 255 / 0.8);
+}
+.dsh-art--sso .btn {
+  left: calc(14 * var(--u));
+  right: calc(14 * var(--u));
+  top: calc(92 * var(--u));
+  height: calc(18 * var(--u));
+  border-radius: 9999px;
+  background: #f5f5f7;
+  color: #111;
+  font-size: calc(6.8 * var(--u));
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.dsh-art--sso .btn > i {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+}
+.dsh-art--sso .ok {
+  left: 50%;
+  top: calc(122 * var(--u));
+  translate: -50% 0;
+}
+.dsh-art--sso .btn > i { animation: dshSsoPress 6s infinite; }
+.dsh-art--sso .ok { animation: dshSsoOk 6s infinite; }
+.dsh-art--sso .field > span { animation: dshSsoType 6s infinite; }
+@keyframes dshSsoType {
+  0%, 8% { opacity: 0; }
+  14%, 92% { opacity: 1; }
+  98%, 100% { opacity: 0; }
+}
+@keyframes dshSsoPress { 0%, 33% { opacity: 0; } 34%, 38% { opacity: 0.18; } 40%, 100% { opacity: 0; } }
+@keyframes dshSsoOk {
+  0%, 42% { opacity: 0; transform: translateY(30%) scale(0.9); animation-timing-function: var(--rec-bounce); }
+  50%, 90% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: none; }
+}
+
+/* ── Analytics: viewers per moment fill in (6 s) ──────────────────────── */
+
+.dsh-art--analytics .win { inset: calc(10 * var(--u)) calc(30 * var(--u)); }
+.dsh-art--analytics .plot {
+  left: calc(14 * var(--u));
+  right: calc(14 * var(--u));
+  top: calc(34 * var(--u));
+  height: calc(100 * var(--u));
+  display: flex;
+  align-items: flex-end;
+  gap: calc(3 * var(--u));
+  border-bottom: 1px solid rgb(255 255 255 / 0.1);
+}
+.dsh-art--analytics .plot > i {
+  flex: 1;
+  height: var(--h);
+  border-radius: calc(2 * var(--u)) calc(2 * var(--u)) 0 0;
+  background: linear-gradient(to top, rgb(52 211 153 / 0.25), rgb(52 211 153 / 0.75));
+  transform-origin: 50% 100%;
+  animation: dshAnBar 6s infinite;
+  animation-delay: calc(var(--i) * 70ms);
+}
+.dsh-art--analytics .lab { left: calc(14 * var(--u)); top: calc(22 * var(--u)); font-size: calc(7 * var(--u)); font-weight: 600; }
+.dsh-art--analytics .chip { right: calc(14 * var(--u)); top: calc(19 * var(--u)); }
+.dsh-art--analytics .chip { animation: dshAnChip 6s infinite; }
+@keyframes dshAnBar {
+  0%, 4% { transform: scaleY(0.04); animation-timing-function: var(--rec-bounce); }
+  22%, 88% { transform: none; }
+  96%, 100% { transform: scaleY(0.04); }
+}
+@keyframes dshAnChip {
+  0%, 36% { opacity: 0; transform: translateY(40%); animation-timing-function: var(--rec-bounce); }
+  44%, 86% { opacity: 1; transform: none; }
+  92%, 100% { opacity: 0; transform: none; }
+}
+
+/* ── Comments: a viewer comments at a moment (6 s) ────────────────────── */
+
+.dsh-art--comments .win { inset: calc(8 * var(--u)) calc(40 * var(--u)); }
+.dsh-art--comments .video {
+  left: calc(10 * var(--u));
+  right: calc(10 * var(--u));
+  top: calc(22 * var(--u));
+  height: calc(104 * var(--u));
+  border-radius: calc(5 * var(--u));
+  background:
+    radial-gradient(60% 70% at 18% 20%, rgb(255 255 255 / 0.18), transparent 60%),
+    linear-gradient(135deg, #0f766e, #0e7490 50%, #38bdf8);
+}
+.dsh-art--comments .scrub {
+  left: calc(10 * var(--u));
+  right: calc(10 * var(--u));
+  top: calc(134 * var(--u));
+  height: calc(3 * var(--u));
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.12);
+}
+.dsh-art--comments .scrub > i {
+  position: absolute;
+  inset: 0 55% 0 0;
+  border-radius: inherit;
+  background: rgb(255 255 255 / 0.7);
+}
+.dsh-art--comments .mk {
+  top: calc(131 * var(--u));
+  width: calc(9 * var(--u));
+  height: calc(9 * var(--u));
+  border-radius: 9999px;
+  border: calc(1.5 * var(--u)) solid #121214;
+}
+.dsh-art--comments .mk1 { left: calc(70 * var(--u)); background: #ff9f0a; }
+.dsh-art--comments .mk2 { left: calc(160 * var(--u)); background: #bf5af2; }
+.dsh-art--comments .bub {
+  display: flex;
+  align-items: center;
+  gap: calc(5 * var(--u));
+  padding: calc(5 * var(--u)) calc(8 * var(--u)) calc(5 * var(--u)) calc(5 * var(--u));
+  border-radius: calc(9 * var(--u));
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: rgb(30 30 33 / 0.96);
+  box-shadow: 0 calc(8 * var(--u)) calc(20 * var(--u)) rgb(0 0 0 / 0.5);
+  font-size: calc(6.5 * var(--u));
+  white-space: nowrap;
+  transform-origin: 20% 100%;
+}
+.dsh-art--comments .bub > i {
+  width: calc(12 * var(--u));
+  height: calc(12 * var(--u));
+  border-radius: 9999px;
+  flex: none;
+}
+.dsh-art--comments .b1 { left: calc(52 * var(--u)); top: calc(92 * var(--u)); }
+.dsh-art--comments .b1 > i { background: linear-gradient(135deg, #ff9f0a, #ff375f); }
+.dsh-art--comments .b2 { left: calc(124 * var(--u)); top: calc(60 * var(--u)); }
+.dsh-art--comments .b2 > i { background: linear-gradient(135deg, #bf5af2, #5e5ce6); }
+.dsh-art--comments .b1,
+.dsh-art--comments .mk1 { animation: dshCmPop 6s infinite; }
+.dsh-art--comments .b2,
+.dsh-art--comments .mk2 { animation: dshCmPop2 6s infinite; }
+@keyframes dshCmPop {
+  0%, 8% { opacity: 0; transform: scale(0.5); animation-timing-function: var(--rec-bounce); }
+  16%, 88% { opacity: 1; transform: none; }
+  94%, 100% { opacity: 0; transform: none; }
+}
+@keyframes dshCmPop2 {
+  0%, 36% { opacity: 0; transform: scale(0.5); animation-timing-function: var(--rec-bounce); }
+  44%, 88% { opacity: 1; transform: none; }
+  94%, 100% { opacity: 0; transform: none; }
+}
+
+/* ── Record: pick a source, press the red key (7 s) ───────────────────── */
+
+.dsh-art--record .screen {
+  left: calc(52 * var(--u));
+  right: calc(52 * var(--u));
+  top: calc(6 * var(--u));
+  height: calc(118 * var(--u));
+  border-radius: calc(8 * var(--u));
+  border: 1px solid rgb(255 255 255 / 0.1);
+  overflow: hidden;
+  background:
+    radial-gradient(90% 60% at 20% 110%, rgb(255 159 90 / 0.9) 0%, rgb(255 110 90 / 0.5) 30%, transparent 62%),
+    radial-gradient(120% 80% at 50% -10%, #1f3b8f 0%, #3a2d7a 45%, #7a3d8a 75%, #d8687a 100%);
+}
+.dsh-art--record .appwin {
+  left: 16%;
+  top: 16%;
+  width: 68%;
+  height: 66%;
+  border-radius: calc(4 * var(--u));
+  background: #fbfbfd;
+  box-shadow: 0 calc(6 * var(--u)) calc(14 * var(--u)) rgb(0 0 0 / 0.35);
+}
+.dsh-art--record .appwin::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 14%;
+  border-radius: calc(4 * var(--u)) calc(4 * var(--u)) 0 0;
+  background: #ececf0;
+}
+.dsh-art--record .frame {
+  inset: 0;
+  border: calc(2 * var(--u)) solid #ff453a;
+  border-radius: calc(8 * var(--u));
+}
+.dsh-art--record .rec { left: calc(6 * var(--u)); top: calc(6 * var(--u)); }
+.dsh-art--record .rec::before {
+  content: "";
+  width: calc(4 * var(--u));
+  height: calc(4 * var(--u));
+  border-radius: 9999px;
+  background: #ff453a;
+}
+.dsh-art--record .dock {
+  left: 50%;
+  top: calc(132 * var(--u));
+  width: calc(150 * var(--u));
+  height: calc(34 * var(--u));
+  translate: -50% 0;
+  border-radius: calc(9 * var(--u));
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(27 27 30 / 0.97);
+  box-shadow: 0 calc(10 * var(--u)) calc(24 * var(--u)) rgb(0 0 0 / 0.6);
+}
+.dsh-art--record .tab {
+  top: calc(5 * var(--u));
+  width: calc(28 * var(--u));
+  height: calc(24 * var(--u));
+  display: grid;
+  place-items: center;
+  font-size: calc(5 * var(--u));
+  color: rgb(255 255 255 / 0.6);
+  padding-top: calc(13 * var(--u));
+}
+.dsh-art--record .tab::before {
+  content: "";
+  position: absolute;
+  top: calc(5 * var(--u));
+  left: 50%;
+  width: calc(11 * var(--u));
+  height: calc(7 * var(--u));
+  translate: -50% 0;
+  border-radius: calc(1.5 * var(--u));
+  border: calc(1.2 * var(--u)) solid currentColor;
+}
+.dsh-art--record .t1 { left: calc(5 * var(--u)); }
+.dsh-art--record .t2 { left: calc(34 * var(--u)); }
+.dsh-art--record .t3 { left: calc(63 * var(--u)); }
+.dsh-art--record .sel {
+  left: calc(5 * var(--u));
+  top: calc(5 * var(--u));
+  width: calc(28 * var(--u));
+  height: calc(24 * var(--u));
+  border-radius: calc(5 * var(--u));
+  background: rgb(255 255 255 / 0.11);
+}
+.dsh-art--record .key {
+  right: calc(5 * var(--u));
+  top: calc(5 * var(--u));
+  width: calc(24 * var(--u));
+  height: calc(24 * var(--u));
+  border-radius: calc(6 * var(--u));
+  background: rgb(255 69 58 / 0.22);
+}
+.dsh-art--record .key::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  translate: -50% -50%;
+  border-radius: 9999px;
+  background: #ff453a;
+}
+.dsh-art--record .key > i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #ff453a;
+  opacity: 0;
+}
+.dsh-art--record .sel { animation: dshRecSel 7s infinite; }
+.dsh-art--record .key > i { animation: dshRecPress 7s infinite; }
+.dsh-art--record .frame,
+.dsh-art--record .rec { animation: dshRecOn 7s infinite; }
+@keyframes dshRecSel {
+  0%, 8% { transform: none; animation-timing-function: var(--rec-settle); }
+  14%, 24% { transform: translateX(calc(29 * var(--u))); animation-timing-function: var(--rec-settle); }
+  30%, 92% { transform: none; animation-timing-function: var(--rec-settle); }
+  100% { transform: none; }
+}
+@keyframes dshRecPress { 0%, 37% { opacity: 0; } 38%, 41% { opacity: 0.35; } 43%, 100% { opacity: 0; } }
+@keyframes dshRecOn {
+  0%, 43% { opacity: 0; }
+  46%, 88% { opacity: 1; }
+  92%, 100% { opacity: 0; }
+}
+
+/* ── Reduced motion: no loops, no arrivals, settled resting frames ─────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-rise,
+  .dsh-pop,
+  .dsh-dock-in,
+  .studio-sections > *,
+  .dsh-meter > i,
+  .dsh-funnel-bar,
+  .dsh-sweep::before,
+  .dsh-live::after,
+  .dsh-ambient > i,
+  .dsh-art *,
+  .dsh-art *::before,
+  .dsh-art *::after {
+    animation: none !important;
+  }
+  .dsh-card,
+  .dsh-thumb-media,
+  .dsh-card .dsh-hover-hint,
+  .dsh-meter > i,
+  .dsh-glide-wash,
+  .dsh-pill,
+  .dsh-nav-pill {
+    transition: none !important;
+  }
+  .dsh-card:hover {
+    transform: none;
+  }
+  .dsh-sweep {
+    display: none;
+  }
+  /* Resting frames: each recreation shows its finished state. */
+  .dsh-art--library .up { opacity: 0; }
+  .dsh-art--library .toast { opacity: 1; }
+  .dsh-art--editor .head { transform: translateX(calc(120 * var(--u))); }
+  .dsh-art--editor .plane { transform: scale(1.3); }
+  .dsh-art--domain .from { opacity: 0; }
+  .dsh-art--sso .ok { opacity: 1; }
+  .dsh-art--record .frame,
+  .dsh-art--record .rec { opacity: 1; }
+}
+}
+
+/* Unlayered on purpose: it has to beat app.css's unlayered .glass-panel. */
+/* The one surface: a whisper of top light so the glass reads as a pane. */
+.glass-panel.studio-sections,
+.glass-panel.studio-panel {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.035), transparent 140px),
+    rgb(255 255 255 / 0.035);
+  box-shadow:
+    0 30px 80px -40px rgb(0 0 0 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.04);
+}

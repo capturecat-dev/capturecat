@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { CheckIcon, Globe, Lock, Settings2, Trash2 } from "lucide-react";
+import type { CSSProperties } from "react";
+import { CheckIcon, Settings2, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { LiveDot, Meter } from "@/components/dashboard/studio";
+import { VisibilityBadge } from "@/components/dashboard/video-card";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -45,7 +46,7 @@ export function VideoTable({
   onTogglePrivacy: (id: string, isPrivate: boolean) => void;
 }) {
   return (
-    <div className="glass-panel hairline-top overflow-hidden">
+    <div className="glass-panel hairline-top studio-panel dsh-rise overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow className="border-white/8 hover:bg-transparent">
@@ -60,16 +61,11 @@ export function VideoTable({
         </TableHeader>
         <TableBody>
           {uploads.map((job) => (
-            <TableRow key={job.jobId} className="border-white/8 bg-white/[0.02]">
+            <TableRow key={job.jobId} className="border-white/8 bg-cyan-400/[0.03]">
               <TableCell />
               <TableCell className="max-w-[240px] font-medium">
                 <div className="truncate">{job.projectName || job.fileName}</div>
-                <div className="mt-1.5 h-1 w-full max-w-[180px] overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-primary transition-[width] duration-500"
-                    style={{ width: `${Math.max(2, Math.round(job.progress * 100))}%` }}
-                  />
-                </div>
+                <Meter value={Math.max(0.02, job.progress)} className="mt-1.5 h-1 w-full max-w-[180px]" />
               </TableCell>
               <TableCell className="hidden sm:table-cell text-muted-foreground">—</TableCell>
               <TableCell className="hidden sm:table-cell text-muted-foreground">
@@ -78,7 +74,7 @@ export function VideoTable({
               <TableCell className="hidden md:table-cell text-muted-foreground">now</TableCell>
               <TableCell colSpan={2}>
                 <span className="inline-flex items-center gap-2 text-sm tabular-nums text-muted-foreground">
-                  <Spinner className="size-3.5" />
+                  <LiveDot />
                   {job.state === "completing"
                     ? "Creating share link…"
                     : `Uploading ${Math.round(job.progress * 100)}%`}
@@ -86,12 +82,13 @@ export function VideoTable({
               </TableCell>
             </TableRow>
           ))}
-          {items.map((video) => {
+          {items.map((video, index) => {
             const selected = selectedIds.has(video.videoId);
             return (
               <TableRow
                 key={video.videoId}
-                className={cn("border-white/8", selected && "bg-white/[0.05]")}
+                className={cn("dsh-rise border-white/8", selected && "bg-white/[0.05]")}
+                style={{ "--i": Math.min(index, 11) } as CSSProperties}
               >
                 <TableCell>
                   <button
@@ -100,7 +97,7 @@ export function VideoTable({
                     className={cn(
                       "flex size-5 items-center justify-center rounded border transition-colors",
                       selected
-                        ? "border-primary bg-primary text-primary-foreground"
+                        ? "border-cyan-300 bg-cyan-300 text-black"
                         : "border-white/20 text-transparent hover:border-white/40"
                     )}
                   >
@@ -133,16 +130,7 @@ export function VideoTable({
                         onTogglePrivacy(video.videoId, !checked)
                       }
                     />
-                    <Badge
-                      variant={video.isPrivate ? "secondary" : "default"}
-                      className="text-xs"
-                    >
-                      {video.isPrivate ? (
-                        <><Lock className="mr-1 size-3" />Private</>
-                      ) : (
-                        <><Globe className="mr-1 size-3" />Public</>
-                      )}
-                    </Badge>
+                    <VisibilityBadge isPrivate={video.isPrivate} />
                   </div>
                 </TableCell>
                 <TableCell>

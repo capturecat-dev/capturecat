@@ -1,6 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import { Settings2 } from "lucide-react";
+import {
+  Activity,
+  Filter,
+  Globe,
+  Link2,
+  LogOut,
+  MessageSquare,
+  MousePointerClick,
+  Settings2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { areaY, barY, defineChart, lineY } from "@tanstack/charts";
@@ -12,7 +21,16 @@ import { Chart } from "@tanstack/react-charts";
 
 import { trpc } from "@/lib/trpc/client";
 import { AnalyticsSkeleton } from "@/components/dashboard/page-skeletons";
-import { PageHeader } from "@/components/dashboard/studio";
+import {
+  EmptyNote,
+  EmptyStage,
+  Meter,
+  PageHeader,
+  Section,
+  Sections,
+  StatStrip,
+} from "@/components/dashboard/studio";
+import { AnalyticsArt, CommentsArt } from "@/components/dashboard/empty-art";
 
 /* ------------------------------------------------------------------ */
 /* Shared formatting + chart chrome                                    */
@@ -48,64 +66,6 @@ function bucketize(
     values[b] = Math.max(values[b], p.value);
   }
   return values.map((value, i) => ({ start: i * per, value }));
-}
-
-/* ------------------------------------------------------------------ */
-/* Panels & tiles (liquid-glass surfaces)                              */
-/* ------------------------------------------------------------------ */
-
-function Panel({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="glass-panel hairline-top min-w-0 overflow-hidden p-5">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
-      <div className="mt-4 min-w-0">{children}</div>
-    </div>
-  );
-}
-
-function StatTile({
-  value,
-  label,
-  accent,
-}: {
-  value: string;
-  label: string;
-  accent: string;
-}) {
-  return (
-    <div className="glass-panel hairline-top px-5 py-4">
-      <div className="flex items-center gap-2">
-        <span
-          aria-hidden
-          className="h-1.5 w-1.5 shrink-0 rounded-full"
-          style={{ background: accent }}
-        />
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-          {label}
-        </span>
-      </div>
-      <div className="mt-2 text-2xl font-semibold tabular-nums tracking-[-0.02em]">
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-white/10 text-sm text-muted-foreground">
-      {children}
-    </div>
-  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -259,10 +219,10 @@ function TimeBarChart({
 
 function RankList({ rows }: { rows: Array<{ label: string; count: number }> }) {
   const max = Math.max(1, ...rows.map((r) => r.count));
-  if (rows.length === 0) return <EmptyState>No data yet.</EmptyState>;
+  if (rows.length === 0) return <EmptyNote className="min-h-32">No data yet.</EmptyNote>;
   return (
     <div className="space-y-3">
-      {rows.map((r) => (
+      {rows.map((r, i) => (
         <div key={r.label}>
           <div className="flex items-baseline justify-between gap-3 text-sm">
             <span className="truncate">{r.label}</span>
@@ -270,12 +230,7 @@ function RankList({ rows }: { rows: Array<{ label: string; count: number }> }) {
               {r.count.toLocaleString()}
             </span>
           </div>
-          <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-white/[0.06]">
-            <div
-              className="h-full rounded-full bg-white/30"
-              style={{ width: `${(r.count / max) * 100}%` }}
-            />
-          </div>
+          <Meter value={r.count / max} tone="plain" index={i} className="mt-1.5 h-[3px]" />
         </div>
       ))}
     </div>
@@ -319,81 +274,81 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile value={data.views.toLocaleString()} label="Views" accent="var(--chart-2)" />
-        <StatTile
-          value={data.plays.toLocaleString()}
-          label="Pressed play"
-          accent="var(--chart-1)"
-        />
-        <StatTile
-          value={formatTime(data.avgWatchedSeconds)}
-          label="Avg. watch point"
-          accent="var(--chart-3)"
-        />
-        <StatTile
-          value={`${completionRate}%`}
-          label="Watched to end"
-          accent="var(--chart-4)"
-        />
-      </div>
+      <StatStrip
+        items={[
+          { value: data.views.toLocaleString(), label: "Views", accent: "var(--chart-2)" },
+          { value: data.plays.toLocaleString(), label: "Pressed play", accent: "var(--chart-1)" },
+          { value: formatTime(data.avgWatchedSeconds), label: "Avg. watch point", accent: "var(--chart-3)" },
+          { value: `${completionRate}%`, label: "Watched to end", accent: "var(--chart-4)" },
+        ]}
+      />
 
-      {data.ctaLabel && (
-        <Panel title={`Funnel — play → watch → "${data.ctaLabel}" clicks`}>
-          <div className="space-y-2.5">
-            {[
-              { label: "Pressed play", value: data.plays },
-              { label: "Watched to the end", value: data.completions },
-              { label: `Clicked "${data.ctaLabel}"`, value: data.ctaClicks },
-            ].map((step, i, steps) => {
-              const base = Math.max(1, steps[0].value);
-              const pct = Math.round((step.value / base) * 100);
-              // Ordinal ramp: one hue, stepping lighter down the funnel.
-              const strength = [0.85, 0.55, 0.32][i];
-              return (
-                <div key={step.label} className="flex items-center gap-3">
-                  <div className="w-44 shrink-0 truncate text-sm text-muted-foreground">
-                    {step.label}
+      {/* ONE surface: every chart is a hairline-divided section of it. */}
+      <Sections>
+        {data.ctaLabel && (
+          <Section icon={<Filter />} title={`Funnel — play → watch → "${data.ctaLabel}" clicks`}>
+            <div className="space-y-2.5">
+              {[
+                { label: "Pressed play", value: data.plays },
+                { label: "Watched to the end", value: data.completions },
+                { label: `Clicked "${data.ctaLabel}"`, value: data.ctaClicks },
+              ].map((step, i, steps) => {
+                const base = Math.max(1, steps[0].value);
+                const pct = Math.round((step.value / base) * 100);
+                // Ordinal ramp: one hue, stepping lighter down the funnel.
+                const strength = [0.85, 0.55, 0.32][i];
+                return (
+                  <div key={step.label} className="flex items-center gap-3">
+                    <div className="w-32 shrink-0 truncate text-sm text-muted-foreground sm:w-44">
+                      {step.label}
+                    </div>
+                    <div className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
+                      <div
+                        className="dsh-funnel-bar absolute inset-0 rounded-full"
+                        style={
+                          {
+                            transform: `scaleX(${Math.max(pct, step.value > 0 ? 2 : 0) / 100})`,
+                            background: `color-mix(in oklab, var(--chart-2) ${strength * 100}%, transparent)`,
+                            "--i": i,
+                          } as CSSProperties
+                        }
+                      />
+                    </div>
+                    <div className="w-20 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+                      <span className="text-foreground">{step.value.toLocaleString()}</span>
+                      {" · "}
+                      {pct}%
+                    </div>
                   </div>
-                  <div className="h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.max(pct, step.value > 0 ? 2 : 0)}%`,
-                        background: `color-mix(in oklab, var(--chart-2) ${strength * 100}%, transparent)`,
-                      }}
-                    />
-                  </div>
-                  <div className="w-20 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
-                    <span className="text-foreground">{step.value.toLocaleString()}</span>
-                    {" · "}
-                    {pct}%
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Panel>
-      )}
-
-      <Panel
-        title="Watch heatmap"
-        subtitle="How many viewers saw each moment of the video"
-      >
-        {data.watchHeatmap.length === 0 ? (
-          <EmptyState>No watch data yet.</EmptyState>
-        ) : (
-          <WatchAreaChart
-            duration={data.durationSeconds}
-            points={data.watchHeatmap.map((h) => ({ second: h.second, value: h.viewers }))}
-          />
+                );
+              })}
+            </div>
+          </Section>
         )}
-      </Panel>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="Where viewers stopped" subtitle="Sessions ending in each time bucket">
+        <Section
+          icon={<Activity />}
+          title="Watch heatmap"
+          description="How many viewers saw each moment of the video"
+        >
+          {data.watchHeatmap.length === 0 ? (
+            <EmptyStage
+              compact
+              art={<AnalyticsArt />}
+              title="No watch data yet."
+              description="Share the link — each viewer adds to the curve of who saw which moment."
+            />
+          ) : (
+            <WatchAreaChart
+              duration={data.durationSeconds}
+              points={data.watchHeatmap.map((h) => ({ second: h.second, value: h.viewers }))}
+            />
+          )}
+        </Section>
+
+        <Section icon={<LogOut />} title="Where viewers stopped" description="Sessions ending in each time bucket">
           {data.dropOff.length === 0 ? (
-            <EmptyState>No drop-off data yet.</EmptyState>
+            <EmptyNote className="min-h-32">No drop-off data yet.</EmptyNote>
           ) : (
             <>
               <TimeBarChart
@@ -412,11 +367,11 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
               )}
             </>
           )}
-        </Panel>
+        </Section>
 
-        <Panel title="Player clicks by moment" subtitle="Where viewers clicked in the player">
+        <Section icon={<MousePointerClick />} title="Player clicks by moment" description="Where viewers clicked in the player">
           {data.clicks.length === 0 ? (
-            <EmptyState>No clicks recorded yet.</EmptyState>
+            <EmptyNote className="min-h-32">No clicks recorded yet.</EmptyNote>
           ) : (
             <TimeBarChart
               duration={data.durationSeconds}
@@ -426,51 +381,79 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
               ariaLabel="Player clicks per time bucket"
             />
           )}
-        </Panel>
+        </Section>
 
-        <Panel title="Countries">
-          <RankList rows={data.countries.map((c) => ({ label: c.country, count: c.count }))} />
-        </Panel>
+        {/* Countries and referrers share one section, split by a hairline. */}
+        <div className="grid min-w-0 divide-y divide-white/8 md:grid-cols-2 md:divide-x md:divide-y-0">
+          <Section icon={<Globe />} title="Countries">
+            <RankList rows={data.countries.map((c) => ({ label: c.country, count: c.count }))} />
+          </Section>
+          <Section icon={<Link2 />} title="Referrers">
+            <RankList rows={data.referrers.map((r) => ({ label: r.referrer, count: r.count }))} />
+          </Section>
+        </div>
 
-        <Panel title="Referrers">
-          <RankList
-            rows={data.referrers.map((r) => ({ label: r.referrer, count: r.count }))}
-          />
-        </Panel>
-      </div>
-
-      <Panel title={`Comments (${data.comments.length})`}>
-        {data.comments.length === 0 ? (
-          <EmptyState>No comments yet.</EmptyState>
-        ) : (
-          <div className="space-y-4">
-            {data.comments.map((cm) => (
-              <div key={cm.commentId} className="border-b border-white/8 pb-3 last:border-0">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-medium">{cm.authorName}</span>
-                  {data.projectId ? (
-                    <a
-                      href={`capturecat://open-project?id=${data.projectId}&t=${Math.floor(cm.videoTime)}`}
-                      title="Open in CaptureCat at this moment"
-                      className="rounded bg-white/[0.07] px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground transition-colors hover:bg-white/[0.15] hover:text-foreground"
-                    >
-                      {formatTime(cm.videoTime)} ↗
-                    </a>
-                  ) : (
-                    <span className="rounded bg-white/[0.07] px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
-                      {formatTime(cm.videoTime)}
-                    </span>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(cm.createdAt).toLocaleDateString()}
-                  </span>
+        <Section icon={<MessageSquare />} title={`Comments (${data.comments.length})`}>
+          {data.comments.length === 0 ? (
+            <EmptyStage
+              compact
+              art={<CommentsArt />}
+              title="No comments yet."
+              description="Viewers comment at a moment of the video; each one lands here with its timestamp."
+            />
+          ) : (
+            <div className="divide-y divide-white/8">
+              {data.comments.map((cm, i) => (
+                <div
+                  key={cm.commentId}
+                  className="dsh-rise flex gap-3 py-3 first:pt-0 last:pb-0"
+                  style={{ "--i": i } as CSSProperties}
+                >
+                  <CommentAvatar name={cm.authorName} />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-medium">{cm.authorName}</span>
+                      {data.projectId ? (
+                        <a
+                          href={`capturecat://open-project?id=${data.projectId}&t=${Math.floor(cm.videoTime)}`}
+                          title="Open in CaptureCat at this moment"
+                          className="rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground transition-colors hover:bg-white/[0.12] hover:text-foreground"
+                        >
+                          {formatTime(cm.videoTime)} ↗
+                        </a>
+                      ) : (
+                        <span className="rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
+                          {formatTime(cm.videoTime)}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(cm.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">{cm.body}</p>
+                  </div>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">{cm.body}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </Panel>
+              ))}
+            </div>
+          )}
+        </Section>
+      </Sections>
     </div>
+  );
+}
+
+/** A commenter's initials on a hue from their name. */
+function CommentAvatar({ name }: { name: string }) {
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const hue = hash % 360;
+  return (
+    <span
+      aria-hidden
+      className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+      style={{ background: `linear-gradient(135deg, hsl(${hue} 70% 55%), hsl(${(hue + 40) % 360} 65% 42%))` }}
+    >
+      {name.trim().slice(0, 1).toUpperCase() || "?"}
+    </span>
   );
 }

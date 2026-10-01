@@ -82,7 +82,23 @@ export function SkeletonTable({ rows = 6 }: { rows?: number }) {
   );
 }
 
-/** Library page: title + toolbar + video table. */
+/** A media card ghost: thumbnail + title + meta (Library, Projects). */
+export function SkeletonMediaCard() {
+  return (
+    <div className="glass-panel hairline-top overflow-hidden">
+      <Skeleton className="aspect-video w-full rounded-none" />
+      <div className="space-y-1.5 px-3.5 pb-3 pt-3">
+        <Skeleton className="h-3.5 w-3/4" />
+        <Skeleton className="h-3 w-1/2 opacity-60" />
+      </div>
+    </div>
+  );
+}
+
+/** The media grid the Library and Projects lay their cards in. */
+export const MEDIA_GRID = "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+
+/** Library page: title + toolbar + playlist chips + the card grid. */
 export function LibrarySkeleton() {
   return (
     <div className="space-y-4">
@@ -91,11 +107,20 @@ export function LibrarySkeleton() {
         <Skeleton className="h-4 w-44 opacity-60" />
       </div>
       <div className="flex items-center gap-2">
-        <Skeleton className="h-9 w-56 rounded-full" />
-        <Skeleton className="h-9 w-28 rounded-full" />
-        <Skeleton className="ml-auto h-9 w-24 rounded-full" />
+        <Skeleton className="h-9 min-w-52 flex-1 rounded-full" />
+        <Skeleton className="h-8 w-32 rounded-full" />
+        <Skeleton className="h-8 w-[74px] rounded-full" />
       </div>
-      <SkeletonTable rows={7} />
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-7 w-24 rounded-full" />
+        <Skeleton className="h-7 w-28 rounded-full opacity-60" />
+        <Skeleton className="h-7 w-24 rounded-full opacity-60" />
+      </div>
+      <div className={MEDIA_GRID}>
+        {Array.from({ length: 8 }, (_, i) => (
+          <SkeletonMediaCard key={i} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -108,7 +133,7 @@ export function TeamSkeleton() {
 /** One surface, hairline-divided sections — the shape Sections renders. */
 export function SkeletonSections({ sections }: { sections: Array<{ lines: number; action?: boolean }> }) {
   return (
-    <div className="glass-panel hairline-top max-w-3xl divide-y divide-white/8 overflow-hidden">
+    <div className="glass-panel hairline-top divide-y divide-white/8 overflow-hidden lg:max-w-3xl">
       {sections.map((s, i) => (
         <div key={i} className="p-5">
           <div className="flex items-center justify-between gap-3">
@@ -137,7 +162,7 @@ export function BillingSkeleton() {
   return <SkeletonSections sections={[{ lines: 2, action: true }, { lines: 2 }]} />;
 }
 
-/** Video detail: title + settings column + player column. */
+/** Video detail: title + the one settings surface + the player aside. */
 export function VideoDetailSkeleton() {
   return (
     <div className="space-y-6">
@@ -145,38 +170,40 @@ export function VideoDetailSkeleton() {
         <SkeletonTitle wide />
         <Skeleton className="h-8 w-28 rounded-full" />
       </div>
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        <div className="space-y-4">
-          <SkeletonCard lines={3} />
-          <SkeletonCard lines={4} />
-        </div>
-        <div className="space-y-4">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="max-w-3xl xl:order-2 xl:max-w-none">
           <Skeleton className="aspect-video w-full rounded-2xl" />
-          <SkeletonCard lines={2} />
+          <div className="mt-4">
+            <SkeletonLines lines={2} />
+          </div>
         </div>
+        <SkeletonSections sections={[{ lines: 4 }, { lines: 3 }, { lines: 2 }, { lines: 3 }]} />
       </div>
     </div>
   );
 }
 
-/** Analytics: title + stat tiles + chart ghost + table. */
+/** Analytics: title + the stat strip + the one surface of charts. */
 export function AnalyticsSkeleton() {
   return (
     <div className="space-y-6">
       <SkeletonTitle />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="glass-panel hairline-top grid grid-cols-2 overflow-hidden lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="glass-panel hairline-top px-5 py-4">
+          <div key={i} className="px-5 py-4">
             <Skeleton className="h-3 w-20 opacity-60" />
             <Skeleton className="mt-2 h-7 w-16" />
           </div>
         ))}
       </div>
-      <div className="glass-panel hairline-top p-5">
-        <Skeleton className="h-3.5 w-32" />
-        <Skeleton className="mt-4 h-48 w-full rounded-xl" />
+      <div className="glass-panel hairline-top divide-y divide-white/8 overflow-hidden">
+        {[220, 200].map((h, i) => (
+          <div key={i} className="p-5 md:p-6">
+            <Skeleton className="h-3.5 w-32" />
+            <Skeleton className="mt-4 w-full rounded-xl" style={{ height: h }} />
+          </div>
+        ))}
       </div>
-      <SkeletonTable rows={4} />
     </div>
   );
 }

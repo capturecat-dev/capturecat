@@ -8,12 +8,12 @@
  */
 import { useEffect, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { CloudUploadIcon, DownloadIcon, MonitorIcon, Trash2Icon, TriangleAlertIcon, VideoIcon } from "lucide-react";
+import { CloudUploadIcon, DownloadIcon, Trash2Icon, TriangleAlertIcon, VideoIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { PageHeader, Section, Sections } from "@/components/dashboard/studio";
+import { LiveDot, Meter, PageHeader, Section, Sections } from "@/components/dashboard/studio";
+import { RecordArt } from "@/components/dashboard/empty-art";
 import { StreamVideo, useRecorderContext } from "@/components/dashboard/recorder-bar";
-import { cn } from "@/lib/utils";
 import type { RecordedTake } from "@/editor/record/session";
 import { formatClock, type Recorder } from "@/editor/record/useRecorder";
 
@@ -47,9 +47,7 @@ function Stage({ rec }: { rec: Recorder }) {
       <div className="absolute inset-0 grid place-items-center bg-black/70 backdrop-blur-sm">
         <div className="w-72 space-y-3 text-center">
           <div className="text-sm font-medium">{p?.message ?? "Finishing recording…"}</div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${Math.round((p?.fraction ?? 0) * 100)}%` }} />
-          </div>
+          <Meter value={p?.fraction ?? 0} />
           <div className="text-xs text-muted-foreground">
             {formatClock(phase.take.duration)} · {bytes(phase.take.screen.size + (phase.take.camera?.size ?? 0))}
           </div>
@@ -85,16 +83,18 @@ function Stage({ rec }: { rec: Recorder }) {
 
   const showPreview = rec.screen && phase.kind !== "saving" && phase.kind !== "failed";
   return (
-    <div className="relative w-full flex-1 overflow-hidden bg-black/60">
+    <div className="relative w-full flex-1 overflow-hidden bg-[radial-gradient(70%_60%_at_50%_45%,rgba(120,140,255,0.08),transparent_70%),rgba(0,0,0,0.55)]">
       {showPreview ? (
         <StreamVideo stream={rec.screen!} className="absolute inset-0 size-full object-contain" />
       ) : (
         phase.kind === "setup" && (
-          <div className="absolute inset-0 grid place-items-center px-6 text-center">
-            <div className="space-y-2">
-              <MonitorIcon className="mx-auto size-7 text-muted-foreground" />
-              <div className="text-sm font-medium">Choose what to record</div>
-              <p className="mx-auto max-w-sm text-[13px] text-muted-foreground">
+          <div className="absolute inset-0 grid place-items-center overflow-y-auto px-6 py-6 text-center">
+            <div className="flex flex-col items-center">
+              <div className="dsh-pop w-full max-w-[340px]">
+                <RecordArt />
+              </div>
+              <div className="mt-5 text-sm font-medium">Choose what to record</div>
+              <p className="mx-auto mt-1.5 max-w-sm text-[13px] text-muted-foreground">
                 Pick Display, Window or Tab in the bar below, then press the red key. The bar is on every page, so you
                 can start a take from anywhere.
               </p>
@@ -115,8 +115,12 @@ function Stage({ rec }: { rec: Recorder }) {
         </span>
       )}
       {phase.kind === "recording" && (
-        <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-white backdrop-blur">
-          <span className={cn("size-1.5 rounded-full bg-red-500", !rec.paused && "animate-pulse")} />
+        <span className="dsh-pop absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-white backdrop-blur">
+          {rec.paused ? (
+            <span aria-hidden className="size-1.5 rounded-full bg-red-500/60" />
+          ) : (
+            <LiveDot tone="rec" className="size-1.5" />
+          )}
           {rec.paused ? "Paused" : "Rec"}
         </span>
       )}
@@ -189,7 +193,7 @@ export function Recorder() {
       />
 
       {support && (!support.screen || !support.encode) ? (
-        <section className="glass-panel hairline-top p-8 text-center">
+        <section className="glass-panel hairline-top studio-panel dsh-rise p-8 text-center">
           <TriangleAlertIcon className="mx-auto size-6 text-amber-400" />
           <div className="mt-3 text-sm font-semibold">This browser can't record</div>
           <p className="mx-auto mt-1 max-w-md text-[13px] text-muted-foreground">
@@ -197,7 +201,7 @@ export function Recorder() {
           </p>
         </section>
       ) : (
-        <section className="glass-panel hairline-top flex min-h-[320px] flex-1 flex-col overflow-hidden">
+        <section className="glass-panel hairline-top studio-panel dsh-rise flex min-h-[360px] flex-1 flex-col overflow-hidden">
           <Stage rec={rec} />
           {phase.kind === "recording" && (
             <p className="border-t border-white/8 px-4 py-2.5 text-xs text-muted-foreground">
