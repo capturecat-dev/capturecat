@@ -199,10 +199,14 @@ async function isOwnerRequest(
     if (!session) return false;
     if (session.user.id === doc.uid) return true;
     // Team library: members of the video's org get owner-level VIEW access
-    // (mutations stay uploader-scoped in their own routes).
+    // (mutations stay uploader-scoped in their own routes) — while the
+    // UPLOADER's plan still includes teams. Checked at view time, like
+    // shareGate does for public links: otherwise one month of a paid plan
+    // bought a permanent private team library on the free tier.
     if (doc.orgId) {
       const { isOrgMember } = await import("../lib/db");
-      return isOrgMember(c.env.DB, doc.orgId, session.user.id);
+      if (!(await isOrgMember(c.env.DB, doc.orgId, session.user.id))) return false;
+      return (await planForUser(c.env, doc.uid)).features.teams;
     }
     return false;
   } catch {

@@ -234,7 +234,11 @@ export async function deleteSharedVideo(
  * quota check in `markVersionReadyWithinQuota` can embed it and decide
  * atomically. `?1` is the uid.
  *
- *  - every ready version of every ready video (migration 0017);
+ *  - every ready version of the user's videos (migration 0017) — including a
+ *    video whose row is still `pending`: /complete marks v1 ready and only
+ *    then flips the video row, and excluding that window let concurrent
+ *    first-upload completes each pass the cap and all land. A version only
+ *    becomes ready through the quota check, so it is always real bytes;
  *  - videos with no version rows (pre-0017 uploads never re-shared) at their
  *    top-level size, so nothing is double-counted or missed;
  *  - every non-video object recorded in stored_objects (migration 0025):
@@ -251,7 +255,7 @@ export const STORAGE_SUM_SQL = `
     SELECT vv.file_size_bytes AS sz
       FROM video_versions vv
       JOIN shared_videos sv ON sv.video_id = vv.video_id
-     WHERE sv.uid = ?1 AND sv.status = 'ready' AND vv.status = 'ready'
+     WHERE sv.uid = ?1 AND vv.status = 'ready'
     UNION ALL
     SELECT sv.file_size_bytes AS sz
       FROM shared_videos sv
