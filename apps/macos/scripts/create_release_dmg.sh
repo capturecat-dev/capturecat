@@ -16,7 +16,7 @@ PRODUCT_NAME="${PRODUCT_NAME:-CaptureCat}"
 CONFIGURATION="${CONFIGURATION:-Release}"
 BUILD_ROOT="${BUILD_ROOT:-$PWD/build/release}"
 SIGNING_IDENTITY="Developer ID Application: Michael Garland (E52HU87CX9)"
-NOTARY_PROFILE="CaptureCat"
+NOTARY_PROFILE="${NOTARY_PROFILE:-CaptureCat}"  # override if your stored profile has another name
 
 build_dmg_for_arch() {
   local arch="$1"
