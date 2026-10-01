@@ -162,6 +162,17 @@ export function buildAuth(env: Env) {
       // is the paid enterprise surface. Runs before the plugin handler; the
       // sign-in and callback endpoints are untouched.
       before: createAuthMiddleware(async (ctx) => {
+        // Checkout quantity. The plugin passes the client's `seats` straight
+        // to Stripe as the line-item quantity, but no plan here is priced per
+        // seat and nothing reads `subscription.seats` — so a checkout is for
+        // exactly one of the plan, whatever the body says.
+        if (ctx.path === "/subscription/upgrade") {
+          const seats = (ctx.body as { seats?: unknown } | undefined)?.seats;
+          if (seats !== undefined && seats !== 1) {
+            throw new APIError("BAD_REQUEST", { message: "CaptureCat plans are single-seat" });
+          }
+          return;
+        }
         const gated = ["/sso/register", "/sso/update-provider"];
         if (!gated.includes(ctx.path)) return;
         // A global before-hook runs BEFORE the endpoint's sessionMiddleware,

@@ -38,12 +38,15 @@ The plugin owns `POST /api/auth/stripe/webhook`.
 
 1. Dashboard → **Developers** → **Webhooks** → **Add endpoint**
 2. Endpoint URL: `https://api.capturecat.so/api/auth/stripe/webhook`
-3. Select these four events — and only these; everything else falls through to
+3. Select these five events — and only these; everything else falls through to
    the `onEvent` catch-all, which just logs:
    - `checkout.session.completed`
    - `customer.subscription.created`
    - `customer.subscription.updated`
    - `customer.subscription.deleted`
+   - `charge.dispute.created` — cancels the disputing customer's live
+     subscriptions (`cancelDisputedSubscriptions` in `src/lib/stripe.ts`);
+     without it a chargeback keeps the plan running until the period ends
 4. Copy the **signing secret** (`whsec_…`) → `STRIPE_WEBHOOK_SECRET`
 5. **Delete the old `https://api.capturecat.so/webhooks/stripe` endpoint.** That
    route no longer exists; leaving it registered produces a stream of failed
@@ -127,6 +130,12 @@ not create a second webhook route.
 `stripe_customers` policy had. This is **more permissive** than Better Auth's own
 `isActiveOrTrialing()` helper, which excludes `past_due`. Do not "fix" the
 divergence without deciding to change the dunning behaviour.
+
+**It is only safe with the right dunning setting.** A `past_due` subscription
+keeps renewing (and Stripe keeps advancing its period), so if Billing →
+Subscriptions and emails → *Manage failed payments* is set to **leave the
+subscription past-due** after the last retry, a dead card keeps Pro forever.
+Set it to **cancel the subscription** (or **mark it as unpaid**) — both revoke.
 
 `hasPaidSubscription(db, userId)` is the hot-path existence check.
 `subscription.referenceId` is deliberately non-unique (cancel-then-resubscribe
