@@ -14,6 +14,9 @@ export const createTRPCContext = async (): Promise<TRPCContext> => {
 
 const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
+  // A Worker has no NODE_ENV, so tRPC treated production as dev and sent
+  // server stack traces to the browser.
+  isDev: import.meta.env.DEV,
 });
 
 export const createTRPCRouter = t.router;

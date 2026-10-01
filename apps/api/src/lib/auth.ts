@@ -26,7 +26,7 @@ import { APIError } from "better-auth/api";
 import { importPKCS8, SignJWT } from "jose";
 // All Stripe configuration (client, plans, webhook secret, lifecycle hooks)
 // lives in ./stripe — do not inline it here.
-import { buildStripePlugin } from "./stripe";
+import { buildStripePlugin, createStripeClient, stripeCustomerIsGone } from "./stripe";
 import type { Env } from "../types";
 import { webOrigins } from "./origins";
 
@@ -166,10 +166,38 @@ export function buildAuth(env: Env) {
         // to Stripe as the line-item quantity, but no plan here is priced per
         // seat and nothing reads `subscription.seats` — so a checkout is for
         // exactly one of the plan, whatever the body says.
-        if (ctx.path === "/subscription/upgrade") {
-          const seats = (ctx.body as { seats?: unknown } | undefined)?.seats;
-          if (seats !== undefined && seats !== 1) {
-            throw new APIError("BAD_REQUEST", { message: "CaptureCat plans are single-seat" });
+        if (ctx.path === "/subscription/upgrade" || ctx.path === "/subscription/billing-portal") {
+          if (ctx.path === "/subscription/upgrade") {
+            const seats = (ctx.body as { seats?: unknown } | undefined)?.seats;
+            if (seats !== undefined && seats !== 1) {
+              throw new APIError("BAD_REQUEST", { message: "CaptureCat plans are single-seat" });
+            }
+          }
+          // A saved customer Stripe no longer knows (made under an earlier
+          // key/mode, or deleted) fails every checkout with "No such
+          // customer". Forget it, and the plugin finds or creates the user's
+          // customer again — matching by email, but never a customer whose
+          // metadata names a different user (the plugin's own guard). The
+          // session is read fresh from D1 (no cookie cache), so the endpoint
+          // that runs next sees the cleared id.
+          // A global before-hook runs ahead of the bearer plugin, so a
+          // bearer (desktop) caller has no session yet: resolve its token
+          // ("<token>" or the signed "<token>.<sig>") directly.
+          let session = await getSessionFromCtx(ctx).catch(() => null);
+          if (!session) {
+            const auth = ctx.headers?.get("authorization") ?? "";
+            const token = auth.startsWith("Bearer ") ? auth.slice(7).split(".")[0] : "";
+            const found = token ? await ctx.context.internalAdapter.findSession(token).catch(() => null) : null;
+            if (found && new Date(found.session.expiresAt).getTime() > Date.now()) session = found;
+          }
+          const user = session?.user as { id: string; stripeCustomerId?: string | null } | undefined;
+          if (user?.stripeCustomerId && (await stripeCustomerIsGone(createStripeClient(env), user.stripeCustomerId))) {
+            console.warn(`stripe: customer ${user.stripeCustomerId} of user ${user.id} does not exist for this key — clearing it`);
+            await ctx.context.adapter.update({
+              model: "user",
+              update: { stripeCustomerId: null },
+              where: [{ field: "id", value: user.id }],
+            });
           }
           return;
         }

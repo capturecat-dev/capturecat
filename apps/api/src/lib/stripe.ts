@@ -315,6 +315,25 @@ async function customerHadTrial(client: Stripe, customer: string): Promise<boole
  * reads `ctx.request.text()`, so NOTHING may consume the request body before
  * `auth.handler(c.req.raw)` in src/index.ts.
  */
+/**
+ * A user's saved Stripe customer that does not exist for THIS Stripe key —
+ * created under another key or mode (accounts that signed up before the live
+ * key was set) or deleted in the Dashboard. The plugin would otherwise fail
+ * every checkout and portal visit with "No such customer" forever.
+ *
+ * True only when Stripe itself says so (`resource_missing`, or a deleted
+ * customer); any other error (network, auth) is not "gone" — the caller
+ * leaves the id alone and the plugin reports the real failure.
+ */
+export async function stripeCustomerIsGone(client: Stripe, customerId: string): Promise<boolean> {
+  try {
+    const customer = await client.customers.retrieve(customerId);
+    return "deleted" in customer && customer.deleted === true;
+  } catch (err) {
+    return (err as { code?: string } | null)?.code === "resource_missing";
+  }
+}
+
 export function buildStripePlugin(env: StripeEnv) {
   const client = withFreshEvents(createStripeClient(env));
   return lockStripeCustomerId(stripePlugin({

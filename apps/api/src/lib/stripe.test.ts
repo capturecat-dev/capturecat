@@ -31,6 +31,9 @@ const catalog = new FakeStripeCatalog();
 const fake = vi.hoisted(() => ({
   subscriptions: new Map<string, Record<string, unknown>>(),
   charges: new Map<string, Record<string, unknown>>(),
+  /** Customer ids this Stripe account does not have (made under another key). */
+  missingCustomers: new Set<string>(),
+  createdCustomers: 0,
   calls: [] as Array<{ method: string; path: string; body: string }>,
 }));
 
@@ -66,7 +69,17 @@ vi.stubGlobal(
     if (p === "/v1/checkout/sessions" && method === "POST") {
       return json({ id: "cs_test_1", object: "checkout.session", url: "https://checkout.stripe.test/cs_test_1" });
     }
+    if (p === "/v1/customers/search" || (p === "/v1/customers" && method === "GET")) {
+      return json({ object: p.endsWith("search") ? "search_result" : "list", data: [], has_more: false, url: p });
+    }
+    if (p === "/v1/customers" && method === "POST") {
+      const id = `cus_new_${++fake.createdCustomers}`;
+      return json({ id, object: "customer", email: `${USER}@test.local`, metadata: {} });
+    }
     if ((m = /^\/v1\/customers\/([^/]+)$/.exec(p))) {
+      if (fake.missingCustomers.has(m[1])) {
+        return json({ error: { type: "invalid_request_error", code: "resource_missing", message: `No such customer: '${m[1]}'` } }, 404);
+      }
       return json({ id: m[1], object: "customer", email: `${USER}@test.local`, metadata: {} });
     }
     return json({ error: { message: `fake stripe: unhandled ${method} ${p}` } }, 500);
@@ -111,6 +124,8 @@ function subscriptionObject(status: string, extra: Record<string, unknown> = {})
 beforeEach(() => {
   fake.subscriptions.clear();
   fake.charges.clear();
+  fake.missingCustomers.clear();
+  fake.createdCustomers = 0;
   fake.calls.length = 0;
   catalog.reset();
   clearLookupKeyCache();
@@ -569,5 +584,45 @@ describe("webhook: catalog events (Stripe Dashboard → plan table)", () => {
     );
     expect(res.status).toBe(400);
     expect(proRow()).toEqual(before);
+  });
+});
+
+describe("a saved Stripe customer this key does not know", () => {
+  const checkouts = () => fake.calls.filter((c) => c.method === "POST" && c.path === "/v1/checkout/sessions");
+  const savedCustomer = () =>
+    db.query<{ stripeCustomerId: string | null }>(`SELECT stripeCustomerId FROM "user" WHERE id = ?`, USER)[0]?.stripeCustomerId;
+
+  it("is replaced at checkout instead of failing every time (No such customer)", async () => {
+    // Prod, 2026-10-01: an account made under an earlier key kept cus_… that
+    // the live key has never seen; every upgrade was a 500.
+    fake.missingCustomers.add(CUSTOMER);
+    const res = await upgrade({ plan: "pro" });
+    expect(res.status).toBe(200);
+    expect(savedCustomer()).toBe("cus_new_1");
+    expect(decodeURIComponent(checkouts()[0].body)).toContain("customer=cus_new_1");
+  });
+
+  it("a customer that exists is never replaced", async () => {
+    const res = await upgrade({ plan: "pro" });
+    expect(res.status).toBe(200);
+    expect(savedCustomer()).toBe(CUSTOMER);
+    expect(fake.calls.some((c) => c.method === "POST" && c.path === "/v1/customers")).toBe(false);
+  });
+
+  it("an unknown Stripe failure leaves the saved customer alone", async () => {
+    // Not resource_missing (e.g. Stripe down): nothing is cleared.
+    fake.missingCustomers.clear();
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      if (/^\/v1\/customers\/[^/]+$/.test(url.pathname)) return json({ error: { type: "api_error", message: "boom" } }, 500);
+      return realFetch(input, init);
+    }));
+    try {
+      await upgrade({ plan: "pro" });
+      expect(savedCustomer()).toBe(CUSTOMER);
+    } finally {
+      vi.stubGlobal("fetch", realFetch);
+    }
   });
 });
