@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 
 import { apiFetch } from "@/lib/session";
 import { adminProcedure, createTRPCRouter } from "@/lib/trpc/init";
+import type { AdminPlan } from "@/lib/plan-fields";
 
 /**
  * Admin directory + entitlement writes, proxied to api.capturecat.so.
@@ -25,22 +26,70 @@ import { adminProcedure, createTRPCRouter } from "@/lib/trpc/init";
  * granted paid flag would be a second source of truth Stripe never agrees with.
  * Comp via a plan `freeTrial` or a 100%-off coupon instead.
  */
-export interface Plan {
-  id: string;
-  name: string;
-  displayName: string;
-  description: string | null;
+export type Plan = AdminPlan;
+
+/** What one save or sync did in Stripe (apps/api lib/stripe-catalog.ts). */
+export interface PriceSyncResult {
+  interval: "month" | "year";
+  lookupKey: string;
+  action: "adopted" | "created" | "reused" | "archived" | "none";
   priceId: string | null;
-  annualPriceId: string | null;
-  trialDays: number;
-  features: Record<string, boolean>;
-  limits: Record<string, number>;
-  sortOrder: number;
-  isActive: boolean;
-  monthlyAmountCents: number | null;
-  annualAmountCents: number | null;
-  currency: string;
+  amountCents: number | null;
+  currency: string | null;
+  archived: string | null;
+  adoptedFrom?: "plan" | "env";
+  coupon: { action: "created" | "reused" | "deleted" | "none"; id: string | null; replaced: string | null };
 }
+export interface PlanSyncSummary {
+  planId: string;
+  plan: string;
+  changed: boolean;
+  product: { id: string; action: "created" | "updated" | "unchanged" };
+  monthly: PriceSyncResult;
+  annual: PriceSyncResult;
+  notes: string[];
+}
+
+/** The editor's body for POST/PUT /api/admin/plans (lib/plan-fields.ts
+ *  `PlanInput`). The API validates it strictly; this only keeps the shape. */
+const planInput = z.object({
+  displayName: z.string().min(1),
+  description: z.string().nullable(),
+  monthlyCents: z.number().int().positive().nullable(),
+  annualCents: z.number().int().positive().nullable(),
+  currency: z.string().length(3),
+  trialDays: z.number().int().min(0),
+  // Objects, not JSON strings: a serialised blob with a typo parses to
+  // nothing at runtime and silently denies every feature.
+  features: z.record(z.string(), z.boolean()),
+  limits: z.record(z.string(), z.number()),
+  sortOrder: z.number().int().min(0),
+  isActive: z.boolean(),
+  popular: z.boolean(),
+  saleLabel: z.string().nullable(),
+  salePriceMonthlyCents: z.number().int().min(0).nullable(),
+  salePriceAnnualCents: z.number().int().min(0).nullable(),
+  saleStartsAt: z.string().nullable(),
+  saleEndsAt: z.string().nullable(),
+  saleDurationMonths: z.number().int().min(1).nullable(),
+});
+
+async function apiJson<T>(path: string, init: RequestInit | undefined, fallback: string): Promise<T> {
+  const res = await apiFetch(path, init);
+  const data = (await res.json().catch(() => null)) as (T & { error?: string }) | null;
+  if (!res.ok) {
+    // The API's own reason ("A sale needs an end date.", a Stripe message)
+    // is the useful part; it carries no secret.
+    throw new TRPCError({ code: "BAD_REQUEST", message: data?.error ?? fallback });
+  }
+  return data as T;
+}
+
+const jsonBody = (method: string, body: unknown): RequestInit => ({
+  method,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
 
 export const adminRouter = createTRPCRouter({
   listUsers: adminProcedure.query(async () => {
@@ -74,104 +123,71 @@ export const adminRouter = createTRPCRouter({
     };
   }),
 
-  refreshPlanStripe: adminProcedure
-    .input(z.object({ planId: z.string().min(1) }))
-    .mutation(async ({ input }) => {
-      const res = await apiFetch(`/api/admin/plans/${encodeURIComponent(input.planId)}/refresh-stripe`, {
-        method: "POST",
-      });
-      const data = (await res.json().catch(() => null)) as
-        | { monthlyAmountCents?: number | null; annualAmountCents?: number | null; error?: string }
-        | null;
-      if (!res.ok) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: data?.error ?? "Refresh failed" });
-      }
-      return data!;
-    }),
-
-  syncPlanStripe: adminProcedure
-    .input(
-      z.object({
-        planId: z.string().min(1),
-        monthlyCents: z.number().int().positive().optional(),
-        annualCents: z.number().int().positive().optional(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const res = await apiFetch(`/api/admin/plans/${encodeURIComponent(input.planId)}/stripe-sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          monthlyCents: input.monthlyCents,
-          annualCents: input.annualCents,
-        }),
-      });
-      const data = (await res.json().catch(() => null)) as
-        | { productId?: string; priceId?: string | null; annualPriceId?: string | null; error?: string }
-        | null;
-      if (!res.ok) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: data?.error ?? "Stripe sync failed" });
-      }
-      return data!;
-    }),
-
   listPlans: adminProcedure.query(async () => {
     const res = await apiFetch("/api/admin/plans");
     if (!res.ok) throw new TRPCError({ code: "FORBIDDEN", message: "Could not load plans" });
-    return (await res.json()) as { plans: Plan[] };
+    return (await res.json()) as { plans: Plan[]; stripeConfigured: boolean };
   }),
 
+  /** Save IS sync: the API provisions Stripe, then writes the plan. */
+  createPlan: adminProcedure
+    .input(planInput.extend({ name: z.string().min(2) }))
+    .mutation(({ input }) =>
+      apiJson<{ plan: Plan; summary: PlanSyncSummary | null }>(
+        "/api/admin/plans",
+        jsonBody("POST", input),
+        "Could not create the plan",
+      ),
+    ),
+
   updatePlan: adminProcedure
-    .input(
-      z.object({
-        id: z.string().min(1),
-        displayName: z.string().min(1),
-        description: z.string().nullable(),
-        priceId: z.string().nullable(),
-        annualPriceId: z.string().nullable(),
-        trialDays: z.number().int().min(0),
-        // Passed as objects, not JSON strings: a serialised blob with a typo
-        // parses to nothing at runtime and silently denies every feature.
-        features: z.record(z.string(), z.boolean()),
-        limits: z.record(z.string(), z.number()),
-        sortOrder: z.number().int(),
-        isActive: z.boolean(),
-      })
-    )
-    .mutation(async ({ input }) => {
+    .input(planInput.extend({ id: z.string().min(1) }))
+    .mutation(({ input }) => {
       const { id, ...body } = input;
-      const res = await apiFetch(`/api/admin/plans/${encodeURIComponent(id)}`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const detail = await res.json().catch(() => ({}) as { error?: string });
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: (detail as { error?: string }).error ?? "Could not save the plan",
-        });
-      }
-      return { ok: true };
+      return apiJson<{ plan: Plan; summary: PlanSyncSummary | null }>(
+        `/api/admin/plans/${encodeURIComponent(id)}`,
+        jsonBody("PUT", body),
+        "Could not save the plan",
+      );
     }),
 
-  createPlan: adminProcedure
-    .input(z.object({ name: z.string().min(2), displayName: z.string().min(1) }))
-    .mutation(async ({ input }) => {
-      const res = await apiFetch("/api/admin/plans", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) {
-        const detail = await res.json().catch(() => ({}) as { error?: string });
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: (detail as { error?: string }).error ?? "Could not create the plan",
-        });
-      }
-      return (await res.json()) as { id: string };
-    }),
+  /** Hide from sale / publish. No Stripe call: works even when Stripe doesn't. */
+  setPlanActive: adminProcedure
+    .input(z.object({ id: z.string().min(1), isActive: z.boolean() }))
+    .mutation(({ input }) =>
+      apiJson<{ plan: Plan }>(
+        `/api/admin/plans/${encodeURIComponent(input.id)}/active`,
+        jsonBody("POST", { isActive: input.isActive }),
+        "Could not change the plan",
+      ),
+    ),
+
+  setPlanPopular: adminProcedure
+    .input(z.object({ id: z.string().min(1), popular: z.boolean() }))
+    .mutation(({ input }) =>
+      apiJson<{ plan: Plan }>(
+        `/api/admin/plans/${encodeURIComponent(input.id)}/popular`,
+        jsonBody("POST", { popular: input.popular }),
+        "Could not change the plan",
+      ),
+    ),
+
+  /** Re-sync one plan without edits (the first adoption of the legacy price). */
+  syncPlanStripe: adminProcedure
+    .input(z.object({ planId: z.string().min(1) }))
+    .mutation(({ input }) =>
+      apiJson<{ summary: PlanSyncSummary }>(
+        `/api/admin/plans/${encodeURIComponent(input.planId)}/stripe-sync`,
+        jsonBody("POST", {}),
+        "Stripe sync failed",
+      ),
+    ),
+
+  syncAllPlans: adminProcedure.mutation(() =>
+    apiJson<{
+      results: Array<{ planId: string; plan: string; summary?: PlanSyncSummary; skipped?: string; error?: string }>;
+    }>("/api/admin/plans/stripe-sync", jsonBody("POST", {}), "Stripe sync failed"),
+  ),
 
   setEntitlement: adminProcedure
     .input(

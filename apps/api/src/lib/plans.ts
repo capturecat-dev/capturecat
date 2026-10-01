@@ -145,10 +145,27 @@ export interface PlanRecord {
   limits: PlanLimits;
   sortOrder: number;
   isActive: boolean;
-  /** Display amounts recorded at Stripe-sync time; null = never synced. */
+  /** Display amounts, written by the Stripe sync and the price webhooks
+   *  (lib/stripe-catalog.ts); null = never synced. */
   monthlyAmountCents: number | null;
   annualAmountCents: number | null;
   currency: string;
+  /** The plan's ONE Stripe product (`prod_…`), set by the sync; null = never
+   *  synced. Product webhooks are matched on it. */
+  stripeProductId: string | null;
+  /** "Most popular": the plan the site features. Display only. */
+  popular: boolean;
+  /** A time-limited sale (lib/plan-sale.ts). Prices in minor units, times
+   *  ISO-8601; all null = no sale. Live only while its coupon exists. */
+  saleLabel: string | null;
+  salePriceMonthlyCents: number | null;
+  salePriceAnnualCents: number | null;
+  saleStartsAt: string | null;
+  saleEndsAt: string | null;
+  /** null = the discount lasts as long as the subscriber stays; N = N months. */
+  saleDurationMonths: number | null;
+  stripeSaleCouponId: string | null;
+  stripeSaleAnnualCouponId: string | null;
 }
 
 interface PlanRow {
@@ -166,6 +183,16 @@ interface PlanRow {
   monthly_amount_cents?: number | null;
   annual_amount_cents?: number | null;
   currency?: string | null;
+  stripe_product_id?: string | null;
+  popular?: number | null;
+  sale_label?: string | null;
+  sale_price_monthly_cents?: number | null;
+  sale_price_annual_cents?: number | null;
+  sale_starts_at?: string | null;
+  sale_ends_at?: string | null;
+  sale_duration_months?: number | null;
+  stripe_sale_coupon_id?: string | null;
+  stripe_sale_annual_coupon_id?: string | null;
 }
 
 function toRecord(row: PlanRow): PlanRecord {
@@ -184,6 +211,16 @@ function toRecord(row: PlanRow): PlanRecord {
     monthlyAmountCents: row.monthly_amount_cents ?? null,
     annualAmountCents: row.annual_amount_cents ?? null,
     currency: row.currency ?? "usd",
+    stripeProductId: row.stripe_product_id ?? null,
+    popular: row.popular === 1,
+    saleLabel: row.sale_label ?? null,
+    salePriceMonthlyCents: row.sale_price_monthly_cents ?? null,
+    salePriceAnnualCents: row.sale_price_annual_cents ?? null,
+    saleStartsAt: row.sale_starts_at ?? null,
+    saleEndsAt: row.sale_ends_at ?? null,
+    saleDurationMonths: row.sale_duration_months ?? null,
+    stripeSaleCouponId: row.stripe_sale_coupon_id ?? null,
+    stripeSaleAnnualCouponId: row.stripe_sale_annual_coupon_id ?? null,
   };
 }
 
@@ -197,6 +234,11 @@ export async function listPlans(db: D1Database, activeOnly = true): Promise<Plan
 
 export async function planByName(db: D1Database, name: string): Promise<PlanRecord | null> {
   const row = await db.prepare(`SELECT * FROM plan WHERE name = ?`).bind(name).first<PlanRow>();
+  return row ? toRecord(row) : null;
+}
+
+export async function planById(db: D1Database, id: string): Promise<PlanRecord | null> {
+  const row = await db.prepare(`SELECT * FROM plan WHERE id = ?`).bind(id).first<PlanRow>();
   return row ? toRecord(row) : null;
 }
 
@@ -224,41 +266,100 @@ export async function freePlan(db: D1Database): Promise<PlanRecord> {
       monthlyAmountCents: null,
       annualAmountCents: null,
       currency: "usd",
+      stripeProductId: null,
+      popular: false,
+      saleLabel: null,
+      salePriceMonthlyCents: null,
+      salePriceAnnualCents: null,
+      saleStartsAt: null,
+      saleEndsAt: null,
+      saleDurationMonths: null,
+      stripeSaleCouponId: null,
+      stripeSaleAnnualCouponId: null,
     }
   );
 }
 
+/** Billing interval as Stripe names it (`recurring.interval`). */
+export type BillingInterval = "month" | "year";
+
 /**
- * Plans in the shape @better-auth/stripe wants.
- *
- * Rows with no `price_id` are dropped: the plugin would happily accept one and
- * then create a checkout session against an empty price, which fails inside
- * Stripe with a message that points nowhere near the cause. The free plan is
- * exactly such a row, and is not something to sell anyway.
+ * The Stripe lookup key that names a plan's price for one interval:
+ * `capturecat_pro_monthly`, `capturecat_pro_yearly`. Lookup keys are unique
+ * across an account's prices, so this is how a price is FOUND (by the sync,
+ * the webhooks and checkout) instead of hard-coding its `price_…` id.
  */
-export async function stripePlansFromDB(env: { DB: D1Database }): Promise<StripePlan[]> {
-  const plans = await listPlans(env.DB, true);
-  return plans
-    .filter((p) => p.priceId && p.priceId.trim().length > 0)
-    .map((p) => ({
+export function lookupKeyFor(plan: string, interval: BillingInterval): string {
+  return `capturecat_${plan}_${interval === "month" ? "monthly" : "yearly"}`;
+}
+
+/** Inverse of `lookupKeyFor`; null for any key that is not ours. */
+export function parseLookupKey(
+  key: string | null | undefined,
+): { plan: string; interval: BillingInterval } | null {
+  const m = key ? /^capturecat_([a-z][a-z0-9_-]{1,31})_(monthly|yearly)$/.exec(key) : null;
+  return m ? { plan: m[1], interval: m[2] === "monthly" ? "month" : "year" } : null;
+}
+
+/** Resolves lookup keys to ACTIVE price ids (a key with no price is absent
+ *  from the map). Supplied by lib/stripe-catalog.ts; never throws. */
+export type LookupKeyResolver = (keys: string[]) => Promise<Map<string, string>>;
+
+/**
+ * Plans in the shape @better-auth/stripe wants, read from the plan TABLE only.
+ * No price on this path is hard-coded or read from an env var.
+ *
+ * Only ACTIVE rows are offered (a plan hidden in the admin console is not for
+ * sale, whatever Stripe holds), and never the free plan. A row's price is the
+ * id the Stripe sync stored; a row without one falls back to its lookup key in
+ * Stripe (`resolveKeys`), which covers a price keyed in the Stripe Dashboard
+ * whose webhook has not landed yet. A row with no price either way is
+ * dropped: the plugin would happily accept it and then create a checkout
+ * session against an empty price, which fails inside Stripe with a message
+ * that points nowhere near the cause.
+ */
+export async function stripePlansFromDB(
+  env: { DB: D1Database },
+  resolveKeys?: LookupKeyResolver,
+): Promise<StripePlan[]> {
+  const plans = (await listPlans(env.DB, true)).filter((p) => p.name !== "free");
+
+  const missing: string[] = [];
+  for (const p of plans) {
+    if (!p.priceId?.trim()) missing.push(lookupKeyFor(p.name, "month"));
+    if (!p.annualPriceId?.trim()) missing.push(lookupKeyFor(p.name, "year"));
+  }
+  const keyed = missing.length > 0 && resolveKeys ? await resolveKeys(missing) : new Map<string, string>();
+
+  const out: StripePlan[] = [];
+  for (const p of plans) {
+    const priceId = p.priceId?.trim() || keyed.get(lookupKeyFor(p.name, "month"));
+    if (!priceId) continue;
+    out.push({
       name: p.name,
-      priceId: p.priceId!.trim(),
-      annualDiscountPriceId: p.annualPriceId?.trim() || undefined,
+      priceId,
+      annualDiscountPriceId: p.annualPriceId?.trim() || keyed.get(lookupKeyFor(p.name, "year")) || undefined,
       limits: p.limits as unknown as Record<string, number>,
       ...(p.trialDays > 0 ? { freeTrial: { days: p.trialDays } } : {}),
-    }));
+    });
+  }
+  return out;
 }
 
 /**
  * The ONE resolution from a server-resolved entitlement to the plan row that
  * governs it. Every feature or limit check goes through here.
  *
- *   paid + planName  → that plan if it is still active; otherwise FREE.
- *                      A subscription to a plan the admin has since hidden
- *                      (or renamed) must not silently become the most
- *                      generous tier — it becomes the least, and is logged,
- *                      so the mistake is visible in the console instead of
- *                      in the bill.
+ *   paid + planName  → that plan, ACTIVE OR HIDDEN. Hiding a plan in the
+ *                      admin console only stops NEW checkouts (the plugin is
+ *                      only ever offered active rows — see
+ *                      `stripePlansFromDB`); a customer already paying for it
+ *                      keeps what they paid for until the subscription ends,
+ *                      which is when `tier` stops being "paid". A plan that
+ *                      no longer EXISTS (deleted, or renamed) must not
+ *                      silently become the most generous tier — it becomes
+ *                      the least, and is logged, so the mistake is visible
+ *                      in the console instead of in the bill.
  *   paid, no name    → pro. Only reachable when the subscription-plan
  *                      lookup itself failed (requireEntitlement fails soft
  *                      there), so a D1 blip costs a paying user nothing.
@@ -275,8 +376,8 @@ export async function planForEntitlement(
   const { tier, planName } = entitlement;
   if (tier === "paid" && planName) {
     const plan = await planByName(db, planName.toLowerCase()).catch(() => null);
-    if (plan?.isActive) return plan;
-    console.error(`plans: subscription names plan "${planName}" which is missing or inactive — denying`);
+    if (plan) return plan;
+    console.error(`plans: subscription names plan "${planName}" which does not exist — denying`);
     return freePlan(db);
   }
   if (tier === "paid" || tier === "tester") {

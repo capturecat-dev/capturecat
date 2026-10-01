@@ -27,9 +27,11 @@
  * file rather than being inlined into the Better Auth instance.
  */
 
-import { stripe as stripePlugin, type StripePlan } from "@better-auth/stripe";
+import { stripe as stripePlugin } from "@better-auth/stripe";
 import type { DBFieldAttribute } from "better-auth/db";
 import { planByName, stripePlansFromDB } from "./plans";
+import { saleCheckoutParams } from "./plan-sale";
+import { applyCatalogEvent, CATALOG_EVENTS, freshCatalogObject, resolveLookupKeys } from "./stripe-catalog";
 import Stripe from "stripe";
 
 // ---------------------------------------------------------------------------
@@ -48,74 +50,37 @@ export interface StripeEnv {
   STRIPE_SECRET_KEY: string;
   /** Secret — `whsec_…` from the /api/auth/stripe/webhook endpoint. */
   STRIPE_WEBHOOK_SECRET: string;
-  /** Secret — recurring monthly price for CaptureCat Pro, `price_…`. */
-  STRIPE_PRO_PRICE_ID: string;
-  /** Secret — optional annual price for CaptureCat Pro, `price_…`. */
+  /** LEGACY — read only by the admin sync's one-time adoption step
+   *  (lib/stripe-catalog.ts), never by checkout. Delete the secrets once
+   *  every plan is synced; see docs/stripe-setup.md. */
+  STRIPE_PRO_PRICE_ID?: string;
   STRIPE_PRO_ANNUAL_PRICE_ID?: string;
-  /** Optional — free-trial days. A trial is a real Stripe subscription in
-   *  status `trialing`, already counted as paid by PAID_SUBSCRIPTION_STATUSES.
-   *  Unset or 0 disables it. */
   STRIPE_PRO_TRIAL_DAYS?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Plans — mirrors https://capturecat.so/pricing (apps/web/app/pricing/page.tsx)
+// Plans
 // ---------------------------------------------------------------------------
-
-/**
- * The single paid plan. CaptureCat sells one thing: "CaptureCat Pro", $10/month,
- * everything included (see the pricing page — there are no feature tiers, so
- * there is exactly one plan and no plan `group`).
- *
- * The plugin lowercases plan names when persisting, and this string is what
- * clients send as `{ plan: "pro" }` to POST /api/auth/subscription/upgrade.
- */
-const PRO_PLAN_NAME = "pro";
-
-/**
- * Emergency fallback only (see `plans:` below). It carries NO limits on
- * purpose: caps live in the `plan` table and are enforced from there by
- * `lib/upload-policy.ts`; a second copy here would drift.
- */
-function proPlan(env: StripeEnv): StripePlan {
-  const monthly = env.STRIPE_PRO_PRICE_ID?.trim();
-  // An unset/blank annual price must become `undefined`, not "", or an
-  // `{ annual: true }` checkout would be created against an empty price id.
-  const annual = env.STRIPE_PRO_ANNUAL_PRICE_ID?.trim() || undefined;
-  // Blank/absent/garbage all mean "no trial" rather than NaN days.
-  const trialDays = Number.parseInt(env.STRIPE_PRO_TRIAL_DAYS ?? "", 10) || 0;
-
-  if (!monthly) {
-    // Deliberately non-fatal: throwing here would break EVERY request through
-    // the auth instance, not just checkout. Checkout will fail loudly instead.
-    console.error(
-      "stripe: STRIPE_PRO_PRICE_ID is not set — /api/auth/subscription/upgrade will fail",
-    );
-  }
-
-  return {
-    name: PRO_PLAN_NAME,
-    priceId: monthly,
-    annualDiscountPriceId: annual,
-
-    // Free subscriptions, the plugin's own way.
-    //
-    // Set STRIPE_PRO_TRIAL_DAYS to offer one. A trial is a REAL Stripe
-    // subscription in status `trialing`, which is already in
-    // PAID_SUBSCRIPTION_STATUSES — so `resolveTier()` reports "paid" for the
-    // duration with no extra code and no second source of truth. That is why
-    // there is no locally-granted "comped" flag: the subscription table is
-    // written solely by the webhook, and anything written beside it would be a
-    // paid state Stripe never agrees with.
-    //
-    // For one-off comps rather than a blanket trial, do it in Stripe: every
-    // user already has a stripeCustomerId (createCustomerOnSignUp), so a
-    // subscription with a 100%-off coupon syncs through the same webhook.
-    ...(trialDays > 0 ? { freeTrial: { days: trialDays } } : {}),
-    // No `seatPriceId` — per-seat billing requires the organization plugin,
-    // which is not enabled (the plugin logs an error at init if you set it).
-  };
-}
+//
+// Plans, prices and trials come from the `plan` table only (`plans:` below,
+// via lib/plans.ts `stripePlansFromDB`), and the table's prices are kept in
+// step with Stripe by lib/stripe-catalog.ts. There is no hard-coded plan and
+// no env-var price on the checkout path.
+//
+// Free subscriptions, the plugin's own way: a plan row's `trial_days`. A
+// trial is a REAL Stripe subscription in status `trialing`, which is already
+// in PAID_SUBSCRIPTION_STATUSES — so `resolveTier()` reports "paid" for the
+// duration with no extra code and no second source of truth. That is why
+// there is no locally-granted "comped" flag: the subscription table is
+// written solely by the webhook, and anything written beside it would be a
+// paid state Stripe never agrees with.
+//
+// For one-off comps rather than a blanket trial, do it in Stripe: every user
+// already has a stripeCustomerId (createCustomerOnSignUp), so a subscription
+// with a 100%-off coupon syncs through the same webhook.
+//
+// No `seatPriceId` — per-seat billing requires the organization plugin,
+// which is not enabled (the plugin logs an error at init if you set it).
 
 // ---------------------------------------------------------------------------
 // Entitlement policy — the single definition of "this subscription is paid"
@@ -249,7 +214,8 @@ export function createStripeClient(env: StripeEnv): Stripe {
 }
 
 /**
- * Subscription webhooks act on Stripe's CURRENT state, never the event's copy.
+ * Subscription and catalog webhooks act on Stripe's CURRENT state, never the
+ * event's copy.
  *
  * Stripe does not deliver events in order, and a delivery we failed (a 5xx,
  * a 429) is retried hours or days later with its ORIGINAL payload. The
@@ -261,10 +227,14 @@ export function createStripeClient(env: StripeEnv): Stripe {
  * and order-independent. A failed re-read fails the delivery (the plugin
  * answers 400) so Stripe retries it, rather than applying the stale copy.
  *
+ * The same goes for `product.updated` / `price.*`: an old price event must
+ * not put back an amount the owner has since changed. A product or price
+ * that no longer exists arrives as the event's copy marked `deleted`.
+ *
  * `client.webhooks` is Stripe's SHARED static object, so the override goes on
  * a per-client child of it rather than mutating it for every instance.
  */
-export function withFreshSubscriptionEvents(client: Stripe): Stripe {
+export function withFreshEvents(client: Stripe): Stripe {
   const shared = client.webhooks;
   const webhooks = Object.create(shared) as Stripe.Webhooks;
   webhooks.constructEventAsync = async (...args: Parameters<Stripe.Webhooks["constructEventAsync"]>) => {
@@ -272,6 +242,8 @@ export function withFreshSubscriptionEvents(client: Stripe): Stripe {
     if (event.type.startsWith("customer.subscription.")) {
       const stale = event.data.object as Stripe.Subscription;
       (event.data as { object: Stripe.Subscription }).object = await client.subscriptions.retrieve(stale.id);
+    } else if (CATALOG_EVENTS.has(event.type)) {
+      await freshCatalogObject(client, event);
     }
     return event;
   };
@@ -344,7 +316,7 @@ async function customerHadTrial(client: Stripe, customer: string): Promise<boole
  * `auth.handler(c.req.raw)` in src/index.ts.
  */
 export function buildStripePlugin(env: StripeEnv) {
-  const client = withFreshSubscriptionEvents(createStripeClient(env));
+  const client = withFreshEvents(createStripeClient(env));
   return lockStripeCustomerId(stripePlugin({
     stripeClient: client,
     stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
@@ -364,27 +336,29 @@ export function buildStripePlugin(env: StripeEnv) {
 
     subscription: {
       enabled: true,
-      // Read from the `plan` table so tiers can be edited in the admin console
-      // without a deploy. The plugin re-invokes this per request that needs it,
-      // so an edit takes effect immediately.
+      // Read from the `plan` table ONLY, so tiers and prices are edited in
+      // the admin console (and synced to Stripe) without a deploy. The
+      // plugin re-invokes this per request that needs it, so an edit takes
+      // effect immediately.
       //
-      // Falls back to the hardcoded plan if the table cannot be read: a D1
-      // hiccup must not make checkout vanish for everyone. It also covers an
-      // ACTIVE pro row that was never Stripe-synced (the env price predates
-      // the sync button) — but never a pro row the admin HID: hidden means
-      // not for sale, and the fallback used to sell it anyway (a checkout
-      // that charged for a plan planForEntitlement then served as free).
+      // There is deliberately no fallback plan. The old one sold the env
+      // price whenever the table offered nothing — including for a Pro row
+      // the admin had HIDDEN (security fix #9). Hidden rows are never
+      // offered: hidden means not for sale.
+      //
+      // A failed read offers nothing rather than throwing. Checkout then
+      // refuses the plan; the subscription webhooks still record status
+      // changes (an unmatched price keeps the row's plan), where a throw
+      // would make the plugin drop the event.
       plans: async () => {
         try {
-          const fromDB = await stripePlansFromDB(env);
-          if (fromDB.length > 0) return fromDB;
-          const pro = await planByName(env.DB, "pro");
-          if (pro && !pro.isActive) return [];
-          console.error("stripe: no sellable plans in the plan table — falling back");
+          const plans = await stripePlansFromDB(env, (keys) => resolveLookupKeys(client, keys));
+          if (plans.length === 0) console.error("stripe: no sellable plans in the plan table");
+          return plans;
         } catch (err) {
-          console.error("stripe: plan lookup failed, falling back", err);
+          console.error("stripe: plan lookup failed — nothing is for sale this request", err);
+          return [];
         }
-        return [proPlan(env)];
       },
 
       // Sign-in is social-only (Google/Apple), both of which return a verified
@@ -399,11 +373,30 @@ export function buildStripePlugin(env: StripeEnv) {
       // cancelled subscriptions (and their trial_start) forever. Returning an
       // explicit `trial_period_days: undefined` overrides the plugin's
       // row-based grant (the key is then omitted from the request).
-      getCheckoutSessionParams: async ({ user, plan, subscription }) => {
-        if (!plan.freeTrial) return {};
-        const customer = subscription.stripeCustomerId ?? (user as { stripeCustomerId?: string }).stripeCustomerId;
-        if (!customer || !(await customerHadTrial(client, customer))) return {};
-        return { params: { subscription_data: { trial_period_days: undefined } } };
+      //
+      // A SALE rides here too: while the plan's sale window is open, the
+      // session gets that interval's coupon and an expiry no later than the
+      // sale's end (lib/plan-sale.ts), so a page opened at the sale price
+      // cannot be paid at it a day later. Everyone is on the regular price;
+      // the coupon is the discount, and Stripe itself refuses it after its
+      // redeem_by. The plan row is re-read so the window is decided now.
+      getCheckoutSessionParams: async ({ user, plan, subscription }, _request, ctx) => {
+        const annual = (ctx?.body as { annual?: unknown } | undefined)?.annual === true;
+        const row = await planByName(env.DB, plan.name);
+        const sale = row ? saleCheckoutParams(row, annual, Date.now()) : {};
+
+        let noTrial = false;
+        if (plan.freeTrial) {
+          const customer = subscription.stripeCustomerId ?? (user as { stripeCustomerId?: string }).stripeCustomerId;
+          noTrial = !!customer && (await customerHadTrial(client, customer));
+        }
+        if (!noTrial && !sale.discounts) return {};
+        return {
+          params: {
+            ...sale,
+            ...(noTrial ? { subscription_data: { trial_period_days: undefined } } : {}),
+          },
+        };
       },
 
       // Lifecycle logging only. State persistence is the plugin's job — these
@@ -444,11 +437,19 @@ export function buildStripePlugin(env: StripeEnv) {
      * `invoice.paid`, `invoice.payment_failed`, dunning email, etc.
      *
      * `charge.dispute.created` IS handled: see cancelDisputedSubscriptions.
+     * So are the catalog events (`product.updated`, `price.created`,
+     * `price.updated`, `price.deleted`): they keep the plan table's names,
+     * amounts and price ids in step with edits made in the Stripe
+     * Dashboard — see applyCatalogEvent in lib/stripe-catalog.ts.
      * A throw here makes the plugin answer 400, so Stripe retries.
      */
     onEvent: async (event) => {
       if (event.type === "charge.dispute.created") {
         await cancelDisputedSubscriptions(client, event.data.object as Stripe.Dispute);
+        return;
+      }
+      if (CATALOG_EVENTS.has(event.type)) {
+        console.log(`stripe: ${event.type} (${event.id}) — ${await applyCatalogEvent(client, env.DB, event)}`);
         return;
       }
       const OWNED = new Set([
