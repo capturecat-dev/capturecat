@@ -11,12 +11,22 @@ import {
 
 import { jsonLd } from "@/lib/json-ld";
 import { markdownAlternateLinks } from "@/lib/site-content";
-import type { ShotId } from "@/lib/media-shots";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
 import FeatureInventory from "@/components/marketing/FeatureInventory";
 import FinalCta from "@/components/marketing/home/FinalCta";
-import { MediaPlaceholder } from "@/components/marketing/MediaPlaceholder";
+import { PinnedStory } from "@/components/marketing/home/demo/PinnedStory";
+import {
+  AnnotationsScene,
+  ExportScene,
+  IPhoneScene,
+  KeystrokesScene,
+  LibraryScene,
+  SceneSlot,
+  WebCaptureScene,
+} from "@/components/marketing/home/demo/Scenes";
+import demosCss from "@/styles/demos.css?url";
+import demosPagesCss from "@/styles/demos-pages.css?url";
 import {
   Ambient,
   AppleGlyph,
@@ -37,7 +47,11 @@ export const Route = createFileRoute("/features")({
           "Every feature in CaptureCat, the Mac screen recorder: recording sources, auto zoom, cursor smoothing, captions, device frames, camera bubble, blur and spotlight, timeline, export, sharing, library search, and the MCP server for AI agents.",
       },
     ],
-    links: markdownAlternateLinks("/features"),
+    links: [
+      { rel: "stylesheet", href: demosCss },
+      { rel: "stylesheet", href: demosPagesCss },
+      ...markdownAlternateLinks("/features"),
+    ],
   }),
   component: FeaturesPage,
 });
@@ -60,7 +74,6 @@ const SECTIONS: Array<{
   title: string;
   body: string;
   details: string[];
-  shot: ShotId;
 }> = [
   {
     icon: Smartphone,
@@ -73,7 +86,6 @@ const SECTIONS: Array<{
       "Same auto zoom, captions, and framing as a Mac recording",
       "Portrait 9:16 export for App Store previews and social",
     ],
-    shot: "features-iphone",
   },
   {
     icon: Globe,
@@ -86,7 +98,6 @@ const SECTIONS: Array<{
       "Full page height, not just the first screen",
       "Cookie banners and chat widgets removed before capture",
     ],
-    shot: "features-web-capture",
   },
   {
     icon: PenTool,
@@ -99,7 +110,6 @@ const SECTIONS: Array<{
       "Build in and build out animations per item",
       "Spotlight backdrops that dim everything behind the annotation",
     ],
-    shot: "features-annotations",
   },
   {
     icon: Keyboard,
@@ -112,7 +122,6 @@ const SECTIONS: Array<{
       "Rendered by the same code in the preview and the export",
       "Pairs with synthesized key sounds if you want them",
     ],
-    shot: "features-keystrokes",
   },
   {
     icon: Search,
@@ -125,7 +134,6 @@ const SECTIONS: Array<{
       "Folders, pins, and filters",
       "Capture highlighted text from any app as a note with Option Command N",
     ],
-    shot: "features-library-search",
   },
   {
     icon: Download,
@@ -138,7 +146,6 @@ const SECTIONS: Array<{
       "Live bitrate and size estimate",
       "Fast export for much smaller files on static screens",
     ],
-    shot: "features-export",
   },
 ];
 
@@ -175,48 +182,55 @@ function FeaturesPage() {
         </Container>
       </section>
 
-      <section className="relative isolate py-16">
+      <section className="relative isolate py-8 lg:py-0">
         <Container>
-          <div className="space-y-24">
-            {SECTIONS.map((item, i) => (
-              <div
-                key={item.eyebrow}
-                className="scroll-reveal grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-14"
-              >
-                <div className={`lg:col-span-5 ${i % 2 === 1 ? "lg:order-2" : ""}`}>
-                  <IconTile>
-                    <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                  </IconTile>
-                  <p className="mt-5 text-[13px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                    {item.eyebrow}
-                  </p>
-                  <h2 className="mt-2 text-balance text-2xl font-medium tracking-[-0.02em] text-foreground md:text-3xl">
-                    {item.title}
-                  </h2>
-                  <p className="mt-4 text-[15.5px] leading-relaxed text-muted-foreground">
-                    {item.body}
-                  </p>
-                  <ul className="mt-5 space-y-2">
-                    {item.details.map((d) => (
-                      <li
-                        key={d}
-                        className="flex gap-2.5 text-[14px] leading-relaxed text-muted-foreground"
-                      >
-                        <span
-                          aria-hidden
-                          className="mt-[8px] h-1 w-1 shrink-0 rounded-full bg-cyan-300/60"
-                        />
-                        {d}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className={`lg:col-span-7 ${i % 2 === 1 ? "lg:order-1" : ""}`}>
-                  <MediaPlaceholder id={item.shot} />
-                </div>
-              </div>
+          <PinnedStory
+            className="ccd-fp"
+            stage={
+              <>
+                <SceneSlot index={0}>
+                  <IPhoneScene />
+                </SceneSlot>
+                <SceneSlot index={1}>
+                  <WebCaptureScene />
+                </SceneSlot>
+                <SceneSlot index={2}>
+                  <AnnotationsScene />
+                </SceneSlot>
+                <SceneSlot index={3}>
+                  <KeystrokesScene />
+                </SceneSlot>
+                <SceneSlot index={4}>
+                  <LibraryScene />
+                </SceneSlot>
+                <SceneSlot index={5} className="ccd-x-exportq">
+                  <ExportScene quality />
+                </SceneSlot>
+              </>
+            }
+            steps={SECTIONS.map((item) => (
+              <>
+                <IconTile>
+                  <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                </IconTile>
+                <p className="mt-5 text-[13px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                  {item.eyebrow}
+                </p>
+                <h2 className="mt-2 text-balance text-2xl font-medium tracking-[-0.02em] text-foreground md:text-3xl">
+                  {item.title}
+                </h2>
+                <p className="mt-4 text-[15.5px] leading-relaxed text-muted-foreground">{item.body}</p>
+                <ul className="mt-5 space-y-2">
+                  {item.details.map((d) => (
+                    <li key={d} className="flex gap-2.5 text-[14px] leading-relaxed text-muted-foreground">
+                      <span aria-hidden className="mt-[8px] h-1 w-1 shrink-0 rounded-full bg-cyan-300/60" />
+                      {d}
+                    </li>
+                  ))}
+                </ul>
+              </>
             ))}
-          </div>
+          />
         </Container>
       </section>
 

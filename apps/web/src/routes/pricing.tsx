@@ -6,7 +6,9 @@ import { markdownAlternateLinks } from "@/lib/site-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
 import { PricingCards, type PlanView } from "@/components/marketing/pricing-cards";
-import { MediaPlaceholder } from "@/components/marketing/MediaPlaceholder";
+import { DashboardDemo } from "@/components/marketing/home/demo/DashboardDemo";
+import demosCss from "@/styles/demos.css?url";
+import demosPagesCss from "@/styles/demos-pages.css?url";
 import { FaqList, type FaqItem } from "@/components/marketing/home/Faq";
 import {
   Ambient,
@@ -44,7 +46,11 @@ export const Route = createFileRoute("/pricing")({
           "CaptureCat is free to record, edit, and export. Pro adds share links, timestamped comments, and viewer analytics. Prices come live from Stripe.",
       },
     ],
-    links: markdownAlternateLinks("/pricing"),
+    links: [
+      { rel: "stylesheet", href: demosCss },
+      { rel: "stylesheet", href: demosPagesCss },
+      ...markdownAlternateLinks("/pricing"),
+    ],
   }),
   component: PricingPage,
 });
@@ -167,7 +173,7 @@ function PricingPage() {
               </p>
             </div>
             <div className="lg:col-span-7">
-              <MediaPlaceholder id="pricing-dashboard" />
+              <DashboardDemo />
             </div>
           </div>
         </Container>

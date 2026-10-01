@@ -1,0 +1,3043 @@
+/*
+ * Marketing product recreations — the Mac app's real UI rebuilt in HTML/CSS
+ * and animated. Linked (as a head <link>, via `?url`) only by the marketing
+ * routes that show a demo; the dashboard and editor never load it.
+ *
+ * Rules every block here follows:
+ *  - Only transform and opacity animate (compositor-only). Nothing animates
+ *    layout, paint-heavy filters, or clip paths; blurs and masks are static
+ *    layers whose OPACITY moves.
+ *  - `[data-offscreen]` (set by useOffscreenPause) pauses every loop.
+ *  - prefers-reduced-motion: no loops, no transitions. The base styles below
+ *    are chosen so the resting frame of each demo still says what it shows.
+ *  - Sizes are container-query units: `--u` is one design pixel of the
+ *    nearest demo container (960 wide for a canvas, 1000 for the editor).
+ *
+ * Motion vocabulary, from the product:
+ *  --ccd-expo    Easing.easeOutExpo — the zoom-in envelope (core/math/easing.ts)
+ *  --ccd-inout   the zoom-out, spring-smoothed (exportCameraPath's pre-pass)
+ *  --ccd-settle  CCMotion settle        --ccd-bounce  CCMotion bounce
+ *  --rec-*       the recording panel's RecordingMotion family (app.css)
+ */
+
+.ccd,
+.ccd-canvas,
+.ccd-editor,
+.ccd-scene,
+.ccd-mini {
+  --ccd-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ccd-inout: cubic-bezier(0.65, 0, 0.35, 1);
+  --ccd-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ccd-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ccd-glide: cubic-bezier(0.4, 0, 0.2, 1);
+  --ccd-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+}
+
+/* Pause everything offscreen. */
+[data-offscreen] *,
+[data-offscreen] *::before,
+[data-offscreen] *::after {
+  animation-play-state: paused !important;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Canvas — wallpaper, card plane, overlays (design space 960 × 540)
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.ccd-canvas {
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #050506;
+  isolation: isolate;
+  font-family: var(--ccd-font);
+  --u: calc(100cqw / 960);
+  -webkit-font-smoothing: antialiased;
+}
+.ccd-canvas * {
+  box-sizing: border-box;
+}
+
+/* ProjectSettings() default: systemPurple → systemBlue gradient. */
+.ccd-wall {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 70% at 18% 20%, rgb(255 255 255 / 0.18), transparent 60%),
+    radial-gradient(70% 80% at 90% 95%, rgb(10 60 255 / 0.45), transparent 65%),
+    linear-gradient(135deg, #bf5af2 0%, #7d5cf0 45%, #0a84ff 100%);
+  transform-origin: 50% 50%;
+}
+/* A macOS-style wallpaper. */
+.ccd-wall-b {
+  opacity: 0;
+  background:
+    radial-gradient(90% 60% at 20% 110%, #ff9f5a 0%, rgb(255 110 90 / 0.6) 30%, transparent 62%),
+    radial-gradient(70% 55% at 85% 105%, #ff5f8a 0%, transparent 60%),
+    radial-gradient(120% 80% at 50% -10%, #1f3b8f 0%, #3a2d7a 45%, #7a3d8a 75%, #d8687a 100%);
+}
+/* A solid colour. */
+.ccd-wall-c {
+  opacity: 0;
+  background: #1c1c1e;
+}
+
+.ccd-cam,
+.ccd-cardwrap {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+}
+.ccd-cam--blur {
+  filter: blur(calc(5 * var(--u)));
+  opacity: 0;
+}
+
+/* The card: the recording, centred with padding (1920-scale 48 → roomier here). */
+.ccd-card,
+.ccd-shadow {
+  position: absolute;
+  left: 11.6667%;
+  top: 7.4074%;
+  width: 76.6667%;
+  height: 85.1852%;
+  border-radius: calc(10 * var(--u));
+}
+.ccd-shadow {
+  background: #000;
+  box-shadow: 0 calc(14 * var(--u)) calc(44 * var(--u)) rgb(0 0 0 / 0.5);
+}
+.ccd-shadow--deep {
+  opacity: 0;
+  box-shadow: 0 calc(30 * var(--u)) calc(90 * var(--u)) rgb(0 0 0 / 0.75);
+}
+.ccd-card {
+  overflow: hidden;
+  background: #fff;
+}
+
+/* ── The recorded app (light theme; % of the 736 × 460 card) ─────────────── */
+
+.ccd-app {
+  position: absolute;
+  inset: 0;
+  color: #1d1d1f;
+  background: #fff;
+  font-size: calc(11 * var(--u));
+  line-height: 1.2;
+}
+.ccd-app > * {
+  position: absolute;
+}
+.ccd-app-bar {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 6.1%;
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  padding-left: calc(10 * var(--u));
+  background: #f3f3f5;
+  border-bottom: 1px solid #e3e3e8;
+}
+.ccd-app-bar i,
+.ccd-lights i {
+  display: block;
+  width: calc(9 * var(--u));
+  height: calc(9 * var(--u));
+  border-radius: 50%;
+  background: #ff5f57;
+}
+.ccd-app-bar i:nth-child(2),
+.ccd-lights i:nth-child(2) {
+  background: #febc2e;
+}
+.ccd-app-bar i:nth-child(3),
+.ccd-lights i:nth-child(3) {
+  background: #28c840;
+}
+.ccd-app-bar span {
+  margin-left: calc(66 * var(--u));
+  font-size: calc(10.5 * var(--u));
+  font-weight: 600;
+  color: #6e6e73;
+}
+.ccd-app-side {
+  left: 0;
+  top: 6.1%;
+  bottom: 0;
+  width: 23.1%;
+  display: flex;
+  flex-direction: column;
+  gap: calc(3 * var(--u));
+  padding: calc(14 * var(--u)) calc(10 * var(--u));
+  background: #f5f5f7;
+  border-right: 1px solid #e8e8ed;
+  font-size: calc(10.5 * var(--u));
+  color: #3a3a3c;
+}
+.ccd-app-side b {
+  margin: calc(8 * var(--u)) 0 calc(2 * var(--u)) calc(6 * var(--u));
+  font-size: calc(8.5 * var(--u));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8e8e93;
+}
+.ccd-app-side b:first-child {
+  margin-top: 0;
+}
+.ccd-app-side span {
+  padding: calc(5 * var(--u)) calc(7 * var(--u));
+  border-radius: calc(5 * var(--u));
+}
+.ccd-app-side .is-on {
+  background: #e3e3ea;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+.ccd-app-h {
+  left: 28.53%;
+  top: 11.2%;
+  font-size: calc(21 * var(--u));
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.ccd-app-sub {
+  left: 28.53%;
+  top: 17.6%;
+  font-size: calc(10.5 * var(--u));
+  color: #86868b;
+}
+.ccd-lbl {
+  left: 28.53%;
+  font-size: calc(9.5 * var(--u));
+  font-weight: 600;
+  color: #6e6e73;
+}
+.ccd-lbl-name { top: 21.8%; }
+.ccd-lbl-team { top: 36.3%; }
+.ccd-lbl-date { top: 50.9%; }
+.ccd-field {
+  left: 28.53%;
+  width: 40.76%;
+  height: 7.39%;
+  display: flex;
+  align-items: center;
+  padding: 0 calc(10 * var(--u));
+  border: 1px solid #d2d2d7;
+  border-radius: calc(6 * var(--u));
+  background: #fff;
+  font-size: calc(11.5 * var(--u));
+  color: #1d1d1f;
+  white-space: nowrap;
+}
+.ccd-f-name { top: 24.35%; }
+.ccd-f-team { top: 38.9%; justify-content: space-between; }
+.ccd-f-date { top: 53.48%; color: #3a3a3c; }
+.ccd-chev { color: #8e8e93; transform: translateY(-20%); }
+.ccd-ph {
+  position: absolute;
+  left: calc(10 * var(--u));
+  color: #aeaeb2;
+}
+.ccd-typed {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.ccd-ch {
+  opacity: 1;
+}
+.ccd-caret {
+  display: inline-block;
+  width: calc(1.4 * var(--u));
+  height: calc(14 * var(--u));
+  margin-left: calc(1 * var(--u));
+  background: #0a84ff;
+  opacity: 0;
+}
+.ccd-caret-start {
+  position: absolute;
+  left: calc(9 * var(--u));
+}
+/* Resting frame: the name is filled in, placeholder hidden. */
+.ccd-ph { opacity: 0; }
+
+.ccd-btn {
+  left: 28.53%;
+  top: 67.4%;
+  width: 20.38%;
+  height: 7.39%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: calc(6 * var(--u));
+  background: linear-gradient(#2a8cff, #0a74f0);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.3) inset, 0 calc(2 * var(--u)) calc(6 * var(--u)) rgb(10 116 240 / 0.35);
+  color: #fff;
+  font-size: calc(11 * var(--u));
+  font-weight: 600;
+}
+.ccd-btn-press {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+}
+.ccd-cover {
+  left: 74.2%;
+  top: 24.35%;
+  width: 20.4%;
+  height: 34%;
+  display: flex;
+  align-items: flex-end;
+  padding: calc(8 * var(--u));
+  border-radius: calc(8 * var(--u));
+  background:
+    radial-gradient(80% 70% at 30% 20%, #ffd36b, transparent 60%),
+    radial-gradient(90% 80% at 90% 90%, #ff5f8a, transparent 60%),
+    linear-gradient(160deg, #6f7cff, #bf5af2);
+  color: rgb(255 255 255 / 0.92);
+  font-size: calc(9.5 * var(--u));
+  font-weight: 600;
+}
+.ccd-lbl-secret { left: 74.2%; top: 63.4%; }
+.ccd-f-secret {
+  left: 74.2%;
+  top: 66.1%;
+  width: 20.4%;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: calc(8.5 * var(--u));
+  overflow: hidden;
+  color: #3a3a3c;
+}
+.ccd-toast {
+  right: 3%;
+  top: 9%;
+  display: flex;
+  align-items: center;
+  gap: calc(5 * var(--u));
+  padding: calc(6 * var(--u)) calc(11 * var(--u));
+  border-radius: 999px;
+  background: #1d1d1f;
+  color: #fff;
+  font-size: calc(10 * var(--u));
+  font-weight: 600;
+  box-shadow: 0 calc(6 * var(--u)) calc(18 * var(--u)) rgb(0 0 0 / 0.2);
+  opacity: 0;
+}
+.ccd-toast span { color: #30d158; }
+
+/* ── Cursor + ripples (card space: they ride the zoom) ─────────────────── */
+
+.ccd-track {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Resting frame: on the Create button. */
+  transform: translate(36.4%, 71.1%);
+}
+.ccd-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(22 * var(--u));
+  height: auto;
+  margin: calc(-2 * var(--u)) 0 0 calc(-2 * var(--u));
+  filter: drop-shadow(0 calc(2 * var(--u)) calc(3 * var(--u)) rgb(0 0 0 / 0.3));
+}
+.ccd-track--raw {
+  opacity: 0;
+}
+.ccd-track--raw .ccd-cursor {
+  width: calc(12 * var(--u));
+}
+.ccd-ghost {
+  opacity: 0;
+}
+.ccd-ghost .ccd-cursor {
+  filter: blur(calc(2.2 * var(--u)));
+}
+
+.ccd-ripple {
+  position: absolute;
+  width: calc(50 * var(--u));
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  border: calc(2.5 * var(--u)) solid rgb(10 132 255 / 0.9);
+  background: rgb(10 132 255 / 0.14);
+  opacity: 0;
+  scale: 0.4;
+}
+.ccd-r1 { left: 36%; top: 28%; }
+.ccd-r2 { left: 36.4%; top: 71.1%; }
+.ccd-r3 { left: 36%; top: 42.6%; }
+
+/* ── Canvas overlays (stay put while the card zooms) ───────────────────── */
+
+.ccd-keys {
+  position: absolute;
+  left: 50%;
+  bottom: 6.5%;
+  translate: -50% 0;
+  display: flex;
+  gap: calc(8 * var(--u));
+  padding: calc(9 * var(--u)) calc(18 * var(--u));
+  border-radius: 999px;
+  background: rgb(18 18 20 / 0.82);
+  border: calc(1 * var(--u)) solid rgb(255 255 255 / 0.14);
+  color: #fff;
+  font-size: calc(20 * var(--u));
+  font-weight: 600;
+  letter-spacing: calc(1.2 * var(--u));
+  line-height: 1;
+  box-shadow: 0 calc(8 * var(--u)) calc(24 * var(--u)) rgb(0 0 0 / 0.3);
+}
+
+.ccd-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  translate: -50% 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0 calc(7 * var(--u));
+  padding: calc(9 * var(--u)) calc(16 * var(--u));
+  border-radius: calc(10 * var(--u));
+  background: rgb(0 0 0 / 0.72);
+  color: rgb(255 255 255 / 0.62);
+  font-size: calc(21 * var(--u));
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.ccd-caption > span {
+  position: relative;
+}
+.ccd-caption > span > b {
+  position: absolute;
+  inset: 0;
+  color: #ffd60a;
+  font-weight: inherit;
+  opacity: 0;
+}
+
+/* Camera bubble: canvas space, bottom right (ProjectSettings default). */
+.ccd-bubble {
+  position: absolute;
+  right: 3%;
+  bottom: 5.4%;
+  width: calc(128 * var(--u));
+  aspect-ratio: 1;
+}
+.ccd-bub-shape {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(0 calc(8 * var(--u)) calc(16 * var(--u)) rgb(0 0 0 / 0.45));
+}
+.ccd-bub-circle {
+  border-radius: 50%;
+  overflow: hidden;
+  border: calc(2.5 * var(--u)) solid rgb(255 255 255 / 0.3);
+}
+.ccd-bubble--both .ccd-bub-squircle {
+  opacity: 0;
+}
+.ccd-bub-ring,
+.ccd-bub-inner {
+  position: absolute;
+  inset: 0;
+}
+.ccd-bub-ring {
+  background: rgb(255 255 255 / 0.3);
+}
+.ccd-bub-inner {
+  inset: calc(2.5 * var(--u));
+}
+.ccd-face {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ccd-bub-tag {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  translate: -50% calc(6 * var(--u));
+  padding: calc(4 * var(--u)) calc(10 * var(--u));
+  border-radius: 999px;
+  background: rgb(18 18 20 / 0.85);
+  color: #fff;
+  font-size: calc(10.5 * var(--u));
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Editor window (design space 1000 wide): toolbar + canvas + timeline
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.ccd-editor {
+  position: relative;
+  container-type: inline-size;
+  --u: calc(100cqw / 1000);
+  background: #131315;
+  color: rgb(255 255 255 / 0.92);
+  font-family: var(--ccd-font);
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: calc(16 * var(--u));
+}
+.ccd-ed-bar {
+  display: flex;
+  align-items: center;
+  height: calc(46 * var(--u));
+  padding: 0 calc(16 * var(--u));
+  gap: calc(14 * var(--u));
+  border-bottom: 1px solid #000;
+  background: linear-gradient(#1f1f22, #19191b);
+}
+.ccd-lights {
+  display: flex;
+  gap: calc(8 * var(--u));
+}
+.ccd-lights i {
+  width: calc(12 * var(--u));
+  height: calc(12 * var(--u));
+}
+.ccd-ed-title {
+  flex: 1;
+  font-size: calc(13 * var(--u));
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.55);
+}
+.ccd-ed-keys {
+  display: flex;
+  gap: calc(8 * var(--u));
+}
+/* A raised CCMaterial key (materials.css recipe, simplified). */
+.ccd-key {
+  display: inline-flex;
+  align-items: center;
+  height: calc(26 * var(--u));
+  padding: 0 calc(12 * var(--u));
+  border-radius: calc(6 * var(--u));
+  font-size: calc(12 * var(--u));
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.9);
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0) 40%),
+    linear-gradient(#34343a, #29292e 55%, #1f1f23);
+  box-shadow: 0 calc(2 * var(--u)) 0 0 #121214, 0 calc(2 * var(--u)) calc(6 * var(--u)) rgb(0 0 0 / 0.45);
+}
+.ccd-key--primary {
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0) 40%),
+    linear-gradient(#2b8cff, #007aff 55%, #0062d1);
+  box-shadow: 0 calc(2 * var(--u)) 0 0 #004aa0, 0 calc(2 * var(--u)) calc(6 * var(--u)) rgb(0 0 0 / 0.45);
+}
+.ccd-ed-stage {
+  padding: calc(14 * var(--u)) calc(20 * var(--u)) 0;
+}
+.ccd-ed-stage .ccd-canvas {
+  border-radius: calc(4 * var(--u));
+}
+
+/* ── Timeline (the Mac TimelineCanvasView: lanes, blocks, cyan playhead) ── */
+
+.ccd-tl {
+  display: flex;
+  margin: calc(14 * var(--u)) calc(20 * var(--u)) 0;
+  font-family: var(--ccd-font);
+}
+.ccd-tl-labels {
+  display: flex;
+  flex-direction: column;
+  gap: calc(5 * var(--u));
+  width: calc(76 * var(--u));
+  flex: none;
+}
+.ccd-tl-labels > span {
+  height: calc(34 * var(--u));
+  display: flex;
+  align-items: center;
+  font-size: calc(9.5 * var(--u));
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgb(255 255 255 / 0.4);
+}
+.ccd-tl-labels > .ccd-tl-rulerpad {
+  height: calc(20 * var(--u));
+}
+.ccd-tl-area {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: calc(5 * var(--u));
+}
+.ccd-tl-ruler {
+  position: relative;
+  height: calc(20 * var(--u));
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+}
+.ccd-tl-ruler span {
+  position: absolute;
+  bottom: 0;
+  height: calc(5 * var(--u));
+  border-left: 1px solid rgb(255 255 255 / 0.18);
+  font-size: calc(9 * var(--u));
+  color: rgb(255 255 255 / 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.ccd-tl-ruler span[data-major] {
+  height: calc(9 * var(--u));
+}
+.ccd-tl-ruler em {
+  position: absolute;
+  left: calc(4 * var(--u));
+  bottom: calc(6 * var(--u));
+  font-style: normal;
+  line-height: 1;
+}
+.ccd-tl-lane {
+  position: relative;
+  height: calc(34 * var(--u));
+  border-radius: calc(8 * var(--u));
+  background: linear-gradient(rgb(0 0 0 / 0.28), rgb(255 255 255 / 0.02));
+  box-shadow: inset 0 1px 0 rgb(0 0 0 / 0.4);
+}
+.ccd-tl-film {
+  position: absolute;
+  inset: calc(3 * var(--u)) 0;
+  display: flex;
+  border-radius: calc(7 * var(--u));
+  overflow: hidden;
+  background: repeating-linear-gradient(
+      90deg,
+      rgb(0 0 0 / 0.35) 0 1px,
+      transparent 1px calc(58 * var(--u))
+    ),
+    linear-gradient(135deg, #6f5cf0, #3a7df5 50%, #4f63d8);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+.ccd-tl-film-a,
+.ccd-tl-film-b {
+  flex: 1;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10 * var(--u)), rgb(255 255 255 / 0.28) calc(10 * var(--u)) calc(44 * var(--u)), transparent calc(44 * var(--u)) calc(58 * var(--u)));
+  -webkit-mask: linear-gradient(transparent 22%, #000 22% 78%, transparent 78%);
+  mask: linear-gradient(transparent 22%, #000 22% 78%, transparent 78%);
+  opacity: 0.55;
+}
+.ccd-tl-click {
+  position: absolute;
+  top: 50%;
+  width: calc(7 * var(--u));
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 calc(2 * var(--u)) rgb(0 0 0 / 0.35);
+}
+.ccd-tl-voice {
+  position: absolute;
+  inset: calc(3 * var(--u)) 6% calc(3 * var(--u)) 2%;
+  display: flex;
+  align-items: center;
+  gap: 2%;
+  padding: 0 calc(10 * var(--u));
+  border-radius: calc(6 * var(--u));
+  background: linear-gradient(#3a9d6b, #2a7c53);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+.ccd-tl-voice i {
+  flex: 1;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.6);
+  max-height: 70%;
+}
+.ccd-tl-block {
+  position: absolute;
+  top: calc(3 * var(--u));
+  bottom: calc(3 * var(--u));
+  display: flex;
+  align-items: center;
+  padding: 0 calc(8 * var(--u));
+  overflow: hidden;
+  white-space: nowrap;
+  border-radius: calc(9 * var(--u));
+  font-size: calc(10 * var(--u));
+  font-weight: 650;
+  color: rgb(0 0 0 / 0.72);
+  background: linear-gradient(#ffb851, #e8942b);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 calc(2 * var(--u)) calc(5 * var(--u)) rgb(0 0 0 / 0.35);
+  transform-origin: 50% 50%;
+}
+.ccd-tl-lane[data-lane="FOCUS"] .ccd-tl-block {
+  background: linear-gradient(#6e86c8, #4c63a6);
+  color: rgb(255 255 255 / 0.9);
+}
+.ccd-tl-block.is-highlight {
+  background: linear-gradient(#a78bfa, #7c5be0);
+  color: rgb(255 255 255 / 0.92);
+}
+.ccd-tl-lane[data-lane="ANNOTATE"] .ccd-tl-block {
+  background: linear-gradient(#34d399, #0ea47a);
+  color: rgb(0 0 0 / 0.7);
+}
+.ccd-tl-head {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Resting frame: mid clip. */
+  transform: translateX(42%);
+}
+.ccd-tl-head i {
+  position: absolute;
+  top: 0;
+  bottom: calc(-4 * var(--u));
+  left: calc(-1 * var(--u));
+  width: calc(2 * var(--u));
+  background: #3cd3fe;
+}
+.ccd-tl-head i::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(20 * var(--u));
+  width: calc(11 * var(--u));
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  rotate: 45deg;
+  background: #3cd3fe;
+  border: 1px solid rgb(255 255 255 / 0.9);
+  border-radius: calc(1.5 * var(--u));
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Script: hero — the editor at work (12 s loop)
+     0.25–0.65 s  auto zoom drops two blocks on the EFFECTS lane
+     1.2 → 11.2 s the playhead plays the clip; the preview follows it:
+                  cursor glides to "Project name" (motion-blurred), click
+                  ripple, the camera pushes in on easeOutExpo, the name is
+                  typed, camera eases out; then the Create button: push in,
+                  click, ⌘↩ keystroke pill, toast, ease out.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.ccd-editor[data-script="hero"] .ccd-cam { animation: ccdHeroCam 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-wall { animation: ccdHeroWall 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-wall-b,
+.ccd-editor[data-script="hero"] .ccd-wall-c { animation: none; }
+.ccd-editor[data-script="hero"] .ccd-cam--blur { animation: ccdHeroCam 12s infinite, ccdHeroBlur 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-track--main { animation: ccdHeroCursor 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-ghost { animation: ccdHeroCursor 12s infinite both, ccdHeroGhost 12s infinite both; }
+.ccd-editor[data-script="hero"] .ccd-ghost-1 { animation-delay: 0.035s; }
+.ccd-editor[data-script="hero"] .ccd-ghost-2 { animation-delay: 0.07s; }
+.ccd-editor[data-script="hero"] .ccd-r1 { animation: ccdHeroR1 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-r2 { animation: ccdHeroR2 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-ph { animation: ccdHeroPh 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-typed { animation: ccdHeroTypedWrap 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-ch { animation: ccdHeroCh 12s infinite both; }
+.ccd-editor[data-script="hero"] .ccd-caret-start { animation: ccdHeroCaretA 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-caret-end { animation: ccdHeroCaretB 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-btn-press { animation: ccdHeroPress 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-toast { animation: ccdHeroToast 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-keys { animation: ccdHeroKeys 12s infinite; }
+.ccd-editor[data-script="hero"] .ccd-tl-block { animation: ccdHeroBlock 12s infinite both; }
+.ccd-editor[data-script="hero"] .ccd-b2 { animation-delay: 0.2s; }
+.ccd-editor[data-script="hero"] .ccd-tl-head { animation: ccdHeroHead 12s infinite linear; }
+
+@keyframes ccdHeroCam {
+  0%, 19.17% { transform: none; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  26.67%, 41.67% { transform: translate(1.583%, 30.926%) scale(1.9); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  48.33%, 53.33% { transform: none; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  60.83%, 73.33% { transform: translate(16.43%, -30.926%) scale(1.9); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  80%, 100% { transform: none; }
+}
+/* Background parallax about the same anchor (ZoomFocalMath.parallaxScale). */
+@keyframes ccdHeroWall {
+  0%, 19.17% { transform: none; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  26.67%, 41.67% { transform: scale(1.07); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  48.33%, 53.33% { transform: none; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  60.83%, 73.33% { transform: scale(1.07); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  80%, 100% { transform: none; }
+}
+/* Motion blur: a pre-blurred copy of the card plane, visible only mid-flight. */
+@keyframes ccdHeroBlur {
+  0%, 19.17% { opacity: 0; }
+  20.3% { opacity: 0.75; }
+  23.6%, 43.2% { opacity: 0; }
+  45% { opacity: 0.6; }
+  46.9%, 53.33% { opacity: 0; }
+  54.5% { opacity: 0.75; }
+  57.8%, 75% { opacity: 0; }
+  76.7% { opacity: 0.6; }
+  78.4%, 100% { opacity: 0; }
+}
+@keyframes ccdHeroCursor {
+  0%, 10% { transform: translate(82%, 90%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  20%, 46.67% { transform: translate(36%, 28%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  57.5%, 90% { transform: translate(36.4%, 71.1%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  100% { transform: translate(82%, 90%); }
+}
+@keyframes ccdHeroGhost {
+  0%, 10.3% { opacity: 0; }
+  12.6% { opacity: 0.4; }
+  16.5%, 47% { opacity: 0; }
+  49.4% { opacity: 0.4; }
+  53.5%, 90.3% { opacity: 0; }
+  92.6% { opacity: 0.4; }
+  96.5%, 100% { opacity: 0; }
+}
+@keyframes ccdHeroR1 {
+  0%, 20.8% { opacity: 0; scale: 0.35; }
+  21.3% { opacity: 1; scale: 0.55; }
+  25.8%, 100% { opacity: 0; scale: 1.7; }
+}
+@keyframes ccdHeroR2 {
+  0%, 58.3% { opacity: 0; scale: 0.35; }
+  58.8% { opacity: 1; scale: 0.55; }
+  63.3%, 100% { opacity: 0; scale: 1.7; }
+}
+@keyframes ccdHeroPh {
+  0%, 24.9% { opacity: 1; }
+  25%, 96.6% { opacity: 0; }
+  96.7%, 100% { opacity: 1; }
+}
+@keyframes ccdHeroTypedWrap {
+  0%, 8.6% { opacity: 0; }
+  8.7%, 96.6% { opacity: 1; }
+  96.7%, 100% { opacity: 0; }
+}
+@keyframes ccdHeroCh {
+  0%, 25% { opacity: 0; }
+  25.1%, 99.8% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes ccdHeroCaretA {
+  0%, 20.8% { opacity: 0; }
+  21%, 22.5% { opacity: 1; }
+  22.6%, 23.7% { opacity: 0; }
+  23.8%, 24.9% { opacity: 1; }
+  25%, 100% { opacity: 0; }
+}
+@keyframes ccdHeroCaretB {
+  0%, 34.9% { opacity: 0; }
+  35%, 38% { opacity: 1; }
+  38.1%, 41% { opacity: 0; }
+  41.1%, 44% { opacity: 1; }
+  44.1%, 100% { opacity: 0; }
+}
+@keyframes ccdHeroPress {
+  0%, 58.2% { opacity: 0; }
+  58.5%, 59.6% { opacity: 0.22; }
+  60.6%, 100% { opacity: 0; }
+}
+@keyframes ccdHeroToast {
+  0%, 63.3% { opacity: 0; transform: translateY(-40%); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  65.8%, 80% { opacity: 1; transform: none; }
+  82%, 100% { opacity: 0; transform: none; }
+}
+@keyframes ccdHeroKeys {
+  0%, 61.67% { opacity: 0; transform: translateY(45%); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  63.6%, 73.33% { opacity: 1; transform: none; }
+  75.5%, 100% { opacity: 0; transform: none; }
+}
+@keyframes ccdHeroBlock {
+  0%, 2% { opacity: 0; transform: scale(0.55); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  5.2%, 93.3% { opacity: 1; transform: none; }
+  96.2%, 100% { opacity: 0; transform: none; }
+}
+@keyframes ccdHeroHead {
+  0%, 10% { transform: translateX(0); opacity: 1; }
+  93.33% { transform: translateX(100%); opacity: 1; }
+  96.4% { transform: translateX(100%); opacity: 0; }
+  96.5% { transform: translateX(0); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Pinned scroll stories (layout)
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.ccd-pin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 3.5rem;
+}
+.ccd-pin-stagecol {
+  position: sticky;
+  top: 3.9rem;
+  z-index: 5;
+  padding: 0.75rem 0 1.5rem;
+  background: linear-gradient(to bottom, var(--background) 88%, transparent);
+}
+.ccd-pin-step {
+  min-height: 58vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: 2.5rem;
+}
+.ccd-pin-step--short {
+  min-height: 46vh;
+}
+.ccd-pin[data-ready] .ccd-pin-step > * {
+  transition: opacity 0.45s var(--ccd-glide, ease);
+}
+.ccd-pin[data-ready] .ccd-pin-step:not([data-active]) > * {
+  opacity: 0.32;
+}
+@media (min-width: 1024px) {
+  .ccd-pin-grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+  .ccd-pin-grid--flip {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+  .ccd-pin-stagecol {
+    order: 2;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    padding: 4.5rem 0 1.5rem;
+    background: none;
+  }
+  .ccd-pin-grid--flip .ccd-pin-stagecol {
+    order: 0;
+  }
+  .ccd-pin-stagecol > * {
+    width: 100%;
+  }
+  .ccd-pin-step {
+    min-height: 78vh;
+  }
+  .ccd-pin-step--short {
+    min-height: 70vh;
+  }
+  .ccd-pin-step:first-child:not(.ccd-pin-step--ba) {
+    min-height: 62vh;
+  }
+}
+
+/* Stage: stacked scenes, only the active one visible. */
+.ccd-stage {
+  position: relative;
+  container-type: inline-size;
+  --u: calc(100cqw / 960);
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: #0e0e10;
+  font-family: var(--ccd-font);
+}
+.ccd-stage--wide {
+  aspect-ratio: 16 / 9;
+}
+.ccd-scene {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(0.985);
+  transition:
+    opacity 0.5s var(--ccd-glide),
+    transform 0.7s var(--ccd-settle);
+}
+.ccd-canvas--cover {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  height: 100%;
+  width: auto;
+  translate: -50% 0;
+}
+.ccd-stage--wide .ccd-scene > .ccd-canvas {
+  position: absolute;
+  inset: 0;
+}
+.ccd-pin[data-step="0"] .ccd-scene-0,
+.ccd-pin[data-step="1"] .ccd-scene-1,
+.ccd-pin[data-step="2"] .ccd-scene-2,
+.ccd-pin[data-step="3"] .ccd-scene-3,
+.ccd-pin[data-step="4"] .ccd-scene-4,
+.ccd-pin[data-step="5"] .ccd-scene-5,
+.ccd-pin[data-step="6"] .ccd-scene-6 {
+  opacity: 1;
+  transform: none;
+}
+/* Step number chips light up with their step. */
+.ccd-stepnum {
+  transition: border-color 0.4s, background-color 0.4s, box-shadow 0.4s;
+}
+.ccd-pin-step[data-active] .ccd-stepnum {
+  border-color: rgb(103 232 249 / 0.55);
+  background-color: rgb(103 232 249 / 0.12);
+  box-shadow: 0 0 24px -4px rgb(103 232 249 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+
+/* Progress rail (scroll-driven where supported; dots elsewhere). */
+.ccd-rail {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .ccd-rail {
+    display: block;
+    position: absolute;
+    left: -1.75rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.07);
+    overflow: hidden;
+  }
+  .ccd-rail::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgb(103 232 249 / 0.9), rgb(120 140 255 / 0.9));
+    transform-origin: 50% 0;
+    transform: scaleY(0);
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Before / after — one recording, the treatment applied layer by layer.
+   Stepped (IntersectionObserver) everywhere; scrubbed by the scroll timeline
+   where the browser has one.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.ccd-ba .ccd-cardwrap,
+.ccd-ba .ccd-cam,
+.ccd-ba .ccd-wall,
+.ccd-ba .ccd-shadow,
+.ccd-ba .ccd-track--raw,
+.ccd-ba .ccd-track--main,
+.ccd-ba .ccd-ripples,
+.ccd-ba .ccd-keys,
+.ccd-ba .ccd-caption,
+.ccd-ba .ccd-ba-label {
+  transition:
+    transform 0.9s var(--ccd-expo),
+    opacity 0.6s var(--ccd-glide);
+}
+/* Step 0 — raw: full bleed, no wallpaper, tiny jittery cursor. */
+.ccd-ba .ccd-cardwrap { transform: scale(1.3044); }
+.ccd-ba .ccd-wall { opacity: 0; }
+.ccd-ba .ccd-shadow { opacity: 0; }
+.ccd-ba .ccd-track--raw { opacity: 1; }
+.ccd-ba .ccd-track--main { opacity: 0; }
+.ccd-ba .ccd-ripple { visibility: hidden; }
+.ccd-ba .ccd-keys,
+.ccd-ba .ccd-caption { opacity: 0; }
+/* Step 1 — framed on the wallpaper. */
+.ccd-ba[data-step="1"] .ccd-cardwrap,
+.ccd-ba[data-step="2"] .ccd-cardwrap,
+.ccd-ba[data-step="3"] .ccd-cardwrap,
+.ccd-ba[data-step="4"] .ccd-cardwrap { transform: none; }
+.ccd-ba[data-step="1"] .ccd-wall,
+.ccd-ba[data-step="2"] .ccd-wall,
+.ccd-ba[data-step="3"] .ccd-wall,
+.ccd-ba[data-step="4"] .ccd-wall,
+.ccd-ba[data-step="1"] .ccd-shadow:not(.ccd-shadow--deep),
+.ccd-ba[data-step="2"] .ccd-shadow:not(.ccd-shadow--deep),
+.ccd-ba[data-step="3"] .ccd-shadow:not(.ccd-shadow--deep),
+.ccd-ba[data-step="4"] .ccd-shadow:not(.ccd-shadow--deep) { opacity: 1; }
+.ccd-ba .ccd-wall-b,
+.ccd-ba .ccd-wall-c { opacity: 0 !important; }
+/* Step 2 — the smoothed, bigger cursor and click ripples. */
+.ccd-ba[data-step="2"] .ccd-track--raw,
+.ccd-ba[data-step="3"] .ccd-track--raw,
+.ccd-ba[data-step="4"] .ccd-track--raw { opacity: 0; }
+.ccd-ba[data-step="2"] .ccd-track--main,
+.ccd-ba[data-step="3"] .ccd-track--main,
+.ccd-ba[data-step="4"] .ccd-track--main { opacity: 1; }
+.ccd-ba[data-step="2"] .ccd-ripple,
+.ccd-ba[data-step="3"] .ccd-ripple,
+.ccd-ba[data-step="4"] .ccd-ripple { visibility: visible; }
+/* Step 3 — zoomed on the click. */
+.ccd-ba[data-step="3"] .ccd-cam,
+.ccd-ba[data-step="4"] .ccd-cam { transform: translate(1.583%, 30.926%) scale(1.9); }
+/* Step 4 — keystroke pill and caption. */
+.ccd-ba[data-step="4"] .ccd-keys,
+.ccd-ba[data-step="4"] .ccd-caption { opacity: 1; }
+.ccd-ba .ccd-keys { bottom: 19%; }
+
+/* The recording itself loops in every step (5 s): cursor to the name field,
+   click, type, ⌘S, back. The raw cursor takes the same trip, badly. */
+.ccd-ba .ccd-track--main { animation: ccdBaCursor 5s infinite; }
+.ccd-ba .ccd-track--raw { animation: ccdBaRaw 5s infinite; }
+.ccd-ba .ccd-r1 { animation: ccdBaRipple 5s infinite; }
+.ccd-ba .ccd-ph { animation: ccdBaPh 5s infinite; }
+.ccd-ba .ccd-typed { animation: ccdBaTypedWrap 5s infinite; }
+.ccd-ba .ccd-ch { animation: ccdBaCh 5s infinite both; }
+.ccd-ba .ccd-keys > span { animation: ccdBaKey 5s infinite both; }
+
+@keyframes ccdBaCursor {
+  0%, 4% { transform: translate(82%, 90%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  26%, 84% { transform: translate(36%, 28%); animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1); }
+  100% { transform: translate(82%, 90%); }
+}
+/* Raw pointer: the same trip, sampled from a shaky hand. */
+@keyframes ccdBaRaw {
+  0%, 4% { transform: translate(82%, 90%); }
+  6% { transform: translate(79.2%, 85.8%); }
+  8% { transform: translate(77.6%, 83.9%); }
+  9.5% { transform: translate(74.1%, 81.2%); }
+  11% { transform: translate(72.3%, 76.4%); }
+  12.5% { transform: translate(68.2%, 75.1%); }
+  14% { transform: translate(66.4%, 69.3%); }
+  15.5% { transform: translate(61.6%, 67.4%); }
+  17% { transform: translate(59.8%, 61.1%); }
+  18.5% { transform: translate(54.9%, 58.2%); }
+  20% { transform: translate(52.3%, 51.6%); }
+  21.5% { transform: translate(47.1%, 48.3%); }
+  23% { transform: translate(43.8%, 41.2%); }
+  24.5% { transform: translate(40.1%, 36.4%); }
+  26% { transform: translate(38.3%, 30.2%); }
+  28% { transform: translate(35.1%, 28.9%); }
+  31% { transform: translate(36.8%, 27.1%); }
+  34% { transform: translate(35.4%, 28.8%); }
+  40% { transform: translate(36.6%, 27.4%); }
+  48% { transform: translate(35.7%, 28.6%); }
+  60% { transform: translate(36.9%, 27.9%); }
+  72% { transform: translate(35.5%, 27.3%); }
+  84% { transform: translate(36.2%, 28.4%); }
+  88% { transform: translate(44.8%, 41.5%); }
+  91% { transform: translate(53.1%, 55.8%); }
+  94% { transform: translate(66.9%, 68.2%); }
+  97% { transform: translate(75.3%, 83.9%); }
+  100% { transform: translate(82%, 90%); }
+}
+@keyframes ccdBaRipple {
+  0%, 27% { opacity: 0; scale: 0.35; }
+  28.5% { opacity: 1; scale: 0.55; }
+  39%, 100% { opacity: 0; scale: 1.7; }
+}
+@keyframes ccdBaPh {
+  0%, 31.9% { opacity: 1; }
+  32%, 87.9% { opacity: 0; }
+  88%, 100% { opacity: 1; }
+}
+@keyframes ccdBaTypedWrap {
+  0%, 22% { opacity: 0; }
+  22.1%, 87.9% { opacity: 1; }
+  88%, 100% { opacity: 0; }
+}
+@keyframes ccdBaCh {
+  0%, 32% { opacity: 0; }
+  32.1%, 99.8% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes ccdBaKey {
+  0%, 58% { opacity: 0.35; }
+  60%, 80% { opacity: 1; }
+  84%, 100% { opacity: 0.35; }
+}
+.ccd-ba .ccd-keys > span + span { animation-delay: 0.08s; }
+
+/* Continuous scrub where CSS scroll timelines exist (Chrome, Edge, Safari 26).
+   The grid wrapper is the view timeline; 5 copy steps of equal height map
+   to the ranges below (step boundaries measured at the activation line). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .ccd-ba-scroll {
+      view-timeline: --ccd-ba block;
+    }
+    .ccd-ba-scroll .ccd-cardwrap {
+      animation: ccdBaScrubRaw linear both;
+      animation-timeline: --ccd-ba;
+      animation-range: cover 0% cover 100%;
+    }
+    .ccd-ba-scroll .ccd-wall,
+    .ccd-ba-scroll .ccd-shadow:not(.ccd-shadow--deep) {
+      animation: ccdBaScrubFrame linear both;
+      animation-timeline: --ccd-ba;
+      animation-range: cover 0% cover 100%;
+    }
+    .ccd-ba-scroll .ccd-cam {
+      animation: ccdBaScrubZoom linear both;
+      animation-timeline: --ccd-ba;
+      animation-range: cover 0% cover 100%;
+    }
+    .ccd-ba-scroll .ccd-track--main {
+      animation-name: ccdBaCursor, ccdBaScrubSmooth;
+      animation-duration: 5s, auto;
+      animation-iteration-count: infinite, 1;
+      animation-timing-function: ease, linear;
+      animation-fill-mode: none, both;
+      animation-timeline: auto, --ccd-ba;
+      animation-range-start: normal, cover 0%;
+      animation-range-end: normal, cover 100%;
+    }
+    .ccd-ba-scroll .ccd-track--raw {
+      animation-name: ccdBaRaw, ccdBaScrubRawCursor;
+      animation-duration: 5s, auto;
+      animation-iteration-count: infinite, 1;
+      animation-timing-function: linear, linear;
+      animation-fill-mode: none, both;
+      animation-timeline: auto, --ccd-ba;
+      animation-range-start: normal, cover 0%;
+      animation-range-end: normal, cover 100%;
+    }
+    .ccd-ba-scroll .ccd-r1 {
+      animation-name: ccdBaRipple, ccdBaScrubVis;
+      animation-duration: 5s, auto;
+      animation-iteration-count: infinite, 1;
+      animation-timing-function: ease, linear;
+      animation-fill-mode: none, both;
+      animation-timeline: auto, --ccd-ba;
+      animation-range-start: normal, cover 0%;
+      animation-range-end: normal, cover 100%;
+    }
+    .ccd-ba-scroll .ccd-keys,
+    .ccd-ba-scroll .ccd-caption {
+      animation: ccdBaScrubLabels linear both;
+      animation-timeline: --ccd-ba;
+      animation-range: cover 0% cover 100%;
+    }
+    /* Offscreen pausing is for the time loops; the scrub stays live so it is
+       already at the right frame when the stage scrolls in. */
+    .ccd-ba-scroll [data-offscreen] .ccd-cardwrap,
+    .ccd-ba-scroll [data-offscreen] .ccd-wall,
+    .ccd-ba-scroll [data-offscreen] .ccd-shadow,
+    .ccd-ba-scroll [data-offscreen] .ccd-cam,
+    .ccd-ba-scroll [data-offscreen] .ccd-keys,
+    .ccd-ba-scroll [data-offscreen] .ccd-caption {
+      animation-play-state: running !important;
+    }
+    .ccd-ba-scroll [data-offscreen] .ccd-track--main,
+    .ccd-ba-scroll [data-offscreen] .ccd-track--raw,
+    .ccd-ba-scroll [data-offscreen] .ccd-r1 {
+      animation-play-state: paused, running !important;
+    }
+    .ccd-ba-scroll .ccd-rail::after {
+      animation: ccdRail linear both;
+      animation-timeline: --ccd-ba;
+      animation-range: cover 17% cover 80%;
+    }
+  }
+}
+@keyframes ccdBaScrubRaw {
+  0%, 21% { transform: scale(1.3044); }
+  31%, 100% { transform: none; }
+}
+@keyframes ccdBaScrubFrame {
+  0%, 21% { opacity: 0; }
+  31%, 100% { opacity: 1; }
+}
+@keyframes ccdBaScrubZoom {
+  0%, 52% { transform: none; }
+  62%, 100% { transform: translate(1.583%, 30.926%) scale(1.9); }
+}
+@keyframes ccdBaScrubSmooth {
+  0%, 37% { opacity: 0; }
+  46%, 100% { opacity: 1; }
+}
+@keyframes ccdBaScrubVis {
+  0%, 41% { visibility: hidden; }
+  42%, 100% { visibility: visible; }
+}
+@keyframes ccdBaScrubRawCursor {
+  0%, 37% { opacity: 1; }
+  46%, 100% { opacity: 0; }
+}
+@keyframes ccdBaScrubLabels {
+  0%, 68% { opacity: 0; transform: translateY(6%); }
+  77%, 100% { opacity: 1; transform: none; }
+}
+@keyframes ccdRail {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   How it works — four scenes on one pinned stage
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* Desktop backdrop for scenes 1–2. */
+.ccd-desk {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(80% 60% at 25% 110%, rgb(255 140 90 / 0.55), transparent 60%),
+    radial-gradient(70% 60% at 90% 100%, rgb(255 80 140 / 0.45), transparent 60%),
+    linear-gradient(170deg, #1b2c6b 0%, #3b2c78 45%, #7b3a86 80%, #c75f7d 100%);
+}
+.ccd-menubar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: calc(22 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(16 * var(--u));
+  padding: 0 calc(14 * var(--u));
+  background: rgb(0 0 0 / 0.28);
+  color: rgb(255 255 255 / 0.9);
+  font-size: calc(10.5 * var(--u));
+  font-weight: 500;
+}
+.ccd-menubar b {
+  font-weight: 700;
+}
+.ccd-menubar .ccd-menubar-r {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+/* A window on the desktop (the recorded app at 0.82 scale). */
+.ccd-win {
+  position: absolute;
+  left: 11.6667%;
+  top: 7%;
+  width: 76.6667%;
+  height: 76.6667%;
+  border-radius: calc(10 * var(--u));
+  overflow: hidden;
+  transform-origin: 50% 0;
+  scale: 0.82;
+  box-shadow: 0 calc(20 * var(--u)) calc(60 * var(--u)) rgb(0 0 0 / 0.45), 0 0 0 1px rgb(0 0 0 / 0.2);
+}
+.ccd-win .ccd-card {
+  inset: 0;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+/* ── The Mac recording panel (RecordingPanelViewController) ────────────── */
+
+.ccd-rec {
+  position: absolute;
+  left: 50%;
+  bottom: 5%;
+  width: calc(832 * var(--u));
+  height: calc(56 * var(--u));
+  translate: -50% 0;
+  color: #fff;
+  font-size: calc(13 * var(--u));
+  font-weight: 500;
+}
+/* Three-piece surface: the caps slide and the middle scales, so the phase
+   morph is transform-only (the real bar animates its width). */
+.ccd-rec-cap,
+.ccd-rec-mid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #1b1b1e;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 calc(24 * var(--u)) calc(50 * var(--u)) calc(-16 * var(--u)) rgb(0 0 0 / 0.85), inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+.ccd-rec-cap {
+  width: calc(24 * var(--u));
+}
+.ccd-rec-cap--l {
+  left: 0;
+  border-right: 0;
+  border-radius: calc(16 * var(--u)) 0 0 calc(16 * var(--u));
+}
+.ccd-rec-cap--r {
+  right: 0;
+  border-left: 0;
+  border-radius: 0 calc(16 * var(--u)) calc(16 * var(--u)) 0;
+}
+.ccd-rec-mid {
+  left: calc(20 * var(--u));
+  right: calc(20 * var(--u));
+  border-left: 0;
+  border-right: 0;
+  transform-origin: 50% 50%;
+}
+.ccd-rec-row {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(6 * var(--u));
+  padding: 0 calc(8 * var(--u));
+}
+.ccd-rec-live {
+  /* The live row lives inside the narrowed (462) surface. */
+  left: calc(185 * var(--u));
+  right: calc(185 * var(--u));
+  opacity: 0;
+}
+.ccd-rec-key {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(6 * var(--u));
+  height: calc(40 * var(--u));
+  padding: 0 calc(10 * var(--u));
+  border-radius: calc(9 * var(--u));
+  color: rgb(255 255 255 / 0.85);
+  white-space: nowrap;
+}
+.ccd-rec-key svg {
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+  flex: none;
+}
+.ccd-rec-key .ccd-dim {
+  color: rgb(255 255 255 / 0.5);
+}
+.ccd-rec-div {
+  width: 1px;
+  height: calc(24 * var(--u));
+  background: rgb(255 255 255 / 0.1);
+  flex: none;
+}
+.ccd-rec-tabs {
+  position: relative;
+  display: flex;
+  gap: calc(2 * var(--u));
+}
+.ccd-rec-tab {
+  position: relative;
+  width: calc(52 * var(--u));
+  height: calc(44 * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(2 * var(--u));
+  border-radius: calc(9 * var(--u));
+  font-size: calc(9.5 * var(--u));
+  color: rgb(255 255 255 / 0.55);
+}
+.ccd-rec-tab svg {
+  width: calc(18 * var(--u));
+  height: calc(18 * var(--u));
+}
+.ccd-rec-tab.is-on {
+  color: #fff;
+}
+.ccd-rec-pill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(52 * var(--u));
+  height: calc(44 * var(--u));
+  border-radius: calc(9 * var(--u));
+  background: rgb(255 255 255 / 0.11);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+.ccd-rec-record {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: calc(44 * var(--u));
+  height: calc(44 * var(--u));
+  margin-left: calc(4 * var(--u));
+  border-radius: calc(12 * var(--u));
+  background: #ff3b30;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), 0 calc(4 * var(--u)) calc(12 * var(--u)) calc(-2 * var(--u)) rgb(255 59 48 / 0.55);
+  overflow: hidden;
+}
+.ccd-rec-record svg {
+  width: calc(18 * var(--u));
+  height: calc(18 * var(--u));
+}
+.ccd-rec-tint {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  border-radius: inherit;
+}
+.ccd-meter {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(2 * var(--u));
+  height: calc(14 * var(--u));
+}
+.ccd-meter i {
+  width: calc(3 * var(--u));
+  height: 100%;
+  border-radius: 999px;
+  background: #34d399;
+  transform-origin: 50% 100%;
+  transform: scaleY(0.5);
+}
+.ccd-meter i:nth-child(1) { animation: ccdMeter 0.9s ease-in-out infinite alternate; }
+.ccd-meter i:nth-child(2) { animation: ccdMeter 0.7s ease-in-out -0.3s infinite alternate; }
+.ccd-meter i:nth-child(3) { animation: ccdMeter 1.1s ease-in-out -0.6s infinite alternate; }
+.ccd-meter i:nth-child(4) { animation: ccdMeter 0.8s ease-in-out -0.2s infinite alternate; background: rgb(52 211 153 / 0.55); }
+@keyframes ccdMeter {
+  0% { transform: scaleY(0.25); }
+  40% { transform: scaleY(0.9); }
+  70% { transform: scaleY(0.45); }
+  100% { transform: scaleY(0.75); }
+}
+.ccd-rec-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  min-width: calc(80 * var(--u));
+  padding: 0 calc(10 * var(--u));
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.ccd-rec-dot {
+  width: calc(8 * var(--u));
+  height: calc(8 * var(--u));
+  border-radius: 50%;
+  background: #ff3b30;
+  animation: ccdDot 1s ease-in-out infinite alternate;
+}
+@keyframes ccdDot {
+  from { opacity: 1; }
+  to { opacity: 0.35; }
+}
+.ccd-digits {
+  display: inline-block;
+  height: 1.2em;
+  overflow: hidden;
+  vertical-align: bottom;
+  line-height: 1.2;
+}
+.ccd-digits > span {
+  display: flex;
+  flex-direction: column;
+}
+.ccd-rec-stop {
+  color: #ff453a;
+}
+
+/* Countdown dial (CountdownOverlayController): white disc, red ring
+   depleting clockwise from 12 o'clock, a red numeral per tick. The ring is
+   two half-disc covers rotating inside half-clips — transform only. */
+.ccd-dial {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: calc(150 * var(--u));
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: linear-gradient(#fff, #dedee3);
+  box-shadow: 0 calc(6 * var(--u)) calc(22 * var(--u)) rgb(0 0 0 / 0.35);
+  opacity: 0;
+}
+.ccd-dial-ring {
+  position: absolute;
+  inset: calc(9 * var(--u));
+  border-radius: 50%;
+  background: #e81f24;
+}
+.ccd-dial-half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  overflow: hidden;
+}
+.ccd-dial-half--r { right: 0; }
+.ccd-dial-half--l { left: 0; }
+.ccd-dial-cover {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 200%;
+  background: linear-gradient(90deg, #e2e2e6 50%, transparent 50%);
+  border-radius: 50%;
+}
+.ccd-dial-half--r .ccd-dial-cover {
+  right: 0;
+  transform-origin: 50% 50%;
+}
+.ccd-dial-half--l .ccd-dial-cover {
+  left: 0;
+  transform-origin: 50% 50%;
+  background: linear-gradient(90deg, transparent 50%, #e2e2e6 50%);
+}
+.ccd-dial-face {
+  position: absolute;
+  inset: calc(24 * var(--u));
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px calc(3 * var(--u)) rgb(0 0 0 / 0.18) inset;
+}
+.ccd-dial-num {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: calc(46 * var(--u));
+  font-weight: 700;
+  color: #e81f24;
+  opacity: 0;
+}
+
+/* Scene 0 script (10 s): record → 3·2·1 → live timer → stop → setup. */
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-rec-cap--l { animation: ccdRecCapL 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-rec-cap--r { animation: ccdRecCapR 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-rec-mid { animation: ccdRecMid 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-rec-setup { animation: ccdRecSetup 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-rec-live { animation: ccdRecLive 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-rec-record .ccd-rec-tint { animation: ccdRecPress 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-rec-stop .ccd-rec-tint { animation: ccdRecStopPress 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-dial { animation: ccdDial 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-dial-half--r .ccd-dial-cover { animation: ccdDialR 10s infinite linear; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-dial-half--l .ccd-dial-cover { animation: ccdDialL 10s infinite linear; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-dial-num:nth-child(1) { animation: ccdNum3 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-dial-num:nth-child(2) { animation: ccdNum2 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-dial-num:nth-child(3) { animation: ccdNum1 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-digits > span { animation: ccdTimer 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-scene-track { animation: ccdHowCursor0 10s infinite; }
+.ccd-how[data-step="0"] .ccd-scene-0 .ccd-r1 { animation: ccdHowR0 10s infinite; }
+
+/* Setup 832 wide → live 462: caps ±185, middle 792 → 422. */
+@keyframes ccdRecCapL {
+  0%, 47% { transform: none; animation-timing-function: cubic-bezier(0.36, 1.1, 0.22, 1); }
+  51.5%, 91% { transform: translateX(calc(185 * var(--u))); animation-timing-function: cubic-bezier(0.36, 1.1, 0.22, 1); }
+  95.5%, 100% { transform: none; }
+}
+@keyframes ccdRecCapR {
+  0%, 47% { transform: none; animation-timing-function: cubic-bezier(0.36, 1.1, 0.22, 1); }
+  51.5%, 91% { transform: translateX(calc(-185 * var(--u))); animation-timing-function: cubic-bezier(0.36, 1.1, 0.22, 1); }
+  95.5%, 100% { transform: none; }
+}
+@keyframes ccdRecMid {
+  0%, 47% { transform: none; animation-timing-function: cubic-bezier(0.36, 1.1, 0.22, 1); }
+  51.5%, 91% { transform: scaleX(0.5328); animation-timing-function: cubic-bezier(0.36, 1.1, 0.22, 1); }
+  95.5%, 100% { transform: none; }
+}
+@keyframes ccdRecSetup {
+  0%, 47% { opacity: 1; transform: none; }
+  49.25%, 93.25% { opacity: 0; transform: none; }
+  95.5%, 100% { opacity: 1; transform: none; }
+}
+@keyframes ccdRecLive {
+  0%, 49.25% { opacity: 0; transform: scale(0.98); }
+  51.5%, 91% { opacity: 1; transform: none; }
+  93.25%, 100% { opacity: 0; transform: none; }
+}
+@keyframes ccdRecPress {
+  0%, 15% { opacity: 0; }
+  15.3%, 16.8% { opacity: 0.22; }
+  17.6%, 100% { opacity: 0; }
+}
+@keyframes ccdRecStopPress {
+  0%, 89% { opacity: 0; }
+  89.3%, 90.5% { opacity: 0.18; }
+  91.3%, 100% { opacity: 0; }
+}
+@keyframes ccdDial {
+  0%, 17% { opacity: 0; transform: scale(0.9); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  19.5%, 46.5% { opacity: 1; transform: none; }
+  48.5%, 100% { opacity: 0; transform: scale(1.05); }
+}
+@keyframes ccdDialR {
+  0%, 17% { transform: rotate(0deg); }
+  32% { transform: rotate(180deg); }
+  33%, 100% { transform: rotate(180deg); }
+}
+@keyframes ccdDialL {
+  0%, 32% { transform: rotate(0deg); }
+  47% { transform: rotate(180deg); }
+  48%, 100% { transform: rotate(180deg); }
+}
+@keyframes ccdNum3 {
+  0%, 17% { opacity: 0; transform: scale(0.88); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  19%, 26.5% { opacity: 1; transform: none; }
+  29.5%, 100% { opacity: 0; transform: scale(1.12); }
+}
+@keyframes ccdNum2 {
+  0%, 27% { opacity: 0; transform: scale(0.88); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  29%, 36.5% { opacity: 1; transform: none; }
+  39.5%, 100% { opacity: 0; transform: scale(1.12); }
+}
+@keyframes ccdNum1 {
+  0%, 37% { opacity: 0; transform: scale(0.88); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  39%, 45.5% { opacity: 1; transform: none; }
+  48%, 100% { opacity: 0; transform: scale(1.12); }
+}
+/* 0:00 → 0:03, one step a second from 5.15 s. */
+@keyframes ccdTimer {
+  0%, 51.5% { transform: translateY(0); }
+  61.5% { transform: translateY(0); }
+  61.6%, 71.5% { transform: translateY(-25%); }
+  71.6%, 81.5% { transform: translateY(-50%); }
+  81.6%, 100% { transform: translateY(-75%); }
+}
+/* Scene cursor (% of the 960 × 600 scene). */
+.ccd-scene-track {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translate(64%, 44%);
+  z-index: 3;
+}
+.ccd-scene-track .ccd-cursor {
+  width: calc(20 * var(--u));
+}
+@keyframes ccdHowCursor0 {
+  0%, 3% { transform: translate(64%, 44%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  13%, 18% { transform: translate(90.2%, 90.3%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  28%, 50% { transform: translate(58%, 40%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  56%, 78% { transform: translate(41.2%, 24.6%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  87%, 92% { transform: translate(67%, 90.3%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  100% { transform: translate(64%, 44%); }
+}
+@keyframes ccdHowR0 {
+  0%, 56.5% { opacity: 0; scale: 0.35; }
+  57% { opacity: 1; scale: 0.55; }
+  61%, 100% { opacity: 0; scale: 1.6; }
+}
+
+/* Scene 1 — stop, and the editor is waiting (8 s). */
+.ccd-scene-1 .ccd-editor-host {
+  position: absolute;
+  left: 50%;
+  top: 4.5%;
+  width: 72%;
+  translate: -50% 0;
+  border-radius: calc(12 * var(--u));
+  overflow: hidden;
+  box-shadow: 0 calc(24 * var(--u)) calc(70 * var(--u)) rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+.ccd-how[data-step="1"] .ccd-editor-host { animation: ccdEdOpen 8s infinite; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-cam { animation: ccdHowCam 8s infinite; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-track--main { animation: ccdHowCursor1 8s infinite; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-r1 { animation: ccdHowRa 8s infinite; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-r3 { animation: ccdHowRb 8s infinite; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-r2 { animation: ccdHowRc 8s infinite; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-tl-click { animation: ccdClickDot 8s infinite both; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-tl-click-2 { animation-delay: 0.1s; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-tl-click-3 { animation-delay: 0.2s; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-tl-click-4 { animation-delay: 0.3s; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-tl-block { animation: ccdHowBlock 8s infinite both; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-b2 { animation-delay: 0.25s; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-b3 { animation-delay: 0.5s; }
+.ccd-how[data-step="1"] .ccd-editor[data-script="how"] .ccd-tl-head { animation: ccdHowHead 8s infinite linear; }
+.ccd-editor[data-script="how"] .ccd-ph { opacity: 0; }
+.ccd-editor[data-script="how"] .ccd-toast { opacity: 0; }
+
+@keyframes ccdEdOpen {
+  0% { opacity: 0; transform: scale(0.94); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  6%, 100% { opacity: 1; transform: none; }
+}
+@keyframes ccdClickDot {
+  0%, 7% { opacity: 0; transform: scale(0.2); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  10%, 94% { opacity: 1; transform: none; }
+  97%, 100% { opacity: 0; transform: none; }
+}
+@keyframes ccdHowBlock {
+  0%, 12.5% { opacity: 0; transform: scale(0.55); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  17%, 93% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; transform: none; }
+}
+@keyframes ccdHowHead {
+  0%, 25% { transform: translateX(0); opacity: 1; }
+  92.5% { transform: translateX(100%); opacity: 1; }
+  95% { transform: translateX(100%); opacity: 0; }
+  95.1% { transform: translateX(0); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+/* Blocks at 8–30 %, 38–62 %, 70–92 % of the track; playhead 2.0 → 7.4 s. */
+@keyframes ccdHowCam {
+  0%, 30.4% { transform: none; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  37.9%, 39% { transform: translate(1.583%, 30.926%) scale(1.9); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  45.2%, 50.6% { transform: none; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  58.1%, 60.6% { transform: translate(2%, 15.11%) scale(2.4); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  66.9%, 72.2% { transform: none; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  79.7%, 80.9% { transform: translate(16.43%, -30.926%) scale(1.9); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  87.1%, 100% { transform: none; }
+}
+@keyframes ccdHowCursor1 {
+  0%, 25% { transform: translate(82%, 90%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  31%, 47% { transform: translate(36%, 28%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  53%, 67% { transform: translate(36%, 42.6%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  74%, 94% { transform: translate(36.4%, 71.1%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  100% { transform: translate(82%, 90%); }
+}
+@keyframes ccdHowRa {
+  0%, 31.5% { opacity: 0; scale: 0.35; }
+  32% { opacity: 1; scale: 0.55; }
+  37%, 100% { opacity: 0; scale: 1.7; }
+}
+@keyframes ccdHowRb {
+  0%, 53.5% { opacity: 0; scale: 0.35; }
+  54% { opacity: 1; scale: 0.55; }
+  59%, 100% { opacity: 0; scale: 1.7; }
+}
+@keyframes ccdHowRc {
+  0%, 74.5% { opacity: 0; scale: 0.35; }
+  75% { opacity: 1; scale: 0.55; }
+  80%, 100% { opacity: 0; scale: 1.7; }
+}
+
+/* Scene 2 — change anything on the preview (9 s). */
+.ccd-style-canvas {
+  position: absolute;
+  left: 2.5%;
+  top: 20.3%;
+  width: 66%;
+  border-radius: calc(8 * var(--u));
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+.ccd-insp {
+  position: absolute;
+  right: 2.5%;
+  top: 20.3%;
+  height: 59.4%;
+  width: 27%;
+  display: flex;
+  flex-direction: column;
+  gap: calc(16 * var(--u));
+  padding: calc(16 * var(--u)) calc(14 * var(--u));
+  border-radius: calc(10 * var(--u));
+  background: #1c1c1e;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(0 0 0 / 0.6);
+  color: rgb(255 255 255 / 0.9);
+  font-size: calc(11.5 * var(--u));
+}
+.ccd-insp h5 {
+  margin: 0 0 calc(8 * var(--u));
+  font-size: calc(9.5 * var(--u));
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.45);
+}
+.ccd-swatches {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: calc(8 * var(--u));
+}
+.ccd-swatches > i {
+  aspect-ratio: 1;
+  border-radius: calc(7 * var(--u));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+.ccd-swatches > i:nth-child(1) { background: linear-gradient(135deg, #bf5af2, #0a84ff); }
+.ccd-swatches > i:nth-child(2) { background: linear-gradient(170deg, #1f3b8f, #7a3d8a 60%, #ff9f5a); }
+.ccd-swatches > i:nth-child(3) { background: #1c1c1e; }
+.ccd-swatches > i:nth-child(4) {
+  background: repeating-conic-gradient(#3a3a3e 0 25%, #26262a 0 50%) 0 0 / calc(10 * var(--u)) calc(10 * var(--u));
+}
+.ccd-swatch-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc((100% - 24 * var(--u)) / 4);
+  aspect-ratio: 1;
+  border-radius: calc(8 * var(--u));
+  box-shadow: 0 0 0 calc(2 * var(--u)) #fff, 0 0 0 calc(4 * var(--u)) rgb(0 0 0 / 0.6);
+}
+.ccd-slider {
+  position: relative;
+  height: calc(20 * var(--u));
+  display: flex;
+  align-items: center;
+}
+.ccd-slider-track {
+  position: absolute;
+  inset: calc(7 * var(--u)) 0;
+  border-radius: 999px;
+  background: linear-gradient(rgb(0 0 0 / 0.45), rgb(255 255 255 / 0.04));
+  box-shadow: inset 0 1px 1px rgb(0 0 0 / 0.5);
+}
+.ccd-slider-thumb {
+  position: absolute;
+  inset: 0;
+  transform: translateX(35%);
+}
+.ccd-slider-thumb::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(20 * var(--u));
+  height: calc(20 * var(--u));
+  translate: -50% 0;
+  border-radius: 50%;
+  background: linear-gradient(#f5f5f7, #cfcfd4);
+  box-shadow: 0 calc(2 * var(--u)) 0 #8e8e93, 0 calc(2 * var(--u)) calc(6 * var(--u)) rgb(0 0 0 / 0.5);
+}
+.ccd-seg {
+  position: relative;
+  display: flex;
+  padding: calc(2 * var(--u));
+  border-radius: calc(7 * var(--u));
+  background: linear-gradient(rgb(0 0 0 / 0.45), rgb(255 255 255 / 0.03));
+}
+.ccd-seg span {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  text-align: center;
+  padding: calc(5 * var(--u)) 0;
+  font-size: calc(10.5 * var(--u));
+  color: rgb(255 255 255 / 0.75);
+}
+.ccd-seg::before {
+  content: "";
+  position: absolute;
+  left: calc(2 * var(--u));
+  top: calc(2 * var(--u));
+  bottom: calc(2 * var(--u));
+  width: calc((100% - 4 * var(--u)) / 3);
+  border-radius: calc(5 * var(--u));
+  background: linear-gradient(#3a3a40, #2c2c31);
+  box-shadow: 0 1px 0 #111, 0 1px 3px rgb(0 0 0 / 0.5);
+}
+
+.ccd-how[data-step="2"] .ccd-scene-2 .ccd-wall-b { animation: ccdStyleB 9s infinite; }
+.ccd-how[data-step="2"] .ccd-scene-2 .ccd-wall-c { animation: ccdStyleC 9s infinite; }
+.ccd-how[data-step="2"] .ccd-scene-2 .ccd-cardwrap { animation: ccdStylePad 9s infinite; }
+.ccd-how[data-step="2"] .ccd-scene-2 .ccd-shadow--deep { animation: ccdStyleShadow 9s infinite; }
+.ccd-how[data-step="2"] .ccd-scene-2 .ccd-swatch-ring { animation: ccdStyleRing 9s infinite; }
+.ccd-how[data-step="2"] .ccd-scene-2 .ccd-thumb-pad { animation: ccdStyleThumbPad 9s infinite; }
+.ccd-how[data-step="2"] .ccd-scene-2 .ccd-thumb-shadow { animation: ccdStyleThumbShadow 9s infinite; }
+.ccd-how[data-step="2"] .ccd-scene-2 .ccd-scene-track { animation: ccdStyleCursor 9s infinite; }
+.ccd-scene-2 .ccd-thumb-shadow { transform: translateX(50%); }
+.ccd-scene-2 .ccd-track { visibility: hidden; }
+
+@keyframes ccdStyleCursor {
+  0%, 4% { transform: translate(52%, 62%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  10%, 22% { transform: translate(80.9%, 30.2%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  30%, 33% { transform: translate(80.4%, 42.1%); animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1); }
+  40%, 42% { transform: translate(90.7%, 42.1%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  48%, 55% { transform: translate(87.1%, 30.2%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  63%, 66% { transform: translate(84%, 51.3%); animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1); }
+  73%, 76% { transform: translate(94.1%, 51.3%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  83%, 88% { transform: translate(74.7%, 30.2%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  100% { transform: translate(52%, 62%); }
+}
+@keyframes ccdStyleB {
+  0%, 11% { opacity: 0; }
+  17%, 50% { opacity: 1; }
+  56%, 100% { opacity: 0; }
+}
+@keyframes ccdStyleC {
+  0%, 50% { opacity: 0; }
+  56%, 83% { opacity: 1; }
+  89%, 100% { opacity: 0; }
+}
+@keyframes ccdStylePad {
+  0%, 33% { transform: none; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  40%, 83% { transform: scale(0.82); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  90%, 100% { transform: none; }
+}
+@keyframes ccdStyleShadow {
+  0%, 66% { opacity: 0; }
+  73%, 83% { opacity: 1; }
+  90%, 100% { opacity: 0; }
+}
+@keyframes ccdStyleRing {
+  0%, 11% { transform: none; animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  15%, 50% { transform: translateX(calc(100% + 8 * var(--u))); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  54%, 83% { transform: translateX(calc(200% + 16 * var(--u))); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  87%, 100% { transform: none; }
+}
+@keyframes ccdStyleThumbPad {
+  0%, 33% { transform: translateX(35%); animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1); }
+  40%, 83% { transform: translateX(78%); animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1); }
+  90%, 100% { transform: translateX(35%); }
+}
+@keyframes ccdStyleThumbShadow {
+  0%, 66% { transform: translateX(50%); animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1); }
+  73%, 83% { transform: translateX(92%); animation-timing-function: cubic-bezier(0.45, 0, 0.2, 1); }
+  90%, 100% { transform: translateX(50%); }
+}
+
+/* Scene 3 — export, then the share link (7 s). */
+.ccd-sheet-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.42);
+}
+.ccd-sheet {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(430 * var(--u));
+  translate: -50% -50%;
+  padding: calc(18 * var(--u));
+  border-radius: calc(16 * var(--u));
+  background: linear-gradient(#26262a, #1f1f22);
+  box-shadow: 0 calc(24 * var(--u)) calc(60 * var(--u)) rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.07);
+  color: rgb(255 255 255 / 0.92);
+  font-size: calc(12 * var(--u));
+}
+.ccd-sheet h5 {
+  margin: 0 0 calc(12 * var(--u));
+  font-size: calc(14 * var(--u));
+  font-weight: 650;
+}
+.ccd-sheet-body {
+  position: relative;
+  height: calc(176 * var(--u));
+}
+.ccd-sheet-form,
+.ccd-sheet-progress {
+  position: absolute;
+  inset: 0;
+}
+.ccd-sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: calc(34 * var(--u));
+  color: rgb(255 255 255 / 0.6);
+}
+.ccd-sheet-row .ccd-seg {
+  width: 62%;
+}
+.ccd-sheet-row .ccd-seg span {
+  font-size: calc(10.5 * var(--u));
+}
+.ccd-sheet-toggle {
+  width: calc(32 * var(--u));
+  height: calc(19 * var(--u));
+  border-radius: 999px;
+  background: #30d158;
+  position: relative;
+}
+.ccd-sheet-toggle::after {
+  content: "";
+  position: absolute;
+  right: calc(2 * var(--u));
+  top: calc(2 * var(--u));
+  width: calc(15 * var(--u));
+  height: calc(15 * var(--u));
+  border-radius: 50%;
+  background: #fff;
+}
+.ccd-sheet-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: calc(8 * var(--u));
+  margin-top: calc(10 * var(--u));
+}
+.ccd-sheet-foot .ccd-key {
+  position: relative;
+  overflow: hidden;
+  height: calc(28 * var(--u));
+}
+.ccd-sheet-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(12 * var(--u));
+  opacity: 0;
+  font-size: calc(13 * var(--u));
+  font-weight: 600;
+}
+.ccd-bar {
+  position: relative;
+  width: calc(280 * var(--u));
+  height: calc(8 * var(--u));
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(rgb(0 0 0 / 0.5), rgb(255 255 255 / 0.04));
+}
+.ccd-bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0a84ff, #3cd3fe);
+  transform-origin: 0 50%;
+  transform: scaleX(0.72);
+}
+.ccd-sheet-sub {
+  font-size: calc(11 * var(--u));
+  font-weight: 500;
+  color: rgb(255 255 255 / 0.5);
+}
+.ccd-link {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  padding: calc(10 * var(--u)) calc(10 * var(--u)) calc(10 * var(--u)) calc(16 * var(--u));
+  border-radius: 999px;
+  background: rgb(28 28 30 / 0.96);
+  box-shadow: 0 calc(18 * var(--u)) calc(50 * var(--u)) rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.1);
+  color: #fff;
+  font-size: calc(13 * var(--u));
+  white-space: nowrap;
+  opacity: 0;
+}
+.ccd-link b {
+  font-weight: 600;
+}
+.ccd-link em {
+  font-style: normal;
+  color: rgb(255 255 255 / 0.5);
+}
+.ccd-link span {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(5 * var(--u));
+  padding: calc(6 * var(--u)) calc(12 * var(--u));
+  border-radius: 999px;
+  background: #30d158;
+  color: #04210f;
+  font-weight: 650;
+}
+.ccd-scene[data-active].ccd-x-export .ccd-sheet-scrim { animation: ccdScrim 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sheet { animation: ccdSheet 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sheet-form { animation: ccdSheetForm 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sheet-progress { animation: ccdSheetProg 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-bar i { animation: ccdSheetBar 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sheet-foot .ccd-rec-tint { animation: ccdSheetPress 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-link { animation: ccdLink 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sub-a { animation: ccdSubA 7s infinite; }
+.ccd-scene[data-active].ccd-x-export .ccd-sub-b { animation: ccdSubB 7s infinite; }
+.ccd-x-export .ccd-sheet-sub { position: absolute; top: 64%; }
+.ccd-x-export .ccd-sub-b { opacity: 0; }
+.ccd-x-export .ccd-sheet-form { opacity: 0; }
+.ccd-x-export .ccd-sheet-progress { opacity: 1; }
+@keyframes ccdScrim {
+  0% { opacity: 0; }
+  5%, 60% { opacity: 1; }
+  66%, 100% { opacity: 0; }
+}
+@keyframes ccdSheet {
+  0% { opacity: 0; transform: scale(0.96); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  6%, 58% { opacity: 1; transform: none; }
+  63%, 100% { opacity: 0; transform: scale(0.98); }
+}
+@keyframes ccdSheetForm {
+  0%, 18% { opacity: 1; }
+  21%, 100% { opacity: 0; }
+}
+@keyframes ccdSheetProg {
+  0%, 21% { opacity: 0; transform: scale(0.98); }
+  24%, 100% { opacity: 1; transform: none; }
+}
+@keyframes ccdSheetBar {
+  0%, 22% { transform: scaleX(0); animation-timing-function: cubic-bezier(0.45, 0.05, 0.3, 1); }
+  42% { transform: scaleX(0.62); animation-timing-function: cubic-bezier(0.45, 0.05, 0.3, 1); }
+  56%, 100% { transform: scaleX(1); }
+}
+@keyframes ccdSheetPress {
+  0%, 15% { opacity: 0; }
+  15.5%, 17.5% { opacity: 0.2; }
+  18.5%, 100% { opacity: 0; }
+}
+@keyframes ccdSubA {
+  0%, 44% { opacity: 1; }
+  46%, 100% { opacity: 0; }
+}
+@keyframes ccdSubB {
+  0%, 44% { opacity: 0; }
+  46%, 100% { opacity: 1; }
+}
+@keyframes ccdLink {
+  0%, 62% { opacity: 0; transform: translateY(18%) scale(0.96); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  67%, 93% { opacity: 1; transform: none; }
+  98%, 100% { opacity: 0; transform: none; }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Feature showcase — one stage, a mode per feature
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* Mode 0 — auto zoom across three fields (8 s). */
+.ccd-feat[data-step="0"] .ccd-scene-0 .ccd-cam { animation: ccdAzCam 8s infinite; }
+.ccd-feat[data-step="0"] .ccd-scene-0 .ccd-cam--blur { animation: ccdAzCam 8s infinite, ccdAzBlur 8s infinite; }
+.ccd-feat[data-step="0"] .ccd-scene-0 .ccd-wall { animation: ccdAzWall 8s infinite; }
+.ccd-feat[data-step="0"] .ccd-scene-0 .ccd-track--main { animation: ccdAzCursor 8s infinite; }
+.ccd-feat[data-step="0"] .ccd-scene-0 .ccd-r1 { animation: ccdAzR1 8s infinite; }
+.ccd-feat[data-step="0"] .ccd-scene-0 .ccd-r3 { animation: ccdAzR3 8s infinite; }
+.ccd-feat[data-step="0"] .ccd-scene-0 .ccd-r2 { animation: ccdAzR4 8s infinite; }
+.ccd-feat .ccd-scene-0 .ccd-r2 { left: 36%; top: 57.2%; }
+.ccd-feat .ccd-scene-0 .ccd-cam { transform: translate(2%, 15.11%) scale(2.4); }
+.ccd-feat .ccd-scene-0 .ccd-track--main { transform: translate(36%, 42.6%); }
+@keyframes ccdAzCam {
+  0%, 11% { transform: none; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  19%, 33% { transform: translate(1.583%, 30.926%) scale(1.9); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  42%, 61% { transform: translate(2%, 15.11%) scale(2.4); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  70%, 84% { transform: translate(1.667%, -12.22%) scale(2); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  95%, 100% { transform: none; }
+}
+@keyframes ccdAzWall {
+  0%, 11% { transform: none; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  19%, 84% { transform: scale(1.07); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  95%, 100% { transform: none; }
+}
+@keyframes ccdAzBlur {
+  0%, 11% { opacity: 0; }
+  12.5% { opacity: 0.7; }
+  16%, 33% { opacity: 0; }
+  35% { opacity: 0.45; }
+  38.5%, 61% { opacity: 0; }
+  63% { opacity: 0.45; }
+  66.5%, 86% { opacity: 0; }
+  89% { opacity: 0.55; }
+  92%, 100% { opacity: 0; }
+}
+@keyframes ccdAzCursor {
+  0%, 3% { transform: translate(82%, 90%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  11%, 32% { transform: translate(36%, 28%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  41%, 60% { transform: translate(36%, 42.6%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  69%, 86% { transform: translate(36%, 57.2%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  100% { transform: translate(82%, 90%); }
+}
+@keyframes ccdAzR1 {
+  0%, 12% { opacity: 0; scale: 0.35; }
+  12.7% { opacity: 1; scale: 0.55; }
+  19%, 100% { opacity: 0; scale: 1.7; }
+}
+@keyframes ccdAzR3 {
+  0%, 42% { opacity: 0; scale: 0.35; }
+  42.7% { opacity: 1; scale: 0.55; }
+  49%, 100% { opacity: 0; scale: 1.7; }
+}
+@keyframes ccdAzR4 {
+  0%, 70% { opacity: 0; scale: 0.35; }
+  70.7% { opacity: 1; scale: 0.55; }
+  77%, 100% { opacity: 0; scale: 1.7; }
+}
+
+/* Mode 1 — cursor: the raw path, faint, under the smoothed one (5 s). */
+.ccd-feat .ccd-scene-1 .ccd-track--raw { opacity: 0.55; }
+.ccd-feat .ccd-scene-1 .ccd-track--raw .ccd-cursor { width: calc(16 * var(--u)); opacity: 0.8; }
+.ccd-feat .ccd-scene-1 .ccd-track--main .ccd-cursor { width: calc(28 * var(--u)); }
+.ccd-feat .ccd-scene-1 .ccd-cam { transform: translate(8%, 0%) scale(1.25); }
+.ccd-feat[data-step="1"] .ccd-scene-1 .ccd-track--main { animation: ccdBaCursor 5s infinite; }
+.ccd-feat[data-step="1"] .ccd-scene-1 .ccd-track--raw { animation: ccdBaRaw 5s infinite; }
+.ccd-feat[data-step="1"] .ccd-scene-1 .ccd-r1 { animation: ccdBaRipple 5s infinite; }
+.ccd-feat .ccd-scene-1 .ccd-ph,
+.ccd-feat .ccd-scene-1 .ccd-caret { opacity: 0; }
+
+/* Mode 2 — captions with karaoke word highlight (6 s). */
+.ccd-feat[data-step="2"] .ccd-scene-2 .ccd-caption b { animation: ccdWord 6s infinite both; }
+.ccd-feat .ccd-scene-2 .ccd-caption > span:nth-child(3) b { opacity: 1; }
+@keyframes ccdWord {
+  0% { opacity: 0; }
+  0.6%, 7.2% { opacity: 1; }
+  8%, 100% { opacity: 0; }
+}
+
+/* Mode 3 — framing: four backgrounds, then 9:16 (10 s). */
+.ccd-vert-dim {
+  position: absolute;
+  inset: 0;
+  background: #0e0e10;
+  opacity: 0;
+}
+.ccd-vert {
+  position: absolute;
+  left: 50%;
+  top: 4%;
+  height: 92%;
+  aspect-ratio: 9 / 16;
+  translate: -50% 0;
+  overflow: hidden;
+  border-radius: calc(6 * var(--u));
+  opacity: 0;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+.ccd-vert .ccd-wall {
+  opacity: 1;
+}
+.ccd-vert-card {
+  position: absolute;
+  left: 8%;
+  top: 34%;
+  width: 84%;
+  aspect-ratio: 736 / 460;
+  border-radius: calc(6 * var(--u));
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 calc(10 * var(--u)) calc(30 * var(--u)) rgb(0 0 0 / 0.45);
+}
+.ccd-vert-card .ccd-app {
+  width: calc(736 * var(--u));
+  height: calc(460 * var(--u));
+  transform-origin: 0 0;
+  scale: 0.3189;
+}
+.ccd-feat[data-step="3"] .ccd-scene-3 .ccd-wall-b { animation: ccdFrameB 10s infinite; }
+.ccd-feat[data-step="3"] .ccd-scene-3 .ccd-wall-c { animation: ccdFrameC 10s infinite; }
+.ccd-feat[data-step="3"] .ccd-scene-3 .ccd-wall-d { animation: ccdFrameD 10s infinite; }
+.ccd-feat[data-step="3"] .ccd-scene-3 .ccd-vert-dim { animation: ccdFrameDim 10s infinite; }
+.ccd-feat[data-step="3"] .ccd-scene-3 .ccd-vert { animation: ccdFrameVert 10s infinite; }
+.ccd-wall-d {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: repeating-conic-gradient(#2c2c30 0 25%, #1c1c1f 0 50%) 0 0 / calc(24 * var(--u)) calc(24 * var(--u));
+}
+.ccd-feat .ccd-scene-3 .ccd-wall-b { opacity: 1; }
+@keyframes ccdFrameB {
+  0%, 16% { opacity: 0; }
+  21%, 36% { opacity: 1; }
+  41%, 100% { opacity: 0; }
+}
+@keyframes ccdFrameC {
+  0%, 36% { opacity: 0; }
+  41%, 54% { opacity: 1; }
+  59%, 100% { opacity: 0; }
+}
+@keyframes ccdFrameD {
+  0%, 54% { opacity: 0; }
+  59%, 66% { opacity: 1; }
+  71%, 100% { opacity: 0; }
+}
+@keyframes ccdFrameDim {
+  0%, 66% { opacity: 0; }
+  71%, 92% { opacity: 1; }
+  97%, 100% { opacity: 0; }
+}
+@keyframes ccdFrameVert {
+  0%, 67% { opacity: 0; transform: scale(0.92); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  73%, 92% { opacity: 1; transform: none; }
+  97%, 100% { opacity: 0; transform: none; }
+}
+
+/* Mode 4 — camera bubble: move, reshape, name tag (8 s). */
+.ccd-feat .ccd-scene-4 .ccd-bubble { transform: translateX(-605%); bottom: 11%; }
+.ccd-feat .ccd-scene-4 .ccd-bub-tag { opacity: 1; }
+.ccd-feat .ccd-scene-4 .ccd-bub-circle { opacity: 0; }
+.ccd-feat .ccd-scene-4 .ccd-bub-squircle { opacity: 1; }
+.ccd-feat[data-step="4"] .ccd-scene-4 .ccd-bubble { animation: ccdBubMove 8s infinite; }
+.ccd-feat[data-step="4"] .ccd-scene-4 .ccd-bub-circle { animation: ccdBubCircle 8s infinite; }
+.ccd-feat[data-step="4"] .ccd-scene-4 .ccd-bub-squircle { animation: ccdBubSquircle 8s infinite; }
+.ccd-feat[data-step="4"] .ccd-scene-4 .ccd-bub-tag { animation: ccdBubTag 8s infinite; }
+@keyframes ccdBubMove {
+  0%, 16% { transform: none; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  26%, 80% { transform: translateX(-605%); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  90%, 100% { transform: none; }
+}
+@keyframes ccdBubCircle {
+  0%, 38% { opacity: 1; }
+  43%, 92% { opacity: 0; }
+  97%, 100% { opacity: 1; }
+}
+@keyframes ccdBubSquircle {
+  0%, 38% { opacity: 0; transform: scale(0.94); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  45%, 92% { opacity: 1; transform: none; }
+  97%, 100% { opacity: 0; transform: none; }
+}
+@keyframes ccdBubTag {
+  0%, 56% { opacity: 0; transform: translateY(-30%); animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); }
+  61%, 84% { opacity: 1; transform: none; }
+  89%, 100% { opacity: 0; transform: none; }
+}
+
+/* Mode 5 — focus and privacy: blur a secret, spotlight a button (7 s). */
+.ccd-blurbox {
+  position: absolute;
+  left: 68.1%;
+  top: 63%;
+  width: 16.5%;
+  height: 7.7%;
+  border-radius: calc(7 * var(--u));
+  -webkit-backdrop-filter: blur(calc(6 * var(--u)));
+  backdrop-filter: blur(calc(6 * var(--u)));
+  background: rgb(255 255 255 / 0.2);
+  box-shadow: 0 0 0 1px rgb(110 134 200 / 0.6);
+}
+.ccd-spot {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.55);
+  -webkit-mask: radial-gradient(13% 11% at 41.3% 68%, transparent 70%, #000 100%);
+  mask: radial-gradient(13% 11% at 41.3% 68%, transparent 70%, #000 100%);
+  opacity: 0;
+}
+.ccd-feat .ccd-scene-5 .ccd-spot { opacity: 1; }
+.ccd-feat[data-step="5"] .ccd-scene-5 .ccd-blurbox { animation: ccdBlurBox 7s infinite; }
+.ccd-feat[data-step="5"] .ccd-scene-5 .ccd-spot { animation: ccdSpot 7s infinite; }
+.ccd-feat[data-step="5"] .ccd-scene-5 .ccd-track--main { animation: ccdFocusCursor 7s infinite; }
+@keyframes ccdBlurBox {
+  0%, 8% { opacity: 0; transform: scale(0.9); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  14%, 88% { opacity: 1; transform: none; }
+  94%, 100% { opacity: 0; transform: none; }
+}
+@keyframes ccdSpot {
+  0%, 42% { opacity: 0; }
+  50%, 86% { opacity: 1; }
+  93%, 100% { opacity: 0; }
+}
+@keyframes ccdFocusCursor {
+  0%, 28% { transform: translate(82%, 90%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  42%, 88% { transform: translate(36.4%, 71.1%); animation-timing-function: cubic-bezier(0.3, 0, 0.15, 1); }
+  100% { transform: translate(82%, 90%); }
+}
+
+/* Mode 6 — the timeline itself (8 s). */
+.ccd-tl-host {
+  position: absolute;
+  inset: 0;
+  container-type: inline-size;
+  --u: calc(100cqw / 1000);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #131315;
+}
+.ccd-tl-host .ccd-tl {
+  margin: 0 calc(28 * var(--u));
+}
+.ccd-tl-host .ccd-tl-labels > span:not(.ccd-tl-rulerpad),
+.ccd-tl-host .ccd-tl-lane {
+  height: calc(52 * var(--u));
+}
+.ccd-tl-host .ccd-tl-labels > span {
+  font-size: calc(11 * var(--u));
+}
+.ccd-tl-host .ccd-tl-block {
+  font-size: calc(12 * var(--u));
+}
+.ccd-tl-toolbar {
+  display: flex;
+  gap: calc(8 * var(--u));
+  margin: 0 calc(28 * var(--u)) calc(18 * var(--u)) calc(104 * var(--u));
+}
+.ccd-tl-toolbar .ccd-key {
+  height: calc(30 * var(--u));
+  font-size: calc(12 * var(--u));
+}
+.ccd-split {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 46%;
+  width: calc(3 * var(--u));
+  translate: -50% 0;
+  background: #131315;
+  opacity: 0;
+}
+.ccd-speed {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 58%;
+  width: 18%;
+  display: grid;
+  place-items: center;
+  background: repeating-linear-gradient(135deg, rgb(255 219 38 / 0.35) 0 calc(6 * var(--u)), rgb(255 219 38 / 0.12) calc(6 * var(--u)) calc(12 * var(--u)));
+  color: #fff;
+  font-size: calc(12 * var(--u));
+  font-weight: 700;
+  opacity: 0;
+}
+.ccd-feat .ccd-scene-6 .ccd-split,
+.ccd-feat .ccd-scene-6 .ccd-speed { opacity: 1; }
+.ccd-feat[data-step="6"] .ccd-scene-6 .ccd-tl-head { animation: ccdTlHead 8s infinite linear; }
+.ccd-feat[data-step="6"] .ccd-scene-6 .ccd-split { animation: ccdTlSplit 8s infinite; }
+.ccd-feat[data-step="6"] .ccd-scene-6 .ccd-speed { animation: ccdTlSpeed 8s infinite; }
+.ccd-feat[data-step="6"] .ccd-scene-6 .ccd-tl-block { animation: ccdTlBlock 8s infinite both; }
+.ccd-feat[data-step="6"] .ccd-scene-6 .ccd-b2 { animation-delay: 0.15s; }
+.ccd-feat[data-step="6"] .ccd-scene-6 .ccd-b3 { animation-delay: 0.3s; }
+.ccd-feat[data-step="6"] .ccd-scene-6 .ccd-b4 { animation-delay: 0.45s; }
+.ccd-feat[data-step="6"] .ccd-scene-6 .ccd-b5 { animation-delay: 0.6s; }
+.ccd-feat[data-step="6"] .ccd-scene-6 .ccd-kb { animation: ccdTlKey 8s infinite; }
+@keyframes ccdTlHead {
+  0% { transform: translateX(8%); }
+  46% { transform: translateX(46%); }
+  52% { transform: translateX(46%); }
+  100% { transform: translateX(96%); }
+}
+@keyframes ccdTlSplit {
+  0%, 46% { opacity: 0; transform: scaleY(0.2); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  49%, 94% { opacity: 1; transform: none; }
+  98%, 100% { opacity: 0; transform: none; }
+}
+@keyframes ccdTlSpeed {
+  0%, 60% { opacity: 0; }
+  65%, 94% { opacity: 1; }
+  98%, 100% { opacity: 0; }
+}
+@keyframes ccdTlBlock {
+  0% { opacity: 0; transform: scale(0.6); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  5%, 94% { opacity: 1; transform: none; }
+  98%, 100% { opacity: 0; transform: none; }
+}
+@keyframes ccdTlKey {
+  0%, 44% { opacity: 0.55; }
+  46%, 52% { opacity: 1; }
+  56%, 100% { opacity: 0.55; }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Share page + analytics (ShareSection), and the Mac + browser pair
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.ccd-mini {
+  position: relative;
+  container-type: inline-size;
+  --u: calc(100cqw / 960);
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: #0b0b0d;
+  color: rgb(255 255 255 / 0.9);
+  font-family: var(--ccd-font);
+  font-size: calc(13 * var(--u));
+  -webkit-font-smoothing: antialiased;
+}
+.ccd-mini * {
+  box-sizing: border-box;
+}
+.ccd-urlbar {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  height: calc(44 * var(--u));
+  padding: 0 calc(16 * var(--u));
+  background: #17171a;
+  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+}
+.ccd-url {
+  flex: 1;
+  max-width: calc(460 * var(--u));
+  margin: 0 auto;
+  padding: calc(6 * var(--u)) calc(14 * var(--u));
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  color: rgb(255 255 255 / 0.6);
+  font-size: calc(12 * var(--u));
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ccd-url b {
+  color: rgb(255 255 255 / 0.9);
+  font-weight: 500;
+}
+.ccd-share {
+  display: grid;
+  grid-template-columns: 1fr calc(290 * var(--u));
+  gap: calc(20 * var(--u));
+  padding: calc(22 * var(--u));
+}
+.ccd-player {
+  display: flex;
+  flex-direction: column;
+  gap: calc(12 * var(--u));
+}
+.ccd-player-video {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: calc(12 * var(--u));
+  overflow: hidden;
+  background: linear-gradient(135deg, #bf5af2, #7d5cf0 45%, #0a84ff);
+}
+.ccd-player-video::before {
+  content: "";
+  position: absolute;
+  left: 11.7%;
+  top: 7.4%;
+  width: 76.7%;
+  height: 85.2%;
+  border-radius: calc(6 * var(--u));
+  background:
+    linear-gradient(#f3f3f5, #f3f3f5) 0 0 / 100% 6% no-repeat,
+    linear-gradient(#f5f5f7, #f5f5f7) 0 6% / 23% 94% no-repeat,
+    linear-gradient(#e8e8ed, #e8e8ed) 30% 30% / 40% 7% no-repeat,
+    linear-gradient(#e8e8ed, #e8e8ed) 30% 47% / 40% 7% no-repeat,
+    linear-gradient(#0a74f0, #0a74f0) 29% 72% / 20% 7% no-repeat,
+    #fff;
+  box-shadow: 0 calc(10 * var(--u)) calc(30 * var(--u)) rgb(0 0 0 / 0.4);
+}
+.ccd-player-bar {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  font-size: calc(11.5 * var(--u));
+  color: rgb(255 255 255 / 0.6);
+  font-variant-numeric: tabular-nums;
+}
+.ccd-play {
+  width: calc(28 * var(--u));
+  height: calc(28 * var(--u));
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+  font-size: calc(11 * var(--u));
+  flex: none;
+}
+.ccd-scrub {
+  position: relative;
+  flex: 1;
+  height: calc(6 * var(--u));
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.12);
+}
+.ccd-scrub-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #fff;
+  transform-origin: 0 50%;
+  transform: scaleX(0.44);
+}
+.ccd-scrub-mark {
+  position: absolute;
+  top: 50%;
+  width: calc(10 * var(--u));
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: #ffd60a;
+  box-shadow: 0 0 0 calc(2 * var(--u)) #0b0b0d;
+}
+.ccd-comments {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--u));
+}
+.ccd-comments h6 {
+  margin: 0;
+  font-size: calc(12 * var(--u));
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.55);
+}
+.ccd-comment {
+  position: relative;
+  display: grid;
+  grid-template-columns: calc(26 * var(--u)) 1fr;
+  gap: calc(10 * var(--u));
+  padding: calc(10 * var(--u));
+  border-radius: calc(10 * var(--u));
+  background: rgb(255 255 255 / 0.04);
+  border: 1px solid rgb(255 255 255 / 0.06);
+  font-size: calc(11.5 * var(--u));
+  line-height: 1.35;
+  color: rgb(255 255 255 / 0.75);
+}
+.ccd-comment::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid rgb(255 214 10 / 0.6);
+  background: rgb(255 214 10 / 0.06);
+  opacity: 0;
+}
+.ccd-comment b {
+  display: block;
+  color: #fff;
+  font-weight: 600;
+}
+.ccd-comment em {
+  font-style: normal;
+  margin-left: calc(6 * var(--u));
+  padding: calc(1 * var(--u)) calc(6 * var(--u));
+  border-radius: 999px;
+  background: rgb(255 214 10 / 0.16);
+  color: #ffd60a;
+  font-size: calc(10 * var(--u));
+  font-weight: 600;
+}
+.ccd-avatar {
+  width: calc(26 * var(--u));
+  height: calc(26 * var(--u));
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5e5ce6, #bf5af2);
+}
+.ccd-comment:nth-of-type(2) .ccd-avatar { background: linear-gradient(135deg, #30d158, #0a84ff); }
+.ccd-comment:nth-of-type(3) .ccd-avatar { background: linear-gradient(135deg, #ff9f0a, #ff375f); }
+
+.ccd-live .ccd-scrub-fill { animation: ccdScrub 9s infinite linear; }
+.ccd-live .ccd-scrub-mark { animation: ccdMark 9s infinite both; }
+.ccd-live .ccd-scrub-mark:nth-of-type(2) { animation-delay: 1.36s; }
+.ccd-live .ccd-scrub-mark:nth-of-type(3) { animation-delay: 4.26s; }
+.ccd-live .ccd-comment::after { animation: ccdCommentHi 9s infinite both; }
+.ccd-live .ccd-comment:nth-of-type(2)::after { animation-delay: 1.36s; }
+.ccd-live .ccd-comment:nth-of-type(3)::after { animation-delay: 4.26s; }
+@keyframes ccdScrub {
+  0% { transform: scaleX(0); }
+  92% { transform: scaleX(1); }
+  96%, 100% { transform: scaleX(1); opacity: 0.5; }
+}
+/* Marks at 18 %, 36 %, 71 % of the bar; the fill reaches them ~1.5, 3.0, 5.9 s in. */
+@keyframes ccdMark {
+  0%, 16.5% { transform: none; }
+  18% { transform: scale(1.7); }
+  22%, 100% { transform: none; }
+}
+@keyframes ccdCommentHi {
+  0%, 16.5% { opacity: 0; }
+  18.5%, 32% { opacity: 1; }
+  38%, 100% { opacity: 0; }
+}
+
+.ccd-an {
+  padding: calc(22 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(16 * var(--u));
+}
+.ccd-an-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-radius: calc(12 * var(--u));
+  border: 1px solid rgb(255 255 255 / 0.07);
+  background: rgb(255 255 255 / 0.03);
+}
+.ccd-an-stats > div {
+  padding: calc(14 * var(--u)) calc(16 * var(--u));
+}
+.ccd-an-stats > div + div {
+  border-left: 1px solid rgb(255 255 255 / 0.07);
+}
+.ccd-an-stats small {
+  display: block;
+  font-size: calc(10 * var(--u));
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.45);
+}
+.ccd-an-stats b {
+  display: block;
+  margin-top: calc(4 * var(--u));
+  font-size: calc(24 * var(--u));
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.ccd-an-chart {
+  position: relative;
+  flex: 1;
+  border-radius: calc(12 * var(--u));
+  border: 1px solid rgb(255 255 255 / 0.07);
+  background:
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px) 0 0 / 100% 25%,
+    rgb(255 255 255 / 0.02);
+  overflow: hidden;
+}
+.ccd-an-chart svg {
+  position: absolute;
+  inset: 8% 3% 12% 3%;
+  width: 94%;
+  height: 80%;
+}
+.ccd-an-cover {
+  position: absolute;
+  inset: 0;
+  background: #0f0f12;
+  transform-origin: 100% 50%;
+  transform: scaleX(0);
+}
+.ccd-an-flag {
+  position: absolute;
+  left: 44%;
+  top: 10%;
+  bottom: 12%;
+  border-left: 1px dashed rgb(255 214 10 / 0.7);
+}
+.ccd-an-flag span {
+  position: absolute;
+  left: calc(8 * var(--u));
+  top: 0;
+  padding: calc(4 * var(--u)) calc(9 * var(--u));
+  border-radius: 999px;
+  background: rgb(255 214 10 / 0.14);
+  color: #ffd60a;
+  font-size: calc(11 * var(--u));
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ccd-an-axis {
+  position: absolute;
+  left: 3%;
+  right: 3%;
+  bottom: 3%;
+  display: flex;
+  justify-content: space-between;
+  font-size: calc(10 * var(--u));
+  color: rgb(255 255 255 / 0.4);
+  font-variant-numeric: tabular-nums;
+}
+.ccd-live .ccd-an-cover { animation: ccdAnCover 8s infinite; }
+.ccd-live .ccd-an-flag { animation: ccdAnFlag 8s infinite; }
+@keyframes ccdAnCover {
+  0% { transform: scaleX(1); animation-timing-function: cubic-bezier(0.45, 0.05, 0.3, 1); }
+  26%, 90% { transform: scaleX(0); }
+  96%, 100% { transform: scaleX(1); }
+}
+@keyframes ccdAnFlag {
+  0%, 22% { opacity: 0; transform: translateY(-8%); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+  28%, 88% { opacity: 1; transform: none; }
+  93%, 100% { opacity: 0; transform: none; }
+}
+
+/* ── The Mac + browser pair ─────────────────────────────────────────────── */
+
+.ccd-pair {
+  position: relative;
+  container-type: inline-size;
+  --u: calc(100cqw / 960);
+  aspect-ratio: 16 / 11;
+  font-family: var(--ccd-font);
+  -webkit-font-smoothing: antialiased;
+}
+.ccd-pair * {
+  box-sizing: border-box;
+}
+.ccd-pair-win {
+  position: absolute;
+  overflow: hidden;
+  border-radius: calc(14 * var(--u));
+  background: #131315;
+  box-shadow: 0 calc(30 * var(--u)) calc(80 * var(--u)) rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+.ccd-pair-mac {
+  left: 0;
+  top: 0;
+  width: 68%;
+}
+.ccd-pair-web {
+  right: 0;
+  bottom: 0;
+  width: 68%;
+}
+.ccd-pair-mac .ccd-editor {
+  padding-bottom: calc(10 * var(--u));
+}
+.ccd-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(6 * var(--u));
+  height: calc(34 * var(--u));
+  padding: 0 calc(12 * var(--u));
+  background: #0d0d0f;
+}
+.ccd-tabs .ccd-lights {
+  align-self: center;
+  margin-right: calc(10 * var(--u));
+}
+.ccd-tab {
+  height: calc(26 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  padding: 0 calc(14 * var(--u));
+  border-radius: calc(8 * var(--u)) calc(8 * var(--u)) 0 0;
+  background: #17171a;
+  color: rgb(255 255 255 / 0.8);
+  font-size: calc(11.5 * var(--u));
+}
+.ccd-tab i {
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  border-radius: calc(3 * var(--u));
+  background: linear-gradient(135deg, #67e8f9, #818cf8);
+}
+.ccd-webapp {
+  position: relative;
+  display: grid;
+  grid-template-columns: calc(150 * var(--u)) 1fr;
+  height: calc(420 * var(--u));
+  background: #0f0f11;
+}
+.ccd-webside {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4 * var(--u));
+  padding: calc(14 * var(--u)) calc(10 * var(--u));
+  border-right: 1px solid rgb(255 255 255 / 0.06);
+  font-size: calc(12 * var(--u));
+  color: rgb(255 255 255 / 0.6);
+}
+.ccd-webside span {
+  padding: calc(6 * var(--u)) calc(10 * var(--u));
+  border-radius: calc(8 * var(--u));
+}
+.ccd-webside .is-on {
+  background: rgb(255 255 255 / 0.08);
+  color: #fff;
+}
+.ccd-webmain {
+  position: relative;
+  padding: calc(16 * var(--u));
+}
+.ccd-webpreview {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: calc(10 * var(--u));
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+.ccd-webpreview .ccd-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+/* The web recording bar (recorder-bar.tsx): Display | Window | Tab. */
+.ccd-webbar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14 * var(--u));
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: calc(4 * var(--u));
+  height: calc(46 * var(--u));
+  padding: 0 calc(6 * var(--u));
+  border-radius: calc(14 * var(--u));
+  background: rgb(27 27 30 / 0.97);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 0 calc(20 * var(--u)) calc(50 * var(--u)) calc(-14 * var(--u)) rgb(0 0 0 / 0.85), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  color: #fff;
+  font-size: calc(11 * var(--u));
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ccd-webbar .ccd-rec-tabs {
+  gap: calc(2 * var(--u));
+}
+.ccd-webbar .ccd-rec-tab,
+.ccd-webbar .ccd-rec-pill {
+  width: calc(48 * var(--u));
+  height: calc(38 * var(--u));
+  font-size: calc(8.5 * var(--u));
+}
+.ccd-webbar .ccd-rec-tab svg {
+  width: calc(15 * var(--u));
+  height: calc(15 * var(--u));
+}
+.ccd-webbar .ccd-rec-key {
+  height: calc(34 * var(--u));
+  padding: 0 calc(8 * var(--u));
+}
+.ccd-webbar .ccd-rec-key svg {
+  width: calc(13 * var(--u));
+  height: calc(13 * var(--u));
+}
+.ccd-webbar .ccd-rec-record {
+  width: calc(38 * var(--u));
+  height: calc(38 * var(--u));
+  border-radius: calc(10 * var(--u));
+}
+.ccd-webbar .ccd-rec-record svg {
+  width: calc(15 * var(--u));
+  height: calc(15 * var(--u));
+}
+.ccd-webbar .ccd-rec-div {
+  height: calc(20 * var(--u));
+}
+.ccd-pair.ccd-live .ccd-webbar .ccd-rec-pill { animation: ccdPill 9s infinite; }
+.ccd-pair.ccd-live .ccd-sync { animation: ccdSync 3s ease-in-out infinite; }
+@keyframes ccdPill {
+  0%, 26% { transform: none; animation-timing-function: cubic-bezier(0.32, 1.12, 0.24, 1); }
+  30%, 59% { transform: translateX(calc(50 * var(--u))); animation-timing-function: cubic-bezier(0.32, 1.12, 0.24, 1); }
+  63%, 92% { transform: translateX(calc(100 * var(--u))); animation-timing-function: cubic-bezier(0.32, 1.12, 0.24, 1); }
+  96%, 100% { transform: none; }
+}
+.ccd-sync {
+  position: absolute;
+  left: 16%;
+  top: 84%;
+  translate: -50% -50%;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  padding: calc(9 * var(--u)) calc(16 * var(--u));
+  border-radius: 999px;
+  background: rgb(20 20 22 / 0.92);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  box-shadow: 0 calc(12 * var(--u)) calc(30 * var(--u)) rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.12);
+  color: rgb(255 255 255 / 0.9);
+  font-size: calc(13 * var(--u));
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ccd-sync i {
+  font-style: normal;
+  color: #67e8f9;
+}
+@keyframes ccdSync {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6%); }
+}
+.ccd-pair .ccd-editor[data-script="pair"] .ccd-tl-head { transform: translateX(30%); }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   Reduced motion — static, still-meaningful frames
+   ═════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .ccd *,
+  .ccd *::before,
+  .ccd *::after,
+  .ccd-canvas *,
+  .ccd-editor *,
+  .ccd-mini *,
+  .ccd-mini *::after,
+  .ccd-pair *,
+  .ccd-pin *,
+  .ccd-pin *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* Settled frames: filled form, zoomed on the field, blocks placed. */
+  .ccd-editor[data-script="hero"] .ccd-cam { transform: translate(1.583%, 30.926%) scale(1.9); }
+  .ccd-editor[data-script="hero"] .ccd-track--main { transform: translate(36%, 28%); }
+  .ccd-editor[data-script="hero"] .ccd-keys { opacity: 0; }
+  .ccd-ba .ccd-track--main { transform: translate(36%, 28%); }
+  .ccd-ba .ccd-track--raw { transform: translate(38%, 31%); }
+  .ccd-how .ccd-scene-0 .ccd-rec-setup { opacity: 0; }
+  .ccd-how .ccd-scene-0 .ccd-rec-live { opacity: 1; }
+  .ccd-how .ccd-scene-0 .ccd-rec-cap--l { transform: translateX(calc(185 * var(--u))); }
+  .ccd-how .ccd-scene-0 .ccd-rec-cap--r { transform: translateX(calc(-185 * var(--u))); }
+  .ccd-how .ccd-scene-0 .ccd-rec-mid { transform: scaleX(0.5328); }
+  .ccd-how .ccd-scene-0 .ccd-digits > span { transform: translateY(-75%); }
+  .ccd-how .ccd-editor[data-script="how"] .ccd-cam { transform: translate(2%, 15.11%) scale(2.4); }
+  .ccd-how .ccd-editor[data-script="how"] .ccd-track--main { transform: translate(36%, 42.6%); }
+  .ccd-how .ccd-scene-2 .ccd-wall-b { opacity: 1; }
+  .ccd-how .ccd-scene-2 .ccd-swatch-ring { transform: translateX(calc(100% + 8 * var(--u))); }
+  .ccd-x-export .ccd-link { opacity: 1; }
+  .ccd-x-export .ccd-sheet,
+  .ccd-x-export .ccd-sheet-scrim { opacity: 0; }
+  .ccd-feat .ccd-scene-2 .ccd-caption > span:nth-child(3) b { opacity: 1; }
+  .ccd-feat .ccd-scene-3 .ccd-vert,
+  .ccd-feat .ccd-scene-3 .ccd-vert-dim { opacity: 1; }
+  .ccd-feat .ccd-scene-5 .ccd-blurbox { opacity: 1; }
+  .ccd-scene { transform: none; }
+}
+
+.ccd-apple {
+  width: calc(10 * var(--u));
+  height: calc(12 * var(--u));
+}
+
+/* A raw capture (the browser recorder's live preview): full bleed, no wallpaper. */
+.ccd-canvas[data-script="raw"] .ccd-cardwrap { transform: scale(1.3044); }
+.ccd-canvas[data-script="raw"] .ccd-wall,
+.ccd-canvas[data-script="raw"] .ccd-shadow { opacity: 0; }
+.ccd-canvas[data-script="raw"] .ccd-track--main { opacity: 0; }
+.ccd-canvas[data-script="raw"] .ccd-track--raw { opacity: 1; transform: translate(62%, 58%); }
+
+/* Before/after steps: equal heights, so the scrub ranges line up. */
+.ccd-pin-step.ccd-pin-step--ba {
+  min-height: 70vh;
+}
+
+.ccd-seg[data-n="2"]::before { width: calc((100% - 4 * var(--u)) / 2); }
+.ccd-seg[data-sel="1"]::before { transform: translateX(100%); }
+
+/* On the desktop scene the pointer is the scene's own; the window's card
+   (reused from the canvas) keeps its cursor tracks hidden. */
+.ccd-win .ccd-track { visibility: hidden; }

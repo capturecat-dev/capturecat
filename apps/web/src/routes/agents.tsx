@@ -11,7 +11,9 @@ import {
   CopilotLogo,
   WindsurfLogo,
 } from "@/components/marketing/ProviderLogos";
-import { MediaPlaceholder } from "@/components/marketing/MediaPlaceholder";
+import { AgentSessionDemo, ConnectAgentsDemo } from "@/components/marketing/home/demo/AgentDemos";
+import demosCss from "@/styles/demos.css?url";
+import demosPagesCss from "@/styles/demos-pages.css?url";
 import {
   Ambient,
   Container,
@@ -30,7 +32,11 @@ export const Route = createFileRoute("/agents")({
           "CaptureCat has a built in MCP server. Let Claude, Codex, Cursor, Copilot, or Windsurf record, inspect, edit, restyle, and export your recordings. No plugin needed.",
       },
     ],
-    links: markdownAlternateLinks("/agents"),
+    links: [
+      { rel: "stylesheet", href: demosCss },
+      { rel: "stylesheet", href: demosPagesCss },
+      ...markdownAlternateLinks("/agents"),
+    ],
   }),
   component: AgentsPage,
 });
@@ -205,7 +211,7 @@ function AgentsPage() {
 
       <section className="relative isolate py-8">
         <Container>
-          <MediaPlaceholder id="agents-session" />
+          <AgentSessionDemo />
           <p className="mt-3 text-center text-sm text-muted-foreground">
             Claude Code adding zooms to a project while the editor updates.
           </p>
@@ -285,7 +291,7 @@ function AgentsPage() {
               </p>
             </div>
             <div className="lg:col-span-7">
-              <MediaPlaceholder id="agents-connect-menu" />
+              <ConnectAgentsDemo />
             </div>
           </div>
 

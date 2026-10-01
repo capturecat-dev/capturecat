@@ -3,6 +3,8 @@ import { jsonLd } from "@/lib/json-ld";
 
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
+import { ProductLoop } from "@/components/marketing/home/demo/ProductLoop";
+import demosCss from "@/styles/demos.css?url";
 import {
   FeatureTable,
   StrengthsTradeoffs,
@@ -36,7 +38,7 @@ export const Route = createFileRoute("/alternatives/$slug")({
         { title: `${page.title} | CaptureCat` },
         { name: "description", content: page.description },
       ],
-      links: markdownAlternateLinks(page.path),
+      links: [{ rel: "stylesheet", href: demosCss }, ...markdownAlternateLinks(page.path)],
     };
   },
   component: AlternativePage,
@@ -74,6 +76,9 @@ function AlternativePage() {
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
             {page.heroSubtitle}
           </p>
+          <div className="mx-auto mt-12 max-w-4xl text-left">
+            <ProductLoop />
+          </div>
         </div>
       </section>
 
