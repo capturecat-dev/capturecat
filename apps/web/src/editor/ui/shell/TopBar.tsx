@@ -14,6 +14,7 @@ const SYNC_COPY: Record<SyncState, { icon: string; label: string }> = {
   saving: { icon: "arrow.triangle.2.circlepath", label: "Saving…" },
   offline: { icon: "icloud.slash", label: "Offline" },
   conflict: { icon: "exclamationmark.icloud", label: "Changed elsewhere" },
+  review: { icon: "exclamationmark.icloud", label: "Needs review" },
   local: { icon: "icloud", label: "Not synced" },
 };
 
@@ -109,12 +110,26 @@ export function TopBar({
           type="button"
           className="cc-sync"
           data-state={project.syncState}
-          title={project.syncState === "conflict" || project.syncState === "offline" ? "Retry sync" : "Cloud sync"}
-          onClick={() => (project.syncState === "conflict" || project.syncState === "offline") && callbacks.onSyncRetry?.()}
+          title={project.syncState === "review" ? "Review the merge" : project.syncState === "conflict" || project.syncState === "offline" ? "Retry sync" : "Cloud sync"}
+          onClick={() =>
+            (project.syncState === "conflict" || project.syncState === "offline" || project.syncState === "review") && callbacks.onSyncRetry?.()
+          }
         >
           <SFIcon name={sync.icon} size={11} weight="medium" className="cc-icon" />
           {sync.label}
         </button>
+      )}
+      {callbacks.onShowHistory && (
+        <Button
+          variant="ghost"
+          size="sm"
+          symbol="clock.arrow.circlepath"
+          onClick={callbacks.onShowHistory}
+          aria-pressed={project.historyOpen ?? false}
+          aria-label="History"
+          title="History"
+          className="cc-topbar__history"
+        />
       )}
       {callbacks.onShare &&
         (share ?? (

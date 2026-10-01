@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CloudApiError,
+  deleteProjectVersion,
+  getProjectVersion,
+  historyHeaders,
+  listProjectVersions,
   loadCloudProject,
   mediaUrlsNeedRefresh,
+  nameProjectVersion,
   resolveMediaRef,
+  restoreProjectVersion,
   saveCloudProject,
+  webClientId,
   type CloudMediaFile,
 } from "./cloud";
 
@@ -143,5 +150,98 @@ describe("saveCloudProject", () => {
     expect((err as CloudApiError).status).toBe(413);
     expect((err as CloudApiError).code).toBe("storage_limit_reached");
     expect((err as CloudApiError).message).toBe("Storage limit reached");
+  });
+});
+
+describe("project history wire (docs/project-history.md §6)", () => {
+  it("sends the X-CC-* save headers, dropping malformed ones", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(200, { revision: 6, documentSha256: "cd", updatedAt: "t", version: { id: "v9", seq: 9, extended: true } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await saveCloudProject(ID, "{}", 5, {
+      history: { client: "web", clientId: "1b4e28ba-2fa1-11d2-883f-0016d3cca427", source: "mixed", change: "eyJ2IjoxfQ", checkpoint: "merge", mergedFrom: 5 },
+    });
+    expect(r).toMatchObject({ ok: true, revision: 6, version: { id: "v9", seq: 9, extended: true } });
+    const headers = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>;
+    expect(headers).toMatchObject({
+      "If-Match": '"5"',
+      "X-CC-Client": "web",
+      "X-CC-Client-Id": "1b4e28ba-2fa1-11d2-883f-0016d3cca427",
+      "X-CC-Source": "mixed",
+      "X-CC-Change": "eyJ2IjoxfQ",
+      "X-CC-Checkpoint": "merge",
+      "X-CC-Merged-From": "5",
+    });
+    expect(historyHeaders({ clientId: "has space", change: "x".repeat(8193), mergedFrom: -1 })).toEqual({});
+    expect(historyHeaders(undefined)).toEqual({});
+  });
+
+  it("webClientId: one opaque random id per browser, kept in storage", () => {
+    const mem = new Map<string, string>();
+    const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v) };
+    const a = webClientId(storage);
+    expect(a).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
+    expect(webClientId(storage)).toBe(a);
+    const blocked = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } };
+    const s1 = webClientId(blocked);
+    expect(s1).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
+    expect(webClientId(blocked)).toBe(s1); // stable for the page session
+  });
+
+  it("lists versions tolerantly (camelCase or the D1 names) with retention + pinned bytes", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(200, {
+        versions: [
+          { id: "v2", seq: 2, revision: 7, kind: "merge", label: "Final", actor: { uid: "u1", name: "Ana" }, clientKind: "web", source: "agent", change: { v: 1, items: {}, settings: { background: ["backgroundPadding"] }, fields: [] }, updatedAt: "2026-09-30T10:00:00Z" },
+          { id: "v1", seq: 1, revision: 3, first_revision: 1, kind: "upload", actor_uid: "u2", actor_name: "Ben", client_kind: "mac", source: "human", change_json: '{"v":1,"items":{},"settings":{},"fields":["name"]}', updated_at: "2026-09-29T10:00:00Z" },
+          { nope: true },
+        ],
+        headVersionId: "v2",
+        retention: { maxHistoryDays: 30, maxNamedVersions: 25 },
+        pinnedMediaBytes: 1234,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const list = await listProjectVersions(ID, { before: "5", limit: 20 });
+    expect(String((fetchMock.mock.calls[0] as unknown as [string])[0])).toMatch(/\/versions\?before=5&limit=20$/);
+    expect(list.versions.map((v) => [v.id, v.kind, v.actorName, v.clientKind, v.source])).toEqual([
+      ["v2", "merge", "Ana", "web", "agent"],
+      ["v1", "upload", "Ben", "mac", "human"],
+    ]);
+    expect(list.versions[1].change).toEqual({ v: 1, items: {}, settings: {}, fields: ["name"] });
+    expect(list.versions[1].firstRevision).toBe(1);
+    expect(list).toMatchObject({ headVersionId: "v2", retention: { days: 30, maxNamed: 25 }, pinnedMediaBytes: 1234, nextBefore: null });
+  });
+
+  it("gets a version's document + manifest URLs; restores with If-Match; 409 → the head", async () => {
+    const doc = '{ "id" : "X", "name":"old" }';
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(200, { version: { id: "v1", seq: 1, revision: 3 }, document: doc, files: [mediaFile("recording.mov")], urlsExpireAt: "2026-09-29T00:15:00.000Z" })),
+    );
+    const d = await getProjectVersion(ID, "v1");
+    expect(d.document).toBe(doc);
+    expect(d.media["recording.mov"].url).toBe("https://r2.test/recording.mov");
+
+    const fetchMock = vi.fn(async () => jsonResponse(200, { revision: 12, updatedAt: "u", version: { id: "v5", seq: 5 } }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await restoreProjectVersion(ID, "v1", 11)).toMatchObject({ ok: true, revision: 12, document: null, version: { id: "v5" } });
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toMatch(/\/versions\/v1\/restore$/);
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>)["If-Match"]).toBe('"11"');
+
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(409, { code: "revision_conflict", revision: 13, updatedAt: "w", document: "{}" })));
+    expect(await restoreProjectVersion(ID, "v1", 11)).toMatchObject({ ok: false, conflict: true, revision: 13, document: "{}" });
+  });
+
+  it("names (PATCH) and deletes versions", async () => {
+    const fetchMock = vi.fn(async (_u: string, init?: RequestInit) =>
+      init?.method === "PATCH" ? jsonResponse(200, { version: { id: "v1", seq: 1, label: "Pitch cut" } }) : jsonResponse(200, { ok: true }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await nameProjectVersion(ID, "v1", "Pitch cut"))?.label).toBe("Pitch cut");
+    expect((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body).toBe('{"label":"Pitch cut"}');
+    await deleteProjectVersion(ID, "v1");
+    expect((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].method).toBe("DELETE");
   });
 });

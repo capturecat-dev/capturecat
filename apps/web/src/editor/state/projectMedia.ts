@@ -4,6 +4,8 @@
  * adds while editing (a background image, a watermark, a curtain logo).
  *
  *   mediaUrl(ref)   project.json reference → fetchable URL, in order:
+ *                   0. while an old version is previewed (History), that
+ *                      version's manifest (`setOverride` — its presigned GETs)
  *                   1. a file added this session (an object URL — renders at
  *                      once, no network)
  *                   2. CLOUD: the project's presigned GETs, kept fresh by
@@ -97,6 +99,8 @@ export class ProjectMedia {
   private readonly commit: typeof commitCloudFiles;
   private readonly objectURL: (blob: Blob) => string;
   private session = new Map<string, SessionFile>();
+  /** A previewed version's manifest (History): consulted before everything else. */
+  private override: Pick<MediaUrls, "media" | "sources"> | null = null;
   private listeners = new Set<() => void>();
   private queue: Promise<void> = Promise.resolve();
   private pending = 0;
@@ -127,6 +131,10 @@ export class ProjectMedia {
   /** project.json reference → fetchable URL (undefined = not available). */
   mediaUrl = (ref: string | null | undefined): string | undefined => {
     if (!ref) return undefined;
+    if (this.override) {
+      const pinned = resolveMediaRef(this.override, ref)?.url;
+      if (pinned) return pinned;
+    }
     const added = this.session.get(ref);
     if (added) return added.url;
     const urls = this.urls;
@@ -188,6 +196,22 @@ export class ProjectMedia {
   /** Files added this session live only in this tab (a local project's folder is read-only). */
   get addsAreSessionOnly(): boolean {
     return this.origin === "local";
+  }
+
+  /**
+   * Resolve media through an old version's manifest while it is previewed
+   * (History → Preview): media that version used but the project has since
+   * dropped (or replaced) still plays. Null restores the live resolution.
+   * References the version's manifest lacks fall through to the live map.
+   */
+  setOverride(urls: Pick<MediaUrls, "media" | "sources"> | null): void {
+    if (urls === this.override) return;
+    this.override = urls;
+    this.emit();
+  }
+
+  get hasOverride(): boolean {
+    return this.override != null;
   }
 
   // ── Changes ───────────────────────────────────────────────────────────
