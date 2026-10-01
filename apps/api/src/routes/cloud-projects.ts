@@ -35,6 +35,7 @@ import {
   deleteCloudObjectRow,
   deleteCloudProjectRows,
   deleteObjectIfUnreferenced,
+  ensureCurrentManifest,
   getCloudProject,
   insertPendingObjects,
   listCloudFiles,
@@ -43,11 +44,29 @@ import {
   listOwnedCloudProjects,
   markObjectReadyWithinQuota,
   pendingObjectsElsewhere,
+  releasableObjects,
   stageCloudProject,
-  swapCloudDocument,
   type CloudFileRow,
   type CloudProjectRow,
 } from "../lib/cloud-projects-db";
+import {
+  PRUNE_PER_SAVE,
+  checkpointHonoured,
+  newVersionKind,
+  parseSaveHeaders,
+  shouldExtend,
+  versionChangeJSON,
+} from "../lib/project-history";
+import {
+  deleteDocumentIfUnreferenced,
+  deleteOrphanManifests,
+  getVersion,
+  pruneProjectHistory,
+  putDocumentSnapshot,
+  readStoredDocument,
+  releaseUnpinnedMedia,
+  saveVersioned,
+} from "../lib/project-history-db";
 
 /**
  * Cloud projects for the web editor (app.capturecat.so/editor).
@@ -88,10 +107,19 @@ import {
  * editor renders 1:1 from, so its per-file ceiling is the per-kind one in
  * lib/cloud-projects.ts (video: the 5 GiB single-PUT limit), not the plan's
  * share-upload cap (sized for exported mp4s). The total quota still binds.
+ *
+ * History (migration 0027, docs/project-history.md): every save also extends
+ * or opens a VERSION (gzipped snapshot + the media manifest it was saved
+ * against) in the same D1 batch as the revision CAS — see
+ * lib/project-history{,-db}.ts and routes/cloud-project-history.ts. Versions
+ * pin their media: an object a version names is never garbage-collected and
+ * never counted as credit for a replacement, and pinned media still counts
+ * against the owner's storage (owner decision 3). Version documents do not
+ * count; they are bounded per project instead.
  */
 export const cloudProjectRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-type Ctx = Context<{ Bindings: Env; Variables: Variables }>;
+export type Ctx = Context<{ Bindings: Env; Variables: Variables }>;
 
 const BUCKET = "capturecat";
 
@@ -109,11 +137,11 @@ const nowIso = () => new Date().toISOString();
 // Per-uid write limits (D1 fixed window). One sync is ~3 calls (stage,
 // finalize, save); the web's autosave is debounced, so 120 saves/min is
 // headroom rather than a target.
-const syncLimit = userRateLimit({ limit: 30, windowSec: 60, scope: "cloud-sync" });
-const saveLimit = userRateLimit({ limit: 120, windowSec: 60, scope: "cloud-save" });
+export const syncLimit = userRateLimit({ limit: 30, windowSec: 60, scope: "cloud-sync" });
+export const saveLimit = userRateLimit({ limit: 120, windowSec: 60, scope: "cloud-save" });
 
 /** Resolve :id and the row, enforcing read access. */
-async function loadForRead(c: Ctx): Promise<
+export async function loadForRead(c: Ctx): Promise<
   { ok: true; project: CloudProjectRow; access: "owner" | "member" } | { ok: false; res: Response }
 > {
   const id = normalizeProjectId(c.req.param("id"));
@@ -131,18 +159,23 @@ async function ownerHasTeams(env: Env, ownerUid: string): Promise<boolean> {
 }
 
 /** Bytes of this project's ready objects that the COMMITTED file set
- *  references but `wantedShas` drops — the only bytes a replacement may be
- *  accepted on credit for, because only they are garbage-collected by the
- *  commit. Uncommitted leftovers (a finalize that stopped short) are never
- *  credit: they still count, so they cannot be traded twice. */
-function creditBytes(
-  objects: Array<{ sha256: string; bytes: number; status: string }>,
-  committedShas: Set<string>,
-  wantedShas: Set<string>,
-): number {
-  return objects
-    .filter((o) => o.status === "ready" && committedShas.has(o.sha256) && !wantedShas.has(o.sha256))
-    .reduce((sum, o) => sum + o.bytes, 0);
+ *  references, `wantedShas` drops, and no version pins — the only bytes a
+ *  replacement may be accepted on credit for, because only they are
+ *  garbage-collected by the commit (releasableObjects). Uncommitted
+ *  leftovers (a finalize that stopped short) are never credit: they still
+ *  count, so they cannot be traded twice. Pinned media is never credit
+ *  either: history keeps it, and it keeps counting (owner decision 3). */
+async function creditBytes(env: Env, projectId: string, wantedShas: Set<string>): Promise<number> {
+  return (await releasableObjects(env.DB, projectId, wantedShas)).reduce((sum, o) => sum + o.bytes, 0);
+}
+
+/** The OWNER's plan — what governs the owner's storage, history retention
+ *  and named-version cap, whoever (owner or member) is acting. Needs
+ *  requireEntitlement upstream for the owner's own request. */
+export async function ownerPlan(c: Ctx, project: CloudProjectRow, access: "owner" | "member"): Promise<PlanRecord> {
+  return access === "owner" && c.get("entitlement")
+    ? planForEntitlement(c.env.DB, c.get("entitlement"))
+    : planForUser(c.env, project.ownerUid);
 }
 
 /** The plan as it applies to cloud-project MEDIA: the per-file cap lifts to
@@ -158,14 +191,14 @@ function cloudMediaPlan<P extends { limits: { maxFileSizeBytes: number } }>(plan
 
 /** Resolve :id and the row for a project.json save: the owner, or a member
  *  of the org the owner put it in. */
-async function loadForSave(c: Ctx): Promise<
+export async function loadForSave(c: Ctx): Promise<
   { ok: true; project: CloudProjectRow; access: "owner" | "member" } | { ok: false; res: Response }
 > {
   return loadForRead(c);
 }
 
 /** Resolve :id and the row, enforcing ownership. */
-async function loadForWrite(c: Ctx): Promise<{ ok: true; project: CloudProjectRow } | { ok: false; res: Response }> {
+export async function loadForWrite(c: Ctx): Promise<{ ok: true; project: CloudProjectRow } | { ok: false; res: Response }> {
   const read = await loadForRead(c);
   if (!read.ok) return read;
   if (read.access !== "owner") {
@@ -177,7 +210,10 @@ async function loadForWrite(c: Ctx): Promise<{ ok: true; project: CloudProjectRo
   return { ok: true, project: read.project };
 }
 
-async function presignFiles(env: Env, files: CloudFileRow[]) {
+export async function presignFiles(
+  env: Env,
+  files: Array<Pick<CloudFileRow, "path" | "sha256" | "bytes" | "contentType" | "source" | "r2Key">>,
+) {
   const creds = r2Creds(env);
   return Promise.all(
     files.map(async (f) => ({
@@ -213,13 +249,14 @@ function projectSummary(p: CloudProjectRow, uid: string) {
 
 /** The current document text, tolerating the few-millisecond window where a
  *  concurrent save swapped the row and deleted the object we were about to
- *  read (one re-read of the row). */
-async function readDocument(env: Env, project: CloudProjectRow): Promise<{ project: CloudProjectRow; text: string | null }> {
+ *  read (one re-read of the row). Snapshots written since 0027 are gzipped
+ *  (`customMetadata.enc`); older objects are read raw. */
+export async function readDocument(env: Env, project: CloudProjectRow): Promise<{ project: CloudProjectRow; text: string | null }> {
   let current = project;
   for (let attempt = 0; attempt < 2; attempt++) {
     if (!current.docR2Key || current.revision === 0) return { project: current, text: null };
-    const obj = await env.R2.get(current.docR2Key);
-    if (obj) return { project: current, text: await obj.text() };
+    const text = await readStoredDocument(env.R2, current.docR2Key);
+    if (text !== null) return { project: current, text };
     const fresh = await getCloudProject(env.DB, current.id);
     if (!fresh) return { project: current, text: null };
     current = fresh;
@@ -298,7 +335,6 @@ cloudProjectRoutes.put("/cloud-projects/:id", requireAuth, requireEntitlement(),
   if (!gate.ok) return c.json(gate.body, gate.status);
 
   const objects = existing ? await listCloudObjects(c.env.DB, id) : [];
-  const committedShas = new Set(existing ? (await listCloudFiles(c.env.DB, id)).map((f) => f.sha256) : []);
   const readyShas = new Set(objects.filter((o) => o.status === "ready").map((o) => o.sha256));
   const wanted = distinctObjects(body.files);
   const wantedShas = new Set(wanted.map((o) => o.sha256));
@@ -326,9 +362,10 @@ cloudProjectRoutes.put("/cloud-projects/:id", requireAuth, requireEntitlement(),
 
   // Quota at presign time (advisory — /finalize decides atomically on the
   // verified bytes). Outstanding presigns count as used; this project's
-  // committed objects that the new manifest drops count as freed.
+  // committed objects that the new manifest drops — and no version pins —
+  // count as freed.
   const used = await storageUsageBytes(c.env.DB, uid);
-  const credit = creditBytes(objects, committedShas, wantedShas);
+  const credit = existing ? await creditBytes(c.env, id, wantedShas) : 0;
   let running = used + elsewhere.bytes - credit;
   const mediaPlan = cloudMediaPlan(plan);
   for (const obj of missing) {
@@ -425,8 +462,9 @@ cloudProjectRoutes.post("/cloud-projects/:id/finalize", requireAuth, requireEnti
   const bySha = new Map(objects.map((o) => [o.sha256, o]));
 
   const plan: PlanRecord = await planForEntitlement(c.env.DB, c.get("entitlement"));
-  const committedShas = new Set((await listCloudFiles(c.env.DB, project.id)).map((f) => f.sha256));
-  const credit = creditBytes(objects, committedShas, wantedShas);
+  // Re-evaluated atomically at commit (commitCloudFiles' claim), where a pin
+  // that appeared since — a save in between — is accounted for.
+  const credit = await creditBytes(c.env, project.id, wantedShas);
 
   const notUploaded: Array<{ sha256: string; paths: string[] }> = [];
   let verifiedBytes = 0;
@@ -541,8 +579,11 @@ cloudProjectRoutes.post("/cloud-projects/:id/finalize", requireAuth, requireEnti
   }
 
   // Garbage-collect objects the committed set no longer references (and
-  // pending ones the new manifest dropped). Re-read the staged manifest: a
-  // restage that landed after the commit may point at an old object again.
+  // pending ones the new manifest dropped) — except what a version pins
+  // (deleteObjectIfUnreferenced re-checks that atomically): history keeps
+  // the media its documents were saved against. Re-read the staged manifest:
+  // a restage that landed after the commit may point at an old object again.
+  await deleteOrphanManifests(c.env.DB, project.id);
   const after = await getCloudProject(c.env.DB, project.id);
   const restaged = new Set<string>(
     after?.stagedManifest
@@ -631,31 +672,14 @@ cloudProjectRoutes.put("/cloud-projects/:id/project", requireAuth, requireEntitl
   const check = checkProjectDocument(text, bytes.byteLength, project.id);
   if (!check.ok) return c.json(check.body, check.status);
 
-  const conflict = async (current: CloudProjectRow) => {
-    const { project: fresh, text: currentText } = await readDocument(c.env, current);
-    c.header("ETag", `"${fresh.revision}"`);
-    return c.json(
-      {
-        error: "This project changed since your copy was loaded",
-        code: "revision_conflict",
-        revision: fresh.revision,
-        documentSha256: fresh.docSha256,
-        updatedAt: fresh.updatedAt,
-        document: currentText,
-      },
-      409,
-    );
-  };
-  if (baseRevision !== project.revision) return conflict(project);
+  if (baseRevision !== project.revision) return revisionConflict(c, project);
 
   // A document that GROWS is new storage: plan gate + quota (decided again
   // atomically in the swap). One that shrinks or holds size is always
   // accepted, so an over-quota or downgraded account can still save edits.
   // The owner's plan governs the owner's storage — a member's own plan is
   // irrelevant to how much the owner may store.
-  const plan = loaded.access === "owner"
-    ? await planForEntitlement(c.env.DB, c.get("entitlement"))
-    : await planForUser(c.env, project.ownerUid);
+  const plan = await ownerPlan(c, project, loaded.access);
   const growth = bytes.byteLength - project.docBytes;
   if (growth > 0) {
     const used = await storageUsageBytes(c.env.DB, uid);
@@ -663,36 +687,81 @@ cloudProjectRoutes.put("/cloud-projects/:id/project", requireAuth, requireEntitl
     if (!verdict.ok) return c.json(verdict.body, verdict.status);
   }
 
+  // History: extend the head version or open a new one (coalescing rules in
+  // lib/project-history.ts). The X-CC-* headers are optional — an old client
+  // sends none and its saves still version (per actor, no client id).
+  const actorUid = c.get("user").uid;
+  const headers = parseSaveHeaders((name) => c.req.header(name));
+  const nowMs = Date.now();
+  const now = new Date(nowMs).toISOString();
+  // A project whose media was committed before 0027 has no manifest yet:
+  // record it so this save's version (and a backfilled one) pins that media.
+  const manifestSha = await ensureCurrentManifest(c.env.DB, project, now);
+  const head = project.headVersionId ? await getVersion(c.env.DB, project.id, project.headVersionId) : null;
+  const forceNew = checkpointHonoured(headers, project.lastCheckpointAt, nowMs);
+  const extend =
+    head !== null &&
+    head.revision === project.revision &&
+    shouldExtend(head, { actorUid, clientId: headers.clientId, source: headers.source }, nowMs, forceNew);
+
   const newRevision = project.revision + 1;
   const key = documentKey(uid, project.id, newRevision, generateId(12));
   const sha = await sha256Hex(bytes);
-  // Write the new revision's object FIRST, then swap the row. A lost race or
-  // refusal leaves only an orphan object (deleted below), never a row
-  // pointing at a torn document.
-  await c.env.R2.put(key, bytes, { httpMetadata: { contentType: "application/json" } });
-  const swapped = await swapCloudDocument(c.env.DB, {
-    uid,
-    actorUid: c.get("user").uid,
-    projectId: project.id,
-    expectedRevision: project.revision,
-    newRevision,
-    r2Key: key,
-    bytes: bytes.byteLength,
-    sha256: sha,
-    name: check.name,
-    growthBytes: growth,
-    limitBytes: plan.limits.maxTotalStorageBytes,
-    now: nowIso(),
+  // Write the new revision's object FIRST (gzipped — it is also the
+  // version's snapshot), then swap the row. A lost race or refusal leaves
+  // only an orphan object (deleted below), never a row pointing at a torn
+  // document — and, the version statements being guarded on the swap, never
+  // a version row either.
+  const storedBytes = await putDocumentSnapshot(c.env.R2, key, bytes);
+  const result = await saveVersioned(c.env.DB, {
+    swap: {
+      uid,
+      actorUid,
+      projectId: project.id,
+      expectedRevision: project.revision,
+      newRevision,
+      r2Key: key,
+      bytes: bytes.byteLength,
+      sha256: sha,
+      name: check.name,
+      growthBytes: growth,
+      limitBytes: plan.limits.maxTotalStorageBytes,
+      now,
+    },
+    storedBytes,
+    version: {
+      newId: generateId(16),
+      extendId: extend ? head.id : null,
+      kind: newVersionKind(project.revision, headers),
+      clientKind: headers.clientKind,
+      clientId: headers.clientId,
+      source: headers.source,
+      extendedChangeJSON: extend ? versionChangeJSON(head.changeJSON, headers.change, true) : null,
+      ownChangeJSON: versionChangeJSON(null, headers.change, false),
+      restoredFrom: null,
+      mergedFromRevision: headers.mergedFrom,
+      checkpointHonoured: forceNew,
+    },
+    backfill: legacyBackfill(project),
   });
-  if (!swapped) {
+  if (!result.swapped) {
     // Our key is unique to this attempt, so nothing else can point at it.
     await c.env.R2.delete(key);
     const fresh = await getCloudProject(c.env.DB, project.id);
-    if (fresh && fresh.revision !== project.revision) return conflict(fresh);
+    if (fresh && fresh.revision !== project.revision) return revisionConflict(c, fresh);
     const used = await storageUsageBytes(c.env.DB, uid);
     return c.json(storageDeniedBody(plan, used), 413);
   }
-  if (project.docR2Key && project.docR2Key !== key) await c.env.R2.delete(project.docR2Key);
+
+  // The previous document stays as its version's snapshot — unless this save
+  // extended that version, which then names the new object instead.
+  if (project.docR2Key && project.docR2Key !== key) {
+    await deleteDocumentIfUnreferenced(c.env, project.id, project.docR2Key);
+  }
+  await historyHousekeeping(c.env, project.id, plan, nowMs, {
+    opened: result.version !== null && !result.version.extended,
+    manifestMoved: extend && head.manifestSha !== manifestSha,
+  });
 
   const saved = await getCloudProject(c.env.DB, project.id);
   c.header("ETag", `"${newRevision}"`);
@@ -700,9 +769,67 @@ cloudProjectRoutes.put("/cloud-projects/:id/project", requireAuth, requireEntitl
     projectId: project.id,
     revision: newRevision,
     documentSha256: sha,
-    updatedAt: saved?.updatedAt ?? nowIso(),
+    updatedAt: saved?.updatedAt ?? now,
+    version: result.version,
   });
 });
+
+/** 409 with the current revision and document (the client rebases or merges). */
+export async function revisionConflict(c: Ctx, current: CloudProjectRow) {
+  const { project: fresh, text: currentText } = await readDocument(c.env, current);
+  c.header("ETag", `"${fresh.revision}"`);
+  return c.json(
+    {
+      error: "This project changed since your copy was loaded",
+      code: "revision_conflict",
+      revision: fresh.revision,
+      documentSha256: fresh.docSha256,
+      updatedAt: fresh.updatedAt,
+      headVersionId: fresh.headVersionId,
+      document: currentText,
+    },
+    409,
+  );
+}
+
+/** A project saved before 0027 has no version for its current document; the
+ *  next save records it (its `upload` version) in the same batch. */
+export function legacyBackfill(project: CloudProjectRow) {
+  if (project.headVersionId || project.revision === 0 || !project.docR2Key || !project.docSha256) return null;
+  return {
+    id: generateId(16),
+    revision: project.revision,
+    r2Key: project.docR2Key,
+    bytes: project.docBytes,
+    sha256: project.docSha256,
+    at: project.updatedAt,
+    actorUid: project.updatedBy,
+  };
+}
+
+/**
+ * After a save that landed: a NEW version may push the project past its
+ * retention (the owner's plan; at most PRUNE_PER_SAVE here, the hourly sweep
+ * does the rest); an EXTENDED version that moved to a new manifest may have
+ * orphaned the old one and the media only it pinned. Never fails the save.
+ */
+export async function historyHousekeeping(
+  env: Env,
+  projectId: string,
+  plan: PlanRecord,
+  nowMs: number,
+  what: { opened: boolean; manifestMoved: boolean },
+): Promise<void> {
+  try {
+    if (what.opened) await pruneProjectHistory(env, projectId, plan.limits, nowMs, PRUNE_PER_SAVE);
+    if (what.manifestMoved) {
+      await deleteOrphanManifests(env.DB, projectId);
+      await releaseUnpinnedMedia(env, projectId);
+    }
+  } catch (err) {
+    console.error(`cloud project ${projectId}: history housekeeping failed`, err);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // DELETE /cloud-projects/:id
@@ -714,7 +841,14 @@ cloudProjectRoutes.delete("/cloud-projects/:id", requireAuth, syncLimit, async (
   const project = loaded.project;
   const objects = await listCloudObjects(c.env.DB, project.id);
   const keys = objects.map((o) => o.r2Key);
-  if (project.docR2Key) keys.push(project.docR2Key);
+  // Every version's snapshot too (the head's is the current document).
+  const snapshots = await c.env.DB
+    .prepare(`SELECT doc_r2_key FROM cloud_project_versions WHERE project_id = ?`)
+    .bind(project.id)
+    .all<{ doc_r2_key: string }>();
+  for (const key of new Set([project.docR2Key, ...(snapshots.results ?? []).map((r) => r.doc_r2_key)])) {
+    if (key) keys.push(key);
+  }
   // R2's batch delete takes up to 1000 keys per call.
   for (let i = 0; i < keys.length; i += 1000) {
     await c.env.R2.delete(keys.slice(i, i + 1000));

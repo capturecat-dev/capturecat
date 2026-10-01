@@ -1,8 +1,9 @@
 # Project history — merge, change-set and wire contract
 
 Status: Phase 0 (contract + fixtures) and Phase 2 (pure merge core in TS and
-Swift) landed 2026-09-30. The API (1A/1B), web UI (3A), Mac sync (3B) and Mac
-History UI (3C) build on this document.
+Swift) landed 2026-09-30; the API (1A storage + 1B routes, §6) on
+2026-10-01. The web UI (3A), Mac sync (3B) and Mac History UI (3C) build on
+this document.
 
 | Piece | TypeScript (`apps/web/src/editor/core/merge/`) | Swift (`apps/macos/CaptureCat/Services/ProjectHistory/`) |
 |---|---|---|
@@ -267,10 +268,12 @@ Value: base64url (no padding) of the change-set's canonical JSON, at most
 every settings tab collapses to `["*"]`; if it still does not fit, send no
 header. `decodeChangeHeader` validates (`v` = 1, string lists, non-negative
 safe-integer counts), ignores unknown keys, normalizes (sorts, dedupes) and
-returns null on anything malformed. The API may import
-`jsonMerge.ts` + `policy.ts` + `projectDiff.ts` (no model dependency) or copy
-them; `golden/mergePolicy.json` has compose / header / decode vectors to test
-a copy against.
+returns null on anything malformed. The API COPIES the parts it needs
+(canonical JSON, compose, `changeSetJSON`, the header codec) into
+`apps/api/src/lib/project-history.ts` — it cannot import web code — and
+`project-history.test.ts` pins the copy to `golden/mergePolicy.json`'s
+number / string / json / compose / header / decode vectors. Change the web
+core first, regenerate the golden, then the copy.
 
 ## 5. Change summary
 
@@ -295,33 +298,108 @@ joined with " · " (U+00B7). Fixed phrase order:
 Empty → "No changes". `maxParts > 0` keeps the first `maxParts` phrases and
 appends "+N more". Example: "Zoom added · Background changed · 3 captions edited".
 
-## 6. Wire contract (Phase 1A/1B own the server side)
+## 6. Wire contract (Phase 1A/1B — implemented 2026-10-01)
+
+Server: `apps/api/src/lib/project-history.ts` (pure rules + the change-set
+copy, pinned to `golden/mergePolicy.json`), `lib/project-history-db.ts`,
+`routes/cloud-project-history.ts`, the save in `routes/cloud-projects.ts`,
+migration `0027_project_history.sql`. All paths below are under `/api`.
 
 `PUT /cloud-projects/:id/project` gains optional request headers; old clients
-send none and keep working:
+send none and keep working (the API's CORS preflight allows all six):
 
 | Header | Value | Meaning |
 |---|---|---|
 | `X-CC-Client` | `mac` \| `web` | stored as `client_kind`; anything else → `unknown` |
-| `X-CC-Client-Id` | opaque install/browser id, ≤ 64 chars `[A-Za-z0-9_-]` | coalescing key |
-| `X-CC-Source` | `human` \| `agent` \| `mixed` | Mac: `agent` when the `.mcp-history` postSHA256 chain covers base→current exactly, else `mixed`; web: from the undo entries' `source` |
-| `X-CC-Change` | §4.1 | base → new change-set; malformed → ignored (the save still succeeds) |
-| `X-CC-Checkpoint` | `merge` \| `restore` \| `push` \| `upload` \| `named` | force a NEW version; honoured at most once per minute per project |
-| `X-CC-Merged-From` | integer revision | the server revision (theirs) this save merged; version kind `merge` |
+| `X-CC-Client-Id` | opaque install/browser id, ≤ 64 chars `[A-Za-z0-9_-]` | coalescing key; anything else → none |
+| `X-CC-Source` | `human` \| `agent` \| `mixed` | Mac: `agent` when the `.mcp-history` postSHA256 chain covers base→current exactly, else `mixed`; web: from the undo entries' `source`. Missing/other → `human` |
+| `X-CC-Change` | §4.1 | base → new change-set; malformed or > 8192 chars → ignored (the save still succeeds) |
+| `X-CC-Checkpoint` | `merge` \| `restore` \| `push` \| `upload` \| `named` | force a NEW version; see the throttle below |
+| `X-CC-Merged-From` | integer revision | the server revision (theirs) this save merged; recorded as `mergedFromRevision`; version kind `merge` |
 
-Response adds `version: { id, seq, extended }`.
+Response (200) adds `version: { id, seq, extended }` to the existing
+`{ projectId, revision, documentSha256, updatedAt }`. `extended: true` = the
+save extended the head version (same `id`/`seq` as before). A 409
+`revision_conflict` body also carries `headVersionId`.
 
-Coalescing: a save EXTENDS the head version when all hold — same
-`actor_uid` + `client_id` + `source`; head unnamed and of kind `edit`; head
-opened < 10 min ago and updated < 3 min ago; no `X-CC-Checkpoint`. Otherwise
-it opens a new version. Mac push, merge, restore and first upload always open
-a new version. An extended version's `change_json` =
-`composeChangeSets(head.change_json, X-CC-Change)` (canonical JSON, ≤ 32 KB).
+**Coalescing.** A save EXTENDS the head version when all hold — same
+`actor_uid` + `client_id` + `source` (a missing client id matches a missing
+one, so an old client still coalesces per actor); head unnamed and of kind
+`edit`; head opened < 10 min ago and updated < 3 min ago; no HONOURED
+checkpoint. Otherwise it opens a new version. A named head is never extended
+(naming the head = the next save opens a version).
 
-Routes (design §4): `GET …/:id/head`, `GET …/:id/versions?before=&limit=50`,
-`GET …/:id/versions/:vid`, `GET …/:id/revisions/:rev/document`,
-`PATCH …/versions/:vid {label}`, `POST …/versions/:vid/restore` (+ If-Match),
-`DELETE …/versions/:vid` (owner only).
+**Checkpoint throttle.** `X-CC-Checkpoint` and `X-CC-Merged-From` are both
+checkpoint requests. At most one per project per 60 s is honoured (forces a
+new version); a throttled one is an ordinary save (it may coalesce). The
+first save of a project and a server-side restore always open a version.
+
+**Kind of a NEW version:** first save → `upload`; `X-CC-Merged-From` present
+or `X-CC-Checkpoint: merge` → `merge`; `restore` → `restore`; `upload` →
+`upload`; everything else (incl. `push`, `named`) → `edit`. An extended
+version keeps its kind (`edit`).
+
+**`change` of a version** (the canonical change-set from the previous
+version, ≤ 32 KB, degraded like the header when larger): a new version
+stores the save's `X-CC-Change`; an extended one stores
+`composeChangeSets(head.change, X-CC-Change)`. If EITHER side is missing the
+result is `null` (unknown) — a gap cannot be composed honestly. Clients show
+`null` as a generic "Edited".
+
+**Storage.** Each version owns a full gzipped snapshot in R2
+(`customMetadata.enc = "gzip"`; documents saved before 0027 are read raw).
+Document bytes returned by every route are byte-exact. Version documents do
+NOT count toward storage; they are bounded per project by 1000 versions and
+256 MB of snapshots (oldest unnamed evicted first).
+
+**Media pinning (client-visible).** Every version pins the media manifest it
+was saved against — the HEAD too. Pinned media is never garbage-collected
+and never counts as credit for a replacement, and it keeps counting toward
+the owner's storage. Consequence for the Mac sync: replacing a recording
+while at the storage cap is now refused (413 `storage_limit_reached` at
+stage/finalize) unless the old recording is unpinned (no version names it),
+the account has room for both, or history is freed first. The commit-time
+quota check (finalize's claim) accounts for pins, so a replacement accepted
+on credit cannot be committed past the cap by a save that pins the old object
+in between.
+
+**Retention** (the OWNER's current plan; `plan.limits.maxHistoryDays` /
+`maxNamedVersions`, missing = 0): Pro 30 days / 25 named, Business 365 / 500,
+Free 0 / 0 (only the head is kept). Unnamed versions older than the window
+are pruned; the newest `maxNamedVersions` named versions are exempt from the
+window (older named ones beyond the cap are not — a downgrade trims them).
+The head is never pruned. A save that opens a version prunes at most 5
+inline; the hourly cron sweep does the rest.
+
+### 6.1 Routes
+
+Access: OWNER = everything. Org MEMBER (owner's plan has `teams`, as for
+`GET /cloud-projects/:id`) = read, name, restore. Non-member → 404; blocked
+account → 403; no session → 401. Retention, the named cap and every byte are
+the OWNER's plan's, whoever acts. A version object (`V`) is:
+
+```jsonc
+{ "id": "a1b2…", "seq": 7, "kind": "edit", "label": null,
+  "namedBy": { "uid": "…", "name": "Ana" } | null, "namedAt": "…" | null,
+  "actor": { "uid": "…", "name": "Ana" } | null,
+  "client": "web" | "mac" | "unknown", "source": "human" | "agent" | "mixed",
+  "firstRevision": 12, "revision": 15, "documentBytes": 48213, "documentSha256": "…",
+  "change": { …change-set… } | null, "restoredFrom": "<vid>" | null,
+  "mergedFromRevision": 14 | null, "openedAt": "…", "updatedAt": "…", "isHead": false }
+```
+
+| Route | Who | Response / errors |
+|---|---|---|
+| `GET /cloud-projects/:id/head` | read | `{ projectId, revision, documentSha256, updatedAt, updatedBy, headVersionId }` (cheap poll; `headVersionId` null until the project's first save/history read after 0027) |
+| `GET /cloud-projects/:id/versions?before=<seq>&limit=50` | read | `{ projectId, revision, headVersionId, access, versions: V[] (newest first), nextBefore: seq \| null, retention: { maxHistoryDays, maxNamedVersions, namedCount }, pinnedMediaBytes, freeableBytes }`. `limit` 1–200. Lazily creates the `upload` version of a project last saved before 0027. `pinnedMediaBytes` = media the committed set dropped that history still keeps (counts toward storage); `freeableBytes` = the part Free up would release |
+| `GET /cloud-projects/:id/versions/:vid` | read | `{ projectId, version: V, document, files: [{ path, sha256, bytes, contentType, source, url }], missingPaths, urlsExpireAt }` — media resolved through THAT version's manifest (presigned like `GET /cloud-projects/:id`). 400 bad id, 404 `version_not_found`, 410 `version_document_missing` |
+| `GET /cloud-projects/:id/revisions/:rev/document` | read | `{ projectId, revision, versionId, documentSha256, document }` when some version holds `rev` (or it is the current revision). 404 `revision_not_retained` otherwise — an extended version keeps only its latest revision |
+| `PATCH /cloud-projects/:id/versions/:vid` `{ "label": string \| null }` | read + save (member OK) | `{ projectId, version: V }`. Trimmed, ≤ 100 chars, no control chars (400 `invalid_label`); `null`/`""` un-names. 402 `named_version_limit` `{ limit }` when the owner's plan cap is reached (renaming a named version is free) |
+| `POST /cloud-projects/:id/versions/:vid/restore` + `If-Match: "<current revision>"` (+ optional `X-CC-Client`/`-Id`/`-Source`) | read + save (member OK) | `{ projectId, revision, documentSha256, updatedAt, restoredFrom, version: { id, seq, extended: false }, fileCount }`. Saves the version's document as a NEW revision + `restore` version, and re-commits its media paths into the current file set (version paths win, current ones stay). No quota effect. 428 `revision_required`; 409 `revision_conflict` (same body as the save's); 409 `files_changed` (a media commit raced — retry); 409 `version_media_missing`; 410 `version_document_missing` |
+| `DELETE /cloud-projects/:id/versions/:vid` | owner | `{ projectId, deleted: true, versionId, releasedBytes }`. 409 `head_version` (never the head); 403 `not_owner` |
+| `POST /cloud-projects/:id/history/free-up` | owner | Deletes every UNNAMED, non-head version that pins media the committed set dropped. `{ projectId, deletedVersions: [vid], releasedBytes, pinnedMediaBytes, freeableBytes }` |
+
+`DELETE /cloud-projects/:id` also deletes every version snapshot.
 
 ## 7. Merge bases (Phase 3)
 
@@ -358,3 +436,16 @@ Routes (design §4): `GET …/:id/head`, `GET …/:id/versions?before=&limit=50`
 - Fixtures are authored by `apps/web/scripts/merge-fixtures.mjs`; edit a
   scenario there, regenerate the fixtures, then the golden. Never hand-edit
   golden files.
+- `cd apps/api && npx vitest run` — `src/lib/project-history.test.ts`
+  (golden parity of the API's change-set copy; coalescing, checkpoint
+  throttle, kinds, change_json composition and cap, retention per plan incl.
+  the 1000-version / 256 MB caps and downgrades, gzip byte-exactness) and
+  `src/routes/cloud-project-history.test.ts` (real router + SQL: coalesce vs
+  new version, a lost CAS writes no version, dropped media stays presignable
+  from old versions, credit excludes pinned bytes, the pin-aware commit
+  claim, non-growing saves over quota, retention on save and sweep,
+  downgrade trims, the owner/member/non-member/blocked matrix on every
+  route, restore, gzip + pre-0027 raw documents, lazy backfill, migration
+  0027 over live 0026 data). Proven by injecting defects: an un-pinned GC
+  check fails 6 cases; the pre-history commit claim fails the EXPLOIT case;
+  a wrong compose rule fails the golden case.
