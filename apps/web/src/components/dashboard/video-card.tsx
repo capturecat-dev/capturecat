@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ComponentProps, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   AppWindowMac,
@@ -30,9 +30,43 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Spinner } from "@/components/ui/spinner";
+import { LiveDot, Meter } from "@/components/dashboard/studio";
 import type { DashboardVideo, Playlist } from "./video-types";
 import { formatDate, formatDuration, formatSize } from "./video-format";
+
+/** Public / Private, one look everywhere: smoked glass (legible on any
+ *  still), cyan when anyone with the link can watch. */
+export function VisibilityBadge({
+  isPrivate,
+  className,
+  ...rest
+}: { isPrivate: boolean } & Omit<ComponentProps<typeof Badge>, "variant" | "children">) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "gap-1 text-[11px] backdrop-blur-md",
+        isPrivate
+          ? "border-white/12 bg-black/55 text-white/75"
+          : "border-cyan-300/30 bg-black/55 text-cyan-200",
+        className,
+      )}
+      {...rest}
+    >
+      {isPrivate ? (
+        <>
+          <Lock className="size-3" />
+          Private
+        </>
+      ) : (
+        <>
+          <Globe className="size-3" />
+          Public
+        </>
+      )}
+    </Badge>
+  );
+}
 
 /**
  * One video in the library grid. The thumbnail is the video itself at
@@ -52,6 +86,7 @@ export function VideoCard({
   onGenerateAi,
   onTogglePlaylist,
   aiPending,
+  index = 0,
 }: {
   video: DashboardVideo;
   playlists: Playlist[];
@@ -64,6 +99,8 @@ export function VideoCard({
   onGenerateAi: () => void;
   onTogglePlaylist: (playlistId: string, inPlaylist: boolean) => void;
   aiPending: boolean;
+  /** Position in the grid — staggers the arrival. */
+  index?: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -90,11 +127,12 @@ export function VideoCard({
   return (
     <div
       className={cn(
-        "group glass-panel hairline-top relative overflow-hidden transition-colors",
+        "group glass-panel hairline-top dsh-card dsh-rise relative overflow-hidden",
         selected
-          ? "border-primary/60 bg-white/[0.07]"
+          ? "border-cyan-300/50 bg-white/[0.07] shadow-[0_0_0_1px_rgba(103,232,249,0.25)]"
           : "hover:border-white/16 hover:bg-white/[0.06]"
       )}
+      style={{ "--i": Math.min(index, 11) } as CSSProperties}
     >
       {/* Thumbnail */}
       <Link
@@ -124,19 +162,33 @@ export function VideoCard({
           loop
           playsInline
           className={cn(
-            "h-full w-full object-cover transition-transform duration-500",
-            previewing && "scale-[1.03]"
+            "dsh-thumb-media h-full w-full object-cover",
+            previewing && "scale-[1.035]"
           )}
         />
-        <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-white/90 backdrop-blur-sm">
+        <span aria-hidden className="dsh-thumb-shade" />
+        <span className="absolute bottom-2 right-2 rounded-md border border-white/10 bg-black/60 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-white/90 backdrop-blur-sm">
           {formatDuration(video.durationSeconds)}
         </span>
         {video.hasPassword && (
-          <span className="absolute bottom-2 left-2 rounded-md bg-black/70 p-1 text-white/80 backdrop-blur-sm">
+          <span className="absolute bottom-2 left-2 rounded-md border border-white/10 bg-black/60 p-1 text-white/80 backdrop-blur-sm">
             <Lock className="size-3" />
           </span>
         )}
+        {previewing && (
+          <span className="dsh-pop absolute bottom-2 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-white/85 backdrop-blur-sm">
+            <LiveDot tone="green" className="size-1.5" /> Preview
+          </span>
+        )}
       </Link>
+
+      {/* Visibility — on the still, top-right; click to flip. */}
+      <VisibilityBadge
+        isPrivate={video.isPrivate}
+        className="absolute right-2 top-2 z-10 cursor-pointer select-none"
+        onClick={() => onTogglePrivacy(!video.isPrivate)}
+        title={video.isPrivate ? "Private — click to publish" : "Public — click to make private"}
+      />
 
       {/* Selection checkbox — appears on hover or while a selection exists. */}
       <button
@@ -145,7 +197,7 @@ export function VideoCard({
         className={cn(
           "absolute left-2 top-2 z-10 flex size-6 items-center justify-center rounded-md border backdrop-blur-md transition-opacity",
           selected
-            ? "border-primary bg-primary text-primary-foreground opacity-100"
+            ? "border-cyan-300 bg-cyan-300 text-black opacity-100"
             : "border-white/30 bg-black/50 text-transparent opacity-0 hover:text-white/60 group-hover:opacity-100",
           selectionActive && "opacity-100"
         )}
@@ -154,39 +206,26 @@ export function VideoCard({
       </button>
 
       {/* Meta row */}
-      <div className="flex items-start gap-2 p-3">
+      <div className="flex items-start gap-2 px-3.5 pb-3 pt-3">
         <div className="min-w-0 flex-1">
           <Link
             to="/app/videos/$videoId"
             params={{ videoId: video.videoId }}
-            className="block truncate text-sm font-medium transition-colors hover:text-primary"
+            className="block truncate text-sm font-medium tracking-[-0.005em] transition-colors hover:text-cyan-200"
             title={video.fileName}
           >
             {video.fileName}
           </Link>
-          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>{formatDate(video.createdAt)}</span>
-            <span aria-hidden>·</span>
-            <span>{formatSize(video.fileSizeBytes)}</span>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {formatDate(video.createdAt)}
+            <span aria-hidden> · </span>
+            <span className="tabular-nums">{formatSize(video.fileSizeBytes)}</span>
           </p>
         </div>
 
-        <Badge
-          variant={video.isPrivate ? "secondary" : "default"}
-          className="mt-0.5 shrink-0 cursor-pointer select-none text-[11px]"
-          onClick={() => onTogglePrivacy(!video.isPrivate)}
-          title={video.isPrivate ? "Private — click to publish" : "Public — click to make private"}
-        >
-          {video.isPrivate ? (
-            <><Lock className="mr-1 size-3" />Private</>
-          ) : (
-            <><Globe className="mr-1 size-3" />Public</>
-          )}
-        </Badge>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-7 shrink-0">
+            <Button variant="ghost" size="icon" className="-mr-1.5 size-7 shrink-0 text-muted-foreground hover:text-foreground">
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -289,17 +328,16 @@ export function UploadingCard({
 }) {
   const percent = Math.round(progress * 100);
   return (
-    <div className="glass-panel hairline-top overflow-hidden">
-      <div className="relative flex aspect-video w-full items-center justify-center rounded-t-[inherit] bg-black/60">
-        <Spinner className="size-6 text-muted-foreground" />
-        <div className="absolute inset-x-4 bottom-3 h-1 overflow-hidden rounded-full bg-white/10">
-          <div
-            className="h-full rounded-full bg-primary transition-[width] duration-500"
-            style={{ width: `${Math.max(2, percent)}%` }}
-          />
-        </div>
+    <div className="glass-panel hairline-top dsh-pop relative overflow-hidden border-cyan-300/20">
+      <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-t-[inherit] bg-[radial-gradient(80%_70%_at_50%_40%,rgba(103,232,249,0.10),transparent_70%),rgba(0,0,0,0.6)]">
+        <span aria-hidden className="dsh-sweep" />
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-white/85 backdrop-blur-md">
+          <LiveDot />
+          {completing ? "Finishing" : "Uploading"}
+        </span>
+        <Meter value={Math.max(0.02, progress)} className="absolute inset-x-4 bottom-3 h-1" />
       </div>
-      <div className="p-3">
+      <div className="px-3.5 pb-3 pt-3">
         <p className="truncate text-sm font-medium">{name}</p>
         <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
           {completing

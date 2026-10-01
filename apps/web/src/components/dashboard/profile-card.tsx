@@ -1,11 +1,32 @@
 import { useState } from "react";
-import { SkeletonLines } from "@/components/dashboard/page-skeletons";
 import { Check, ExternalLink, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Field, Section } from "@/components/dashboard/studio";
+
+/** The form's own shape while the profile loads — the real labels over
+ *  control-sized ghosts, so the section below doesn't move when it lands. */
+function ProfileSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Field label="Username">
+        <Skeleton className="h-9 w-full rounded-full" />
+      </Field>
+      <Field label="Bio">
+        <Skeleton className="h-[62px] w-full rounded-[1.125rem]" />
+      </Field>
+      <Field label="Website">
+        <Skeleton className="h-9 w-full rounded-full" />
+      </Field>
+      <div className="flex justify-end">
+        <Skeleton className="h-8 w-28 rounded-full" />
+      </div>
+    </div>
+  );
+}
 
 /**
  * Claim a username and edit the public profile shown at capturecat.so/{username}.
@@ -41,8 +62,12 @@ export function ProfileCard() {
 
   if (isLoading) {
     return (
-      <Section title="Public profile">
-        <SkeletonLines lines={4} />
+      <Section
+        icon={<UserRound />}
+        title="Public profile"
+        description="Claim a username to get a public page listing the videos you choose to show."
+      >
+        <ProfileSkeleton />
       </Section>
     );
   }
@@ -74,15 +99,6 @@ export function ProfileCard() {
       icon={<UserRound />}
       title="Public profile"
       description="Claim a username to get a public page listing the videos you choose to show."
-      actions={
-        claimed ? (
-          <Button variant="outline" size="sm" asChild>
-            <a href={`/${claimed}`} target="_blank" rel="noreferrer">
-              View <ExternalLink data-icon="inline-end" />
-            </a>
-          </Button>
-        ) : undefined
-      }
     >
       <div className="space-y-4">
         <Field
@@ -106,7 +122,7 @@ export function ProfileCard() {
                 className="studio-input pr-9"
               />
               {availability !== null && (
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                <span key={String(availability)} className="dsh-pop pointer-events-none absolute right-3 top-[calc(50%-0.5rem)]">
                   {availability ? (
                     <Check className="size-4 text-emerald-400" />
                   ) : (
@@ -115,6 +131,15 @@ export function ProfileCard() {
                 </span>
               )}
             </div>
+            {/* The public page, beside its address (not in the heading, so
+                the heading is the same height loaded or not). */}
+            {claimed && (
+              <Button variant="outline" size="sm" className="shrink-0" asChild>
+                <a href={`/${claimed}`} target="_blank" rel="noreferrer">
+                  View <ExternalLink data-icon="inline-end" />
+                </a>
+              </Button>
+            )}
           </div>
         </Field>
 
