@@ -141,6 +141,8 @@ export interface ConflictInfo {
   /** The server's project.json, when the API returned it. */
   serverDocument: string | null;
   updatedAt: string;
+  /** The server's head version (the 409 names it) — who saved theirs. */
+  headVersionId?: string | null;
 }
 
 /** A clean 409 merge just landed ("Merged 2 changes from Ana (Web)"). */
@@ -153,6 +155,8 @@ export interface MergeNotice {
   autoResolved: number;
   /** The server revision (theirs) that was merged — who made it is History's to say. */
   serverRevision: number;
+  /** Theirs' version (from the 409), when the API named it. */
+  headVersionId: string | null;
 }
 
 /** Structural conflicts waiting in Merge Review (`sync: "review"`). */
@@ -172,6 +176,8 @@ export interface PreviewInfo {
   versionId: string;
   /** "Sep 28, 3:42 PM — Ana on Web". */
   title: string;
+  /** Media that version names which is no longer stored (it previews without them). */
+  missingPaths?: string[];
 }
 
 /** Who made a save's changes (X-CC-Source). */
@@ -216,7 +222,7 @@ export interface EditorState {
 
 export type SaveResult =
   | { ok: true; revision: number }
-  | { ok: false; conflict: true; revision: number; document: string | null; updatedAt: string };
+  | { ok: false; conflict: true; revision: number; document: string | null; updatedAt: string; headVersionId?: string | null };
 
 export interface Persistence {
   save(document: string, baseRevision: number, meta?: SaveMeta): Promise<SaveResult>;
@@ -730,7 +736,12 @@ export class EditorStore {
           this.set({ revision: result.revision, dirty: current !== project, sync: current !== project ? "saving" : "saved" });
         } else {
           giveBack();
-          this.handleConflict({ serverRevision: result.revision, serverDocument: result.document, updatedAt: result.updatedAt });
+          this.handleConflict({
+            serverRevision: result.revision,
+            serverDocument: result.document,
+            updatedAt: result.updatedAt,
+            headVersionId: result.headVersionId ?? null,
+          });
         }
       } catch {
         giveBack();
@@ -892,6 +903,7 @@ export class EditorStore {
         count: countChanges(diff(mineJSON, result.merged)),
         autoResolved: result.autoResolved.length,
         serverRevision: pending.info.serverRevision,
+        headVersionId: pending.info.headVersionId ?? null,
       },
     });
     this.setProject(merged, { selection: this.prune(merged, this.state.selection) });
@@ -944,7 +956,7 @@ export class EditorStore {
    * `exitPreview()`. Media resolves through the version's manifest (the
    * caller sets ProjectMedia's override). Throws if the text doesn't parse.
    */
-  previewVersion(opts: { versionId: string; title: string; text: string }): void {
+  previewVersion(opts: { versionId: string; title: string; text: string; missingPaths?: string[] }): void {
     const current = this.state.project;
     if (!current) throw new Error("No project is open.");
     const json = JSON.parse(opts.text) as Record<string, unknown>;
@@ -961,7 +973,7 @@ export class EditorStore {
       version: this.state.version + 1,
       selection: EMPTY_SELECTION,
       sliceArmed: false,
-      preview: { versionId: opts.versionId, title: opts.title },
+      preview: { versionId: opts.versionId, title: opts.title, ...(opts.missingPaths?.length ? { missingPaths: opts.missingPaths } : null) },
       canUndo: false,
       canRedo: false,
       undoLabel: null,

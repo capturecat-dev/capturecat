@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diff, type Json, type MergeConflict } from "../core/merge";
 import { newProject, newZoomRegion, serializeProjectText } from "../core/model";
-import { CloudApiError, type ProjectVersion, type VersionDetail, type VersionList } from "./cloud";
+import { CloudApiError, type ProjectVersion, type RestoreResult, type VersionDetail, type VersionList } from "./cloud";
 import {
   compareDocuments,
   daySections,
   describeConflict,
   formatBytes,
+  historyErrorMessage,
   HistoryController,
   mergedCalloutTitle,
   versionAuthor,
@@ -15,7 +16,7 @@ import {
   versionCaption,
   type HistoryApi,
 } from "./history";
-import { ProjectMedia } from "./projectMedia";
+import { HistoryStorageError, ProjectMedia } from "./projectMedia";
 import { EditorStore, type SaveResult } from "./store";
 
 const PID = "11111111-2222-4333-8444-555555555555";
@@ -59,6 +60,8 @@ function version(id: string, seq: number, extra: Partial<ProjectVersion> = {}): 
     openedAt: "2026-09-30T10:00:00.000Z",
     updatedAt: "2026-09-30T10:00:00.000Z",
     docBytes: 100,
+    documentSha256: null,
+    isHead: false,
     ...extra,
   };
 }
@@ -121,6 +124,11 @@ describe("history presentation", () => {
   });
 });
 
+/** A versions page with the real list's fields. */
+function page(p: Partial<VersionList> & Pick<VersionList, "versions">): VersionList {
+  return { headVersionId: null, access: "owner", revision: 4, retention: null, pinnedMediaBytes: 0, freeableBytes: 0, nextBefore: null, ...p };
+}
+
 describe("HistoryController", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
@@ -138,17 +146,19 @@ describe("HistoryController", () => {
     const old = doc((j) => (j.name = "Old cut"));
     const versions = [version("v3", 3, { revision: 4 }), version("v2", 2, { label: "Pitch" }), version("v1", 1, { kind: "upload", clientKind: "mac" })];
     const api = {
-      list: vi.fn(opts.list ?? (async () => ({ versions, headVersionId: "v3", retention: { days: 30, maxNamed: 25, namedCount: 1 }, pinnedMediaBytes: 2048, nextBefore: null }))),
+      list: vi.fn(opts.list ?? (async () => page({ versions, headVersionId: "v3", access: opts.isOwner === false ? "member" : "owner", retention: { days: 30, maxNamed: 25, namedCount: 1 }, pinnedMediaBytes: 2048, freeableBytes: 1024 }))),
       get: vi.fn(async (id: string): Promise<VersionDetail> => ({
         version: versions.find((v) => v.id === id)!,
         document: old,
         media: { "recording.mov": { path: "recording.mov", sha256: "0", bytes: 1, contentType: "video/mp4", source: null, url: "https://r2.test/old.mov" } },
         sources: {},
         urlsExpireAt: 0,
+        missingPaths: [],
       })),
       name: vi.fn(async (id: string, label: string | null) => ({ ...versions.find((v) => v.id === id)!, label })),
-      restore: vi.fn(async () => ({ ok: true as const, revision: 6, documentSha256: null, updatedAt: "u", document: null, version: null })),
-      remove: vi.fn(async () => undefined),
+      restore: vi.fn(async (): Promise<RestoreResult> => ({ ok: true, revision: 6, documentSha256: null, updatedAt: "u", restoredFrom: "v2", version: null, fileCount: 2 })),
+      remove: vi.fn(async () => ({ releasedBytes: 0 })),
+      freeUp: vi.fn(async () => ({ deletedVersions: ["v1"], releasedBytes: 1024, pinnedMediaBytes: 1024, freeableBytes: 0 })),
     } satisfies HistoryApi;
     const media = { override: null as unknown, setOverride(u: unknown) { this.override = u; }, get hasOverride() { return this.override != null; } };
     const confirm = vi.fn(async () => opts.confirm ?? 0);
@@ -162,7 +172,7 @@ describe("HistoryController", () => {
     h.open();
     await vi.advanceTimersByTimeAsync(0);
     expect(h.getState()).toMatchObject({ open: true, status: "ready", headVersionId: "v3", pinnedMediaBytes: 2048 });
-    const free = setup({ list: async () => ({ versions: [], headVersionId: null, retention: { days: 0, maxNamed: 0, namedCount: null }, pinnedMediaBytes: 0, nextBefore: null }) });
+    const free = setup({ list: async () => page({ versions: [], retention: { days: 0, maxNamed: 0, namedCount: 0 } }) });
     free.h.open();
     await vi.advanceTimersByTimeAsync(0);
     expect(free.h.getState().status).toBe("gated");
@@ -234,8 +244,11 @@ describe("HistoryController", () => {
     expect(await member.h.freeUp()).toBe(0);
     const owner = setup();
     await owner.h.refresh();
-    expect(await owner.h.freeUp()).toBe(1); // v1 only: v2 is named, v3 is current
-    expect(owner.api.remove).toHaveBeenCalledWith("v1");
+    expect(owner.h.getState()).toMatchObject({ pinnedMediaBytes: 2048, freeableBytes: 1024 });
+    expect(await owner.h.freeUp()).toBe(1024); // POST …/history/free-up — the server picks the versions
+    expect(owner.api.freeUp).toHaveBeenCalledTimes(1);
+    expect(owner.api.remove).not.toHaveBeenCalled();
+    expect(owner.confirm).toHaveBeenCalledWith(expect.objectContaining({ title: "Free up 1 KB?" }));
   });
 
   it("compare with current / with another version; a row seeks", async () => {
@@ -263,15 +276,18 @@ describe("HistoryController", () => {
       revision: 1,
       persistence: {
         save: async () =>
-          ++n === 1 ? { ok: false, conflict: true, revision: 2, document: doc(), updatedAt: "2026-09-30T11:00:00Z" } : { ok: true, revision: 3 },
+          ++n === 1
+            ? { ok: false, conflict: true, revision: 2, document: doc(), updatedAt: "2026-09-30T11:00:00Z", headVersionId: "v2" }
+            : { ok: true, revision: 3 },
       },
     });
     const api: HistoryApi = {
-      list: async () => ({ versions: [version("v2", 2, { revision: 2, actorName: "Ben", clientKind: "mac" })], headVersionId: "v2", retention: null, pinnedMediaBytes: 0, nextBefore: null }),
+      list: vi.fn(async () => page({ versions: [version("v2", 2, { revision: 2, actorName: "Ben", clientKind: "mac" })], headVersionId: "v2" })),
       get: async () => { throw new Error("unused"); },
       name: async () => null,
       restore: async () => { throw new Error("unused"); },
-      remove: async () => undefined,
+      remove: async () => ({ releasedBytes: 0 }),
+      freeUp: async () => ({ deletedVersions: [], releasedBytes: 0, pinnedMediaBytes: 0, freeableBytes: 0 }),
     };
     const h = new HistoryController({ store, api, isOwner: true });
     store.updateRegion("zoom", ZA, { zoomLevel: 3 });
@@ -283,6 +299,8 @@ describe("HistoryController", () => {
     expect(store.getState().sync).toBe("saved");
     expect(h.getState().mode).toBe("list");
     expect(h.getState().mergedFrom).toMatchObject({ who: "Ben (Mac)" });
+    // The cheapest call: the newest version alone (the head the 409 named).
+    expect(api.list).toHaveBeenCalledWith({ limit: 1 });
   });
 });
 
@@ -304,5 +322,130 @@ describe("ProjectMedia — a previewed version's manifest", () => {
     media.setOverride(null);
     expect(media.mediaUrl(ref)).toBe(`live:${ref}`);
     expect(seen).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("history errors (§6.1 codes)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("says each refusal plainly", () => {
+    const e = (status: number, body: Record<string, unknown>) => historyErrorMessage(new CloudApiError(status, { error: "raw", ...body }));
+    expect(e(428, { code: "revision_required" })).toMatch(/reload the project/);
+    expect(e(409, { code: "files_changed" })).toBe("The project’s media changed while restoring — try again.");
+    expect(e(409, { code: "version_media_missing", missing: ["recording.mov", "cursor.json"] })).toBe(
+      "Some of this version’s media is no longer stored (recording.mov, cursor.json), so it can’t be restored.",
+    );
+    expect(e(410, { code: "version_document_missing" })).toMatch(/no longer stored/);
+    expect(e(402, { code: "named_version_limit", limit: 0 })).toBe("Named versions are part of Pro — upgrade to keep versions by name.");
+    expect(e(402, { code: "named_version_limit", limit: 25, error: "This project already has 25 named versions — the most the Pro plan keeps. Remove a name first." })).toBe(
+      "This project already has 25 named versions — the most the Pro plan keeps. Remove a name first.",
+    );
+    expect(e(400, { code: "invalid_label" })).toBe("Names can be up to 100 characters, on one line.");
+    expect(e(409, { code: "head_version" })).toBe("The current version can’t be deleted.");
+    expect(e(403, { error: "Account blocked" })).toBe("This account is blocked.");
+  });
+
+  it("restore retries once when a media commit raced it (files_changed)", async () => {
+    const store = new EditorStore();
+    store.load({ text: doc(), origin: "cloud", revision: 4, persistence: { save: async () => ({ ok: true, revision: 5 }) } });
+    const v = version("v1", 1);
+    const restore = vi
+      .fn<HistoryApi["restore"]>()
+      .mockRejectedValueOnce(new CloudApiError(409, { error: "x", code: "files_changed" }))
+      .mockResolvedValueOnce({ ok: true, revision: 6, documentSha256: null, updatedAt: "u", restoredFrom: "v1", version: null, fileCount: 1 });
+    const api: HistoryApi = {
+      list: async () => page({ versions: [v] }),
+      get: async () => ({ version: v, document: doc((j) => (j.name = "Old")), media: {}, sources: {}, urlsExpireAt: 0, missingPaths: [] }),
+      name: async () => null,
+      restore,
+      remove: async () => ({ releasedBytes: 0 }),
+      freeUp: async () => ({ deletedVersions: [], releasedBytes: 0, pinnedMediaBytes: 0, freeableBytes: 0 }),
+    };
+    const h = new HistoryController({ store, api, isOwner: true });
+    await h.refresh();
+    expect(await h.restore("v1")).toBe(true);
+    expect(restore).toHaveBeenCalledTimes(2);
+    expect(store.getState()).toMatchObject({ revision: 6, undoLabel: "Restore Version" });
+
+    restore.mockRejectedValueOnce(new CloudApiError(409, { error: "x", code: "version_media_missing", missing: ["logo.png"] }));
+    expect(await h.restore("v1")).toBe(false);
+    expect(h.getState().message).toBe("Couldn’t restore. Some of this version’s media is no longer stored (logo.png), so it can’t be restored.");
+  });
+});
+
+describe("ProjectMedia — the storage cap vs history", () => {
+  const loadedCloud = (media: Record<string, { sha256: string; contentType: string }>) => ({
+    projectId: PID,
+    name: "P",
+    revision: 1,
+    documentSha256: null,
+    access: "owner" as const,
+    isOwner: true,
+    orgId: null,
+    updatedAt: "t",
+    document: "{}",
+    media: Object.fromEntries(Object.entries(media).map(([path, m]) => [path, { path, bytes: 1, source: null, url: `https://r2.test/${path}`, ...m }])),
+    sources: {},
+    urlsExpireAt: Date.now() + 3600_000,
+  });
+  const cap = () => new CloudApiError(413, { error: "Storage limit reached (1 GB).", code: "storage_limit_reached" });
+
+  it("a 413 while history keeps removed media → HistoryStorageError; nothing freeable → the API's message", async () => {
+    const make = (freeableBytes: number) =>
+      new ProjectMedia({
+        projectId: PID,
+        origin: "cloud",
+        cloud: loadedCloud({}),
+        createObjectURL: () => "blob:x",
+        commitFiles: async () => {
+          throw cap();
+        },
+        historyStats: async () => ({ freeableBytes }),
+        refresher: { current: null, subscribe: () => () => {}, stop: () => {}, refreshNow: async () => true } as never,
+      });
+    const add = (m: ProjectMedia) => m.addFile({ ref: "logo.png", path: "logo.png", blob: new Blob(["x"]), sha256: "a".repeat(64), contentType: "image/png" }).catch((e: unknown) => e);
+    const freeable = make(356 * 1024 * 1024);
+    const e1 = await add(freeable);
+    expect(e1).toBeInstanceOf(HistoryStorageError);
+    expect((e1 as Error).message).toBe("History is keeping 356 MB of removed media — Free up history to make room.");
+    expect(freeable.historyBlock).toBe(e1);
+    const full = make(0);
+    const e2 = await add(full);
+    expect(e2).not.toBeInstanceOf(HistoryStorageError);
+    expect((e2 as Error).message).toBe("Storage limit reached (1 GB).");
+    expect(full.historyBlock).toBeNull();
+  });
+
+  it("Free up → the failed upload retries (through the page's handler when wired)", async () => {
+    let fail = true;
+    const commits = vi.fn(async () => {
+      if (fail) throw cap();
+      return {} as never;
+    });
+    const m = new ProjectMedia({
+      projectId: PID,
+      origin: "cloud",
+      cloud: loadedCloud({ "recording.mov": { sha256: "b".repeat(64), contentType: "video/quicktime" } }),
+      createObjectURL: () => "blob:x",
+      commitFiles: commits,
+      historyStats: async () => ({ freeableBytes: 0 }),
+    });
+    m.refresher?.stop();
+    const e = await m
+      .addFile({ ref: "recording.mov", path: "recording.mov", blob: new Blob(["c"]), sha256: "c".repeat(64), contentType: "video/quicktime" })
+      .catch((x: unknown) => x);
+    expect((e as Error).message).toBe("History is keeping the old recording — Free up history to replace it.");
+    const handler = vi.fn(async () => {
+      fail = false;
+      m.retryUploads();
+      return 1;
+    });
+    m.freeUpHandler = handler;
+    vi.spyOn(m, "refreshNow").mockResolvedValue(true);
+    await m.requestFreeUp();
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(commits).toHaveBeenCalledTimes(2);
+    expect(m.historyBlock).toBeNull();
   });
 });

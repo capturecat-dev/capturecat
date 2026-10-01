@@ -106,6 +106,8 @@ export type SaveResult =
       updatedAt: string;
       /** The cloud's current project.json text (merge against it). */
       document: string | null;
+      /** The server's head version (who saved it: History's first row). */
+      headVersionId?: string | null;
     };
 
 /** Any non-2xx the caller did not ask to handle (conflicts are a SaveResult). */
@@ -255,6 +257,7 @@ function revisionConflict(body: Record<string, unknown>): ConflictResult | null 
     documentSha256: typeof body.documentSha256 === "string" ? body.documentSha256 : null,
     updatedAt: String(body.updatedAt ?? ""),
     document: typeof body.document === "string" ? body.document : null,
+    headVersionId: typeof body.headVersionId === "string" ? body.headVersionId : null,
   };
 }
 
@@ -358,8 +361,8 @@ export type VersionKind = "upload" | "edit" | "merge" | "restore";
 
 /** The optional `X-CC-*` headers of `PUT …/project` (old clients send none). */
 export interface SaveHistoryMeta {
-  /** `X-CC-Client` — this client is always `web`. */
-  client?: "web";
+  /** `X-CC-Client` — the web editor always sends `web` (`mac` is the Mac app's). */
+  client?: "web" | "mac";
   /** `X-CC-Client-Id` — the per-browser id (`webClientId()`), the coalescing key. */
   clientId?: string;
   /** `X-CC-Source` — from the undo entries' `source` since the last save. */
@@ -429,7 +432,7 @@ function defaultStorage(): Storage | null {
   }
 }
 
-/** What a save's response says about the version it landed in. */
+/** What a save's (or restore's) response says about the version it landed in. */
 export interface SavedVersionRef {
   id: string;
   seq: number;
@@ -444,49 +447,60 @@ function savedVersionRef(v: unknown): SavedVersionRef | null {
   return { id: o.id, seq: Number(o.seq) || 0, extended: o.extended === true };
 }
 
-/** One retained version (a row of `GET …/versions`). */
+/** One retained version — the API's `V` object (§6.1), named for the UI. */
 export interface ProjectVersion {
   id: string;
   seq: number;
-  /** The revision this version's document is at (its head). */
+  /** The revision this version's document is at (its latest). */
   revision: number;
   firstRevision: number;
   kind: VersionKind;
   /** The user's name for it; null = unnamed (pruned by the retention window). */
   label: string | null;
+  /** Who named it (display name, else uid). */
   namedBy: string | null;
   namedAt: string | null;
   actorUid: string | null;
-  /** The actor's display name (the API joins it); null when unknown. */
+  /** The actor's display name; null when unknown. */
   actorName: string | null;
+  /** Wire `client`. */
   clientKind: HistoryClientKind;
   source: HistorySource;
-  /** The change-set JSON (`change_json`), or null when the save sent none. */
+  /** The change-set from the previous version, or null = unknown ("Edited"). */
   change: unknown;
   restoredFrom: string | null;
   mergedFromRevision: number | null;
   openedAt: string;
   updatedAt: string;
+  /** Wire `documentBytes`. */
   docBytes: number | null;
+  documentSha256: string | null;
+  isHead: boolean;
 }
 
-/** The owner plan's history allowance (null fields = unknown). */
+/** The OWNER's plan's history allowance (wire `retention`). 0 / 0 = no cloud history. */
 export interface HistoryRetention {
-  /** Days unnamed versions are kept; 0 = no cloud history (Free). */
+  /** `maxHistoryDays`: days unnamed versions are kept. */
   days: number;
-  /** Named versions the plan allows. */
+  /** `maxNamedVersions`: named versions the plan keeps. */
   maxNamed: number;
-  /** Named versions the project holds now, when the API says. */
+  /** Named versions the project holds now. */
   namedCount: number | null;
 }
 
 export interface VersionList {
   versions: ProjectVersion[];
   headVersionId: string | null;
+  /** The caller's access (`owner` deletes / frees up; `member` reads, names, restores). */
+  access: "owner" | "member" | null;
+  /** The project's current revision. */
+  revision: number | null;
   retention: HistoryRetention | null;
-  /** Bytes of media only old versions still reference ("History keeps X…"). */
+  /** Media the committed set dropped that history still keeps ("History keeps X…"). */
   pinnedMediaBytes: number;
-  /** Cursor for the next page (`before=`), null at the end. */
+  /** The part of it Free up would release (pinned only by unnamed, non-head versions). */
+  freeableBytes: number;
+  /** `before=` cursor (a seq) for the next page; null at the end. */
   nextBefore: string | null;
 }
 
@@ -494,6 +508,8 @@ export interface VersionDetail extends MediaUrls {
   version: ProjectVersion;
   /** The version's project.json text, byte-for-byte. */
   document: string;
+  /** Media its manifest names that is no longer stored (preview plays without it). */
+  missingPaths: string[];
 }
 
 export interface CloudHead {
@@ -504,61 +520,75 @@ export interface CloudHead {
   headVersionId: string | null;
 }
 
+export interface FreeUpResult {
+  deletedVersions: string[];
+  releasedBytes: number;
+  pinnedMediaBytes: number;
+  freeableBytes: number;
+}
+
+/** History route error codes (§6.1) — a CloudApiError's `code`. */
+export const HISTORY_ERRORS = {
+  versionNotFound: "version_not_found",
+  documentMissing: "version_document_missing",
+  revisionRequired: "revision_required",
+  revisionConflict: "revision_conflict",
+  filesChanged: "files_changed",
+  mediaMissing: "version_media_missing",
+  namedLimit: "named_version_limit",
+  invalidLabel: "invalid_label",
+  headVersion: "head_version",
+  notOwner: "not_owner",
+  revisionNotRetained: "revision_not_retained",
+} as const;
+
 const str = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
-const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : null);
-const pick = (o: Record<string, unknown>, ...keys: string[]): unknown => {
-  for (const k of keys) if (o[k] !== undefined) return o[k];
-  return undefined;
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const person = (v: unknown): { uid: string | null; name: string | null } => {
+  if (!v || typeof v !== "object") return { uid: null, name: null };
+  const o = v as Record<string, unknown>;
+  return { uid: str(o.uid), name: str(o.name) };
 };
 
-/** Tolerant decode of one version row (camelCase, with the D1 snake_case names accepted). */
+/** The API's `V` (§6.1) → ProjectVersion; null when it has no id. */
 export function decodeVersion(v: unknown): ProjectVersion | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
   const id = str(o.id);
   if (!id) return null;
-  const actor = (o.actor && typeof o.actor === "object" ? o.actor : {}) as Record<string, unknown>;
-  const kind = str(o.kind);
-  const client = str(pick(o, "clientKind", "client_kind", "client"));
-  const source = str(o.source);
-  let change: unknown = pick(o, "change", "changeJson", "change_json") ?? null;
-  if (typeof change === "string") {
-    try {
-      change = JSON.parse(change) as unknown;
-    } catch {
-      change = null;
-    }
-  }
+  const actor = person(o.actor);
+  const namedBy = person(o.namedBy);
+  const kind = o.kind;
+  const client = o.client;
   const revision = num(o.revision) ?? 0;
   return {
     id,
     seq: num(o.seq) ?? 0,
     revision,
-    firstRevision: num(pick(o, "firstRevision", "first_revision")) ?? revision,
+    firstRevision: num(o.firstRevision) ?? revision,
     kind: kind === "upload" || kind === "merge" || kind === "restore" ? kind : "edit",
     label: str(o.label),
-    namedBy: str(pick(o, "namedBy", "named_by")),
-    namedAt: str(pick(o, "namedAt", "named_at")),
-    actorUid: str(pick(o, "actorUid", "actor_uid")) ?? str(actor.uid),
-    actorName: str(pick(o, "actorName", "actor_name")) ?? str(actor.name) ?? str(actor.displayName),
+    namedBy: namedBy.name ?? namedBy.uid,
+    namedAt: str(o.namedAt),
+    actorUid: actor.uid,
+    actorName: actor.name,
     clientKind: client === "mac" || client === "web" ? client : "unknown",
-    source: source === "agent" || source === "mixed" ? source : "human",
-    change,
-    restoredFrom: str(pick(o, "restoredFrom", "restored_from")),
-    mergedFromRevision: num(pick(o, "mergedFromRevision", "merged_from_revision")),
-    openedAt: str(pick(o, "openedAt", "opened_at")) ?? str(pick(o, "updatedAt", "updated_at")) ?? "",
-    updatedAt: str(pick(o, "updatedAt", "updated_at")) ?? "",
-    docBytes: num(pick(o, "docBytes", "doc_bytes")),
+    source: o.source === "agent" || o.source === "mixed" ? o.source : "human",
+    change: o.change && typeof o.change === "object" ? o.change : null,
+    restoredFrom: str(o.restoredFrom),
+    mergedFromRevision: num(o.mergedFromRevision),
+    openedAt: str(o.openedAt) ?? str(o.updatedAt) ?? "",
+    updatedAt: str(o.updatedAt) ?? "",
+    docBytes: num(o.documentBytes),
+    documentSha256: str(o.documentSha256),
+    isHead: o.isHead === true,
   };
 }
 
 function decodeRetention(v: unknown): HistoryRetention | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
-  const days = num(pick(o, "days", "historyDays", "maxHistoryDays"));
-  const maxNamed = num(pick(o, "maxNamed", "namedVersions", "maxNamedVersions"));
-  if (days == null && maxNamed == null) return null;
-  return { days: days ?? 0, maxNamed: maxNamed ?? 0, namedCount: num(pick(o, "namedCount", "named")) };
+  return { days: num(o.maxHistoryDays) ?? 0, maxNamed: num(o.maxNamedVersions) ?? 0, namedCount: num(o.namedCount) };
 }
 
 function versionsPath(projectId: string, versionId?: string): string {
@@ -570,62 +600,74 @@ export async function getCloudHead(projectId: string, opts: RequestOptions = {})
   const b = await expectOk<Record<string, unknown>>(await request(`${projectPath(projectId)}/head`, { method: "GET", signal: opts.signal }));
   return {
     revision: num(b.revision) ?? 0,
-    docSha256: str(pick(b, "docSha", "docSha256", "documentSha256")),
+    docSha256: str(b.documentSha256),
     updatedAt: str(b.updatedAt) ?? "",
     updatedBy: str(b.updatedBy),
     headVersionId: str(b.headVersionId),
   };
 }
 
-/** `GET …/:id/versions?before=&limit=` — newest first, with retention + pinned media bytes. */
+/** Page size bounds of `GET …/versions` (`limit` 1–200). */
+export const VERSIONS_LIMIT_MAX = 200;
+
+/** `GET …/:id/versions?before=&limit=` — newest first, with retention + pinned/freeable bytes. */
 export async function listProjectVersions(
   projectId: string,
   opts: RequestOptions & { before?: string | null; limit?: number } = {},
 ): Promise<VersionList> {
   const q = new URLSearchParams();
   if (opts.before) q.set("before", opts.before);
-  q.set("limit", String(opts.limit ?? 50));
+  q.set("limit", String(Math.min(VERSIONS_LIMIT_MAX, Math.max(1, Math.round(opts.limit ?? 50)))));
   const b = await expectOk<Record<string, unknown>>(
     await request(`${versionsPath(projectId)}?${q.toString()}`, { method: "GET", signal: opts.signal }),
   );
   const versions = (Array.isArray(b.versions) ? b.versions : []).map(decodeVersion).filter((v): v is ProjectVersion => v != null);
-  const nextRaw = pick(b, "nextBefore", "before", "cursor");
+  const next = num(b.nextBefore);
   return {
     versions,
     headVersionId: str(b.headVersionId),
+    access: b.access === "owner" || b.access === "member" ? b.access : null,
+    revision: num(b.revision),
     retention: decodeRetention(b.retention),
     pinnedMediaBytes: num(b.pinnedMediaBytes) ?? 0,
-    nextBefore: typeof nextRaw === "number" ? String(nextRaw) : str(nextRaw),
+    freeableBytes: num(b.freeableBytes) ?? 0,
+    nextBefore: next != null ? String(next) : null,
   };
 }
 
-/** `GET …/:id/versions/:vid` — the version's document + presigned GETs for its manifest. */
+/**
+ * `GET …/:id/versions/:vid` — the version's document + presigned GETs for
+ * ITS manifest. 404 `version_not_found`, 410 `version_document_missing`.
+ */
 export async function getProjectVersion(projectId: string, versionId: string, opts: RequestOptions = {}): Promise<VersionDetail> {
   const b = await expectOk<Record<string, unknown>>(
     await request(versionsPath(projectId, versionId), { method: "GET", signal: opts.signal }),
   );
-  const version = decodeVersion(b.version) ?? decodeVersion({ ...b, id: versionId });
-  if (!version || typeof b.document !== "string") throw new CloudApiError(500, { error: "The version could not be read." });
+  const version = decodeVersion(b.version);
+  if (!version || typeof b.document !== "string") throw new CloudApiError(502, { error: "The version could not be read." });
   const files = Array.isArray(b.files) ? (b.files as CloudMediaFile[]) : [];
-  return { version, document: b.document, ...toMediaUrls(files, String(b.urlsExpireAt ?? "")) };
+  return {
+    version,
+    document: b.document,
+    missingPaths: Array.isArray(b.missingPaths) ? b.missingPaths.filter((p): p is string => typeof p === "string") : [],
+    ...toMediaUrls(files, String(b.urlsExpireAt ?? "")),
+  };
 }
 
-/** `GET …/:id/revisions/:rev/document` — retained only when some version's head is that revision. */
+/** `GET …/:id/revisions/:rev/document` — 404 `revision_not_retained` unless some version holds it. */
 export async function getRevisionDocument(projectId: string, revision: number, opts: RequestOptions = {}): Promise<string> {
-  const res = await request(`${projectPath(projectId)}/revisions/${revision}/document`, { method: "GET", signal: opts.signal });
-  if (!res.ok) throw new CloudApiError(res.status, await errorBody(res));
-  const text = await res.text();
-  // Either the raw project.json, or `{ document: "<text>" }`.
-  try {
-    const parsed = JSON.parse(text) as Record<string, unknown>;
-    if (parsed && typeof parsed === "object" && typeof parsed.document === "string" && !("id" in parsed)) return parsed.document;
-  } catch {
-    // not JSON — return as-is (the API validates documents on save)
-  }
-  return text;
+  const b = await expectOk<Record<string, unknown>>(
+    await request(`${projectPath(projectId)}/revisions/${revision}/document`, { method: "GET", signal: opts.signal }),
+  );
+  if (typeof b.document !== "string") throw new CloudApiError(502, { error: "The revision could not be read." });
+  return b.document;
 }
 
-/** `PATCH …/versions/:vid {label}` — name (or, with null, unname) a version. */
+/**
+ * `PATCH …/versions/:vid {label}` — name, rename or (null / "") un-name.
+ * 400 `invalid_label` (≤ 100 chars, no control characters); 402
+ * `named_version_limit` `{limit}` when the owner's plan cap is reached.
+ */
 export async function nameProjectVersion(
   projectId: string,
   versionId: string,
@@ -640,27 +682,31 @@ export async function nameProjectVersion(
       signal: opts.signal,
     }),
   );
-  return decodeVersion(b.version ?? b);
+  return decodeVersion(b.version);
 }
 
 export type RestoreResult =
-  | { ok: true; revision: number; documentSha256: string | null; updatedAt: string; document: string | null; version: SavedVersionRef | null }
+  | { ok: true; revision: number; documentSha256: string | null; updatedAt: string; restoredFrom: string | null; version: SavedVersionRef | null; fileCount: number | null }
   | ConflictResult;
 
 /**
- * `POST …/versions/:vid/restore` with `If-Match: <current revision>`. The
- * server saves the old document as a new revision + `restore` version (no new
- * bytes, so members may restore). A 409 comes back as a conflict with the head.
+ * `POST …/versions/:vid/restore` with `If-Match: <current revision>` (+ the
+ * client headers). The server saves the old document as a new revision +
+ * `restore` version (no new bytes, so members may restore). 409
+ * `revision_conflict` comes back as a conflict with the head; everything
+ * else throws CloudApiError — 428 `revision_required`, 409 `files_changed`
+ * (retry), 409 `version_media_missing` `{missing}`, 410
+ * `version_document_missing`.
  */
 export async function restoreProjectVersion(
   projectId: string,
   versionId: string,
   baseRevision: number,
-  opts: RequestOptions = {},
+  opts: RequestOptions & { history?: Pick<SaveHistoryMeta, "client" | "clientId" | "source"> } = {},
 ): Promise<RestoreResult> {
   const res = await request(`${versionsPath(projectId, versionId)}/restore`, {
     method: "POST",
-    headers: { "If-Match": `"${baseRevision}"` },
+    headers: { "If-Match": `"${baseRevision}"`, ...historyHeaders(opts.history) },
     signal: opts.signal,
   });
   if (res.status === 409) {
@@ -675,14 +721,30 @@ export async function restoreProjectVersion(
     revision: num(b.revision) ?? 0,
     documentSha256: str(b.documentSha256),
     updatedAt: str(b.updatedAt) ?? "",
-    document: typeof b.document === "string" ? b.document : null,
+    restoredFrom: str(b.restoredFrom),
     version: savedVersionRef(b.version),
+    fileCount: num(b.fileCount),
   };
 }
 
-/** `DELETE …/versions/:vid` — owner only; never the head. Releases media only it pinned. */
-export async function deleteProjectVersion(projectId: string, versionId: string, opts: RequestOptions = {}): Promise<void> {
-  await expectOk(await request(versionsPath(projectId, versionId), { method: "DELETE", signal: opts.signal }));
+/** `DELETE …/versions/:vid` — owner only; 409 `head_version` for the head. */
+export async function deleteProjectVersion(projectId: string, versionId: string, opts: RequestOptions = {}): Promise<{ releasedBytes: number }> {
+  const b = await expectOk<Record<string, unknown>>(await request(versionsPath(projectId, versionId), { method: "DELETE", signal: opts.signal }));
+  return { releasedBytes: num(b.releasedBytes) ?? 0 };
+}
+
+/**
+ * `POST …/:id/history/free-up` (owner): deletes every unnamed, non-head
+ * version that pins media the committed set dropped.
+ */
+export async function freeUpHistory(projectId: string, opts: RequestOptions = {}): Promise<FreeUpResult> {
+  const b = await expectOk<Record<string, unknown>>(await request(`${projectPath(projectId)}/history/free-up`, { method: "POST", signal: opts.signal }));
+  return {
+    deletedVersions: Array.isArray(b.deletedVersions) ? b.deletedVersions.filter((x): x is string => typeof x === "string") : [],
+    releasedBytes: num(b.releasedBytes) ?? 0,
+    pinnedMediaBytes: num(b.pinnedMediaBytes) ?? 0,
+    freeableBytes: num(b.freeableBytes) ?? 0,
+  };
 }
 
 // ---------------------------------------------------------------------------
