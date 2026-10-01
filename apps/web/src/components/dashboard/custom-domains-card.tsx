@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { SkeletonLines } from "@/components/dashboard/page-skeletons";
 import { toast } from "sonner";
 import { BadgeCheck, Globe, RefreshCw, Trash2 } from "lucide-react";
 
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { EmptyNote, PlanChip, Row, Section, UpgradeNote } from "@/components/dashboard/studio";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyStage, LiveDot, PlanChip, Row, Section, UpgradeNote } from "@/components/dashboard/studio";
+import { DomainArt } from "@/components/dashboard/empty-art";
 
 /**
  * Pro feature: serve share pages from the user's own domain. The card walks
@@ -60,24 +61,40 @@ export function CustomDomainsCard() {
       }
     >
       {isLoading ? (
-        <SkeletonLines lines={2} />
+        <div className="space-y-3">
+          <Skeleton className="h-[50px] w-full rounded-[0.875rem]" />
+          <div className="flex gap-2">
+            <Skeleton className="h-9 flex-1 rounded-full" />
+            <Skeleton className="h-9 w-28 rounded-full" />
+          </div>
+        </div>
       ) : (
         <div className="space-y-3">
           {domains.length === 0 ? (
-            <EmptyNote>No domains yet.</EmptyNote>
+            <EmptyStage
+              compact
+              art={<DomainArt />}
+              title="No domains yet"
+              description="Add one below and your share links read share.yourcompany.com instead of ours."
+            />
           ) : (
             <div className="space-y-2">
-              {domains.map((d) => (
-                <Row key={d.domain}>
-                  <div className="flex min-w-0 items-center gap-2">
+              {domains.map((d, i) => (
+                <Row key={d.domain} className="dsh-rise" index={i}>
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    {d.verified ? (
+                      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
+                    ) : (
+                      <LiveDot tone="amber" className="size-1.5" />
+                    )}
                     <span className="truncate text-sm">{d.domain}</span>
                     {d.verified ? (
-                      <Badge className="gap-1 text-[10px]">
+                      <Badge variant="outline" className="gap-1 border-emerald-400/25 bg-emerald-400/10 text-[10px] text-emerald-300">
                         <BadgeCheck />
                         verified
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-[10px]">
+                      <Badge variant="outline" className="border-amber-400/25 bg-amber-400/10 text-[10px] text-amber-200">
                         pending DNS
                       </Badge>
                     )}
