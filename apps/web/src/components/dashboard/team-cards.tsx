@@ -16,6 +16,17 @@ import { authClient } from "@/lib/auth-client";
 import { API_URL, SITE_URL } from "@/lib/api-url";
 import { trpc } from "@/lib/trpc/client";
 import type { SsoProvider } from "@/lib/trpc/routers/sso";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -581,20 +592,34 @@ function ProviderRow({
             {open ? "Hide setup" : "Setup"}
           </Button>
           {canManage && (
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="text-destructive hover:text-destructive"
-              aria-label={`Remove ${provider.providerId}`}
-              disabled={remove.isPending}
-              onClick={() => {
-                if (window.confirm(`Remove the ${provider.domain} identity provider? Teammates will no longer be able to sign in with it.`)) {
-                  remove.mutate({ providerId: provider.providerId });
-                }
-              }}
-            >
-              <Trash2 />
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="text-destructive hover:text-destructive"
+                  aria-label={`Remove ${provider.providerId}`}
+                  disabled={remove.isPending}
+                >
+                  <Trash2 />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Remove the {provider.domain} identity provider?</AlertDialogTitle>
+                  <AlertDialogDescription>Teammates will no longer be able to sign in with it.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    onClick={() => remove.mutate({ providerId: provider.providerId })}
+                  >
+                    Remove
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       </div>

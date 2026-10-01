@@ -36,6 +36,16 @@ import {
 import { createPortal } from "react-dom";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   AppWindowIcon,
   ChevronDownIcon,
   CircleDotIcon,
@@ -104,21 +114,44 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   });
   const busy = rec.phase.kind === "recording" || rec.phase.kind === "countdown" || rec.phase.kind === "saving";
   // Leaving the dashboard (the editor, the marketing site) unmounts the
-  // recorder — ask first while a take is live or uploading.
-  useBlocker({
+  // recorder — ask first while a take is live or uploading, in the house
+  // dialog (closing the tab still gets the browser's own prompt: browsers
+  // allow nothing else there).
+  const blocker = useBlocker({
     shouldBlockFn: ({ next }) => {
       if (!busy) return false;
-      const inDashboard = next.pathname.startsWith("/app") && !next.pathname.startsWith("/app/editor");
-      if (inDashboard) return false;
-      return !window.confirm(
-        rec.phase.kind === "saving"
-          ? "Your recording is still uploading. Leave anyway? It stays on this device and can be uploaded later."
-          : "A recording is in progress. Leave and lose it?",
-      );
+      return !(next.pathname.startsWith("/app") && !next.pathname.startsWith("/app/editor"));
     },
     enableBeforeUnload: busy,
+    withResolver: true,
   });
-  return <RecorderContext.Provider value={rec}>{children}</RecorderContext.Provider>;
+  const uploading = rec.phase.kind === "saving";
+  return (
+    <RecorderContext.Provider value={rec}>
+      {children}
+      <AlertDialog open={blocker.status === "blocked"} onOpenChange={(open) => !open && blocker.reset?.()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{uploading ? "Your recording is still uploading" : "A recording is in progress"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {uploading
+                ? "If you leave now, the recording stays on this device and you can upload it later from the Record page."
+                : "If you leave now, this recording is lost."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => blocker.reset?.()}>Stay</AlertDialogCancel>
+            <AlertDialogAction
+              variant={uploading ? "default" : "destructive"}
+              onClick={() => blocker.proceed?.()}
+            >
+              {uploading ? "Leave" : "Leave and Lose It"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </RecorderContext.Provider>
+  );
 }
 
 // ── shared bits ──────────────────────────────────────────────────────────────

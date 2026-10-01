@@ -467,7 +467,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => {
                 if (deleteVersionTarget !== null) {
                   deleteVersion.mutate({ videoId: video.videoId, version: deleteVersionTarget });

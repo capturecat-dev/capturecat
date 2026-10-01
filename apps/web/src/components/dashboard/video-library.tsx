@@ -616,7 +616,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => void runDelete(deleteTargets)}
               disabled={deleting}
             >
