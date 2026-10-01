@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { Check, Copy, Trash2 } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -103,19 +114,28 @@ export function BetaTable() {
                   {s.userAgent ?? "—"}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    aria-label={`Delete ${s.email}`}
-                    disabled={del.isPending}
-                    onClick={() => {
-                      if (window.confirm(`Delete ${s.email} from the beta list?`)) {
-                        del.mutate({ id: s.id });
-                      }
-                    }}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" aria-label={`Delete ${s.email}`} disabled={del.isPending}>
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete {s.email} from the beta list?</AlertDialogTitle>
+                        <AlertDialogDescription>They will need to sign up again to rejoin the beta.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          onClick={() => del.mutate({ id: s.id })}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TableCell>
               </TableRow>
             ))}
