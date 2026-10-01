@@ -54,8 +54,17 @@ export function useVoiceOver(opts: {
       controller,
       media: createVoiceOverMedia({ media: loaded.media }),
       openRecorder: () => VoiceOverRecorder.open(),
-      onAlert: (message) =>
-        void alerts.present({ title: VOICE_OVER_ALERT_TITLE, message, buttons: [{ title: "OK", role: "primary" }] }),
+      onAlert: (message) => {
+        // The cloud refused the take because history keeps removed media: offer Free up (then it retries).
+        const media = loaded.media;
+        if (media?.historyBlock && media.canFreeUpHistory) {
+          void alerts
+            .present({ title: VOICE_OVER_ALERT_TITLE, message, buttons: [{ title: "Free Up History", role: "primary" }, { title: "Not Now" }] })
+            .then((i) => (i === 0 ? media.requestFreeUp() : undefined));
+          return;
+        }
+        void alerts.present({ title: VOICE_OVER_ALERT_TITLE, message, buttons: [{ title: "OK", role: "primary" }] });
+      },
       onChange: () => setRecording(session.isRecording),
     });
     sessionRef.current = session;

@@ -21,10 +21,11 @@ tools/parakeet-cli/target/
 *.app
 
 # Node / Turborepo
-node_modules/
+# No trailing slash: worktrees symlink these (a dir-only pattern lets the link be committed).
+node_modules
 .next/
 # Synthetic (ffmpeg-generated) web-editor lab fixtures — never committed.
-apps/web/.fixtures/
+apps/web/.fixtures
 .turbo/
 dist/
 
