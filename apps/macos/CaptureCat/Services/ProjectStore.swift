@@ -66,7 +66,13 @@ final class ProjectStore {
 
     // MARK: - Save
 
+    /// The one save gate. A History preview is an OLD version shown
+    /// read-only: it must never reach disk (autosave, close and quit all
+    /// route through `save`).
+    static func persists(_ project: Project) -> Bool { !project.isPreview }
+
     func save(_ project: Project) {
+        guard Self.persists(project) else { return }
         let dir = project.projectDirectory
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
 
@@ -289,6 +295,7 @@ final class ProjectStore {
     // MARK: - Auto-save
 
     func scheduleAutoSave(for project: Project) {
+        guard Self.persists(project) else { return }
         // Mark dirty immediately — a close before the debounce fires must
         // still know there is something to write (saveIfDirty).
         project.hasUnsavedChanges = true

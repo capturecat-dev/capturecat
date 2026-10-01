@@ -119,6 +119,11 @@ final class Project: Identifiable, Codable {
     /// (load or save). The external-change poll compares against it to tell
     /// an MCP process's write from our own.
     @ObservationIgnored var diskModificationDate: Date? = nil
+    /// A History preview (an earlier cloud version shown read-only in the
+    /// editor). Runtime-only, never persisted — and `ProjectStore` refuses
+    /// to save a preview, so autosave, close and quit can never write an
+    /// old version over the real project.json.
+    @ObservationIgnored var isPreview: Bool = false
 
     /// The effective duration after trimming.
     var trimmedDuration: TimeInterval {
