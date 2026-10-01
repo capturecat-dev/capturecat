@@ -43,7 +43,7 @@ enum CloudSyncHarness {
         exit(1)
     }
 
-    private final class Checks {
+    final class Checks {
         var passed = 0
         var failures: [String] = []
         func expect(_ condition: Bool, _ label: String) {
@@ -59,7 +59,7 @@ enum CloudSyncHarness {
 
     // MARK: - Fixture
 
-    private struct Fixture {
+    struct Fixture {
         let root: URL
         let dir: URL
         let external: URL
@@ -67,7 +67,7 @@ enum CloudSyncHarness {
         var json: URL { dir.appendingPathComponent("project.json") }
     }
 
-    private static func makeFixture() throws -> Fixture {
+    static func makeFixture() throws -> Fixture {
         let fm = FileManager.default
         let root = fm.temporaryDirectory
             .appendingPathComponent("capturecat-cloud-sync-test-\(UUID().uuidString)", isDirectory: true)
@@ -122,7 +122,7 @@ enum CloudSyncHarness {
         return fixture
     }
 
-    private static func writeProject(_ project: Project, to url: URL) throws {
+    static func writeProject(_ project: Project, to url: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         try encoder.encode(project).write(to: url, options: .atomic)
@@ -131,14 +131,14 @@ enum CloudSyncHarness {
     /// Edit project.json on disk the way the app would (decode → mutate →
     /// encode), returning the reloaded project.
     @discardableResult
-    private static func editLocal(_ fixture: Fixture, _ mutate: (Project) -> Void) throws -> Project {
+    static func editLocal(_ fixture: Fixture, _ mutate: (Project) -> Void) throws -> Project {
         let project = try JSONDecoder().decode(Project.self, from: Data(contentsOf: fixture.json))
         mutate(project)
         try writeProject(project, to: fixture.json)
         return project
     }
 
-    private static func loadLocal(_ fixture: Fixture) throws -> Project {
+    static func loadLocal(_ fixture: Fixture) throws -> Project {
         try JSONDecoder().decode(Project.self, from: Data(contentsOf: fixture.json))
     }
 
@@ -342,12 +342,19 @@ enum CloudSyncHarness {
             server.webSave(try webEdited(server.document!, name: "Web again", extraKey: "webKey2")) // rev 4
             let macEdit = try editLocal(fixture) { $0.name = "Mac again" }
             let macBytes = try Data(contentsOf: fixture.json)
+            // This section is the NO-MERGE-BASE fallback (a sidecar written
+            // by a build before merge bases, against a server that no longer
+            // retains the agreed revision) — the two-way dialog's path. The
+            // three-way merges are `mergeChecks` below.
+            try? FileManager.default.removeItem(at: fixture.dir.appendingPathComponent(CloudSyncState.baseFileName))
+            server.retainsRevisions = false
             let conflict = try await sync.push(project: macEdit, projectDirectory: fixture.dir)
             expect(conflict == .conflict(remoteRevision: 4), "both changed → conflict at revision 4 (got \(conflict))")
             expect(String(decoding: server.document!, as: UTF8.self).contains("Web again"), "conflict saved nothing over the web's revision")
             let refused = try await sync.pull(projectID: id, projectDirectory: fixture.dir)
             expect(refused == .localChangesWouldBeLost(remoteRevision: 4), "pull refuses to discard unsynced Mac edits (got \(refused))")
             expect(try Data(contentsOf: fixture.json) == macBytes, "local project.json untouched by the refused pull")
+            server.retainsRevisions = true
 
             // "Replace Web Version": save based on the cloud's revision.
             let replaced = try await sync.push(project: macEdit, projectDirectory: fixture.dir, overwriteRevision: 4)
@@ -412,6 +419,10 @@ enum CloudSyncHarness {
             try await secondMacChecks(checks, apiBase: apiBase)
             await httpDownloadChecks(checks)
 
+            // ── 15b. Project history: merge base, three-way merges, Merge
+            //         Review in a real window, attribution, history client
+            try await mergeChecks(checks, apiBase: apiBase)
+
             // ── 15. UI: the real top bar + progress dialog, real windows ────
             await probeUI(checks, project: fixture.project)
         } catch {
@@ -449,7 +460,11 @@ enum CloudSyncHarness {
         func bytes(_ name: String) -> Data? { try? Data(contentsOf: dir.appendingPathComponent(name)) }
         func exists(_ name: String) -> Bool { fm.fileExists(atPath: dir.appendingPathComponent(name).path) }
         func leftovers() -> [String] {
-            ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? []).filter { $0.hasPrefix(".cloudsync-") && $0 != CloudSyncState.fileName }
+            // Partial downloads only — the sidecar and its merge base are
+            // supposed to be there.
+            ((try? fm.contentsOfDirectory(atPath: dir.path)) ?? []).filter {
+                $0.hasPrefix(".cloudsync-") && $0 != CloudSyncState.fileName && $0 != CloudSyncState.baseFileName
+            }
         }
         func revision() -> Int? { CloudSyncState.load(from: dir, projectID: id, apiBaseURL: apiBase)?.revision }
         func clip(_ fileName: String, at start: Double) -> [String: Any] {
@@ -674,7 +689,12 @@ enum CloudSyncHarness {
             doc["voiceOverClips"] = (doc["voiceOverClips"] as? [[String: Any]] ?? []) + [clip(voice6, at: 14)]
         }) // revision 7
         let macEdit = try editLocal(fixture) { $0.name = "Mac edit during web edit" }
+        // No merge base (older-build sidecar, revision not retained): the
+        // two-way fallback, which must not drop the web's takes either.
+        try? fm.removeItem(at: dir.appendingPathComponent(CloudSyncState.baseFileName))
+        server.retainsRevisions = false
         let conflicted = try await sync.push(project: macEdit, projectDirectory: dir)
+        server.retainsRevisions = true
         expect(conflicted == .conflict(remoteRevision: 7), "both changed → conflict (got \(conflicted))")
         expect(server.committedPaths.isSuperset(of: [voice5, voice6]), "a conflicting push drops none of the web's takes")
 
@@ -886,7 +906,7 @@ enum CloudSyncHarness {
     }
 
     /// The web's JSON edit of a document: top level and `settings`.
-    private static func webEditedJSON(
+    static func webEditedJSON(
         _ document: Data,
         _ mutate: (inout [String: Any], inout [String: Any]) -> Void
     ) throws -> Data {
@@ -907,7 +927,7 @@ enum CloudSyncHarness {
     }
 
     /// Synthesized click through the view's REAL mouseDown/mouseUp path.
-    private static func click(_ view: NSView) {
+    static func click(_ view: NSView) {
         guard let window = view.window else { return }
         let point = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
         func event(_ type: NSEvent.EventType) -> NSEvent? {
@@ -1069,7 +1089,7 @@ enum CloudSyncHarness {
 
     // MARK: - Helpers
 
-    private static func modificationDate(_ url: URL) throws -> Date {
+    static func modificationDate(_ url: URL) throws -> Date {
         (try FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date) ?? .distantPast
     }
 
@@ -1183,12 +1203,9 @@ final class StubCloudServer: CloudProjectTransport {
         fileListCalls = 0
         lastSaveBase = nil
         garbageCollected = 0
-    }
-
-    /// A save made by the web editor (always based on the current revision).
-    func webSave(_ data: Data) {
-        revision += 1
-        document = data
+        revisionDocumentCalls = 0
+        restoreCalls = 0
+        lastSaveContext = nil
     }
 
     /// The web editor adding media (a voice-over take, a background or logo
@@ -1225,9 +1242,10 @@ final class StubCloudServer: CloudProjectTransport {
                         url: URL(string: "https://r2.stub.test/get/\(file.sha256)?g=\(generation)"))
     }
 
-    /// Finalize's garbage collection: objects no committed path points at.
+    /// Finalize's garbage collection: objects no committed path points at
+    /// (and, with `pinsVersionMedia`, no retained version's manifest).
     private func collect() {
-        let live = Set(committedFiles.map(\.sha256))
+        let live = Set(committedFiles.map(\.sha256)).union(pinnedSHAs)
         for sha in ready.keys where !live.contains(sha) {
             ready[sha] = nil
             garbageCollected += 1
@@ -1312,7 +1330,7 @@ final class StubCloudServer: CloudProjectTransport {
     func fetch(projectID: UUID) async throws -> CloudRemoteProject? {
         guard revision > 0 || !committedFiles.isEmpty else { return nil }
         return CloudRemoteProject(revision: revision, documentSHA256: documentSHA, document: document,
-                                  files: committedFiles.map(presigned))
+                                  files: committedFiles.map(presigned), updatedAt: updatedAt)
     }
 
     func files(projectID: UUID) async throws -> [CloudRemoteFile] {
@@ -1342,12 +1360,241 @@ final class StubCloudServer: CloudProjectTransport {
         for step in 1...4 { progress(Int64(data.count) * Int64(step) / 4) }
     }
 
-    func save(projectID: UUID, document data: Data, baseRevision: Int) async throws -> CloudSaveResult {
+    func save(projectID: UUID, document data: Data, baseRevision: Int, context: CloudSaveContext) async throws -> CloudSaveResult {
         saveCalls += 1
         lastSaveBase = baseRevision
-        guard baseRevision == revision else { return .conflict(revision: revision, document: document) }
+        lastSaveContext = context
+        guard baseRevision == revision else {
+            return .conflict(CloudConflict(revision: revision, document: document,
+                                           documentSHA256: documentSHA, updatedAt: updatedAt))
+        }
+        let previous = document
         revision += 1
         document = data
-        return .saved(revision: revision, documentSHA256: CloudProjectManifest.sha256(of: data))
+        updatedAt = stamp()
+        let version = recordVersion(
+            previous: previous, actorUID: ownerUID, clientKind: context.client, clientID: context.clientID,
+            source: context.source.rawValue, change: context.change.flatMap(ProjectDiff.decodeHeader),
+            checkpoint: context.checkpoint, mergedFrom: context.mergedFrom, restoredFrom: nil)
+        return .saved(revision: revision, documentSHA256: CloudProjectManifest.sha256(of: data),
+                      version: CloudSavedVersion(id: version.id, seq: version.seq, extended: version.extended))
+    }
+
+    // MARK: Project history (docs/project-history.md §2, §4, §6)
+
+    /// One retained version, as `cloud_project_versions` stores it.
+    struct StubVersion {
+        let id: String
+        let seq: Int
+        let firstRevision: Int
+        var revision: Int
+        var document: Data
+        var files: [CloudRemoteFile]
+        let kind: String
+        var label: String?
+        let actorUID: String
+        let clientKind: String
+        let clientID: String?
+        let source: String
+        var change: ChangeSet?
+        let openedAt: Date
+        var updatedAt: Date
+        let mergedFrom: Int?
+        let restoredFrom: String?
+        var extended = false
+    }
+
+    /// Oldest first.
+    private(set) var versions: [StubVersion] = []
+    private var nextSeq = 1
+    /// When the current revision was saved (`updated_at`).
+    private(set) var updatedAt: Date?
+    private(set) var lastSaveContext: CloudSaveContext?
+    private(set) var revisionDocumentCalls = 0
+    private(set) var restoreCalls = 0
+    private(set) var deletedVersions: [String] = []
+    /// The server's clock for the next save (nil = wall clock) — pins the
+    /// merge's last-writer rule in tests.
+    var clock: Date?
+    /// GET …/revisions/:rev/document answers only while a version holds
+    /// that revision AND this is on (off = an expired or pre-history server).
+    var retainsRevisions = true
+    /// Version manifests pin their objects against collection (the API with
+    /// history). Off by default: the pre-history checks expect a superseded
+    /// object to be collected at once.
+    var pinsVersionMedia = false
+    /// Display names the versions list joins in.
+    var displayNames: [String: String] = ["stub-owner": "Mike", "web-ana": "Ana"]
+    /// Wait before answering a versions request (the pane's skeleton).
+    var versionsDelay: Duration?
+
+    private func stamp() -> Date {
+        let now = clock ?? Date()
+        clock = clock.map { $0.addingTimeInterval(1) }
+        return now
+    }
+
+    /// The API's coalescing (§2): a save EXTENDS the head when it is the
+    /// same actor + client id + source, the head is an unnamed `edit`, and
+    /// no checkpoint was asked for. (The stub has no 10/3-minute windows.)
+    @discardableResult
+    private func recordVersion(
+        previous: Data?, actorUID: String, clientKind: String, clientID: String?, source: String,
+        change: ChangeSet?, checkpoint: CloudSaveContext.Checkpoint?, mergedFrom: Int?, restoredFrom: String?
+    ) -> StubVersion {
+        let now = updatedAt ?? Date()
+        let derivedChange = change ?? previous.flatMap { prev -> ChangeSet? in
+            guard let a = try? JSONValue.parse(data: prev), let b = try? JSONValue.parse(data: document ?? Data()) else { return nil }
+            return ProjectDiff.diff(a, b)
+        }
+        if checkpoint == nil, var head = versions.last, head.kind == "edit", head.label == nil,
+           head.actorUID == actorUID, head.clientID == clientID, head.source == source {
+            head.revision = revision
+            head.document = document ?? Data()
+            head.files = committedFiles
+            head.updatedAt = now
+            head.change = head.change.map { prior in derivedChange.map { ProjectDiff.compose(prior, $0) } ?? prior } ?? derivedChange
+            head.extended = true
+            versions[versions.count - 1] = head
+            return head
+        }
+        let kind: String
+        switch checkpoint {
+        case .merge: kind = "merge"
+        case .restore: kind = "restore"
+        case .upload: kind = "upload"
+        default: kind = previous == nil ? "upload" : "edit"
+        }
+        let version = StubVersion(
+            id: "ver-\(nextSeq)", seq: nextSeq, firstRevision: revision, revision: revision,
+            document: document ?? Data(), files: committedFiles, kind: kind, label: nil,
+            actorUID: actorUID, clientKind: clientKind, clientID: clientID, source: source,
+            change: derivedChange, openedAt: now, updatedAt: now, mergedFrom: mergedFrom, restoredFrom: restoredFrom)
+        nextSeq += 1
+        versions.append(version)
+        return version
+    }
+
+    /// A web save by `actor` (Ana on the web editor by default): a new
+    /// revision and a version of kind `edit`, attributed to that actor.
+    func webSave(_ data: Data, actor: String = "web-ana", client: String = "web", source: String = "human") {
+        let previous = document
+        revision += 1
+        document = data
+        updatedAt = stamp()
+        recordVersion(previous: previous, actorUID: actor, clientKind: client, clientID: "browser-\(actor)",
+                      source: source, change: nil, checkpoint: .push, mergedFrom: nil, restoredFrom: nil)
+    }
+
+    private var pinnedSHAs: Set<String> {
+        pinsVersionMedia ? Set(versions.flatMap { $0.files.map(\.sha256) }) : []
+    }
+
+    func revisionDocument(projectID: UUID, revision rev: Int) async throws -> Data? {
+        revisionDocumentCalls += 1
+        guard retainsRevisions else { return nil }
+        return versions.last { $0.revision == rev }?.document
+    }
+
+    func stubVersion(_ id: String) -> StubVersion? { versions.first { $0.id == id } }
+
+    /// "Name this version" from another client (or the test itself).
+    func name(_ id: String, _ label: String?) {
+        guard let index = versions.firstIndex(where: { $0.id == id }) else { return }
+        versions[index].label = label
+    }
+
+    private func cloudVersion(_ v: StubVersion) -> CloudVersion {
+        CloudVersion(
+            id: v.id, seq: v.seq, revision: v.revision, firstRevision: v.firstRevision, kind: v.kind,
+            label: v.label, namedBy: v.label == nil ? nil : ownerUID, namedAt: nil, actorUID: v.actorUID,
+            actorName: displayNames[v.actorUID], clientKind: v.clientKind, clientID: v.clientID, source: v.source,
+            change: v.change, docBytes: Int64(v.document.count),
+            manifestSHA: CloudProjectManifest.sha256(of: Data(v.files.map { "\($0.path)=\($0.sha256)" }.sorted().joined(separator: "\n").utf8)),
+            restoredFrom: v.restoredFrom, mergedFromRevision: v.mergedFrom, openedAt: v.openedAt, updatedAt: v.updatedAt)
+    }
+}
+
+extension StubCloudServer: CloudHistoryTransport {
+    func head(projectID: UUID) async throws -> CloudHead? {
+        guard revision > 0 else { return nil }
+        return CloudHead(revision: revision, documentSHA256: document.map { CloudProjectManifest.sha256(of: $0) },
+                         updatedAt: updatedAt, updatedBy: versions.last?.actorUID, headVersionID: versions.last?.id)
+    }
+
+    func versions(projectID: UUID, before: Int?, limit: Int) async throws -> CloudVersionPage? {
+        if let versionsDelay { try await Task.sleep(for: versionsDelay) }
+        guard revision > 0 else { return nil }
+        let newestFirst = versions.reversed().filter { before == nil || $0.seq < before! }
+        let slice = Array(newestFirst.prefix(limit))
+        // "History keeps X of removed media": bytes only old versions pin.
+        let current = Set(committedFiles.map(\.sha256))
+        var pinned: [String: Int64] = [:]
+        for version in versions {
+            for file in version.files where !current.contains(file.sha256) { pinned[file.sha256] = file.bytes }
+        }
+        return CloudVersionPage(
+            versions: slice.map(cloudVersion),
+            nextBefore: newestFirst.count > slice.count ? slice.last?.seq : nil,
+            retention: CloudRetention(historyDays: 30, maxNamed: 25, namedCount: versions.filter { $0.label != nil }.count),
+            pinnedMediaBytes: pinned.values.reduce(0, +),
+            headVersionID: versions.last?.id,
+            isOwner: true)
+    }
+
+    func version(projectID: UUID, versionID: String) async throws -> CloudVersionDetail {
+        guard let version = stubVersion(versionID) else {
+            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "No such version")
+        }
+        return CloudVersionDetail(version: cloudVersion(version), document: version.document,
+                                  files: version.files.map { presigned($0) })
+    }
+
+    func renameVersion(projectID: UUID, versionID: String, label: String?) async throws -> CloudVersion? {
+        guard let index = versions.firstIndex(where: { $0.id == versionID }) else {
+            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "No such version")
+        }
+        versions[index].label = (label?.isEmpty ?? true) ? nil : label
+        return cloudVersion(versions[index])
+    }
+
+    /// Server-side restore (§4): the version's paths are re-committed,
+    /// unioned with the current files (old-version paths win), then its
+    /// document is saved as a NEW revision + version of kind `restore`.
+    func restoreVersion(projectID: UUID, versionID: String, baseRevision: Int,
+                        context: CloudSaveContext) async throws -> CloudRestoreResult {
+        restoreCalls += 1
+        guard let old = stubVersion(versionID) else {
+            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "No such version")
+        }
+        guard baseRevision == revision else {
+            return .conflict(CloudConflict(revision: revision, document: document,
+                                           documentSHA256: documentSHA, updatedAt: updatedAt))
+        }
+        var files = old.files
+        let oldPaths = Set(files.map { $0.path.lowercased() })
+        files += committedFiles.filter { !oldPaths.contains($0.path.lowercased()) }
+        committedFiles = files
+        let previous = document
+        revision += 1
+        document = old.document
+        updatedAt = stamp()
+        let version = recordVersion(
+            previous: previous, actorUID: ownerUID, clientKind: context.client, clientID: context.clientID,
+            source: context.source.rawValue, change: nil, checkpoint: .restore, mergedFrom: nil, restoredFrom: old.id)
+        return .restored(revision: revision, documentSHA256: CloudProjectManifest.sha256(of: old.document),
+                         version: CloudSavedVersion(id: version.id, seq: version.seq, extended: false))
+    }
+
+    func deleteVersion(projectID: UUID, versionID: String) async throws {
+        guard versions.last?.id != versionID else {
+            throw CloudSyncError.api(status: 409, code: "version_is_head", message: "The current version can't be deleted")
+        }
+        guard let index = versions.firstIndex(where: { $0.id == versionID }) else {
+            throw CloudSyncError.api(status: 404, code: "version_not_found", message: "No such version")
+        }
+        versions.remove(at: index)
+        deletedVersions.append(versionID)
+        collect()
     }
 }

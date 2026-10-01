@@ -13,8 +13,15 @@ final class CloudSyncController {
 
     private var task: Task<Void, Never>?
     private var progress: CloudSyncProgressDialog?
+    private var reviewDialog: MergeReviewDialog?
+    /// One toaster per window (merge results land in the window that asked).
+    private var toasters: [ObjectIdentifier: (window: () -> NSWindow?, toaster: CCToaster)] = [:]
 
     var isBusy: Bool { task != nil }
+
+    /// Posted after any sync, merge or restore touched a project (object:
+    /// the project id) — the History pane refreshes on it.
+    static let didSyncNotification = Notification.Name("CloudSyncControllerDidSync")
 
     /// The two actions as menu rows (built by whoever owns the menu, so the
     /// browser's closure-target helper and the editor's presenter both fit).
@@ -42,19 +49,39 @@ final class CloudSyncController {
         window: NSWindow?,
         overwriteRevision: Int? = nil
     ) {
+        push(project: project, appState: appState, window: window, overwriteRevision: overwriteRevision,
+             title: "Opening in Web Editor", openWeb: true)
+    }
+
+    /// History ▸ "Sync now": the same push, without opening the browser.
+    func syncNow(project: Project, appState: AppState, window: NSWindow?) {
+        push(project: project, appState: appState, window: window, overwriteRevision: nil,
+             title: "Syncing", openWeb: false)
+    }
+
+    private func push(
+        project: Project,
+        appState: AppState,
+        window: NSWindow?,
+        overwriteRevision: Int?,
+        title: String,
+        openWeb: Bool
+    ) {
         guard task == nil, let window = window ?? appState.authPresentationWindow() else { return }
         guard ensureSignedIn(appState: appState, window: window, then: { [weak self] in
-            self?.openInWebEditor(project: project, appState: appState, window: window, overwriteRevision: overwriteRevision)
+            self?.push(project: project, appState: appState, window: window, overwriteRevision: overwriteRevision,
+                       title: title, openWeb: openWeb)
         }) else { return }
         flush(project, appState: appState)
 
-        let dialog = CloudSyncProgressDialog(title: "Opening in Web Editor", subtitle: project.name)
+        let dialog = CloudSyncProgressDialog(title: title, subtitle: project.name)
         dialog.onCancel = { [weak self] in self?.task?.cancel() }
         dialog.present(over: window)
         progress = dialog
 
         let sync = CloudProjectSync(transport: HTTPCloudProjectTransport())
         let projectID = project.id
+        let openBrowser = { if openWeb { NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: projectID)) } }
         task = Task { [weak self] in
             do {
                 let outcome = try await sync.push(
@@ -67,9 +94,22 @@ final class CloudSyncController {
                 guard let self else { return }
                 switch outcome {
                 case .pushed, .unchanged, .cloudIsNewer:
-                    dialog.finish(message: "Opening your browser…")
+                    dialog.finish(message: openWeb ? "Opening your browser…" : "Synced")
                     self.finish {
-                        NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: projectID))
+                        self.announce(projectID)
+                        openBrowser()
+                    }
+                case .merged(_, let report):
+                    dialog.finish(message: openWeb ? "Merged — opening your browser…" : "Merged")
+                    self.finish {
+                        self.announce(projectID)
+                        self.toast(report, in: window)
+                        openBrowser()
+                    }
+                case .needsReview(let review):
+                    self.finish {
+                        self.presentMergeReview(review, project: project, appState: appState, window: window,
+                                                openWeb: openWeb)
                     }
                 case .conflict(let remoteRevision):
                     self.finish {
@@ -78,9 +118,103 @@ final class CloudSyncController {
                     }
                 }
             } catch {
-                self?.fail(error, title: "Couldn’t open in the web editor", window: window)
+                self?.fail(error, title: openWeb ? "Couldn’t open in the web editor" : "Couldn’t sync", window: window)
             }
         }
+    }
+
+    // MARK: - Merge
+
+    /// Structural conflicts: the Merge Review dialog, then `resolve`.
+    func presentMergeReview(
+        _ review: CloudMergeReview,
+        project: Project,
+        appState: AppState?,
+        window: NSWindow,
+        openWeb: Bool
+    ) {
+        let dialog = MergeReviewDialog(review: review, projectName: project.name)
+        dialog.onApply = { [weak self] choices in
+            self?.reviewDialog = nil
+            self?.resolveMerge(review, choices: choices, project: project, appState: appState, window: window,
+                               openWeb: openWeb)
+        }
+        dialog.onCancel = { [weak self] in self?.reviewDialog = nil }
+        reviewDialog = dialog
+        dialog.present(over: window)
+    }
+
+    private func resolveMerge(
+        _ review: CloudMergeReview,
+        choices: [String: MergeSide],
+        project: Project,
+        appState: AppState?,
+        window: NSWindow,
+        openWeb: Bool
+    ) {
+        guard task == nil else { return }
+        let dialog = CloudSyncProgressDialog(title: "Merging", subtitle: project.name)
+        dialog.onCancel = { [weak self] in self?.task?.cancel() }
+        dialog.present(over: window)
+        progress = dialog
+        let sync = CloudProjectSync(transport: HTTPCloudProjectTransport())
+        let projectID = project.id
+        task = Task { [weak self] in
+            do {
+                let outcome = try await sync.resolve(review, choices: choices,
+                                                     projectDirectory: project.projectDirectory) { step in
+                    dialog.update(step, weights: Self.pushWeights)
+                }
+                guard let self else { return }
+                switch outcome {
+                case .merged(_, let report):
+                    dialog.finish(message: "Merged")
+                    self.finish {
+                        self.announce(projectID)
+                        self.toast(report, in: window)
+                        if openWeb { NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: projectID)) }
+                    }
+                case .needsReview(let next):
+                    self.finish {
+                        self.presentMergeReview(next, project: project, appState: appState, window: window, openWeb: openWeb)
+                    }
+                case .conflict(let remoteRevision):
+                    self.finish {
+                        guard let appState else { return }
+                        self.presentConflict(project: project, appState: appState, window: window,
+                                             remoteRevision: remoteRevision)
+                    }
+                }
+            } catch {
+                self?.fail(error, title: "Couldn’t merge", window: window)
+            }
+        }
+    }
+
+    /// "Merged 2 changes from Ana (Web)" — a CCToaster toast in `window`.
+    func toast(_ report: CloudMergeReport, in window: NSWindow) {
+        guard let host = window.contentView else { return }
+        let key = ObjectIdentifier(window)
+        let toaster: CCToaster
+        if let existing = toasters[key], existing.window() === window {
+            toaster = existing.toaster
+        } else {
+            toaster = CCToaster(in: host)
+            toasters[key] = ({ [weak window] in window }, toaster)
+        }
+        let settled = report.autoResolved.count
+        var notes: [String] = []
+        if settled > 0 { notes.append(settled == 1 ? "1 clash went to the latest edit" : "\(settled) clashes went to the latest edit") }
+        if report.conflictsResolved > 0 {
+            notes.append(report.conflictsResolved == 1 ? "1 conflict resolved" : "\(report.conflictsResolved) conflicts resolved")
+        }
+        notes.append("Both versions are kept in History.")
+        toaster.show(title: report.toastTitle, message: notes.joined(separator: " · "),
+                     variant: .success, symbol: "arrow.triangle.merge", duration: 5)
+    }
+
+    private func announce(_ projectID: UUID) {
+        NotificationCenter.default.post(name: Self.didSyncNotification, object: projectID)
     }
 
     private func presentConflict(project: Project, appState: AppState, window: NSWindow, remoteRevision: Int) {
@@ -90,6 +224,9 @@ final class CloudSyncController {
                 + "Pull Web Edits replaces this Mac’s unsynced changes with the web’s version; "
                 + "Replace Web Version overwrites the web’s changes with this Mac’s."
         )
+        // Reached only without a merge base (an older build's sidecar and a
+        // revision the server no longer retains) — otherwise both sides
+        // merge three-way and this two-way choice never appears.
         alert.addButton("Pull Web Edits", role: .primary)
         alert.addButton("Replace Web Version", role: .destructive)
         alert.addButton("Cancel")
@@ -147,6 +284,7 @@ final class CloudSyncController {
                     dialog.finish(message: "Pulled revision \(revision)")
                     try? await Task.sleep(for: .milliseconds(450))
                     self.finish {
+                        self.announce(projectID)
                         if thenOpenWeb { NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: projectID)) }
                     }
                 case .mediaRestored(_, let files):
@@ -179,6 +317,22 @@ final class CloudSyncController {
                         alert.beginSheet(for: window) { [weak self] choice in
                             if choice == 0 { self?.openInWebEditor(project: project, appState: appState, window: window) }
                         }
+                    }
+                case .merged(_, let report):
+                    // The web's edits merged INTO this Mac's unsynced ones
+                    // (written atomically — the external-edit poll reloads
+                    // the editor); this Mac's side goes up with the next push.
+                    dialog.finish(message: "Merged web edits")
+                    try? await Task.sleep(for: .milliseconds(300))
+                    self.finish {
+                        self.announce(projectID)
+                        self.toast(report, in: window)
+                        if thenOpenWeb { NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: projectID)) }
+                    }
+                case .needsReview(let review):
+                    self.finish {
+                        self.presentMergeReview(review, project: project, appState: appState, window: window,
+                                                openWeb: thenOpenWeb)
                     }
                 case .localChangesWouldBeLost(let remoteRevision):
                     self.finish {

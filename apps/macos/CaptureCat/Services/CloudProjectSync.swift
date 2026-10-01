@@ -333,14 +333,37 @@ enum CloudProjectManifest {
 /// Keyed by project id AND API origin: a Debug build syncing to localhost
 /// never mistakes that state for production's (and a duplicated project
 /// folder, which copies the sidecar, gets a new id and starts fresh).
+///
+/// `baseFile` names the MERGE BASE beside it (`.cloudsync-base.json`): the
+/// exact project.json bytes `documentSHA256` describes, written on every
+/// successful push or pull (docs/project-history.md §7). With it a 409 or a
+/// pull over unsynced edits is a three-way merge — even offline, with no
+/// server round trip for the base. A sidecar from an older build has no
+/// `baseFile` (decodes as nil); the merge then asks the server for the
+/// revision's document, and failing that falls back to the two-way dialog.
 nonisolated struct CloudSyncState: Codable, Equatable, Sendable {
     var projectID: String
     var apiBaseURL: String
     var revision: Int
     var documentSHA256: String
     var syncedAt: Date
+    var baseFile: String?
+    /// The newest `.mcp-history` entry when this base was agreed ("" = none)
+    /// — MCP writes after it are the agent's share of the next save
+    /// (`CloudAttribution`).
+    var mcpMark: String?
 
     static let fileName = ".cloudsync.json"
+    static let baseFileName = ".cloudsync-base.json"
+
+    /// The merge base — only when its bytes are EXACTLY what
+    /// `documentSHA256` names (a torn or stale base is no base at all).
+    func loadBase(from directory: URL) -> Data? {
+        guard let baseFile, !baseFile.isEmpty, !baseFile.contains("/"),
+              let data = try? Data(contentsOf: directory.appendingPathComponent(baseFile)),
+              CloudProjectManifest.sha256(of: data) == documentSHA256 else { return nil }
+        return data
+    }
 
     static func load(from directory: URL, projectID: UUID, apiBaseURL: String) -> CloudSyncState? {
         let url = directory.appendingPathComponent(fileName)
@@ -408,11 +431,30 @@ nonisolated struct CloudRemoteProject: Equatable, Sendable {
     let document: Data?
     /// The committed file manifest.
     var files: [CloudRemoteFile] = []
+    /// When the current revision was saved (the API's `updatedAt`) — the
+    /// "theirs" clock for a merge's last-writer rule.
+    var updatedAt: Date? = nil
+}
+
+/// The `version` a save landed in (PUT …/project response, Phase 1A).
+/// Absent from servers without project history.
+nonisolated struct CloudSavedVersion: Equatable, Sendable {
+    let id: String
+    let seq: Int
+    let extended: Bool
+}
+
+/// A 409 `revision_conflict`: the head this save lost to.
+nonisolated struct CloudConflict: Equatable, Sendable {
+    let revision: Int
+    let document: Data?
+    var documentSHA256: String? = nil
+    var updatedAt: Date? = nil
 }
 
 nonisolated enum CloudSaveResult: Equatable, Sendable {
-    case saved(revision: Int, documentSHA256: String)
-    case conflict(revision: Int, document: Data?)
+    case saved(revision: Int, documentSHA256: String, version: CloudSavedVersion? = nil)
+    case conflict(CloudConflict)
 }
 
 nonisolated enum CloudSyncError: LocalizedError, Equatable {
@@ -471,7 +513,13 @@ protocol CloudProjectTransport: AnyObject {
     /// Stream one committed file's bytes to `destination` (created or
     /// truncated). Throws `downloadURLExpired` when the presign lapsed.
     func download(_ file: CloudRemoteFile, to destination: URL, progress: @escaping (Int64) -> Void) async throws
-    func save(projectID: UUID, document: Data, baseRevision: Int) async throws -> CloudSaveResult
+    /// PUT …/project with If-Match `baseRevision`, plus the history headers
+    /// (docs/project-history.md §6) `context` describes.
+    func save(projectID: UUID, document: Data, baseRevision: Int, context: CloudSaveContext) async throws -> CloudSaveResult
+    /// GET …/revisions/:rev/document — the document of a revision some
+    /// version still holds (a merge base this Mac lost). nil = not retained
+    /// (404) or a server without project history.
+    func revisionDocument(projectID: UUID, revision: Int) async throws -> Data?
 }
 
 // MARK: - Engine
@@ -515,8 +563,19 @@ final class CloudProjectSync {
         /// This Mac has no edits since its last sync and the web moved on —
         /// nothing to push (Pull Web Edits brings the web's version here).
         case cloudIsNewer(revision: Int)
-        /// Both sides changed since the last sync. Nothing was saved.
+        /// Both sides changed since the last sync and NO merge base exists
+        /// (no `.cloudsync-base.json`, and the server no longer retains that
+        /// revision). Nothing was saved — the two-way Keep mine / Load
+        /// theirs fallback.
         case conflict(remoteRevision: Int)
+        /// Both sides changed; the three-way merge was clean (or its
+        /// conflicts were resolved in Merge Review). The merged document is
+        /// on disk AND saved as `revision` (checkpoint `merge`).
+        case merged(revision: Int, report: CloudMergeReport)
+        /// Both sides changed and the merge has structural conflicts.
+        /// Nothing was written or saved; `CloudProjectSync.resolve` applies
+        /// the user's Mine/Theirs choices.
+        case needsReview(CloudMergeReview)
     }
 
     enum PullOutcome: Equatable {
@@ -528,17 +587,35 @@ final class CloudProjectSync {
         /// the web's way were re-pointed at them.
         case mediaRestored(revision: Int, files: Int)
         case noCloudCopy
-        /// The cloud moved AND this Mac has edits it never sent. Nothing
-        /// was written; pull again with `force` to replace them.
+        /// The cloud moved AND this Mac has edits it never sent, and there
+        /// is no merge base to merge them with. Nothing was written; pull
+        /// again with `force` to replace them.
         case localChangesWouldBeLost(remoteRevision: Int)
+        /// The cloud moved AND this Mac has unsent edits: merged three-way.
+        /// The merged document is on disk; the sidecar now agrees with
+        /// `revision`, so this Mac's own changes are still unsynced edits
+        /// the next push sends (with their media).
+        case merged(revision: Int, report: CloudMergeReport)
+        /// The merge has structural conflicts — nothing was written.
+        case needsReview(CloudMergeReview)
     }
 
     let transport: CloudProjectTransport
     let apiBaseURL: String
+    /// `X-CC-Client-Id`: this install's random id (never the machine name).
+    let clientID: String
+    /// The merge's "now" (the local mtime is clamped to it) — injectable so
+    /// `--cloud-sync-test` can pin the last-writer rule.
+    var now: () -> Date = Date.init
 
-    init(transport: CloudProjectTransport, apiBaseURL: String = CaptureCatAPI.baseURL) {
+    init(
+        transport: CloudProjectTransport,
+        apiBaseURL: String = CaptureCatAPI.baseURL,
+        clientID: String = CloudClientIdentity.installID
+    ) {
         self.transport = transport
         self.apiBaseURL = apiBaseURL
+        self.clientID = clientID
     }
 
     // MARK: Push
@@ -556,7 +633,9 @@ final class CloudProjectSync {
         guard let document = try? Data(contentsOf: docURL) else { throw CloudSyncError.missingProjectFile }
         let documentSHA = CloudProjectManifest.sha256(of: document)
         let projectID = project.id
-        let state = CloudSyncState.load(from: projectDirectory, projectID: projectID, apiBaseURL: apiBaseURL)
+        let state = healBase(
+            CloudSyncState.load(from: projectDirectory, projectID: projectID, apiBaseURL: apiBaseURL),
+            local: document, in: projectDirectory)
 
         progress(Progress(phase: .hashing, fraction: 0, message: "Preparing files…"))
         // What the cloud holds now: files the web editor added exist only
@@ -601,20 +680,31 @@ final class CloudProjectSync {
         // bytes need no save, whoever wrote them.
         progress(Progress(phase: .saving, fraction: 0, message: "Saving project…"))
         if stage.documentSHA256 == documentSHA, stage.revision > 0 {
-            try saveState(revision: stage.revision, sha: documentSHA, in: projectDirectory, projectID: projectID)
+            try saveState(revision: stage.revision, base: document, in: projectDirectory, projectID: projectID)
             return .unchanged(revision: stage.revision)
         }
         if overwriteRevision == nil, let state, state.documentSHA256 == documentSHA, stage.revision > state.revision {
             return .cloudIsNewer(revision: stage.revision)
         }
         let base = overwriteRevision ?? state?.revision ?? 0
-        switch try await transport.save(projectID: projectID, document: document, baseRevision: base) {
-        case .saved(let revision, let sha):
-            try saveState(revision: revision, sha: sha, in: projectDirectory, projectID: projectID)
+        // Mac push and first upload always open a NEW version (§2).
+        let context = saveContext(
+            checkpoint: base == 0 || stage.revision == 0 ? .upload : .push,
+            state: state, from: state?.loadBase(from: projectDirectory), to: document,
+            projectDirectory: projectDirectory)
+        switch try await transport.save(projectID: projectID, document: document, baseRevision: base, context: context) {
+        case .saved(let revision, _, _):
+            try saveState(revision: revision, base: document, in: projectDirectory, projectID: projectID)
             progress(Progress(phase: .saving, fraction: 1, message: "Saved"))
             return .pushed(revision: revision)
-        case .conflict(let revision, _):
-            return .conflict(remoteRevision: revision)
+        case .conflict(let conflict):
+            // "Replace Web Version" lost a race: ask again — never merge
+            // over the user's explicit overwrite.
+            if overwriteRevision != nil { return .conflict(remoteRevision: conflict.revision) }
+            progress(Progress(phase: .saving, fraction: 0.3, message: "Merging web edits…"))
+            return try await mergeAfterConflict(
+                conflict, mine: document, state: state, projectID: projectID,
+                projectDirectory: projectDirectory, progress: progress)
         }
     }
 
@@ -690,14 +780,36 @@ final class CloudProjectSync {
         throw CloudSyncError.tooManyRetries
     }
 
-    private func saveState(revision: Int, sha: String, in directory: URL, projectID: UUID) throws {
+    /// Record the agreed revision AND its exact bytes (the merge base). The
+    /// base lands first, so a sidecar never names a base that is not there;
+    /// the hash is computed here, so the two can never disagree.
+    func saveState(revision: Int, base: Data, in directory: URL, projectID: UUID) throws {
+        try base.write(to: directory.appendingPathComponent(CloudSyncState.baseFileName), options: .atomic)
         try CloudSyncState(
             projectID: projectID.uuidString,
             apiBaseURL: apiBaseURL,
             revision: revision,
-            documentSHA256: sha,
-            syncedAt: Date()
+            documentSHA256: CloudProjectManifest.sha256(of: base),
+            syncedAt: Date(),
+            baseFile: CloudSyncState.baseFileName,
+            mcpMark: CloudAttribution.mark(in: directory)
         ).save(to: directory)
+    }
+
+    /// A sidecar from a build before merge bases, while project.json is
+    /// still exactly the agreed bytes: those bytes ARE the base — write them,
+    /// so a later offline merge has one. Returns the (possibly updated) state.
+    func healBase(_ state: CloudSyncState?, local: Data, in directory: URL) -> CloudSyncState? {
+        guard var state, state.loadBase(from: directory) == nil,
+              state.documentSHA256 == CloudProjectManifest.sha256(of: local) else { return state }
+        do {
+            try local.write(to: directory.appendingPathComponent(CloudSyncState.baseFileName), options: .atomic)
+            state.baseFile = CloudSyncState.baseFileName
+            try state.save(to: directory)
+        } catch {
+            cloudLogger.error("could not write the merge base: \(error.localizedDescription, privacy: .public)")
+        }
+        return state
     }
 
     // MARK: Pull
@@ -717,7 +829,9 @@ final class CloudProjectSync {
         guard let local = try? Data(contentsOf: docURL) else { throw CloudSyncError.missingProjectFile }
         let localSHA = CloudProjectManifest.sha256(of: local)
         let remoteSHA = remote.documentSHA256 ?? CloudProjectManifest.sha256(of: remoteDocument)
-        let state = CloudSyncState.load(from: projectDirectory, projectID: projectID, apiBaseURL: apiBaseURL)
+        let state = healBase(
+            CloudSyncState.load(from: projectDirectory, projectID: projectID, apiBaseURL: apiBaseURL),
+            local: local, in: projectDirectory)
 
         // This Mac already agrees with the cloud on the document when the
         // bytes match, or when it has not edited since the last sync and that
@@ -731,7 +845,13 @@ final class CloudProjectSync {
             // Unsynced local edits = the file changed since the last agreed
             // state (or there never was one, so nothing proves otherwise).
             let localChanged = state.map { $0.documentSHA256 != localSHA } ?? true
-            if localChanged { return .localChangesWouldBeLost(remoteRevision: remote.revision) }
+            if localChanged {
+                // Both moved: merge three-way instead of asking to replace
+                // (no base → the two-way "Replace this Mac's changes?").
+                return try await mergePull(remote: remote, theirs: remoteDocument, mine: local, state: state,
+                                           projectID: projectID, projectDirectory: projectDirectory,
+                                           progress: progress)
+            }
             if let state, state.revision >= remote.revision { agreedRevision = state.revision }
         }
         if let revision = agreedRevision {
@@ -745,8 +865,7 @@ final class CloudProjectSync {
                 try ProjectFileIO.writeProjectData(repaired, to: docURL)
             }
             if repaired != local || remoteSHA == localSHA {
-                try saveState(revision: revision, sha: CloudProjectManifest.sha256(of: repaired),
-                              in: projectDirectory, projectID: projectID)
+                try saveState(revision: revision, base: repaired, in: projectDirectory, projectID: projectID)
             }
             return fetched > 0 || repaired != local
                 ? .mediaRestored(revision: revision, files: fetched)
@@ -765,7 +884,7 @@ final class CloudProjectSync {
         let data = try Self.validatedDocument(remoteDocument, projectID: projectID, projectDirectory: projectDirectory,
                                               files: remote.files)
         try ProjectFileIO.writeProjectData(data, to: docURL)
-        try saveState(revision: remote.revision, sha: CloudProjectManifest.sha256(of: data), in: projectDirectory, projectID: projectID)
+        try saveState(revision: remote.revision, base: data, in: projectDirectory, projectID: projectID)
         progress(Progress(phase: .writing, fraction: 1, message: "Pulled revision \(remote.revision)"))
         cloudLogger.info("pulled cloud revision \(remote.revision) into \(projectID.uuidString, privacy: .public)")
         return .pulled(revision: remote.revision)
@@ -857,7 +976,7 @@ final class HTTPCloudProjectTransport: CloudProjectTransport {
         self.baseURL = baseURL
     }
 
-    private func request(_ method: String, _ path: String) throws -> URLRequest {
+    func request(_ method: String, _ path: String) throws -> URLRequest {
         guard let token = AuthKeychain.currentToken() else { throw CloudSyncError.notSignedIn }
         guard let url = URL(string: "\(baseURL)/api/cloud-projects\(path)") else { throw CloudSyncError.invalidResponse }
         var request = URLRequest(url: url)
@@ -868,19 +987,19 @@ final class HTTPCloudProjectTransport: CloudProjectTransport {
         return request
     }
 
-    private func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw CloudSyncError.invalidResponse }
         return (data, http)
     }
 
-    private func apiError(_ data: Data, _ http: HTTPURLResponse) -> CloudSyncError {
+    func apiError(_ data: Data, _ http: HTTPURLResponse) -> CloudSyncError {
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         let message = AuthService.errorMessage(from: data) ?? "HTTP \(http.statusCode)"
         return .api(status: http.statusCode, code: json?["code"] as? String, message: message)
     }
 
-    private func json(_ data: Data) throws -> [String: Any] {
+    func json(_ data: Data) throws -> [String: Any] {
         guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             throw CloudSyncError.invalidResponse
         }
@@ -968,7 +1087,8 @@ final class HTTPCloudProjectTransport: CloudProjectTransport {
             revision: (object["revision"] as? NSNumber)?.intValue ?? 0,
             documentSHA256: object["documentSha256"] as? String,
             document: (object["document"] as? String).map { Data($0.utf8) },
-            files: Self.remoteFiles(object["files"])
+            files: Self.remoteFiles(object["files"]),
+            updatedAt: CloudAPIDate.parse(object["updatedAt"])
         )
     }
 
@@ -980,7 +1100,7 @@ final class HTTPCloudProjectTransport: CloudProjectTransport {
     }
 
     /// The API's `files` array (presignFiles in routes/cloud-projects.ts).
-    private static func remoteFiles(_ value: Any?) -> [CloudRemoteFile] {
+    static func remoteFiles(_ value: Any?) -> [CloudRemoteFile] {
         (value as? [[String: Any]] ?? []).compactMap { entry in
             guard let path = entry["path"] as? String,
                   let sha = (entry["sha256"] as? String)?.lowercased(),
@@ -1024,23 +1144,48 @@ final class HTTPCloudProjectTransport: CloudProjectTransport {
         }
     }
 
-    func save(projectID: UUID, document: Data, baseRevision: Int) async throws -> CloudSaveResult {
+    func save(projectID: UUID, document: Data, baseRevision: Int, context: CloudSaveContext) async throws -> CloudSaveResult {
         var request = try request("PUT", "/\(projectID.uuidString)/project")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("\"\(baseRevision)\"", forHTTPHeaderField: "If-Match")
+        // History headers (docs/project-history.md §6); servers without
+        // project history ignore them.
+        for (name, value) in context.headers { request.setValue(value, forHTTPHeaderField: name) }
         request.httpBody = document
         let (data, http) = try await send(request)
         if http.statusCode == 409, let object = try? json(data), object["code"] as? String == "revision_conflict" {
-            return .conflict(
-                revision: (object["revision"] as? NSNumber)?.intValue ?? 0,
-                document: (object["document"] as? String).map { Data($0.utf8) }
-            )
+            return .conflict(Self.conflict(object))
         }
         guard http.statusCode == 200 else { throw apiError(data, http) }
         let object = try json(data)
         guard let revision = (object["revision"] as? NSNumber)?.intValue,
               let sha = object["documentSha256"] as? String else { throw CloudSyncError.invalidResponse }
-        return .saved(revision: revision, documentSHA256: sha)
+        return .saved(revision: revision, documentSHA256: sha, version: Self.savedVersion(object["version"]))
+    }
+
+    /// The 409 body: `{code: "revision_conflict", revision, documentSha256, updatedAt, document}`.
+    static func conflict(_ object: [String: Any]) -> CloudConflict {
+        CloudConflict(
+            revision: (object["revision"] as? NSNumber)?.intValue ?? 0,
+            document: (object["document"] as? String).map { Data($0.utf8) },
+            documentSHA256: object["documentSha256"] as? String,
+            updatedAt: CloudAPIDate.parse(object["updatedAt"])
+        )
+    }
+
+    /// `version: {id, seq, extended}` (absent before project history).
+    static func savedVersion(_ value: Any?) -> CloudSavedVersion? {
+        guard let object = value as? [String: Any], let id = CloudJSON.string(object["id"]) else { return nil }
+        return CloudSavedVersion(id: id, seq: CloudJSON.int(object["seq"]) ?? 0,
+                                 extended: object["extended"] as? Bool ?? false)
+    }
+
+    func revisionDocument(projectID: UUID, revision: Int) async throws -> Data? {
+        let request = try request("GET", "/\(projectID.uuidString)/revisions/\(revision)/document")
+        let (data, http) = try await send(request)
+        if http.statusCode == 404 { return nil }
+        guard http.statusCode == 200 else { throw apiError(data, http) }
+        return CloudHistoryParse.revisionDocument(data)
     }
 }
 
