@@ -20,6 +20,14 @@ import { authedProcedure, createTRPCRouter } from "@/lib/trpc/init";
  * dunning grace. Reading the list here would show "Subscribe" to a customer the
  * API still serves as paid.
  */
+/** The API's own reason ({ message, code } from Better Auth / its Stripe plugin), for the toast and the logs. */
+async function apiFailure(res: Response, what: string): Promise<TRPCError> {
+  const body = (await res.json().catch(() => null)) as { message?: string; code?: string; error?: string } | null;
+  const reason = body?.message ?? body?.error;
+  console.error(`billing: ${what} failed`, res.status, body);
+  return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: reason ? `${what}: ${reason}` : what });
+}
+
 export const billingRouter = createTRPCRouter({
   status: authedProcedure.query(async () => {
     const res = await apiFetch("/api/me");
@@ -50,9 +58,7 @@ export const billingRouter = createTRPCRouter({
           cancelUrl: `${site}/pricing`,
         }),
       });
-      if (!res.ok) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not start checkout" });
-      }
+      if (!res.ok) throw await apiFailure(res, "Could not start checkout");
       return (await res.json()) as { url?: string; redirect?: boolean };
     }),
 
@@ -63,9 +69,7 @@ export const billingRouter = createTRPCRouter({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ returnUrl: `${site}/app/billing` }),
     });
-    if (!res.ok) {
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not open billing portal" });
-    }
+    if (!res.ok) throw await apiFailure(res, "Could not open billing portal");
     return (await res.json()) as { url?: string; redirect?: boolean };
   }),
 });
