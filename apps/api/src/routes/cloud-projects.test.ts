@@ -18,6 +18,8 @@ import type { Env, Variables } from "../types";
 import { createTestD1, type TestD1 } from "../test-support/d1-sqlite.js";
 import { sha256Hex } from "../lib/cloud-projects";
 import { storageUsageBytes } from "../lib/db";
+// In-memory R2Bucket (keeps customMetadata: document snapshots are gzipped).
+import { MemoryBucket, gunzipText } from "../test-support/memory-bucket";
 
 vi.mock("../lib/auth", () => import("../test-support/fake-session"));
 
@@ -48,35 +50,6 @@ const { cloudProjectRoutes } = await import("./cloud-projects");
 // Fixtures
 // ---------------------------------------------------------------------------
 
-/** Minimal in-memory R2Bucket: what the routes use (head/get/put/delete). */
-class MemoryBucket {
-  objects = new Map<string, { bytes: Uint8Array; contentType?: string }>();
-  put(key: string, value: Uint8Array | string, opts?: { httpMetadata?: { contentType?: string } }) {
-    const bytes = typeof value === "string" ? new TextEncoder().encode(value) : new Uint8Array(value);
-    this.objects.set(key, { bytes, contentType: opts?.httpMetadata?.contentType });
-    return Promise.resolve({ key, size: bytes.byteLength });
-  }
-  async head(key: string) {
-    const o = this.objects.get(key);
-    return o ? { key, size: o.bytes.byteLength, etag: `etag-${o.bytes.byteLength}` } : null;
-  }
-  async get(key: string) {
-    const o = this.objects.get(key);
-    if (!o) return null;
-    const bytes = o.bytes;
-    return {
-      key,
-      size: bytes.byteLength,
-      etag: `etag-${bytes.byteLength}`,
-      body: new Response(bytes).body!,
-      text: async () => new TextDecoder().decode(bytes),
-      arrayBuffer: async () => bytes.slice().buffer,
-    };
-  }
-  async delete(keys: string | string[]) {
-    for (const k of Array.isArray(keys) ? keys : [keys]) this.objects.delete(k);
-  }
-}
 
 const ID = "3F2504E0-4F89-11D3-9A0C-0305E82C3301";
 const OWNER = "owner";
@@ -209,6 +182,16 @@ async function syncedProject(files = baseFiles(), extra: Record<string, unknown>
   return { files };
 }
 
+/** Stage → upload → finalize, NO document save: no version exists yet, so
+ *  nothing pins the committed media (history keeps what a version names). */
+async function mediaOnlyProject(files = baseFiles()) {
+  const stage = await call(OWNER, "PUT", `/cloud-projects/${ID}`, await manifest(files));
+  expect(stage.status).toBe(200);
+  await uploadMissing(await json(stage), files);
+  expect((await call(OWNER, "POST", `/cloud-projects/${ID}/finalize`)).status).toBe(200);
+  return { files };
+}
+
 // ---------------------------------------------------------------------------
 // AuthN / AuthZ
 // ---------------------------------------------------------------------------
@@ -267,13 +250,15 @@ describe("authz", () => {
     expect(body.isOwner).toBe(false);
     expect(body.document).toBe(projectJSON());
 
-    // A teammate's edit lands as a normal revision, stored under the OWNER.
+    // A teammate's edit lands as a normal revision, stored under the OWNER
+    // (revision 1 stays too: it is the upload version's snapshot).
     const save = await call(MEMBER, "PUT", `/cloud-projects/${ID}/project`, projectJSON("team edit"), { "If-Match": '"1"' });
     expect(save.status).toBe(200);
     expect((await json(save)).revision).toBe(2);
-    const docKeys = [...bucket.objects.keys()].filter((k) => k.includes("/doc/"));
-    expect(docKeys).toHaveLength(1);
-    expect(docKeys[0].startsWith(`cloud-projects/${OWNER}/${ID}/doc/2-`)).toBe(true);
+    const docKeys = bucket.docKeys();
+    expect(docKeys).toHaveLength(2);
+    expect(docKeys.every((k) => k.startsWith(`cloud-projects/${OWNER}/${ID}/doc/`))).toBe(true);
+    expect(docKeys.some((k) => k.startsWith(`cloud-projects/${OWNER}/${ID}/doc/2-`))).toBe(true);
     // Revision discipline applies to members exactly as to the owner.
     const stale = await call(MEMBER, "PUT", `/cloud-projects/${ID}/project`, projectJSON("late"), { "If-Match": '"1"' });
     expect(stale.status).toBe(409);
@@ -385,9 +370,7 @@ describe("team access matrix", () => {
     expect(await storageUsageBytes(db, OWNER)).toBe(ownerBefore + growth);
     expect(await storageUsageBytes(db, "free-member")).toBe(0);
     // The document object lives under the OWNER's prefix.
-    expect([...bucket.objects.keys()].filter((k) => k.includes("/doc/"))[0]).toMatch(
-      new RegExp(`^cloud-projects/${OWNER}/${ID}/doc/2-`),
-    );
+    expect(bucket.docKeys().some((k) => new RegExp(`^cloud-projects/${OWNER}/${ID}/doc/2-`).test(k))).toBe(true);
   });
 
   it("team access is the owner's paid feature: when the owner's plan lapses, members lose the project and the owner keeps it", async () => {
@@ -581,8 +564,10 @@ describe("finalize verification", () => {
     expect(refreshed.files).toHaveLength(3);
   });
 
-  it("garbage-collects objects a new manifest drops", async () => {
-    const { files } = await syncedProject();
+  it("garbage-collects objects a new manifest drops (when no version pins them)", async () => {
+    // Media only, no document save yet → no version pins anything. (A dropped
+    // object a version DOES pin stays: cloud-project-history.test.ts.)
+    const { files } = await mediaOnlyProject();
     const cursorSha = await sha256Hex(files[1].bytes);
     const cursorKey = `cloud-projects/${OWNER}/${ID}/objects/${cursorSha}`;
     expect(bucket.objects.has(cursorKey)).toBe(true);
@@ -698,9 +683,11 @@ describe("quota", () => {
     expect(shrink.status).toBe(200);
   });
 
-  it("replacing a recording at the cap still works: the dropped object is credit", async () => {
+  it("replacing a recording at the cap still works: the dropped object is credit (when no version pins it)", async () => {
+    // No document save yet → no version pins A. Once a version pins it, it
+    // keeps counting and is never credit (cloud-project-history.test.ts).
     const a = file("recording.mov", "video/quicktime", "A".repeat(40));
-    await syncedProject([a]);
+    await mediaOnlyProject([a]);
     const used = await storageUsageBytes(db, OWNER);
     setProLimits({ maxTotalStorageBytes: used });
     const b = file("recording.mov", "video/quicktime", "B".repeat(40));
@@ -713,9 +700,10 @@ describe("quota", () => {
   });
 
   it("EXPLOIT: a replacement accepted on credit cannot be committed alongside the object it replaced", async () => {
-    // At the cap with recording A committed.
+    // At the cap with recording A committed (and not pinned by a version, so
+    // it IS credit — the precondition of the exploit).
     const a = file("recording.mov", "video/quicktime", "A".repeat(40));
-    await syncedProject([a]);
+    await mediaOnlyProject([a]);
     const used = await storageUsageBytes(db, OWNER);
     setProLimits({ maxTotalStorageBytes: used });
 
@@ -791,10 +779,13 @@ describe("document saves", () => {
     const got = await json(await call(OWNER, "GET", `/cloud-projects/${ID}`));
     expect(got.document).toBe(edited);
     expect(got.name).toBe("Renamed on the web");
-    // Only the live revision's object is kept.
-    const docKeys = [...bucket.objects.keys()].filter((k) => k.includes("/doc/"));
-    expect(docKeys).toHaveLength(1);
-    expect(docKeys[0]).toMatch(new RegExp(`^cloud-projects/${OWNER}/${ID}/doc/2-[a-z0-9]{12}\\.json$`));
+    // The live revision's object, plus revision 1 kept as the upload
+    // version's snapshot (history; each gzipped and marked so).
+    const docKeys = bucket.docKeys();
+    expect(docKeys).toHaveLength(2);
+    expect(docKeys[1]).toMatch(new RegExp(`^cloud-projects/${OWNER}/${ID}/doc/2-[a-z0-9]{12}\\.json$`));
+    expect(bucket.objects.get(docKeys[1])!.customMetadata).toEqual({ enc: "gzip" });
+    expect(await gunzipText(bucket.objects.get(docKeys[1])!.bytes)).toBe(edited);
   });
 
   it("409 on a stale revision, with the current revision and document", async () => {
@@ -829,10 +820,13 @@ describe("document saves", () => {
     // The loser orphaned only its own attempt's object, and deleted it; the
     // winner's bytes are intact (the regression: both aimed at doc/2.json and
     // the loser's late PUT replaced the winner's document under its row).
-    const docKeys = [...bucket.objects.keys()].filter((k) => k.includes("/doc/"));
+    // Revision 1's snapshot stays as the upload version.
+    const docKeys = bucket.docKeys().filter((k) => k.includes("/doc/2-"));
     expect(docKeys).toHaveLength(1);
-    expect(new TextDecoder().decode(bucket.objects.get(docKeys[0])!.bytes)).toBe(winner);
+    expect(await gunzipText(bucket.objects.get(docKeys[0])!.bytes)).toBe(winner);
     expect(got.documentSha256).toBe(await sha256Hex(winner));
+    // …and the loser wrote no version row: one per landed revision.
+    expect(db.query(`SELECT revision FROM cloud_project_versions ORDER BY seq`).map((r) => r.revision)).toEqual([1, 2]);
   });
 
   it("refuses documents the Mac could not decode", async () => {
