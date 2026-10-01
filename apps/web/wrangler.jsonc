@@ -13,10 +13,12 @@
   "routes": [
     { "pattern": "capturecat.so", "custom_domain": true },
     { "pattern": "www.capturecat.so", "custom_domain": true },
-    { "pattern": "app.capturecat.so", "custom_domain": true },
-    // Cloudflare for SaaS: custom hostnames (customers' share domains) only
-    // match a `*/*` route. src/server.ts passes api./admin. traffic through.
-    { "pattern": "*/*", "zone_name": "capturecat.so" }
+    { "pattern": "app.capturecat.so", "custom_domain": true }
+    // NEVER add a zone-wide `*/*` route here. Every deploy (re)creates the
+    // routes listed, and `*/*` → this Worker captures api.capturecat.so and
+    // admin.capturecat.so too, taking both down (1019 on 2026-09-30, 421 on
+    // 2026-10-01 when a deploy put it back). Custom share domains need a
+    // design proven on a non-production zone first — apps/api/README.md.
   ],
   "compatibility_date": "2025-09-02",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
