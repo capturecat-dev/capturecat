@@ -17,9 +17,13 @@ cd "$(dirname "$0")/.."
 SCHEME="${SCHEME:-CaptureCat}"
 CONFIG="${CONFIGURATION:-Debug}"
 
-APP="$(xcodebuild -project CaptureCat.xcodeproj -scheme "$SCHEME" \
-        -configuration "$CONFIG" -showBuildSettings 2>/dev/null \
-      | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')/${SCHEME}.app"
+# APP=/path/to/CaptureCat.app runs the gates against another build (a
+# worktree's own -derivedDataPath, say) instead of the scheme's default.
+if [[ -z "${APP:-}" ]]; then
+  APP="$(xcodebuild -project CaptureCat.xcodeproj -scheme "$SCHEME" \
+          -configuration "$CONFIG" -showBuildSettings 2>/dev/null \
+        | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{print $2; exit}')/${SCHEME}.app"
+fi
 BIN="$APP/Contents/MacOS/$SCHEME"
 
 if [[ ! -x "$BIN" ]]; then
@@ -38,6 +42,8 @@ GATES=(
   --editor-shell-shot
   --inspector-probe
   --recording-panel-shot
+  --cloud-sync-test
+  --history-panel-shot
 )
 
 failed=0
