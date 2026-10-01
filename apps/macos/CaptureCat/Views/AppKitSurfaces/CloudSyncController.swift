@@ -193,7 +193,22 @@ final class CloudSyncController {
 
     /// "Merged 2 changes from Ana (Web)" — a CCToaster toast in `window`.
     func toast(_ report: CloudMergeReport, in window: NSWindow) {
-        guard let host = window.contentView else { return }
+        let settled = report.autoResolved.count
+        var notes: [String] = []
+        if settled > 0 { notes.append(settled == 1 ? "1 clash went to the latest edit" : "\(settled) clashes went to the latest edit") }
+        if report.conflictsResolved > 0 {
+            notes.append(report.conflictsResolved == 1 ? "1 conflict resolved" : "\(report.conflictsResolved) conflicts resolved")
+        }
+        notes.append("Both versions are kept in History.")
+        showToast(title: report.toastTitle, message: notes.joined(separator: " · "),
+                  symbol: "arrow.triangle.merge", in: window)
+    }
+
+    /// A house toast in `window` (one CCToaster per window, reused).
+    @discardableResult
+    func showToast(title: String, message: String?, variant: CCToast.Variant = .success,
+                   symbol: String? = nil, in window: NSWindow) -> CCToast? {
+        guard let host = window.contentView else { return nil }
         let key = ObjectIdentifier(window)
         let toaster: CCToaster
         if let existing = toasters[key], existing.window() === window {
@@ -202,15 +217,7 @@ final class CloudSyncController {
             toaster = CCToaster(in: host)
             toasters[key] = ({ [weak window] in window }, toaster)
         }
-        let settled = report.autoResolved.count
-        var notes: [String] = []
-        if settled > 0 { notes.append(settled == 1 ? "1 clash went to the latest edit" : "\(settled) clashes went to the latest edit") }
-        if report.conflictsResolved > 0 {
-            notes.append(report.conflictsResolved == 1 ? "1 conflict resolved" : "\(report.conflictsResolved) conflicts resolved")
-        }
-        notes.append("Both versions are kept in History.")
-        toaster.show(title: report.toastTitle, message: notes.joined(separator: " · "),
-                     variant: .success, symbol: "arrow.triangle.merge", duration: 5)
+        return toaster.show(title: title, message: message, variant: variant, symbol: symbol, duration: 5)
     }
 
     private func announce(_ projectID: UUID) {
@@ -438,7 +445,10 @@ final class CloudSyncController {
             return "The web editor keeps your project in CaptureCat cloud storage, which your plan doesn’t include. "
                 + "Upgrade to open projects on the web."
         case "storage_limit_reached":
-            return "Your cloud storage is full. Delete shared videos or web-editor projects from your dashboard, then try again."
+            // Old versions pin the media they used, so a replaced recording
+            // keeps counting until History lets go of it.
+            return "Your cloud storage is full. Project History still keeps media you replaced — use Free up in "
+                + "History, or delete shared videos or web-editor projects from your dashboard, then try again."
         case "not_owner":
             return "This project is in the web editor under another CaptureCat account. Sign in with that account to sync it."
         default:

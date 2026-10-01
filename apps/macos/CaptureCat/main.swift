@@ -739,6 +739,17 @@ if CommandLine.arguments.contains("--cloud-sync-test") {
     MainActor.assumeIsolated { CloudSyncHarness.run() }
 }
 
+// Project history pane gate: the real editor shell (hosted through the
+// editor window's own chain) against a stub history server — History key,
+// column ⇄ pane swap sampled mid-flight, row/day-section structure equal to
+// the stub's versions, glide hover, compare, preview banner, empty state,
+// and an in-process self-test that injected defects trip the assertions.
+// `--inject-defect` runs it with both defects on (must exit 1). Never
+// reached in a normal launch.
+if CommandLine.arguments.contains("--history-panel-shot") {
+    MainActor.assumeIsolated { HistoryPanelHarness.run() }
+}
+
 // Desktop auth acceptance test: PKCE generation, RFC 8252 redirect-URI
 // validation, the loopback listener's full lifecycle (bind → 404 → one-shot
 // callback → teardown, plus timeout/cancel/port-conflict) and the Keychain

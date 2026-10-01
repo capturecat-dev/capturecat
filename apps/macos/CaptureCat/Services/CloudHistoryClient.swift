@@ -3,9 +3,13 @@ import os
 
 private let historyLogger = Logger(subsystem: "so.capturecat.CaptureCat", category: "CloudHistory")
 
-// MARK: - Models (docs/project-history.md §2 + §4)
+// MARK: - Models (docs/project-history.md §6.1 — the implemented wire contract)
 
-/// One retained checkpoint of a cloud project (`cloud_project_versions`).
+/// One retained checkpoint of a cloud project — the API's version object `V`:
+/// `{ id, seq, kind, label, namedBy: {uid,name}|null, namedAt,
+///    actor: {uid,name}|null, client, source, firstRevision, revision,
+///    documentBytes, documentSha256, change|null, restoredFrom,
+///    mergedFromRevision, openedAt, updatedAt, isHead }`.
 nonisolated struct CloudVersion: Equatable, Sendable, Identifiable {
     let id: String
     let seq: Int
@@ -16,24 +20,27 @@ nonisolated struct CloudVersion: Equatable, Sendable, Identifiable {
     /// `upload` | `edit` | `merge` | `restore`.
     let kind: String
     var label: String?
+    /// Display name (else uid) of who named it.
     let namedBy: String?
     let namedAt: Date?
     let actorUID: String?
-    /// Display name the API joins in (`versions` list).
+    /// The actor's display name (`actor.name`).
     let actorName: String?
-    /// `mac` | `web` | `unknown`.
+    /// `mac` | `web` | `unknown` (`client`).
     let clientKind: String
-    let clientID: String?
     /// `human` | `agent` | `mixed`.
     let source: String
-    /// The version's change-set (base → this version), composed by the API.
+    /// The change-set from the previous version; nil = unknown (a client
+    /// that sent no `X-CC-Change`) — shown as a generic "Edited".
     let change: ChangeSet?
-    let docBytes: Int64?
-    let manifestSHA: String?
+    let documentBytes: Int64?
+    let documentSHA256: String?
     let restoredFrom: String?
     let mergedFromRevision: Int?
     let openedAt: Date?
     let updatedAt: Date?
+    /// The server marks the current version.
+    let isHead: Bool
 
     var isNamed: Bool { !(label ?? "").isEmpty }
     var date: Date? { updatedAt ?? openedAt }
@@ -66,9 +73,9 @@ nonisolated struct CloudVersion: Equatable, Sendable, Identifiable {
 }
 
 nonisolated struct CloudRetention: Equatable, Sendable {
-    /// History window in days (Pro 30, Business 365, Free 0).
+    /// `maxHistoryDays` — Pro 30, Business 365, Free 0 (head only).
     let historyDays: Int?
-    /// Named-version cap (Pro 25, Business 500).
+    /// `maxNamedVersions` — Pro 25, Business 500.
     let maxNamed: Int?
     let namedCount: Int?
 }
@@ -78,10 +85,14 @@ nonisolated struct CloudVersionPage: Equatable, Sendable {
     /// `before=` cursor for the next page (nil = no more).
     var nextBefore: Int?
     var retention: CloudRetention?
-    /// "History keeps X of removed media".
+    /// Media the committed set dropped that history still keeps (counts
+    /// toward storage) — "History keeps X of removed media".
     var pinnedMediaBytes: Int64
+    /// The part of it Free up would release (pinned only by unnamed,
+    /// non-head versions).
+    var freeableBytes: Int64
     var headVersionID: String?
-    /// The caller owns the project (only the owner may delete versions).
+    /// `access == "owner"` (only the owner deletes versions or frees media).
     var isOwner: Bool?
 }
 
@@ -99,18 +110,29 @@ nonisolated struct CloudVersionDetail: Equatable, Sendable {
     let document: Data
     /// That version's manifest, each with a presigned GET.
     let files: [CloudRemoteFile]
+    /// Paths of that manifest whose objects are gone.
+    let missingPaths: [String]
 }
 
 nonisolated enum CloudRestoreResult: Equatable, Sendable {
     case restored(revision: Int, documentSHA256: String?, version: CloudSavedVersion?)
-    /// The head moved (If-Match lost) — the 409 carries it.
+    /// 409 `revision_conflict` — the head moved (If-Match lost).
     case conflict(CloudConflict)
+    /// 409 `files_changed` — a media commit raced the restore; retry.
+    case filesChanged
+}
+
+nonisolated struct CloudFreeUpResult: Equatable, Sendable {
+    let deletedVersions: [String]
+    let releasedBytes: Int64
+    let pinnedMediaBytes: Int64
+    let freeableBytes: Int64
 }
 
 // MARK: - Transport
 
-/// The history routes (design §4). `HTTPCloudProjectTransport` talks to the
-/// API; `--cloud-sync-test` / `--history-panel-shot` use `StubCloudServer`.
+/// The history routes (§6.1). `HTTPCloudProjectTransport` talks to the API;
+/// `--cloud-sync-test` / `--history-panel-shot` use `StubCloudServer`.
 protocol CloudHistoryTransport: AnyObject {
     /// GET …/:id/head — nil = no cloud copy.
     func head(projectID: UUID) async throws -> CloudHead?
@@ -120,14 +142,16 @@ protocol CloudHistoryTransport: AnyObject {
     func version(projectID: UUID, versionID: String) async throws -> CloudVersionDetail
     /// PATCH …/versions/:vid {label} (nil/empty label = unname).
     func renameVersion(projectID: UUID, versionID: String, label: String?) async throws -> CloudVersion?
-    /// POST …/versions/:vid/restore + If-Match.
+    /// POST …/versions/:vid/restore + If-Match (+ X-CC-Client/-Id/-Source).
     func restoreVersion(projectID: UUID, versionID: String, baseRevision: Int,
                         context: CloudSaveContext) async throws -> CloudRestoreResult
-    /// DELETE …/versions/:vid (owner only; never the head).
+    /// DELETE …/versions/:vid (owner only; 409 `head_version` for the head).
     func deleteVersion(projectID: UUID, versionID: String) async throws
+    /// POST …/:id/history/free-up (owner only).
+    func freeUp(projectID: UUID) async throws -> CloudFreeUpResult
 }
 
-// MARK: - Parsing (tolerant: camelCase, snake_case and nested actor shapes)
+// MARK: - Parsing
 
 nonisolated enum CloudHistoryParse {
     private static func value(_ object: [String: Any], _ keys: String...) -> Any? {
@@ -137,12 +161,18 @@ nonisolated enum CloudHistoryParse {
         return nil
     }
 
+    /// `{uid, name}` → name, else uid; a bare string passes through.
+    private static func person(_ raw: Any?) -> (uid: String?, name: String?) {
+        if let object = raw as? [String: Any] {
+            return (CloudJSON.string(object["uid"]), CloudJSON.string(object["name"]))
+        }
+        return (CloudJSON.string(raw), nil)
+    }
+
     static func version(_ raw: Any?) -> CloudVersion? {
-        guard let object = raw as? [String: Any],
-              let id = CloudJSON.string(value(object, "id", "versionId", "version_id")) else { return nil }
-        let actor = value(object, "actor") as? [String: Any] ?? [:]
+        guard let object = raw as? [String: Any], let id = CloudJSON.string(value(object, "id")) else { return nil }
         var change: ChangeSet?
-        if let json = value(object, "change", "changeJson", "change_json") {
+        if let json = value(object, "change") {
             if let text = json as? String {
                 change = (try? JSONValue.parse(text)).flatMap(ProjectDiff.changeSet(from:))
             } else if let data = try? JSONSerialization.data(withJSONObject: json),
@@ -150,50 +180,50 @@ nonisolated enum CloudHistoryParse {
                 change = ProjectDiff.changeSet(from: parsed)
             }
         }
+        let actor = person(value(object, "actor"))
+        let namer = person(value(object, "namedBy"))
         return CloudVersion(
             id: id,
             seq: CloudJSON.int(value(object, "seq")) ?? 0,
             revision: CloudJSON.int(value(object, "revision")) ?? 0,
-            firstRevision: CloudJSON.int(value(object, "firstRevision", "first_revision")),
+            firstRevision: CloudJSON.int(value(object, "firstRevision")),
             kind: CloudJSON.string(value(object, "kind")) ?? "edit",
             label: CloudJSON.string(value(object, "label")),
-            namedBy: CloudJSON.string(value(object, "namedBy", "named_by")),
-            namedAt: CloudAPIDate.parse(value(object, "namedAt", "named_at")),
-            actorUID: CloudJSON.string(value(object, "actorUid", "actor_uid")) ?? CloudJSON.string(actor["uid"]),
-            actorName: CloudJSON.string(value(object, "actorName", "actor_name", "actorDisplayName"))
-                ?? CloudJSON.string(actor["name"]) ?? CloudJSON.string(actor["displayName"]),
-            clientKind: CloudJSON.string(value(object, "clientKind", "client_kind", "client")) ?? "unknown",
-            clientID: CloudJSON.string(value(object, "clientId", "client_id")),
+            namedBy: namer.name ?? namer.uid,
+            namedAt: CloudAPIDate.parse(value(object, "namedAt")),
+            actorUID: actor.uid,
+            actorName: actor.name,
+            clientKind: CloudJSON.string(value(object, "client")) ?? "unknown",
             source: CloudJSON.string(value(object, "source")) ?? "human",
             change: change,
-            docBytes: CloudJSON.int64(value(object, "docBytes", "doc_bytes")),
-            manifestSHA: CloudJSON.string(value(object, "manifestSha", "manifest_sha", "manifestSha256")),
-            restoredFrom: CloudJSON.string(value(object, "restoredFrom", "restored_from")),
-            mergedFromRevision: CloudJSON.int(value(object, "mergedFromRevision", "merged_from_revision")),
-            openedAt: CloudAPIDate.parse(value(object, "openedAt", "opened_at")),
-            updatedAt: CloudAPIDate.parse(value(object, "updatedAt", "updated_at"))
+            documentBytes: CloudJSON.int64(value(object, "documentBytes")),
+            documentSHA256: CloudJSON.string(value(object, "documentSha256")),
+            restoredFrom: CloudJSON.string(value(object, "restoredFrom")),
+            mergedFromRevision: CloudJSON.int(value(object, "mergedFromRevision")),
+            openedAt: CloudAPIDate.parse(value(object, "openedAt")),
+            updatedAt: CloudAPIDate.parse(value(object, "updatedAt")),
+            isHead: value(object, "isHead") as? Bool ?? false
         )
     }
 
     static func page(_ data: Data) -> CloudVersionPage? {
-        guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
-        let versions = (value(object, "versions", "items") as? [Any] ?? []).compactMap(version)
+        guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let list = value(object, "versions") as? [Any] else { return nil }
         var retention: CloudRetention?
         if let r = value(object, "retention") as? [String: Any] {
             retention = CloudRetention(
-                historyDays: CloudJSON.int(value(r, "historyDays", "maxHistoryDays", "days")),
-                maxNamed: CloudJSON.int(value(r, "maxNamedVersions", "maxNamed", "named")),
-                namedCount: CloudJSON.int(value(r, "namedCount", "named_count")))
+                historyDays: CloudJSON.int(value(r, "maxHistoryDays")),
+                maxNamed: CloudJSON.int(value(r, "maxNamedVersions")),
+                namedCount: CloudJSON.int(value(r, "namedCount")))
         }
-        var isOwner = value(object, "isOwner", "is_owner") as? Bool
-        if isOwner == nil, let access = CloudJSON.string(value(object, "access")) { isOwner = access == "owner" }
         return CloudVersionPage(
-            versions: versions,
-            nextBefore: CloudJSON.int(value(object, "nextBefore", "next_before", "nextCursor")),
+            versions: list.compactMap(version),
+            nextBefore: CloudJSON.int(value(object, "nextBefore")),
             retention: retention,
-            pinnedMediaBytes: CloudJSON.int64(value(object, "pinnedMediaBytes", "pinned_media_bytes")) ?? 0,
-            headVersionID: CloudJSON.string(value(object, "headVersionId", "head_version_id")),
-            isOwner: isOwner)
+            pinnedMediaBytes: CloudJSON.int64(value(object, "pinnedMediaBytes")) ?? 0,
+            freeableBytes: CloudJSON.int64(value(object, "freeableBytes")) ?? 0,
+            headVersionID: CloudJSON.string(value(object, "headVersionId")),
+            isOwner: CloudJSON.string(value(object, "access")).map { $0 == "owner" })
     }
 
     static func head(_ data: Data) -> CloudHead? {
@@ -201,10 +231,10 @@ nonisolated enum CloudHistoryParse {
               let revision = CloudJSON.int(value(object, "revision")) else { return nil }
         return CloudHead(
             revision: revision,
-            documentSHA256: CloudJSON.string(value(object, "documentSha256", "docSha", "docSha256")),
-            updatedAt: CloudAPIDate.parse(value(object, "updatedAt", "updated_at")),
-            updatedBy: CloudJSON.string(value(object, "updatedBy", "updated_by")),
-            headVersionID: CloudJSON.string(value(object, "headVersionId", "head_version_id")))
+            documentSHA256: CloudJSON.string(value(object, "documentSha256")),
+            updatedAt: CloudAPIDate.parse(value(object, "updatedAt")),
+            updatedBy: CloudJSON.string(value(object, "updatedBy")),
+            headVersionID: CloudJSON.string(value(object, "headVersionId")))
     }
 
     static func detail(_ data: Data) -> CloudVersionDetail? {
@@ -213,15 +243,24 @@ nonisolated enum CloudHistoryParse {
         return CloudVersionDetail(
             version: version(value(object, "version")),
             document: Data(text.utf8),
-            files: HTTPCloudProjectTransport.remoteFiles(value(object, "files")))
+            files: HTTPCloudProjectTransport.remoteFiles(value(object, "files")),
+            missingPaths: value(object, "missingPaths") as? [String] ?? [])
     }
 
-    /// `{document: "<text>"}`, or the document itself as the body.
+    /// `{ projectId, revision, versionId, documentSha256, document }`.
     static func revisionDocument(_ data: Data) -> Data? {
+        guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let text = object["document"] as? String else { return nil }
+        return Data(text.utf8)
+    }
+
+    static func freeUp(_ data: Data) -> CloudFreeUpResult? {
         guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
-        if let text = object["document"] as? String { return Data(text.utf8) }
-        if object["id"] != nil, object["settings"] != nil { return data }
-        return nil
+        return CloudFreeUpResult(
+            deletedVersions: value(object, "deletedVersions") as? [String] ?? [],
+            releasedBytes: CloudJSON.int64(value(object, "releasedBytes")) ?? 0,
+            pinnedMediaBytes: CloudJSON.int64(value(object, "pinnedMediaBytes")) ?? 0,
+            freeableBytes: CloudJSON.int64(value(object, "freeableBytes")) ?? 0)
     }
 }
 
@@ -235,7 +274,7 @@ extension HTTPCloudProjectTransport: CloudHistoryTransport {
     }
 
     func versions(projectID: UUID, before: Int?, limit: Int) async throws -> CloudVersionPage? {
-        var path = "/\(projectID.uuidString)/versions?limit=\(max(1, min(limit, 50)))"
+        var path = "/\(projectID.uuidString)/versions?limit=\(max(1, min(limit, 200)))"
         if let before { path += "&before=\(before)" }
         let (data, http) = try await send(try request("GET", path))
         if http.statusCode == 404 { return nil }
@@ -258,18 +297,24 @@ extension HTTPCloudProjectTransport: CloudHistoryTransport {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, http) = try await send(request)
         guard http.statusCode == 200 else { throw apiError(data, http) }
-        let object = (try? json(data)) ?? [:]
-        return CloudHistoryParse.version(object["version"] ?? object)
+        return CloudHistoryParse.version(((try? json(data)) ?? [:])["version"])
     }
 
     func restoreVersion(projectID: UUID, versionID: String, baseRevision: Int,
                         context: CloudSaveContext) async throws -> CloudRestoreResult {
         var request = try request("POST", "/\(projectID.uuidString)/versions/\(Self.escape(versionID))/restore")
         request.setValue("\"\(baseRevision)\"", forHTTPHeaderField: "If-Match")
-        for (name, value) in context.headers { request.setValue(value, forHTTPHeaderField: name) }
+        // Restore takes the client headers only (it is always its own version).
+        for name in ["X-CC-Client", "X-CC-Client-Id", "X-CC-Source"] {
+            if let value = context.headers[name] { request.setValue(value, forHTTPHeaderField: name) }
+        }
         let (data, http) = try await send(request)
         if http.statusCode == 409, let object = try? json(data) {
-            return .conflict(Self.conflict(object))
+            switch object["code"] as? String {
+            case "revision_conflict": return .conflict(Self.conflict(object))
+            case "files_changed": return .filesChanged
+            default: throw apiError(data, http) // version_media_missing
+            }
         }
         guard http.statusCode == 200 else { throw apiError(data, http) }
         let object = try json(data)
@@ -281,6 +326,13 @@ extension HTTPCloudProjectTransport: CloudHistoryTransport {
     func deleteVersion(projectID: UUID, versionID: String) async throws {
         let (data, http) = try await send(try request("DELETE", "/\(projectID.uuidString)/versions/\(Self.escape(versionID))"))
         guard (200...299).contains(http.statusCode) else { throw apiError(data, http) }
+    }
+
+    func freeUp(projectID: UUID) async throws -> CloudFreeUpResult {
+        let (data, http) = try await send(try request("POST", "/\(projectID.uuidString)/history/free-up"))
+        guard http.statusCode == 200 else { throw apiError(data, http) }
+        guard let result = CloudHistoryParse.freeUp(data) else { throw CloudSyncError.invalidResponse }
+        return result
     }
 
     private static func escape(_ id: String) -> String {
@@ -331,9 +383,9 @@ nonisolated struct CloudLocalStatus: Equatable, Sendable {
 // MARK: - Client (what the History pane calls)
 
 /// The History pane's service: list, name, compare, preview, restore,
-/// delete and "Free up" — over a `CloudHistoryTransport`, with the sync
-/// engine for the parts that move documents (restore = push unsynced edits,
-/// POST restore, pull the restored revision).
+/// delete and Free up — over a `CloudHistoryTransport`, with the sync engine
+/// for the parts that move documents (restore = push unsynced edits, POST
+/// restore, pull the restored revision).
 @MainActor
 final class CloudHistoryClient {
     typealias Transport = CloudHistoryTransport & CloudProjectTransport
@@ -371,33 +423,16 @@ final class CloudHistoryClient {
         try await transport.deleteVersion(projectID: projectID, versionID: versionID)
     }
 
-    /// "Free up": delete the unnamed versions pinning removed media — every
-    /// unnamed, non-head version whose manifest is not the head's (only those
-    /// can hold a file the current project no longer uses). Named versions
-    /// are kept (the user asked for them). Returns how many were deleted.
-    func freeUp(projectID: UUID, page: CloudVersionPage) async throws -> Int {
-        let head = page.versions.first { $0.id == page.headVersionID } ?? page.versions.first
-        let doomed = Self.freeUpCandidates(page)
-        var deleted = 0
-        for version in doomed where version.id != head?.id {
-            try await transport.deleteVersion(projectID: projectID, versionID: version.id)
-            deleted += 1
-        }
-        return deleted
-    }
-
-    nonisolated static func freeUpCandidates(_ page: CloudVersionPage) -> [CloudVersion] {
-        let head = page.versions.first { $0.id == page.headVersionID } ?? page.versions.first
-        return page.versions.filter { version in
-            version.id != head?.id && !version.isNamed
-                && version.manifestSHA != nil && version.manifestSHA != head?.manifestSHA
-        }
+    /// "Free up": the server deletes every unnamed, non-head version pinning
+    /// media the project no longer uses (owner only).
+    func freeUp(projectID: UUID) async throws -> CloudFreeUpResult {
+        try await transport.freeUp(projectID: projectID)
     }
 
     enum RestoreOutcome: Equatable {
         case restored(revision: Int)
         /// This Mac's unsynced edits could not be saved to History first
-        /// (they conflict) — sync, then restore.
+        /// (they conflict), or the head kept moving — sync, then restore.
         case needsSync
     }
 
@@ -423,17 +458,20 @@ final class CloudHistoryClient {
         }
         guard var agreed = state else { throw CloudSyncError.invalidResponse }
         let context = CloudSaveContext(clientID: sync.clientID, source: .human, checkpoint: .restore)
-        for attempt in 0..<2 {
+        for attempt in 0..<3 {
             switch try await transport.restoreVersion(projectID: projectID, versionID: versionID,
                                                       baseRevision: agreed.revision, context: context) {
             case .restored(let revision, _, _):
                 let pulled = try await sync.pull(projectID: projectID, projectDirectory: dir, progress: progress)
                 historyLogger.info("restored version \(versionID, privacy: .public) as revision \(revision) (\(String(describing: pulled), privacy: .public))")
                 return .restored(revision: revision)
+            case .filesChanged:
+                // A media commit raced the restore: the API says retry.
+                continue
             case .conflict:
                 // Someone saved meanwhile: agree with the new head (a pull —
-                // this Mac has no unsynced edits now), then retry once.
-                guard attempt == 0 else { return .needsSync }
+                // this Mac has no unsynced edits now), then retry.
+                guard attempt < 2 else { return .needsSync }
                 _ = try await sync.pull(projectID: projectID, projectDirectory: dir, progress: progress)
                 guard let fresh = CloudSyncState.load(from: dir, projectID: projectID, apiBaseURL: sync.apiBaseURL) else {
                     return .needsSync
@@ -454,5 +492,27 @@ final class CloudHistoryClient {
         let project = try CloudProjectSync.checkedProject(data, projectID: projectID)
         project.isPreview = true
         return project
+    }
+
+    /// History refusals in the user's words; everything else as the sync says.
+    static func message(for error: Error) -> String {
+        switch (error as? CloudSyncError)?.apiCode {
+        case "named_version_limit":
+            return "Your plan's named-version limit is reached. Unname an older version first."
+        case "invalid_label":
+            return "Version names are up to 100 characters, without control characters."
+        case "head_version":
+            return "The current version can't be deleted."
+        case "not_owner":
+            return "Only the project's owner can delete versions or free up History."
+        case "version_media_missing":
+            return "Some of this version's media is no longer stored, so it can't be restored."
+        case "version_document_missing":
+            return "This version's document is no longer stored."
+        case "version_not_found":
+            return "That version no longer exists — History may have been pruned."
+        default:
+            return CloudSyncController.message(for: error)
+        }
     }
 }

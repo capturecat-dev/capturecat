@@ -51,6 +51,10 @@ final class CCCallout: NSView {
     private let messageField = CCWrappingLabel()
     private var closeButton: CCButton?
     private var surfaceBottom: NSLayoutConstraint!
+    /// The text's bottom pin — released when an action row sits below it.
+    private var contentBottom: NSLayoutConstraint!
+    private var actionRow: NSStackView?
+    private(set) var actions: [CCButton] = []
     private var collapseHeight: NSLayoutConstraint?
     private var hasEntered = false
     private(set) var isDismissing = false
@@ -115,12 +119,14 @@ final class CCCallout: NSView {
         constraints.append(titleField.trailingAnchor.constraint(lessThanOrEqualTo: surface.trailingAnchor,
                                                                 constant: -trailingInset))
         if message != nil {
+            contentBottom = messageField.bottomAnchor.constraint(equalTo: surface.bottomAnchor, constant: -pad)
             constraints += [
                 messageField.topAnchor.constraint(equalTo: titleField.bottomAnchor, constant: CCSpace.xxs + 1),
-                messageField.bottomAnchor.constraint(equalTo: surface.bottomAnchor, constant: -pad),
+                contentBottom,
             ]
         } else {
-            constraints.append(titleField.bottomAnchor.constraint(equalTo: surface.bottomAnchor, constant: -pad))
+            contentBottom = titleField.bottomAnchor.constraint(equalTo: surface.bottomAnchor, constant: -pad)
+            constraints.append(contentBottom)
         }
         NSLayoutConstraint.activate(constraints)
         titleField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -128,6 +134,33 @@ final class CCCallout: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    /// Action buttons in a row under the text, aligned with it (shadcn's
+    /// Alert with actions — "[Restore] [Back to Current]"). An empty list
+    /// removes the row.
+    func setActions(_ buttons: [CCButton]) {
+        actionRow?.removeFromSuperview()
+        actionRow = nil
+        actions = buttons
+        guard !buttons.isEmpty else {
+            contentBottom.isActive = true
+            return
+        }
+        let row = NSStackView(views: buttons)
+        row.orientation = .horizontal
+        row.spacing = CCSpace.sm
+        row.translatesAutoresizingMaskIntoConstraints = false
+        surface.addSubview(row)
+        contentBottom.isActive = false
+        let above: NSView = messageField.isHidden ? titleField : messageField
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(equalTo: titleField.leadingAnchor),
+            row.trailingAnchor.constraint(lessThanOrEqualTo: surface.trailingAnchor, constant: -CCSpace.md),
+            row.topAnchor.constraint(equalTo: above.bottomAnchor, constant: CCSpace.sm),
+            row.bottomAnchor.constraint(equalTo: surface.bottomAnchor, constant: -CCSpace.md),
+        ])
+        actionRow = row
+    }
 
     override func layout() {
         super.layout()
