@@ -4,12 +4,25 @@ import { Check, Minus } from "lucide-react";
 
 import { SubscribeButton } from "./subscribe-button";
 
+/** One interval's price. During a sale `amount` is what checkout charges and
+ *  `regularAmount` the price struck through (the API decides both, by the
+ *  same rule checkout uses). */
+interface PriceView {
+  amount: number | null;
+  currency: string;
+  interval: string | null;
+  regularAmount?: number | null;
+}
+
 /** Shape of GET /api/plans, already fetched by the server component. */
 export interface PlanView {
   name: string;
   description: string | null;
-  monthly: { amount: number | null; currency: string; interval: string | null };
-  annual: { amount: number | null; currency: string; interval: string | null } | null;
+  monthly: PriceView;
+  annual: PriceView | null;
+  /** Only while a sale is on. `durationMonths` null = for as long as you stay. */
+  sale?: { label: string; endsAt: string | null; durationMonths: number | null } | null;
+  popular?: boolean;
   trialDays: number;
   features: Record<string, boolean> | null;
   free: {
@@ -90,18 +103,33 @@ export function PricingCards({ plan }: { plan: PlanView | null }) {
   const hasAnnual = Boolean(plan?.annual?.amount);
   const showAnnual = annual && hasAnnual;
 
-  const price = plan
-    ? showAnnual
-      ? formatPrice(plan.annual!.amount, plan.annual!.currency)
-      : formatPrice(plan.monthly.amount, plan.monthly.currency)
-    : "$10";
+  const shown = plan ? (showAnnual ? plan.annual! : plan.monthly) : null;
+  const price = shown ? formatPrice(shown.amount, shown.currency) : "$10";
   const interval = showAnnual ? "year" : (plan?.monthly.interval ?? "month");
-
-  // Saved-percentage badge — only when both live prices exist.
-  const savings =
-    plan?.annual?.amount && plan.monthly.amount
-      ? Math.round((1 - plan.annual.amount / (plan.monthly.amount * 12)) * 100)
+  // A sale on the interval being shown: the regular price is struck through.
+  const regular =
+    shown && plan?.sale && shown.regularAmount != null ? formatPrice(shown.regularAmount, shown.currency) : null;
+  const saleNote =
+    regular && plan?.sale
+      ? [
+          plan.sale.label,
+          plan.sale.durationMonths
+            ? `first ${plan.sale.durationMonths} month${plan.sale.durationMonths === 1 ? "" : "s"}`
+            : "for as long as you stay",
+          plan.sale.endsAt
+            ? `ends ${new Date(plan.sale.endsAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
       : null;
+
+  // Saved-percentage badge — only when both live prices exist. Regular
+  // prices, so a sale on one interval doesn't skew the comparison.
+  const annualRegular = plan?.annual ? (plan.annual.regularAmount ?? plan.annual.amount) : null;
+  const monthlyRegular = plan ? (plan.monthly.regularAmount ?? plan.monthly.amount) : null;
+  const savings =
+    annualRegular && monthlyRegular ? Math.round((1 - annualRegular / (monthlyRegular * 12)) * 100) : null;
 
   const gateKeys = Object.keys(FEATURE_LABELS);
   const proGates = plan?.features ?? null;
@@ -181,19 +209,30 @@ export function PricingCards({ plan }: { plan: PlanView | null }) {
             <h2 className="text-xl font-semibold tracking-[-0.01em]">
               {plan?.name ?? "CaptureCat Pro"}
             </h2>
-            {plan?.trialDays ? (
-              <span className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-xs text-foreground">
-                {plan.trialDays}-day free trial
-              </span>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {plan?.popular ? (
+                <span className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-xs text-foreground">
+                  Most popular
+                </span>
+              ) : null}
+              {plan?.trialDays ? (
+                <span className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-xs text-foreground">
+                  {plan.trialDays}-day free trial
+                </span>
+              ) : null}
+            </div>
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {plan?.description ?? "Everything you need to record and share"}
           </p>
           <div className="mt-6">
+            {regular ? (
+              <span className="mr-2 text-2xl text-muted-foreground line-through decoration-1">{regular}</span>
+            ) : null}
             <span className="text-5xl font-semibold tracking-[-0.02em]">{price}</span>
             <span className="text-muted-foreground">/{interval}</span>
           </div>
+          {saleNote ? <p className="mt-2 text-sm text-muted-foreground">{saleNote}</p> : null}
           <ul className="mt-8 space-y-3">
             {CORE_FEATURES.map((f) => (
               <FeatureRow key={f} label={f} included />

@@ -60,14 +60,11 @@ APPLE_PRIVATE_KEY=""
 # (not the one `stripe listen` prints — that one is for local dev only).
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
-STRIPE_PRO_PRICE_ID=
-# Optional — only if you sell an annual price.
-STRIPE_PRO_ANNUAL_PRICE_ID=
-# Optional — free-trial days. This is how free subscriptions are offered: the
-# plugin creates a real Stripe subscription in status `trialing`, which counts
-# as paid. Blank or 0 = no trial. For one-off comps use a 100%-off coupon in
-# the dashboard instead; both sync through the same webhook.
-STRIPE_PRO_TRIAL_DAYS=
+# Prices, sales and trial days are NOT secrets any more: they live on the plan
+# rows, edited (and synced to Stripe) in the admin console. The old
+# STRIPE_PRO_PRICE_ID / STRIPE_PRO_ANNUAL_PRICE_ID / STRIPE_PRO_TRIAL_DAYS are
+# read only by the sync's one-time adoption of the pre-sync Pro price, and can
+# be deleted once every plan is synced (docs/stripe-setup.md §5).
 
 # ── R2 (presigned uploads) ───────────────────────────────────────────────────
 # An R2 API token, not the account key. The Worker also has a native R2 binding

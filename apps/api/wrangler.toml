@@ -64,8 +64,11 @@ ATTEST_MODE = "report"
 #   APPLE_PRIVATE_KEY    — `cat AuthKey_XXXXXXXXXX.p8 | npx wrangler secret put APPLE_PRIVATE_KEY`
 #   STRIPE_SECRET_KEY
 #   STRIPE_WEBHOOK_SECRET        — from the /api/auth/stripe/webhook endpoint
-#   STRIPE_PRO_PRICE_ID          — price_… monthly
-#   STRIPE_PRO_ANNUAL_PRICE_ID   — price_… annual (optional)
+#   STRIPE_PRO_PRICE_ID          — LEGACY, optional: read only by the admin
+#   STRIPE_PRO_ANNUAL_PRICE_ID     sync's one-time adoption of the pre-sync Pro
+#   STRIPE_PRO_TRIAL_DAYS          prices; checkout never reads them. Delete
+#                                  once every plan is synced
+#                                  (docs/stripe-setup.md §5).
 #   GEMINI_API_KEY   — server-side AI key for /api/ai/* (never ship in the app)
 #   TURNSTILE_SECRET — Cloudflare Turnstile secret for POST /api/beta siteverify.
 #                      The PUBLIC site key is NOT here; it lives in the web app

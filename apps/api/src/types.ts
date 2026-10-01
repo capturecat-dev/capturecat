@@ -40,13 +40,14 @@ export interface Env {
   STRIPE_SECRET_KEY: string;
   /** Secret — signing secret for POST /api/auth/stripe/webhook (`whsec_…`). */
   STRIPE_WEBHOOK_SECRET: string;
-  /** Secret — recurring monthly price id for CaptureCat Pro (`price_…`). */
-  STRIPE_PRO_PRICE_ID: string;
-  /** Optional — free-trial length in days for the Pro plan. A trial is a real
-   *  Stripe subscription in status `trialing`, which counts as paid. Unset or
-   *  0 means no trial. */
+  /** LEGACY secrets — Pro's monthly/annual price ids and trial days from
+   *  before plans were synced with Stripe. Checkout never reads them: plans,
+   *  prices and trials come from the `plan` table. Only the admin sync's
+   *  one-time adoption step (lib/stripe-catalog.ts) reads them, to key the
+   *  price production already sells. Safe to delete once every plan is
+   *  synced (docs/stripe-setup.md). */
+  STRIPE_PRO_PRICE_ID?: string;
   STRIPE_PRO_TRIAL_DAYS?: string;
-  /** Secret — optional annual price id for CaptureCat Pro (`price_…`). */
   STRIPE_PRO_ANNUAL_PRICE_ID?: string;
   /** Secret — server-side Gemini key for /api/ai/* (never ships in the app). */
   GEMINI_API_KEY?: string;
