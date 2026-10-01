@@ -78,7 +78,8 @@ export interface LoadedCloudProject extends MediaUrls {
   name: string;
   revision: number;
   documentSha256: string | null;
-  /** "owner" may save; "member" (a team member) is read-only. */
+  /** "owner" saves and adds media; "member" (a team member) saves edits but
+   *  cannot add or replace files — those count against the owner's storage. */
   access: "owner" | "member";
   isOwner: boolean;
   orgId: string | null;
@@ -160,7 +161,7 @@ function toMediaUrls(files: CloudMediaFile[], urlsExpireAt: string): MediaUrls {
 // API
 // ---------------------------------------------------------------------------
 
-/** Your cloud projects, newest first — or a team's (read-only) with `orgId`. */
+/** Your cloud projects, newest first — or a team's with `orgId` (members edit; the owner adds media). */
 export async function listCloudProjects(opts: RequestOptions & { orgId?: string } = {}): Promise<CloudProjectList> {
   const url = opts.orgId ? `${base()}?orgId=${encodeURIComponent(opts.orgId)}` : base();
   return expectOk<CloudProjectList>(await request(url, { method: "GET", signal: opts.signal }));
