@@ -123,6 +123,10 @@ bundle (project.json + recording + cursor/keystroke JSON + camera/voice-over
 media + referenced images) with "Open in Web Editor"; the web loads media via
 short-lived presigned GETs and saves project.json with optimistic concurrency
 (revision number → 409 on conflict). The Mac app can pull the web's edits back.
+A 409 three-way merges on the client (core/merge; base = the last accepted
+snapshot): clean → one undo step + a `merge` checkpoint save; structural
+conflicts → Merge Review. Versions, preview, restore and compare live in the
+History pane (state/history.ts, ui/history; contract in docs/project-history.md).
 Storage counts against the plan quota (existing storage accounting,
 migration 0025). Never deploy; never touch production secrets.
 

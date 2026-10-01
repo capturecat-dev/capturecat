@@ -105,9 +105,12 @@ export function AnnotationPill({
   if (!stage || !wrap || !annotation) return null;
 
   const id = annotation.id;
+  // An old version on screen (History preview) is read-only.
+  const readOnly = () => store.getState().preview != null;
   const edit = (label: string, e: PillEdit, key: string) =>
-    store.transact(label, (d) => applyPillEdit(d, id, e), { coalesceKey: `annotation-pill:${key}:${id}` });
+    !readOnly() && store.transact(label, (d) => applyPillEdit(d, id, e), { coalesceKey: `annotation-pill:${key}:${id}` });
   const commit = (label: string, e: PillEdit) => {
+    if (readOnly()) return;
     store.transact(label, (d) => applyPillEdit(d, id, e));
     store.endCoalescing();
   };
