@@ -375,11 +375,17 @@ enum MCPServer {
             let snapshot = dir.appendingPathComponent(base + ".json")
             let metaURL = dir.appendingPathComponent(base + ".meta.json")
             try previous.write(to: snapshot, options: .atomic)
+            // pre → post hashes chain consecutive MCP writes: cloud sync
+            // attributes a save to the agent only when this chain covers
+            // the edit from its merge base exactly (CloudAttribution,
+            // docs/project-history.md §3 Attribution).
             let meta: [String: Any] = [
                 "tool": tool,
                 "summary": String(summary.prefix(300)),
                 "at": ISO8601DateFormatter().string(from: Date()),
+                "preSHA256": sha256Hex(previous),
                 "postSHA256": sha256Hex(data),
+                "source": "agent",
             ]
             try JSONSerialization.data(withJSONObject: meta).write(to: metaURL, options: .atomic)
             snapshotFiles = [snapshot, metaURL]
