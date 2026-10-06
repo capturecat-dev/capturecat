@@ -118,7 +118,7 @@ const SECTIONS: Array<{
     body:
       "Turn on the overlay and every shortcut appears as a pill at the bottom of the frame, in the same timing it was pressed. Useful for keyboard heavy tutorials, and off by default so it never shows up where you did not ask for it.",
     details: [
-      "Toggle with Command Shift S while recording",
+      "Turn on Capture Shortcuts in the recording panel; only Command, Control, and Option combinations are kept",
       "Rendered by the same code in the preview and the export",
       "Pairs with synthesized key sounds if you want them",
     ],

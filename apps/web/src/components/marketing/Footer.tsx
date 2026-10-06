@@ -13,6 +13,7 @@ const COLUMNS: Array<{
       { label: "Pricing", to: "/pricing" },
       { label: "Download", to: "/download" },
       { label: "Agents and MCP", to: "/agents" },
+      { label: "Guides", to: "/guides" },
     ],
   },
   {

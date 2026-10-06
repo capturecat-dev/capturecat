@@ -12,6 +12,8 @@
 
 import { SITE_URL } from "./site-url";
 import { PSEO_SITE_PAGES } from "./pseo-content";
+import { GUIDE_SITE_PAGES } from "./guides-content";
+import { BEST_SITE_PAGES } from "./best-content";
 import { FEATURE_INVENTORY_MARKDOWN } from "./feature-inventory";
 import { PLATFORMS_MARKDOWN } from "./platforms";
 
@@ -145,7 +147,8 @@ beta.
 - **Annotations.** Text, arrows, callouts, shapes, freehand drawing, and
   looping tap indicators, each with build in and build out animations.
 - **Keystroke overlay.** Shortcuts appear as a pill in the frame as you press
-  them. Toggle with Command Shift S. Off by default.
+  them. Turn on Capture Shortcuts before recording. Off by default, and only
+  combinations with Command, Control, or Option are kept.
 - **Library search.** Every capture is indexed with on device OCR. Command K
   finds text inside recordings and jumps to the frame.
 - **Export.** MP4 or MOV up to 4K 60 fps, live bitrate and file size estimate,
@@ -394,7 +397,12 @@ Questions? Email contact@capturecat.so.
  * comparison/alternative (pSEO) pages. Everything downstream (sitemap,
  * llms.txt, robots, /*.md twins, Link: alternate headers) reads this list.
  */
-export const SITE_PAGES: SitePage[] = [...STATIC_PAGES, ...PSEO_SITE_PAGES];
+export const SITE_PAGES: SitePage[] = [
+  ...STATIC_PAGES,
+  ...PSEO_SITE_PAGES,
+  ...GUIDE_SITE_PAGES,
+  ...BEST_SITE_PAGES,
+];
 
 export function findPageByPath(path: string): SitePage | undefined {
   const normalized = path === "" ? "/" : path;

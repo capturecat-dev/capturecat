@@ -1,7 +1,9 @@
 import { Link } from "@tanstack/react-router";
 
 import {
+  COMPETITORS,
   FEATURE_ROWS,
+  comparePath,
   cellText,
   type Competitor,
   type Faq,
@@ -71,7 +73,86 @@ export function FeatureTable({ competitor }: { competitor: Competitor }) {
         >
           {competitor.name}&apos;s site
         </a>{" "}
-        for current pricing and features.
+        for current pricing and features. Sources:{" "}
+        {competitor.sources.map((url, i) => (
+          <span key={url}>
+            {i > 0 && ", "}
+            <a
+              href={url}
+              rel="nofollow noopener"
+              className="underline decoration-white/20 underline-offset-2 hover:text-foreground"
+            >
+              {new URL(url).hostname.replace(/^www\./, "")}
+              {new URL(url).pathname === "/" ? "" : new URL(url).pathname}
+            </a>
+          </span>
+        ))}
+        .
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Every recorder against every row, for the /compare hub. The first column
+ * stays put while the rest scroll sideways on narrow screens.
+ */
+export function CompareMatrix() {
+  return (
+    <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] backdrop-blur-2xl">
+      <span
+        aria-hidden
+        className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+      />
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1100px] text-left text-sm">
+          <thead>
+            <tr className="border-b border-white/10">
+              <th className="sticky left-0 z-10 bg-background/90 px-5 py-4 font-medium text-muted-foreground backdrop-blur">
+                Recorder
+              </th>
+              {FEATURE_ROWS.map((row) => (
+                <th key={row.short} className="px-4 py-4 font-medium text-muted-foreground">
+                  {row.short}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-white/10 bg-white/[0.03]">
+              <th className="sticky left-0 z-10 bg-background/90 px-5 py-3.5 font-semibold text-foreground backdrop-blur">
+                CaptureCat
+              </th>
+              {FEATURE_ROWS.map((row) => (
+                <td key={row.short} className="px-4 py-3.5 align-top">
+                  <Cell cell={row.capturecat} highlight />
+                </td>
+              ))}
+            </tr>
+            {COMPETITORS.map((c) => (
+              <tr key={c.slug} className="border-b border-white/5 last:border-0">
+                <th className="sticky left-0 z-10 bg-background/90 px-5 py-3.5 font-medium backdrop-blur">
+                  <Link
+                    to="/compare/$slug"
+                    params={{ slug: comparePath(c).split("/").pop()! }}
+                    className="text-foreground underline decoration-white/15 underline-offset-4 hover:decoration-white/50"
+                  >
+                    {c.name}
+                  </Link>
+                </th>
+                {c.features.map((cell, i) => (
+                  <td key={FEATURE_ROWS[i].short} className="px-4 py-3.5 align-top">
+                    <Cell cell={cell} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="px-6 py-4 text-xs text-muted-foreground/70">
+        Checked against each product&apos;s own site on {FACTS_CHECKED}. &ldquo;check their
+        site&rdquo; means we could not verify it either way. Each comparison page lists its sources.
       </p>
     </div>
   );

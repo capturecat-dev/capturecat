@@ -1,0 +1,501 @@
+[
+  {
+    "name": "Monosnap",
+    "slug": "monosnap",
+    "website": "https://monosnap.ai",
+    "category": "capture",
+    "summary": "Monosnap is a Mac menu-bar utility for screenshots, short screen recordings and GIFs, with an image editor and its own cloud storage for sharing.",
+    "autoZoom": false,
+    "cursorEffects": null,
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": "Share links, no analytics",
+    "freeVersion": "Free, non-commercial, 5-min video limit",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "Free · paid from $2.50/mo (web) or $4.49/mo (App Store)",
+    "strengths": [
+      "Fast screenshot and annotation tool with an 8x magnifier, blur and arrows",
+      "Records video and GIFs from the menu bar, free for personal use",
+      "Built-in cloud storage plus uploads to Dropbox, Google Drive, S3, FTP and more"
+    ],
+    "tradeoffs": [
+      "Free plan is non-commercial only and caps video recording at 5 minutes",
+      "No automatic zoom, captions or timeline editor for videos",
+      "Commercial use needs a paid plan, and web and App Store prices differ"
+    ],
+    "pickThemWhen": "you mostly need quick annotated screenshots and short clips uploaded to a cloud link, and video polish is secondary.",
+    "differentiator": "Monosnap is screenshot-first with short screen recordings; CaptureCat is a video recorder and editor that adds automatic zoom from recorded clicks, cursor smoothing with click ripples and on-device captions, free and without a watermark. Monosnap's annotation and storage integrations for screenshots are broader than CaptureCat's.",
+    "switchTip": "Keep Monosnap for screenshots if you like it, and use CaptureCat for anything you record as video; existing Monosnap MP4s can still be shared from Monosnap storage.",
+    "faqExtra": {
+      "question": "Is Monosnap free for screen recording?",
+      "answer": "Monosnap's free plan is for non-commercial use and limits video recording to 5 minutes; the Non-Commercial and Commercial paid plans list unlimited video recording."
+    },
+    "notes": "Site moved from monosnap.com to monosnap.ai (308 redirect). The official download page now lists only macOS (older Windows/Chrome builds exist on third-party sites but are not offered). Web pricing shows Non-Commercial $2.5 USD/mo* and Commercial $5 USD/mo* (asterisk not explained on page; help center is login-gated). Mac App Store lists Non-commercial $4.49/mo, $44.99/yr, $99.99 lifetime and Commercial $14.49/mo, $85.99/yr. App Store version 7.0 (Jan 2025) requires macOS 14.6+. A third-party snippet mentions a 'capture mouse clicks' option but I could not verify it on an official page, so cursorEffects is null.",
+    "sources": {
+      "price": [
+        "https://monosnap.ai/pay",
+        "https://apps.apple.com/us/app/monosnap-screenshot-editor/id540348655?mt=12"
+      ],
+      "freeVersion": [
+        "https://monosnap.ai/pay",
+        "https://apps.apple.com/us/app/monosnap-screenshot-editor/id540348655?mt=12"
+      ],
+      "platform": [
+        "https://monosnap.ai/download/mac",
+        "https://apps.apple.com/us/app/monosnap-screenshot-editor/id540348655?mt=12"
+      ],
+      "shareAnalytics": [
+        "https://apps.apple.com/us/app/monosnap-screenshot-editor/id540348655?mt=12",
+        "https://monosnap.ai/pay"
+      ],
+      "captions": [
+        "https://apps.apple.com/us/app/monosnap-screenshot-editor/id540348655?mt=12"
+      ],
+      "autoZoom": [
+        "https://apps.apple.com/us/app/monosnap-screenshot-editor/id540348655?mt=12"
+      ],
+      "mcp": [
+        "https://monosnap.ai/"
+      ],
+      "notes": [
+        "https://monosnap.com/pricing",
+        "https://monosnap.ai/download/mac"
+      ]
+    }
+  },
+  {
+    "name": "Capto",
+    "slug": "capto",
+    "website": "https://www.globaldelight.com/capto/",
+    "category": "editor",
+    "summary": "Capto by Global Delight is a screen capture, screen recording and basic video editing app for Mac (with a separate Windows version).",
+    "autoZoom": false,
+    "cursorEffects": "Click highlights while recording",
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "15-day trial",
+    "openSource": false,
+    "platform": "macOS & Windows",
+    "price": "$29.99 one-time (2 Macs)",
+    "strengths": [
+      "One-time purchase that covers screenshots, recording and editing",
+      "Records Mac screen at 60 fps with system and mic audio on separate tracks, plus iPhone/iPad screens",
+      "Cut, trim, crop, annotate and upload to YouTube, Dropbox or FTP from one app"
+    ],
+    "tradeoffs": [
+      "No automatic zoom or AI captions",
+      "Editing is basic compared with a full timeline editor",
+      "Sharing goes to third-party services, not hosted links with analytics"
+    ],
+    "pickThemWhen": "you want a paid-once Mac app for screenshots and simple tutorial recordings with light editing.",
+    "differentiator": "Capto and CaptureCat both record screen, camera and iPhone/iPad and offer annotations. CaptureCat adds automatic zoom from clicks, cursor smoothing with ripples and on-device captions at no cost, while Capto is a one-time purchase after a 15-day trial.",
+    "switchTip": "Export any Capto recordings you still need as MP4, then record new tutorials in CaptureCat; its free tier needs no license to try the editor.",
+    "faqExtra": {
+      "question": "Is Capto a subscription?",
+      "answer": "No. Global Delight sells Capto for Mac as a one-time purchase, listed at $29.99 on its site, after a 15-day trial."
+    },
+    "notes": "Still maintained: version 2.1.4 released Jan 6, 2026 ('Optimized for macOS 26'). A Capto for Windows (Windows 10/11, Microsoft Store) now exists. Store page shows regional sale pricing (e.g. GBP 19.99 list, discounted); globaldelight.com/capto/features shows 'Buy Now - $29.99'. Click highlighting is documented in a Global Delight blog post (Windows) and a 2024 hongkiat review (Mac).",
+    "sources": {
+      "price": [
+        "https://www.globaldelight.com/capto/features",
+        "https://www.globaldelight.com/store/",
+        "https://www.hongkiat.com/blog/capto-screen-capture"
+      ],
+      "freeVersion": [
+        "https://www.globaldelight.com/capto/"
+      ],
+      "platform": [
+        "https://www.globaldelight.com/capto/",
+        "https://www.globaldelight.com/capto/windows"
+      ],
+      "cursorEffects": [
+        "https://www.hongkiat.com/blog/capto-screen-capture",
+        "https://blog.globaldelight.com/capto-windows/master-screen-recording-and-editing-on-windows-with-capto"
+      ],
+      "captions": [
+        "https://apps.apple.com/us/app/capto-screen-capture-recorder/id1078184147?mt=12"
+      ],
+      "shareAnalytics": [
+        "https://apps.apple.com/us/app/capto-screen-capture-recorder/id1078184147?mt=12"
+      ],
+      "autoZoom": [
+        "https://www.globaldelight.com/capto/features"
+      ],
+      "notes": [
+        "https://www.globaldelight.com/capto/"
+      ]
+    }
+  },
+  {
+    "name": "Gifox",
+    "slug": "gifox",
+    "website": "https://gifox.app",
+    "category": "capture",
+    "summary": "Gifox is a Mac menu-bar app for recording the screen to GIF (and MP4/MOV), with a frame editor and detailed GIF compression controls.",
+    "autoZoom": false,
+    "cursorEffects": "Click & key overlays at capture",
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Free, 10-sec limit, watermark",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "$14.99 one-time (Pro)",
+    "strengths": [
+      "Very fine control over GIF size and quality",
+      "Customizable mouse-click and keyboard overlays (size, shape, color, animation)",
+      "Low one-time price, and also on Setapp and the Mac App Store"
+    ],
+    "tradeoffs": [
+      "Free tier limits recordings to 10 seconds with a watermark",
+      "Built for short clips; no camera, captions or automatic zoom",
+      "Sharing goes to Dropbox, Google Drive or Imgur rather than hosted pages"
+    ],
+    "pickThemWhen": "you mainly make short, small GIFs for docs, bug reports or chat.",
+    "differentiator": "Gifox focuses on short GIFs with excellent compression; CaptureCat is a full recorder and editor with automatic zoom, cursor smoothing, camera bubble and on-device captions, free with no time limit or watermark. Both can show keystrokes.",
+    "switchTip": "Use CaptureCat for longer walkthroughs and keep Gifox for tiny GIFs if you rely on its compression settings.",
+    "faqExtra": {
+      "question": "Can Gifox export MP4?",
+      "answer": "Yes. Since version 2.5.0 the Gifox editor exports MP4 (H.264) and MOV (ProRes 422) in addition to GIF."
+    },
+    "notes": "Actively maintained: v2.10.0 released Jun 30, 2026 (macOS 10.15 to 26); v2.9.0 (Mar 2026) added customizable click/keyboard overlays rendered on screen during recording. 'Gifox 3 is coming soon' banner on site. A limited lifetime 'Co-founder' license also exists.",
+    "sources": {
+      "price": [
+        "https://gifox.app/pricing"
+      ],
+      "freeVersion": [
+        "https://gifox.app/pricing"
+      ],
+      "platform": [
+        "https://gifox.app/"
+      ],
+      "cursorEffects": [
+        "https://gifox.app/changelog",
+        "https://gifox.app/"
+      ],
+      "shareAnalytics": [
+        "https://gifox.app/"
+      ],
+      "captions": [
+        "https://gifox.app/"
+      ],
+      "autoZoom": [
+        "https://gifox.app/"
+      ],
+      "mcp": [
+        "https://gifox.app/"
+      ],
+      "notes": [
+        "https://gifox.app/changelog"
+      ]
+    }
+  },
+  {
+    "name": "GIPHY Capture",
+    "slug": "giphy-capture",
+    "website": "https://apps.apple.com/us/app/giphy-capture-the-gif-maker/id668208984?mt=12",
+    "category": "free",
+    "summary": "GIPHY Capture is GIPHY's free Mac app for recording short screen clips as GIFs or MP4s, with simple trimming, loop and caption-text options.",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": "Upload to GIPHY, no analytics view",
+    "freeVersion": "Fully free, clips up to 30 sec",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "Free",
+    "strengths": [
+      "Completely free with no watermark mentioned",
+      "Very simple: click to start, click to stop",
+      "Animated text captions and direct upload to GIPHY"
+    ],
+    "tradeoffs": [
+      "Clips are limited to 30 seconds",
+      "No camera, audio editing, zoom or cursor effects",
+      "Built for GIFs, not tutorials or product demos"
+    ],
+    "pickThemWhen": "you want a free, quick way to turn a few seconds of screen into a GIF.",
+    "differentiator": "Both are free, but GIPHY Capture makes clips of up to 30 seconds for GIFs while CaptureCat records without a time limit and adds automatic zoom, cursor smoothing, on-device speech captions and 4K 60 fps export.",
+    "switchTip": "Use CaptureCat for anything longer than a quick reaction GIF; GIPHY Capture can stay installed for 30-second loops.",
+    "notes": "Still updated in 2026 (4.3.1 on Jun 30, 2026; 4.3.2 on Jul 19, 2026, plus a later stability update) with Apple Silicon support. 'Captions' in GIPHY Capture are typed animated text, not speech transcription. HD MP4 save appears in its version history. Requires macOS 10.13+. The GIPHY MCP servers found in search are third-party/Microsoft wrappers for the GIPHY search API, not for this app.",
+    "sources": {
+      "price": [
+        "https://apps.apple.com/us/app/giphy-capture-the-gif-maker/id668208984?mt=12"
+      ],
+      "freeVersion": [
+        "https://apps.apple.com/us/app/giphy-capture-the-gif-maker/id668208984?mt=12"
+      ],
+      "platform": [
+        "https://apps.apple.com/us/app/giphy-capture-the-gif-maker/id668208984?mt=12"
+      ],
+      "captions": [
+        "https://apps.apple.com/us/app/giphy-capture-the-gif-maker/id668208984?mt=12"
+      ],
+      "shareAnalytics": [
+        "https://apps.apple.com/us/app/giphy-capture-the-gif-maker/id668208984?mt=12"
+      ],
+      "cursorEffects": [
+        "https://apps.apple.com/us/app/giphy-capture-the-gif-maker/id668208984?mt=12"
+      ],
+      "mcp": [
+        "https://playbooks.com/mcp/microsoft-giphy"
+      ],
+      "notes": [
+        "https://apps.apple.com/us/app/giphy-capture-the-gif-maker/id668208984?mt=12"
+      ]
+    }
+  },
+  {
+    "name": "Ecamm Live",
+    "slug": "ecamm-live",
+    "website": "https://www.ecamm.com/",
+    "category": "capture",
+    "summary": "Ecamm Live (now branded Ecamm) is a Mac live-streaming and video production studio that also records, with scenes, overlays, screen sharing and multi-camera support.",
+    "autoZoom": "Manual camera pan/zoom only",
+    "cursorEffects": false,
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "14-day trial, watermark",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "$20/mo or $192/yr · Pro $40/mo or $384/yr",
+    "strengths": [
+      "Strong live production: scenes, overlays, green screen and multistreaming",
+      "Brings in guests (up to 10), iPhones, DSLRs, HDMI and NDI sources",
+      "Pro plan records isolated audio/video tracks and works as a virtual camera in Zoom"
+    ],
+    "tradeoffs": [
+      "Subscription only; no free tier after the trial",
+      "Built for live shows, not post-production screen-demo polish",
+      "No automatic zoom, cursor effects or speech captions listed"
+    ],
+    "pickThemWhen": "you stream or record live shows, interviews or webinars on a Mac and want a switcher-style studio.",
+    "differentiator": "Ecamm is a live production studio; CaptureCat is a screen-recording editor with automatic zoom from clicks, cursor smoothing, on-device captions and an MCP server for AI agents, with a free tier. CaptureCat has no live streaming.",
+    "switchTip": "Keep Ecamm for live streams; record product demos and tutorials in CaptureCat, where the camera bubble is on its own track for later editing.",
+    "faqExtra": {
+      "question": "Does Ecamm Live work on Windows?",
+      "answer": "No. Ecamm is built for Mac and requires macOS 11.2 or newer."
+    },
+    "notes": "Site now calls the product simply 'Ecamm'. Annual prices shown as $16/mo (billed $192) Standard and $32/mo (billed $384) Pro; monthly $20 and $40. Trial is 14 days, no credit card, and adds an Ecamm watermark to broadcasts. Digital pan and zoom is a camera effect, not automatic screen zoom.",
+    "sources": {
+      "price": [
+        "https://appg2.ecamm.com/users/pricingplans"
+      ],
+      "freeVersion": [
+        "https://appg2.ecamm.com/users/pricingplans"
+      ],
+      "platform": [
+        "https://www.ecamm.com/"
+      ],
+      "autoZoom": [
+        "https://www.ecamm.com/"
+      ],
+      "captions": [
+        "https://www.ecamm.com/mac/ecammlive/features.html",
+        "https://www.ecamm.com/"
+      ],
+      "cursorEffects": [
+        "https://www.ecamm.com/mac/ecammlive/features.html"
+      ],
+      "shareAnalytics": [
+        "https://www.ecamm.com/"
+      ],
+      "mcp": [
+        "https://www.ecamm.com/"
+      ],
+      "notes": [
+        "https://www.ecamm.com/",
+        "https://appg2.ecamm.com/users/pricingplans"
+      ]
+    }
+  },
+  {
+    "name": "Detail Studio",
+    "slug": "detail",
+    "website": "https://detail.co",
+    "category": "editor",
+    "summary": "Detail Studio for Mac is a desktop video production app for recording multiple cameras and the screen in one take, then editing and exporting; Detail also makes a separate iPhone/iPad app.",
+    "autoZoom": "Camera auto-framing only",
+    "cursorEffects": null,
+    "captions": "AI captions; on-device vs cloud unclear",
+    "mcp": false,
+    "shareAnalytics": null,
+    "freeVersion": "Free download, Pro subscription",
+    "openSource": false,
+    "platform": "macOS (Apple Silicon recommended)",
+    "price": "Pro $22/mo or $149/yr (Mac App Store)",
+    "strengths": [
+      "Records several cameras, mics and the screen at the same time",
+      "Uses iPhones/iPads as cameras and offers AI auto-framing",
+      "Exports to Final Cut (FCPXML) and YouTube chapter markers"
+    ],
+    "tradeoffs": [
+      "Mac and iOS apps are separate purchases",
+      "Built for talking-head and multi-cam shows more than cursor-driven demos",
+      "Mac app updates have slowed (mostly maintenance in 2025-2026)"
+    ],
+    "pickThemWhen": "you record courses or podcasts with several cameras plus a screen share and want one app to switch and edit them.",
+    "differentiator": "Detail centres on multi-camera production; CaptureCat centres on screen demos, with automatic zoom from clicks, cursor smoothing, on-device English captions and share links with viewer analytics on Pro. Both record screen and camera together.",
+    "switchTip": "If your videos are mostly screen walkthroughs with one camera, try CaptureCat's free tier; for multi-camera podcasts Detail may still fit better.",
+    "faqExtra": {
+      "question": "Does a Detail iOS subscription cover the Mac app?",
+      "answer": "No. Detail says its iOS Pro subscription does not include Detail Studio Pro on macOS; they are separate apps with separate subscriptions."
+    },
+    "notes": "Detail's homepage now focuses on the iOS app (2025 App Store Award, iPad App of the Year). Detail Studio for Mac: Mac App Store version 4.14.7 (May 2026), requires macOS 12.3+, built for Apple Silicon with limited Intel support. App Store in-app purchases list 'Detail Pro for macOS' $22.00 monthly / $149.00 yearly plus several legacy tiers. iOS Pro is EUR 5.83/mo billed EUR 70/yr. Mac version history mentions caption generation and transcripts, but I could not find where processing happens, and could not verify Mac free-tier limits, cursor features or share links.",
+    "sources": {
+      "price": [
+        "https://apps.apple.com/us/app/detail-video-studio/id6443923358",
+        "https://detail.co/pricing"
+      ],
+      "freeVersion": [
+        "https://apps.apple.com/us/app/detail-video-studio/id6443923358"
+      ],
+      "platform": [
+        "https://detail.co/download",
+        "https://apps.apple.com/us/app/detail-video-studio/id6443923358"
+      ],
+      "captions": [
+        "https://apps.apple.com/us/app/detail-video-studio/id6443923358",
+        "https://detail.co/duo/captions"
+      ],
+      "autoZoom": [
+        "https://apps.apple.com/us/app/detail-video-studio/id6443923358"
+      ],
+      "faqExtra": [
+        "https://detail.co/pricing"
+      ],
+      "notes": [
+        "https://support.detail.co/How-do-I-record-my-screen-24546f17d979801f9617d6dd58ceda08",
+        "https://support.detail.co/What-s-the-difference-between-Detail-for-Mac-and-Detail-for-iPhone-or-iPad-24546f17d97980198d67caaf5d2954f8",
+        "https://detail.co/"
+      ]
+    }
+  },
+  {
+    "name": "iShowU",
+    "slug": "ishowu",
+    "website": "https://www.shinywhitebox.com/ishowu-v6",
+    "category": "capture",
+    "summary": "iShowU V6 by shinywhitebox is a real-time Mac screen recorder that composites screen, apps, windows, cameras and iPhones into a finished video as you record.",
+    "autoZoom": "Manual hold-key zoom, follows mouse",
+    "cursorEffects": "Click animations, rendered live",
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "7-day trial",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "$24/yr or $89 one-time",
+    "strengths": [
+      "Real-time compositing: the video is ready when you stop recording",
+      "Layers for screen, windows, cameras and iPhone, with AI background masks",
+      "Captures app audio and mic without extra drivers; also on Setapp"
+    ],
+    "tradeoffs": [
+      "Zoom is triggered by holding a key during recording, not added automatically afterwards",
+      "Effects are baked in at record time, so they cannot be changed later in an editor",
+      "No captions or hosted share links"
+    ],
+    "pickThemWhen": "you want polished-looking recordings straight out of the recorder, with no editing pass.",
+    "differentiator": "iShowU bakes zoom and click effects into the recording live; CaptureCat records first and applies automatic zoom from clicks, cursor smoothing and click ripples in an editor you can adjust, plus on-device captions. CaptureCat's core is free; iShowU is paid after a 7-day trial.",
+    "switchTip": "Record a demo in CaptureCat and let it build the zooms from your clicks, then compare with your usual iShowU live-zoom take.",
+    "faqExtra": {
+      "question": "Does iShowU V6 support Intel Macs?",
+      "answer": "Yes. Shinywhitebox lists iShowU V6 for Ventura (macOS 13) and later on Apple Silicon and Intel."
+    },
+    "notes": "Actively maintained: changelog shows 6.0.25 (Feb 2026) and 6.0.26 beta (30 Sep 2026). Replaces iShowU Instant; iShowU Studio 2 ($79 one-time) is a separate older editor with mouse/keyboard visualisation. Dynamic zoom (pro mode) is triggered by holding the Option key and follows the mouse.",
+    "sources": {
+      "price": [
+        "https://www.shinywhitebox.com/ishowu-v6",
+        "https://www.shinywhitebox.com/store"
+      ],
+      "freeVersion": [
+        "https://www.shinywhitebox.com/ishowu-v6"
+      ],
+      "platform": [
+        "https://www.shinywhitebox.com/ishowu-v6",
+        "https://setapp.com/apps/ishowu"
+      ],
+      "autoZoom": [
+        "https://support.shinywhitebox.com/hc/en-us/articles/33627930022937-Dynamic-Zoom-during-recording-zoom-into-areas"
+      ],
+      "cursorEffects": [
+        "https://support.shinywhitebox.com/hc/en-us/articles/33624860861081-Adding-mouse-animations-to-a-recording"
+      ],
+      "captions": [
+        "https://www.shinywhitebox.com/ishowu-v6"
+      ],
+      "shareAnalytics": [
+        "https://www.shinywhitebox.com/ishowu-v6"
+      ],
+      "mcp": [
+        "https://www.shinywhitebox.com/ishowu-v6"
+      ],
+      "notes": [
+        "https://www.shinywhitebox.com/ishowu-v6",
+        "https://www.shinywhitebox.com/ishowu-studio-2"
+      ]
+    }
+  },
+  {
+    "name": "Claquette",
+    "slug": "claquette",
+    "website": "https://peakstep.com/claquette/",
+    "category": "capture",
+    "summary": "Claquette by Peakstep is a lightweight Mac app for recording the screen, camera and audio, trimming and cropping, and converting between video, GIF and audio formats.",
+    "autoZoom": false,
+    "cursorEffects": "Click and drag visualization",
+    "captions": false,
+    "mcp": "No MCP; Shortcuts/App Intents",
+    "shareAnalytics": false,
+    "freeVersion": "Free download; paid unlocks",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "Free · Standard $19.99, Pro $29.99 one-time",
+    "strengths": [
+      "Small native app that records screen, camera, mic and system audio",
+      "Very good GIF and video conversion and compression",
+      "Pro exports Final Cut Pro or Motion projects with cursor on its own lane"
+    ],
+    "tradeoffs": [
+      "Editing is limited to trim, crop and resize",
+      "No automatic zoom or captions",
+      "Newest versions need macOS 15.6 or later"
+    ],
+    "pickThemWhen": "you want a tidy, one-time-purchase Mac utility for quick recordings and format conversion.",
+    "differentiator": "Claquette is a lightweight recorder and converter; CaptureCat adds automatic zoom from clicks, cursor smoothing, on-device captions and a full editor for free. Both are native Mac apps that record system audio and a camera overlay.",
+    "switchTip": "Keep Claquette for quick conversions and GIF optimisation, and use CaptureCat for demos that need zooms, captions or annotations.",
+    "notes": "Actively maintained: Mac App Store version 5.1 (Sep 10, 2026); requires macOS 15.6+. In-app purchases: Claquette Standard $19.99, Pro $29.99, Upgrade $19.99. Free-tier limits are not documented on the official pages I could reach. Developer listed as Thomas Zoechling (Peakstep).",
+    "sources": {
+      "price": [
+        "https://apps.apple.com/us/app/claquette-gif-video-tool/id587748131?mt=12"
+      ],
+      "freeVersion": [
+        "https://peakstep.com/claquette/",
+        "https://apps.apple.com/us/app/claquette-gif-video-tool/id587748131?mt=12"
+      ],
+      "platform": [
+        "https://apps.apple.com/us/app/claquette-gif-video-tool/id587748131?mt=12"
+      ],
+      "cursorEffects": [
+        "https://peakstep.com/claquette/"
+      ],
+      "mcp": [
+        "https://apps.apple.com/us/app/claquette-gif-video-tool/id587748131?mt=12"
+      ],
+      "captions": [
+        "https://apps.apple.com/us/app/claquette-gif-video-tool/id587748131?mt=12"
+      ],
+      "shareAnalytics": [
+        "https://peakstep.com/claquette/"
+      ],
+      "notes": [
+        "https://apps.apple.com/us/app/claquette-gif-video-tool/id587748131?mt=12"
+      ]
+    }
+  }
+]

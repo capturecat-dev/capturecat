@@ -1,0 +1,391 @@
+[
+  {
+    "slug": "movavi-screen-recorder",
+    "name": "Movavi Screen Recorder",
+    "website": "https://www.movavi.com/screen-recorder/",
+    "autoZoom": false,
+    "cursorEffects": "Cursor, click, keystroke highlights",
+    "captions": "No; in Movavi Video Editor (separate)",
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "7-day trial, watermark",
+    "openSource": false,
+    "platform": "Windows & macOS",
+    "price": "$19.95/mo or $64.95/yr (often discounted)",
+    "summary": "Movavi Screen Recorder is a paid desktop screen recorder for Windows and macOS with webcam capture, on-screen drawing, scheduled recording and basic trimming.",
+    "strengths": [
+      "Highlights the mouse cursor, clicks and keystrokes while recording",
+      "Records system audio and microphone, with scheduled recording and AI noise reduction",
+      "Actively maintained on both Windows and macOS, with a low-cost monthly option"
+    ],
+    "tradeoffs": [
+      "The trial lasts 7 days and watermarks output videos",
+      "No automatic zoom; auto subtitles live in the separate Movavi Video Editor",
+      "Subscription licence, and no hosted share pages of its own"
+    ],
+    "pickThemWhen": "you want a simple, inexpensive recorder on Windows or Mac that shows clicks and keystrokes, and you do your heavier editing elsewhere.",
+    "differentiator": "On Mac, CaptureCat's free version adds what Movavi's recorder lacks: automatic zoom from recorded clicks, cursor smoothing with click ripples and on-device English captions, with no trial period or watermark. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording). Movavi has a native Windows app.",
+    "switchTip": "Movavi saves standard video files, so existing recordings stay usable. On Mac, record your next tutorial in CaptureCat to get auto zoom and captions without a second editor; on Windows, try the CaptureCat browser app first, knowing auto zoom and cursor smoothing are Mac-only.",
+    "faqExtra": {
+      "question": "Is Movavi Screen Recorder free?",
+      "answer": "No. Movavi offers a 7-day trial that adds a watermark to output videos; after that it is a paid subscription, from $19.95 per month or $64.95 per year at list price."
+    },
+    "notes": "Movavi's site geolocates prices (we were shown GBP: £16.95/mo, £49.95/yr list, £33.95 on sale); USD list prices ($19.95/mo, $64.95/yr, sale $44.95) come from Movavi's US buy page as indexed by search. Mac app version 24.8.2 dated 30 Sep 2026. A Screen Recorder + Video Editor bundle is also sold. No official MCP server found.",
+    "sources": {
+      "autoZoom": [
+        "https://www.movavi.com/screen-recorder/"
+      ],
+      "cursorEffects": [
+        "https://www.movavi.com/screen-recorder/"
+      ],
+      "captions": [
+        "https://www.movavi.com/screen-recorder/",
+        "https://www.movavi.com/adv/how-to-add-auto-subtitles.html"
+      ],
+      "mcp": [],
+      "shareAnalytics": [
+        "https://www.movavi.com/screen-recorder/"
+      ],
+      "freeVersion": [
+        "https://www.movavi.com/screen-recorder/"
+      ],
+      "openSource": [
+        "https://www.movavi.com/screen-recorder/"
+      ],
+      "platform": [
+        "https://www.movavi.com/screen-recorder/",
+        "https://www.movavi.com/screen-recorder-mac/"
+      ],
+      "price": [
+        "https://www.movavi.com/screen-recorder/buynow.html"
+      ],
+      "faqExtra": [
+        "https://www.movavi.com/screen-recorder/",
+        "https://www.movavi.com/screen-recorder/buynow.html"
+      ]
+    }
+  },
+  {
+    "slug": "democreator",
+    "name": "Wondershare DemoCreator",
+    "website": "https://democreator.wondershare.com",
+    "autoZoom": "Smart Zoom, added after recording",
+    "cursorEffects": "Highlight, magnify, click effects",
+    "captions": "Yes, uses AI credits (paid plans)",
+    "mcp": false,
+    "shareAnalytics": "Share links, no analytics listed",
+    "freeVersion": "Trial: 5-min exports, watermark",
+    "openSource": false,
+    "platform": "Windows, macOS & browser",
+    "price": "$9.99/mo, $59.99/yr or $79.99 once (often discounted)",
+    "summary": "Wondershare DemoCreator is a screen recorder and video editor for Windows and macOS, with an online recorder and a set of AI tools paid for with credits.",
+    "strengths": [
+      "Smart Zoom adds pan and zoom animations automatically after recording",
+      "Cursor highlight, magnify and click effects, plus real-time screen drawing",
+      "Separate screen, camera and mic tracks, a teleprompter, and a perpetual licence option"
+    ],
+    "tradeoffs": [
+      "The free trial caps exports at 5 minutes, 1080p 30 fps, with a watermark",
+      "Auto subtitles and other AI tools consume AI credits",
+      "The larger creative-asset library is a separate add-on subscription"
+    ],
+    "pickThemWhen": "you want a native Windows or Mac recorder with automatic zoom, a full timeline editor and a large template library, and AI credits fit your budget.",
+    "differentiator": "Both offer automatic zoom and cursor effects. CaptureCat includes them in its free version along with on-device English captions and 4K 60 fps export with no watermark or length cap, plus an MCP server for AI agents and AGPL-3.0 source. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
+    "switchTip": "DemoCreator projects don't move over, so finish open edits there and export them. On Mac, start new recordings in CaptureCat and compare the automatic zoom side by side; Windows users get the CaptureCat browser app without auto zoom.",
+    "notes": "Store page shows struck-through and sale prices: quarterly $29.99 (sale $19.99), yearly $59.99 (sale $29.99), perpetual $79.99 (sale $49.99) for V8.X. Smart Zoom is described in the 'What's new' log as 'intelligent recognition and addition of pan and zoom animation effects after recording'; it is not stated whether it keys off clicks. Share links are DemoAir links with password and expiry controls.",
+    "sources": {
+      "autoZoom": [
+        "https://democreator.wondershare.com/whats-new.html"
+      ],
+      "cursorEffects": [
+        "https://democreator.wondershare.com/",
+        "https://democreator.wondershare.com/whats-new.html"
+      ],
+      "captions": [
+        "https://democreator.wondershare.com/store/windows-individuals.html"
+      ],
+      "mcp": [],
+      "shareAnalytics": [
+        "https://democreator.wondershare.com/",
+        "https://democreator.wondershare.com/store/windows-individuals.html"
+      ],
+      "freeVersion": [
+        "https://democreator.wondershare.com/store/windows-individuals.html"
+      ],
+      "openSource": [
+        "https://democreator.wondershare.com/"
+      ],
+      "platform": [
+        "https://democreator.wondershare.com/",
+        "https://democreator.wondershare.com/whats-new.html"
+      ],
+      "price": [
+        "https://democreator.wondershare.com/store/windows-individuals.html"
+      ]
+    }
+  },
+  {
+    "slug": "clipchamp",
+    "name": "Microsoft Clipchamp",
+    "website": "https://clipchamp.com",
+    "autoZoom": "Manual zoom effects only",
+    "cursorEffects": null,
+    "captions": "Cloud auto-captions, free plan too",
+    "mcp": false,
+    "shareAnalytics": "Work accounts only, via SharePoint",
+    "freeVersion": "Free, 1080p export, no watermark",
+    "openSource": false,
+    "platform": "Browser (Chrome/Edge), Windows, iOS",
+    "price": "Free · Premium via Microsoft 365 Personal/Family",
+    "summary": "Microsoft Clipchamp is a browser-based video editor with a Windows app, a built-in screen and camera recorder, and free cloud auto-captions.",
+    "strengths": [
+      "Free plan exports up to 1080p with no watermark",
+      "Autocaptions are free for all users and support many languages",
+      "Built into Windows 11, and Premium is included with Microsoft 365 Personal and Family"
+    ],
+    "tradeoffs": [
+      "Screen and webcam recordings are limited to 30 minutes each",
+      "No native Mac app; on Mac it runs only in Chrome or Edge",
+      "Captions are processed in the cloud by Azure, and 4K export needs Premium"
+    ],
+    "pickThemWhen": "you are on Windows or already pay for Microsoft 365 and want a free, general-purpose editor with captions and a basic recorder.",
+    "differentiator": "Both are free with no watermark. CaptureCat's Mac app adds automatic zoom from recorded clicks, cursor smoothing with click ripples, captions transcribed on-device rather than in the cloud, free 4K 60 fps export, and an MCP server for AI agents. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
+    "switchTip": "Export finished Clipchamp edits before switching, since projects don't transfer. Mac users get the most from CaptureCat's native app; on Windows, the CaptureCat browser app is closer to Clipchamp in features because auto zoom and cursor smoothing need a Mac recording.",
+    "faqExtra": {
+      "question": "Does Clipchamp work on Mac?",
+      "answer": "Only in a browser. Microsoft says there is no Mac app; on a Mac you use the latest desktop version of Microsoft Edge or Google Chrome. Safari and Firefox are not supported."
+    },
+    "notes": "No standalone Premium price is listed on clipchamp.com; Premium comes with Microsoft 365 Personal or Family (third-party sites cite about $11.99/mo standalone, unverified on the official page). Video analytics (views, unique visitors, retention) exist only in the work/school version through SharePoint/OneDrive. Cursor effects left null: no official page confirms or rules out cursor highlighting. Zoom exists as manual effects/transitions; no automatic zoom found.",
+    "sources": {
+      "autoZoom": [
+        "https://clipchamp.com/en/blog/video-effects-to-enhance-video-editing/",
+        "https://clipchamp.com/screen-recorder/"
+      ],
+      "cursorEffects": [],
+      "captions": [
+        "https://support.microsoft.com/en-us/clipchamp/how-to-use-autocaptions-in-clipchamp",
+        "https://clipchamp.com/en/pricing/"
+      ],
+      "mcp": [],
+      "shareAnalytics": [
+        "https://learn.microsoft.com/en-us/clipchamp/features-clipchamp"
+      ],
+      "freeVersion": [
+        "https://clipchamp.com/en/pricing/"
+      ],
+      "openSource": [
+        "https://clipchamp.com/en/pricing/"
+      ],
+      "platform": [
+        "https://support.microsoft.com/en-US/Clipchamp/which-devices-does-clipchamp-work-on",
+        "https://support.microsoft.com/en-US/Clipchamp/which-web-browsers-does-clipchamp-support"
+      ],
+      "price": [
+        "https://clipchamp.com/en/pricing/"
+      ],
+      "faqExtra": [
+        "https://support.microsoft.com/en-US/Clipchamp/which-devices-does-clipchamp-work-on"
+      ]
+    }
+  },
+  {
+    "slug": "veed",
+    "name": "VEED",
+    "website": "https://www.veed.io",
+    "autoZoom": "Manual in web; AI zooms in iOS app",
+    "cursorEffects": null,
+    "captions": "Cloud; 10 min/mo free, paid unlimited",
+    "mcp": "Official MCP, video generation only",
+    "shareAnalytics": "Share links; analytics unverified",
+    "freeVersion": "Free: 720p, watermark, 10-min export",
+    "openSource": false,
+    "platform": "Browser (+ iOS app)",
+    "price": "Free · Creator $25/mo or $147/yr per user",
+    "summary": "VEED is a browser-based video editor with a screen and webcam recorder, auto subtitles, AI generation tools and video hosting.",
+    "strengths": [
+      "Runs in the browser with nothing to install, plus an iOS app",
+      "Auto subtitles, subtitle translation and AI dubbing",
+      "Hosted share links with comments and privacy controls, and a broad AI toolset"
+    ],
+    "tradeoffs": [
+      "Free plan exports at 720p with a watermark and a 10-minute limit",
+      "Zoom in the web editor is placed manually, one zoom per clip",
+      "Per-seat billing, and many AI features draw on credits"
+    ],
+    "pickThemWhen": "you want an online editor for social and marketing video with subtitles, translation and AI generation, and screen recording is only part of the job.",
+    "differentiator": "CaptureCat's Mac app adds automatic zoom from recorded clicks, cursor smoothing and on-device captions to its free version, with no watermark and export up to 4K 60 fps. CaptureCat's MCP server records, edits and exports, while VEED's MCP generates new videos from prompts or images. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
+    "switchTip": "Download your finished VEED exports first, since projects don't transfer. Use CaptureCat for screen tutorials and demos, and keep VEED if you rely on its translation, dubbing or AI generation.",
+    "notes": "VEED's plan names changed: the pricing page now lists Free, Creator, Pro, Studio and Enterprise (older Lite/Pro/Business naming is outdated). The page geolocated to GBP for us: Creator £10/user/mo billed yearly (£116), Pro £17 (£206), Studio £34 (£412). USD figures (Creator $25/mo or $147/yr; Pro $45/mo or $265/yr; Studio $79/mo or $465/yr) are from a June 2026 third-party review, not the official page. Official VEED MCP server exposes video generation (Fabric 1.0) only. VEED's pricing data contains a 'Video Analytics' feature label, but the current comparison table doesn't list it and the share help article doesn't mention analytics.",
+    "sources": {
+      "autoZoom": [
+        "https://support.veed.io/en/articles/11647313-how-to-add-zoom-to-your-videos",
+        "https://mobile-support.veed.io/en/articles/12630383-how-to-automatically-add-zooms-in-the-ios-app"
+      ],
+      "cursorEffects": [],
+      "captions": [
+        "https://www.veed.io/pricing"
+      ],
+      "mcp": [
+        "https://www.veed.io/tools/veed-mcp"
+      ],
+      "shareAnalytics": [
+        "https://support.veed.io/en/articles/11029688-share-your-videos",
+        "https://www.veed.io/tools/screen-recorder"
+      ],
+      "freeVersion": [
+        "https://www.veed.io/pricing"
+      ],
+      "openSource": [
+        "https://www.veed.io/pricing"
+      ],
+      "platform": [
+        "https://www.veed.io/tools/screen-recorder",
+        "https://www.veed.io/pricing"
+      ],
+      "price": [
+        "https://www.veed.io/pricing",
+        "https://magichour.ai/blog/veed-pricing"
+      ]
+    }
+  },
+  {
+    "slug": "bandicam",
+    "name": "Bandicam",
+    "website": "https://www.bandicam.com",
+    "autoZoom": "Smart Zoom on Windows, after recording",
+    "cursorEffects": "Cursor and click highlights",
+    "captions": "AI transcription; processing unstated",
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Win: 10-min limit + watermark; Mac 5-min",
+    "openSource": false,
+    "platform": "Windows & macOS",
+    "price": "Win from $33.26/yr or $77 once; Mac $39.99/yr",
+    "summary": "Bandicam is a lightweight screen, game and webcam recorder for Windows, with a separate macOS app launched in July 2025.",
+    "strengths": [
+      "Smart Zoom on Windows automatically zooms in on clicks and eases out, applied after recording",
+      "Low-overhead screen and game recording, with scheduled recording and real-time drawing",
+      "AI transcription exports TXT, SRT or subtitled video on Windows and Mac"
+    ],
+    "tradeoffs": [
+      "Free version on Windows limits recordings to 10 minutes and adds a watermark; free Mac version has a 5-minute limit",
+      "Built-in editing is mostly trimming; fuller editing needs Bandicut or another editor",
+      "Windows and Mac are licensed separately, and there are no hosted share pages"
+    ],
+    "pickThemWhen": "you record games or long sessions on Windows and want a light, native recorder with automatic zoom and an optional perpetual licence.",
+    "differentiator": "Bandicam on Windows matches CaptureCat on click-based automatic zoom and has a native Windows app, which CaptureCat does not: CaptureCat on Windows is a browser app without auto zoom or cursor smoothing. On Mac, CaptureCat's free version includes auto zoom, cursor smoothing with click ripples, on-device captions and 4K 60 fps export with no time limit or watermark, plus an MCP server and, on Pro, share links with viewer analytics.",
+    "switchTip": "Windows users who depend on Smart Zoom should stay on Bandicam, since CaptureCat's browser app lacks auto zoom. Mac users can record in CaptureCat instead and get auto zoom and captions in the free version.",
+    "faqExtra": {
+      "question": "Is Bandicam available for Mac?",
+      "answer": "Yes. Bandicam Company released Bandicam for Mac in July 2025. It is sold through the Mac App Store at $9.99 per month or $39.99 per year, separately from the Windows licence."
+    },
+    "notes": "Bandicam for Mac launched 17 July 2025 (App Store subscription, 3-day trial on monthly plan) and gained annotation and Google Drive/Dropbox/OneDrive upload in a March 2026 update. Smart Zoom is documented for Windows (Rectangle or Fullscreen modes); Mac availability not stated. Windows prices: Personal annual $33.26/yr (shown as 10% off), perpetual $77 list ($53.90 on sale), Business annual $65.95 list. Latest Windows version Bandicam 2027 (27.0.6.2686, 9 Sep 2026). Whether AI transcription runs locally or in the cloud is not stated (it offers a choice of larger/faster models). No official MCP server found.",
+    "sources": {
+      "autoZoom": [
+        "https://www.bandicam.com/auto-zoom/"
+      ],
+      "cursorEffects": [
+        "https://www.bandicam.com/"
+      ],
+      "captions": [
+        "https://www.bandicam.com/ai-transcription/"
+      ],
+      "mcp": [],
+      "shareAnalytics": [
+        "https://www.bandicam.com/blog/?p=8748",
+        "https://www.bandicam.com/"
+      ],
+      "freeVersion": [
+        "https://www.bandicam.com/free-screen-recorder/",
+        "https://www.bandicam.com/buy/",
+        "https://www.bandicam.com/mac/"
+      ],
+      "openSource": [
+        "https://www.bandicam.com/buy/"
+      ],
+      "platform": [
+        "https://www.bandicam.com/mac/",
+        "https://en.wikipedia.org/wiki/Bandicam"
+      ],
+      "price": [
+        "https://www.bandicam.com/buy/",
+        "https://www.bandicam.com/mac/faqs/subscription/"
+      ],
+      "faqExtra": [
+        "https://www.bandicam.com/mac/faqs/subscription/",
+        "https://en.wikipedia.org/wiki/Bandicam"
+      ]
+    }
+  },
+  {
+    "slug": "sharex",
+    "name": "ShareX",
+    "website": "https://getsharex.com",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": "Links via 3rd-party hosts, no analytics",
+    "freeVersion": "Fully free",
+    "openSource": true,
+    "platform": "Windows only",
+    "price": "Free (donations accepted)",
+    "summary": "ShareX is a free, open-source screenshot, screen recording and file-upload tool for Windows built around configurable capture workflows.",
+    "strengths": [
+      "Completely free and open source (GPL-3.0), with no ads and no account required",
+      "Highly configurable hotkeys and after-capture tasks, including OCR, annotation and scrolling capture",
+      "Uploads to many destinations, including Amazon S3, Google Cloud Storage, Cloudflare R2 and custom uploaders"
+    ],
+    "tradeoffs": [
+      "Windows only",
+      "Screen recording is basic video or GIF capture with no video editor",
+      "No automatic zoom, cursor effects in post, or captions"
+    ],
+    "pickThemWhen": "you mostly need fast screenshots, short clips or GIFs on Windows, uploaded automatically to your own storage, at no cost.",
+    "differentiator": "Both are free and open source (ShareX under GPL-3.0, CaptureCat under AGPL-3.0). ShareX is a screenshot and upload power tool; CaptureCat is built for polished recordings, with a full editor and, on Mac, automatic zoom, cursor smoothing and on-device captions. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
+    "switchTip": "Many people keep ShareX for screenshots and quick uploads and use CaptureCat only for recordings they want to edit. On Windows that means the CaptureCat browser app, without auto zoom or cursor smoothing.",
+    "faqExtra": {
+      "question": "Does ShareX work on Mac?",
+      "answer": "No. ShareX describes itself as a tool for Windows, and its changelog through v21.0.0 (July 2026) adds no macOS or Linux support."
+    },
+    "notes": "Latest release v21.0.0 (3 July 2026); repo active as of October 2026, about 40k GitHub stars. Recent releases focus on the image editor (new Avalonia editor, background remover, image comparer). Community MCP bridges for ShareX exist but none are official.",
+    "sources": {
+      "autoZoom": [
+        "https://github.com/ShareX/ShareX",
+        "https://getsharex.com/changelog"
+      ],
+      "cursorEffects": [
+        "https://github.com/ShareX/ShareX",
+        "https://getsharex.com/changelog"
+      ],
+      "captions": [
+        "https://github.com/ShareX/ShareX",
+        "https://getsharex.com/changelog"
+      ],
+      "mcp": [
+        "https://getsharex.com/changelog"
+      ],
+      "shareAnalytics": [
+        "https://github.com/ShareX/ShareX",
+        "https://getsharex.com/"
+      ],
+      "freeVersion": [
+        "https://getsharex.com/"
+      ],
+      "openSource": [
+        "https://github.com/ShareX/ShareX"
+      ],
+      "platform": [
+        "https://github.com/ShareX/ShareX",
+        "https://getsharex.com/"
+      ],
+      "price": [
+        "https://getsharex.com/"
+      ],
+      "faqExtra": [
+        "https://github.com/ShareX/ShareX",
+        "https://getsharex.com/changelog"
+      ]
+    }
+  }
+]

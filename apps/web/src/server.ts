@@ -13,7 +13,28 @@ import {
 } from "@tanstack/react-start/server";
 import { createServerEntry } from "@tanstack/react-start/server-entry";
 
+import { findPageByPath, markdownHref } from "@/lib/site-content";
+
 const startHandler = createStartHandler({ handler: defaultStreamHandler });
+
+/** q-value of a media type in an Accept header (0 when absent). */
+function acceptQ(accept: string, type: string): number {
+  for (const part of accept.split(",")) {
+    const [media, ...params] = part.trim().split(";");
+    if (media.trim().toLowerCase() !== type) continue;
+    const q = params.map((p) => p.trim()).find((p) => p.startsWith("q="));
+    return q ? Number(q.slice(2)) || 0 : 1;
+  }
+  return 0;
+}
+
+/** An agent asking for Markdown at least as much as HTML (e.g. Claude Code's
+ *  WebFetch sends `text/markdown, text/html;q=0.9`). Browsers never send it. */
+function prefersMarkdown(request: Request): boolean {
+  const accept = request.headers.get("accept") ?? "";
+  const md = acceptQ(accept, "text/markdown");
+  return md > 0 && md >= acceptQ(accept, "text/html");
+}
 
 const CAPTURECAT_HOSTS = new Set([
   "capturecat.so",
@@ -100,6 +121,19 @@ async function rewrite(request: Request): Promise<Request | Response> {
     return new Request(url.toString(), request);
   }
 
+  // Content negotiation: the same URL serves its Markdown twin to agents that
+  // ask for it, so they don't need to know the .md convention.
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    host !== "app.capturecat.so" &&
+    isFirstPartyHost(host) &&
+    prefersMarkdown(request) &&
+    findPageByPath(path)
+  ) {
+    url.pathname = path === "/" ? "/md" : `/md${path}`;
+    return new Request(url.toString(), request);
+  }
+
   // Marketing-domain only: on app.capturecat.so these clean paths ARE the
   // dashboard routes (the router maps them onto /app internally) — running
   // the legacy map there sent /billing to the double-prefixed /app/billing.
@@ -168,8 +202,13 @@ async function rewrite(request: Request): Promise<Request | Response> {
  * Baseline security headers. Embeds must stay frameable (that's the product);
  * every other page — dashboard included — refuses to be framed.
  */
-async function withSecurityHeaders(request: Request, response: Response): Promise<Response> {
+async function withSecurityHeaders(
+  request: Request,
+  response: Response,
+  original: Request
+): Promise<Response> {
   const path = new URL(request.url).pathname;
+  const originalUrl = new URL(original.url);
   const frameable = path.startsWith("/embed/") || /^\/e\/[^/]+$/.test(path);
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
@@ -178,6 +217,15 @@ async function withSecurityHeaders(request: Request, response: Response): Promis
     headers.set("X-Frame-Options", "DENY");
     headers.set("Content-Security-Policy", "frame-ancestors 'none'");
   }
+  // Registry pages vary by Accept (HTML or Markdown twin) and advertise the
+  // twin in a Link header, so caches keep them apart and agents can find it.
+  if (isFirstPartyHost(originalUrl.host) && findPageByPath(originalUrl.pathname)) {
+    headers.append("Vary", "Accept");
+    headers.append(
+      "Link",
+      `<${markdownHref(originalUrl.pathname)}>; rel="alternate"; type="text/markdown"`
+    );
+  }
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
@@ -185,6 +233,6 @@ export default createServerEntry({
   async fetch(request: Request) {
     const routed = await rewrite(request);
     if (routed instanceof Response) return routed;
-    return withSecurityHeaders(routed, await startHandler(routed));
+    return withSecurityHeaders(routed, await startHandler(routed), request);
   },
 });

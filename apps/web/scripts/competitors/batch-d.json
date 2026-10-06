@@ -1,0 +1,255 @@
+[
+  {
+    "slug": "screenpal",
+    "name": "ScreenPal",
+    "website": "https://screenpal.com",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": "Cursor editing on paid plans",
+    "captions": "Auto captions, paid plans",
+    "mcp": false,
+    "shareAnalytics": "Analytics on Max and Team plans",
+    "freeVersion": "Free, 15-min limit, 10 hosted videos",
+    "openSource": false,
+    "platform": "Mac, Windows, Chromebook, iOS, Android",
+    "price": "Free · Deluxe $4/mo, Max $10/mo (annual); Team $8/user/mo",
+    "summary": "ScreenPal, formerly Screencast-O-Matic, is a screen recorder, video editor and video hosting service aimed at education and business, with quizzes and AI tools on higher tiers.",
+    "strengths": [
+      "Runs on Mac, Windows, Chromebook, iOS and Android",
+      "Low entry price, with a free plan that has no watermark",
+      "Built-in video hosting with quizzes, plus heatmap analytics on Max"
+    ],
+    "tradeoffs": [
+      "Free plan caps recordings at 15 minutes and 10 hosted videos",
+      "Free plan cannot record system audio",
+      "Auto captions and viewer analytics sit on paid tiers"
+    ],
+    "pickThemWhen": "you need one recorder across Mac, Windows and Chromebooks, plus hosted videos with quizzes for students or staff.",
+    "differentiator": "CaptureCat's free tier has no recording time limit, records system audio, and includes automatic zoom from clicks, cursor smoothing with click ripples and on-device captions, none of which ScreenPal's free plan offers. ScreenPal covers more platforms natively, including Windows, Chromebook and mobile, and has quizzes, which CaptureCat does not.",
+    "switchTip": "Download your ScreenPal videos as MP4 before switching; CaptureCat can't import ScreenPal projects, so start new recordings in CaptureCat and keep old hosted links where they are.",
+    "faqExtra": {
+      "question": "Is ScreenPal the same as Screencast-O-Matic?",
+      "answer": "Yes. Screencast-O-Matic renamed itself ScreenPal, and existing Screencast-O-Matic logins and content carried over to ScreenPal."
+    },
+    "notes": "Renamed from Screencast-O-Matic (announced on screenpal.com/blog/screenpal-announcement). The plans page rendered prices in GBP for our region (£4 Deluxe, £10 Max, £8/user Team, annual billing); USD figures ($4/$10) come from third-party pricing write-ups. Monthly billing exists at a higher rate but the exact monthly figure was not shown. Plans page lists 'No watermark' on every tier, including Free. 'Edit webcam & cursor' is Deluxe and up; exact cursor effects in the editor were not documented in what we could read. Where auto captions are processed (cloud vs on-device) was not stated.",
+    "sources": {
+      "autoZoom": ["https://screenpal.com/plans", "https://screenpal.com/video-editor", "https://screenpal.com/blog/recorder-drawing-tools"],
+      "cursorEffects": ["https://screenpal.com/plans", "https://screenpal.com/tutorial/cursor-highlighting"],
+      "captions": ["https://screenpal.com/plans", "https://screenpal.com/video-editor"],
+      "mcp": [],
+      "shareAnalytics": ["https://screenpal.com/plans"],
+      "freeVersion": ["https://screenpal.com/plans", "https://screenpal.com/screen-recorder"],
+      "platform": ["https://screenpal.com/screen-recorder"],
+      "price": ["https://screenpal.com/plans", "https://www.learningrevolution.net/screenpal-review/", "https://www.guidde.com/knowledge-hub/screenpal-pricing-2026-complete-breakdown"],
+      "notes": ["https://screenpal.com/blog/screenpal-announcement"]
+    }
+  },
+  {
+    "slug": "zight",
+    "name": "Zight",
+    "website": "https://zight.com",
+    "autoZoom": "Manual crop/zoom only",
+    "cursorEffects": "Click highlights at record time",
+    "captions": "Cloud, paid plans",
+    "mcp": "Official MCP, read-only",
+    "shareAnalytics": "Analytics on paid plans",
+    "freeVersion": "Free, 5-min limit, 1 GB storage",
+    "openSource": false,
+    "platform": "macOS, Windows, Chrome extension, iOS",
+    "price": "Free · Create $9.95/user/mo, Collaborate $12/user/mo (annual)",
+    "summary": "Zight, formerly CloudApp, is a screenshot, GIF and screen recording tool that uploads captures to share links for quick visual communication in teams.",
+    "strengths": [
+      "Screenshots, GIFs and video in one app with instant share links",
+      "Official MCP server lets AI assistants read recordings, transcripts, OCR text and console logs behind a Zight link",
+      "Desktop apps for Mac and Windows plus a Chrome extension and iOS app"
+    ],
+    "tradeoffs": [
+      "Free plan limits recordings to 5 minutes and 1 GB of storage",
+      "Transcription, captions and viewer analytics need a paid plan",
+      "Editing is basic (trim, crop, merge); no automatic zoom"
+    ],
+    "pickThemWhen": "your team shares lots of quick screenshots, GIFs and short clips and wants AI assistants to read the context behind those links.",
+    "differentiator": "Zight's MCP server reads context from existing Zight links, while CaptureCat's built-in MCP server lets coding agents record, edit, render frames and export. CaptureCat also adds automatic zoom, cursor smoothing and on-device captions for free; Zight is stronger for screenshots, GIFs and team sharing.",
+    "switchTip": "Keep Zight for screenshots and GIFs if you rely on them, and use CaptureCat for polished screen videos; download any Zight videos you want to re-edit as MP4 first.",
+    "faqExtra": {
+      "question": "Is Zight the same as CloudApp?",
+      "answer": "Yes. CloudApp announced its rebrand to Zight in March 2023, and share links moved from share.getcloudapp.com to share.zight.com with automatic redirects."
+    },
+    "notes": "Renamed from CloudApp in 2023. Has an official remote MCP server (https://mcp.zight.com/mcp) that is read-only: it retrieves recordings, transcripts, OCR, console and network logs from Zight links; the pricing table lists it on Create, Collaborate and Scale. Click highlighting is a recording preference, not a post-edit effect. Zoom in the editor is part of cropping.",
+    "sources": {
+      "autoZoom": ["https://zight.com/features/video-editing/", "https://zight.com/blog/edit-video-recordings"],
+      "cursorEffects": ["https://support.zight.com/hc/en-us/articles/5824250433175-How-do-I-record-my-mouse-clicks-in-a-screen-recording-or-GIF-How-do-I-highlight-clicks"],
+      "captions": ["https://zight.com/pricing/"],
+      "mcp": ["https://zight.com/mcp/", "https://zight.com/blog/zight-mcp-server-ai-visual-context/", "https://zight.com/pricing/"],
+      "shareAnalytics": ["https://zight.com/pricing/"],
+      "freeVersion": ["https://zight.com/pricing/"],
+      "platform": ["https://zight.com/pricing/"],
+      "price": ["https://zight.com/pricing/"],
+      "notes": ["https://zight.com/blog/rebrand-faqs/"]
+    }
+  },
+  {
+    "slug": "vidyard",
+    "name": "Vidyard",
+    "website": "https://www.vidyard.com",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": "Cloud, paid plans",
+    "mcp": "Zapier MCP only; API on Enterprise",
+    "shareAnalytics": true,
+    "freeVersion": "Free, 5 videos/month",
+    "openSource": false,
+    "platform": "Chrome/Edge extension, macOS & Windows",
+    "price": "Free · Starter $59/seat/mo (annual) or $89 monthly; Teams custom",
+    "summary": "Vidyard is a video messaging and hosting platform built for sales and marketing teams, with screen and camera recording, viewer tracking and CRM integrations.",
+    "strengths": [
+      "Viewer analytics and notifications built for sales follow-up",
+      "CRM and marketing automation integrations on Teams and Enterprise",
+      "Records from a Chrome or Edge extension or desktop apps for Mac and Windows"
+    ],
+    "tradeoffs": [
+      "Free plan allows 5 videos per month",
+      "Starter costs $59 per seat per month billed annually",
+      "Editor is minimal (trim and stitch); no zoom or cursor effects"
+    ],
+    "pickThemWhen": "you send video messages to prospects and need view tracking tied into your CRM.",
+    "differentiator": "Vidyard is built around sales video messaging, CRM integrations and viewer tracking; CaptureCat focuses on producing polished screen videos with automatic zoom, cursor effects and on-device captions, free and without a monthly video cap. CaptureCat Pro also has share links with viewer analytics, but no CRM integrations or team plan yet.",
+    "switchTip": "If your workflow depends on Vidyard's CRM integrations, keep it for prospect outreach and use CaptureCat for product demos and tutorials; export from CaptureCat as MP4 and upload wherever you host.",
+    "faqExtra": {
+      "question": "Does Vidyard work on Mac?",
+      "answer": "Yes. Vidyard offers a desktop app for macOS and Windows, as well as Chrome and Edge browser extensions."
+    },
+    "notes": "No official Vidyard MCP server found; Zapier offers a third-party Vidyard MCP integration. Vidyard's pricing page lists API access on Enterprise. Video Agent add-on costs $24/seat/mo annual ($29 monthly) on Starter. Pricing page sources disagreed on whether automated captions start at Starter or Teams; vidyard.com/pricing.md lists them on Starter. No acquisition found; last funding was a $15M Series D in April 2024.",
+    "sources": {
+      "autoZoom": ["https://knowledge.vidyard.com/hc/en-us/articles/360022762634", "https://www.tella.com/vidyard-alternative"],
+      "cursorEffects": ["https://knowledge.vidyard.com/hc/en-us/articles/360022762634", "https://www.tella.com/vidyard-alternative"],
+      "captions": ["https://www.vidyard.com/pricing.md", "https://www.vidyard.com/pricing/"],
+      "mcp": ["https://zapier.com/mcp/vidyard", "https://www.vidyard.com/pricing.md"],
+      "shareAnalytics": ["https://www.vidyard.com/pricing.md", "https://www.vidyard.com/pricing/"],
+      "freeVersion": ["https://www.vidyard.com/pricing.md"],
+      "platform": ["https://knowledge.vidyard.com/hc/en-us/articles/1260802687890", "https://www.businesswire.com/news/home/20210317005275/en/Vidyard-Launches-Desktop-Apps-as-Adoption-of-User-Generated-Videos-in-Sales-Accelerates"],
+      "price": ["https://www.vidyard.com/pricing.md"]
+    }
+  },
+  {
+    "slug": "screencastify",
+    "name": "Screencastify",
+    "website": "https://www.screencastify.com",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": "Click highlights at record time",
+    "captions": "Cloud, Pro plan",
+    "mcp": false,
+    "shareAnalytics": "Full analytics on paid plans",
+    "freeVersion": "Free, 10 videos, 30-min limit, watermark",
+    "openSource": false,
+    "platform": "Browser (Chrome/Edge extension)",
+    "price": "Free · Starter $7/user/mo (annual) or $19 monthly; Pro $10 or $25",
+    "summary": "Screencastify is a browser-extension screen recorder, widely used in schools, now part of the Castify suite alongside AI video-to-document, editing and video-request tools.",
+    "strengths": [
+      "Works anywhere Chrome or Edge runs, including Chromebooks",
+      "Education features: interactive questions and Google Classroom, Canvas and Schoology integrations",
+      "Viewer analytics show who watched and whether they finished"
+    ],
+    "tradeoffs": [
+      "Free plan allows 10 videos of up to 30 minutes, with a watermark",
+      "Captions, transcripts and AI tools require the Pro plan",
+      "No native desktop app; recording runs through the browser extension"
+    ],
+    "pickThemWhen": "you teach or train on Chromebooks and want recordings that plug into Google Classroom or an LMS.",
+    "differentiator": "CaptureCat's free tier has unlimited recordings with no watermark, automatic zoom, cursor smoothing and on-device captions, while Screencastify gates captions to Pro and watermarks free videos. Screencastify's classroom integrations and quizzes have no CaptureCat equivalent; both offer a browser option on Chromebooks.",
+    "switchTip": "Download Screencastify videos you want to keep before your plan changes; teachers on Chromebooks can use CaptureCat's browser app in Chrome, while Mac users get the native app.",
+    "faqExtra": {
+      "question": "Is Screencastify now called Castify?",
+      "answer": "The company rebranded as Castify in March 2026. Screencastify remains the name of the recording tool inside the Castify suite, alongside Castify Transform, Castify Edit and Castify Submit."
+    },
+    "notes": "Company rebranded to Castify on March 21, 2026, launching Castify Transform (AI that turns videos into SOPs and guides). castify.com/pricing shows the same plans as screencastify.com/pricing. Mouse options (Circle Clicks, Focus Mode, Classic Highlight, Fireworks) are applied while recording, not in post. Free plan shows the first three viewers of each video; full viewer analytics need Starter or Pro.",
+    "sources": {
+      "autoZoom": ["https://learn.screencastify.com/hc/en-us/sections/360008756634-How-to-Use-Edit"],
+      "cursorEffects": ["https://www.screencastify.com/blog/how-to-use-record-toolbar"],
+      "captions": ["https://www.screencastify.com/pricing", "https://www.castify.com/pricing"],
+      "mcp": [],
+      "shareAnalytics": ["https://learn.screencastify.com/hc/en-us/articles/4405788855575", "https://www.screencastify.com/blog/better-video-insights-and-flexible-settings"],
+      "freeVersion": ["https://www.screencastify.com/pricing", "https://www.castify.com/pricing"],
+      "platform": ["https://www.screencastify.com/", "https://www.castify.com/pricing"],
+      "price": ["https://www.screencastify.com/pricing", "https://www.castify.com/pricing"],
+      "notes": ["https://techintelpro.com/news/marketing/communications/screencastify-rebrands-to-castify-with-ai-transform-launch", "https://www.wboc.com/online_features/press_releases/screencastify-evolves-into-castify-high-impact-video-content-that-sticks-for-your-organization/article_daa9e7d4-a379-559f-b2cc-a501309d3dee.html"]
+    }
+  },
+  {
+    "slug": "jumpshare",
+    "name": "Jumpshare",
+    "website": "https://jumpshare.com",
+    "autoZoom": null,
+    "cursorEffects": "Click tracking at record time (Mac)",
+    "captions": "Cloud, paid plans",
+    "mcp": false,
+    "shareAnalytics": "Analytics on paid plans",
+    "freeVersion": "Free, 5-min limit, 25 uploads",
+    "openSource": false,
+    "platform": "macOS, Windows, browser, iPhone",
+    "price": "Free · Plus $12/mo, Business $16/user/mo (annual); $15/$20 monthly",
+    "summary": "Jumpshare is a screen recording, screenshot and file sharing tool that turns captures into share links with viewer analytics and AI summaries.",
+    "strengths": [
+      "Combines screen recording, screenshots, GIFs and file sharing in one app",
+      "Business plan adds AI titles, summaries and chapters",
+      "Records up to 4K on paid plans, with transcription in 50+ languages"
+    ],
+    "tradeoffs": [
+      "Free plan limits recordings to 5 minutes and 25 uploads",
+      "Captions, transcripts and viewer analytics require a paid plan",
+      "Click tracking is noted for Mac recordings only"
+    ],
+    "pickThemWhen": "you want one tool for quick recordings, screenshots and file sharing with link-level analytics.",
+    "differentiator": "CaptureCat's free tier has unlimited recording length, automatic zoom, cursor smoothing with click ripples and on-device captions; Jumpshare puts captions and analytics behind Plus. Jumpshare's Business plan matches CaptureCat Pro on AI titles and chapters, and Jumpshare also handles general file sharing, which CaptureCat does not.",
+    "switchTip": "Download recordings you want to keep from Jumpshare as MP4; record new demos in CaptureCat and use Pro share links if you still need viewer analytics.",
+    "notes": "Pricing page shows $12 and $16 per user per month with 20% off for annual billing; third-party listings give $15 and $20 for monthly billing, which matches the 20% discount. Could not confirm whether Jumpshare has any zoom effect in its video editor, so autoZoom is null. Click tracking highlights clicks during recording rather than as a post-edit effect.",
+    "sources": {
+      "autoZoom": [],
+      "cursorEffects": ["https://jumpshare.com/pricing", "https://Jmp.sh/screen-recorder-mac"],
+      "captions": ["https://jumpshare.com/pricing", "https://jumpshare.com/screen-recorder"],
+      "mcp": [],
+      "shareAnalytics": ["https://jumpshare.com/pricing"],
+      "freeVersion": ["https://jumpshare.com/pricing"],
+      "platform": ["https://jumpshare.com/pricing", "https://apps.apple.com/us/app/jumpshare-screen-recorder/id889922906", "https://jumpshare.com/screen-recorder"],
+      "price": ["https://jumpshare.com/pricing", "https://trupeer.ai/tools-comparison/jumpshare-vs-trupeer-pricing"]
+    }
+  },
+  {
+    "slug": "guidde",
+    "name": "Guidde",
+    "website": "https://www.guidde.com",
+    "autoZoom": "Auto pan & zoom on clicks (some modes)",
+    "cursorEffects": "Auto click hotspots (interactive demos)",
+    "captions": "Cloud, paid plans",
+    "mcp": false,
+    "shareAnalytics": "Analytics on Business plan",
+    "freeVersion": "Free, up to 25 videos, watermark",
+    "openSource": false,
+    "platform": "Chrome/Edge ext.; desktop app (Business)",
+    "price": "Free · Pro $19/creator/mo (annual) or $29; Business $39 or $59",
+    "summary": "Guidde is an AI tool that captures a workflow in the browser and turns it into a step-by-step how-to video and guide with AI voiceover.",
+    "strengths": [
+      "Generates step-by-step videos and written guides from a single capture",
+      "AI text-to-voice with 200+ voices and 50+ languages on paid tiers",
+      "Exports to PDF and presentations and integrates with tools like Zendesk, Confluence and Salesforce"
+    ],
+    "tradeoffs": [
+      "Free plan is limited to 25 videos and carries a Guidde watermark",
+      "Desktop app capture and analytics require the Business plan",
+      "Output is step-based how-to content rather than continuous screen video"
+    ],
+    "pickThemWhen": "you need to turn software workflows into step-by-step training guides with AI voiceover at scale.",
+    "differentiator": "Guidde builds step-based how-to guides with AI narration; CaptureCat records continuous screen video with automatic zoom from clicks, cursor smoothing and on-device captions, free and without a watermark. Guidde also has automatic pan and zoom on clicks in some modes, so both tools cover that, but CaptureCat applies it to any recording.",
+    "switchTip": "Keep Guidde for documentation-style SOPs if your team relies on its written guides; use CaptureCat for narrated product demos and tutorials you export as MP4 or share via Pro links.",
+    "notes": "No official Guidde MCP server found (searches only returned an unrelated GUID-generator MCP). Auto pan & zoom on detected click areas is documented for the Employee Training use case with Magic Mic; other sources say auto pan & zoom is a Pro+ Brand Kit feature, so plan gating is unclear. Auto captions start at Pro per the pricing page.",
+    "sources": {
+      "autoZoom": ["https://help.guidde.com/en/articles/8173774-add-motion-to-your-guidde-video-steps-pan-zoom-and-step-transitions"],
+      "cursorEffects": ["https://help.guidde.com/en/articles/16801254-create-interactive-demos-in-guidde"],
+      "captions": ["https://www.guidde.com/pricing"],
+      "mcp": [],
+      "shareAnalytics": ["https://www.guidde.com/pricing"],
+      "freeVersion": ["https://www.guidde.com/pricing"],
+      "platform": ["https://www.guidde.com/pricing"],
+      "price": ["https://www.guidde.com/pricing"]
+    }
+  }
+]

@@ -1,0 +1,465 @@
+[
+  {
+    "slug": "screen-studio",
+    "name": "Screen Studio",
+    "website": "https://screen.studio",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": true,
+    "mcp": false,
+    "shareAnalytics": "Share links with view counts",
+    "freeVersion": "Free to try; export needs a plan",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "$29/mo or $108/yr ($9/mo)",
+    "summary": "Screen Studio is a Mac screen recorder and editor that automatically adds animated zooms, smooths the cursor and frames recordings for demos and tutorials.",
+    "strengths": [
+      "Automatic zoom generated from where you clicked, with Classic and Loupe zoom styles",
+      "Transcription and captions run locally (Whisper or Apple speech), with edit-by-transcript",
+      "Shareable links with timestamped comments and view counts, plus 4K 60 fps MP4 export"
+    ],
+    "tradeoffs": [
+      "Mac only; its FAQ says there are no near-future plans for Windows",
+      "Subscription only for new buyers ($29/mo or $108/yr); one-time licenses are no longer sold",
+      "Without an active plan you can use the editor but cannot export video files"
+    ],
+    "pickThemWhen": "you want a polished, Mac-only recorder with automatic click zooms and you are happy to pay a subscription for it.",
+    "differentiator": "Screen Studio and CaptureCat both offer automatic zoom from clicks, cursor smoothing with click effects and on-device captions. CaptureCat includes those in a free tier with no watermark and 4K 60 fps export, is open source under AGPL-3.0, ships a built-in MCP server for coding agents, and has a browser app for Windows and Linux users.",
+    "switchTip": "Install CaptureCat next to Screen Studio and record your next demo in it; automatic zoom from recorded clicks and cursor smoothing work on the free tier. Finish any open Screen Studio projects there before you cancel, since your export access ends with the plan.",
+    "faqExtra": {
+      "question": "Does Screen Studio work on Windows?",
+      "answer": "No. Screen Studio is macOS only, and its FAQ says there are no near-future plans to add Windows support."
+    },
+    "notes": "Homepage announces Screen Studio 4.0. Subscription-only for new purchases; past one-time licenses remain valid and can be renewed for updates. Price: $29/mo monthly, or yearly at $9/mo (billed $108/yr, '69% off'). 40% education discount. Transcription is local by default with an optional cloud transcription that deletes audio after processing. No official MCP or agent API found.",
+    "sources": {
+      "autoZoom": [
+        "https://screen.studio/",
+        "https://screen.studio/guide/auto-zoom"
+      ],
+      "cursorEffects": [
+        "https://screen.studio/"
+      ],
+      "captions": [
+        "https://screen.studio/"
+      ],
+      "mcp": [
+        "https://screen.studio/"
+      ],
+      "shareAnalytics": [
+        "https://screen.studio/"
+      ],
+      "freeVersion": [
+        "https://screen.studio/download"
+      ],
+      "openSource": [
+        "https://screen.studio/"
+      ],
+      "platform": [
+        "https://screen.studio/",
+        "https://screen.studio/download"
+      ],
+      "price": [
+        "https://screen.studio/",
+        "https://trainn.co/blog/screen-studio-pricing/"
+      ],
+      "faqExtra": [
+        "https://screen.studio/"
+      ],
+      "notes": [
+        "https://screen.studio/"
+      ]
+    }
+  },
+  {
+    "slug": "cap",
+    "name": "Cap",
+    "website": "https://cap.so",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": true,
+    "mcp": true,
+    "shareAnalytics": "Yes, on Cap Pro",
+    "freeVersion": "Free for personal use, no watermark",
+    "openSource": true,
+    "platform": "macOS, Windows & Linux",
+    "price": "Free · $29/yr desktop · Pro $12/user/mo",
+    "summary": "Cap is an open-source screen recorder that combines Loom-style instant share links with a local Studio Mode editor, with desktop apps for macOS, Windows and Linux.",
+    "strengths": [
+      "Open source (AGPLv3) and self-hostable, with bring-your-own S3 or Google Drive storage",
+      "Studio Mode editor with auto zoom from clicks, cursor smoothing and local Whisper/Parakeet captions",
+      "Official MCP server (76 tools) and CLI so agents like Claude Code, Codex and Cursor can record and manage Caps"
+    ],
+    "tradeoffs": [
+      "Free plan is for personal use only; commercial use needs the $29/yr or $58 lifetime Desktop License",
+      "Cloud transcripts, AI summaries and viewer analytics require Cap Pro ($12/user/mo, or $8.16 billed yearly)",
+      "Free and Desktop plans limit cloud share links to 5 minutes each (Desktop: 20 links a month)"
+    ],
+    "pickThemWhen": "you want an open-source recorder with native Windows and Linux apps, Loom-style instant links and team workspaces.",
+    "differentiator": "Cap matches CaptureCat on several points: open source under AGPL, automatic zoom from clicks, cursor smoothing, on-device captions and an official MCP server. CaptureCat is a native Swift/AppKit/Metal Mac app that also records iPhone and iPad over USB and adds device bezels, spotlights and a keystroke overlay, while Cap has native Windows and Linux desktop apps and team workspaces, which CaptureCat does not offer yet.",
+    "switchTip": "Finish open Studio Mode edits in Cap, then start new recordings in CaptureCat; automatic zoom, cursor smoothing and on-device captions are on its free tier. If you use Cap's Windows or Linux desktop app, CaptureCat's option on those systems is its browser app.",
+    "faqExtra": {
+      "question": "Is Cap free for commercial use?",
+      "answer": "No. Cap's free plan covers personal use; commercial use needs the Desktop License ($29/yr or $58 one-time) or Cap Pro."
+    },
+    "notes": "AGPLv3, with the cap-camera* and scap-* crates under MIT. Latest desktop release cap-v0.6.0 (2026-09-15). The official MCP server exposes 76 tools over local stdio and installs via 'cap agents install'. Desktop captions are a beta local workflow (Whisper; Parakeet not on Intel Macs); cloud transcription on Pro uses AssemblyAI. Cap's llms-full.txt says free recordings are limited to 5 minutes, but the pricing page says free has no time limit on local recordings and 5-minute share links; the pricing page was used. Enterprise add-ons: SAML SSO $199/mo, signed BAA $99/mo.",
+    "sources": {
+      "autoZoom": [
+        "https://cap.so/llms-full.txt",
+        "https://cap.so/features/studio-mode"
+      ],
+      "cursorEffects": [
+        "https://cap.so/llms-full.txt"
+      ],
+      "captions": [
+        "https://cap.so/llms-full.txt",
+        "https://cap.so/docs/recording/studio-mode"
+      ],
+      "mcp": [
+        "https://cap.so/agents",
+        "https://cap.so/llms.txt"
+      ],
+      "shareAnalytics": [
+        "https://cap.so/pricing",
+        "https://cap.so/llms-full.txt"
+      ],
+      "freeVersion": [
+        "https://cap.so/pricing"
+      ],
+      "openSource": [
+        "https://cap.so/llms.txt",
+        "https://cap.so/llms-full.txt",
+        "https://github.com/CapSoftware/Cap"
+      ],
+      "platform": [
+        "https://cap.so/llms.txt",
+        "https://cap.so/llms-full.txt"
+      ],
+      "price": [
+        "https://cap.so/pricing",
+        "https://cap.so/llms-full.txt"
+      ],
+      "faqExtra": [
+        "https://cap.so/pricing"
+      ],
+      "notes": [
+        "https://cap.so/llms-full.txt",
+        "https://cap.so/agents",
+        "https://github.com/CapSoftware/Cap/releases",
+        "https://cap.so/pricing"
+      ]
+    }
+  },
+  {
+    "slug": "loom",
+    "name": "Loom",
+    "website": "https://www.loom.com",
+    "autoZoom": "Listed as coming soon",
+    "cursorEffects": "Click highlight while recording, paid",
+    "captions": "Cloud auto-captions, all plans",
+    "mcp": "Via Atlassian MCP; no record/edit",
+    "shareAnalytics": true,
+    "freeVersion": "Free: 25 videos, 5-min limit",
+    "openSource": false,
+    "platform": "Mac, Windows, Chrome, iOS, Android",
+    "price": "Free · from $15/user/mo billed yearly",
+    "summary": "Loom is an Atlassian-owned async video messaging tool that records screen and camera and turns each recording into a hosted share link.",
+    "strengths": [
+      "Instant hosted share links with viewer insights on every plan, and engagement insights on paid plans",
+      "Transcriptions and closed captions in 50+ languages, including on the free Starter plan",
+      "Deep Atlassian, Slack and GitHub integrations, plus meeting recording and AI summaries on the AI tier"
+    ],
+    "tradeoffs": [
+      "Free Starter plan caps you at 25 videos per person and 5 minutes per recording",
+      "Editing AI (filler word removal, edit by transcript, summaries) needs Business + AI at $24/user/mo",
+      "No automatic zoom yet; Loom's editing page lists auto-zoom as coming soon"
+    ],
+    "pickThemWhen": "your team mainly sends quick async video messages and wants hosted links, viewer insights and Atlassian integrations out of the box.",
+    "differentiator": "Loom is cloud-first and built for teams, with analytics on every plan and admin controls; CaptureCat has no team plan yet. CaptureCat is a local editor whose free tier has no recording limit and includes automatic zoom from clicks, cursor smoothing and on-device captions, with share links, viewer analytics and timestamped comments on Pro.",
+    "switchTip": "Keep Loom for links your team already relies on and record new demos and tutorials in CaptureCat, where the free tier does not cap recording length or count. If you need hosted links with views, watch time and retention, that is CaptureCat Pro.",
+    "faqExtra": {
+      "question": "Is Loom free?",
+      "answer": "Loom's Starter plan is free, with up to 25 videos per person and a 5-minute limit per screen recording. Business costs $18/user/mo billed monthly or $180/user/yr."
+    },
+    "notes": "Atlassian completed its acquisition of Loom in late 2023; help docs now live on support.atlassian.com. Business is $18/user/mo monthly or $180/yr; Business + AI is $24/mo or $240/yr; annual saves 17%. Mouse-click highlighting is set in the desktop app and applied during recording (Education, Business, Business + AI, Enterprise), not in post. The Atlassian Rovo MCP server has Loom tools to read videos, transcripts and comments and to upload, publish, share and comment, but none to record or edit. A Jira suggestion for post-recording zoom/pan (LOOM-406) is still 'Gathering Interest'.",
+    "sources": {
+      "autoZoom": [
+        "https://www.atlassian.com/software/loom/editing",
+        "https://jira.atlassian.com/browse/LOOM-406"
+      ],
+      "cursorEffects": [
+        "https://support.atlassian.com/loom/docs/highlight-your-mouse-clicks",
+        "https://www.loom.com/pricing"
+      ],
+      "captions": [
+        "https://www.loom.com/pricing"
+      ],
+      "mcp": [
+        "https://developer.atlassian.com/cloud/rovo-mcp/guides/supported-tools/"
+      ],
+      "shareAnalytics": [
+        "https://www.loom.com/pricing"
+      ],
+      "freeVersion": [
+        "https://www.loom.com/pricing"
+      ],
+      "openSource": [
+        "https://www.loom.com/pricing"
+      ],
+      "platform": [
+        "https://www.loom.com/pricing",
+        "https://support.atlassian.com/loom/docs/highlight-your-mouse-clicks"
+      ],
+      "price": [
+        "https://www.loom.com/pricing"
+      ],
+      "faqExtra": [
+        "https://www.loom.com/pricing"
+      ],
+      "notes": [
+        "https://www.businesswire.com/news/home/20231129694662/en/Atlassian-Completes-Acquisition-of-Loom",
+        "https://www.loom.com/pricing",
+        "https://support.atlassian.com/loom/docs/highlight-your-mouse-clicks",
+        "https://developer.atlassian.com/cloud/rovo-mcp/guides/supported-tools/",
+        "https://jira.atlassian.com/browse/LOOM-406",
+        "https://support.atlassian.com/loom/docs/loom-ai-features/"
+      ]
+    }
+  },
+  {
+    "slug": "cleanshot-x",
+    "name": "CleanShot X",
+    "website": "https://cleanshot.com",
+    "autoZoom": "Manual smart zooms that follow cursor",
+    "cursorEffects": true,
+    "captions": "Cloud video transcription",
+    "mcp": "No official MCP (URL-scheme API)",
+    "shareAnalytics": "Share links, first-view alerts",
+    "freeVersion": "No free tier; 30-day refund",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "$35 one-time or Pro $10/user/mo yearly",
+    "summary": "CleanShot X is a Mac screenshot and screen recording app with annotation tools, a Studio Mode video editor and CleanShot Cloud for sharing.",
+    "strengths": [
+      "Screenshots, scrolling capture, OCR, annotation and screen recording in one Mac app",
+      "Studio Mode (5.0) adds smart zooms, cursor smoothing, motion blur, backgrounds and click and keystroke display",
+      "One-time $35 purchase option, with CleanShot Cloud links, comments and video transcription"
+    ],
+    "tradeoffs": [
+      "Mac only (macOS 13+), and CleanShot says there are no plans for a Windows version",
+      "No free tier or trial from CleanShot itself, only a 30-day money-back guarantee (Setapp has a 7-day trial)",
+      "Basic includes one year of updates, then $19/yr to keep updating"
+    ],
+    "pickThemWhen": "you want one Mac app for screenshots, annotation and quick recordings, and a one-time purchase matters to you.",
+    "differentiator": "CleanShot X is screenshot-first, with recording and Studio Mode added on; CaptureCat is built around recording and editing video. CaptureCat generates zooms automatically from recorded clicks, runs captions on-device, is free with no watermark, is open source under AGPL-3.0, and has an MCP server and a browser app for non-Mac users. Both offer cursor smoothing, click effects and keystroke display.",
+    "switchTip": "Many people keep CleanShot X for screenshots and use CaptureCat for recordings that need zooms, captions and editing. Try CaptureCat's free tier on your next tutorial before deciding whether to renew CleanShot updates.",
+    "faqExtra": {
+      "question": "Is there a CleanShot X free trial?",
+      "answer": "CleanShot does not offer a trial; it has a 30-day money-back guarantee. The Setapp subscription that includes CleanShot has a 7-day free trial."
+    },
+    "notes": "Big change since August: CleanShot X 5.0 (2026-09-01) introduced Studio Mode with a new video editor, smart zooms, cursor smoothing and motion blur (5.0.1 on 2026-09-18). Its pricing FAQ says Studio Mode 'lets you add animated zooms to specific parts' of a recording, and the changelog says zooms 'follow your cursor'. Some third-party reviews describe zooms as automatic, but the official wording describes adding them yourself, so autoZoom is not marked true. 4.8.4 added push notifications when someone first views or comments on your media; no view-count analytics found. Only unofficial MCP servers exist (built on CleanShot's URL Scheme API). Pro is $10/user/mo billed annually (17% off monthly).",
+    "sources": {
+      "autoZoom": [
+        "https://cleanshot.com/pricing",
+        "https://cleanshot.com/changelog",
+        "https://cleanshot.com/features"
+      ],
+      "cursorEffects": [
+        "https://cleanshot.com/features",
+        "https://cleanshot.com/changelog",
+        "https://tidbits.com/?p=75503"
+      ],
+      "captions": [
+        "https://cleanshot.com/pricing",
+        "https://cleanshot.com/features"
+      ],
+      "mcp": [
+        "https://glama.ai/mcp/servers/jdorfman/cleanshot-mcp",
+        "https://cleanshot.com/changelog"
+      ],
+      "shareAnalytics": [
+        "https://cleanshot.com/changelog",
+        "https://cleanshot.com/features"
+      ],
+      "freeVersion": [
+        "https://cleanshot.com/pricing"
+      ],
+      "openSource": [
+        "https://cleanshot.com/pricing"
+      ],
+      "platform": [
+        "https://cleanshot.com/pricing"
+      ],
+      "price": [
+        "https://cleanshot.com/pricing"
+      ],
+      "faqExtra": [
+        "https://cleanshot.com/pricing"
+      ],
+      "notes": [
+        "https://cleanshot.com/changelog",
+        "https://cleanshot.com/pricing",
+        "https://tidbits.com/?p=75503",
+        "https://thesweetbits.com/is-cleanshot-worth-the-upgrade/",
+        "https://glama.ai/mcp/servers/jdorfman/cleanshot-mcp"
+      ]
+    }
+  },
+  {
+    "slug": "obs-studio",
+    "name": "OBS Studio",
+    "website": "https://obsproject.com",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": "Experimental, Windows, live streams",
+    "mcp": "No; built-in WebSocket API",
+    "shareAnalytics": false,
+    "freeVersion": "Fully free",
+    "openSource": true,
+    "platform": "Windows, macOS & Linux",
+    "price": "Free",
+    "summary": "OBS Studio is a free, open-source app for recording and live streaming that composites scenes from screens, cameras, audio and other sources in real time.",
+    "strengths": [
+      "Completely free and open source (GPL-2.0), on Windows, macOS (Intel and Apple Silicon) and Linux",
+      "Live streaming plus recording, with scenes, sources, transitions and a full audio mixer",
+      "Large plugin ecosystem and a built-in WebSocket API for automation"
+    ],
+    "tradeoffs": [
+      "No editor for after recording, so zooms, cursor effects and captions need another app",
+      "Scene and source setup takes more learning than a single-purpose recorder",
+      "No hosted share links or viewer analytics"
+    ],
+    "pickThemWhen": "you need live streaming or a multi-source scene setup, and want a free, open-source tool on any desktop OS.",
+    "differentiator": "Both are free and open source. OBS is a live production and recording tool with no post-recording editor, while CaptureCat records and then edits, with automatic zoom from clicks, cursor smoothing with click ripples and on-device captions applied in post, plus a built-in MCP server.",
+    "switchTip": "If you use OBS mainly to record tutorials and then edit elsewhere, try recording the same walkthrough in CaptureCat and compare the automatic zoom and captions against your current edit. Keep OBS for live streaming.",
+    "faqExtra": {
+      "question": "Is OBS Studio really free?",
+      "answer": "Yes. OBS Studio is free and open source under the GPL-2.0, with no paid tier, for Windows, macOS and Linux."
+    },
+    "notes": "Latest stable is 32.2.2 (2026-08-14); 33.0 is in beta (beta6 on 2026-10-02). 32.2 dropped macOS 12 and now requires macOS 13+. The Windows-only 'Captions (Experimental)' tool uses Microsoft's speech API and sends captions only to the streaming output, not recordings. No official MCP server; third-party MCP servers control OBS through its built-in obs-websocket.",
+    "sources": {
+      "autoZoom": [
+        "https://obsproject.com/"
+      ],
+      "cursorEffects": [
+        "https://obsproject.com/"
+      ],
+      "captions": [
+        "https://github.com/obsproject/obs-studio/blob/master/plugins/frontend-tools/captions.cpp"
+      ],
+      "mcp": [
+        "https://glama.ai/mcp/servers/@royshil/obs-mcp",
+        "https://obsproject.com/"
+      ],
+      "shareAnalytics": [
+        "https://obsproject.com/"
+      ],
+      "freeVersion": [
+        "https://obsproject.com/"
+      ],
+      "openSource": [
+        "https://github.com/obsproject/obs-studio",
+        "https://obsproject.com/"
+      ],
+      "platform": [
+        "https://obsproject.com/download"
+      ],
+      "price": [
+        "https://obsproject.com/"
+      ],
+      "faqExtra": [
+        "https://obsproject.com/",
+        "https://github.com/obsproject/obs-studio"
+      ],
+      "notes": [
+        "https://github.com/obsproject/obs-studio/releases",
+        "https://obsproject.com/download",
+        "https://github.com/obsproject/obs-studio/blob/master/plugins/frontend-tools/captions.cpp",
+        "https://glama.ai/mcp/servers/@royshil/obs-mcp"
+      ]
+    }
+  },
+  {
+    "slug": "camtasia",
+    "name": "Camtasia",
+    "website": "https://www.techsmith.com/camtasia/",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": "On-device, Essentials plan and up",
+    "mcp": false,
+    "shareAnalytics": "Screencast links, view counts",
+    "freeVersion": "Free trial, no time limit, watermark",
+    "openSource": false,
+    "platform": "macOS & Windows",
+    "price": "$39/yr (watermarked) to $599/yr",
+    "summary": "Camtasia is TechSmith's screen recorder and timeline video editor for tutorials and training videos, sold as an annual subscription for Mac and Windows.",
+    "strengths": [
+      "Full timeline editor with assets, animations and SmartFocus, which adds zoom-and-pan from recorded cursor and click data",
+      "Cursor smoothing, click highlights and on-device caption transcription (Camtasia 2024 and later)",
+      "Runs on both Windows and macOS, with AI voice, script and avatar tools on higher tiers"
+    ],
+    "tradeoffs": [
+      "Annual subscription only; the $39/yr Starter plan exports with a watermark",
+      "Clean exports start at Essentials ($179.88/yr); AI voice and avatars need Create or Pro",
+      "A full video editor has more to learn than a recorder with automatic editing"
+    ],
+    "pickThemWhen": "you produce longer training or course videos on Windows or Mac and want a full timeline editor with assets and AI voiceover.",
+    "differentiator": "Camtasia matches CaptureCat on automatic zoom from cursor and click data, cursor effects and on-device captions, and it runs natively on Windows. CaptureCat's free tier exports without a watermark at up to 4K 60 fps, it is open source under AGPL-3.0, and it has a built-in MCP server for coding agents.",
+    "switchTip": "Record your next tutorial in CaptureCat and compare its automatic zoom and captions with SmartFocus before your Camtasia renewal date. Keep Camtasia for projects that depend on its asset library or AI voiceover.",
+    "faqExtra": {
+      "question": "Can I still buy Camtasia once?",
+      "answer": "TechSmith moved to annual subscription pricing in 2025; current plans are Starter ($39/yr), Essentials ($179.88/yr), Create ($249/yr) and Pro ($599/yr)."
+    },
+    "notes": "Subscription-only since TechSmith's 2025 move to annual plans. US prices: Starter $39/yr (Essentials, Create and Pro confirmed on techsmith.com; Starter's USD price confirmed only by third parties because the official store showed GBP: Starter £34.64, Essentials £159.78, Create £221.18, Pro £532.09). The Editor trial has no time limit but watermarks exports. TechSmith's support article says caption transcription is 'all done locally, on the device' (Camtasia 2024+); the store lists speech-to-text from Essentials up. Latest release Camtasia 2026.2 (August 2026). Screencast view counts are confirmed only by a TechSmith migration guide. No MCP server or agent API found.",
+    "sources": {
+      "autoZoom": [
+        "https://www.techsmith.com/camtasia/",
+        "https://www.techsmith.com/learn/tutorials/camtasia/animations/"
+      ],
+      "cursorEffects": [
+        "https://www.techsmith.com/camtasia/",
+        "https://www.techsmith.com/store/camtasia"
+      ],
+      "captions": [
+        "https://support.techsmith.com/hc/en-us/articles/26713588518413-Dynamic-Captions-Best-Practices",
+        "https://www.techsmith.com/store/camtasia",
+        "https://www.techsmith.com/camtasia/"
+      ],
+      "mcp": [
+        "https://www.techsmith.com/camtasia/"
+      ],
+      "shareAnalytics": [
+        "https://techsmith.com/learn/tutorials/screencast/media-location",
+        "https://www.techsmith.com/screencast/"
+      ],
+      "freeVersion": [
+        "https://support.techsmith.com/hc/en-us/articles/26035447040525-Can-I-Try-For-Free-Before-Purchasing-a-Camtasia-Plan",
+        "https://support.techsmith.com/hc/en-us/articles/40593880288397-Getting-Started-with-a-Camtasia-Starter-Plan"
+      ],
+      "openSource": [
+        "https://www.techsmith.com/store/camtasia"
+      ],
+      "platform": [
+        "https://www.techsmith.com/camtasia/",
+        "https://www.techsmith.com/store/camtasia"
+      ],
+      "price": [
+        "https://www.techsmith.com/store/camtasia",
+        "https://www.techsmith.com/store/camtasia?bvstate=pg%3A42%2Fct%3Ar",
+        "https://trainn.co/blog/camtasia-pricing/"
+      ],
+      "faqExtra": [
+        "https://support.techsmith.com/hc/en-us/articles/27009223314701-TechSmith-Transition-to-Annual-Subscription-Pricing-Model-in-2025",
+        "https://www.techsmith.com/store/camtasia",
+        "https://trainn.co/blog/camtasia-pricing/"
+      ],
+      "notes": [
+        "https://support.techsmith.com/hc/en-us/articles/27009223314701-TechSmith-Transition-to-Annual-Subscription-Pricing-Model-in-2025",
+        "https://www.techsmith.com/store/camtasia",
+        "https://support.techsmith.com/hc/en-us/articles/26035447040525-Can-I-Try-For-Free-Before-Purchasing-a-Camtasia-Plan",
+        "https://support.techsmith.com/hc/en-us/articles/26713588518413-Dynamic-Captions-Best-Practices",
+        "https://www.techsmith.com/camtasia/whats-new/",
+        "https://techsmith.com/learn/tutorials/screencast/media-location"
+      ]
+    }
+  }
+]
