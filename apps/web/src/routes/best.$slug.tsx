@@ -13,7 +13,7 @@ import {
   findBestList,
 } from "@/lib/best-content";
 import { FACTS_CHECKED, FEATURE_ROWS, comparePath, type FeatureCell } from "@/lib/pseo-content";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { pageHead } from "@/lib/site-content";
 
 /**
  * /best/{slug}: "best X" lists generated from the sourced competitor records.
@@ -28,14 +28,7 @@ export const Route = createFileRoute("/best/$slug")({
   },
   head: ({ params }) => {
     const list = findBestList(params.slug);
-    if (!list) return {};
-    return {
-      meta: [
-        { title: `${list.title} (${FACTS_CHECKED.slice(0, 4)}) | CaptureCat` },
-        { name: "description", content: list.description },
-      ],
-      links: markdownAlternateLinks(bestPath(list)),
-    };
+    return list ? pageHead(bestPath(list)) : {};
   },
   component: BestPage,
 });

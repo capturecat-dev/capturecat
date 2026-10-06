@@ -23,7 +23,12 @@ export interface SitePage {
   /** Route path, e.g. "/" or "/pricing". */
   path: string;
   title: string;
+  /** The full <title>, when `title` + " | CaptureCat" is not the right one. */
+  seoTitle?: string;
+  /** Meta and social description. Keep it under 160 characters. */
   description: string;
+  /** Open Graph type: "article" for guides and lists, else "website". */
+  ogType?: "website" | "article";
   /** W3C date (YYYY-MM-DD) of the last meaningful content change. */
   lastModified: string;
   /** Full Markdown rendering of the page, served at /{path}.md. */
@@ -35,7 +40,7 @@ const STATIC_PAGES: SitePage[] = [
     path: "/",
     title: "CaptureCat: the Mac screen recorder that edits itself",
     description:
-      "CaptureCat records your Mac and adds the zooms, cursor smoothing, and captions automatically. Native Swift, free to record and export, with share links and viewer analytics on Pro.",
+      "A free, open-source Mac screen recorder that adds zooms, cursor smoothing, and captions automatically. Share links and viewer analytics on Pro.",
     lastModified: "2026-09-30",
     markdown: `# CaptureCat: record your screen, skip the editing
 
@@ -129,8 +134,9 @@ their work, and export with the same engine the editor uses. See
   {
     path: "/features",
     title: "Features",
+    seoTitle: "Features: auto zoom, captions, cursor smoothing | CaptureCat",
     description:
-      "Every feature in CaptureCat, the Mac screen recorder: recording sources, auto zoom, cursor smoothing, captions, device frames, camera bubble, blur and spotlight, timeline, export, sharing, library search, and the MCP server for AI agents.",
+      "Every CaptureCat feature: auto zoom, cursor smoothing, on-device captions, device frames, camera bubble, blur, timeline, 4K export, sharing, and an MCP server.",
     lastModified: "2026-09-02",
     markdown: `# CaptureCat features
 
@@ -164,6 +170,7 @@ ${FEATURE_INVENTORY_MARKDOWN}
   {
     path: "/pricing",
     title: "Pricing",
+    seoTitle: "Pricing: free recorder, Pro for share links | CaptureCat",
     description:
       "CaptureCat is free to record, edit, and export. Pro adds share links, timestamped comments, and viewer analytics. Prices come live from Stripe.",
     lastModified: "2026-09-02",
@@ -211,8 +218,9 @@ by the subscription.
   {
     path: "/agents",
     title: "Agents and MCP",
+    seoTitle: "Screen recorder MCP server for AI agents | CaptureCat",
     description:
-      "CaptureCat has a built in MCP server. Let Claude, Codex, Cursor, Copilot, or Windsurf record, inspect, edit, restyle, and export your recordings.",
+      "CaptureCat has a built-in MCP server. Let Claude, Codex, Cursor, Copilot, or Windsurf record, inspect, edit, restyle, and export your recordings.",
     lastModified: "2026-09-29",
     markdown: `# Agents and MCP
 
@@ -271,6 +279,7 @@ autosaves and would overwrite the agent's changes.
   {
     path: "/download",
     title: "Download CaptureCat for macOS",
+    seoTitle: "Download CaptureCat for Mac (free) | CaptureCat",
     description:
       "Download CaptureCat, the free native screen recorder for macOS 14 and later. Builds for Apple Silicon and Intel. No account needed to record.",
     lastModified: "2026-09-30",
@@ -301,7 +310,7 @@ ChromeOS. See [CaptureCat for Mac and in your browser](${SITE_URL}/#anywhere).
     path: "/privacy",
     title: "Privacy Policy",
     description:
-      "How CaptureCat handles your data: recordings stay on your Mac unless you share them, captions are transcribed on device, and we collect only what billing and sharing need.",
+      "How CaptureCat handles your data: recordings stay on your Mac unless you share them, captions run on device, and we collect only what billing and sharing need.",
     lastModified: "2026-08-05",
     markdown: `# Privacy Policy
 
@@ -414,6 +423,65 @@ export function markdownHref(path: string): string {
   return path === "/" ? "/index.md" : `${path}.md`;
 }
 
+/** The absolute canonical URL for a page path (no trailing slash on "/"). */
+export function canonicalUrl(path: string): string {
+  return `${SITE_URL}${path === "/" ? "" : path}`;
+}
+
+/** The site-wide social card (1200 × 630), used by every registry page. */
+export const OG_IMAGE = {
+  url: `${SITE_URL}/og.png`,
+  width: 1200,
+  height: 630,
+  alt: "CaptureCat: the Mac screen recorder that edits itself",
+};
+
+/** "Title | CaptureCat", unless the brand is already in it or it would run long. */
+function brandedTitle(title: string): string {
+  if (title.includes("CaptureCat")) return title;
+  const branded = `${title} | CaptureCat`;
+  return branded.length <= 65 ? branded : title;
+}
+
+type HeadMeta = Record<string, string>;
+type HeadLink = { rel: string; href: string; type?: string };
+
+/**
+ * The complete head for a registry page: title, description, canonical,
+ * Markdown alternate, Open Graph, and Twitter card, all from SITE_PAGES so
+ * the HTML, the sitemap, llms.txt, and the Markdown twin can never disagree.
+ * Routes spread their own stylesheets into `links`.
+ */
+export function pageHead(
+  path: string,
+  extraLinks: HeadLink[] = []
+): { meta: HeadMeta[]; links: HeadLink[] } {
+  const page = findPageByPath(path);
+  if (!page) throw new Error(`pageHead: ${path} is not in SITE_PAGES`);
+  const title = brandedTitle(page.seoTitle ?? page.title);
+  const url = canonicalUrl(path);
+  return {
+    meta: [
+      { title },
+      { name: "description", content: page.description },
+      { property: "og:site_name", content: "CaptureCat" },
+      { property: "og:type", content: page.ogType ?? "website" },
+      { property: "og:title", content: title },
+      { property: "og:description", content: page.description },
+      { property: "og:url", content: url },
+      { property: "og:image", content: OG_IMAGE.url },
+      { property: "og:image:width", content: String(OG_IMAGE.width) },
+      { property: "og:image:height", content: String(OG_IMAGE.height) },
+      { property: "og:image:alt", content: OG_IMAGE.alt },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: page.description },
+      { name: "twitter:image", content: OG_IMAGE.url },
+    ],
+    links: [...extraLinks, ...markdownAlternateLinks(path)],
+  };
+}
+
 /**
  * Head link descriptors advertising the Markdown alternate and canonical URL.
  * Spread into a route's `head: () => ({ links })` so agents can discover the
@@ -423,7 +491,7 @@ export function markdownAlternateLinks(
   path: string
 ): Array<{ rel: string; href: string; type?: string }> {
   return [
-    { rel: "canonical", href: `${SITE_URL}${path === "/" ? "" : path}` },
+    { rel: "canonical", href: canonicalUrl(path) },
     { rel: "alternate", type: "text/markdown", href: markdownHref(path) },
   ];
 }

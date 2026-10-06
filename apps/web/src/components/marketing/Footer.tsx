@@ -20,6 +20,7 @@ const COLUMNS: Array<{
     heading: "Compare",
     links: [
       { label: "All comparisons", to: "/compare" },
+      { label: "Best-of lists", to: "/best" },
       { label: "vs Screen Studio", href: "/compare/capturecat-vs-screen-studio" },
       { label: "vs Loom", href: "/compare/capturecat-vs-loom" },
       { label: "vs Cap", href: "/compare/capturecat-vs-cap" },

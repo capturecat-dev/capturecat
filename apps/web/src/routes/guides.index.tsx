@@ -4,12 +4,8 @@ import { jsonLd } from "@/lib/json-ld";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
 import { PseoCta } from "@/components/marketing/PseoSections";
-import {
-  GUIDES,
-  GUIDES_HUB_DESCRIPTION,
-  guidesHubJsonLd,
-} from "@/lib/guides-content";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { GUIDES, guidesHubJsonLd } from "@/lib/guides-content";
+import { pageHead } from "@/lib/site-content";
 
 /**
  * /guides, the hub that links every how-to guide, so crawlers (and people)
@@ -17,13 +13,7 @@ import { markdownAlternateLinks } from "@/lib/site-content";
  */
 
 export const Route = createFileRoute("/guides/")({
-  head: () => ({
-    meta: [
-      { title: "Screen Recording Guides | CaptureCat" },
-      { name: "description", content: GUIDES_HUB_DESCRIPTION },
-    ],
-    links: markdownAlternateLinks("/guides"),
-  }),
+  head: () => pageHead("/guides"),
   component: GuidesHubPage,
 });
 

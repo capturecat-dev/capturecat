@@ -112,10 +112,27 @@ export interface PseoPage {
   competitor: Competitor;
   path: string;
   title: string;
+  /** The <title> (registry seoTitle); `title` stays the short link label. */
+  seoTitle: string;
   heroTitle: string;
   heroSubtitle: string;
   description: string;
   faqs: Faq[];
+}
+
+/**
+ * The name without qualifiers, for titles and descriptions:
+ * "QuickTime Player / macOS Screenshot (⇧⌘5)" → "QuickTime Player".
+ */
+export function shortName(c: Competitor): string {
+  return c.name.split(" / ")[0].split(" (")[0].trim();
+}
+
+const YEAR = FACTS_CHECKED.slice(0, 4);
+
+/** The first candidate that fits a search result title (~65 chars). */
+function fitTitle(...candidates: string[]): string {
+  return candidates.find((t) => t.length <= 65) ?? candidates[candidates.length - 1];
 }
 
 export function comparePath(c: Competitor): string {
@@ -182,15 +199,20 @@ export function buildPseoPage(
   kind: "compare" | "alternative",
   c: Competitor
 ): PseoPage {
+  const name = shortName(c);
   if (kind === "compare") {
     return {
       kind,
       competitor: c,
       path: comparePath(c),
-      title: `CaptureCat vs ${c.name}`,
+      title: `CaptureCat vs ${name}`,
+      seoTitle: fitTitle(
+        `CaptureCat vs ${name}: features and pricing (${YEAR})`,
+        `CaptureCat vs ${name} (${YEAR})`
+      ),
       heroTitle: `CaptureCat vs ${c.name}`,
       heroSubtitle: c.differentiator,
-      description: `CaptureCat vs ${c.name} for Mac screen recording: features, pricing, automatic editing, AI-agent support, and when to pick each. Facts checked ${FACTS_CHECKED}.`,
+      description: `CaptureCat vs ${name}: auto zoom, captions, AI-agent support, sharing, and price compared, with sources. Checked ${FACTS_CHECKED}.`,
       faqs: compareFaqs(c),
     };
   }
@@ -198,10 +220,14 @@ export function buildPseoPage(
     kind,
     competitor: c,
     path: alternativePath(c),
-    title: `${c.name} Alternative for Mac`,
+    title: `${name} Alternative for Mac`,
+    seoTitle: fitTitle(
+      `${name} alternative for Mac (${YEAR}) | CaptureCat`,
+      `${name} alternative for Mac (${YEAR})`
+    ),
     heroTitle: `The ${c.name} alternative that edits itself`,
     heroSubtitle: `${c.summary} If you're after something different, CaptureCat records your Mac and applies the editing automatically (zooms, cursor smoothing, captions), then shares a link with viewer analytics.`,
-    description: `Looking for a ${c.name} alternative on macOS? CaptureCat is a free native screen recorder with automatic cinematic zooms, on-device captions, AI-agent editing over MCP, and share links with analytics.`,
+    description: `Looking for a ${name} alternative on Mac? CaptureCat is a free, open-source recorder with auto zoom, on-device captions, and AI-agent editing.`,
     faqs: alternativeFaqs(c),
   };
 }
@@ -414,14 +440,13 @@ ${PSEO_ALTERNATIVE_PAGES.map(
 [Download CaptureCat for Mac](${SITE_URL}/download) · [Pricing](${SITE_URL}/pricing)
 `;
 
-export const COMPARE_HUB_DESCRIPTION = `CaptureCat compared with ${COMPETITORS.length} screen recorders, including ${COMPETITORS.slice(0, 6)
-  .map((c) => c.name)
-  .join(", ")}, and more: features, pricing, and honest trade-offs, with sources.`;
+export const COMPARE_HUB_DESCRIPTION = `${COMPETITORS.length} screen recorders compared with CaptureCat: auto zoom, captions, AI-agent support, sharing, platform, and price. Sourced and dated.`;
 
 export const PSEO_SITE_PAGES: SitePage[] = [
   {
     path: "/compare",
     title: "Compare Screen Recorders",
+    seoTitle: `Compare ${COMPETITORS.length} screen recorders side by side | CaptureCat`,
     description: COMPARE_HUB_DESCRIPTION,
     lastModified: LAST_MODIFIED,
     markdown: hubMarkdown,
@@ -429,6 +454,7 @@ export const PSEO_SITE_PAGES: SitePage[] = [
   ...[...PSEO_COMPARE_PAGES, ...PSEO_ALTERNATIVE_PAGES].map((page) => ({
     path: page.path,
     title: page.title,
+    seoTitle: page.seoTitle,
     description: page.description,
     lastModified: LAST_MODIFIED,
     markdown: pageMarkdown(page),

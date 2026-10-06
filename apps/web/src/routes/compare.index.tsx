@@ -7,7 +7,6 @@ import { CompareMatrix, PseoCta } from "@/components/marketing/PseoSections";
 import { BEST_LISTS } from "@/lib/best-content";
 import {
   CATEGORY_LABELS,
-  COMPARE_HUB_DESCRIPTION,
   COMPETITORS,
   PSEO_COMPARE_PAGES,
   PSEO_ALTERNATIVE_PAGES,
@@ -15,7 +14,7 @@ import {
   comparePath,
   competitorsByCategory,
 } from "@/lib/pseo-content";
-import { SITE_URL, markdownAlternateLinks } from "@/lib/site-content";
+import { SITE_URL, pageHead } from "@/lib/site-content";
 
 /**
  * /compare, the hub that links every generated comparison and alternative
@@ -48,16 +47,7 @@ const jsonLdData = {
 };
 
 export const Route = createFileRoute("/compare/")({
-  head: () => ({
-    meta: [
-      { title: "Compare Screen Recorders | CaptureCat" },
-      {
-        name: "description",
-        content: COMPARE_HUB_DESCRIPTION,
-      },
-    ],
-    links: markdownAlternateLinks("/compare"),
-  }),
+  head: () => pageHead("/compare"),
   component: CompareHubPage,
 });
 

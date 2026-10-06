@@ -104,6 +104,25 @@ async function rewrite(request: Request): Promise<Request | Response> {
     return new Response("Misdirected request", { status: 421 });
   }
 
+  // One canonical origin for the marketing site: https, no www, no trailing
+  // slash. Permanent (301/308) so search engines merge the variants instead
+  // of indexing duplicates. GET/HEAD only; /api/ is left alone.
+  if (
+    (host === "capturecat.so" || host === "www.capturecat.so") &&
+    (request.method === "GET" || request.method === "HEAD") &&
+    !path.startsWith("/api/")
+  ) {
+    const insecure = url.protocol === "http:";
+    const trailing = path.length > 1 && path.endsWith("/");
+    if (insecure || host === "www.capturecat.so" || trailing) {
+      const target = new URL(url.toString());
+      target.protocol = "https:";
+      target.host = "capturecat.so";
+      if (trailing) target.pathname = path.replace(/\/+$/, "");
+      return Response.redirect(target.toString(), 301);
+    }
+  }
+
   // Share-page markdown twin: /share/<id>.md → /md-share/<id> (per-video
   // route with the transcript; the static registry below can't serve it).
   const shareMd = path.match(/^\/share\/([^/]+)\.md$/);

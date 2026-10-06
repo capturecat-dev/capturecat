@@ -10,7 +10,7 @@ import {
   guidePath,
   relatedGuides,
 } from "@/lib/guides-content";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { pageHead } from "@/lib/site-content";
 
 /**
  * /guides/{slug}: job-to-be-done how-to pages. Content, Markdown twin, and
@@ -25,14 +25,7 @@ export const Route = createFileRoute("/guides/$slug")({
   },
   head: ({ params }) => {
     const guide = findGuide(params.slug);
-    if (!guide) return {};
-    return {
-      meta: [
-        { title: `${guide.question} | CaptureCat` },
-        { name: "description", content: guide.description },
-      ],
-      links: markdownAlternateLinks(guidePath(guide)),
-    };
+    return guide ? pageHead(guidePath(guide)) : {};
   },
   component: GuidePage,
 });

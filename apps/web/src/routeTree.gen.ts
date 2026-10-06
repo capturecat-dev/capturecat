@@ -35,6 +35,7 @@ import { Route as AppRecordRouteImport } from './routes/app/record'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppTeamRouteImport } from './routes/app/team'
 import { Route as AppEditorRouteImport } from './routes/app_.editor'
+import { Route as BestIndexRouteImport } from './routes/best.index'
 import { Route as BestSlugRouteImport } from './routes/best.$slug'
 import { Route as CompareIndexRouteImport } from './routes/compare.index'
 import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
@@ -180,6 +181,11 @@ const AppEditorRoute = AppEditorRouteImport.update({
   path: '/app/editor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BestIndexRoute = BestIndexRouteImport.update({
+  id: '/best/',
+  path: '/best/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BestSlugRoute = BestSlugRouteImport.update({
   id: '/best/$slug',
   path: '/best/$slug',
@@ -281,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/md/$': typeof MdSplatRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app/': typeof AppIndexRoute
+  '/best/': typeof BestIndexRoute
   '/compare/': typeof CompareIndexRoute
   '/guides/': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -321,6 +328,7 @@ export interface FileRoutesByTo {
   '/md/$': typeof MdSplatRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app': typeof AppIndexRoute
+  '/best': typeof BestIndexRoute
   '/compare': typeof CompareIndexRoute
   '/guides': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -363,6 +371,7 @@ export interface FileRoutesById {
   '/md/$': typeof MdSplatRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app/': typeof AppIndexRoute
+  '/best/': typeof BestIndexRoute
   '/compare/': typeof CompareIndexRoute
   '/guides/': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -406,6 +415,7 @@ export interface FileRouteTypes {
     | '/md/$'
     | '/share/$videoId'
     | '/app/'
+    | '/best/'
     | '/compare/'
     | '/guides/'
     | '/api/trpc/$'
@@ -446,6 +456,7 @@ export interface FileRouteTypes {
     | '/md/$'
     | '/share/$videoId'
     | '/app'
+    | '/best'
     | '/compare'
     | '/guides'
     | '/api/trpc/$'
@@ -487,6 +498,7 @@ export interface FileRouteTypes {
     | '/md/$'
     | '/share/$videoId'
     | '/app/'
+    | '/best/'
     | '/compare/'
     | '/guides/'
     | '/api/trpc/$'
@@ -523,6 +535,7 @@ export interface RootRouteChildren {
   MdShareVideoIdRoute: typeof MdShareVideoIdRoute
   MdSplatRoute: typeof MdSplatRoute
   ShareVideoIdRoute: typeof ShareVideoIdRoute
+  BestIndexRoute: typeof BestIndexRoute
   CompareIndexRoute: typeof CompareIndexRoute
   GuidesIndexRoute: typeof GuidesIndexRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
@@ -712,6 +725,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEditorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/best/': {
+      id: '/best/'
+      path: '/best'
+      fullPath: '/best/'
+      preLoaderRoute: typeof BestIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/best/$slug': {
       id: '/best/$slug'
       path: '/best/$slug'
@@ -872,6 +892,7 @@ const rootRouteChildren: RootRouteChildren = {
   MdShareVideoIdRoute: MdShareVideoIdRoute,
   MdSplatRoute: MdSplatRoute,
   ShareVideoIdRoute: ShareVideoIdRoute,
+  BestIndexRoute: BestIndexRoute,
   CompareIndexRoute: CompareIndexRoute,
   GuidesIndexRoute: GuidesIndexRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,

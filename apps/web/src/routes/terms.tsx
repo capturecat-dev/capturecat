@@ -1,19 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalLayout } from "@/components/marketing/LegalLayout";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { pageHead } from "@/lib/site-content";
 
 export const Route = createFileRoute("/terms")({
-  head: () => ({
-    meta: [
-      { title: "Terms of Service | CaptureCat" },
-      {
-        name: "description",
-        content:
-          "The terms that govern your use of the CaptureCat app, share links, and Pro subscription, under the laws of England and Wales.",
-      },
-    ],
-    links: markdownAlternateLinks("/terms"),
-  }),
+  head: () => pageHead("/terms"),
   component: TermsPage,
 });
 

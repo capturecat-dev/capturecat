@@ -395,7 +395,7 @@ export function bestJsonLd(list: BestList): object {
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-          { "@type": "ListItem", position: 2, name: "Compare", item: `${SITE_URL}/compare` },
+          { "@type": "ListItem", position: 2, name: "Best-of lists", item: `${SITE_URL}/best` },
           { "@type": "ListItem", position: 3, name: list.title, item: url },
         ],
       },
@@ -404,10 +404,61 @@ export function bestJsonLd(list: BestList): object {
   };
 }
 
-export const BEST_SITE_PAGES: SitePage[] = BEST_LISTS.map((list) => ({
+export const BEST_HUB_DESCRIPTION =
+  "Best-of screen recorder lists from sourced facts: Mac, free, open source, auto zoom, Loom and Screen Studio alternatives, Windows, and AI agents.";
+
+const bestHubMarkdown = `# Best screen recorder lists (${FACTS_CHECKED.slice(0, 4)})
+
+Every list is generated from the same sourced comparison data, checked
+${FACTS_CHECKED}. ${DISCLOSURE}
+
+${BEST_LISTS.map((l) => `- [${l.title}](${SITE_URL}${bestPath(l)}): ${l.description}`).join("\n")}
+
+[All comparisons](${SITE_URL}/compare) · [Download CaptureCat for Mac](${SITE_URL}/download)
+`;
+
+export function bestHubJsonLd(): object {
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": `${SITE_URL}/best`,
+        name: "Best screen recorder lists",
+        url: `${SITE_URL}/best`,
+        about: { "@id": `${SITE_URL}/#app` },
+        mainEntity: { "@id": `${SITE_URL}/best#list` },
+      },
+      {
+        "@type": "ItemList",
+        "@id": `${SITE_URL}/best#list`,
+        itemListElement: BEST_LISTS.map((l, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          name: l.title,
+          url: `${SITE_URL}${bestPath(l)}`,
+        })),
+      },
+      captureCatJsonLd(),
+    ],
+  };
+}
+
+export const BEST_SITE_PAGES: SitePage[] = [
+  {
+    path: "/best",
+    title: "Best screen recorder lists",
+    seoTitle: `Best screen recorders (${FACTS_CHECKED.slice(0, 4)}): every list | CaptureCat`,
+    description: BEST_HUB_DESCRIPTION,
+    lastModified: FACTS_CHECKED,
+    markdown: bestHubMarkdown,
+  },
+  ...BEST_LISTS.map((list) => ({
   path: bestPath(list),
   title: `${list.title} (${FACTS_CHECKED.slice(0, 4)})`,
+  ogType: "article" as const,
   description: list.description,
   lastModified: list.lastModified,
   markdown: bestMarkdown(list),
-}));
+})),
+];

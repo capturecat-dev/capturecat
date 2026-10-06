@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { jsonLd } from "@/lib/json-ld";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { pageHead } from "@/lib/site-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
 import {
@@ -23,21 +23,7 @@ import {
 } from "@/components/marketing/primitives";
 
 export const Route = createFileRoute("/agents")({
-  head: () => ({
-    meta: [
-      { title: "Agents and MCP | CaptureCat" },
-      {
-        name: "description",
-        content:
-          "CaptureCat has a built in MCP server. Let Claude, Codex, Cursor, Copilot, or Windsurf record, inspect, edit, restyle, and export your recordings. No plugin needed.",
-      },
-    ],
-    links: [
-      { rel: "stylesheet", href: demosCss },
-      { rel: "stylesheet", href: demosPagesCss },
-      ...markdownAlternateLinks("/agents"),
-    ],
-  }),
+  head: () => pageHead("/agents", [{ rel: "stylesheet", href: demosCss }, { rel: "stylesheet", href: demosPagesCss }]),
   component: AgentsPage,
 });
 
