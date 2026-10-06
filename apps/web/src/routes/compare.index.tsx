@@ -3,11 +3,17 @@ import { jsonLd } from "@/lib/json-ld";
 
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
-import { PseoCta } from "@/components/marketing/PseoSections";
+import { CompareMatrix, PseoCta } from "@/components/marketing/PseoSections";
+import { BEST_LISTS } from "@/lib/best-content";
 import {
+  CATEGORY_LABELS,
+  COMPARE_HUB_DESCRIPTION,
+  COMPETITORS,
   PSEO_COMPARE_PAGES,
   PSEO_ALTERNATIVE_PAGES,
   captureCatJsonLd,
+  comparePath,
+  competitorsByCategory,
 } from "@/lib/pseo-content";
 import { SITE_URL, markdownAlternateLinks } from "@/lib/site-content";
 
@@ -22,7 +28,7 @@ const jsonLdData = {
     {
       "@type": "CollectionPage",
       "@id": `${SITE_URL}/compare`,
-      name: "Compare Mac Screen Recorders",
+      name: "Compare Screen Recorders",
       url: `${SITE_URL}/compare`,
       about: { "@id": `${SITE_URL}/#app` },
       mainEntity: { "@id": `${SITE_URL}/compare#list` },
@@ -44,11 +50,10 @@ const jsonLdData = {
 export const Route = createFileRoute("/compare/")({
   head: () => ({
     meta: [
-      { title: "Compare Mac Screen Recorders | CaptureCat" },
+      { title: "Compare Screen Recorders | CaptureCat" },
       {
         name: "description",
-        content:
-          "How CaptureCat compares to Screen Studio, Cap, Loom, CleanShot X, OBS, Camtasia, Kap, and QuickTime: features, pricing, and honest trade-offs.",
+        content: COMPARE_HUB_DESCRIPTION,
       },
     ],
     links: markdownAlternateLinks("/compare"),
@@ -80,36 +85,60 @@ function CompareHubPage() {
             How CaptureCat compares
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Feature-by-feature comparisons with the other Mac screen recorders:
-            including where each of them is genuinely the better pick.
+            {COMPETITORS.length} screen recorders, feature by feature, including
+            where each of them is genuinely the better pick. Every fact is
+            checked against the product&apos;s own site and sourced.
           </p>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-6 pb-8">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em]">Comparisons</h2>
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-          {PSEO_COMPARE_PAGES.map((page) => (
+      <section className="mx-auto w-full max-w-6xl px-6 pb-10">
+        <h2 className="text-2xl font-semibold tracking-[-0.02em]">Best-of lists</h2>
+        <div className="mt-6 flex flex-wrap gap-3">
+          {BEST_LISTS.map((list) => (
             <Link
-              key={page.path}
-              to="/compare/$slug"
-              params={{ slug: page.path.split("/").pop()! }}
-              className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] p-6 backdrop-blur-2xl transition-colors hover:bg-white/[0.07]"
+              key={list.slug}
+              to="/best/$slug"
+              params={{ slug: list.slug }}
+              className="inline-flex h-9 items-center rounded-full border border-white/12 bg-white/[0.06] px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-white/[0.1] hover:text-foreground"
             >
-              <span
-                aria-hidden
-                className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
-              />
-              <h3 className="font-medium tracking-[-0.01em] group-hover:text-foreground">
-                {page.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {page.competitor.summary}
-              </p>
+              {list.title}
             </Link>
           ))}
         </div>
       </section>
+
+      <section className="mx-auto w-full max-w-6xl px-6 pb-8">
+        <h2 className="text-2xl font-semibold tracking-[-0.02em]">All recorders at a glance</h2>
+        <div className="mt-6">
+          <CompareMatrix />
+        </div>
+      </section>
+
+      {competitorsByCategory().map(([cat, list]) => (
+        <section key={cat} className="mx-auto w-full max-w-6xl px-6 pt-10">
+          <h2 className="text-2xl font-semibold tracking-[-0.02em]">{CATEGORY_LABELS[cat]}</h2>
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+            {list.map((c) => (
+              <Link
+                key={c.slug}
+                to="/compare/$slug"
+                params={{ slug: comparePath(c).split("/").pop()! }}
+                className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] p-6 backdrop-blur-2xl transition-colors hover:bg-white/[0.07]"
+              >
+                <span
+                  aria-hidden
+                  className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                />
+                <h3 className="font-medium tracking-[-0.01em] group-hover:text-foreground">
+                  CaptureCat vs {c.name}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{c.summary}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ))}
 
       <section className="mx-auto w-full max-w-6xl px-6 py-12">
         <h2 className="text-2xl font-semibold tracking-[-0.02em]">

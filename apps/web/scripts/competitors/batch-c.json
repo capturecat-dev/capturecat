@@ -1,0 +1,338 @@
+[
+  {
+    "slug": "focusee",
+    "name": "FocuSee",
+    "website": "https://focusee.imobie.com",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": "Yes; on-device vs cloud not stated",
+    "mcp": false,
+    "shareAnalytics": "Share links, no analytics listed",
+    "freeVersion": "Free trial, one 4K export",
+    "openSource": false,
+    "platform": "macOS & Windows",
+    "price": "$19.99/mo or $49.99/yr; $199.99 once",
+    "summary": "FocuSee is a screen recorder for macOS and Windows from iMobie that applies automatic zoom, cursor effects and AI editing tools to screen recordings.",
+    "strengths": [
+      "Automatic zoom follows both clicks and typing, with 3D motion and tilt effects",
+      "Runs on Mac and Windows, and records iOS and Android devices over USB",
+      "Broad AI toolset: subtitles in 55+ languages, filler-word removal, AI avatars, webcam background removal"
+    ],
+    "tradeoffs": [
+      "Free trial allows only one exported video",
+      "Many AI features consume credits; the Standard plan includes no AI credits",
+      "Lifetime license covers version 2.x only; the next major version costs extra"
+    ],
+    "pickThemWhen": "you want one auto-zoom recorder licence that covers both Mac and Windows and you will use AI extras like avatars or filler-word removal.",
+    "differentiator": "CaptureCat's free tier includes unlimited exports up to 4K 60 fps with no watermark, automatic zoom from clicks, cursor smoothing and on-device English captions, where FocuSee's free trial exports one video. FocuSee runs natively on Windows and records Android devices, which CaptureCat does not; both record iPhone over USB, and CaptureCat adds an open-source AGPL codebase and a built-in MCP server.",
+    "switchTip": "Export finished FocuSee projects as MP4 before switching, since CaptureCat cannot open FocuSee project files. New recordings in CaptureCat get automatic zoom from clicks without any setup.",
+    "faqExtra": {
+      "question": "Is FocuSee free?",
+      "answer": "FocuSee offers a free trial that lets you try standard features and export one video in up to 4K. Ongoing use needs a subscription or lifetime licence, and some AI features also need credits."
+    },
+    "notes": "iMobie acquired FocuSee (originally from Gemoo) in December 2024; new versions dropped direct uploads to Gemoo Cloud. Current pricing page (focusee.imobie.com/pricing.htm): Standard $19.99/mo or $49.99/yr (1 computer); Advanced $24.99/mo or $79.99/yr (3 computers, 300 AI credits/month); Advanced lifetime $199.99 (5 computers, 1000 credits valid 1 year, lifetime access to 2.x only). Third-party listings (Capterra etc.) still show an outdated $69.99 one-time price. Plan table lists a basic 'Auto Subtitle' (9 languages) on all plans plus 'AI Subtitle' (55+ languages) that consumes credits; the site does not say whether either runs on-device or in the cloud, so captions is a nuance string. The FAQ says cursor tracking, click detection and shortcut recognition run locally. Share links with password and permission controls exist; no viewer analytics are mentioned. No MCP server or agent API found.",
+    "sources": {
+      "autoZoom": ["https://focusee.imobie.com/"],
+      "cursorEffects": ["https://focusee.imobie.com/"],
+      "captions": ["https://focusee.imobie.com/pricing.htm?os=mac", "https://focusee.imobie.com/"],
+      "mcp": ["https://focusee.imobie.com/"],
+      "shareAnalytics": ["https://focusee.imobie.com/"],
+      "freeVersion": ["https://focusee.imobie.com/pricing.htm?os=mac"],
+      "openSource": ["https://focusee.imobie.com/"],
+      "platform": ["https://focusee.imobie.com/pricing.htm?os=mac"],
+      "price": ["https://focusee.imobie.com/pricing.htm?os=mac"],
+      "strengths": ["https://focusee.imobie.com/", "https://focusee.imobie.com/pricing.htm?os=mac"],
+      "tradeoffs": ["https://focusee.imobie.com/pricing.htm?os=mac"],
+      "faqExtra": ["https://focusee.imobie.com/pricing.htm?os=mac"],
+      "notes": ["https://alternativeto.net/news/2024/12/imobie-acquires-screen-recording-and-video-edit-platform-focusee", "https://focusee.imobie.com/pricing.htm?os=mac"]
+    }
+  },
+  {
+    "slug": "rapidemo",
+    "name": "Rapidemo",
+    "website": "https://getrapidemo.com",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": true,
+    "mcp": false,
+    "shareAnalytics": "Share links, no analytics listed",
+    "freeVersion": "Free trial; export needs a license",
+    "openSource": false,
+    "platform": "Windows only",
+    "price": "$19/mo, $9/mo yearly, or $199 once",
+    "summary": "Rapidemo is a Windows 10 and 11 screen recorder that adds automatic click zooms, cursor smoothing, animated layouts and subtitles to recordings.",
+    "strengths": [
+      "Automatic zoom on clicks plus smoothed, vector-redrawn cursors",
+      "Recording, editing and subtitle generation all run locally",
+      "2D and 3D animated camera layouts and multi-aspect-ratio export up to 4K 60 fps"
+    ],
+    "tradeoffs": [
+      "Windows only; no macOS or Linux version",
+      "Exporting requires a paid licence",
+      "Lifetime licence includes one year of updates; renewals cost $99"
+    ],
+    "pickThemWhen": "you record on Windows and want Screen Studio-style automatic zooms and cursor polish in a desktop app.",
+    "differentiator": "Rapidemo is Windows-only, while CaptureCat is a native macOS app with a browser app for Windows users. Both add automatic zoom from clicks, cursor smoothing and captions generated locally; CaptureCat exports for free without a licence and adds an MCP server, viewer analytics on Pro share links, and an AGPL open-source codebase.",
+    "switchTip": "Rapidemo projects cannot be opened in CaptureCat, so export finished videos as MP4 first. On Windows, use CaptureCat's browser app; on a Mac, use the native app.",
+    "faqExtra": {
+      "question": "Is Rapidemo available for Mac?",
+      "answer": "No. Rapidemo is built for Windows 10 and 11. Its FAQ says macOS and Linux support is under evaluation with no committed timeline."
+    },
+    "notes": "Third-party pages (screensnap.pro) describe Rapidemo as a $79 lifetime app for Windows and macOS; the official site contradicts both points (Windows only; $199 one-time). Official pricing: $19/mo monthly, or $9/mo billed yearly; or $199 one-time with one year of updates and one year of share links, 3 Windows computers. 40% student discount. ARM64 Windows not officially supported. Share links exist; no viewer analytics are mentioned. No MCP or agent API found.",
+    "sources": {
+      "autoZoom": ["https://getrapidemo.com/"],
+      "cursorEffects": ["https://getrapidemo.com/"],
+      "captions": ["https://getrapidemo.com/"],
+      "mcp": ["https://getrapidemo.com/"],
+      "shareAnalytics": ["https://getrapidemo.com/"],
+      "freeVersion": ["https://getrapidemo.com/"],
+      "openSource": ["https://getrapidemo.com/"],
+      "platform": ["https://getrapidemo.com/"],
+      "price": ["https://getrapidemo.com/"],
+      "strengths": ["https://getrapidemo.com/"],
+      "tradeoffs": ["https://getrapidemo.com/"],
+      "faqExtra": ["https://getrapidemo.com/"],
+      "notes": ["https://www.screensnap.pro/blog/screen-studio-for-windows", "https://getrapidemo.com/"]
+    }
+  },
+  {
+    "slug": "screen-charm",
+    "name": "Screen Charm",
+    "website": "https://screencharm.com",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": "Yes; on-device vs cloud not stated",
+    "mcp": false,
+    "shareAnalytics": "Share links, no analytics listed",
+    "freeVersion": "Free to record; export needs license",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "$79 one-time (3 devices)",
+    "summary": "Screen Charm is a macOS screen recorder and editor that applies automatic click zoom, cursor smoothing and backgrounds to product demos and tutorials.",
+    "strengths": [
+      "Automatic zoom after every click, plus cursor smoothing, click ripples and motion blur",
+      "One-time $79 licence with free lifetime updates on up to 3 devices",
+      "Split vertical export for Reels, Shorts and TikTok that follows the cursor"
+    ],
+    "tradeoffs": [
+      "Exporting requires buying the licence",
+      "macOS only",
+      "Captions were added only in September 2026 (v1.11.4), so the feature is new"
+    ],
+    "pickThemWhen": "you want a Mac auto-zoom recorder with a one-time price and built-in vertical exports for social clips.",
+    "differentiator": "Both apps add automatic zoom from clicks, cursor smoothing, click ripples and captions on macOS. CaptureCat exports for free with no watermark, is a native Swift app (Screen Charm's changelog refers to Electron), is open source under AGPL-3.0, has a built-in MCP server, and offers viewer analytics on Pro share links.",
+    "switchTip": "Export any Screen Charm projects you want to keep as MP4; CaptureCat cannot open Screen Charm projects. Your existing Screen Charm share links stay where they are.",
+    "faqExtra": {
+      "question": "Is Screen Charm free?",
+      "answer": "Screen Charm is free to download and use for recording, with no time limit on the trial. Exporting the finished video requires a one-time $79 purchase."
+    },
+    "notes": "Built by solo founder Sergey Nazarov. Actively updated: changelog shows v1.11.4 on 8 Sep 2026, with captions, pause/resume and vertical format added Aug-Sep 2026; share links added in v1.7.0 (Mar 2026). Changelog entries mention Electron auto-updates, so it is not a native Swift app. Download button is labelled 'Apple Silicon'; macOS Sonoma 14.0+ recommended. Site does not say whether captions are generated on-device or in the cloud. Share links: anyone with the link can view; no analytics mentioned. No MCP or API found.",
+    "sources": {
+      "autoZoom": ["https://screencharm.com/"],
+      "cursorEffects": ["https://screencharm.com/"],
+      "captions": ["https://screencharm.com/", "https://screencharm.com/changelog"],
+      "mcp": ["https://screencharm.com/"],
+      "shareAnalytics": ["https://screencharm.com/"],
+      "freeVersion": ["https://screencharm.com/what-is-screen-charm"],
+      "openSource": ["https://screencharm.com/"],
+      "platform": ["https://screencharm.com/"],
+      "price": ["https://screencharm.com/", "https://screencharm.com/pricing"],
+      "strengths": ["https://screencharm.com/"],
+      "tradeoffs": ["https://screencharm.com/what-is-screen-charm", "https://screencharm.com/changelog"],
+      "faqExtra": ["https://screencharm.com/what-is-screen-charm"],
+      "notes": ["https://screencharm.com/changelog", "https://screencharm.com/"]
+    }
+  },
+  {
+    "slug": "screenity",
+    "name": "Screenity",
+    "website": "https://screenity.io",
+    "autoZoom": "Yes, in the paid editor",
+    "cursorEffects": "Live spotlight/ripples, not in post",
+    "captions": "Cloud (EU servers), Pro only",
+    "mcp": false,
+    "shareAnalytics": "Share links (Pro), no analytics listed",
+    "freeVersion": "Free extension; editor needs Pro",
+    "openSource": "Extension only (GPL-3.0)",
+    "platform": "Browser (Chrome extension + web app)",
+    "price": "Extension free · Pro $14/mo or $120/yr",
+    "summary": "Screenity is an open-source Chrome screen recorder extension with a paid, EU-hosted web editor for scenes, click zooms, captions and share links.",
+    "strengths": [
+      "Free, open-source (GPL-3.0) Chrome extension with drawing, live blur and system audio",
+      "Paid editor builds videos from scenes with animated layouts, overlays and music",
+      "Hosted entirely in Europe, with word-by-word captions on its own servers"
+    ],
+    "tradeoffs": [
+      "Auto-zoom, captions, share links and MP4 export from the editor need the paid plan",
+      "Pro recordings are capped at 1 hour each and editor exports at 1080p",
+      "Captions are English only for now"
+    ],
+    "pickThemWhen": "you work in Chrome on any OS and want a free open-source recorder, or a scene-based web editor with EU data hosting.",
+    "differentiator": "CaptureCat includes automatic zoom from clicks, cursor smoothing and on-device captions in its free tier, while Screenity puts zoom, captions and sharing in its paid editor. Both are open source; CaptureCat's whole app is AGPL-3.0, has a native macOS app plus a browser app, exports up to 4K 60 fps, and has a built-in MCP server.",
+    "switchTip": "Download your Screenity videos as MP4 from the editor or extension before switching; scene projects do not carry over. On Chromebook or Windows, CaptureCat's browser app works in Chrome and Edge 113+.",
+    "faqExtra": {
+      "question": "Is Screenity still free?",
+      "answer": "The Chrome extension is free and open source under GPLv3 and records screen, camera and mic. The editor with scenes, auto-zoom, captions, share links and MP4 export is a paid plan with a 7-day free trial."
+    },
+    "notes": "Major model change: Screenity began as a fully free open-source extension and now sells a paid editor ($10/mo billed yearly = $120/yr; monthly $14 read from the pricing toggle data embedded in screenity.io). GitHub repo alyssaxuu/screenity is active (v4.6.12 released 25 Sep 2026, ~18.7k stars, GPL-3.0). The site says the recorder is open source; it does not say the hosted editor is. Site claims 280,000+ users. Auto-zoom is generated from clicks recorded with the extension and shown as editable keyframes in the editor. Cursor spotlight and click highlights are applied live while recording, not as post effects; no cursor smoothing listed. Captions are transcribed on Screenity's own EU servers, English only. Share links can be public or private; no viewer analytics mentioned. No official MCP server found.",
+    "sources": {
+      "autoZoom": ["https://screenity.io/"],
+      "cursorEffects": ["https://screenity.io/"],
+      "captions": ["https://screenity.io/"],
+      "mcp": ["https://screenity.io/", "https://github.com/alyssaxuu/screenity"],
+      "shareAnalytics": ["https://screenity.io/"],
+      "freeVersion": ["https://screenity.io/"],
+      "openSource": ["https://screenity.io/", "https://github.com/alyssaxuu/screenity"],
+      "platform": ["https://screenity.io/"],
+      "price": ["https://screenity.io/"],
+      "strengths": ["https://screenity.io/"],
+      "tradeoffs": ["https://screenity.io/"],
+      "faqExtra": ["https://screenity.io/"],
+      "notes": ["https://github.com/alyssaxuu/screenity", "https://screenity.io/"]
+    }
+  },
+  {
+    "slug": "cursorful",
+    "name": "Cursorful",
+    "website": "https://cursorful.com",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": true,
+    "mcp": false,
+    "shareAnalytics": "Share links, no analytics listed",
+    "freeVersion": "Free, browser only, non-commercial",
+    "openSource": false,
+    "platform": "Chrome ext + Mac/Win apps (Pro)",
+    "price": "Free · Pro $79 one-time per seat",
+    "summary": "Cursorful is a screen recorder with automatic click zooms, available as a free Chrome extension and as Pro desktop apps for macOS and Windows.",
+    "strengths": [
+      "Free extension with no sign-up, no watermark and unlimited exports",
+      "Local rendering and on-device captions and mic denoising; cloud is opt-in",
+      "Pro desktop apps redraw the cursor with smoothing, motion blur, sway and click animations"
+    ],
+    "tradeoffs": [
+      "Free plan is non-commercial and records the browser only, without mic or camera",
+      "In the extension, auto-zoom stops working when a non-browser app is in focus",
+      "Auto-zoom triggers only after two or more clicks within 3 seconds, by design"
+    ],
+    "pickThemWhen": "you mostly demo web apps in Chrome and want free auto-zoom with no sign-up, or a one-time Pro licence for Mac and Windows.",
+    "differentiator": "Like Cursorful, CaptureCat offers free automatic zoom from clicks, cursor smoothing with click effects and on-device captions. CaptureCat's free tier allows commercial use, records any app with mic and camera, and exports up to 4K, which Cursorful reserves for Pro; CaptureCat is also open source (AGPL-3.0), has a built-in MCP server and viewer analytics on Pro share links.",
+    "switchTip": "Export finished Cursorful projects as MP4 before switching. If you used the Chrome extension on Windows or Linux, CaptureCat's browser app runs in Chrome and Edge 113+.",
+    "faqExtra": {
+      "question": "Does Cursorful auto-zoom outside the browser?",
+      "answer": "Only with the Pro desktop apps. The Chrome extension cannot see clicks outside the browser, so auto-zoom stops when another app is in focus, though you can add fixed zooms in the editor afterwards."
+    },
+    "notes": "Pro is $79 per seat one-time, shown as $40 off a $119 list price for the 'V2 launch'; includes desktop apps for macOS and Windows (2 devices), commercial use, mic and camera, 4K, and 10 GB shared cloud storage ($0.02/GB/mo extra). Firefox not supported. Chrome Web Store rating 4.9 from 1,000+ reviews per the site. Captions are generated by speech-to-text in the browser, on-device; the free plan list does not mention captions, so captions may need Pro or an imported video with audio. Share links can be public or private to an organisation; no analytics mentioned. No MCP or API found.",
+    "sources": {
+      "autoZoom": ["https://cursorful.com/"],
+      "cursorEffects": ["https://cursorful.com/"],
+      "captions": ["https://cursorful.com/"],
+      "mcp": ["https://cursorful.com/"],
+      "shareAnalytics": ["https://cursorful.com/"],
+      "freeVersion": ["https://cursorful.com/"],
+      "openSource": ["https://cursorful.com/"],
+      "platform": ["https://cursorful.com/"],
+      "price": ["https://cursorful.com/"],
+      "strengths": ["https://cursorful.com/"],
+      "tradeoffs": ["https://cursorful.com/"],
+      "faqExtra": ["https://cursorful.com/"],
+      "notes": ["https://cursorful.com/"]
+    }
+  },
+  {
+    "slug": "recordly",
+    "name": "Recordly",
+    "website": "https://recordly.dev",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": true,
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Fully free",
+    "openSource": true,
+    "platform": "macOS, Windows & Linux",
+    "price": "Free",
+    "summary": "Recordly is a free, open-source desktop screen recorder and editor for macOS, Windows and Linux with auto-zoom, cursor polish and styled backgrounds.",
+    "strengths": [
+      "Free and open source, with no paywalls, on macOS, Windows and Linux",
+      "Cursor smoothing, motion blur, click bounce, sway and cursor loop for GIFs",
+      "Community extension marketplace for click sounds, device frames and more"
+    ],
+    "tradeoffs": [
+      "No hosted share links; you export MP4 or GIF files",
+      "Electron app; Linux recording uses Electron capture and cannot hide the cursor",
+      "Support is via GitHub issues rather than a paid support team"
+    ],
+    "pickThemWhen": "you want a free, open-source auto-zoom recorder that also runs natively on Windows and Linux.",
+    "differentiator": "Recordly matches CaptureCat on being free and AGPL-licensed, with auto-zoom, cursor smoothing and local captions. CaptureCat is a native Swift/Metal Mac app rather than Electron, records iPhone and iPad over USB, has a built-in MCP server, and offers Pro share links with viewer analytics; Recordly has native Windows and Linux builds, where CaptureCat offers a browser app instead.",
+    "switchTip": "Recordly saves .recordly project files that CaptureCat cannot open, so export finished videos as MP4 first. On a Mac, CaptureCat's free tier covers the same auto-zoom, cursor and caption workflow.",
+    "faqExtra": {
+      "question": "Is Recordly related to OpenScreen?",
+      "answer": "Yes. Recordly's licence file says it started as a fork of the OpenScreen project by Siddharth Vaddem. OpenScreen's GitHub repository is now archived, while Recordly is actively developed."
+    },
+    "notes": "Licence is AGPL-3.0 with added terms in LICENSE.md (no use of the Recordly name or branding; attribution required for derived code); GitHub shows the licence as NOASSERTION because of those additions. Repo webadderallorg/Recordly: ~32.6k stars, v1.4.0 released 8 Sep 2026, last push 3 Oct 2026. Requires macOS 14+, Windows 10 build 19041+. README describes 'automatic zoom suggestions based on cursor activity'; the site calls them built-in auto-zooms. Auto-captions use a bundled local Whisper runtime (electron/ipc/captions/whisper.ts). The v1.4.0 notes say macOS window recordings 'no longer display a watermark in the corner'. No MCP server found in the repo. Considered and skipped: OpenScreen (repo archived June 2026), Screenize (README says development paused).",
+    "sources": {
+      "autoZoom": ["https://recordly.dev/", "https://github.com/webadderallorg/Recordly"],
+      "cursorEffects": ["https://github.com/webadderallorg/Recordly"],
+      "captions": ["https://github.com/webadderallorg/Recordly/releases", "https://github.com/webadderallorg/Recordly/blob/main/electron/ipc/captions/whisper.ts"],
+      "mcp": ["https://github.com/webadderallorg/Recordly"],
+      "shareAnalytics": ["https://recordly.dev/", "https://github.com/webadderallorg/Recordly"],
+      "freeVersion": ["https://recordly.dev/"],
+      "openSource": ["https://github.com/webadderallorg/Recordly/blob/main/LICENSE.md"],
+      "platform": ["https://github.com/webadderallorg/Recordly"],
+      "price": ["https://recordly.dev/"],
+      "strengths": ["https://recordly.dev/", "https://github.com/webadderallorg/Recordly"],
+      "tradeoffs": ["https://github.com/webadderallorg/Recordly"],
+      "faqExtra": ["https://github.com/webadderallorg/Recordly/blob/main/LICENSE.md", "https://github.com/siddharthvaddem/openscreen"],
+      "notes": ["https://github.com/webadderallorg/Recordly/releases", "https://github.com/siddharthvaddem/openscreen", "https://github.com/syi0808/screenize"]
+    }
+  },
+  {
+    "slug": "canvid",
+    "name": "CANVID",
+    "website": "https://www.canvid.com",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": "Cloud on Mac; local option on Windows",
+    "mcp": false,
+    "shareAnalytics": "Share links, no analytics listed",
+    "freeVersion": "Free to try; export needs a license",
+    "openSource": false,
+    "platform": "Windows & macOS",
+    "price": "$84/yr (Pro) or $75 one-time",
+    "summary": "CANVID is a screen recorder for Windows and Mac that turns clicks into automatic zooms and adds AI tools for captions, voice cleanup and webcam effects.",
+    "strengths": [
+      "Automatic zoom on every click, with cursor smoothing and styling",
+      "AI Speech Edit fixes spoken mistakes from the transcript, and AI Webcam can generate a lip-synced camera track",
+      "Transcription in 99 languages, with on-device processing on supported Windows hardware"
+    ],
+    "tradeoffs": [
+      "Needs an internet connection to sign in and run; no offline mode yet",
+      "Exporting and Quick Share links require a paid licence",
+      "On Mac, transcription runs in the cloud only"
+    ],
+    "pickThemWhen": "you need the same auto-zoom recorder on Windows and Mac and want AI fixes like speech correction or a generated webcam.",
+    "differentiator": "CaptureCat exports for free, works offline, and generates English captions on-device on the Mac, where CANVID transcribes in the cloud. CANVID runs natively on Windows and supports 99 transcription languages; CaptureCat is open source (AGPL-3.0), has a built-in MCP server and shows viewer analytics on Pro share links.",
+    "switchTip": "Export CANVID projects as MP4 before cancelling, and download anything stored in CANVID Cloud that you want to keep. CaptureCat cannot import CANVID projects.",
+    "faqExtra": {
+      "question": "Does CANVID work offline?",
+      "answer": "Not currently. CANVID's FAQ says you need an internet connection to sign in and run the app, and that an offline mode is being tested but is not in the current release."
+    },
+    "notes": "Made by VideoCom.com Inc. Very active: v3.2.0 released 6 Oct 2026. Pricing page: Pro subscription $7/mo billed yearly ($84/yr), unlimited cloud storage and cloud AI; Desktop lifetime $75 (shown as down from $159), 1 GB cloud storage and one year of free cloud features, then cloud credits; 25 GB storage add-on $25/yr; Teams by quote. Monthly Pro price not shown on the page (toggle says 'Save 63%'). Third-party listings (Capterra) show an outdated $89 one-time price. Trial lets you explore all features except exporting and Quick Share. Local AI is optimised for Intel Core Ultra/Arc on Windows; Mac transcription is cloud only. Site says 'Trusted by ... 5000+ makers'. Quick Share links are private view-only by default; no viewer analytics are mentioned in support docs. No MCP or API found.",
+    "sources": {
+      "autoZoom": ["https://www.canvid.com/"],
+      "cursorEffects": ["https://www.canvid.com/features"],
+      "captions": ["https://www.canvid.com/support/editing/captions-and-transcription", "https://www.canvid.com/ai"],
+      "mcp": ["https://www.canvid.com/"],
+      "shareAnalytics": ["https://canvid.com/support/canvid-gallery-managing-sharing-your-cloud-recordings", "https://www.canvid.com/support/export-and-sharing/quick-share"],
+      "freeVersion": ["https://www.canvid.com/pricing"],
+      "openSource": ["https://www.canvid.com/"],
+      "platform": ["https://www.canvid.com/pricing"],
+      "price": ["https://www.canvid.com/pricing"],
+      "strengths": ["https://www.canvid.com/", "https://www.canvid.com/ai", "https://www.canvid.com/features"],
+      "tradeoffs": ["https://www.canvid.com/", "https://www.canvid.com/pricing", "https://www.canvid.com/support/editing/captions-and-transcription"],
+      "faqExtra": ["https://www.canvid.com/"],
+      "notes": ["https://www.canvid.com/changelog", "https://www.canvid.com/pricing", "https://www.capterra.com/p/10021346/Canvid/"]
+    }
+  }
+]

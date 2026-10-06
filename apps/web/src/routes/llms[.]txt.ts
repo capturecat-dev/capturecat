@@ -35,15 +35,28 @@ export const Route = createFileRoute("/llms.txt")({
           "## Pages",
         ];
 
+        // Group by section so an agent can skip straight to the how-to
+        // answers or the comparisons instead of reading one flat list.
+        const sections: Array<[string, (path: string) => boolean]> = [
+          ["Guides", (p) => p.startsWith("/guides")],
+          ["Best-of lists", (p) => p.startsWith("/best/")],
+          ["Comparisons", (p) => p.startsWith("/compare") || p.startsWith("/alternatives")],
+        ];
+        const entry = (page: (typeof SITE_PAGES)[number]) =>
+          `- [${page.title}](${SITE_URL}${markdownHref(page.path)}): ${page.description}`;
+
         for (const page of SITE_PAGES) {
-          lines.push(
-            `- [${page.title}](${SITE_URL}${markdownHref(page.path)}): ${page.description}`
-          );
+          if (!sections.some(([, match]) => match(page.path))) lines.push(entry(page));
+        }
+        for (const [heading, match] of sections) {
+          lines.push("", `## ${heading}`);
+          for (const page of SITE_PAGES.filter((p) => match(p.path))) lines.push(entry(page));
         }
 
         lines.push(
           "",
           "## Agents",
+          `- [Everything in one file](${SITE_URL}/llms-full.txt): Every page on this site as Markdown, in a single fetch.`,
           `- [Agents & MCP](${SITE_URL}${markdownHref("/agents")}): How to connect Claude, ChatGPT, Cursor, Copilot, and Windsurf to CaptureCat's MCP server.`,
           ""
         );

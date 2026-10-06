@@ -1,0 +1,526 @@
+[
+  {
+    "slug": "kap",
+    "name": "Kap",
+    "website": "https://getkap.co",
+    "summary": "Kap is a free, open-source macOS screen recorder built on Electron that exports short recordings as GIF, MP4, WebM or APNG.",
+    "autoZoom": false,
+    "cursorEffects": "Click highlights at record time",
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Fully free",
+    "openSource": true,
+    "platform": "macOS",
+    "price": "Free",
+    "strengths": [
+      "Completely free and open source under the MIT licence.",
+      "Exports straight to GIF, MP4, WebM and APNG, which suits quick clips for docs, issues and chat.",
+      "Plugin system with community share plugins (for example Giphy, Vercel and Streamable)."
+    ],
+    "tradeoffs": [
+      "No new release since v3.6.0 in October 2022.",
+      "System audio recording is still an open feature request (GitHub issue #145); built-in audio is microphone input.",
+      "Editing is limited to trimming; there is no zoom, caption or timeline editor."
+    ],
+    "pickThemWhen": "you want a no-cost, open-source tool for short GIF or MP4 clips and don't need system audio, zooms or captions.",
+    "differentiator": "Like Kap, CaptureCat is free and open source (AGPL-3.0 rather than MIT), but CaptureCat is a native Swift/AppKit app rather than Electron and adds automatic zoom from recorded clicks, cursor smoothing with click ripples, on-device captions and system audio capture. CaptureCat also has a built-in MCP server so coding agents can record and edit.",
+    "switchTip": "Both apps are free, so you can install CaptureCat alongside Kap and compare on a real recording. Kap's plugins have no CaptureCat equivalent, so keep Kap if you rely on one of them.",
+    "faqExtra": {
+      "question": "Is Kap still maintained?",
+      "answer": "Kap's latest release on GitHub is v3.6.0, published on 27 October 2022, and the most recent commit to the main branch is from February 2024. The app still downloads and runs on macOS 12 or later for Apple silicon and Intel."
+    },
+    "notes": "Last release v3.6.0 (2022-10-27); last commit to main 2024-02-14 (a CircleCI config change). Repo is not archived and has about 19.4k stars. Electron app (electron 13.6.9 in package.json). Requires macOS 12+. System audio recording request (issue #145) is still open. Click highlighting is a recording option, not a post-production effect.",
+    "sources": {
+      "summary": [
+        "https://getkap.co",
+        "https://github.com/wulkano/Kap"
+      ],
+      "autoZoom": [
+        "https://getkap.co"
+      ],
+      "cursorEffects": [
+        "https://getkap.co"
+      ],
+      "captions": [
+        "https://getkap.co"
+      ],
+      "mcp": [
+        "https://getkap.co",
+        "https://github.com/wulkano/Kap"
+      ],
+      "shareAnalytics": [
+        "https://getkap.co"
+      ],
+      "freeVersion": [
+        "https://getkap.co",
+        "https://github.com/wulkano/Kap"
+      ],
+      "openSource": [
+        "https://github.com/wulkano/Kap",
+        "https://api.github.com/repos/wulkano/Kap"
+      ],
+      "platform": [
+        "https://getkap.co"
+      ],
+      "price": [
+        "https://getkap.co"
+      ],
+      "strengths": [
+        "https://getkap.co",
+        "https://github.com/wulkano/Kap"
+      ],
+      "tradeoffs": [
+        "https://github.com/wulkano/Kap/releases",
+        "https://github.com/wulkano/Kap/issues/145",
+        "https://getkap.co"
+      ],
+      "faqExtra": [
+        "https://github.com/wulkano/Kap/releases",
+        "https://api.github.com/repos/wulkano/Kap/commits",
+        "https://getkap.co"
+      ],
+      "notes": [
+        "https://api.github.com/repos/wulkano/Kap/releases",
+        "https://github.com/wulkano/Kap/blob/main/package.json",
+        "https://github.com/wulkano/Kap/issues/145"
+      ]
+    }
+  },
+  {
+    "slug": "quicktime",
+    "name": "QuickTime Player / macOS Screenshot (⇧⌘5)",
+    "website": "https://support.apple.com/en-us/102618",
+    "summary": "The Screenshot toolbar (Shift-Command-5) and QuickTime Player are the screen recording tools built into macOS, with simple trim, split and export in QuickTime Player.",
+    "autoZoom": false,
+    "cursorEffects": "Click circle at record time",
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Fully free (built into macOS)",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "Free, included with macOS",
+    "strengths": [
+      "Already on every Mac, with nothing to install or pay for.",
+      "Records the full screen, a window or a portion of the screen, with an optional Show Mouse Clicks circle.",
+      "From macOS 27 Golden Gate, the Screenshot toolbar can record system audio via Options > Include System Audio."
+    ],
+    "tradeoffs": [
+      "Editing is basic: trim, split, rearrange and rotate clips in QuickTime Player.",
+      "No zooms, captions, camera overlay styling or share links.",
+      "System audio needs macOS 27 or later; on earlier versions only microphone audio is recorded, and some apps (such as the Apple TV app) block audio capture."
+    ],
+    "pickThemWhen": "you need a quick, unedited recording and are fine with trimming in QuickTime Player.",
+    "differentiator": "CaptureCat is also free, but adds an editor with automatic zoom from recorded clicks, cursor smoothing with click ripples, on-device captions, blur and annotations, and records system audio on macOS 14 and later. macOS's own tools need no install and, on macOS 27, can now record system audio too.",
+    "switchTip": "QuickTime and Screenshot recordings are standard .mov files, so keep using them for throwaway clips and use CaptureCat when a recording needs zooms, captions or a polished export.",
+    "faqExtra": {
+      "question": "Can the Mac's built-in screen recorder capture system audio?",
+      "answer": "Yes, from macOS 27 Golden Gate. Press Shift-Command-5, choose a recording option, then Options > Include System Audio. On earlier macOS versions the Screenshot toolbar and QuickTime Player record microphone audio only, and some apps such as the Apple TV app can prevent their audio being captured."
+    },
+    "notes": "macOS 27 Golden Gate (released September 2026) added native system audio recording to the Screenshot toolbar ('Include System Audio'). Apple's QuickTime Player page lists microphone choice and Show Mouse Clicks; the system-audio option is documented under the Screenshot app. QuickTime Player exports H.264 or HEVC at up to 4K (3840x2160). Show Mouse Clicks draws a black circle during recording, not in post.",
+    "sources": {
+      "summary": [
+        "https://support.apple.com/en-us/102618",
+        "https://support.apple.com/guide/quicktime-player/welcome/mac"
+      ],
+      "autoZoom": [
+        "https://support.apple.com/en-us/102618"
+      ],
+      "cursorEffects": [
+        "https://support.apple.com/en-us/102618"
+      ],
+      "captions": [
+        "https://support.apple.com/en-us/102618",
+        "https://support.apple.com/guide/quicktime-player/welcome/mac"
+      ],
+      "mcp": [
+        "https://support.apple.com/guide/quicktime-player/welcome/mac"
+      ],
+      "shareAnalytics": [
+        "https://support.apple.com/guide/quicktime-player/welcome/mac"
+      ],
+      "freeVersion": [
+        "https://support.apple.com/en-us/102618"
+      ],
+      "openSource": [
+        "https://support.apple.com/guide/quicktime-player/welcome/mac"
+      ],
+      "platform": [
+        "https://support.apple.com/en-us/102618"
+      ],
+      "price": [
+        "https://support.apple.com/en-us/102618"
+      ],
+      "strengths": [
+        "https://support.apple.com/guide/mac-help/take-a-screenshot-mh26782/mac",
+        "https://support.apple.com/en-us/102618"
+      ],
+      "tradeoffs": [
+        "https://support.apple.com/guide/quicktime-player/welcome/mac",
+        "https://support.apple.com/guide/quicktime-player/trim-a-movie-or-clip-qtpf2115f6fd/mac",
+        "https://support.apple.com/guide/quicktime-player/split-a-movie-into-clips-qtpa2d90df3d/mac",
+        "https://www.cultofmac.com/how-to/macos-27-golden-gate-new-features"
+      ],
+      "faqExtra": [
+        "https://support.apple.com/en-us/102618",
+        "https://www.cultofmac.com/how-to/macos-27-golden-gate-new-features"
+      ],
+      "notes": [
+        "https://support.apple.com/en-us/102618",
+        "https://www.cultofmac.com/how-to/macos-27-golden-gate-new-features",
+        "https://support.apple.com/guide/quicktime-player/export-movies-qtp20e395859/mac"
+      ]
+    }
+  },
+  {
+    "slug": "screenflow",
+    "name": "ScreenFlow",
+    "website": "https://www.telestream.net/screenflow/overview.htm",
+    "summary": "ScreenFlow by Telestream is a Mac-only screen recorder and multi-track video editor sold as a one-time purchase.",
+    "autoZoom": "Manual zoom & cursor callouts",
+    "cursorEffects": "Click effects, pointer styling in post",
+    "captions": "Manual caption editor only",
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Unlimited trial, watermarked exports",
+    "openSource": false,
+    "platform": "macOS",
+    "price": "$199 one-time; Super Pak from $275",
+    "strengths": [
+      "Full multi-track editor with transitions, text and video animations, nested clips and markers.",
+      "One-time purchase rather than a subscription.",
+      "Native system audio recording without a driver since 10.5, plus iPhone/iPad screen recording and an optional stock media library."
+    ],
+    "tradeoffs": [
+      "No automatic zoom; zooms and cursor callouts are added by hand on the timeline.",
+      "No built-in speech-to-text; the caption editor is for adding or importing captions.",
+      "Mac only, and the stock media library is a separate $99/yr subscription after the first year."
+    ],
+    "pickThemWhen": "you want a mature, timeline-based Mac video editor you pay for once and are happy to place zooms and callouts by hand.",
+    "differentiator": "ScreenFlow is a deeper general-purpose editor; CaptureCat focuses on screen recordings, adding zoom automatically from recorded clicks, generating on-device captions, and offering share links with analytics on Pro. CaptureCat's core app is free and open source (AGPL-3.0) and has a built-in MCP server for coding agents.",
+    "switchTip": "ScreenFlow projects (.screenflow) don't open in CaptureCat, so finish open projects in ScreenFlow and start new recordings in CaptureCat. Both run natively on Apple silicon and Intel Macs.",
+    "faqExtra": {
+      "question": "Can ScreenFlow record system audio without extra software?",
+      "answer": "Yes. ScreenFlow 10.5 (August 2025) added native system audio recording without installing a driver, plus options to exclude apps or record app audio separately. ScreenFlow 10.5 supports macOS Sequoia and Tahoe."
+    },
+    "notes": "Current version 10.5.2 (12 Feb 2026). A third-party listicle claims a 'ScreenFlow 11'; Telestream's own version history shows no such release. Super Pak ($275) bundles first-year Stock Media Library; Super Pak+ ($325) adds Premium Support. Free trial has no time limit but watermarks exports. Telestream sells cloud speech-to-text separately (Timed Text Speech, Stanza), not inside ScreenFlow. Callout actions can zoom the area around the cursor, but each is placed manually.",
+    "sources": {
+      "summary": [
+        "https://www.telestream.net/screenflow/overview.htm"
+      ],
+      "autoZoom": [
+        "https://www.telestream.net/screenflow/versions.htm",
+        "https://www.telestream.net/telestream-support/screen-flow/help/Editing.06.22.html",
+        "https://www.telestream.net/pdfs/user-guides/ScreenFlow-6-Tutorial.pdf"
+      ],
+      "cursorEffects": [
+        "https://support.telestream.net/s/article/Screen-Recording-Properties",
+        "https://www.telestream.net/telestream-support/screen-flow/help/Editing.06.22.html"
+      ],
+      "captions": [
+        "https://www.telestream.net/screenflow/overview.htm",
+        "https://support.telestream.net/s/article/ScreenFlow-5-Editing-ScreenFlow-Projects-Creating-Closed-Captions",
+        "https://www.telestream.net/screenflow/versions.htm"
+      ],
+      "mcp": [
+        "https://www.telestream.net/screenflow/overview.htm"
+      ],
+      "shareAnalytics": [
+        "https://www.telestream.net/screenflow/overview.htm"
+      ],
+      "freeVersion": [
+        "https://www.telestream.net/screenflow/overview.htm"
+      ],
+      "openSource": [
+        "https://www.telestream.net/screenflow/overview.htm"
+      ],
+      "platform": [
+        "https://www.telestream.net/screenflow/overview.htm",
+        "https://www.telestream.net/screenflow/versions.htm"
+      ],
+      "price": [
+        "https://www.telestream.net/screenflow/store.asp"
+      ],
+      "strengths": [
+        "https://www.telestream.net/screenflow/overview.htm",
+        "https://www.telestream.net/screenflow/versions.htm"
+      ],
+      "tradeoffs": [
+        "https://www.telestream.net/screenflow/versions.htm",
+        "https://www.telestream.net/screenflow/store.asp"
+      ],
+      "faqExtra": [
+        "https://www.telestream.net/screenflow/versions.htm"
+      ],
+      "notes": [
+        "https://www.telestream.net/screenflow/versions.htm",
+        "https://www.telestream.net/screenflow/store.asp",
+        "https://www.telestream.net/telestream-cloud/timed-text-speech.htm"
+      ]
+    }
+  },
+  {
+    "slug": "descript",
+    "name": "Descript",
+    "website": "https://www.descript.com",
+    "summary": "Descript is a text-based audio and video editor with a built-in screen recorder, cloud transcription and an AI co-editor called Underlord.",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": "Click highlights at record time",
+    "captions": "Cloud auto-captions",
+    "mcp": "Official MCP for import & editing",
+    "shareAnalytics": "Share pages, view count only",
+    "freeVersion": "Free, 60 media min/mo, 720p watermark",
+    "openSource": false,
+    "platform": "macOS, Windows & browser",
+    "price": "Free · paid $16-$50/person/mo (annual)",
+    "strengths": [
+      "Edit video by editing its transcript, with filler-word and retake removal.",
+      "Underlord AI co-editor plus an official API and MCP server for Claude, ChatGPT and Cursor.",
+      "Transcription in 25 languages and animated captions on every plan."
+    ],
+    "tradeoffs": [
+      "Plans cap media hours (60 minutes a month on Free) and the Free plan exports 720p with a watermark.",
+      "Zoom and pan are manual keyframes; there is no automatic zoom from clicks.",
+      "Share pages show a total view count but no watch-time analytics."
+    ],
+    "pickThemWhen": "you edit talking-head, podcast or narrated videos and want to cut by editing the transcript.",
+    "differentiator": "Descript and CaptureCat both offer an official MCP server, but CaptureCat's can also start recordings and render frames, and it runs locally. CaptureCat adds zoom automatically from recorded clicks, runs captions on-device, has no media-hour caps or watermark on its free tier, and its share links track watch time and retention.",
+    "switchTip": "Export finished Descript videos as MP4 before switching, since Descript projects don't open elsewhere. If you rely on transcript-based editing or Rooms remote recording, keep Descript for that work and use CaptureCat for screen demos.",
+    "faqExtra": {
+      "question": "Does Descript have an MCP server?",
+      "answer": "Yes. Descript offers a first-party MCP server that lets Claude, ChatGPT, Cursor or other MCP clients import media, edit projects with Underlord, export transcripts and publish. API access is included for paying users and draws on the plan's AI credits and media minutes."
+    },
+    "notes": "Monthly prices: Hobbyist $24, Creator $35, Business $65 per person/month; annual billing: $16, $24, $50. Creator and Business scale to teams of 3 and 5 (billed separately). Desktop app needs macOS 14+ or Windows 11; web app supports Chrome, Edge and Opera. Recorder has a 'Highlight mouse click' option applied while recording. Descript added a Zoom (meeting app) cloud-recording import in July 2026, unrelated to zoom-in effects.",
+    "sources": {
+      "summary": [
+        "https://www.descript.com/pricing",
+        "https://www.descript.com/screen-recorder"
+      ],
+      "autoZoom": [
+        "https://www.descript.com/blog/article/how-to-zoom-in-on-a-video-using-descript"
+      ],
+      "cursorEffects": [
+        "https://www.descript.com/blog/article/how-to-record-video-on-mac"
+      ],
+      "captions": [
+        "https://www.descript.com/pricing"
+      ],
+      "mcp": [
+        "https://help.descript.com/api-and-mcp/mcp",
+        "https://www.descript.com/api"
+      ],
+      "shareAnalytics": [
+        "https://help.descript.com/export-and-share/share-page-settings",
+        "https://www.descript.com/pricing"
+      ],
+      "freeVersion": [
+        "https://www.descript.com/pricing"
+      ],
+      "openSource": [
+        "https://www.descript.com/pricing"
+      ],
+      "platform": [
+        "https://help.descript.com/hc/en-us/articles/10503411779213-Descript-system-requirements"
+      ],
+      "price": [
+        "https://www.descript.com/pricing"
+      ],
+      "strengths": [
+        "https://www.descript.com/pricing",
+        "https://help.descript.com/api-and-mcp/mcp"
+      ],
+      "tradeoffs": [
+        "https://www.descript.com/pricing",
+        "https://www.descript.com/blog/article/how-to-zoom-in-on-a-video-using-descript",
+        "https://help.descript.com/export-and-share/share-page-settings"
+      ],
+      "faqExtra": [
+        "https://help.descript.com/api-and-mcp/mcp",
+        "https://www.descript.com/api"
+      ],
+      "notes": [
+        "https://www.descript.com/pricing",
+        "https://help.descript.com/hc/en-us/articles/10503411779213-Descript-system-requirements",
+        "https://www.descript.com/blog/article/descript-season-7-rooms-zoom-automatic-multicam"
+      ]
+    }
+  },
+  {
+    "slug": "tella",
+    "name": "Tella",
+    "website": "https://www.tella.com",
+    "summary": "Tella is a subscription screen recorder with a browser-based editor, hosted share pages with viewer analytics, and desktop recorders for Mac and Windows.",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": "Cloud auto-captions",
+    "mcp": "Official MCP for editing & publishing",
+    "shareAnalytics": true,
+    "freeVersion": "7-day free trial, no free plan",
+    "openSource": false,
+    "platform": "Mac & Windows apps, browser",
+    "price": "From $13/user/mo yearly ($26 monthly)",
+    "strengths": [
+      "Auto Zoom generates zooms from recorded cursor clicks, with styles from Subtle to Intense, and can apply them automatically after recording.",
+      "Share pages with detailed analytics: views, unique viewers, watch time, engagement, traffic sources and locations.",
+      "Official MCP server for Claude, ChatGPT, Codex and Cursor, plus transcription in 106 languages."
+    ],
+    "tradeoffs": [
+      "No free plan; after the 7-day trial you can't record, edit or export without a subscription.",
+      "Editing happens in the web editor, so recordings are uploaded before you edit.",
+      "The animated cursor (smoothing, click effects) only works for Mac and Windows app recordings, and 60 fps export is Premium-only."
+    ],
+    "pickThemWhen": "you want polished, hosted demo videos with team workspaces and detailed viewer analytics, and a per-seat subscription fits your budget.",
+    "differentiator": "Tella matches CaptureCat on automatic zoom from clicks, cursor smoothing, share analytics and an official MCP server. CaptureCat differs by being free for recording, editing and 4K export, running captions on-device, editing locally in a native Mac app, and being open source; Tella has a native Windows app and team plans, which CaptureCat doesn't yet.",
+    "switchTip": "Download your Tella videos (and SRT subtitles if you need them) before your subscription ends, since recording, editing and exporting stop when it lapses. Re-record or import the MP4s into CaptureCat, and move share links over only for videos people still watch.",
+    "faqExtra": {
+      "question": "Does Tella have a free plan?",
+      "answer": "No. New Tella workspaces get a 7-day free trial, which owners can extend once by another 7 days. After that, Pro costs $26 per user per month, or $13 per user per month billed yearly."
+    },
+    "notes": "Prices from Tella's billing help: Pro $26/mo or $13/mo billed yearly ($156/yr); Premium $39/mo or $19/mo billed yearly ($228/yr). Detailed analytics start from 30 January 2026. The Zoom tool was renamed Effect in September 2026. Mac app needs macOS 13.1+; Windows app (beta) needs Windows 10 2004+. Tella publishes 'Claude Code skills' for video editing.",
+    "sources": {
+      "summary": [
+        "https://www.tella.com/pricing"
+      ],
+      "autoZoom": [
+        "https://www.tella.com/docs/help/editing/add-a-zoom.md",
+        "https://www.tella.com/pricing"
+      ],
+      "cursorEffects": [
+        "https://www.tella.com/docs/_llms/help-center.md"
+      ],
+      "captions": [
+        "https://www.tella.com/pricing",
+        "https://www.tella.com/docs/_llms/help-center.md"
+      ],
+      "mcp": [
+        "https://www.tella.com/mcp"
+      ],
+      "shareAnalytics": [
+        "https://www.tella.com/pricing",
+        "https://www.tella.com/docs/_llms/help-center.md"
+      ],
+      "freeVersion": [
+        "https://www.tella.com/help/billing/understanding-your-bill.md"
+      ],
+      "openSource": [
+        "https://www.tella.com/pricing"
+      ],
+      "platform": [
+        "https://www.tella.com/pricing",
+        "https://www.tella.com/docs/_llms/help-center.md"
+      ],
+      "price": [
+        "https://www.tella.com/help/billing/understanding-your-bill.md",
+        "https://www.tella.com/pricing"
+      ],
+      "strengths": [
+        "https://www.tella.com/docs/help/editing/add-a-zoom.md",
+        "https://www.tella.com/pricing",
+        "https://www.tella.com/mcp"
+      ],
+      "tradeoffs": [
+        "https://www.tella.com/help/billing/understanding-your-bill.md",
+        "https://www.tella.com/docs/_llms/help-center.md",
+        "https://www.tella.com/pricing"
+      ],
+      "faqExtra": [
+        "https://www.tella.com/help/billing/understanding-your-bill.md"
+      ],
+      "notes": [
+        "https://www.tella.com/help/billing/understanding-your-bill.md",
+        "https://www.tella.com/docs/_llms/help-center.md",
+        "https://www.tella.com/docs/help/editing/add-a-zoom.md"
+      ]
+    }
+  },
+  {
+    "slug": "snagit",
+    "name": "Snagit",
+    "website": "https://www.techsmith.com/snagit/",
+    "summary": "Snagit by TechSmith (now branded Camtasia Snagit) is a screenshot and screen capture tool for Mac and Windows with quick video recording and step-by-step guide creation.",
+    "autoZoom": false,
+    "cursorEffects": "Highlight & click ripple at record time",
+    "captions": "Cloud, Screencast Pro only",
+    "mcp": false,
+    "shareAnalytics": "Share links, no analytics",
+    "freeVersion": "15-day free trial",
+    "openSource": false,
+    "platform": "macOS & Windows",
+    "price": "$39/yr (Snagit Individual)",
+    "strengths": [
+      "Best-known for screenshots: scrolling capture, Step Capture guides and Smart Redact.",
+      "Records screen, webcam, microphone and system audio, with cursor highlighting and click animations.",
+      "One-click share links through TechSmith Screencast, and recordings open directly in Camtasia Editor."
+    ],
+    "tradeoffs": [
+      "Video editing is light; deeper editing is handed off to Camtasia Editor, which watermarks exports on some plans.",
+      "Cursor highlights and click animations are set before recording, not adjusted afterwards.",
+      "AI captions require a Screencast Pro subscription and are English only."
+    ],
+    "pickThemWhen": "your work is mostly annotated screenshots and how-to guides, with the occasional quick screen video.",
+    "differentiator": "Snagit is a screenshot-first tool; CaptureCat is video-first, with automatic zoom from recorded clicks, cursor smoothing and click ripples applied after recording, and on-device captions, all in a free tier. Snagit runs natively on Windows, while CaptureCat's Windows option is its browser app.",
+    "switchTip": "Keep Snagit if you rely on its screenshot and Step Capture features; CaptureCat can take over the screen video work. Snagit videos are standard MP4s you can keep or re-share as-is.",
+    "faqExtra": {
+      "question": "Is Snagit still a one-time purchase?",
+      "answer": "TechSmith's store now sells Snagit Individual as an annual subscription, and Snagit is also included in every Camtasia Suite plan, starting with Starter at the same price."
+    },
+    "notes": "Rebranded as 'Camtasia Snagit' within the 'Camtasia Suite'. TechSmith's store served GBP to this researcher (Snagit Individual £34.64/yr, same as Camtasia Starter); the $39/yr USD figure comes from TechSmith's store listing in search results and a 2026-10-02 pricing article. The old /snagit/pricing/ URL now 404s. Requires macOS 14+ or Windows 10/11. A community 'Local Snagit MCP Server' exists (paullizer, Windows, via COM) but it is not from TechSmith. Screencast Free hosts up to 25 videos; its published Free vs Pro table lists no viewer analytics.",
+    "sources": {
+      "summary": [
+        "https://www.techsmith.com/snagit/",
+        "https://www.techsmith.com/snagit/whats-new/"
+      ],
+      "autoZoom": [
+        "https://www.techsmith.com/learn/tutorials/snagit/how-to-capture-video/"
+      ],
+      "cursorEffects": [
+        "https://www.techsmith.com/learn/tutorials/snagit/how-to-capture-video/"
+      ],
+      "captions": [
+        "https://www.techsmith.com/screencast/"
+      ],
+      "mcp": [
+        "https://glama.ai/mcp/servers/uhli2d2bth"
+      ],
+      "shareAnalytics": [
+        "https://www.techsmith.com/screencast/",
+        "https://www.techsmith.com/learn/tutorials/snagit/how-to-capture-video/"
+      ],
+      "freeVersion": [
+        "https://support.techsmith.com/hc/en-us/articles/360040491391-Reset-Snagit-Trial-Period"
+      ],
+      "openSource": [
+        "https://www.techsmith.com/store/snagit"
+      ],
+      "platform": [
+        "https://www.techsmith.com/store/snagit"
+      ],
+      "price": [
+        "https://www.techsmith.com/store/snagit",
+        "https://www.techsmith.com/store/camtasia/",
+        "https://cursorclip.com/blog/camtasia-pricing/"
+      ],
+      "strengths": [
+        "https://www.techsmith.com/snagit/",
+        "https://www.techsmith.com/learn/tutorials/snagit/how-to-capture-video/",
+        "https://www.techsmith.com/snagit/whats-new/"
+      ],
+      "tradeoffs": [
+        "https://www.techsmith.com/snagit/whats-new/",
+        "https://www.techsmith.com/learn/tutorials/snagit/how-to-capture-video/",
+        "https://www.techsmith.com/screencast/"
+      ],
+      "faqExtra": [
+        "https://www.techsmith.com/store/snagit",
+        "https://www.techsmith.com/store/camtasia/"
+      ],
+      "notes": [
+        "https://www.techsmith.com/store/snagit",
+        "https://www.techsmith.com/store/camtasia/",
+        "https://glama.ai/mcp/servers/uhli2d2bth",
+        "https://www.techsmith.com/screencast/"
+      ]
+    }
+  }
+]

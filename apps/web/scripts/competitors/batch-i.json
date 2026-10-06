@@ -1,0 +1,680 @@
+[
+  {
+    "slug": "arcade",
+    "name": "Arcade",
+    "website": "https://www.arcade.software",
+    "category": "interactive",
+    "summary": "Arcade is a web platform for building interactive click-through product demos and AI-generated product videos, captured with a Chrome extension or a Mac/Windows desktop app.",
+    "autoZoom": "Auto in click-through demos, paid",
+    "cursorEffects": null,
+    "captions": "Auto, in Arcade player (not exports)",
+    "mcp": "Official MCP (AI videos + analytics)",
+    "shareAnalytics": true,
+    "freeVersion": "Free, 1 published demo + 1 video",
+    "openSource": false,
+    "platform": "Web + Chrome ext + Mac/Windows apps",
+    "price": "Free · Growth $50/seat/mo ($42.50/mo yearly)",
+    "strengths": [
+      "Click-through HTML demos with hotspots, branching, CTAs and lead forms",
+      "Automatic pan and zoom on interactive demo steps, plus AI voiceovers and auto-generated captions in the player",
+      "Official MCP server for Claude that generates videos and queries demo analytics"
+    ],
+    "tradeoffs": [
+      "Free plan allows one published demo and one published video",
+      "MP4/GIF export and pan and zoom need the Growth plan; exported videos carry no captions",
+      "Auto pan and zoom applies to interactive captures, not to plain video capture"
+    ],
+    "pickThemWhen": "you want viewers to click through your product themselves on a website or in a sales email, with analytics on who engaged.",
+    "differentiator": "Arcade mainly produces interactive click-through demos hosted on its platform; CaptureCat produces real screen-recorded video with automatic zoom from recorded clicks, on-device captions and 4K 60 fps MP4/MOV export, all free with no watermark. Both offer an MCP server and share analytics, but CaptureCat's MCP records, edits and exports video, and CaptureCat is open source (AGPL-3.0).",
+    "switchTip": "Keep Arcade for embedded click-through demos and use CaptureCat when you need a narrated video file; CaptureCat's free tier exports full-quality video without a watermark, so you can try it on one walkthrough first.",
+    "faqExtra": {
+      "question": "Can Arcade export a demo as a video file?",
+      "answer": "Yes, on the Growth plan Arcade exports demos as MP4 or GIF, but its docs say video exports do not include closed captions."
+    },
+    "notes": "Arcade MCP is listed on the Free plan on the pricing page and came out of beta on 2026-04-13 (Claude MCP announcement). Arcade auto pan and zoom is only applied when recording interactive demos; its docs say video capture (desktop app or extension) has no auto P&Z. Do not confuse with Arcade.dev (an unrelated MCP tooling company). Desktop app: macOS 13+ and Windows 10+.",
+    "sources": {
+      "price": [
+        "https://www.arcade.software/pricing"
+      ],
+      "freeVersion": [
+        "https://www.arcade.software/pricing"
+      ],
+      "autoZoom": [
+        "https://docs.arcade.software/kb/build/interactive-demo/edit/pan-and-zoom"
+      ],
+      "captions": [
+        "https://docs.arcade.software/kb/build/interactive-demo/edit/audio.md",
+        "https://docs.arcade.software/kb/build/interactive-demo/share/exports"
+      ],
+      "mcp": [
+        "https://www.arcade.software/post/meet-the-arcade-mcp",
+        "https://docs.arcade.software/kb/leverage/mcp/supported-clients/claude-code"
+      ],
+      "shareAnalytics": [
+        "https://www.arcade.software/pricing"
+      ],
+      "platform": [
+        "https://www.arcade.software/download"
+      ]
+    }
+  },
+  {
+    "slug": "supademo",
+    "name": "Supademo",
+    "website": "https://supademo.com",
+    "category": "interactive",
+    "summary": "Supademo is a web platform for building guided interactive product demos and 4K screen-recorded videos, with AI voiceovers, demo hubs and lead analytics.",
+    "autoZoom": "Auto zoom option on demo steps",
+    "cursorEffects": null,
+    "captions": "Closed captions, paid plans",
+    "mcp": "Official MCP, 80+ actions, paid plans",
+    "shareAnalytics": "Yes, on paid plans",
+    "freeVersion": "Free: 5 demos, 50 videos, MP4 watermark",
+    "openSource": false,
+    "platform": "Web + Chrome ext; Mac/Win app (paid)",
+    "price": "Free · Scale $50/creator/mo ($38/mo yearly) · Business $249/mo",
+    "strengths": [
+      "Generous free tier: 5 interactive demos and 50 4K video recordings",
+      "Both click-through demos and screen-recorded video in one tool, with zoom and pan on every plan",
+      "Official MCP server with 80+ actions across demos, analytics, voiceovers and translations"
+    ],
+    "tradeoffs": [
+      "Free MP4 export is capped at 1080p with a watermark",
+      "Analytics, closed captions, the Mac/Windows desktop apps and the MCP server require a paid plan",
+      "Priced per creator seat, which adds up for larger teams"
+    ],
+    "pickThemWhen": "your team wants interactive demos and quick recorded videos side by side, with lead capture and trackable links for sales.",
+    "differentiator": "Supademo is built around guided interactive demos for sales and marketing; CaptureCat is a video recorder and editor, with automatic zoom from recorded clicks, on-device captions and watermark-free 4K 60 fps export on its free tier. Both offer an MCP server; CaptureCat's records, edits and exports video, and CaptureCat is open source (AGPL-3.0).",
+    "switchTip": "If you mostly use Supademo's video recordings rather than its interactive demos, record the same walkthrough in CaptureCat and compare the free 4K export with Supademo's free 1080p watermarked MP4.",
+    "notes": "Pricing page (2026-10) lists the Mac and Windows desktop apps, closed captions, overview analytics and Supademo MCP as not included in Free. Auto zoom is an extension setting (\"Apply Auto Zoom\") that adds zoom variations to each demo slide; docs did not confirm automatic click-following zoom for plain video recordings.",
+    "sources": {
+      "price": [
+        "https://supademo.com/pricing"
+      ],
+      "freeVersion": [
+        "https://supademo.com/pricing"
+      ],
+      "autoZoom": [
+        "https://supademo.com/blog/auto-zoom-scroll-view-ux-improvements",
+        "https://supademo.com/features/screen-recorder"
+      ],
+      "captions": [
+        "https://supademo.com/pricing"
+      ],
+      "mcp": [
+        "https://supademo.com/ai/mcp",
+        "https://supademo.com/blog/product-update-mcp-server"
+      ],
+      "shareAnalytics": [
+        "https://supademo.com/pricing"
+      ],
+      "platform": [
+        "https://supademo.com/pricing"
+      ]
+    }
+  },
+  {
+    "slug": "storylane",
+    "name": "Storylane",
+    "website": "https://www.storylane.io",
+    "category": "interactive",
+    "summary": "Storylane is an interactive demo platform that captures products as screenshot or HTML demos (or video via its desktop app) and exports them as MP4 or GIF when needed.",
+    "autoZoom": "Auto zoom toggle on demo steps",
+    "cursorEffects": null,
+    "captions": null,
+    "mcp": "Official MCP (demos), paid plans",
+    "shareAnalytics": true,
+    "freeVersion": "Free, 1 live demo",
+    "openSource": false,
+    "platform": "Web + Chrome ext + Mac/Windows apps",
+    "price": "Free · Starter $50/mo ($40/mo yearly) · Growth $625/mo",
+    "strengths": [
+      "HTML demos that let you edit text and data inside the captured product",
+      "Personalization tokens, lead forms, AI voiceovers and AI video avatars aimed at sales teams",
+      "Official MCP server for Claude, ChatGPT and Copilot that builds, edits and publishes demos"
+    ],
+    "tradeoffs": [
+      "Free plan keeps only one published demo live at a time",
+      "HTML editing, A/B testing and multi-team features start on the $625/mo Growth plan",
+      "Exported MP4s are view-only copies; the product is built around interactive demos, not video editing"
+    ],
+    "pickThemWhen": "you sell a web product and want personalized, editable HTML demos on your site and in sales outreach.",
+    "differentiator": "Storylane focuses on interactive HTML and screenshot demos with sales personalization; CaptureCat is a screen recorder and video editor with automatic zoom from recorded clicks, cursor smoothing, on-device captions and watermark-free 4K 60 fps export for free. Both offer an MCP server; CaptureCat's records, edits and exports video.",
+    "switchTip": "Storylane and CaptureCat do different jobs, so many teams keep Storylane for interactive demos and use CaptureCat for narrated walkthrough videos and share links.",
+    "notes": "Auto zoom is a toggle during screenshot-demo recording (gear icon) per Storylane docs. Could not find captions/subtitles in Storylane docs (their docs assistant also could not confirm), so captions = null. Storylane MCP is on Starter and up; self-serve MCP setup shipped 2026-08-29. Prices from the pricing page: monthly Starter $50, Growth $625, Premium $1,500; yearly $40 / $500 / $1,200.",
+    "sources": {
+      "price": [
+        "https://www.storylane.io/pricing"
+      ],
+      "freeVersion": [
+        "https://www.storylane.io/pricing"
+      ],
+      "autoZoom": [
+        "https://docs.storylane.io/recording-demos/recording-screenshot-demos",
+        "https://docs.storylane.io/editing-demos/editing-screenshot-screens"
+      ],
+      "mcp": [
+        "https://www.storylane.io/mcp",
+        "https://docs.storylane.io/changelog/august-2026/august-29-2026"
+      ],
+      "shareAnalytics": [
+        "https://www.storylane.io/pricing"
+      ],
+      "platform": [
+        "https://www.storylane.io/desktop-app",
+        "https://docs.storylane.io/recording-demos/other-recording-options"
+      ],
+      "export": [
+        "https://docs.storylane.io/sharing-demos/exports-and-downloads"
+      ]
+    }
+  },
+  {
+    "slug": "clueso",
+    "name": "Clueso",
+    "website": "https://www.clueso.io",
+    "category": "interactive",
+    "summary": "Clueso is an AI video platform that turns screen recordings, slides and documents into narrated product videos and step-by-step help articles.",
+    "autoZoom": true,
+    "cursorEffects": "Click highlights, cursor styling",
+    "captions": "Auto-captions (location not stated)",
+    "mcp": "Official MCP, all plans",
+    "shareAnalytics": "Share links; analytics Business+",
+    "freeVersion": "Free, 10 min export/mo, watermark",
+    "openSource": false,
+    "platform": "Web + Chrome extension + desktop app",
+    "price": "Free · Solo $40/mo · Business $120/mo (billed yearly)",
+    "strengths": [
+      "Automatic zooms when recording with its Chrome extension, plus click highlights",
+      "AI voiceovers (500+ voices on Free), script rewriting, translation and auto-captions on every plan",
+      "Generates a step-by-step article alongside each video, and has an official MCP server on all plans"
+    ],
+    "tradeoffs": [
+      "Free exports are capped at 10 minutes a month, 1080p, with a watermark",
+      "Paid plans meter video export time (Solo: 3 hours a year)",
+      "Viewership analytics and customizable players need the Business plan"
+    ],
+    "pickThemWhen": "you produce training or help-center content and want AI voiceover, translation and written guides generated from one recording.",
+    "differentiator": "Clueso matches CaptureCat on automatic zoom, cursor highlights and an MCP server, and adds AI voiceovers and article generation. CaptureCat runs captions on-device, exports 4K 60 fps without a watermark or a monthly export cap on its free tier, records iPhone/iPad over USB, and is open source (AGPL-3.0).",
+    "switchTip": "If you rely on Clueso's AI voiceover and articles, keep it for that; if you narrate yourself and hit the export-minute caps, CaptureCat's free tier has no export limit or watermark.",
+    "notes": "Clueso docs say automatic zooms are only added when recording with the Chrome extension. Monthly-billing prices were not visible in the fetched page (only yearly). Export limits: Free 10 min/mo; Solo 3 h/yr; Business 6 h/yr.",
+    "sources": {
+      "price": [
+        "https://www.clueso.io/pricing"
+      ],
+      "freeVersion": [
+        "https://www.clueso.io/pricing"
+      ],
+      "autoZoom": [
+        "https://help.clueso.io/elements/zooms/add-zoom.md",
+        "https://www.clueso.io/features/screen-recorder"
+      ],
+      "cursorEffects": [
+        "https://www.clueso.io/features/screen-recorder",
+        "https://help.clueso.io/screen-recording/recording-options/highlight-color.md"
+      ],
+      "captions": [
+        "https://www.clueso.io/pricing",
+        "https://help.clueso.io/elements/captions/add-captions.md"
+      ],
+      "mcp": [
+        "https://help.clueso.io/mcp-setup.md"
+      ],
+      "shareAnalytics": [
+        "https://www.clueso.io/pricing"
+      ],
+      "platform": [
+        "https://help.clueso.io/home/creation/record-screen.md",
+        "https://www.clueso.io/features/screen-recorder"
+      ]
+    }
+  },
+  {
+    "slug": "trupeer",
+    "name": "Trupeer",
+    "website": "https://www.trupeer.ai",
+    "category": "interactive",
+    "summary": "Trupeer is an AI tool that turns Chrome-extension screen recordings into polished product videos with AI voiceover, auto zoom, and matching written documentation.",
+    "autoZoom": true,
+    "cursorEffects": null,
+    "captions": "Auto-captions (location not stated)",
+    "mcp": "Official MCP, KB search only (Scale+)",
+    "shareAnalytics": "Share links; analytics Enterprise",
+    "freeVersion": "10-day free trial, watermark",
+    "openSource": false,
+    "platform": "Browser (Chrome extension)",
+    "price": "Pro $49/mo ($40/mo yearly) · Scale $249/mo ($199 yearly)",
+    "strengths": [
+      "Automatic zoom on every click and action, added after recording",
+      "AI script polishing and voiceover in 100+ languages and accents, plus auto-generated docs",
+      "Enterprise features such as SSO, SCIM, PII auto-redaction and a knowledge base"
+    ],
+    "tradeoffs": [
+      "No ongoing free plan: the free tier lasts 10 days and exports carry a watermark",
+      "Recording length is capped by plan (5 min free, 10 min Pro, 15 min Scale)",
+      "Viewer analytics are Enterprise-only, and its MCP server only searches the knowledge base"
+    ],
+    "pickThemWhen": "you want an AI voice to replace your own narration and need videos and documentation generated from the same recording.",
+    "differentiator": "Trupeer matches CaptureCat on automatic click zoom; it adds AI voiceovers and docs. CaptureCat is free with no time-limited trial, no recording-length caps and no watermark, runs captions on-device, records native apps and iPhone/iPad (not just the browser), and its MCP server can record, edit and export rather than only search.",
+    "switchTip": "Record the same walkthrough in CaptureCat's free tier before your Trupeer trial ends and compare; CaptureCat keeps your own voice, so script your narration if you were relying on Trupeer's AI voiceover.",
+    "notes": "Trupeer MCP exposes two tools (search_knowledge_base, answer_query_from_knowledge_base); it cannot create or edit videos. The pricing page lists MCP under Scale. No downloadable desktop app found; recording is via Chrome extension or upload.",
+    "sources": {
+      "price": [
+        "https://www.trupeer.ai/pricing"
+      ],
+      "freeVersion": [
+        "https://www.trupeer.ai/pricing"
+      ],
+      "autoZoom": [
+        "https://www.trupeer.ai/video",
+        "https://www.trupeer.ai/aiscreen-record"
+      ],
+      "captions": [
+        "https://www.trupeer.ai/pricing"
+      ],
+      "mcp": [
+        "https://trupeer.ai/mcp",
+        "https://www.trupeer.ai/pricing"
+      ],
+      "shareAnalytics": [
+        "https://www.trupeer.ai/pricing"
+      ],
+      "platform": [
+        "https://www.trupeer.ai/aiscreen-record"
+      ]
+    }
+  },
+  {
+    "slug": "filmora",
+    "name": "Wondershare Filmora",
+    "website": "https://filmora.wondershare.com",
+    "category": "editor",
+    "summary": "Wondershare Filmora is a consumer video editor for Windows and Mac with a built-in screen recorder that captures screen, webcam, microphone and system audio.",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": "Mouse click effects at record time",
+    "captions": "Auto-captions, uses AI credits",
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Free, watermark on export",
+    "openSource": false,
+    "platform": "Windows & macOS",
+    "price": "Free · from US$49.99/yr · perpetual US$79.99 (sale prices)",
+    "strengths": [
+      "Full consumer video editor with effects, transitions, keyframes and a large stock asset library",
+      "Screen recorder records area, window or full screen with webcam, mic and system audio",
+      "Speech-to-text and animated dynamic captions in dozens of languages"
+    ],
+    "tradeoffs": [
+      "Free version adds a watermark to every export",
+      "No automatic zoom: zooms are added by hand with pan-and-zoom or keyframes",
+      "AI features such as captions consume AI credits"
+    ],
+    "pickThemWhen": "you want a general-purpose video editor for YouTube and social content and screen recording is only part of the job.",
+    "differentiator": "Filmora is a broad editor with a recorder attached; CaptureCat is built for screen recordings, with automatic zoom from recorded clicks, cursor smoothing, on-device captions with no credits, share links with viewer analytics on Pro, and a built-in MCP server. CaptureCat's free tier exports 4K 60 fps without a watermark; it is macOS-native, with a browser app for Windows.",
+    "switchTip": "Record product walkthroughs in CaptureCat and keep Filmora for heavier creative editing; CaptureCat exports MP4/MOV that Filmora can import.",
+    "faqExtra": {
+      "question": "Does the free version of Filmora add a watermark?",
+      "answer": "Yes. Wondershare says the free edition includes the basic editing features but adds a watermark to exported files."
+    },
+    "notes": "Buy page on 2026-10-06 showed promotional prices: Basic US$49.99/yr (list $59.99), Advanced US$59.99/yr (list $69.99), Perpetual US$79.99 (list $129.99). The perpetual plan covers updates within the current major version only. No Filmora MCP server found.",
+    "sources": {
+      "price": [
+        "https://filmora.wondershare.com/shop/buy/buy-video-editor.html"
+      ],
+      "freeVersion": [
+        "https://filmora.wondershare.com/shop/buy/buy-video-editor.html"
+      ],
+      "autoZoom": [
+        "https://filmora.wondershare.com/guide/filmora-pan-and-zoom.html",
+        "https://filmora.wondershare.com/guide/record-pc-screen.html"
+      ],
+      "cursorEffects": [
+        "https://filmora.wondershare.com/guide/record-pc-screen.html"
+      ],
+      "captions": [
+        "https://filmora.wondershare.com/speech-to-text.html",
+        "https://filmora.wondershare.com/auto-caption.html"
+      ],
+      "platform": [
+        "https://filmora.wondershare.com/guide/record-pc-screen.html"
+      ]
+    }
+  },
+  {
+    "slug": "kapwing",
+    "name": "Kapwing",
+    "website": "https://www.kapwing.com",
+    "category": "editor",
+    "summary": "Kapwing is a browser-based video editor for teams that includes a screen and webcam recorder inside the editor, plus AI subtitles, dubbing and repurposing tools.",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": null,
+    "captions": "Auto-subtitles (location not stated)",
+    "mcp": "Beta MCP, invite-only testers",
+    "shareAnalytics": "Share links, no analytics",
+    "freeVersion": "Free, watermark, 720p, 4-min exports",
+    "openSource": false,
+    "platform": "Browser (any OS)",
+    "price": "Free · Pro $16/mo yearly ($24 monthly) · Business $50/mo yearly",
+    "strengths": [
+      "Runs entirely in the browser with real-time collaborative editing",
+      "Auto-subtitling, dubbing into 40+ languages, Smart Cut and transcript-based trimming",
+      "Records screen, camera and audio directly inside the editor"
+    ],
+    "tradeoffs": [
+      "Free exports carry a watermark, are limited to 720p and 4 minutes",
+      "No automatic zoom or cursor effects for screen recordings",
+      "Subtitles, dubbing and AI features draw on monthly credits"
+    ],
+    "pickThemWhen": "your team edits social and marketing video together in the browser and screen recording is one input among many.",
+    "differentiator": "Kapwing is a collaborative general editor; CaptureCat is a dedicated screen recorder with automatic zoom from recorded clicks, cursor smoothing and click ripples, on-device captions, viewer analytics on Pro share links, and a built-in MCP server that can record and export. CaptureCat's free tier exports 4K 60 fps without a watermark.",
+    "switchTip": "Use CaptureCat for the recording and polish, then bring the exported MP4 into Kapwing if you still want its subtitling, dubbing or social resizing.",
+    "notes": "Kapwing MCP (help article 2026-09-29) is in beta with a small set of trusted testers on Business/Enterprise; tools cover uploads, subtitles, transcription and dubbing; it cannot yet generate or multi-asset edit videos. Share links exist (content is unlisted by default); no viewer-analytics feature found.",
+    "sources": {
+      "price": [
+        "https://www.kapwing.com/pricing"
+      ],
+      "freeVersion": [
+        "https://www.kapwing.com/pricing"
+      ],
+      "autoZoom": [
+        "https://www.kapwing.com/tools/zoom",
+        "https://www.kapwing.com/resources/how-to-zoom-in-on-video/"
+      ],
+      "captions": [
+        "https://www.kapwing.com/pricing"
+      ],
+      "mcp": [
+        "https://www.kapwing.com/help/about-the-kapwing-mcp/"
+      ],
+      "shareAnalytics": [
+        "https://www.kapwing.com/help/public-content/",
+        "https://www.kapwing.com/tools/record/screen"
+      ],
+      "platform": [
+        "https://www.kapwing.com/tools/record/screen"
+      ]
+    }
+  },
+  {
+    "slug": "canva",
+    "name": "Canva",
+    "website": "https://www.canva.com",
+    "category": "editor",
+    "summary": "Canva is an online design platform whose desktop app includes a free screen recorder that saves each recording as an editable Canva video design.",
+    "autoZoom": null,
+    "cursorEffects": null,
+    "captions": "Auto-captions (location not stated)",
+    "mcp": "Official MCP (designs, not recording)",
+    "shareAnalytics": "View links; analytics on paid plans",
+    "freeVersion": "Free, 25-min recordings",
+    "openSource": false,
+    "platform": "Canva desktop app (Mac & Windows)",
+    "price": "Free · Pro US$144/yr · Business US$250/yr per person",
+    "strengths": [
+      "Screen recorder is free, with screen, camera or both, up to 25 minutes per recording",
+      "Recordings drop straight into Canva's editor with templates, brand kits and auto-captions in 50+ languages",
+      "Official MCP server for creating, editing and exporting Canva designs from AI assistants"
+    ],
+    "tradeoffs": [
+      "The screen recorder only works in the Canva desktop app, not in the browser or on mobile",
+      "Recordings are capped at 25 minutes and 1 GB",
+      "Built for design and presentation videos rather than polished software demos"
+    ],
+    "pickThemWhen": "your team already designs in Canva and wants quick recordings that live alongside slides, social posts and brand assets.",
+    "differentiator": "Canva's recorder feeds a design tool; CaptureCat is a dedicated screen recorder with automatic zoom from recorded clicks, cursor smoothing and click ripples, on-device captions and 4K 60 fps export, free and without a watermark. Both have an official MCP server, but CaptureCat's can record, edit and export screen video.",
+    "switchTip": "Record and polish the walkthrough in CaptureCat, export MP4, and upload it to Canva if you want to place it inside a presentation or social design.",
+    "faqExtra": {
+      "question": "Can I use Canva's screen recorder in a web browser?",
+      "answer": "No. Canva's help center says the Screen Recorder is only available in the Canva desktop app for Mac or Windows, not in the web browser or on mobile. Separately, the \"Record yourself\" option in the editor works in Chrome and Safari."
+    },
+    "notes": "Screen recorder: desktop app only, 25-minute and 1 GB limit, not available in India per Canva. Auto zoom and cursor effects: nothing found on Canva's screen recorder pages, left null. Design analytics (views, time on public view links) are for Pro/Teams/Education/Nonprofits. Canva Pro monthly price was not shown on the fetched pricing page.",
+    "sources": {
+      "price": [
+        "https://www.canva.com/pricing/"
+      ],
+      "freeVersion": [
+        "https://www.canva.com/screen-recorder/",
+        "https://www.canva.com/help/screen-recorder/"
+      ],
+      "captions": [
+        "https://www.canva.com/help/generate-edit-captions-on-videos/",
+        "https://www.canva.com/features/auto-caption/"
+      ],
+      "mcp": [
+        "https://canva.dev/docs/mcp/"
+      ],
+      "shareAnalytics": [
+        "https://www.canva.com/help/view-design-insights/"
+      ],
+      "platform": [
+        "https://www.canva.com/help/screen-recorder/",
+        "https://www.canva.com/help/recording-videos/"
+      ]
+    }
+  },
+  {
+    "slug": "synthesia",
+    "name": "Synthesia",
+    "website": "https://www.synthesia.io",
+    "category": "interactive",
+    "summary": "Synthesia is an AI avatar video platform that includes an AI screen recorder browser extension for adding narrated screen captures to training and product videos.",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": null,
+    "captions": "Auto-captions (location not stated)",
+    "mcp": "Official MCP (avatar video drafts)",
+    "shareAnalytics": true,
+    "freeVersion": "Free, 10 min video/mo, watermark",
+    "openSource": false,
+    "platform": "Browser (Chrome/Edge extension)",
+    "price": "Free · Starter $29/mo ($18 yearly) · Pro $89/mo ($64 yearly)",
+    "strengths": [
+      "AI avatars and voice cloning can present or narrate around your screen recording",
+      "Screen recorder transcribes your voiceover into an editable script, removes filler words and splits scenes",
+      "Detailed video analytics (views, completion rate, watch time) on share pages and embeds"
+    ],
+    "tradeoffs": [
+      "Zoom and pan are manual effects; no automatic click zoom",
+      "Free plan is limited to 10 minutes of video a month with a watermark",
+      "The recorder is a Chrome/Edge extension; recordings over 30 minutes are discouraged"
+    ],
+    "pickThemWhen": "you make training or onboarding videos at scale and want AI avatars, translation and LMS export around your screen recordings.",
+    "differentiator": "Synthesia centres on AI avatars and localization; CaptureCat is a screen recorder with automatic zoom from recorded clicks, cursor smoothing, on-device captions and watermark-free 4K 60 fps export on its free tier. Both offer an MCP server and share analytics; CaptureCat's MCP records and edits screen video, while Synthesia's creates avatar video drafts.",
+    "switchTip": "Record and polish the screen portions in CaptureCat and keep Synthesia for avatar presenters, or switch entirely if you narrate in your own voice and do not need avatars.",
+    "faqExtra": {
+      "question": "Does Synthesia have a screen recorder?",
+      "answer": "Yes. Synthesia's AI Screen Recorder is a Chrome or Edge extension that records a screen, window or tab, transcribes the voiceover and splits it into scenes; recordings can run up to 60 minutes."
+    },
+    "notes": "Synthesia MCP requires a Starter or Creator plan or an enterprise account, per its docs; tools create drafts, generate and find videos. Which plans include the AI Screen Recorder and auto-captions could not be confirmed from the pricing table markup, so the free-tier cell does not claim the recorder is free. Starter yearly is $18/mo and Pro yearly $64/mo per pricing page.",
+    "sources": {
+      "price": [
+        "https://www.synthesia.io/pricing"
+      ],
+      "freeVersion": [
+        "https://www.synthesia.io/pricing"
+      ],
+      "autoZoom": [
+        "https://docs.synthesia.io/docs/record"
+      ],
+      "captions": [
+        "https://www.synthesia.io/pricing"
+      ],
+      "mcp": [
+        "https://docs.synthesia.io/reference/synthesia-mcp"
+      ],
+      "shareAnalytics": [
+        "https://help.synthesia.io/en/articles/8271938-how-can-i-view-and-understand-video-analytics-in-synthesia"
+      ],
+      "platform": [
+        "https://docs.synthesia.io/docs/record",
+        "https://www.synthesia.io/features/ai-screen-recorder"
+      ]
+    }
+  },
+  {
+    "slug": "vibrantsnap",
+    "name": "Vibrantsnap",
+    "website": "https://www.vibrantsnap.com",
+    "category": "interactive",
+    "summary": "Vibrantsnap is a browser-based AI demo video tool that records with a Chrome extension, rewrites and re-voices your narration, and adds click zooms and captions.",
+    "autoZoom": "Auto in web pages; manual elsewhere",
+    "cursorEffects": null,
+    "captions": "Auto-captions (location not stated)",
+    "mcp": false,
+    "shareAnalytics": "Share links; analytics on Pro+",
+    "freeVersion": "Free to record/edit; export paid",
+    "openSource": false,
+    "platform": "Browser (Chrome extension)",
+    "price": "Free · Pro $49/mo ($40 yearly) · Scale $149/mo ($129 yearly)",
+    "strengths": [
+      "Rewrites your narration into a clean script and reads it in one of 30 studio voices across 10 languages",
+      "Automatic zoom on clicks for web apps recorded through its extension",
+      "No recording-length cap on any plan; free share links (with watermark)"
+    ],
+    "tradeoffs": [
+      "Exporting a file or removing the watermark needs a paid plan, and exports are metered (25 min/mo on Pro)",
+      "Auto zoom only works on web pages captured by the extension; desktop apps and imports need manual zooms",
+      "Chrome-extension recorder only; no native desktop app"
+    ],
+    "pickThemWhen": "you dislike your recorded narration and want an AI voice and rewritten script for customer-facing walkthroughs.",
+    "differentiator": "Vibrantsnap leans on AI script rewriting and voiceover; CaptureCat keeps your own voice and gives you automatic zoom from recorded clicks in any app (not only web pages), cursor smoothing, on-device captions and unmetered 4K 60 fps export with no watermark on its free tier, plus a built-in MCP server.",
+    "switchTip": "If you narrate well yourself, CaptureCat removes Vibrantsnap's export meter and watermark; if the AI voiceover is the reason you use Vibrantsnap, CaptureCat does not replace it.",
+    "notes": "Vibrantsnap appears in 2026 Screen Studio alternative roundups. Older third-party listings quote Starter $7/Pro $16/Premium $39 plans; the current pricing page and llms.txt show Free / Pro $49 / Scale $149 / Business. No MCP server or public API found. Brand is written \"Vibrantsnap\".",
+    "sources": {
+      "price": [
+        "https://www.vibrantsnap.com/pricing"
+      ],
+      "freeVersion": [
+        "https://www.vibrantsnap.com/pricing",
+        "https://vibrantsnap.com/llms.txt"
+      ],
+      "autoZoom": [
+        "https://vibrantsnap.com/llms.txt"
+      ],
+      "captions": [
+        "https://vibrantsnap.com/llms.txt"
+      ],
+      "shareAnalytics": [
+        "https://vibrantsnap.com/llms.txt"
+      ],
+      "platform": [
+        "https://vibrantsnap.com/llms.txt"
+      ],
+      "popularity": [
+        "https://www.vibrantsnap.com/blog/screen-studio-alternatives"
+      ]
+    }
+  },
+  {
+    "slug": "canvid",
+    "name": "CANVID",
+    "website": "https://www.canvid.com",
+    "category": "demo",
+    "summary": "CANVID is an AI-assisted screen recorder and editor for Windows and Apple Silicon Macs with automatic click zooms, cursor smoothing, captions and Quick Share links.",
+    "autoZoom": true,
+    "cursorEffects": true,
+    "captions": "Local AI on some Windows PCs, else cloud",
+    "mcp": false,
+    "shareAnalytics": null,
+    "freeVersion": "Free to record/edit; paid to export",
+    "openSource": false,
+    "platform": "macOS 15+ (Apple Silicon) & Windows",
+    "price": "Pro $84/yr · Desktop license $75 one-time (list $159)",
+    "strengths": [
+      "Native Windows and Mac app with automatic zooms on clicks and cursor smoothing",
+      "AI Speech Edit lets you fix a spoken mistake by editing the transcript",
+      "One-time Desktop license option alongside a low-cost subscription"
+    ],
+    "tradeoffs": [
+      "Exporting and Quick Share links need a paid license",
+      "Mac version requires macOS 15 and Apple Silicon",
+      "Local AI processing is limited to supported Windows hardware; other setups use cloud AI"
+    ],
+    "pickThemWhen": "you are on Windows and want Screen Studio-style automatic zooms in a native app with a one-time license option.",
+    "differentiator": "CANVID matches CaptureCat on automatic click zoom and cursor smoothing. CaptureCat exports 4K 60 fps for free without a license, runs captions on-device on any supported Mac, supports macOS 14 and Intel Macs, includes a built-in MCP server, and is open source (AGPL-3.0); CANVID has a native Windows app, which CaptureCat does not.",
+    "switchTip": "Mac users can try CaptureCat's free tier with export included; Windows users can use CaptureCat's browser app but will lose CANVID's native Windows capture.",
+    "notes": "Free trial lets you record and edit everything; exporting and Quick Share use a license/CANVID Cloud. Desktop license includes 1 GB cloud and one year of cloud features. Local AI is optimized for Intel AI PCs on Windows. No MCP found. Share-link viewer analytics not documented, left null.",
+    "sources": {
+      "price": [
+        "https://www.canvid.com/pricing"
+      ],
+      "freeVersion": [
+        "https://www.canvid.com/pricing",
+        "https://www.canvid.com/download"
+      ],
+      "autoZoom": [
+        "https://www.canvid.com/",
+        "https://www.canvid.com/features"
+      ],
+      "cursorEffects": [
+        "https://www.canvid.com/features"
+      ],
+      "captions": [
+        "https://www.canvid.com/ai",
+        "https://www.canvid.com/"
+      ],
+      "platform": [
+        "https://www.canvid.com/download"
+      ]
+    }
+  },
+  {
+    "slug": "recordly",
+    "name": "Recordly",
+    "website": "https://www.recordly.dev",
+    "category": "demo",
+    "summary": "Recordly is a free, open-source desktop screen recorder and editor for macOS, Windows and Linux that adds zooms, cursor polish and styled frames to demo videos.",
+    "autoZoom": "Auto zoom suggestions from cursor",
+    "cursorEffects": true,
+    "captions": true,
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Fully free",
+    "openSource": true,
+    "platform": "macOS, Windows & Linux",
+    "price": "Free",
+    "strengths": [
+      "Completely free and open source (AGPL-3.0), with no paywall or watermark",
+      "Runs on macOS, Windows and Linux with native capture on Mac and Windows",
+      "Cursor smoothing, motion blur and click bounce, webcam bubble, and a community extension marketplace"
+    ],
+    "tradeoffs": [
+      "Desktop app is built on Electron; Linux capture has no cursor hiding",
+      "No hosted share links in shipped builds yet (share service is still in development)",
+      "Young project (repository created March 2026), forked from the now-archived OpenScreen"
+    ],
+    "pickThemWhen": "you want a free, open-source auto-zoom recorder that also runs on Windows or Linux.",
+    "differentiator": "Recordly and CaptureCat are both free, open source under AGPL-3.0, with automatic zoom, cursor smoothing and local Whisper captions. CaptureCat is a native Swift/AppKit/Metal Mac app rather than Electron, records iPhone/iPad over USB, includes a built-in MCP server, and offers Pro share links with viewer analytics; Recordly runs natively on Windows and Linux, which CaptureCat does not.",
+    "switchTip": "Both are free, so try them side by side; CaptureCat makes sense on a Mac if you want share links with analytics or AI-agent control via MCP.",
+    "faqExtra": {
+      "question": "Is Recordly related to OpenScreen?",
+      "answer": "Yes. Recordly's licence file says it started as a fork of the OpenScreen project; the OpenScreen repository was archived in 2026."
+    },
+    "notes": "GitHub webadderallorg/Recordly: ~32.6k stars, created 2026-03-12, last push 2026-10-03, latest release v1.4.0 (2026-09-08). Licence AGPL-3.0 with a branding/attribution addendum. Captions use a locally downloaded Whisper small model (electron/ipc/captions/whisper.ts). A Recordly Share Cloudflare Worker exists in the repo, but its README says desktop builds currently upload only to localhost. Auto zoom is described as automatic zoom suggestions based on cursor activity. OpenScreen (siddharthvaddem/openscreen, ~40k stars) is archived, so it was not added.",
+    "sources": {
+      "price": [
+        "https://www.recordly.dev/"
+      ],
+      "freeVersion": [
+        "https://www.recordly.dev/"
+      ],
+      "openSource": [
+        "https://github.com/webadderallorg/Recordly/blob/main/LICENSE.md"
+      ],
+      "autoZoom": [
+        "https://github.com/webadderallorg/Recordly"
+      ],
+      "cursorEffects": [
+        "https://github.com/webadderallorg/Recordly"
+      ],
+      "captions": [
+        "https://github.com/webadderallorg/Recordly/blob/main/electron/ipc/captions/whisper.ts"
+      ],
+      "shareAnalytics": [
+        "https://github.com/webadderallorg/Recordly/tree/main/services/recordly-share/worker"
+      ],
+      "platform": [
+        "https://github.com/webadderallorg/Recordly"
+      ]
+    }
+  }
+]

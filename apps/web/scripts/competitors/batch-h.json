@@ -1,0 +1,683 @@
+[
+  {
+    "name": "Claap",
+    "summary": "Claap is an AI meeting and screen recorder from lemlist, now aimed mainly at sales and revenue teams, that records calls and screen videos and syncs notes to the CRM.",
+    "category": "async",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": "Cloud; subtitles on Pro plan+",
+    "mcp": "Official MCP, meeting/CRM data only",
+    "shareAnalytics": true,
+    "freeVersion": "Free, 10 videos/user, 300 min total",
+    "openSource": false,
+    "platform": "Chrome extension; Mac (Apple Silicon) & Windows apps",
+    "price": "Free · Pro €24/license/mo yearly (€30 monthly) · Business €48 (€60)",
+    "strengths": [
+      "Records meetings without a bot, plus screen and camera videos, in one workspace",
+      "Official MCP server with 58 tools over recordings, transcripts, contacts and deals",
+      "Transcripts in 99+ languages with AI summaries, chapters and CRM auto-fill on higher plans"
+    ],
+    "tradeoffs": [
+      "Product focus has moved to sales call intelligence, not general async video",
+      "Desktop app, AI subtitles and downloads require the paid Pro plan",
+      "Mac desktop build is listed for Apple Silicon only"
+    ],
+    "pickThemWhen": "your team mainly needs recorded sales calls, AI notes and CRM sync, with occasional screen videos on the side.",
+    "differentiator": "CaptureCat is a screen-video recorder and editor first: automatic zoom from clicks, cursor smoothing with click ripples, on-device captions and 4K export are free with no watermark. Claap's MCP works on meeting and CRM data, while CaptureCat's built-in MCP server lets agents record, edit, render frames and export video.",
+    "switchTip": "Download any Claap videos you want to keep (a Pro feature) before cancelling. Keep Claap if you rely on its meeting bot or CRM sync; CaptureCat does not record meetings or sync to a CRM.",
+    "faqExtra": {
+      "question": "Is Claap still a Loom-style screen recorder?",
+      "answer": "It still records screen and camera through a Chrome extension and a desktop app, but after lemlist acquired it in 2025 the product and pricing are aimed at sales teams, with meeting recording, AI coaching and CRM auto-complete."
+    },
+    "slug": "claap",
+    "website": "https://www.claap.io",
+    "notes": "Acquired by lemlist (announced October 2025, reported eight-figure deal); site now brands it 'Claap by lemlist' and positions it as a revenue-team meeting recorder. Pricing is in EUR. Claap MCP is listed on every plan including Basic; it can read recordings/transcripts and write CRM-style fields, but cannot upload or edit recordings.",
+    "sources": {
+      "price": [
+        "https://www.claap.io/pricing"
+      ],
+      "freeVersion": [
+        "https://www.claap.io/pricing"
+      ],
+      "captions": [
+        "https://www.claap.io/pricing"
+      ],
+      "mcp": [
+        "https://help.claap.io/en/articles/11786373-using-claap-s-mcp-server",
+        "https://www.claap.io/pricing"
+      ],
+      "shareAnalytics": [
+        "https://www.claap.io/pricing"
+      ],
+      "platform": [
+        "https://help.claap.io/en/articles/16440882-downloading-and-installing-the-claap-desktop-app",
+        "https://www.claap.io/pricing"
+      ],
+      "notes": [
+        "https://finder.techleap.nl/news/feed/lemlist-acquires-claap-for-eight-figures",
+        "https://nordic9.com/news/claap-was-acquired-by-lemlist-in-france/",
+        "https://www.claap.io/"
+      ],
+      "autoZoom": [
+        "https://www.claap.io/pricing"
+      ],
+      "cursorEffects": [
+        "https://www.claap.io/pricing"
+      ]
+    }
+  },
+  {
+    "name": "Bubbles",
+    "summary": "Bubbles is a browser-based screen recorder and AI meeting notetaker for sending short async videos and meeting recordings to teammates.",
+    "category": "async",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": "Cloud transcripts, Pro plan",
+    "mcp": "Official MCP, mostly read-only",
+    "shareAnalytics": null,
+    "freeVersion": "Free, 30-min videos, lock after 2 weeks",
+    "openSource": false,
+    "platform": "Browser (Chrome/Edge extension, web app)",
+    "price": "Free · Pro $12/member/mo yearly for 3+ members ($15 monthly); $18 ($22) for 1-2",
+    "strengths": [
+      "Free plan allows unlimited screen recordings up to 30 minutes each",
+      "Combines async screen videos with a meeting notetaker for Zoom, Meet and Teams",
+      "Official MCP server lets Claude read bubbles, transcripts and comments"
+    ],
+    "tradeoffs": [
+      "Free recordings lock after two weeks; full AI transcripts need Pro",
+      "Recording runs in the browser; the help center lists no native desktop app",
+      "MCP is read-only apart from sending the notetaker to a meeting; it cannot record or edit screen videos"
+    ],
+    "pickThemWhen": "you want quick browser recordings with threaded comments and an AI notetaker for your team's meetings.",
+    "differentiator": "CaptureCat focuses on producing polished videos: a native Mac app plus a browser app, automatic zoom from clicks, cursor smoothing and on-device captions, all free and without watermark. Bubbles' MCP reads existing bubbles, while CaptureCat's MCP server lets agents record, edit and export.",
+    "switchTip": "Download recordings you want to keep before free bubbles lock, then record new ones in CaptureCat; share links with comments and viewer analytics need CaptureCat Pro. CaptureCat has no meeting notetaker, so keep Bubbles if you rely on that.",
+    "slug": "bubbles",
+    "website": "https://www.usebubbles.com",
+    "notes": "Pricing is per member and depends on workspace size (Pro Personal for 1-2 members, Pro Teams for 3+). 14-day Pro trial. MCP endpoint api.usebubbles.com/mcp exposes 6 read tools plus join_meeting. Viewer analytics for shared bubbles could not be verified on the official site.",
+    "sources": {
+      "price": [
+        "https://www.usebubbles.com/pricing"
+      ],
+      "freeVersion": [
+        "https://www.usebubbles.com/pricing"
+      ],
+      "captions": [
+        "https://www.usebubbles.com/pricing"
+      ],
+      "mcp": [
+        "https://docs.usebubbles.com/mcp/",
+        "https://docs.usebubbles.com/claude-app/"
+      ],
+      "platform": [
+        "https://help.usebubbles.com/en/articles/12699575-what-is-bubbles-screen-recording",
+        "https://www.usebubbles.com/"
+      ],
+      "autoZoom": [
+        "https://www.usebubbles.com/"
+      ],
+      "cursorEffects": [
+        "https://www.usebubbles.com/"
+      ]
+    }
+  },
+  {
+    "name": "Kommodo",
+    "summary": "Kommodo (formerly Komodo, komododecks.com) is a screen recorder with a cloud video editor, AI transcripts and auto-generated step-by-step guides.",
+    "category": "async",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": "Cloud auto-captions",
+    "mcp": "No MCP; REST API + agent skill",
+    "shareAnalytics": true,
+    "freeVersion": "Free, 15 videos, no watermark",
+    "openSource": false,
+    "platform": "macOS, Windows, Chrome extension, iOS, Android",
+    "price": "Free · Premium $9/user/mo yearly or $15 monthly",
+    "strengths": [
+      "Free plan has no watermark and no recording time limit (15 videos)",
+      "Turns recordings into step-by-step SOP guides and landing pages",
+      "Transcript-based editing and a public REST API with an open-source agent skill"
+    ],
+    "tradeoffs": [
+      "Free plan is capped at 15 videos; unlimited needs Premium",
+      "Editing and rendering happen in the cloud, not on your machine",
+      "No automatic zoom or cursor effects are listed in its editor"
+    ],
+    "pickThemWhen": "you want recordings that also become written how-to guides and shareable pages for a team.",
+    "differentiator": "CaptureCat records and edits locally with automatic zoom from clicks, cursor smoothing, click ripples and on-device captions, free with unlimited recordings. Kommodo's API and skill manage recording metadata and pages, while CaptureCat's MCP server lets agents record, edit and export the video itself.",
+    "switchTip": "Download your Kommodo videos (downloads are a Premium feature per its plan table) before switching. Kommodo's SOP guides and page builder have no CaptureCat equivalent, so keep it if you use those.",
+    "faqExtra": {
+      "question": "Is Kommodo the same as Komodo?",
+      "answer": "Yes. komododecks.com now redirects to kommodo.ai, and the site states Kommodo is a registered trademark of Komodo Technologies."
+    },
+    "slug": "komodo",
+    "website": "https://kommodo.ai",
+    "notes": "Renamed from Komodo to Kommodo (domain komododecks.com redirects to kommodo.ai). API v2 needs Premium/Enterprise; agent skill is MIT-licensed. Transcription uses an internal model based on OpenAI Whisper, run on Kommodo's servers. Analytics show watch duration and named viewers when the viewer has an account.",
+    "sources": {
+      "price": [
+        "https://kommodo.ai/pricing"
+      ],
+      "freeVersion": [
+        "https://kommodo.ai/pricing"
+      ],
+      "shareAnalytics": [
+        "https://kommodo.ai/pricing"
+      ],
+      "platform": [
+        "https://kommodo.ai/pricing"
+      ],
+      "mcp": [
+        "https://kommodo.ai/developer"
+      ],
+      "captions": [
+        "https://kommodo.ai/products/video-editor",
+        "https://kommodo.ai/pricing"
+      ],
+      "autoZoom": [
+        "https://kommodo.ai/products/video-editor"
+      ],
+      "cursorEffects": [
+        "https://kommodo.ai/products/video-editor"
+      ],
+      "notes": [
+        "https://kommodo.ai/pricing",
+        "https://kommodo.ai/developer"
+      ]
+    }
+  },
+  {
+    "name": "Supercut",
+    "summary": "Supercut is a Loom-style async video platform with native Mac and Windows recorders, an editor, AI summaries and hosted sharing for teams.",
+    "category": "async",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": false,
+    "captions": "Cloud auto-captions",
+    "mcp": "Official MCP, read access to videos",
+    "shareAnalytics": true,
+    "freeVersion": "14-day trial; sharing pauses after",
+    "openSource": false,
+    "platform": "macOS & Windows",
+    "price": "£12/seat/mo yearly or £14 monthly (GBP shown)",
+    "strengths": [
+      "Native macOS and Windows recorders with up to 4K and multi-stream capture",
+      "Auto-Edit removes filler words and silences; captions in 110 languages",
+      "Official MCP gives agents transcripts, frames, comments and reactions"
+    ],
+    "tradeoffs": [
+      "No free plan: after the 14-day trial, sharing, downloading and uploading pause",
+      "Zooms are placed by hand in the editor",
+      "Videos are capped at 1 hour each on Pro"
+    ],
+    "pickThemWhen": "your team wants a polished Loom replacement with native recorders, AI summaries and an MCP that feeds recordings to coding agents.",
+    "differentiator": "Both have native recorders and an MCP, but Supercut's MCP reads existing recordings while CaptureCat's lets agents record, edit, render frames and export. CaptureCat also adds automatic zoom from clicks and cursor smoothing, and its editor and on-device captions are free; Supercut covers Windows natively, which CaptureCat does only through its browser app.",
+    "switchTip": "Download the videos you want to keep while your Supercut subscription is active. CaptureCat Pro covers share links with comments and viewer analytics, but it has no team plan yet.",
+    "slug": "supercut",
+    "website": "https://supercut.ai",
+    "notes": "Run by Float Labs Ltd (UK). Pricing page displayed GBP (excl. VAT); USD pricing may differ by region. Trial starts when you record or upload your first video, not at signup. MCP and API access are included in Pro.",
+    "sources": {
+      "price": [
+        "https://supercut.ai/pricing"
+      ],
+      "freeVersion": [
+        "https://supercut.ai/pricing"
+      ],
+      "platform": [
+        "https://supercut.ai/pricing"
+      ],
+      "autoZoom": [
+        "https://help.supercut.ai/en/articles/14341426-zoom",
+        "https://supercut.ai/polish"
+      ],
+      "captions": [
+        "https://supercut.ai/polish",
+        "https://supercut.ai/llms.txt"
+      ],
+      "mcp": [
+        "https://supercut.ai/agents",
+        "https://supercut.ai/pricing"
+      ],
+      "shareAnalytics": [
+        "https://supercut.ai/pricing"
+      ],
+      "cursorEffects": [
+        "https://supercut.ai/polish"
+      ]
+    }
+  },
+  {
+    "name": "Vmaker",
+    "summary": "Vmaker AI is an AI video editor and avatar generator that also includes a screen and webcam recorder.",
+    "category": "editor",
+    "autoZoom": null,
+    "cursorEffects": "Mouse emphasis (paid plans)",
+    "captions": "Cloud subtitles, minutes per plan",
+    "mcp": false,
+    "shareAnalytics": true,
+    "freeVersion": "Free, 1-min recordings, watermark",
+    "openSource": false,
+    "platform": "macOS, Windows, Chrome extension, iOS",
+    "price": "Free · Starter $18/mo yearly ($24 monthly) · Teams $25 ($39)",
+    "strengths": [
+      "Recorder bundled with an AI editor, auto subtitles and subtitle translation",
+      "AI avatars, doc-to-video and long-to-short clip tools in one subscription",
+      "Available on Mac, Windows, Chrome and iOS"
+    ],
+    "tradeoffs": [
+      "Free plan limits screen recording to 1 minute and adds a watermark",
+      "Subtitles, exports and recording time are metered per plan",
+      "Product focus has shifted toward AI editing and avatars more than screen recording"
+    ],
+    "pickThemWhen": "you want AI avatars, social clip generation and auto subtitles in the same tool as a basic recorder.",
+    "differentiator": "CaptureCat gives unlimited recording, automatic zoom from clicks, cursor smoothing with click ripples and on-device captions free, with 4K export and no watermark. It also ships an MCP server for agents; Vmaker offers AI avatars and social repurposing that CaptureCat does not.",
+    "switchTip": "Export finished Vmaker videos before cancelling. Record screen tutorials in CaptureCat and keep Vmaker only if you rely on its avatars or long-to-short clipping.",
+    "slug": "vmaker",
+    "website": "https://www.vmaker.com",
+    "notes": "Rebranded around 'Vmaker AI' with avatars, dubbing and long-to-short features. Pricing table lists 'Smart Focus AI' on all plans but we could not find what it does, so autoZoom is left null. Advanced Analytics is Enterprise-only; Viewer Insights appears on all plans.",
+    "sources": {
+      "price": [
+        "https://www.vmaker.com/pricing"
+      ],
+      "freeVersion": [
+        "https://www.vmaker.com/pricing"
+      ],
+      "captions": [
+        "https://www.vmaker.com/pricing"
+      ],
+      "cursorEffects": [
+        "https://www.vmaker.com/pricing"
+      ],
+      "shareAnalytics": [
+        "https://www.vmaker.com/pricing"
+      ],
+      "platform": [
+        "https://www.vmaker.com/screen-recorder"
+      ]
+    }
+  },
+  {
+    "name": "Vimeo Record",
+    "summary": "Vimeo Record is Vimeo's free screen and webcam recorder, running in the browser and a Chrome extension, that uploads straight into Vimeo's video hosting.",
+    "category": "async",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": "Cloud auto-captions",
+    "mcp": "No official MCP (REST API only)",
+    "shareAnalytics": true,
+    "freeVersion": "Free plan, 30-min recordings",
+    "openSource": false,
+    "platform": "Browser (Chrome, Edge, Safari) + Chrome extension",
+    "price": "Free · paid from £10.80/mo yearly (UK price shown)",
+    "strengths": [
+      "Recordings land in an ad-free Vimeo player and hosting library",
+      "Engagement analytics show who watched and for how long",
+      "Teleprompter, AI script help and text-based editing included"
+    ],
+    "tradeoffs": [
+      "Free plan caps each recording at 30 minutes",
+      "No desktop recorder; recording happens in the browser",
+      "Owned by Bending Spoons since late 2025, with major layoffs after, so plans may change"
+    ],
+    "pickThemWhen": "you already host video on Vimeo and want quick recordings in the same library and player.",
+    "differentiator": "CaptureCat records natively on Mac (and in the browser elsewhere) with automatic zoom from clicks, cursor smoothing and on-device captions, and exports 4K files free. Vimeo is stronger as a hosting platform; CaptureCat Pro covers share links with viewer analytics, not full video hosting.",
+    "switchTip": "Keep your Vimeo account for hosting if you need it; you can export from CaptureCat and upload the MP4 to Vimeo.",
+    "slug": "vimeo-record",
+    "website": "https://vimeo.com/features/screen-recorder",
+    "notes": "Bending Spoons agreed to buy Vimeo for $1.38B in September 2025; reports say the deal closed in November 2025, followed by large layoffs in early 2026. The pricing page we saw showed GBP (Starter £10.80/mo yearly, Standard £22.80, Advanced £82.80, incl. VAT); third-party sources cite USD prices that do not agree, so USD is left out. Third-party Vimeo MCP servers exist; none is official.",
+    "sources": {
+      "price": [
+        "https://vimeo.com/upgrade-plan"
+      ],
+      "freeVersion": [
+        "https://vimeo.com/features/screen-recorder"
+      ],
+      "captions": [
+        "https://vimeo.com/features/screen-recorder"
+      ],
+      "shareAnalytics": [
+        "https://vimeo.com/features/screen-recorder",
+        "https://vimeo.com/upgrade-plan"
+      ],
+      "platform": [
+        "https://vimeo.com/features/screen-recorder",
+        "https://help.vimeo.com/hc/en-us/articles/23558705628049-Vimeo-Record-Chrome-extension"
+      ],
+      "mcp": [
+        "https://glama.ai/mcp/servers/integrations/vimeo"
+      ],
+      "notes": [
+        "https://www.newsshooter.com/2025/09/10/vimeo-sold-to-italian-app-developer-bending-spoons-for-1-38-billion/",
+        "https://www.storyboard18.com/brand-marketing/vimeo-layoffs-2026-bending-spoons-confirms-new-staff-cuts-after-1-38b-acquisition-88104.htm"
+      ],
+      "autoZoom": [
+        "https://vimeo.com/features/screen-recorder"
+      ],
+      "cursorEffects": [
+        "https://vimeo.com/features/screen-recorder"
+      ]
+    }
+  },
+  {
+    "name": "Hippo Video",
+    "summary": "Hippo Video is a video messaging and personalization platform for sales teams, with screen and camera recording, sales pages and CRM integrations.",
+    "category": "async",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": "Cloud captions, minutes per plan",
+    "mcp": "No MCP; has Video API/SDK",
+    "shareAnalytics": true,
+    "freeVersion": "Free, 30-min recordings, 50 videos/mo",
+    "openSource": false,
+    "platform": "Chrome extension, Mac & Windows apps, iOS & Android",
+    "price": "Free · Pro $20/user/mo yearly ($30 monthly) · Teams $60 ($75)",
+    "strengths": [
+      "Built for sales outreach: personalized videos, sales pages and interactive CTAs",
+      "Deep CRM and sales-tool integrations (HubSpot, Outreach, Salesloft, Salesforce)",
+      "Per-viewer reports such as play rate and watch duration"
+    ],
+    "tradeoffs": [
+      "Closed captions are metered (10 min/mo free, 30 on Pro)",
+      "Editing is basic compared with a dedicated screen-video editor",
+      "Pricing climbs quickly for team features ($60 to $80 per user)"
+    ],
+    "pickThemWhen": "you send personalized sales videos at volume and need CRM tracking of who watched.",
+    "differentiator": "CaptureCat is aimed at polished screen videos rather than sales outreach: automatic zoom from clicks, cursor smoothing, on-device captions and 4K export are free. It has no CRM integrations or personalization features.",
+    "switchTip": "Keep Hippo Video for sales sequences that depend on its CRM tracking; use CaptureCat for product demos and tutorials and share the exported files or a CaptureCat Pro link.",
+    "slug": "hippo-video",
+    "website": "https://www.hippovideo.io",
+    "notes": "Pricing page also lists a separate AI 'text-to-video' product line (Starter $24, Creator $69). Enterprise video messaging is $80/user/mo yearly with a 10-seat minimum.",
+    "sources": {
+      "price": [
+        "https://www.hippovideo.io/pricing.html"
+      ],
+      "freeVersion": [
+        "https://www.hippovideo.io/pricing.html"
+      ],
+      "captions": [
+        "https://www.hippovideo.io/pricing.html"
+      ],
+      "shareAnalytics": [
+        "https://www.hippovideo.io/pricing.html"
+      ],
+      "platform": [
+        "https://www.hippovideo.io/pricing.html"
+      ],
+      "mcp": [
+        "https://www.hippovideo.io/pricing.html"
+      ],
+      "autoZoom": [
+        "https://www.hippovideo.io/pricing.html"
+      ],
+      "cursorEffects": [
+        "https://www.hippovideo.io/pricing.html"
+      ]
+    }
+  },
+  {
+    "name": "Riverside",
+    "summary": "Riverside is a remote recording studio for podcasts and video, with screen sharing, a text-based AI editor, live streaming and webinars.",
+    "category": "editor",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": false,
+    "captions": "Cloud auto-captions",
+    "mcp": "Official MCP (Grow plan+)",
+    "shareAnalytics": "Hosting analytics on paid plans",
+    "freeVersion": "Free, 720p, watermark",
+    "openSource": false,
+    "platform": "Browser; Mac app; iOS & Android",
+    "price": "Free · Pro $24/mo yearly ($29 monthly) · Grow $34 ($39)",
+    "strengths": [
+      "Local recording of each participant in up to 4K on separate tracks",
+      "Text-based editor with AI clips, show notes and filler-word removal",
+      "Official MCP lets AI assistants edit, clip and publish recordings"
+    ],
+    "tradeoffs": [
+      "Built for interviews and podcasts more than solo screen tutorials",
+      "Free plan is 720p with a watermark and only 2 hours of multitrack recording",
+      "MCP requires the Grow plan or higher"
+    ],
+    "pickThemWhen": "you record remote interviews or podcasts and want editing, clipping and publishing in one place.",
+    "differentiator": "CaptureCat is built for solo screen videos: automatic zoom from clicks, cursor smoothing with click ripples and on-device captions, free with 4K export. Both have an MCP; Riverside's works on recordings made in its studio, while CaptureCat's can also start recordings.",
+    "switchTip": "Use CaptureCat for screen demos and tutorials and keep Riverside for multi-guest recordings; Riverside exports can be imported into other editors.",
+    "slug": "riverside",
+    "website": "https://riverside.com",
+    "notes": "Riverside MCP is included on Grow and above; it can edit in plain language, make clips and publish, but cannot record. Zoom/pan effects exist in the editor but are added manually.",
+    "sources": {
+      "price": [
+        "https://riverside.com/pricing"
+      ],
+      "freeVersion": [
+        "https://riverside.com/pricing"
+      ],
+      "mcp": [
+        "https://riverside.com/mcp",
+        "https://riverside.com/pricing"
+      ],
+      "shareAnalytics": [
+        "https://riverside.com/pricing"
+      ],
+      "platform": [
+        "https://riverside.com/pricing",
+        "https://riverside.com/recording/screen-recorder"
+      ],
+      "autoZoom": [
+        "https://riverside.com/university-videos/zoom-pan-effects"
+      ],
+      "captions": [
+        "https://riverside.com/pricing"
+      ]
+    }
+  },
+  {
+    "name": "Airtime (formerly mmhmm)",
+    "summary": "Airtime (formerly mmhmm) is a set of video tools for work, including a screen recorder, a presentation recorder (Creator) and a virtual camera for meetings.",
+    "category": "async",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": "Cloud transcript (Creator)",
+    "mcp": false,
+    "shareAnalytics": null,
+    "freeVersion": "14-day trial; Recorder 5 x 5-min clips",
+    "openSource": false,
+    "platform": "macOS, Windows & browser",
+    "price": "$10/mo yearly or $12 monthly (per seat for teams)",
+    "strengths": [
+      "Presenter overlays that can be moved and resized after publishing",
+      "Viewers can zoom into the shared screen on playback",
+      "One subscription covers recorder, presentation studio and virtual camera"
+    ],
+    "tradeoffs": [
+      "Recorder editing is limited to trimming start and end",
+      "During the trial, Recorder is capped at 5 recordings of up to 5 minutes",
+      "Viewer analytics for shared recordings are not documented"
+    ],
+    "pickThemWhen": "you present on camera over slides or screens and want a virtual camera for live meetings too.",
+    "differentiator": "CaptureCat's editor adds automatic zoom from clicks, cursor smoothing, click ripples and on-device captions, free with 4K export. Airtime's strengths are presenter effects and a virtual camera for live calls, which CaptureCat does not offer.",
+    "switchTip": "Download recordings as MP4 from Airtime before cancelling. Keep Airtime Camera if you use it for live calls.",
+    "faqExtra": {
+      "question": "What happened to mmhmm?",
+      "answer": "mmhmm was renamed Airtime in April 2025 and split into separate tools: Camera, Recorder, Creator (the successor to the mmhmm app) and Stacks."
+    },
+    "slug": "mmhmm",
+    "website": "https://www.airtime.com",
+    "notes": "Renamed from mmhmm to Airtime in April 2025 (TechCrunch, 2025-04-24); footer still reads mmhmm inc. Airtime Creator analyzes the transcript after recording for title and topic suggestions; whether Recorder has captions is unverified. No MCP found.",
+    "sources": {
+      "price": [
+        "https://www.airtime.com/pricing"
+      ],
+      "freeVersion": [
+        "https://www.airtime.com/pricing"
+      ],
+      "platform": [
+        "https://www.airtime.com/recorder",
+        "https://www.airtime.com/screen-recorder"
+      ],
+      "captions": [
+        "https://www.airtime.com/recordings"
+      ],
+      "autoZoom": [
+        "https://www.airtime.com/recorder"
+      ],
+      "cursorEffects": [
+        "https://www.airtime.com/recorder"
+      ],
+      "notes": [
+        "https://techcrunch.com/2025/04/24/evernote-founders-video-startup-mmhmm-becomes-airtime-launches-new-products",
+        "https://www.airtime.com/blog/mmhmm-becomes-airtime"
+      ]
+    }
+  },
+  {
+    "name": "Awesome Screenshot",
+    "summary": "Awesome Screenshot is a long-running screenshot and screen-recording tool, mainly a browser extension, with desktop and iOS apps.",
+    "category": "capture",
+    "autoZoom": false,
+    "cursorEffects": "Cursor highlight while recording",
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": "Share links, no analytics",
+    "freeVersion": "Free, 20 cloud videos, 720p",
+    "openSource": false,
+    "platform": "Browser extension; Mac, Windows & iOS apps",
+    "price": "Free · Professional $6/mo yearly ($8 monthly)",
+    "strengths": [
+      "Screenshots (including full-page) and screen recording in one cheap tool",
+      "Records up to 6 hours per recording, 4K on Professional",
+      "Blur, annotation and simple cut/text editing for videos"
+    ],
+    "tradeoffs": [
+      "Free plan is limited to 20 cloud recordings at 720p (local recordings 5 min)",
+      "No auto captions or transcripts",
+      "Editing is basic: cut, text, shapes, blur"
+    ],
+    "pickThemWhen": "you mostly need screenshots and quick browser recordings at a low price.",
+    "differentiator": "CaptureCat is a video tool rather than a screenshot tool: automatic zoom from clicks, cursor smoothing with click ripples, on-device captions and 4K export are free with no watermark. Awesome Screenshot covers full-page screenshots, which CaptureCat does not.",
+    "switchTip": "Keep Awesome Screenshot for screenshots and use CaptureCat for videos; download cloud videos as MP4 before cancelling a paid plan.",
+    "slug": "awesome-screenshot",
+    "website": "https://www.awesomescreenshot.com",
+    "notes": "Team plans: Workspace Lite free (20 videos, 5 members), Workspace Premium $8/member/mo yearly ($10 monthly). Help center has no articles on captions, transcripts or view analytics.",
+    "sources": {
+      "price": [
+        "https://www.awesomescreenshot.com/pricing"
+      ],
+      "freeVersion": [
+        "https://www.awesomescreenshot.com/pricing"
+      ],
+      "platform": [
+        "https://www.awesomescreenshot.com/",
+        "https://support.awesomescreenshot.com/hc/en-us"
+      ],
+      "cursorEffects": [
+        "https://support.awesomescreenshot.com/hc/en-us"
+      ],
+      "captions": [
+        "https://support.awesomescreenshot.com/hc/en-us"
+      ],
+      "shareAnalytics": [
+        "https://support.awesomescreenshot.com/hc/en-us"
+      ]
+    }
+  },
+  {
+    "name": "Nimbus Capture",
+    "summary": "Nimbus Capture is a browser extension for screenshots and screen recordings, now sold under FuseBase (formerly Nimbus Web).",
+    "category": "capture",
+    "autoZoom": false,
+    "cursorEffects": null,
+    "captions": null,
+    "mcp": false,
+    "shareAnalytics": null,
+    "freeVersion": "Free, 5-min video limit",
+    "openSource": false,
+    "platform": "Browser (Chrome & Edge extensions)",
+    "price": null,
+    "strengths": [
+      "Full-page screenshots, blur and annotation in the same extension",
+      "Trim, crop, watermark and MP4/GIF export after recording",
+      "Recordings can sit in FuseBase pages alongside files, tasks and comments"
+    ],
+    "tradeoffs": [
+      "Free videos are limited to 5 minutes",
+      "The company now focuses on FuseBase client portals and AI agents, not capture",
+      "Capture pricing is not listed on the FuseBase pricing page"
+    ],
+    "pickThemWhen": "you already use FuseBase or Nimbus Note and want screenshots and short recordings inside it.",
+    "differentiator": "CaptureCat records natively on Mac with no time limit and adds automatic zoom from clicks, cursor smoothing and on-device captions, free with 4K export. Nimbus Capture is a lighter browser extension tied to the FuseBase workspace.",
+    "switchTip": "Export recordings as MP4 from Nimbus before switching. Keep the extension if you rely on its full-page screenshots.",
+    "faqExtra": {
+      "question": "Is Nimbus Capture still available?",
+      "answer": "Yes, as Chrome and Edge extensions. Nimbus Web now operates as FuseBase, and nimbusweb.me redirects to thefusebase.com."
+    },
+    "slug": "nimbus-capture",
+    "website": "https://thefusebase.com/screenshot/",
+    "notes": "Nimbus Web rebranded to FuseBase; nimbusweb.me pages redirect to thefusebase.com. The Capture page says free videos are limited to 5 minutes and Pro allows up to 10 hours. We could not find a current Capture Pro price on an official page (third-party sites cite $5/mo or $60/yr), so price is null.",
+    "sources": {
+      "freeVersion": [
+        "https://thefusebase.com/screenshot/"
+      ],
+      "platform": [
+        "https://thefusebase.com/screenshot/"
+      ],
+      "notes": [
+        "https://thefusebase.com/screenshot/",
+        "https://thefusebase.com/pricing/"
+      ],
+      "autoZoom": [
+        "https://thefusebase.com/screenshot/"
+      ]
+    }
+  },
+  {
+    "name": "Berrycast",
+    "summary": "Berrycast is a screen and webcam video messaging tool for Windows and Mac, with share links, timed comments and a HIPAA-compliant option.",
+    "category": "async",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": "Cloud subtitles, Professional+",
+    "mcp": false,
+    "shareAnalytics": "Views; full analytics on Enterprise",
+    "freeVersion": "Trial only (14 days)",
+    "openSource": false,
+    "platform": "macOS & Windows",
+    "price": "$16-$29/user/mo, billed annually",
+    "strengths": [
+      "Unlimited videos and recording length on every paid plan",
+      "HIPAA-compliant option with a signed BAA for healthcare teams",
+      "Viewers can leave video or timed comments without an account"
+    ],
+    "tradeoffs": [
+      "No free plan, only a 14-day trial, and no refunds",
+      "Transcripts are capped at 2 hours/month on Professional",
+      "Section-level video analytics require the Enterprise plan"
+    ],
+    "pickThemWhen": "you need a simple Loom-style recorder for Windows and Mac, especially one that can be HIPAA compliant.",
+    "differentiator": "CaptureCat's recorder and editor are free, with automatic zoom from clicks, cursor smoothing and on-device captions; Pro adds share links with viewer analytics. Berrycast offers HIPAA compliance and a native Windows app, which CaptureCat does not.",
+    "switchTip": "Download your Berrycast videos before your subscription ends. Stay on Berrycast if you need a BAA for patient data.",
+    "slug": "berrycast",
+    "website": "https://www.berrycast.com",
+    "notes": "Still active (site © 2026, new AI Note Taker and HIPAA pages). Prices are the annual-billing rates ($192, $216, $348 per user per year). HIPAA is a flat yearly compliance fee.",
+    "sources": {
+      "price": [
+        "https://www.berrycast.com/pricing"
+      ],
+      "freeVersion": [
+        "https://www.berrycast.com/pricing"
+      ],
+      "captions": [
+        "https://www.berrycast.com/pricing"
+      ],
+      "shareAnalytics": [
+        "https://www.berrycast.com/pricing"
+      ],
+      "platform": [
+        "https://www.berrycast.com/"
+      ],
+      "autoZoom": [
+        "https://www.berrycast.com/pricing"
+      ],
+      "cursorEffects": [
+        "https://www.berrycast.com/pricing"
+      ]
+    }
+  }
+]

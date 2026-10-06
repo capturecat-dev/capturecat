@@ -17,6 +17,7 @@ import { Route as BetaRouteImport } from './routes/beta'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as EditorLabRouteImport } from './routes/editor-lab'
 import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as LlmsFullDottxtRouteImport } from './routes/llms-full[.]txt'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PricingRouteImport } from './routes/pricing'
@@ -34,9 +35,12 @@ import { Route as AppRecordRouteImport } from './routes/app/record'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppTeamRouteImport } from './routes/app/team'
 import { Route as AppEditorRouteImport } from './routes/app_.editor'
+import { Route as BestSlugRouteImport } from './routes/best.$slug'
 import { Route as CompareIndexRouteImport } from './routes/compare.index'
 import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
 import { Route as EmbedVideoIdRouteImport } from './routes/embed.$videoId'
+import { Route as GuidesIndexRouteImport } from './routes/guides.index'
+import { Route as GuidesSlugRouteImport } from './routes/guides.$slug'
 import { Route as MdShareVideoIdRouteImport } from './routes/md-share.$videoId'
 import { Route as MdSplatRouteImport } from './routes/md.$'
 import { Route as ShareVideoIdRouteImport } from './routes/share.$videoId'
@@ -83,6 +87,11 @@ const EditorLabRoute = EditorLabRouteImport.update({
 const FeaturesRoute = FeaturesRouteImport.update({
   id: '/features',
   path: '/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsFullDottxtRoute = LlmsFullDottxtRouteImport.update({
+  id: '/llms-full.txt',
+  path: '/llms-full.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
@@ -171,6 +180,11 @@ const AppEditorRoute = AppEditorRouteImport.update({
   path: '/app/editor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BestSlugRoute = BestSlugRouteImport.update({
+  id: '/best/$slug',
+  path: '/best/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CompareIndexRoute = CompareIndexRouteImport.update({
   id: '/compare/',
   path: '/compare/',
@@ -184,6 +198,16 @@ const CompareSlugRoute = CompareSlugRouteImport.update({
 const EmbedVideoIdRoute = EmbedVideoIdRouteImport.update({
   id: '/embed/$videoId',
   path: '/embed/$videoId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuidesIndexRoute = GuidesIndexRouteImport.update({
+  id: '/guides/',
+  path: '/guides/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuidesSlugRoute = GuidesSlugRouteImport.update({
+  id: '/guides/$slug',
+  path: '/guides/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MdShareVideoIdRoute = MdShareVideoIdRouteImport.update({
@@ -232,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/download': typeof DownloadRoute
   '/editor-lab': typeof EditorLabRoute
   '/features': typeof FeaturesRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
@@ -248,13 +273,16 @@ export interface FileRoutesByFullPath {
   '/app/settings': typeof AppSettingsRoute
   '/app/team': typeof AppTeamRoute
   '/app/editor': typeof AppEditorRouteWithChildren
+  '/best/$slug': typeof BestSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
+  '/guides/$slug': typeof GuidesSlugRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
   '/md/$': typeof MdSplatRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app/': typeof AppIndexRoute
   '/compare/': typeof CompareIndexRoute
+  '/guides/': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/app/editor/$projectId': typeof AppEditorProjectIdRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
@@ -268,6 +296,7 @@ export interface FileRoutesByTo {
   '/download': typeof DownloadRoute
   '/editor-lab': typeof EditorLabRoute
   '/features': typeof FeaturesRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
@@ -284,13 +313,16 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/app/team': typeof AppTeamRoute
   '/app/editor': typeof AppEditorRouteWithChildren
+  '/best/$slug': typeof BestSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
+  '/guides/$slug': typeof GuidesSlugRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
   '/md/$': typeof MdSplatRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app': typeof AppIndexRoute
   '/compare': typeof CompareIndexRoute
+  '/guides': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/app/editor/$projectId': typeof AppEditorProjectIdRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
@@ -306,6 +338,7 @@ export interface FileRoutesById {
   '/download': typeof DownloadRoute
   '/editor-lab': typeof EditorLabRoute
   '/features': typeof FeaturesRoute
+  '/llms-full.txt': typeof LlmsFullDottxtRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/pricing': typeof PricingRoute
@@ -322,13 +355,16 @@ export interface FileRoutesById {
   '/app/settings': typeof AppSettingsRoute
   '/app/team': typeof AppTeamRoute
   '/app_/editor': typeof AppEditorRouteWithChildren
+  '/best/$slug': typeof BestSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
+  '/guides/$slug': typeof GuidesSlugRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
   '/md/$': typeof MdSplatRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app/': typeof AppIndexRoute
   '/compare/': typeof CompareIndexRoute
+  '/guides/': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/app_/editor/$projectId': typeof AppEditorProjectIdRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
@@ -345,6 +381,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/editor-lab'
     | '/features'
+    | '/llms-full.txt'
     | '/llms.txt'
     | '/login'
     | '/pricing'
@@ -361,13 +398,16 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/team'
     | '/app/editor'
+    | '/best/$slug'
     | '/compare/$slug'
     | '/embed/$videoId'
+    | '/guides/$slug'
     | '/md-share/$videoId'
     | '/md/$'
     | '/share/$videoId'
     | '/app/'
     | '/compare/'
+    | '/guides/'
     | '/api/trpc/$'
     | '/app/editor/$projectId'
     | '/app/videos/$videoId/analytics'
@@ -381,6 +421,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/editor-lab'
     | '/features'
+    | '/llms-full.txt'
     | '/llms.txt'
     | '/login'
     | '/pricing'
@@ -397,13 +438,16 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/team'
     | '/app/editor'
+    | '/best/$slug'
     | '/compare/$slug'
     | '/embed/$videoId'
+    | '/guides/$slug'
     | '/md-share/$videoId'
     | '/md/$'
     | '/share/$videoId'
     | '/app'
     | '/compare'
+    | '/guides'
     | '/api/trpc/$'
     | '/app/editor/$projectId'
     | '/app/videos/$videoId/analytics'
@@ -418,6 +462,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/editor-lab'
     | '/features'
+    | '/llms-full.txt'
     | '/llms.txt'
     | '/login'
     | '/pricing'
@@ -434,13 +479,16 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/team'
     | '/app_/editor'
+    | '/best/$slug'
     | '/compare/$slug'
     | '/embed/$videoId'
+    | '/guides/$slug'
     | '/md-share/$videoId'
     | '/md/$'
     | '/share/$videoId'
     | '/app/'
     | '/compare/'
+    | '/guides/'
     | '/api/trpc/$'
     | '/app_/editor/$projectId'
     | '/app/videos/$videoId/analytics'
@@ -456,6 +504,7 @@ export interface RootRouteChildren {
   DownloadRoute: typeof DownloadRoute
   EditorLabRoute: typeof EditorLabRoute
   FeaturesRoute: typeof FeaturesRoute
+  LlmsFullDottxtRoute: typeof LlmsFullDottxtRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
   PricingRoute: typeof PricingRoute
@@ -467,12 +516,15 @@ export interface RootRouteChildren {
   AlternativesSlugRoute: typeof AlternativesSlugRoute
   ApiOembedRoute: typeof ApiOembedRoute
   AppEditorRoute: typeof AppEditorRouteWithChildren
+  BestSlugRoute: typeof BestSlugRoute
   CompareSlugRoute: typeof CompareSlugRoute
   EmbedVideoIdRoute: typeof EmbedVideoIdRoute
+  GuidesSlugRoute: typeof GuidesSlugRoute
   MdShareVideoIdRoute: typeof MdShareVideoIdRoute
   MdSplatRoute: typeof MdSplatRoute
   ShareVideoIdRoute: typeof ShareVideoIdRoute
   CompareIndexRoute: typeof CompareIndexRoute
+  GuidesIndexRoute: typeof GuidesIndexRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
 }
 
@@ -532,6 +584,13 @@ declare module '@tanstack/react-router' {
       path: '/features'
       fullPath: '/features'
       preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms-full.txt': {
+      id: '/llms-full.txt'
+      path: '/llms-full.txt'
+      fullPath: '/llms-full.txt'
+      preLoaderRoute: typeof LlmsFullDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/llms.txt': {
@@ -653,6 +712,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEditorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/best/$slug': {
+      id: '/best/$slug'
+      path: '/best/$slug'
+      fullPath: '/best/$slug'
+      preLoaderRoute: typeof BestSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/compare/': {
       id: '/compare/'
       path: '/compare'
@@ -672,6 +738,20 @@ declare module '@tanstack/react-router' {
       path: '/embed/$videoId'
       fullPath: '/embed/$videoId'
       preLoaderRoute: typeof EmbedVideoIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guides/': {
+      id: '/guides/'
+      path: '/guides'
+      fullPath: '/guides/'
+      preLoaderRoute: typeof GuidesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guides/$slug': {
+      id: '/guides/$slug'
+      path: '/guides/$slug'
+      fullPath: '/guides/$slug'
+      preLoaderRoute: typeof GuidesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/md-share/$videoId': {
@@ -773,6 +853,7 @@ const rootRouteChildren: RootRouteChildren = {
   DownloadRoute: DownloadRoute,
   EditorLabRoute: EditorLabRoute,
   FeaturesRoute: FeaturesRoute,
+  LlmsFullDottxtRoute: LlmsFullDottxtRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
   PricingRoute: PricingRoute,
@@ -784,12 +865,15 @@ const rootRouteChildren: RootRouteChildren = {
   AlternativesSlugRoute: AlternativesSlugRoute,
   ApiOembedRoute: ApiOembedRoute,
   AppEditorRoute: AppEditorRouteWithChildren,
+  BestSlugRoute: BestSlugRoute,
   CompareSlugRoute: CompareSlugRoute,
   EmbedVideoIdRoute: EmbedVideoIdRoute,
+  GuidesSlugRoute: GuidesSlugRoute,
   MdShareVideoIdRoute: MdShareVideoIdRoute,
   MdSplatRoute: MdSplatRoute,
   ShareVideoIdRoute: ShareVideoIdRoute,
   CompareIndexRoute: CompareIndexRoute,
+  GuidesIndexRoute: GuidesIndexRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
 }
 export const routeTree = rootRouteImport

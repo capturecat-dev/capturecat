@@ -1,0 +1,573 @@
+[
+  {
+    "slug": "xbox-game-bar",
+    "name": "Xbox Game Bar",
+    "website": "https://support.microsoft.com/en-us/windows/record-your-screen-with-xbox-game-bar-5328cd25-9046-4472-8a14-c485f138802c",
+    "category": "free",
+    "summary": "Xbox Game Bar is the overlay built into Windows 10 and 11 that records gameplay and app windows to MP4 and takes screenshots.",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Fully free, built into Windows",
+    "openSource": false,
+    "platform": "Windows 10 & 11",
+    "price": "Free (built into Windows)",
+    "strengths": [
+      "Already installed on Windows 10 and 11; open it with Win+G and record with Win+Alt+R.",
+      "Records system audio and can include the microphone, with a hotkey to toggle the mic mid-recording.",
+      "Saves plain MP4 files to Videos\\Captures, named after the app and time."
+    ],
+    "tradeoffs": [
+      "Records one app window at a time; it cannot capture the Windows desktop or File Explorer.",
+      "No editor: no trimming, zoom, click highlights, or captions.",
+      "Recordings stop at a configurable maximum length (30 minutes to 4 hours)."
+    ],
+    "pickThemWhen": "you want a free, zero-install way to grab a game or single app window as an MP4.",
+    "differentiator": "CaptureCat is a recorder plus editor with captions and, on Pro, share links with viewer analytics; Game Bar only captures. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "switchTip": "Nothing needs migrating: Game Bar recordings are ordinary MP4s in Videos\\Captures. On Windows, try the CaptureCat browser app in Chrome or Edge for full-screen or multi-window demos, keeping in mind auto zoom is a macOS-app feature.",
+    "faqExtra": {
+      "question": "Can Xbox Game Bar record the Windows desktop?",
+      "answer": "No. Game Bar does not open on the desktop and does not work in apps such as File Explorer or Notepad; it records a single app or game window."
+    },
+    "notes": "Built into Windows; not sold separately. Max recording length is a setting (30 min, 1 h, 2 h default, 4 h).",
+    "sources": {
+      "summary": [
+        "https://support.microsoft.com/en-us/windows/record-your-screen-with-xbox-game-bar-5328cd25-9046-4472-8a14-c485f138802c",
+        "https://support.microsoft.com/af-za/help/4027180/windows-10-record-a-game-clip-with-game-bar"
+      ],
+      "platform": [
+        "https://support.microsoft.com/en-us/windows/record-your-screen-with-xbox-game-bar-5328cd25-9046-4472-8a14-c485f138802c",
+        "https://www.dell.com/support/kbdoc/en-us/000103410/how-to-use-the-windows-10-game-bar-to-capture-video-from-applications"
+      ],
+      "price": [
+        "https://support.microsoft.com/af-za/help/4027180/windows-10-record-a-game-clip-with-game-bar"
+      ],
+      "freeVersion": [
+        "https://support.microsoft.com/af-za/help/4027180/windows-10-record-a-game-clip-with-game-bar"
+      ],
+      "strengths": [
+        "https://support.microsoft.com/en-us/windows/record-your-screen-with-xbox-game-bar-5328cd25-9046-4472-8a14-c485f138802c",
+        "https://support.microsoft.com/af-za/help/4027180/windows-10-record-a-game-clip-with-game-bar",
+        "https://www.dell.com/support/kbdoc/en-us/000103410/how-to-use-the-windows-10-game-bar-to-capture-video-from-applications"
+      ],
+      "tradeoffs": [
+        "https://www.dell.com/support/kbdoc/en-us/000103410/how-to-use-the-windows-10-game-bar-to-capture-video-from-applications",
+        "https://www.elevenforum.com/t/change-max-recording-length-for-gaming-captures-in-windows-11.17924/"
+      ],
+      "faqExtra": [
+        "https://www.dell.com/support/kbdoc/en-us/000103410/how-to-use-the-windows-10-game-bar-to-capture-video-from-applications"
+      ],
+      "notes": [
+        "https://www.elevenforum.com/t/change-max-recording-length-for-gaming-captures-in-windows-11.17924/"
+      ],
+      "autoZoom": [
+        "https://support.microsoft.com/af-za/help/4027180/windows-10-record-a-game-clip-with-game-bar"
+      ],
+      "cursorEffects": [
+        "https://support.microsoft.com/af-za/help/4027180/windows-10-record-a-game-clip-with-game-bar"
+      ],
+      "captions": [
+        "https://support.microsoft.com/af-za/help/4027180/windows-10-record-a-game-clip-with-game-bar"
+      ],
+      "shareAnalytics": [
+        "https://support.microsoft.com/af-za/help/4027180/windows-10-record-a-game-clip-with-game-bar"
+      ],
+      "mcp": [
+        "https://support.microsoft.com/en-us/windows/record-your-screen-with-xbox-game-bar-5328cd25-9046-4472-8a14-c485f138802c"
+      ]
+    }
+  },
+  {
+    "slug": "snipping-tool",
+    "name": "Windows Snipping Tool (screen recording)",
+    "website": "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b",
+    "category": "free",
+    "summary": "Snipping Tool is the Windows 11 screenshot app, which also records a selected screen area to video with optional system audio and microphone.",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": "Cloud, via Clipchamp handoff",
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Fully free, built into Windows 11",
+    "openSource": false,
+    "platform": "Windows 11",
+    "price": "Free (built into Windows 11)",
+    "strengths": [
+      "Built in: press Win+Shift+R, drag a region, and record.",
+      "Records PC audio and a microphone voiceover (since version 11.2307.44.0).",
+      "Can trim a recording without leaving the app (since version 11.2501.7.0), with an Edit in Clipchamp button for more."
+    ],
+    "tradeoffs": [
+      "Editing in the app is limited to trimming; captions and further edits happen in Clipchamp.",
+      "Clipchamp auto-captions send audio to Azure Cognitive Services rather than running on the device.",
+      "No zoom, click highlights, or cursor effects."
+    ],
+    "pickThemWhen": "you need a quick region recording on Windows 11 with nothing to install.",
+    "differentiator": "CaptureCat adds a full editor and, on Pro, share links with viewer analytics, where Snipping Tool records and trims. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "switchTip": "Keep Snipping Tool for one-off clips. For edited walkthroughs on Windows, open the CaptureCat browser app in Chrome or Edge; projects there are stored in the cloud storage that comes with Pro.",
+    "faqExtra": {
+      "question": "Does Snipping Tool record audio?",
+      "answer": "Yes. Since Snipping Tool version 11.2307.44.0 it can optionally record PC audio and a microphone, and you can choose the default audio settings and recording device."
+    },
+    "notes": "Captions are not in Snipping Tool itself; Microsoft's guide sends you to Clipchamp, whose auto-captions are processed with Azure Cognitive Services. GIF export (30 s max) began rolling out to Windows Insiders in June 2025 (v11.2505.21.0).",
+    "sources": {
+      "summary": [
+        "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b",
+        "https://pureinfotech.com/snipping-tool-screen-recording-windows-11/"
+      ],
+      "platform": [
+        "https://pureinfotech.com/snipping-tool-screen-recording-windows-11/",
+        "https://blogs.windows.com/windows-insider/2025/06/19/gif-export-in-snipping-tool-begins-rolling-out-to-windows-insiders/"
+      ],
+      "price": [
+        "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b"
+      ],
+      "freeVersion": [
+        "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b"
+      ],
+      "captions": [
+        "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b",
+        "https://support.microsoft.com/en-us/clipchamp/how-to-use-autocaptions-in-clipchamp"
+      ],
+      "strengths": [
+        "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b",
+        "https://pureinfotech.com/snipping-tool-screen-recording-windows-11/",
+        "https://blogs.windows.com/windows-insider/2025/06/19/gif-export-in-snipping-tool-begins-rolling-out-to-windows-insiders/"
+      ],
+      "tradeoffs": [
+        "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b",
+        "https://support.microsoft.com/en-us/clipchamp/how-to-use-autocaptions-in-clipchamp"
+      ],
+      "faqExtra": [
+        "https://pureinfotech.com/snipping-tool-screen-recording-windows-11/"
+      ],
+      "notes": [
+        "https://support.microsoft.com/en-us/clipchamp/how-to-use-autocaptions-in-clipchamp",
+        "https://blogs.windows.com/windows-insider/2025/06/19/gif-export-in-snipping-tool-begins-rolling-out-to-windows-insiders/"
+      ],
+      "autoZoom": [
+        "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b"
+      ],
+      "cursorEffects": [
+        "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b"
+      ],
+      "shareAnalytics": [
+        "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b"
+      ],
+      "mcp": [
+        "https://support.microsoft.com/en-us/windows/use-snipping-tool-to-capture-screenshots-00246869-1843-655f-f220-97299b865f6b"
+      ]
+    }
+  },
+  {
+    "slug": "nvidia-app",
+    "name": "NVIDIA App (ShadowPlay)",
+    "website": "https://www.nvidia.com/en-us/software/nvidia-app/",
+    "category": "capture",
+    "summary": "The NVIDIA App is NVIDIA's free GPU companion for Windows, and its overlay (formerly ShadowPlay in GeForce Experience) records gameplay, apps, or the desktop and keeps an Instant Replay buffer.",
+    "autoZoom": false,
+    "cursorEffects": false,
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Fully free (needs an RTX GPU)",
+    "openSource": false,
+    "platform": "Windows, NVIDIA RTX GPU",
+    "price": "Free",
+    "strengths": [
+      "Hardware-encoded capture up to 4K HDR at 120 fps or 8K HDR at 30 fps with low performance impact, including AV1 on RTX 40 series.",
+      "DVR-style Instant Replay saves the last stretch of play with Alt+Shift+F10.",
+      "Records the mic as a separate audio track, with push-to-talk."
+    ],
+    "tradeoffs": [
+      "Requires a GeForce RTX 20, 30, 40, or 50 series GPU on Windows 10 or 11.",
+      "No built-in editor; captures are organised in a gallery and exported as files.",
+      "Built for games; there are no zoom, cursor, or caption tools for tutorials."
+    ],
+    "pickThemWhen": "you record games on an RTX PC and want instant replays at high resolution with minimal overhead.",
+    "differentiator": "The NVIDIA App is a game capture tool; CaptureCat is a recorder and editor for tutorials and demos with captions and, on Pro, share links with viewer analytics. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "switchTip": "Most people keep the NVIDIA App for gameplay and use another tool for tutorials. On Windows that means the CaptureCat browser app; on a Mac, the native CaptureCat app adds auto zoom and cursor smoothing.",
+    "faqExtra": {
+      "question": "Does the NVIDIA App support GTX graphics cards?",
+      "answer": "NVIDIA's system requirements list GeForce RTX 20, 30, 40, and 50 series GPUs on Windows 10 and 11."
+    },
+    "notes": "Replaces GeForce Experience as NVIDIA's capture app. Desktop capture is a toggle in the overlay; Highlights auto-captures moments in supported games.",
+    "sources": {
+      "summary": [
+        "https://www.nvidia.com/en-us/software/nvidia-app/",
+        "https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"
+      ],
+      "platform": [
+        "https://www.nvidia.com/en-us/software/nvidia-app/system-requirements/"
+      ],
+      "price": [
+        "https://www.nvidia.com/en-us/software/nvidia-app/",
+        "https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"
+      ],
+      "freeVersion": [
+        "https://www.nvidia.com/en-us/software/nvidia-app/system-requirements/"
+      ],
+      "strengths": [
+        "https://www.nvidia.com/en-us/software/nvidia-app/",
+        "https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"
+      ],
+      "tradeoffs": [
+        "https://www.nvidia.com/en-us/software/nvidia-app/system-requirements/",
+        "https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"
+      ],
+      "faqExtra": [
+        "https://www.nvidia.com/en-us/software/nvidia-app/system-requirements/"
+      ],
+      "notes": [
+        "https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"
+      ],
+      "autoZoom": [
+        "https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"
+      ],
+      "cursorEffects": [
+        "https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"
+      ],
+      "captions": [
+        "https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"
+      ],
+      "shareAnalytics": [
+        "https://www.nvidia.com/en-us/geforce/news/nvidia-app-download-and-features/"
+      ],
+      "mcp": [
+        "https://www.nvidia.com/en-us/software/nvidia-app/"
+      ]
+    }
+  },
+  {
+    "slug": "flashback",
+    "name": "FlashBack Express",
+    "website": "https://www.flashbackrecorder.com/",
+    "category": "editor",
+    "summary": "FlashBack Express is a Windows screen recorder with a multi-track editor; it replaced the older FlashBack Pro.",
+    "autoZoom": "Cursor-follow zoom, placed manually",
+    "cursorEffects": "Cursor highlight + click pulse in post",
+    "captions": "Cloud AI; 10 min free, credits after",
+    "mcp": false,
+    "shareAnalytics": false,
+    "freeVersion": "Free, no watermark or time limit",
+    "openSource": false,
+    "platform": "Windows only",
+    "price": "Free · $29/yr or $49 one-time (sale)",
+    "strengths": [
+      "Free tier records screen, webcam, and audio with no time limit and no watermark.",
+      "Records screen, webcam, and audio on separate tracks for editing later.",
+      "Smart Zoom follows the cursor automatically within a range you place on the timeline."
+    ],
+    "tradeoffs": [
+      "Windows only (Windows 10 and 11); no macOS version.",
+      "Multi-track editing, effects, and Smart Zoom are listed under the paid plans.",
+      "AI subtitles are metered: 10 minutes on the free tier, 120 on paid, then extra credits."
+    ],
+    "pickThemWhen": "you are on Windows and want a free, unwatermarked recorder with an optional low-cost editor.",
+    "differentiator": "On a Mac, CaptureCat applies zoom automatically from recorded clicks and runs captions on-device, both free. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there. FlashBack's paid Smart Zoom is the closer match on Windows.",
+    "switchTip": "FlashBack exports MP4, so finished videos carry over. Mac users get CaptureCat's full native app; Windows users should compare FlashBack's Smart Zoom against the CaptureCat browser app, which has no auto zoom.",
+    "faqExtra": {
+      "question": "Can I still buy FlashBack Pro?",
+      "answer": "No. New FlashBack Pro licenses are no longer sold; it has been replaced by FlashBack Express, and existing customers can still renew maintenance."
+    },
+    "notes": "FlashBack Pro discontinued for new licenses and replaced by FlashBack Express. Pricing page shows sale prices: 1-Year $29 (list $39), Lifetime $49 (list $65), Creator bundle $63; lifetime covers v7 updates only. Subtitles use cloud AI with feature credits (Express 6 help article states cloud A.I. services).",
+    "sources": {
+      "summary": [
+        "https://www.flashbackrecorder.com/",
+        "https://www.componentsource.com/product/bb-flashback/releases/2765231"
+      ],
+      "platform": [
+        "https://www.flashbackrecorder.com/",
+        "https://help.flashbackrecorder.com/article/7br945m67v-faqs"
+      ],
+      "price": [
+        "https://www.flashbackrecorder.com/pricing/"
+      ],
+      "freeVersion": [
+        "https://www.flashbackrecorder.com/",
+        "https://www.flashbackrecorder.com/pricing/"
+      ],
+      "autoZoom": [
+        "https://help.flashbackrecorder.com/l/en/article/1bwk6c077n-smart-zoom",
+        "https://www.flashbackrecorder.com/pricing/"
+      ],
+      "cursorEffects": [
+        "https://help.flashbackrecorder.com/l/en/article/t187sx5iba-highlight-the-mouse-cursor"
+      ],
+      "captions": [
+        "https://www.flashbackrecorder.com/pricing/",
+        "https://help.flashbackrecorder.com/l/en/article/7o82xo2vve-subtitles",
+        "https://help.flashbackrecorder.com/l/en/article/4l7sroeby4-feature-credits-for-transcrptions"
+      ],
+      "shareAnalytics": [
+        "https://www.flashbackrecorder.com/pricing/"
+      ],
+      "strengths": [
+        "https://www.flashbackrecorder.com/",
+        "https://www.flashbackrecorder.com/pricing/",
+        "https://help.flashbackrecorder.com/l/en/article/1bwk6c077n-smart-zoom"
+      ],
+      "tradeoffs": [
+        "https://help.flashbackrecorder.com/article/7br945m67v-faqs",
+        "https://www.flashbackrecorder.com/pricing/"
+      ],
+      "faqExtra": [
+        "https://www.componentsource.com/product/bb-flashback/releases/2765231"
+      ],
+      "notes": [
+        "https://www.componentsource.com/product/bb-flashback/releases/2765231",
+        "https://www.flashbackrecorder.com/pricing/",
+        "https://help.flashbackrecorder.com/l/en/article/4l7sroeby4-feature-credits-for-transcrptions"
+      ],
+      "mcp": [
+        "https://www.flashbackrecorder.com/pricing/"
+      ]
+    }
+  },
+  {
+    "slug": "activepresenter",
+    "name": "ActivePresenter",
+    "website": "https://atomisystems.com/activepresenter/",
+    "category": "editor",
+    "summary": "ActivePresenter by Atomi Systems is an eLearning authoring tool for Windows and macOS that combines screen recording, video editing, and interactive SCORM/xAPI course export.",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": "Editable cursor paths and click effects",
+    "captions": "Cloud AI, paid editions + credits",
+    "mcp": false,
+    "shareAnalytics": "Via separate uPresenter service",
+    "freeVersion": "Free for non-commercial use, watermark",
+    "openSource": false,
+    "platform": "Windows & macOS",
+    "price": "$249 Standard or $499 Pro, one-time",
+    "strengths": [
+      "Records mouse movement as editable cursor paths, with click sounds, click effects, and cursor highlights adjustable after recording.",
+      "Exports interactive simulations and quizzes to HTML5, SCORM, and xAPI for LMSs.",
+      "Perpetual licenses with one year of free major upgrades, and an unlimited-time free edition."
+    ],
+    "tradeoffs": [
+      "Zoom-n-Pan is placed and sized by hand; there is no automatic zoom.",
+      "AI tools, including speech-to-text captions, need a paid edition, AI credits, and an internet connection.",
+      "The free edition is for trial and non-commercial use, and outputs using paid features carry a watermark."
+    ],
+    "pickThemWhen": "you build software training or interactive courses and need SCORM/xAPI output, quizzes, and branching.",
+    "differentiator": "CaptureCat's native Mac app zooms automatically from recorded clicks and transcribes on-device for free, but has no quizzes or SCORM export. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "switchTip": "Switch only the video-tutorial part of your workflow; keep ActivePresenter for interactive courses and LMS packages, since CaptureCat does not export SCORM or xAPI.",
+    "faqExtra": {
+      "question": "Is the free edition of ActivePresenter allowed for commercial use?",
+      "answer": "No. Atomi Systems says the free edition is for trial and non-commercial use; outputs that use non-free features get a watermark until a license is activated."
+    },
+    "notes": "Version 10.6.1 released Sep 22, 2026 for Windows 11/10 and macOS 13-26. Price rose to $249 Standard / $499 Pro (third-party listings still show $199/$399). Extra AI credits from $40 per 20,000.",
+    "sources": {
+      "summary": [
+        "https://atomisystems.com/activepresenter/",
+        "https://atomisystems.com/download/"
+      ],
+      "platform": [
+        "https://atomisystems.com/download/"
+      ],
+      "price": [
+        "https://atomisystems.com/pricing/"
+      ],
+      "freeVersion": [
+        "https://atomisystems.com/activepresenter/",
+        "https://atomisystems.com/download/"
+      ],
+      "autoZoom": [
+        "https://atomisystems.com/tutorials/ap8/how-to-use-zoom-n-pan-in-activepresenter-8/"
+      ],
+      "cursorEffects": [
+        "https://atomisystems.com/tutorials/ap7/adding-cursor-paths/",
+        "https://atomisystems.com/activepresenter/"
+      ],
+      "captions": [
+        "https://atomisystems.com/tutorials/activepresenter-10/speech-to-text-activepresenter-10/",
+        "https://atomisystems.com/tutorials/activepresenter-10/how-do-ai-credits-work/",
+        "https://atomisystems.com/pricing/"
+      ],
+      "shareAnalytics": [
+        "https://atomisystems.com/activepresenter/"
+      ],
+      "strengths": [
+        "https://atomisystems.com/tutorials/ap7/adding-cursor-paths/",
+        "https://atomisystems.com/activepresenter/",
+        "https://atomisystems.com/pricing/",
+        "https://atomisystems.com/download/"
+      ],
+      "tradeoffs": [
+        "https://atomisystems.com/tutorials/ap8/how-to-use-zoom-n-pan-in-activepresenter-8/",
+        "https://atomisystems.com/tutorials/activepresenter-10/speech-to-text-activepresenter-10/",
+        "https://atomisystems.com/download/"
+      ],
+      "faqExtra": [
+        "https://atomisystems.com/activepresenter/",
+        "https://atomisystems.com/download/"
+      ],
+      "notes": [
+        "https://atomisystems.com/download/",
+        "https://atomisystems.com/pricing/"
+      ],
+      "mcp": [
+        "https://atomisystems.com/pricing/"
+      ]
+    }
+  },
+  {
+    "slug": "icecream-screen-recorder",
+    "name": "Icecream Screen Recorder",
+    "website": "https://icecreamapps.com/Screen-Recorder/",
+    "category": "capture",
+    "summary": "Icecream Screen Recorder is a simple screen and webcam recorder from Icecream Apps with annotations, light editing, and instant upload for sharing.",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": "Click animation at record time",
+    "captions": false,
+    "mcp": false,
+    "shareAnalytics": "Share links with view counts",
+    "freeVersion": "Free, time-limited with watermark",
+    "openSource": false,
+    "platform": "Windows, macOS & Android",
+    "price": "Free · £19.95/yr or £49.99 lifetime",
+    "strengths": [
+      "Simple recorder with live drawing, text, and arrow annotations plus trim, speed, and mute edits.",
+      "One-click upload to Icecream's servers for sharing, with view counts shown in the app.",
+      "Options to animate clicks, highlight the cursor, and show hotkeys used during recording."
+    ],
+    "tradeoffs": [
+      "The free version has a recording time limit and a watermark; removing them needs PRO.",
+      "Cursor and click effects are set before recording, not adjusted afterwards.",
+      "No automatic zoom or auto captions."
+    ],
+    "pickThemWhen": "you want a straightforward, inexpensive recorder with quick sharing and do not need a full editor.",
+    "differentiator": "CaptureCat's free tier has no time limit or watermark, and its native Mac app adds automatic zoom from clicks and on-device captions. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "switchTip": "Download any videos you still need from Icecream's cloud before switching. CaptureCat share links with view analytics need Pro, the same as Icecream's PRO plan.",
+    "faqExtra": {
+      "question": "Does Icecream Screen Recorder work on Mac?",
+      "answer": "Yes. Icecream Apps says Screen Recorder is available on Windows, Mac, and Android."
+    },
+    "notes": "Version 7.48 (Jun 5, 2026). Icecream's site showed prices in GBP when fetched (geo-localised): £19.95/yr, £49.99 lifetime (list £66.65). Third-party reviews report the free limit as 5 minutes; Icecream's upgrade page only says PRO removes the time limit and watermark. PRO includes 10 GB cloud storage. Zoom-in hotkey reported by a download site, not Icecream's own docs.",
+    "sources": {
+      "summary": [
+        "https://icecreamapps.com/Screen-Recorder/"
+      ],
+      "platform": [
+        "https://icecreamapps.com/Screen-Recorder/"
+      ],
+      "price": [
+        "https://icecreamapps.com/Screen-Recorder/upgrade.html"
+      ],
+      "freeVersion": [
+        "https://icecreamapps.com/Screen-Recorder/upgrade.html",
+        "https://windowsreport.com/software/icecream-screen-recorder/"
+      ],
+      "autoZoom": [
+        "https://filehippo.com/zh/download_icecream-screen-recorder/"
+      ],
+      "cursorEffects": [
+        "https://icecreamapps.com/learn/Howto/how-to-change-recording-settings.html"
+      ],
+      "captions": [
+        "https://icecreamapps.com/Screen-Recorder/",
+        "https://icecreamapps.com/Screen-Recorder/upgrade.html"
+      ],
+      "shareAnalytics": [
+        "https://icecreamapps.com/Screen-Recorder/"
+      ],
+      "strengths": [
+        "https://icecreamapps.com/Screen-Recorder/",
+        "https://icecreamapps.com/learn/Howto/how-to-change-recording-settings.html"
+      ],
+      "tradeoffs": [
+        "https://icecreamapps.com/Screen-Recorder/upgrade.html",
+        "https://icecreamapps.com/learn/Howto/how-to-change-recording-settings.html"
+      ],
+      "faqExtra": [
+        "https://icecreamapps.com/Screen-Recorder/"
+      ],
+      "notes": [
+        "https://icecreamapps.com/Screen-Recorder/",
+        "https://icecreamapps.com/Screen-Recorder/upgrade.html",
+        "https://windowsreport.com/software/icecream-screen-recorder/",
+        "https://filehippo.com/zh/download_icecream-screen-recorder/"
+      ],
+      "mcp": [
+        "https://icecreamapps.com/Screen-Recorder/upgrade.html"
+      ]
+    }
+  },
+  {
+    "slug": "apowerrec",
+    "name": "ApowerREC (Apowersoft)",
+    "website": "https://www.apowersoft.com/record-all-screen",
+    "category": "capture",
+    "summary": "ApowerREC is Apowersoft's screen, webcam, and audio recorder for Windows and Mac, with companion mobile apps, scheduled recording, and live annotation.",
+    "autoZoom": "Manual zoom only",
+    "cursorEffects": null,
+    "captions": null,
+    "mcp": false,
+    "shareAnalytics": null,
+    "freeVersion": "Free version with recording time cap",
+    "openSource": false,
+    "platform": "Windows, macOS, iOS & Android",
+    "price": "Free · from $19.95/mo or $69.95 lifetime",
+    "strengths": [
+      "Scheduled recording tasks start and stop the screen or webcam capture automatically.",
+      "Live tools during recording: annotations, an F10 zoom hotkey, an F4 spotlight, and locked-window recording.",
+      "Uploads directly to YouTube, Google Drive, Dropbox, FTP, or Apowersoft's RecCloud."
+    ],
+    "tradeoffs": [
+      "Zoom and spotlight are triggered live by hotkey, not applied automatically or adjusted after recording.",
+      "Monthly and yearly plans auto-renew; the lifetime license costs $69.95.",
+      "The free version is limited, and third-party sources disagree on the exact cap and whether it adds a watermark."
+    ],
+    "pickThemWhen": "you want a cross-platform recorder with scheduled captures and direct upload to YouTube or cloud drives.",
+    "differentiator": "CaptureCat's free tier has no recording cap or watermark, and its native Mac app zooms automatically from clicks and transcribes on-device. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "switchTip": "Export or download anything stored in RecCloud first. On a Mac, CaptureCat replaces live hotkey zoom with automatic zoom in the editor; on Windows, the browser app has no auto zoom.",
+    "faqExtra": {
+      "question": "Is ApowerREC available on Mac?",
+      "answer": "Yes. Apowersoft lists ApowerREC for Windows 7 or later and Mac OS X 10.10 or later, plus iOS 13 or later."
+    },
+    "notes": "Still sold; Windows build 1.8.5.1 dated Jan 20, 2026 per Softpedia. iOS app last updated Sep 2024 and mentions AI subtitles, but desktop auto-caption support could not be verified (captions null). Cursor options unverified on Apowersoft's site (null). RecCloud hosting exists but its viewer analytics could not be verified (shareAnalytics null). Business licenses: $79.95/yr or $159.90 lifetime.",
+    "sources": {
+      "summary": [
+        "https://www.apowersoft.com/record-all-screen"
+      ],
+      "platform": [
+        "https://www.apowersoft.com/record-all-screen"
+      ],
+      "price": [
+        "https://www.apowersoft.com/store/apowerrec.html",
+        "https://apps.apple.com/us/app/apowerrec-record-screen/id1336928544"
+      ],
+      "freeVersion": [
+        "https://www.bandicam.com/blog/?p=9247",
+        "https://www.g2.com/products/apowerrec/reviews",
+        "https://www.apowersoft.com/store/apowerrec.html"
+      ],
+      "autoZoom": [
+        "https://www.apowersoft.com/record-all-screen"
+      ],
+      "strengths": [
+        "https://www.apowersoft.com/record-all-screen"
+      ],
+      "tradeoffs": [
+        "https://www.apowersoft.com/record-all-screen",
+        "https://www.apowersoft.com/store/apowerrec.html",
+        "https://www.bandicam.com/blog/?p=9247",
+        "https://www.g2.com/products/apowerrec/reviews"
+      ],
+      "faqExtra": [
+        "https://www.apowersoft.com/record-all-screen"
+      ],
+      "notes": [
+        "https://www.softpedia.com/get/Multimedia/Video/Video-Recording/ApowerREC.shtml",
+        "https://apps.apple.com/us/app/apowerrec-record-screen/id1336928544",
+        "https://www.apowersoft.com/store/apowerrec.html",
+        "https://www.techradar.com/reviews/apowerrec"
+      ],
+      "mcp": [
+        "https://www.apowersoft.com/record-all-screen"
+      ]
+    }
+  }
+]
