@@ -11,8 +11,8 @@ import {
   FaqSection,
   PseoCta,
 } from "@/components/marketing/PseoSections";
-import { COMPETITORS, buildPseoPage, pseoJsonLd } from "@/lib/pseo-content";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { COMPETITORS, buildPseoPage, comparePath, pseoJsonLd } from "@/lib/pseo-content";
+import { pageHead } from "@/lib/site-content";
 
 /**
  * /compare/capturecat-vs-{competitor}: generated comparison pages.
@@ -32,14 +32,7 @@ export const Route = createFileRoute("/compare/$slug")({
   head: ({ params }) => {
     const competitor = competitorFromSlug(params.slug);
     if (!competitor) return {};
-    const page = buildPseoPage("compare", competitor);
-    return {
-      meta: [
-        { title: `${page.title} | CaptureCat` },
-        { name: "description", content: page.description },
-      ],
-      links: [{ rel: "stylesheet", href: demosCss }, ...markdownAlternateLinks(page.path)],
-    };
+    return pageHead(comparePath(competitor), [{ rel: "stylesheet", href: demosCss }]);
   },
   component: ComparePage,
 });

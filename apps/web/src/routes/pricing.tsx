@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { jsonLd } from "@/lib/json-ld";
 import { API_URL } from "@/lib/api-url";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { pageHead } from "@/lib/site-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
 import { PricingCards, type PlanView } from "@/components/marketing/pricing-cards";
@@ -37,21 +37,7 @@ async function getPlan(): Promise<PlanView | null> {
 
 export const Route = createFileRoute("/pricing")({
   loader: async () => ({ plan: await getPlan() }),
-  head: () => ({
-    meta: [
-      { title: "Pricing | CaptureCat" },
-      {
-        name: "description",
-        content:
-          "CaptureCat is free to record, edit, and export. Pro adds share links, timestamped comments, and viewer analytics. Prices come live from Stripe.",
-      },
-    ],
-    links: [
-      { rel: "stylesheet", href: demosCss },
-      { rel: "stylesheet", href: demosPagesCss },
-      ...markdownAlternateLinks("/pricing"),
-    ],
-  }),
+  head: () => pageHead("/pricing", [{ rel: "stylesheet", href: demosCss }, { rel: "stylesheet", href: demosPagesCss }]),
   component: PricingPage,
 });
 

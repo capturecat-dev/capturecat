@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 import { jsonLd } from "@/lib/json-ld";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { pageHead } from "@/lib/site-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
 import FeatureInventory from "@/components/marketing/FeatureInventory";
@@ -38,21 +38,7 @@ import {
 } from "@/components/marketing/primitives";
 
 export const Route = createFileRoute("/features")({
-  head: () => ({
-    meta: [
-      { title: "Features | CaptureCat" },
-      {
-        name: "description",
-        content:
-          "Every feature in CaptureCat, the Mac screen recorder: recording sources, auto zoom, cursor smoothing, captions, device frames, camera bubble, blur and spotlight, timeline, export, sharing, library search, and the MCP server for AI agents.",
-      },
-    ],
-    links: [
-      { rel: "stylesheet", href: demosCss },
-      { rel: "stylesheet", href: demosPagesCss },
-      ...markdownAlternateLinks("/features"),
-    ],
-  }),
+  head: () => pageHead("/features", [{ rel: "stylesheet", href: demosCss }, { rel: "stylesheet", href: demosPagesCss }]),
   component: FeaturesPage,
 });
 

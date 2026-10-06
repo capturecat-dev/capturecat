@@ -28,8 +28,10 @@ export interface GuideStep {
 
 export interface Guide {
   slug: string;
-  /** The question as a person would ask it. Used as the H1 and page title. */
+  /** The question as a person would ask it. Used as the H1 (and the <title>
+   *  unless `seoTitle` is set, for questions too long for a search result). */
   question: string;
+  seoTitle?: string;
   /** Meta description. */
   description: string;
   /** The direct answer, two or three sentences. Quotable on its own. */
@@ -117,7 +119,7 @@ export const GUIDES: Guide[] = [
     label: "Make a product demo video",
     question: "How do I make a product demo video on a Mac?",
     description:
-      "A practical way to make a polished SaaS or app demo video on macOS: plan the flow, record once, let the zooms and captions apply themselves, then export or share a link.",
+      "A practical way to make a polished SaaS or app demo on macOS: plan the flow, record once, let zooms and captions apply themselves, then export or share.",
     answer:
       "Plan the flow, record it in one take with a recorder that captures clicks, and let the software do the editing that usually takes hours. With CaptureCat (free on macOS) the zooms, smoothed cursor, and captions are applied when you stop recording; you add a background, trim the ends, and export a 4K file or share a link.",
     steps: [
@@ -172,10 +174,11 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "add-captions-to-a-screen-recording-on-mac",
+    seoTitle: "Add captions to a Mac screen recording without uploading",
     label: "Add captions on your Mac",
     question: "How do I add captions to a screen recording on a Mac without uploading it?",
     description:
-      "Add captions or subtitles to a Mac screen recording with on-device transcription, so the audio never leaves your Mac. Styled presets and word-by-word highlighting.",
+      "Add captions to a Mac screen recording with on-device transcription, so audio never leaves your Mac. Styled presets and word-by-word highlighting.",
     answer:
       "Use a tool that transcribes on the device instead of in the cloud. CaptureCat transcribes your recording on your Mac with a local Whisper model, so the audio is never uploaded, then burns styled captions into the export. Captions are free and currently English.",
     without: {
@@ -229,6 +232,7 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "record-iphone-screen-on-mac",
+    seoTitle: "Record your iPhone screen on a Mac, in a device frame",
     label: "Record an iPhone on your Mac",
     question: "How do I record my iPhone screen on my Mac and put it in a device frame?",
     description:
@@ -374,10 +378,11 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "show-keyboard-shortcuts-in-a-screen-recording",
+    seoTitle: "Show keyboard shortcuts in a screen recording",
     label: "Show keyboard shortcuts",
     question: "How do I show the keyboard shortcuts I press in a screen recording?",
     description:
-      "Show keyboard shortcuts on screen in a Mac screen recording as a caption-style pill, for keyboard-heavy tutorials. Only shortcuts are captured, never ordinary typing.",
+      "Show keyboard shortcuts as a pill in a Mac screen recording, for keyboard-heavy tutorials. Only shortcuts are captured, never ordinary typing.",
     answer:
       "Use a recorder that captures your shortcuts while you record and draws them into the video. In CaptureCat, turn on Capture Shortcuts before recording and Show Shortcut Overlay in the editor: each shortcut appears as a pill at the moment you pressed it. Only combinations with Command, Control, or Option are kept, so ordinary typing such as passwords is never stored.",
     without: {
@@ -470,7 +475,7 @@ export const GUIDES: Guide[] = [
     label: "Make it look professional",
     question: "How do I make a screen recording look professional?",
     description:
-      "The handful of changes that make a raw screen recording look polished: background and padding, zooms on the action, a smooth cursor, captions, and clean framing.",
+      "The changes that make a raw screen recording look polished: background and padding, zooms on the action, a smooth cursor, captions, and clean framing.",
     answer:
       "Put the recording on a background with padding and rounded corners, zoom in on the action, smooth the cursor, add captions, and hide desktop clutter. Those five changes account for most of the difference between a raw capture and a polished video, and CaptureCat applies the zooms and cursor smoothing automatically, free on macOS.",
     steps: [
@@ -519,6 +524,7 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "share-a-screen-recording-link-with-analytics",
+    seoTitle: "Share a screen recording link and see who watched",
     label: "Share a link and see who watched",
     question: "How do I share a screen recording as a link and see who watched it?",
     description:
@@ -616,10 +622,11 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "make-a-vertical-video-from-a-screen-recording",
+    seoTitle: "Turn a screen recording into a TikTok, Reels or Shorts video",
     label: "Vertical cut for TikTok and Reels",
     question: "How do I turn a screen recording into a vertical video for TikTok, Reels, or Shorts?",
     description:
-      "Turn a landscape Mac screen recording into a 9:16 vertical video for TikTok, Instagram Reels, or YouTube Shorts, with tight zooms and captions so it stays readable.",
+      "Turn a landscape Mac screen recording into a 9:16 video for TikTok, Reels, or Shorts, with tight zooms and captions so it stays readable on a phone.",
     answer:
       "Change the canvas to 9:16, then zoom in tight on the action so the UI stays readable on a phone, and add large captions. In CaptureCat that is one aspect ratio setting plus the automatic zooms from your clicks; recording a narrow window or an iPhone in the first place makes the result even better.",
     steps: [
@@ -663,6 +670,7 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "record-mac-screen-with-system-audio",
+    seoTitle: "Record your Mac screen with system audio, no BlackHole",
     label: "Record system audio on Mac",
     question: "How do I record my Mac screen with the computer's sound, without BlackHole?",
     description:
@@ -703,6 +711,7 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "record-a-full-page-website-video",
+    seoTitle: "Capture a full web page from a URL, desktop and mobile",
     label: "Capture a website by URL",
     question: "How do I capture a full website from a URL in desktop and mobile sizes?",
     description:
@@ -742,6 +751,7 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "record-your-screen-on-windows-linux-or-chromebook",
+    seoTitle: "Record and edit your screen on Windows, Linux, or ChromeOS",
     label: "Record on Windows, Linux, ChromeOS",
     question: "How do I record and edit a polished screen recording on Windows, Linux, or a Chromebook?",
     description:
@@ -786,6 +796,7 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "search-text-inside-screen-recordings",
+    seoTitle: "Find the screen recording where a word appeared",
     label: "Search text inside recordings",
     question: "How do I find the screen recording where a word appeared on screen?",
     description:
@@ -981,12 +992,13 @@ export function guidesHubJsonLd(): object {
 /* ------------------------------------------------------------------ */
 
 export const GUIDES_HUB_DESCRIPTION =
-  "How to get common screen recording jobs done on a Mac: zoom in on clicks, add captions without uploading, blur secrets, record an iPhone, record system audio, share with analytics, and edit with AI agents.";
+  "How to zoom in on clicks, caption without uploading, blur secrets, record an iPhone or system audio, share with analytics, and edit with AI agents on a Mac.";
 
 export const GUIDE_SITE_PAGES: SitePage[] = [
   {
     path: "/guides",
     title: "Guides",
+    seoTitle: "Screen recording guides for Mac | CaptureCat",
     description: GUIDES_HUB_DESCRIPTION,
     lastModified: HUB_LAST_MODIFIED,
     markdown: hubMarkdown,
@@ -994,6 +1006,8 @@ export const GUIDE_SITE_PAGES: SitePage[] = [
   ...GUIDES.map((g) => ({
     path: guidePath(g),
     title: g.question,
+    seoTitle: g.seoTitle,
+    ogType: "article" as const,
     description: g.description,
     lastModified: g.lastModified,
     markdown: guideMarkdown(g),

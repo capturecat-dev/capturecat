@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { jsonLd } from "@/lib/json-ld";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { pageHead } from "@/lib/site-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
 import Hero from "@/components/marketing/home/Hero";
@@ -48,17 +48,7 @@ const jsonLdData = {
 };
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "CaptureCat: the Mac screen recorder that edits itself" },
-      {
-        name: "description",
-        content:
-          "CaptureCat records your Mac and adds the zooms, cursor smoothing, and captions automatically. Native Swift, free to record and export, with share links and viewer analytics on Pro.",
-      },
-    ],
-    links: [{ rel: "stylesheet", href: demosCss }, ...markdownAlternateLinks("/")],
-  }),
+  head: () => pageHead("/", [{ rel: "stylesheet", href: demosCss }]),
   component: Home,
 });
 

@@ -1,4 +1,4 @@
-import { findPageByPath, SITE_URL } from "@/lib/site-content";
+import { canonicalUrl, findPageByPath } from "@/lib/site-content";
 
 /**
  * Shared Markdown renderer for the public pages.
@@ -18,12 +18,17 @@ export function markdownPageResponse(path: string): Response {
   }
 
   // Prepend canonical + source so a stand-alone Markdown file is self-describing.
-  const header = `<!-- canonical: ${SITE_URL}${page.path} -->\n\n`;
+  const canonical = canonicalUrl(page.path);
+  const header = `<!-- canonical: ${canonical} -->\n\n`;
   return new Response(header + page.markdown, {
     status: 200,
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
       "Cache-Control": "public, max-age=300, s-maxage=3600",
+      // The twin is for agents; the HTML page is what search engines should
+      // index. A canonical Link header is how Google consolidates non-HTML
+      // duplicates onto the original.
+      Link: `<${canonical}>; rel="canonical"`,
       "X-Robots-Tag": "all",
     },
   });

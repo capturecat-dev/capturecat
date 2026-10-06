@@ -1,19 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalLayout } from "@/components/marketing/LegalLayout";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { pageHead } from "@/lib/site-content";
 
 export const Route = createFileRoute("/privacy")({
-  head: () => ({
-    meta: [
-      { title: "Privacy Policy | CaptureCat" },
-      {
-        name: "description",
-        content:
-          "How CaptureCat collects, uses, and protects your personal data under UK GDPR and the Data Protection Act 2018, and the rights you have over it.",
-      },
-    ],
-    links: markdownAlternateLinks("/privacy"),
-  }),
+  head: () => pageHead("/privacy"),
   component: PrivacyPage,
 });
 

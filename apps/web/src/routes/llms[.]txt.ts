@@ -39,7 +39,7 @@ export const Route = createFileRoute("/llms.txt")({
         // answers or the comparisons instead of reading one flat list.
         const sections: Array<[string, (path: string) => boolean]> = [
           ["Guides", (p) => p.startsWith("/guides")],
-          ["Best-of lists", (p) => p.startsWith("/best/")],
+          ["Best-of lists", (p) => p === "/best" || p.startsWith("/best/")],
           ["Comparisons", (p) => p.startsWith("/compare") || p.startsWith("/alternatives")],
         ];
         const entry = (page: (typeof SITE_PAGES)[number]) =>

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { API_URL } from "@/lib/api-url";
-import { markdownAlternateLinks } from "@/lib/site-content";
+import { pageHead } from "@/lib/site-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
 import { DownloadButtons } from "@/components/marketing/download-buttons";
@@ -37,21 +37,7 @@ async function getLatestRelease() {
 
 export const Route = createFileRoute("/download")({
   loader: async () => ({ release: await getLatestRelease() }),
-  head: () => ({
-    meta: [
-      { title: "Download CaptureCat for macOS | CaptureCat" },
-      {
-        name: "description",
-        content:
-          "Download CaptureCat, the free native screen recorder for macOS 14 and later. Builds for Apple Silicon and Intel. No account needed to record.",
-      },
-    ],
-    links: [
-      { rel: "stylesheet", href: demosCss },
-      { rel: "stylesheet", href: demosPagesCss },
-      ...markdownAlternateLinks("/download"),
-    ],
-  }),
+  head: () => pageHead("/download", [{ rel: "stylesheet", href: demosCss }, { rel: "stylesheet", href: demosPagesCss }]),
   component: DownloadPage,
 });
 
