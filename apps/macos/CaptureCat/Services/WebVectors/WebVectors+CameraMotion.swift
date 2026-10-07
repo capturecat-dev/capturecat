@@ -831,9 +831,11 @@ extension WebVectors {
                     model.reset(env: env)
                     op = ["op": "reset", "time": time.wv]
                 } else {
-                    let dt: Double = rng.bool(0.04)
-                        ? rng.pick([0, -0.1, 1.0, 1.0000001, 1.5, 0.35])
-                        : rng.pick([1.0 / 60, 1.0 / 60, 1.0 / 60, 1.0 / 120, 1.0 / 30, 1.0 / 30, 0.05, 0.1, 0.2, 0.5])
+                    // Typed arrays: the untyped literal ternary trips Xcode 27's
+                    // "unable to type-check in reasonable time".
+                    let oddSteps: [Double] = [0, -0.1, 1.0, 1.0000001, 1.5, 0.35]
+                    let frameSteps: [Double] = [1.0 / 60, 1.0 / 60, 1.0 / 60, 1.0 / 120, 1.0 / 30, 1.0 / 30, 0.05, 0.1, 0.2, 0.5]
+                    let dt: Double = rng.bool(0.04) ? rng.pick(oddSteps) : rng.pick(frameSteps)
                     time += dt
                     env.currentTime = time
                     model.step(env: env)
