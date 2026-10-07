@@ -21,6 +21,7 @@ import { getAISummary, getTranscript } from "../lib/db";
 import { requireAuth } from "../middleware/auth";
 import { requireEntitlement, userRateLimit, fixedWindowAllow, planForUser } from "../lib/entitlement";
 import { headR2ObjectMeta } from "../lib/presign";
+import { customObjectUrl, deleteStoredObject, storeFor, StorageUnavailableError } from "../lib/storage";
 import { resolveDomain, domainIsLive } from "../lib/db";
 import { generateId } from "../lib/id";
 import { readValidatedImage } from "../lib/uploads";
@@ -95,6 +96,7 @@ videoRoutes.get("/video/:videoId", async (c) => {
   // current one (or anything, for the owner). No `?v` streams the current
   // version, whatever it is today.
   let r2Key = doc.r2Key;
+  let storageId = doc.storageId ?? null;
   const vParam = c.req.query("v");
   const pinnedVersion = vParam !== undefined ? parseInt(vParam, 10) : null;
   if (vParam !== undefined) {
@@ -110,13 +112,46 @@ videoRoutes.get("/video/:videoId", async (c) => {
         return c.json({ error: "Version not found" }, 404);
       }
       r2Key = version.r2Key;
+      storageId = version.storageId ?? null;
+    }
+  }
+
+  // The file is in the owner's own bucket (migration 0029): every gate above
+  // has passed, so hand the player a short-lived URL to it. A redirect, not a
+  // proxy — the bytes never pass through the Worker, and <video> follows it
+  // and sends its Range requests straight to the bucket. Never cached: the
+  // URL is a credential that outlives no gate for long. (No ETag pin here:
+  // the pin guards CaptureCat's quota against a re-PUT, and these bytes are
+  // not in it.)
+  if (storageId) {
+    try {
+      const store = await storeFor(c.env, storageId);
+      const location = await customObjectUrl(store, r2Key, {
+        // Gated shares get a short window; a public share's player may sit
+        // paused for a while before it seeks again.
+        expiresIn: isPublicShare(doc) ? 6 * 3600 : 3600,
+        contentType: doc.contentType || "video/mp4",
+      });
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: location,
+          "Cache-Control": "private, no-store",
+          "Referrer-Policy": "no-referrer",
+        },
+      });
+    } catch (err) {
+      if (err instanceof StorageUnavailableError) {
+        return c.json({ error: "Video file not available from its storage bucket" }, 502);
+      }
+      throw err;
     }
   }
 
   const rangeHeader = c.req.header("Range");
   // Gated videos must not land in the shared edge cache — the cache key is
   // the URL and a cached copy would outlive the gate.
-  const isPublic = !doc.isPrivate && !doc.passwordHash && !doc.maxViews && !doc.expiresAt;
+  const isPublic = isPublicShare(doc);
 
   // For public videos, check Cloudflare CDN cache first
   if (isPublic) {
@@ -182,6 +217,11 @@ videoRoutes.get("/video/:videoId", async (c) => {
 
   return response;
 });
+
+/** No privacy flag and no password/expiry/view-cap gate. */
+function isPublicShare(doc: VideoMetadata): boolean {
+  return !doc.isPrivate && !doc.passwordHash && !doc.maxViews && !doc.expiresAt;
+}
 
 /** Whether the request carries a Bearer session belonging to the video's
  *  owner. Lazy-imports the auth instance so public streams never build it. */
@@ -515,10 +555,32 @@ videoRoutes.get("/video/:videoId/download", async (c) => {
   const gate = await shareGate(c, doc, c.req.query("token"));
   if (gate.state !== "open") return c.json({ error: "Download unavailable" }, 403);
 
+  const safeName = doc.fileName.replace(/[^\w.\- ]/g, "_") || "video.mp4";
+
+  // Owner's own bucket (0029): a signed URL that forces `attachment`.
+  if (doc.storageId) {
+    try {
+      const store = await storeFor(c.env, doc.storageId);
+      const location = await customObjectUrl(store, doc.r2Key, {
+        expiresIn: 900,
+        contentType: doc.contentType || "video/mp4",
+        downloadFileName: safeName,
+      });
+      return new Response(null, {
+        status: 302,
+        headers: { Location: location, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+      });
+    } catch (err) {
+      if (err instanceof StorageUnavailableError) {
+        return c.json({ error: "Video file not available from its storage bucket" }, 502);
+      }
+      throw err;
+    }
+  }
+
   const object = await c.env.R2.get(doc.r2Key);
   if (!object) return c.json({ error: "Video file not found in storage" }, 404);
 
-  const safeName = doc.fileName.replace(/[^\w.\- ]/g, "_") || "video.mp4";
   const headers = new Headers();
   headers.set("Content-Type", doc.contentType || "video/mp4");
   headers.set("Content-Length", String(object.size));
@@ -785,11 +847,18 @@ videoRoutes.post(
 
     // Re-pin the ETag to the object actually being restored; the presign
     // that created it is long expired, but the byte route still compares.
+    let store;
+    try {
+      store = await storeFor(c.env, version.storageId);
+    } catch (err) {
+      if (err instanceof StorageUnavailableError) {
+        return c.json({ error: err.message, code: "storage_unavailable" }, 503);
+      }
+      throw err;
+    }
     const head = await headR2ObjectMeta({
-      r2Endpoint: c.env.R2_ENDPOINT,
-      accessKeyId: c.env.R2_ACCESS_KEY_ID,
-      secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
-      bucket: "capturecat",
+      ...store.connection,
+      bucket: store.bucket,
       key: version.r2Key,
     });
     if (head === null) return c.json({ error: "Version file not found in storage" }, 404);
@@ -830,14 +899,27 @@ videoRoutes.delete(
     const others = (await listVideoVersions(c.env.DB, videoId)).filter(
       (v) => v.versionNumber !== versionNumber
     );
+    const sameFile = (key: string, storageId: string | null | undefined) =>
+      key === version.r2Key && (storageId ?? null) === (version.storageId ?? null);
     const keyStillUsed =
-      doc.r2Key === version.r2Key || others.some((v) => v.r2Key === version.r2Key);
+      sameFile(doc.r2Key, doc.storageId) || others.some((v) => sameFile(v.r2Key, v.storageId));
+    let leftInBucket = false;
     if (!keyStillUsed) {
-      await c.env.R2.delete(version.r2Key);
+      if (version.storageId) {
+        // The owner's own bucket may refuse (keys rotated, bucket gone). The
+        // version still goes: the file is theirs to clean up, and keeping the
+        // row would only list a version that no longer plays.
+        await deleteStoredObject(c.env, version.storageId, version.r2Key).catch((err) => {
+          console.error("versions: could not delete from custom bucket", err);
+          leftInBucket = true;
+        });
+      } else {
+        await c.env.R2.delete(version.r2Key);
+      }
     }
     await deleteVideoVersion(c.env.DB, videoId, versionNumber);
 
-    return c.json({ videoId, deletedVersion: versionNumber });
+    return c.json({ videoId, deletedVersion: versionNumber, ...(leftInBucket ? { leftInBucket: [version.r2Key] } : {}) });
   }
 );
 

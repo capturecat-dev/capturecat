@@ -42,6 +42,7 @@ interface SharedVideoRow {
   thumbnail_type: string | null;
   etag?: string | null;
   org_id?: string | null;
+  storage_id?: string | null;
 }
 
 function rowToVideo(row: SharedVideoRow): VideoMetadata {
@@ -73,6 +74,7 @@ function rowToVideo(row: SharedVideoRow): VideoMetadata {
     etag: row.etag ?? null,
     orgId: row.org_id ?? null,
     thumbnailType: row.thumbnail_type ?? null,
+    storageId: row.storage_id ?? null,
   };
 }
 
@@ -183,8 +185,8 @@ export async function upsertSharedVideo(
       `INSERT INTO shared_videos (
          video_id, uid, file_name, content_type, file_size_bytes,
          duration_seconds, r2_key, url, is_private, status, created_at,
-         comments_enabled, annotations_json, project_id
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         comments_enabled, annotations_json, project_id, storage_id
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(video_id) DO UPDATE SET
          uid = excluded.uid,
          file_name = excluded.file_name,
@@ -198,7 +200,8 @@ export async function upsertSharedVideo(
          created_at = excluded.created_at,
          comments_enabled = excluded.comments_enabled,
          annotations_json = excluded.annotations_json,
-         project_id = excluded.project_id`
+         project_id = excluded.project_id,
+         storage_id = excluded.storage_id`
     )
     .bind(
       video.videoId,
@@ -214,7 +217,8 @@ export async function upsertSharedVideo(
       video.createdAt,
       video.commentsEnabled ? 1 : 0,
       video.annotationsJson,
-      video.projectId
+      video.projectId,
+      video.storageId ?? null
     )
     .run();
 }
@@ -234,6 +238,8 @@ export async function deleteSharedVideo(
  * quota check in `markVersionReadyWithinQuota` can embed it and decide
  * atomically. `?1` is the uid.
  *
+ *  - only files in CaptureCat's own bucket: a version stored in the user's
+ *    own bucket (storage_id set, migration 0029) is their bill, not ours;
  *  - every ready version of the user's videos (migration 0017) — including a
  *    video whose row is still `pending`: /complete marks v1 ready and only
  *    then flips the video row, and excluding that window let concurrent
@@ -255,11 +261,11 @@ export const STORAGE_SUM_SQL = `
     SELECT vv.file_size_bytes AS sz
       FROM video_versions vv
       JOIN shared_videos sv ON sv.video_id = vv.video_id
-     WHERE sv.uid = ?1 AND vv.status = 'ready'
+     WHERE sv.uid = ?1 AND vv.status = 'ready' AND vv.storage_id IS NULL
     UNION ALL
     SELECT sv.file_size_bytes AS sz
       FROM shared_videos sv
-     WHERE sv.uid = ?1 AND sv.status = 'ready'
+     WHERE sv.uid = ?1 AND sv.status = 'ready' AND sv.storage_id IS NULL
        AND NOT EXISTS (SELECT 1 FROM video_versions vv WHERE vv.video_id = sv.video_id)
     UNION ALL
     SELECT so.bytes AS sz FROM stored_objects so WHERE so.uid = ?1
@@ -446,6 +452,7 @@ interface VideoVersionRow {
   duration_seconds: number;
   status: string;
   created_at: string;
+  storage_id?: string | null;
 }
 
 function rowToVersion(row: VideoVersionRow): VideoVersion {
@@ -458,6 +465,7 @@ function rowToVersion(row: VideoVersionRow): VideoVersion {
     durationSeconds: row.duration_seconds,
     status: row.status as VideoVersion["status"],
     createdAt: row.created_at,
+    storageId: row.storage_id ?? null,
   };
 }
 
@@ -501,8 +509,8 @@ export async function insertVideoVersion(
     .prepare(
       `INSERT INTO video_versions (
          version_id, video_id, version_number, r2_key,
-         file_size_bytes, duration_seconds, status, created_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+         file_size_bytes, duration_seconds, status, created_at, storage_id
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       version.versionId,
@@ -512,7 +520,8 @@ export async function insertVideoVersion(
       version.fileSizeBytes,
       version.durationSeconds,
       version.status,
-      version.createdAt
+      version.createdAt,
+      version.storageId ?? null
     )
     .run();
 }
@@ -546,7 +555,7 @@ export async function markVersionReady(
     .run();
 }
 
-/** Point the share link at a version: the parent row's r2_key/size/duration
+/** Point the share link at a version: the parent row's r2_key/storage/size/duration
  *  follow so every existing read path (stream, meta, quotas) sees the new
  *  file without learning about versions. */
 export async function setCurrentVersion(
@@ -562,7 +571,8 @@ export async function setCurrentVersion(
   await db
     .prepare(
       `UPDATE shared_videos
-          SET current_version = ?, r2_key = ?, file_size_bytes = ?, duration_seconds = ?, etag = ?
+          SET current_version = ?, r2_key = ?, file_size_bytes = ?, duration_seconds = ?, etag = ?,
+              storage_id = ?
         WHERE video_id = ?`
     )
     .bind(
@@ -571,6 +581,7 @@ export async function setCurrentVersion(
       version.fileSizeBytes,
       version.durationSeconds,
       etag,
+      version.storageId ?? null,
       videoId
     )
     .run();

@@ -84,6 +84,13 @@ export interface Env {
   /** The hostname customers CNAME to. Must be a proxied, originless record
    *  in the zone (see scripts/setup-saas.sh). Default customers.capturecat.so. */
   CUSTOM_DOMAIN_CNAME_TARGET?: string;
+
+  /** Secret — base64 of 32 random bytes (`openssl rand -base64 32`). AES-GCM
+   *  key for the secret access keys of user-connected storage buckets
+   *  (lib/storage.ts). Without it custom storage reports itself unavailable.
+   *  Rotating it makes every connected bucket unreadable until reconnected —
+   *  treat as permanent, like BETTER_AUTH_SECRET. */
+  STORAGE_CREDENTIALS_KEY?: string;
 }
 
 export interface AuthUser {
@@ -155,6 +162,10 @@ export interface VideoMetadata {
   etag?: string | null;
   /** Organization whose team library holds this video; null = personal. */
   orgId?: string | null;
+  /** Where the CURRENT version's file lives (migration 0029): null =
+   *  CaptureCat R2, else a storage_buckets id. Mirrors the version row the
+   *  way r2Key does. Absent in metadata cached before 0029 (= null). */
+  storageId?: string | null;
 }
 
 /** One historical file of a shared video (migration 0017). */
@@ -167,6 +178,8 @@ export interface VideoVersion {
   durationSeconds: number;
   status: "pending" | "ready";
   createdAt: string;
+  /** null = CaptureCat R2, else a storage_buckets id (migration 0029). */
+  storageId?: string | null;
 }
 
 /** One annotation marker shipped to the share page. Times are seconds into

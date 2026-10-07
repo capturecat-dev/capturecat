@@ -103,6 +103,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       "Fast export collapses still spans for dramatically smaller files",
       "The preview and the encoder share the same maths, so the file is never a surprise",
       "One click share links with viewer comments, AI titles and chapters, and per video analytics",
+      "Store shared videos in your own S3 compatible bucket: AWS S3, Cloudflare R2, Backblaze B2, Wasabi, or MinIO",
     ],
   },
   {

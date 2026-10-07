@@ -135,6 +135,15 @@ final class CCCallout: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    /// Replace the description in place (a live error line). Only for
+    /// callouts built WITH a message — the text row's constraints exist then.
+    func setMessage(_ message: String) {
+        guard !messageField.isHidden else { return }
+        messageField.stringValue = message
+        messageField.invalidateIntrinsicContentSize()
+        needsLayout = true
+    }
+
     /// Action buttons in a row under the text, aligned with it (shadcn's
     /// Alert with actions — "[Restore] [Back to Current]"). An empty list
     /// removes the row.

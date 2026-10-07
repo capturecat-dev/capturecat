@@ -125,7 +125,7 @@ const BUCKET = "capturecat";
 
 function r2Creds(env: Env) {
   return {
-    r2Endpoint: env.R2_ENDPOINT,
+    endpoint: env.R2_ENDPOINT,
     accessKeyId: env.R2_ACCESS_KEY_ID,
     secretAccessKey: env.R2_SECRET_ACCESS_KEY,
     bucket: BUCKET,

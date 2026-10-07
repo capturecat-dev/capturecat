@@ -13,6 +13,7 @@ enum SettingsSection: CaseIterable {
     case webCapture
     case appearance
     case account
+    case storage
 
     var title: String {
         switch self {
@@ -21,6 +22,7 @@ enum SettingsSection: CaseIterable {
         case .webCapture: return "Web Capture"
         case .appearance: return "Appearance"
         case .account: return "Account"
+        case .storage: return "Storage"
         }
     }
 
@@ -31,6 +33,7 @@ enum SettingsSection: CaseIterable {
         case .webCapture: return "globe"
         case .appearance: return "paintbrush.fill"
         case .account: return "person.crop.circle.fill"
+        case .storage: return "externaldrive.fill"
         }
     }
 
@@ -42,6 +45,7 @@ enum SettingsSection: CaseIterable {
         case .webCapture: return .systemBlue
         case .appearance: return .systemIndigo
         case .account: return .systemGreen
+        case .storage: return .systemOrange
         }
     }
 }
@@ -84,6 +88,9 @@ final class SettingsViewController: NSViewController {
     private let appState: AppState
     private let onCheckForUpdates: () -> Void
     private let onConnectAgents: () -> Void
+    /// Settings › Storage talks through this seam: the live API in the app,
+    /// a canned fake in `--settings-shot` (the gate never hits the network).
+    private let storageClient: StorageBucketClient
 
     private static let sidebarWidth: CGFloat = 200
 
@@ -98,11 +105,13 @@ final class SettingsViewController: NSViewController {
     init(
         appState: AppState,
         onCheckForUpdates: @escaping () -> Void = {},
-        onConnectAgents: @escaping () -> Void = {}
+        onConnectAgents: @escaping () -> Void = {},
+        storageClient: StorageBucketClient = StorageBucketAPI()
     ) {
         self.appState = appState
         self.onCheckForUpdates = onCheckForUpdates
         self.onConnectAgents = onConnectAgents
+        self.storageClient = storageClient
         super.init(nibName: nil, bundle: nil)
         // NSWindow(contentViewController:) sizes from this — without it the
         // window collapses to the constraint-fitting height.
@@ -175,13 +184,14 @@ final class SettingsViewController: NSViewController {
             self.contentHost.layer?.backgroundColor = CCTheme.color.card.cgColor
             header.textColor = CCTheme.color.foreground
         }
-        // Sign-in completes asynchronously; rebuild the Account pane in place
-        // whenever auth state moves while it is the visible pane.
+        // Sign-in completes asynchronously; rebuild the Account (and Storage,
+        // which reloads for the new session) pane in place whenever auth
+        // state moves while it is the visible pane.
         authObservation = SurfaceObservation { [weak self] in
             guard let self else { return }
             _ = self.appState.authStateRevision
-            if self.selectedSection == .account {
-                self.showPane(for: .account, animated: false)
+            if self.selectedSection == .account || self.selectedSection == .storage {
+                self.showPane(for: self.selectedSection, animated: false)
             }
         }
         select(section: .general, animated: false)
@@ -208,6 +218,11 @@ final class SettingsViewController: NSViewController {
             pane.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor, constant: -CCSpace.xl),
             pane.topAnchor.constraint(equalTo: contentHost.topAnchor, constant: 44),
         ])
+        // Storage's form is taller than the window: that pane scrolls, so it
+        // takes the full column height instead of hugging its content.
+        if pane is StorageSettingsPane {
+            pane.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor).isActive = true
+        }
         currentPane = pane
 
         if animated, view.window != nil {
@@ -228,6 +243,9 @@ final class SettingsViewController: NSViewController {
     // MARK: - Panes
 
     private func buildPane(for section: SettingsSection) -> NSView {
+        if section == .storage {
+            return StorageSettingsPane(client: storageClient) { [weak self] in self?.signIn() }
+        }
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -365,6 +383,9 @@ final class SettingsViewController: NSViewController {
                 ),
             ])
 
+        case .storage:
+            break // built by StorageSettingsPane above
+
         case .account:
             if let email = appState.currentAccountEmail {
                 let signOut = CCButton(title: "Sign Out", style: .outline, size: .sm) { [weak self] in
@@ -383,13 +404,7 @@ final class SettingsViewController: NSViewController {
                 ])
             } else {
                 let signIn = CCButton(title: "Sign In…", style: .primary, size: .sm) { [weak self] in
-                    guard let self else { return }
-                    Task { @MainActor in
-                        do { try await self.appState.signIn() } catch {
-                            if AuthService.isUserCancellation(error) { return }
-                            NSApplication.shared.presentError(error)
-                        }
-                    }
+                    self?.signIn()
                 }
                 addCard([
                     SettingsRow(title: "Not signed in",
@@ -418,6 +433,15 @@ final class SettingsViewController: NSViewController {
             ])
         }
         return stack
+    }
+
+    private func signIn() {
+        Task { @MainActor in
+            do { try await appState.signIn() } catch {
+                if AuthService.isUserCancellation(error) { return }
+                NSApplication.shared.presentError(error)
+            }
+        }
     }
 
     // MARK: - Harness seams

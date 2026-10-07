@@ -229,7 +229,7 @@ async function handleTake(
       bytes: result.bytes.byteLength,
     });
     const url = await createPresignedDownloadUrl({
-      r2Endpoint: c.env.R2_ENDPOINT,
+      endpoint: c.env.R2_ENDPOINT,
       accessKeyId: c.env.R2_ACCESS_KEY_ID,
       secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
       bucket: "capturecat",

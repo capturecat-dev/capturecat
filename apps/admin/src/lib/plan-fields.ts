@@ -23,6 +23,7 @@ export const FEATURE_FIELDS: ReadonlyArray<{ key: string; label: string; hint: s
   { key: "screenshotApi", label: "Screenshot API", hint: "/api/screenshot/take renders" },
   { key: "teams", label: "Teams", hint: "Share videos into a team library" },
   { key: "sso", label: "Enterprise SSO", hint: "Register an OIDC/SAML identity provider" },
+  { key: "customStorage", label: "Custom storage", hint: "Share videos in the customer's own S3 bucket" },
 ];
 
 export const LIMIT_FIELDS: ReadonlyArray<{ key: string; label: string; unit: string }> = [

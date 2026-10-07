@@ -859,9 +859,13 @@ describe("migration 0027", () => {
       ID, aSha, objectKeyOf(OWNER, aSha), now,
     );
     const before = old.query(`SELECT * FROM cloud_projects`)[0];
-    const usedBefore = await storageUsageBytes(old, OWNER);
+    // What the 0026 Worker counted: the verified object plus the document.
+    // (Spelled out: today's storage sum reads columns from later migrations.)
+    const usedBefore = 40 + docBytes.byteLength;
 
     old.migrate("0027_project_history.sql");
+    // Everything after 0027, as production applies it before the new Worker.
+    for (const later of ["0028_plan_stripe_sync.sql", "0029_custom_storage.sql"]) old.migrate(later);
 
     expect(old.query(`SELECT * FROM cloud_projects`)[0]).toEqual({
       ...before,

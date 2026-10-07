@@ -282,6 +282,30 @@ function trpcData(path: string, input: unknown, o: LabOptions): unknown {
               { domain: "videos.acme.test", verified: false, createdAt: ago(5) },
             ],
       };
+    case "storage.bucket":
+    case "storage.connect":
+      return {
+        enabled: o.tier === "paid",
+        available: true,
+        bucket:
+          empty && path === "storage.bucket"
+            ? null
+            : {
+                id: "lab-bucket",
+                provider: "r2",
+                endpoint: "https://acme0000.r2.cloudflarestorage.com",
+                region: "auto",
+                bucket: "acme-videos",
+                pathPrefix: "capturecat/",
+                forcePathStyle: false,
+                publicBaseUrl: null,
+                accessKeyIdHint: "7f3a…c91e",
+                verifiedAt: ago(60 * 24 * 3),
+                videoCount: 14,
+              },
+        retainedCount: 0,
+        corsOrigins: ["https://capturecat.so", "https://www.capturecat.so", "https://app.capturecat.so"],
+      };
     case "billing.status":
       return { uid: "lab-user", email: "mike@acme.test", tier: o.tier, tester: false, blocked: false };
     case "profile.me":

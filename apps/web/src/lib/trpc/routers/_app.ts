@@ -4,6 +4,7 @@ import { videosRouter } from "./videos";
 import { billingRouter } from "./billing";
 import { profileRouter } from "./profile";
 import { ssoRouter } from "./sso";
+import { storageRouter } from "./storage";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -11,6 +12,7 @@ export const appRouter = createTRPCRouter({
   billing: billingRouter,
   profile: profileRouter,
   sso: ssoRouter,
+  storage: storageRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -59,6 +59,7 @@ const FEATURE_LABELS: Record<string, string> = {
   comments: "Timestamped viewer comments",
   removeWatermark: "Watermark-free exports",
   teams: "Team library & member invites",
+  customStorage: "Share videos from your own S3 bucket",
 };
 
 /** Ships with the app on every tier; not gated in D1. */

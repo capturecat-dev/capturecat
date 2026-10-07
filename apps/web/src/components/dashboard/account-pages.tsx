@@ -6,6 +6,7 @@
 import { BillingStatus } from "@/components/dashboard/billing-status";
 import { CustomDomainsCard } from "@/components/dashboard/custom-domains-card";
 import { ProfileCard } from "@/components/dashboard/profile-card";
+import { StorageBucketCard } from "@/components/dashboard/storage-bucket-card";
 import { PageHeader, Sections } from "@/components/dashboard/studio";
 import { TeamCards } from "@/components/dashboard/team-cards";
 
@@ -15,11 +16,12 @@ export function SettingsPageBody() {
       <PageHeader
         eyebrow="Account"
         title="Settings"
-        description="Your public profile and the domains your share links live on."
+        description="Your public profile, the domains your share links live on, and where their videos are stored."
       />
       <Sections className="max-w-3xl">
         <ProfileCard />
         <CustomDomainsCard />
+        <StorageBucketCard />
       </Sections>
     </div>
   );
