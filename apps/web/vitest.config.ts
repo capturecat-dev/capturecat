@@ -9,7 +9,8 @@ export default defineConfig({
   // The app's `@/…` aliases (tsconfig paths) — state/ modules import them.
   plugins: [tsConfigPaths({ projects: ["./tsconfig.json"] })],
   test: {
-    include: ["src/editor/**/*.test.ts"],
+    // lib/docs: the documentation lint (slugs, links, descriptions).
+    include: ["src/editor/**/*.test.ts", "src/lib/**/*.test.ts"],
     environment: "node",
     testTimeout: 60_000,
   },

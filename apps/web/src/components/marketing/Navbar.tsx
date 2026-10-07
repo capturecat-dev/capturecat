@@ -8,6 +8,7 @@ import { GITHUB_URL, GitHubIcon } from "./primitives";
 const NAV = [
   { to: "/features", label: "Features" },
   { to: "/pricing", label: "Pricing" },
+  { to: "/docs", label: "Docs" },
   { to: "/compare", label: "Compare" },
   { to: "/agents", label: "Agents" },
 ] as const;

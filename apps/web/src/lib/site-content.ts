@@ -14,6 +14,7 @@ import { SITE_URL } from "./site-url";
 import { PSEO_SITE_PAGES } from "./pseo-content";
 import { GUIDE_SITE_PAGES } from "./guides-content";
 import { BEST_SITE_PAGES } from "./best-content";
+import { DOC_SITE_PAGES } from "./docs";
 import { FEATURE_INVENTORY_MARKDOWN } from "./feature-inventory";
 import { PLATFORMS_MARKDOWN } from "./platforms";
 
@@ -146,7 +147,7 @@ beta.
 ## Beyond the headline features
 
 - **Record an iPhone or iPad.** Connect over USB and it appears as a source.
-  Exports wrap it in a photoreal bezel for that model. Taps are recorded as
+  Exports wrap it in a phone bezel with a Dynamic Island. Taps are recorded as
   data so tap indicators can be styled afterwards.
 - **Capture a web page by URL.** Desktop, tablet, or mobile viewport, full
   page height, optional dark mode, cookie banners and chat widgets removed.
@@ -272,8 +273,8 @@ For Claude Desktop, Cursor, GitHub Copilot, and Windsurf, add a \`capturecat\`
 entry to the client's MCP config pointing \`command\` at the binary with
 \`args: ["--mcp"]\`. Full snippets are on the [Agents page](${SITE_URL}/agents).
 
-Close a project in the editor before letting an agent edit it. The editor
-autosaves and would overwrite the agent's changes.
+An open project reloads an agent's edits automatically, unless it has unsaved
+changes in the editor; then the in-app edits win, so save first.
 `,
   },
   {
@@ -295,7 +296,7 @@ Get the latest build from the [download page](${SITE_URL}/download).
 1. Open the disk image and drag the app to Applications.
 2. Allow Screen Recording when macOS asks. Microphone and Camera only if you
    turn those sources on.
-3. Record from the menu bar icon or the global shortcut. The editor opens with
+3. Record from the menu bar icon. The editor opens with
    the auto edit already applied.
 4. Export, or sign in with Google or Apple inside the app to upload and share.
 
@@ -411,6 +412,7 @@ export const SITE_PAGES: SitePage[] = [
   ...PSEO_SITE_PAGES,
   ...GUIDE_SITE_PAGES,
   ...BEST_SITE_PAGES,
+  ...DOC_SITE_PAGES,
 ];
 
 export function findPageByPath(path: string): SitePage | undefined {
