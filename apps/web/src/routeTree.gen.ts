@@ -39,6 +39,8 @@ import { Route as BestIndexRouteImport } from './routes/best.index'
 import { Route as BestSlugRouteImport } from './routes/best.$slug'
 import { Route as CompareIndexRouteImport } from './routes/compare.index'
 import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
+import { Route as DocsIndexRouteImport } from './routes/docs.index'
+import { Route as DocsSplatRouteImport } from './routes/docs.$'
 import { Route as EmbedVideoIdRouteImport } from './routes/embed.$videoId'
 import { Route as GuidesIndexRouteImport } from './routes/guides.index'
 import { Route as GuidesSlugRouteImport } from './routes/guides.$slug'
@@ -201,6 +203,16 @@ const CompareSlugRoute = CompareSlugRouteImport.update({
   path: '/compare/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/docs/',
+  path: '/docs/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsSplatRoute = DocsSplatRouteImport.update({
+  id: '/docs/$',
+  path: '/docs/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmbedVideoIdRoute = EmbedVideoIdRouteImport.update({
   id: '/embed/$videoId',
   path: '/embed/$videoId',
@@ -281,6 +293,7 @@ export interface FileRoutesByFullPath {
   '/app/editor': typeof AppEditorRouteWithChildren
   '/best/$slug': typeof BestSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
+  '/docs/$': typeof DocsSplatRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/guides/$slug': typeof GuidesSlugRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
@@ -289,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/best/': typeof BestIndexRoute
   '/compare/': typeof CompareIndexRoute
+  '/docs/': typeof DocsIndexRoute
   '/guides/': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/app/editor/$projectId': typeof AppEditorProjectIdRoute
@@ -322,6 +336,7 @@ export interface FileRoutesByTo {
   '/app/editor': typeof AppEditorRouteWithChildren
   '/best/$slug': typeof BestSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
+  '/docs/$': typeof DocsSplatRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/guides/$slug': typeof GuidesSlugRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
@@ -330,6 +345,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/best': typeof BestIndexRoute
   '/compare': typeof CompareIndexRoute
+  '/docs': typeof DocsIndexRoute
   '/guides': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/app/editor/$projectId': typeof AppEditorProjectIdRoute
@@ -365,6 +381,7 @@ export interface FileRoutesById {
   '/app_/editor': typeof AppEditorRouteWithChildren
   '/best/$slug': typeof BestSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
+  '/docs/$': typeof DocsSplatRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/guides/$slug': typeof GuidesSlugRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
@@ -373,6 +390,7 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/best/': typeof BestIndexRoute
   '/compare/': typeof CompareIndexRoute
+  '/docs/': typeof DocsIndexRoute
   '/guides/': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/app_/editor/$projectId': typeof AppEditorProjectIdRoute
@@ -409,6 +427,7 @@ export interface FileRouteTypes {
     | '/app/editor'
     | '/best/$slug'
     | '/compare/$slug'
+    | '/docs/$'
     | '/embed/$videoId'
     | '/guides/$slug'
     | '/md-share/$videoId'
@@ -417,6 +436,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/best/'
     | '/compare/'
+    | '/docs/'
     | '/guides/'
     | '/api/trpc/$'
     | '/app/editor/$projectId'
@@ -450,6 +470,7 @@ export interface FileRouteTypes {
     | '/app/editor'
     | '/best/$slug'
     | '/compare/$slug'
+    | '/docs/$'
     | '/embed/$videoId'
     | '/guides/$slug'
     | '/md-share/$videoId'
@@ -458,6 +479,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/best'
     | '/compare'
+    | '/docs'
     | '/guides'
     | '/api/trpc/$'
     | '/app/editor/$projectId'
@@ -492,6 +514,7 @@ export interface FileRouteTypes {
     | '/app_/editor'
     | '/best/$slug'
     | '/compare/$slug'
+    | '/docs/$'
     | '/embed/$videoId'
     | '/guides/$slug'
     | '/md-share/$videoId'
@@ -500,6 +523,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/best/'
     | '/compare/'
+    | '/docs/'
     | '/guides/'
     | '/api/trpc/$'
     | '/app_/editor/$projectId'
@@ -530,6 +554,7 @@ export interface RootRouteChildren {
   AppEditorRoute: typeof AppEditorRouteWithChildren
   BestSlugRoute: typeof BestSlugRoute
   CompareSlugRoute: typeof CompareSlugRoute
+  DocsSplatRoute: typeof DocsSplatRoute
   EmbedVideoIdRoute: typeof EmbedVideoIdRoute
   GuidesSlugRoute: typeof GuidesSlugRoute
   MdShareVideoIdRoute: typeof MdShareVideoIdRoute
@@ -537,6 +562,7 @@ export interface RootRouteChildren {
   ShareVideoIdRoute: typeof ShareVideoIdRoute
   BestIndexRoute: typeof BestIndexRoute
   CompareIndexRoute: typeof CompareIndexRoute
+  DocsIndexRoute: typeof DocsIndexRoute
   GuidesIndexRoute: typeof GuidesIndexRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
 }
@@ -753,6 +779,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompareSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/': {
+      id: '/docs/'
+      path: '/docs'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/$': {
+      id: '/docs/$'
+      path: '/docs/$'
+      fullPath: '/docs/$'
+      preLoaderRoute: typeof DocsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/embed/$videoId': {
       id: '/embed/$videoId'
       path: '/embed/$videoId'
@@ -887,6 +927,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppEditorRoute: AppEditorRouteWithChildren,
   BestSlugRoute: BestSlugRoute,
   CompareSlugRoute: CompareSlugRoute,
+  DocsSplatRoute: DocsSplatRoute,
   EmbedVideoIdRoute: EmbedVideoIdRoute,
   GuidesSlugRoute: GuidesSlugRoute,
   MdShareVideoIdRoute: MdShareVideoIdRoute,
@@ -894,6 +935,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShareVideoIdRoute: ShareVideoIdRoute,
   BestIndexRoute: BestIndexRoute,
   CompareIndexRoute: CompareIndexRoute,
+  DocsIndexRoute: DocsIndexRoute,
   GuidesIndexRoute: GuidesIndexRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
 }
