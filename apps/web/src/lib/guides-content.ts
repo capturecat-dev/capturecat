@@ -238,7 +238,7 @@ export const GUIDES: Guide[] = [
     description:
       "Record an iPhone or iPad screen on a Mac over USB and export it inside a photoreal device bezel, with zooms, captions, and a background.",
     answer:
-      "Plug the iPhone into the Mac with a USB cable and record it as a capture source. QuickTime Player can record it; CaptureCat records it too and wraps the export in a photoreal bezel for that model, on a background, with the same zoom, caption, and annotation tools as a Mac recording.",
+      "Plug the iPhone into the Mac with a USB cable and record it as a capture source. QuickTime Player can record it; CaptureCat records it too and wraps the export in a phone bezel, on a background, with the same zoom, caption, and annotation tools as a Mac recording.",
     without: {
       title: "With QuickTime Player",
       text: "Connect the iPhone by cable, unlock it, open QuickTime Player, choose File > New Movie Recording, and pick the iPhone from the menu next to the record button. You get a plain video of the screen; adding a frame and background means another editor.",
@@ -254,7 +254,7 @@ export const GUIDES: Guide[] = [
       },
       {
         name: "Frame it",
-        text: "The editor wraps the recording in a photoreal bezel for that model. Choose the background, padding, and shadow, and an aspect ratio such as 9:16 for social or 16:9 for a website.",
+        text: "The editor wraps the recording in a phone bezel with a Dynamic Island. Choose the background, padding, and shadow, and an aspect ratio such as 9:16 for social or 16:9 for a website.",
       },
       {
         name: "Polish and export",
@@ -444,7 +444,7 @@ export const GUIDES: Guide[] = [
       },
       {
         name: "Pick a style",
-        text: "Choose one of five cursor styles and scale it up so it reads on small screens. Personality options add tilt, stretch, and inertia.",
+        text: "Choose one of five cursor styles and scale it up so it reads on small screens. Turn on Fluid Movement and tune its tension, friction, and mass for a heavier or snappier feel.",
       },
       {
         name: "Add clicks you can see and hear",
@@ -582,7 +582,7 @@ export const GUIDES: Guide[] = [
       },
       {
         name: "Close the project in the editor",
-        text: "The editor autosaves, so close a project before letting an agent change it.",
+        text: "An open project reloads the agent's edits automatically unless it has unsaved changes, so save before handing it to an agent.",
       },
       {
         name: "Ask for the edit in plain language",

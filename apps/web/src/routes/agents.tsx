@@ -34,7 +34,7 @@ const TOOL_GROUPS: Array<{ title: string; tools: Array<{ name: string; descripti
     title: "Record and find",
     tools: [
       { name: "list_capture_targets", description: "The displays, windows, and connected devices available to record." },
-      { name: "start_recording", description: "Start a recording of a chosen target, with camera and mic options." },
+      { name: "start_recording", description: "Start recording a chosen display, app, or web page." },
       { name: "stop_recording", description: "Stop and save the recording as a project, auto edit included." },
       { name: "list_projects", description: "Every recording in the library, with names, durations, and sources." },
       { name: "search_captures", description: "Search the text inside recordings, the same index as Command K." },
@@ -311,10 +311,10 @@ function AgentsPage() {
             ))}
           </div>
           <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            One thing to know: close a project in the CaptureCat editor before
-            letting an agent edit it. The editor autosaves and would overwrite
-            the agent's changes. The server warns about exactly this if it
-            happens.
+            One thing to know: an open project reloads the agent's edits
+            automatically, unless it has unsaved changes in the editor. Then
+            your in-app edits win, so save before handing a project to an
+            agent. The server warns about exactly this if it happens.
           </p>
         </Container>
       </section>

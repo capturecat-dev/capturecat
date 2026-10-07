@@ -8,7 +8,7 @@ const STEPS: Array<{ title: string; body: string }> = [
   {
     title: "Pick what to record",
     body:
-      "A display, a window, a dragged area, an iPhone over USB, or a web page by URL. Turn on the camera bubble and mic if you want them. Press record, or use the global shortcut from any app.",
+      "A display, a window, a dragged area, an iPhone over USB, or a web page by URL. Turn on the camera bubble and mic if you want them. Press record from the menu bar, from any app.",
   },
   {
     title: "Stop, and the edit is waiting",

@@ -67,7 +67,7 @@ const SECTIONS: Array<{
     eyebrow: "Record an iPhone or iPad",
     title: "Plug in the phone. Record it like a window.",
     body:
-      "Connect an iPhone or iPad over USB and it shows up as a source next to your displays and windows. The export wraps it in a photoreal bezel with the right corner radius and notch for that model, sitting on whatever background you chose.",
+      "Connect an iPhone or iPad over USB and it shows up as a source next to your displays and windows. The export wraps an iPhone recording in a phone bezel with a Dynamic Island (an iPad gets a thin frame), sitting on whatever background you chose.",
     details: [
       "Taps are recorded as data, so tap indicators can be styled afterwards",
       "Same auto zoom, captions, and framing as a Mac recording",
@@ -119,7 +119,7 @@ const SECTIONS: Array<{
     details: [
       "Command K search over the text in every frame",
       "Folders, pins, and filters",
-      "Capture highlighted text from any app as a note with Option Command N",
+      "Capture highlighted text from any app as a note from the Services menu",
     ],
   },
   {
@@ -139,7 +139,7 @@ const SECTIONS: Array<{
     eyebrow: "Your own storage",
     title: "Share links that play from your own bucket.",
     body:
-      "Connect an S3 compatible bucket and every shared video uploads straight to it, from the Mac app and the web recorder alike. The share page, comments, and analytics work as before, but the file never sits on our servers and never counts against your CaptureCat storage.",
+      "Connect an S3 compatible bucket and every video you share uploads straight to it, whether you share from the Mac app or the web editor. The share page, comments, and analytics work as before, but the file never sits on our servers and never counts against your CaptureCat storage.",
     details: [
       "AWS S3, Cloudflare R2, Backblaze B2, Wasabi, and MinIO",
       "Private buckets play through short lived signed links; public buckets and CDNs play directly",

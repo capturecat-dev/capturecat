@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
  * Bring-your-own bucket: share videos upload to — and play from — the
  * user's own S3-compatible bucket instead of CaptureCat's. The API test-writes
  * the bucket before saving (routes/storage.ts); this card adds the one check
- * only a browser can make — that the bucket's CORS lets the web recorder PUT
+ * only a browser can make — that the bucket's CORS lets the web editor's share upload PUT
  * to it. The Mac app has the same settings in its Storage pane.
  */
 
@@ -162,7 +162,7 @@ export function StorageBucketCard() {
       icon={<HardDrive />}
       title="Your own storage"
       badge={<PlanChip plan="pro" />}
-      description="Keep share videos in your own S3-compatible bucket — AWS S3, Cloudflare R2, Backblaze B2, Wasabi or MinIO. Uploads from the Mac app and the web recorder go straight to it, and share links play from it."
+      description="Keep share videos in your own S3-compatible bucket — AWS S3, Cloudflare R2, Backblaze B2, Wasabi or MinIO. Videos you share from the Mac app or the web editor upload straight to it, and share links play from it. Web recordings themselves stay in CaptureCat storage until you share them."
     >
       {isLoading || !data ? (
         <div className="space-y-3">
@@ -323,7 +323,7 @@ function CorsSnippet({ origins }: { origins: string[] }) {
       </div>
       <pre className="overflow-x-auto text-[11px] leading-relaxed text-foreground/80">{rules}</pre>
       <p className="text-xs text-muted-foreground">
-        Paste into the bucket's CORS settings. The Mac app doesn't need this; the web recorder does. Playback needs no
+        Paste into the bucket's CORS settings. Sharing from the web editor needs this; the Mac app doesn't. Playback needs no
         CORS.
       </p>
     </div>
@@ -339,9 +339,9 @@ function BrowserUploadCheck({ cors, origins, onRun }: { cors: CorsCheck; origins
           {cors.state === "ok" && <BadgeCheck className="size-4 text-emerald-300" />}
           {cors.state === "blocked" && <TriangleAlert className="size-4 text-amber-300" />}
           <span className={cn(cors.state === "idle" && "text-muted-foreground")}>
-            {cors.state === "idle" && "Web recorder uploads: not checked yet"}
+            {cors.state === "idle" && "Sharing from the web editor: not checked yet"}
             {cors.state === "running" && "Checking uploads from this browser…"}
-            {cors.state === "ok" && "Web recorder uploads work"}
+            {cors.state === "ok" && "Sharing from the web editor works"}
             {cors.state === "blocked" && cors.detail}
           </span>
         </div>

@@ -7,8 +7,8 @@
  * this.
  *
  * Keep claims shippable: nothing listed here that the app does not do today.
- * (Deliberately absent: GIF export. The format menu lists it but there is
- * no real GIF encoder yet.)
+ * GIF export shipped (Services/ExportFormats GIFExportPolicy: 20 fps cap,
+ * 960 px long edge).
  */
 
 export interface FeatureGroup {
@@ -45,7 +45,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     items: [
       "Five cursor styles, size scaling, and zero lag smoothing",
       "Fluid movement on a damped spring with tension, friction, and mass controls",
-      "Cursor personality: tilt, stretch, drag, and inertia, and the hotspot never leaves its pixel",
+      "Fluid cursor movement you can tune (tension, friction, mass), smoothing, and auto hide, and the hotspot never leaves its pixel",
       "Click ripples plus synthesized click and keyboard sounds (Thock, Clacky, Typewriter and more)",
       "Keystroke overlay pill showing shortcuts as they are pressed",
       "Auto hide when idle, loop to start for seamless loops, freeze at the end",
@@ -101,6 +101,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     items: [
       "MP4 or MOV up to 4K 60 fps, quality presets with a live bitrate estimate",
       "Fast export collapses still spans for dramatically smaller files",
+      "Animated GIF export at up to 20 fps and 960 pixels on the long edge, looping",
       "The preview and the encoder share the same maths, so the file is never a surprise",
       "One click share links with viewer comments, AI titles and chapters, and per video analytics",
       "Store shared videos in your own S3 compatible bucket: AWS S3, Cloudflare R2, Backblaze B2, Wasabi, or MinIO",
@@ -111,7 +112,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     items: [
       "Search with Command K reads the text inside your recordings via on device OCR, and results jump to the exact frame",
       "Folders, pins, filters, and reminders on any capture",
-      "Capture highlighted text from any app as a note with Option Command N or the Services menu",
+      "Capture highlighted text from any app as a note from the Services menu, or turn the clipboard into a note with Option Command N",
     ],
   },
   {
@@ -127,7 +128,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     items: [
       "Swift, Metal, and AppKit. No web view, no Electron",
       "Recording 4K uses less CPU than a browser tab",
-      "Menu bar app with global shortcuts and automatic updates",
+      "Menu bar app with automatic updates, and an optional takeover of Shift Command 3, 4, and 5 as your screenshot tool",
     ],
   },
 ];

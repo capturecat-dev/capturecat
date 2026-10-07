@@ -15,37 +15,67 @@ function AppleLogo({ className }: { className?: string }) {
   );
 }
 
-type Arch = "arm64" | "x86_64" | null;
+type Arch = "arm64" | "x86_64";
 
-function useDetectedArch(): Arch {
-  const [arch, setArch] = useState<Arch>(null);
+/**
+ * What the visitor is on. `confident` is false when the page had to guess
+ * (Safari reports "Apple GPU" on every Mac, so it cannot tell Apple silicon
+ * from Intel); the guess is Apple silicon, the far more common Mac today,
+ * and the other build is always one click away.
+ */
+type Detected =
+  | { kind: "mac"; arch: Arch; confident: boolean }
+  | { kind: "other" };
 
+type UAData = {
+  platform?: string;
+  getHighEntropyValues?: (hints: string[]) => Promise<{ architecture?: string; platform?: string }>;
+};
+
+function webglRenderer(): string {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    if (!gl) return "";
+    const ext = gl.getExtension("WEBGL_debug_renderer_info");
+    return String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? "");
+  } catch {
+    return "";
+  }
+}
+
+async function detect(): Promise<Detected> {
+  const ua = navigator.userAgent;
+  const uaData = (navigator as Navigator & { userAgentData?: UAData }).userAgentData;
+  // iPadOS Safari sends a Mac user agent; touch points give it away.
+  const isIPad = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  const isMac = !isIPad && (uaData?.platform === "macOS" || /Macintosh|Mac OS X/.test(ua));
+  if (!isMac) return { kind: "other" };
+
+  // Chromium: the real CPU architecture, behind a permission-free hint.
+  try {
+    const hints = await uaData?.getHighEntropyValues?.(["architecture"]);
+    if (hints?.architecture === "arm") return { kind: "mac", arch: "arm64", confident: true };
+    if (hints?.architecture === "x86") return { kind: "mac", arch: "x86_64", confident: true };
+  } catch {
+    // Fall through to the GPU name.
+  }
+
+  const renderer = webglRenderer();
+  if (/apple m\d/i.test(renderer)) return { kind: "mac", arch: "arm64", confident: true };
+  if (/intel|amd|radeon|nvidia/i.test(renderer)) return { kind: "mac", arch: "x86_64", confident: true };
+  return { kind: "mac", arch: "arm64", confident: false };
+}
+
+function useDetected(): Detected | null {
+  const [detected, setDetected] = useState<Detected | null>(null);
   useEffect(() => {
-    const ua = navigator.userAgent.toLowerCase();
-    // Apple Silicon Macs don't report arm in UA, but we can check via WebGL renderer
-    // or platform. Safari on Apple Silicon reports "MacIntel" but we can use a canvas trick.
-    const canvas = document.createElement("canvas");
-    const gl = canvas.getContext("webgl");
-    const renderer = gl
-      ? gl.getParameter(gl.getExtension("WEBGL_debug_renderer_info")?.UNMASKED_RENDERER_WEBGL ?? gl.RENDERER)
-      : "";
-
-    if (
-      ua.includes("arm64") ||
-      ua.includes("aarch64") ||
-      /apple m\d/i.test(renderer) ||
-      /apple gpu/i.test(renderer)
-    ) {
-      setArch("arm64");
-    } else if (ua.includes("mac")) {
-      // Default Intel for older Macs, but Apple Silicon is more common now
-      // Check if running under Rosetta - not easily detectable, so we default to arm64
-      // since most Macs sold since late 2020 are Apple Silicon
-      setArch("arm64");
-    }
+    let live = true;
+    void detect().then((d) => live && setDetected(d));
+    return () => {
+      live = false;
+    };
   }, []);
-
-  return arch;
+  return detected;
 }
 
 interface Release {
@@ -56,37 +86,75 @@ interface Release {
   downloads: { arm64: string; x86_64: string };
 }
 
-export function DownloadButtons({ release }: { release: Release | null }) {
-  const armUrl = `${API_URL}/api/releases/download/arm64`;
-  const intelUrl = `${API_URL}/api/releases/download/x86_64`;
-  const detectedArch = useDetectedArch();
+const ARCH_LABEL: Record<Arch, string> = { arm64: "Apple silicon", x86_64: "Intel" };
 
-  const isAppleSilicon = detectedArch === "arm64";
+const primaryCls =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-8 text-sm font-medium text-black shadow transition-all duration-300 hover:scale-105 hover:bg-white/90 active:scale-95";
+const secondaryCls =
+  "inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-background/50 px-8 text-sm font-medium text-foreground shadow backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:bg-white/10 active:scale-95";
+const linkCls = "text-foreground underline decoration-white/25 underline-offset-4 transition-colors hover:decoration-white/70";
 
+export function DownloadButtons({ release: _release }: { release: Release | null }) {
+  const url: Record<Arch, string> = {
+    arm64: `${API_URL}/api/releases/download/arm64`,
+    x86_64: `${API_URL}/api/releases/download/x86_64`,
+  };
+  const detected = useDetected();
+
+  // Not a Mac (Windows, Linux, ChromeOS, iPad): the browser app first, the
+  // Mac builds still offered for someone downloading for another machine.
+  if (detected?.kind === "other") {
+    return (
+      <div className="flex flex-col items-center gap-4 pt-4">
+        <a href="/app/record" className={primaryCls}>
+          Use CaptureCat in your browser
+        </a>
+        <p className="text-sm text-muted-foreground">
+          The Mac app needs a Mac. Downloading for one?{" "}
+          <a href={url.arm64} className={linkCls}>
+            Apple silicon
+          </a>{" "}
+          ·{" "}
+          <a href={url.x86_64} className={linkCls}>
+            Intel
+          </a>
+        </p>
+      </div>
+    );
+  }
+
+  // Before detection (and without JavaScript) both builds are plain links;
+  // on a Mac, one button for the detected build and a link to the other.
+  const arch: Arch = detected?.kind === "mac" ? detected.arch : "arm64";
+  const other: Arch = arch === "arm64" ? "x86_64" : "arm64";
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-      <a
-        href={armUrl}
-        className={`inline-flex h-12 items-center justify-center rounded-full px-8 text-sm font-medium shadow transition-all hover:scale-105 active:scale-95 duration-300 gap-2 ${
-          isAppleSilicon
-            ? "bg-white text-black hover:bg-white/90"
-            : "border border-white/20 bg-background/50 backdrop-blur-sm text-foreground hover:bg-white/10 hover:text-white"
-        }`}
-      >
-        <AppleLogo className="h-4 w-4" />
-        Download for Apple Silicon
-      </a>
-      <a
-        href={intelUrl}
-        className={`inline-flex h-12 items-center justify-center rounded-full px-8 text-sm font-medium shadow transition-all hover:scale-105 active:scale-95 duration-300 gap-2 ${
-          !isAppleSilicon && detectedArch !== null
-            ? "bg-white text-black hover:bg-white/90"
-            : "border border-white/20 bg-background/50 backdrop-blur-sm text-foreground hover:bg-white/10 hover:text-white"
-        }`}
-      >
-        <AppleLogo className="h-4 w-4" />
-        Download for Intel
-      </a>
+    <div className="flex flex-col items-center gap-4 pt-4">
+      {detected === null ? (
+        <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <a href={url.arm64} className={primaryCls}>
+            <AppleLogo className="h-4 w-4" />
+            Download for Apple silicon
+          </a>
+          <a href={url.x86_64} className={secondaryCls}>
+            <AppleLogo className="h-4 w-4" />
+            Download for Intel
+          </a>
+        </div>
+      ) : (
+        <>
+          <a href={url[arch]} className={primaryCls} data-arch={arch}>
+            <AppleLogo className="h-4 w-4" />
+            Download for Mac
+            <span className="font-normal text-black/55">· {ARCH_LABEL[arch]}</span>
+          </a>
+          <p className="text-sm text-muted-foreground">
+            {detected?.kind === "mac" && !detected.confident ? "Have an Intel Mac? " : "Need the other build? "}
+            <a href={url[other]} className={linkCls}>
+              Download for {ARCH_LABEL[other]}
+            </a>
+          </p>
+        </>
+      )}
     </div>
   );
 }

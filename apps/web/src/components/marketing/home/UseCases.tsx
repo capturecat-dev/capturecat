@@ -19,7 +19,7 @@ const CASES = [
   {
     icon: Bug,
     title: "Bug reports",
-    body: "Hit the global shortcut, reproduce the bug, stop. The keystroke pill and click ripples show exactly what you did. Paste the link in the ticket.",
+    body: "Hit record in the menu bar, reproduce the bug, stop. The keystroke pill and click ripples show exactly what you did. Paste the link in the ticket.",
   },
   {
     icon: GraduationCap,

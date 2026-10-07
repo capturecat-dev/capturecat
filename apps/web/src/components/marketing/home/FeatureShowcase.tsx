@@ -42,7 +42,7 @@ const SHOWCASES: Showcase[] = [
       "The raw pointer path is replaced with a damped spring. You choose the tension, friction, and mass. The hotspot never leaves the pixel it was recorded over, so a click still lands on the button it clicked. Ripples and synthesized click sounds are optional.",
     details: [
       "Five cursor styles and size scaling",
-      "Tilt, stretch, and inertia so movement has weight",
+      "Spring motion with tension, friction, and mass so movement has weight",
       "Click ripples, plus Thock, Clacky, and Typewriter key sounds",
       "Auto hide when idle, freeze at the end for a clean last frame",
     ],

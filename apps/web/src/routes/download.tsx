@@ -52,7 +52,7 @@ const STEPS = [
   },
   {
     title: "Record from the menu bar",
-    body: "CaptureCat lives in the menu bar. Click the icon or press the global shortcut, pick a source, and press record. Stop the same way. The editor opens with the auto edit already applied.",
+    body: "CaptureCat lives in the menu bar. Click the icon, pick a source, and press record. Stop from the recording bar or the menu bar. The editor opens with the auto edit already applied.",
   },
   {
     title: "Export, or sign in to share",
@@ -84,7 +84,7 @@ function DownloadPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
             Free to record, edit, and export. No account needed until you want
-            a share link. Pick the build for your Mac, or let the page guess.
+            a share link. The page picks the right build for your Mac.
           </p>
 
           {release ? (
