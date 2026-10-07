@@ -1,14 +1,32 @@
 /**
- * R2 presigned URL generation via S3-compatible API.
+ * Presigned URLs and object calls over the S3 API — CaptureCat's own R2
+ * bucket and, since 0029, a user's own S3-compatible bucket (lib/storage.ts
+ * builds the connection for either).
  */
 
-import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  HeadObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-interface PresignOptions {
-  r2Endpoint: string;
+/** Where to reach a bucket. R2 needs only `endpoint` (region "auto");
+ *  AWS needs only `region` (the SDK derives the endpoint). */
+export interface S3Connection {
+  /** Omit for AWS S3. */
+  endpoint?: string;
+  /** Default "auto" (R2). */
+  region?: string;
+  /** `endpoint/bucket/key` instead of `bucket.endpoint/key` (MinIO). */
+  forcePathStyle?: boolean;
   accessKeyId: string;
   secretAccessKey: string;
+}
+
+interface PresignOptions extends S3Connection {
   bucket: string;
   key: string;
   contentType: string;
@@ -16,10 +34,11 @@ interface PresignOptions {
   contentLength?: number;
 }
 
-function createS3Client(options: { r2Endpoint: string; accessKeyId: string; secretAccessKey: string }) {
+function createS3Client(options: S3Connection) {
   return new S3Client({
-    region: "auto",
-    endpoint: options.r2Endpoint,
+    region: options.region ?? "auto",
+    endpoint: options.endpoint,
+    forcePathStyle: options.forcePathStyle ?? false,
     credentials: {
       accessKeyId: options.accessKeyId,
       secretAccessKey: options.secretAccessKey,
@@ -56,10 +75,7 @@ export async function createPresignedUploadUrl(
 }
 
 /** HEAD with the verified size and (unquoted) ETag, or null if missing. */
-export async function headR2ObjectMeta(options: {
-  r2Endpoint: string;
-  accessKeyId: string;
-  secretAccessKey: string;
+export async function headR2ObjectMeta(options: S3Connection & {
   bucket: string;
   key: string;
 }): Promise<{ size: number; etag: string | null } | null> {
@@ -78,22 +94,22 @@ export async function headR2ObjectMeta(options: {
  * Presigned GET for serving a stored object (screenshot API `store=true`).
  * Same client/checksum settings as the upload path — see the note above.
  */
-export async function createPresignedDownloadUrl(options: {
-  r2Endpoint: string;
-  accessKeyId: string;
-  secretAccessKey: string;
+export async function createPresignedDownloadUrl(options: S3Connection & {
   bucket: string;
   key: string;
   expiresIn?: number;
   /** Signed `response-content-type` override, so the object is served as
    *  exactly this type regardless of what the PUT stored (cloud projects). */
   responseContentType?: string;
+  /** Signed `response-content-disposition` (share-page downloads). */
+  responseContentDisposition?: string;
 }): Promise<string> {
   const client = createS3Client(options);
   const command = new GetObjectCommand({
     Bucket: options.bucket,
     Key: options.key,
     ResponseContentType: options.responseContentType,
+    ResponseContentDisposition: options.responseContentDisposition,
   });
   return getSignedUrl(client, command, { expiresIn: options.expiresIn ?? 3600 });
 }
@@ -102,10 +118,7 @@ export async function createPresignedDownloadUrl(options: {
  * Check if an object exists in R2 via S3 HeadObject.
  * Returns the content-length if found, null if not.
  */
-export async function headR2Object(options: {
-  r2Endpoint: string;
-  accessKeyId: string;
-  secretAccessKey: string;
+export async function headR2Object(options: S3Connection & {
   bucket: string;
   key: string;
 }): Promise<number | null> {
@@ -119,4 +132,33 @@ export async function headR2Object(options: {
   } catch {
     return null;
   }
+}
+
+/** PUT a small object directly (the bucket check in routes/storage.ts).
+ *  Throws the SDK error, whose message names what the bucket refused. */
+export async function putS3Object(options: S3Connection & {
+  bucket: string;
+  key: string;
+  body: string;
+  contentType: string;
+}): Promise<void> {
+  await createS3Client(options).send(
+    new PutObjectCommand({
+      Bucket: options.bucket,
+      Key: options.key,
+      Body: options.body,
+      ContentType: options.contentType,
+    })
+  );
+}
+
+/** DELETE one object. S3 answers 204 for a key that is already gone, so this
+ *  only throws when the bucket refuses (credentials, permissions, network). */
+export async function deleteS3Object(options: S3Connection & {
+  bucket: string;
+  key: string;
+}): Promise<void> {
+  await createS3Client(options).send(
+    new DeleteObjectCommand({ Bucket: options.bucket, Key: options.key })
+  );
 }

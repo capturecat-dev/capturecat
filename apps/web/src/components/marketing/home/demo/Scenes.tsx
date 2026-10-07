@@ -11,7 +11,8 @@ import { MacRecordingBar, MenuBar } from "./RecordingScene";
 
 // ── Export sheet → share link (ExportSheetController) ─────────────────────
 
-export function ExportScene({ quality = false }: { quality?: boolean }) {
+/** `bucket`: the share uploads to the user's own storage (features page). */
+export function ExportScene({ quality = false, bucket }: { quality?: boolean; bucket?: string }) {
   return (
     <>
       <Canvas script="export" className="ccd-canvas--cover" />
@@ -81,14 +82,14 @@ export function ExportScene({ quality = false }: { quality?: boolean }) {
               <i />
             </span>
             <span className="ccd-sheet-sub ccd-sub-a">4K · 60 fps · MP4</span>
-            <span className="ccd-sheet-sub ccd-sub-b">{quality ? "Saved to Movies" : "Uploading to capturecat.so"}</span>
+            <span className="ccd-sheet-sub ccd-sub-b">{quality ? "Saved to Movies" : bucket ? `Uploading to ${bucket}` : "Uploading to capturecat.so"}</span>
           </div>
         </div>
       </div>
       {!quality && (
         <div className="ccd-link">
           <b>capturecat.so/share/7Kq2fX</b>
-          <em>Anyone with the link</em>
+          <em>{bucket ? `Plays from ${bucket}` : "Anyone with the link"}</em>
           <span>✓ Copied</span>
         </div>
       )}

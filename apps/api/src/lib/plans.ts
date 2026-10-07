@@ -42,6 +42,7 @@ import type { EntitlementTier } from "../types";
  *   screenshotApi   /api/screenshot/take — the paid screenshot-rendering API.
  *   teams           Team library: share videos into an organization.
  *   sso             Enterprise SSO (OIDC/SAML) — register an identity provider.
+ *   customStorage   Share videos stored in the user's own S3-compatible bucket.
  */
 export const FEATURE_KEYS = [
   "webCapture",
@@ -54,6 +55,7 @@ export const FEATURE_KEYS = [
   "screenshotApi",
   "teams",
   "sso",
+  "customStorage",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 

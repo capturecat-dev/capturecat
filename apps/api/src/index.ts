@@ -10,6 +10,8 @@ import { uploadRoutes } from "./routes/upload";
 import { jobRoutes } from "./routes/jobs";
 import { orgRoutes } from "./routes/org";
 import { hubRoutes } from "./routes/hub";
+import { storageRoutes } from "./routes/storage";
+import { deleteStoredObject } from "./lib/storage";
 import { videoRoutes } from "./routes/video";
 import { analyticsRoutes } from "./routes/analytics";
 import { deleteRoutes } from "./routes/delete";
@@ -249,6 +251,8 @@ app.route("/api", planRoutes);
 app.route("/api", uploadRoutes);
 app.route("/api", jobRoutes);
 app.route("/api", hubRoutes);
+// Bring-your-own S3 bucket for share videos (migration 0029).
+app.route("/api", storageRoutes);
 app.route("/api", orgRoutes);
 // Enterprise SSO overview + domain verification for org admins; the sign-in
 // and provider CRUD endpoints themselves are Better Auth's under /api/auth.
@@ -293,20 +297,21 @@ app.all("*", (c) => c.json({ error: "Not found" }, 404));
 async function sweep(env: Env): Promise<void> {
   const cutoff = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
   const stale = await env.DB.prepare(
-    "SELECT video_id, r2_key FROM shared_videos WHERE status = 'pending' AND created_at < ? LIMIT 200"
-  ).bind(cutoff).all<{ video_id: string; r2_key: string }>();
+    "SELECT video_id, r2_key, storage_id FROM shared_videos WHERE status = 'pending' AND created_at < ? LIMIT 200"
+  ).bind(cutoff).all<{ video_id: string; r2_key: string; storage_id: string | null }>();
   for (const row of stale.results ?? []) {
-    await env.R2.delete(row.r2_key).catch(() => {});
+    // A custom bucket (0029) is reached through its own S3 API.
+    await deleteStoredObject(env, row.storage_id, row.r2_key).catch(() => {});
     await env.DB.prepare("DELETE FROM video_versions WHERE video_id = ? AND status = 'pending'")
       .bind(row.video_id).run();
     await env.DB.prepare("DELETE FROM shared_videos WHERE video_id = ? AND status = 'pending'")
       .bind(row.video_id).run();
   }
   const staleVersions = await env.DB.prepare(
-    "SELECT video_id, version_number, r2_key FROM video_versions WHERE status = 'pending' AND created_at < ? LIMIT 200"
-  ).bind(cutoff).all<{ video_id: string; version_number: number; r2_key: string }>();
+    "SELECT video_id, version_number, r2_key, storage_id FROM video_versions WHERE status = 'pending' AND created_at < ? LIMIT 200"
+  ).bind(cutoff).all<{ video_id: string; version_number: number; r2_key: string; storage_id: string | null }>();
   for (const row of staleVersions.results ?? []) {
-    await env.R2.delete(row.r2_key).catch(() => {});
+    await deleteStoredObject(env, row.storage_id, row.r2_key).catch(() => {});
     await env.DB.prepare(
       "DELETE FROM video_versions WHERE video_id = ? AND version_number = ? AND status = 'pending'"
     ).bind(row.video_id, row.version_number).run();
@@ -320,6 +325,14 @@ async function sweep(env: Env): Promise<void> {
       "DELETE FROM cloud_project_objects WHERE project_id = ? AND sha256 = ? AND status = 'pending'"
     ).bind(obj.projectId, obj.sha256).run();
   }
+  // Disconnected buckets kept only so their videos could play: once no
+  // video or version points at one, its credentials have no reason to stay.
+  await env.DB.prepare(
+    `DELETE FROM storage_buckets
+      WHERE active = 0
+        AND NOT EXISTS (SELECT 1 FROM video_versions vv WHERE vv.storage_id = storage_buckets.id)
+        AND NOT EXISTS (SELECT 1 FROM shared_videos sv WHERE sv.storage_id = storage_buckets.id)`
+  ).run();
   await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
     .bind(Math.floor(Date.now() / 1000) - 86_400).run();
   // Cloud-project history retention under each owner's CURRENT plan (a

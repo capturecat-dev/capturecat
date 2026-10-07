@@ -21,6 +21,10 @@ export interface UploadAttempt {
   usedBytes: number;
   /** Shares started today. Omit to skip the daily cap (complete, replace). */
   uploadsToday?: number;
+  /** The file goes to the user's own bucket (migration 0029): CaptureCat
+   *  stores none of it, so the total-storage cap does not apply. Per-file
+   *  size, duration and the daily cap still do. */
+  ownBucket?: boolean;
 }
 
 export type UploadVerdict =
@@ -92,7 +96,7 @@ export function checkUploadAllowance(
 
   // A zero cap on any of these means the plan carries no upload allowance
   // at all — say so, rather than "max 0 B".
-  if (limits.maxTotalStorageBytes <= 0 || limits.maxFileSizeBytes <= 0) {
+  if ((!attempt.ownBucket && limits.maxTotalStorageBytes <= 0) || limits.maxFileSizeBytes <= 0) {
     return {
       ok: false,
       status: 402,
@@ -131,7 +135,7 @@ export function checkUploadAllowance(
     };
   }
 
-  if (attempt.usedBytes + attempt.fileSizeBytes > limits.maxTotalStorageBytes) {
+  if (!attempt.ownBucket && attempt.usedBytes + attempt.fileSizeBytes > limits.maxTotalStorageBytes) {
     return { ok: false, status: 413, body: storageDeniedBody(plan, attempt.usedBytes) };
   }
 

@@ -6,6 +6,13 @@ import { checkAssertion } from "./attest";
 import { shareBaseURL } from "../lib/origins";
 import { generateId } from "../lib/id";
 import { createPresignedUploadUrl, headR2ObjectMeta } from "../lib/presign";
+import {
+  deleteStoredObject,
+  storeFor,
+  uploadStoreFor,
+  StorageUnavailableError,
+  type ObjectStore,
+} from "../lib/storage";
 import { planForEntitlement } from "../lib/plans";
 import { checkUploadAllowance, storageDeniedBody } from "../lib/upload-policy";
 import { parseJsonBody } from "../lib/validate";
@@ -24,6 +31,7 @@ import {
   insertVideoVersion,
   getVideoVersion,
   nextVersionNumber,
+  markVersionReady,
   markVersionReadyWithinQuota,
   pendingUploadCount,
   setCurrentVersion,
@@ -68,6 +76,46 @@ async function dailyUploadCounter(uid: string) {
 }
 
 /**
+ * Resolve a store, or the 503 to answer when the user's bucket cannot be used
+ * (its row is gone, or STORAGE_CREDENTIALS_KEY is missing/rotated). Never
+ * falls back to CaptureCat silently: a user who connected a bucket expects
+ * their file to land there.
+ */
+async function resolveStore(
+  resolve: () => Promise<ObjectStore>
+): Promise<{ ok: true; store: ObjectStore } | { ok: false; body: { error: string; code: string } }> {
+  try {
+    return { ok: true, store: await resolve() };
+  } catch (err) {
+    if (err instanceof StorageUnavailableError) {
+      return { ok: false, body: { error: err.message, code: "storage_unavailable" } };
+    }
+    throw err;
+  }
+}
+
+/** Accept a verified version: inside the storage quota for CaptureCat R2
+ *  (atomic, see markVersionReadyWithinQuota), unconditionally for the user's
+ *  own bucket, whose bytes the quota does not count. */
+async function acceptVersion(
+  db: D1Database,
+  store: ObjectStore,
+  input: { uid: string; videoId: string; versionNumber: number; fileSizeBytes: number; limitBytes: number }
+): Promise<"ready" | "over_quota" | "missing"> {
+  if (store.storageId === null) return markVersionReadyWithinQuota(db, input);
+  await markVersionReady(db, input.videoId, input.versionNumber, input.fileSizeBytes);
+  return "ready";
+}
+
+/** Bytes a refused upload left behind. Best effort: a custom bucket may
+ *  refuse the delete, and the hourly sweep cannot reach a row deleted here. */
+async function discardObject(env: Env, store: ObjectStore, key: string): Promise<void> {
+  await deleteStoredObject(env, store.storageId, key).catch((err) =>
+    console.error("upload: could not delete refused object", key, err)
+  );
+}
+
+/**
  * POST /upload/video
  * Returns a presigned upload URL + videoId.
  * Client uploads directly to R2 using the presigned URL.
@@ -92,6 +140,12 @@ uploadRoutes.post(
     const body = parsed.data;
 
     const plan = await planForEntitlement(c.env.DB, c.get("entitlement"));
+    // The user's own bucket when connected (and their plan includes it),
+    // otherwise CaptureCat R2 — see lib/storage.ts.
+    const resolved = await resolveStore(() => uploadStoreFor(c.env, user.uid, plan));
+    if (!resolved.ok) return c.json(resolved.body, 503);
+    const store = resolved.store;
+
     const [currentUsageBytes, daily] = await Promise.all([
       storageUsageBytes(c.env.DB, user.uid),
       dailyUploadCounter(user.uid),
@@ -102,6 +156,7 @@ uploadRoutes.post(
       durationSeconds: body.durationSeconds,
       usedBytes: currentUsageBytes,
       uploadsToday: daily.count,
+      ownBucket: store.storageId !== null,
     });
     if (!verdict.ok) return c.json(verdict.body, verdict.status);
 
@@ -121,15 +176,13 @@ uploadRoutes.post(
 
     const videoId = generateId();
 
-    const r2Key = `videos/${videoId}.mp4`;
+    const r2Key = `${store.pathPrefix}videos/${videoId}.mp4`;
 
     // Create presigned upload URL with size limit. The declared size is
     // signed into the presigned PUT (see presign.ts).
     const uploadUrl = await createPresignedUploadUrl({
-      r2Endpoint: c.env.R2_ENDPOINT,
-      accessKeyId: c.env.R2_ACCESS_KEY_ID,
-      secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
-      bucket: "capturecat",
+      ...store.connection,
+      bucket: store.bucket,
       key: r2Key,
       contentType: body.contentType,
       contentLength: body.fileSizeBytes,
@@ -164,6 +217,7 @@ uploadRoutes.post(
       ctaUrl: null,
       profileVisible: true,
       thumbnailType: null,
+      storageId: store.storageId,
     });
 
     // Version 1 of the new video (migration 0017) — replace uploads append to
@@ -177,6 +231,7 @@ uploadRoutes.post(
       durationSeconds: body.durationSeconds,
       status: "pending",
       createdAt: new Date().toISOString(),
+      storageId: store.storageId,
     });
 
     // Transcript: the app's on-device subtitles, already retimed to output
@@ -196,7 +251,12 @@ uploadRoutes.post(
       });
     }
 
-    return c.json({ videoId, uploadUrl, r2Key });
+    return c.json({
+      videoId,
+      uploadUrl,
+      r2Key,
+      storage: store.storageId === null ? "capturecat" : "custom",
+    });
   }
 );
 
@@ -237,13 +297,15 @@ uploadRoutes.post(
       });
     }
 
-    // Verify the R2 object actually exists (via S3 API, not local binding)
+    // Verify the object actually exists (via S3 API, not local binding), in
+    // whichever bucket the presign pointed at.
     const r2Key = doc.r2Key;
+    const resolved = await resolveStore(() => storeFor(c.env, doc.storageId));
+    if (!resolved.ok) return c.json(resolved.body, 503);
+    const store = resolved.store;
     const head = await headR2ObjectMeta({
-      r2Endpoint: c.env.R2_ENDPOINT,
-      accessKeyId: c.env.R2_ACCESS_KEY_ID,
-      secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
-      bucket: "capturecat",
+      ...store.connection,
+      bucket: store.bucket,
       key: r2Key,
     });
 
@@ -257,11 +319,15 @@ uploadRoutes.post(
     // presign, and the bytes are what storage accounting will sum.
     const plan = await planForEntitlement(c.env.DB, c.get("entitlement"));
     const currentUsageBytes = await storageUsageBytes(c.env.DB, user.uid);
-    const verdict = checkUploadAllowance(plan, { fileSizeBytes: fileSize, usedBytes: currentUsageBytes });
+    const verdict = checkUploadAllowance(plan, {
+      fileSizeBytes: fileSize,
+      usedBytes: currentUsageBytes,
+      ownBucket: store.storageId !== null,
+    });
     const accepted = verdict.ok
       ? // The storage cap is decided INSIDE this UPDATE (one statement, no
         // read-then-check window), so concurrent completes cannot all land.
-        await markVersionReadyWithinQuota(c.env.DB, {
+        await acceptVersion(c.env.DB, store, {
           uid: user.uid,
           videoId,
           versionNumber: doc.currentVersion,
@@ -271,7 +337,7 @@ uploadRoutes.post(
       : "over_quota";
     if (!verdict.ok || accepted !== "ready") {
       // Denied after the bytes landed: delete the object so it never counts.
-      await c.env.R2.delete(r2Key);
+      await discardObject(c.env, store, r2Key);
       await deleteSharedVideo(c.env.DB, videoId);
       return c.json(
         verdict.ok ? storageDeniedBody(plan, currentUsageBytes) : verdict.body,
@@ -335,24 +401,28 @@ uploadRoutes.post(
     }
 
     // Replacing a share is not a new share, so the daily cap does not apply;
-    // storage, size and duration do.
+    // storage, size and duration do. The new version goes wherever new
+    // uploads go TODAY — it may be a different bucket from v1's, which is
+    // why storage is recorded per version.
     const plan = await planForEntitlement(c.env.DB, c.get("entitlement"));
+    const resolved = await resolveStore(() => uploadStoreFor(c.env, user.uid, plan));
+    if (!resolved.ok) return c.json(resolved.body, 503);
+    const store = resolved.store;
     const currentUsageBytes = await storageUsageBytes(c.env.DB, user.uid);
     const verdict = checkUploadAllowance(plan, {
       fileSizeBytes: body.fileSizeBytes,
       durationSeconds: body.durationSeconds ?? 0,
       usedBytes: currentUsageBytes,
+      ownBucket: store.storageId !== null,
     });
     if (!verdict.ok) return c.json(verdict.body, verdict.status);
 
     const versionNumber = await nextVersionNumber(c.env.DB, videoId);
-    const r2Key = `videos/${videoId}/v${versionNumber}.mp4`;
+    const r2Key = `${store.pathPrefix}videos/${videoId}/v${versionNumber}.mp4`;
 
     const uploadUrl = await createPresignedUploadUrl({
-      r2Endpoint: c.env.R2_ENDPOINT,
-      accessKeyId: c.env.R2_ACCESS_KEY_ID,
-      secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
-      bucket: "capturecat",
+      ...store.connection,
+      bucket: store.bucket,
       key: r2Key,
       contentType: body.contentType,
       // Same signed-size rule as the first upload (see presign.ts).
@@ -368,9 +438,16 @@ uploadRoutes.post(
       durationSeconds: body.durationSeconds ?? doc.durationSeconds,
       status: "pending",
       createdAt: new Date().toISOString(),
+      storageId: store.storageId,
     });
 
-    return c.json({ videoId, version: versionNumber, uploadUrl, r2Key });
+    return c.json({
+      videoId,
+      version: versionNumber,
+      uploadUrl,
+      r2Key,
+      storage: store.storageId === null ? "capturecat" : "custom",
+    });
   }
 );
 
@@ -411,11 +488,12 @@ uploadRoutes.post(
     if (!parsed.ok) return c.json({ error: parsed.error }, 400);
     const body = parsed.data;
 
+    const resolved = await resolveStore(() => storeFor(c.env, version.storageId));
+    if (!resolved.ok) return c.json(resolved.body, 503);
+    const store = resolved.store;
     const head = await headR2ObjectMeta({
-      r2Endpoint: c.env.R2_ENDPOINT,
-      accessKeyId: c.env.R2_ACCESS_KEY_ID,
-      secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
-      bucket: "capturecat",
+      ...store.connection,
+      bucket: store.bucket,
       key: version.r2Key,
     });
     if (head === null) {
@@ -426,9 +504,13 @@ uploadRoutes.post(
     // Same verified-size re-check and atomic accept as /complete.
     const plan = await planForEntitlement(c.env.DB, c.get("entitlement"));
     const currentUsageBytes = await storageUsageBytes(c.env.DB, user.uid);
-    const verdict = checkUploadAllowance(plan, { fileSizeBytes: fileSize, usedBytes: currentUsageBytes });
+    const verdict = checkUploadAllowance(plan, {
+      fileSizeBytes: fileSize,
+      usedBytes: currentUsageBytes,
+      ownBucket: store.storageId !== null,
+    });
     const accepted = verdict.ok
-      ? await markVersionReadyWithinQuota(c.env.DB, {
+      ? await acceptVersion(c.env.DB, store, {
           uid: user.uid,
           videoId,
           versionNumber,
@@ -437,7 +519,7 @@ uploadRoutes.post(
         })
       : "over_quota";
     if (!verdict.ok || accepted !== "ready") {
-      await c.env.R2.delete(version.r2Key);
+      await discardObject(c.env, store, version.r2Key);
       await deleteVideoVersion(c.env.DB, videoId, versionNumber);
       return c.json(
         verdict.ok ? storageDeniedBody(plan, currentUsageBytes) : verdict.body,

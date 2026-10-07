@@ -7,6 +7,7 @@ import {
   Keyboard,
   PenTool,
   Download,
+  HardDrive,
 } from "lucide-react";
 
 import { jsonLd } from "@/lib/json-ld";
@@ -133,6 +134,18 @@ const SECTIONS: Array<{
       "Fast export for much smaller files on static screens",
     ],
   },
+  {
+    icon: HardDrive,
+    eyebrow: "Your own storage",
+    title: "Share links that play from your own bucket.",
+    body:
+      "Connect an S3 compatible bucket and every shared video uploads straight to it, from the Mac app and the web recorder alike. The share page, comments, and analytics work as before, but the file never sits on our servers and never counts against your CaptureCat storage.",
+    details: [
+      "AWS S3, Cloudflare R2, Backblaze B2, Wasabi, and MinIO",
+      "Private buckets play through short lived signed links; public buckets and CDNs play directly",
+      "Keys are checked with a test upload before saving and stored encrypted. Included in Pro",
+    ],
+  },
 ];
 
 function FeaturesPage() {
@@ -191,6 +204,9 @@ function FeaturesPage() {
                 </SceneSlot>
                 <SceneSlot index={5} className="ccd-x-exportq">
                   <ExportScene quality />
+                </SceneSlot>
+                <SceneSlot index={6} className="ccd-x-export">
+                  <ExportScene bucket="s3://acme-videos" />
                 </SceneSlot>
               </>
             }

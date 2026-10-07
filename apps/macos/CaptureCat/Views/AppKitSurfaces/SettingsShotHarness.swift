@@ -10,7 +10,12 @@ import AppKit
 ///  • behavior — clicking through every section swaps the pane in place, and
 ///    a control write-through actually lands in AppState (flipped back so a
 ///    probe run never changes the user's stored settings);
-///  • theming — a dark→light flip recolors the mounted sidebar in place.
+///  • theming — a dark→light flip recolors the mounted sidebar in place;
+///  • Storage pane (StorageSettingsStage) — every screen of the bucket pane
+///    rendered from a FAKE client (no network): connect form (AWS + R2
+///    preset), validation, busy → verbatim server error, saved → summary,
+///    edit, disconnect failure/success, signed out, plan-locked, unavailable;
+///    with motion sampled mid-flight (endpoint reveal, error growth).
 /// Saves settled captures beside the report. DEBUG tooling.
 @MainActor
 enum SettingsShotHarness {
@@ -23,7 +28,8 @@ enum SettingsShotHarness {
         CCTheme.setMode(.dark, persist: false)
         let appState = AppState()
 
-        let controller = SettingsViewController(appState: appState)
+        let storage = FakeStorageBucketClient()
+        let controller = SettingsViewController(appState: appState, storageClient: storage)
         let window = NSWindow(contentViewController: controller)
         window.styleMask = [.titled, .fullSizeContentView]
         window.setContentSize(NSSize(width: 715, height: 470))
@@ -99,8 +105,14 @@ enum SettingsShotHarness {
                 print("SETTINGS theme-swap changed=\(themed)")
 
                 let pass = rootOK && degenerateRows.isEmpty && paneOK && switchOK && flipped && themed
-                print(pass ? "SETTINGS PASS" : "SETTINGS FAIL")
-                exit(pass ? 0 : 1)
+                Task { @MainActor in
+                    let storageOK = await StorageSettingsStage.run(
+                        controller: controller, window: window, client: storage
+                    )
+                    let all = pass && storageOK
+                    print(all ? "SETTINGS PASS" : "SETTINGS FAIL")
+                    exit(all ? 0 : 1)
+                }
             }
         }
         app.run()
