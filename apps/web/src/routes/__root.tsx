@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import {
   Outlet,
   createRootRoute,
@@ -9,6 +9,7 @@ import {
 
 import { TRPCProvider } from "@/lib/trpc/client";
 import { Toaster } from "@/components/ui/sonner";
+import { trackVisit } from "@/lib/attribution";
 import appCss from "@/styles/app.css?url";
 
 export const Route = createRootRoute({
@@ -32,6 +33,9 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  // Once per page load, after hydration: an anonymous landing visit (no
+  // cookie, no id — see lib/attribution.ts).
+  useEffect(() => trackVisit(), []);
   return (
     <RootDocument>
       <TRPCProvider>
