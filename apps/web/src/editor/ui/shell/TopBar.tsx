@@ -1,6 +1,6 @@
 /**
  * The editor's top bar (EditorToolbarController + HeaderChromeView):
- *   [⌗ Captures] [title] …[Image|Video │ 16:9]… [sync] [Share] [Export…] [◧]
+ *   [⌗ Captures] [title] …[Image|Video │ 16:9]… [sync] [Mac] [History] [Share] [Export…] [◧]
  * The centre cluster is centred on the bar; flat CCKit chrome only (the Mac
  * bar deliberately avoids system glass — so does the web).
  */
@@ -118,6 +118,17 @@ export function TopBar({
           <SFIcon name={sync.icon} size={11} weight="medium" className="cc-icon" />
           {sync.label}
         </button>
+      )}
+      {callbacks.onContinueOnMac && (
+        <Button
+          variant="ghost"
+          size="sm"
+          symbol="laptopcomputer"
+          onClick={callbacks.onContinueOnMac}
+          title="Open this project in CaptureCat for Mac, with everything recorded and edited here"
+        >
+          Continue on Mac
+        </Button>
       )}
       {callbacks.onShowHistory && (
         <Button

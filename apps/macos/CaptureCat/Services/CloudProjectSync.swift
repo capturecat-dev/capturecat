@@ -473,6 +473,9 @@ nonisolated enum CloudSyncError: LocalizedError, Equatable {
     /// Media the pulled project.json references could not be brought to
     /// this Mac. Nothing was applied.
     case downloadFailed(paths: [String], detail: String)
+    /// `clone` was asked for a project this Mac already has (open it, or
+    /// pull, instead). Nothing was changed.
+    case alreadyOnThisMac
 
     var errorDescription: String? {
         switch self {
@@ -492,6 +495,7 @@ nonisolated enum CloudSyncError: LocalizedError, Equatable {
             let what = paths.count == 1 ? "a file" : "\(paths.count) files"
             return "The web editor’s version uses \(what) that could not be downloaded (\(names): \(detail)). "
                 + "This Mac’s copy of the project was not changed — try again in a moment."
+        case .alreadyOnThisMac: return "This project is already on this Mac. Nothing was changed."
         }
     }
 
