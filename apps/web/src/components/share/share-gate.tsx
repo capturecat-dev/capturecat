@@ -56,6 +56,7 @@ export default function ShareGate({
             ? `${apiUrl}/api/video/${meta.videoId}/download?token=${token}`
             : null
         }
+        shareToken={token}
       />
     );
   }
