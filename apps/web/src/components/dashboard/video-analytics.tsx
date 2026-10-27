@@ -1,15 +1,6 @@
 import { useMemo, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import {
-  Activity,
-  Filter,
-  Globe,
-  Link2,
-  LogOut,
-  MessageSquare,
-  MousePointerClick,
-  Settings2,
-} from "lucide-react";
+import { Activity, Filter, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { areaY, barY, defineChart, lineY } from "@tanstack/charts";
@@ -30,6 +21,7 @@ import {
   Sections,
   StatStrip,
 } from "@/components/dashboard/studio";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 import { AnalyticsArt, CommentsArt } from "@/components/dashboard/empty-art";
 
 /* ------------------------------------------------------------------ */
@@ -268,7 +260,7 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link to="/app/videos/$videoId" params={{ videoId }}>
-              <Settings2 data-icon="inline-start" /> Settings
+              <CCIcon name="sliders" data-icon="inline-start" /> Settings
             </Link>
           </Button>
         }
@@ -302,7 +294,7 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
                     <div className="w-32 shrink-0 truncate text-sm text-muted-foreground sm:w-44">
                       {step.label}
                     </div>
-                    <div className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
+                    <div className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-cc-ink/[0.05]">
                       <div
                         className="dsh-funnel-bar absolute inset-0 rounded-full"
                         style={
@@ -369,7 +361,7 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
           )}
         </Section>
 
-        <Section icon={<MousePointerClick />} title="Player clicks by moment" description="Where viewers clicked in the player">
+        <Section icon={<CCIcon name="cursor-rays"  />} title="Player clicks by moment" description="Where viewers clicked in the player">
           {data.clicks.length === 0 ? (
             <EmptyNote className="min-h-32">No clicks recorded yet.</EmptyNote>
           ) : (
@@ -384,16 +376,16 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
         </Section>
 
         {/* Countries and referrers share one section, split by a hairline. */}
-        <div className="grid min-w-0 divide-y divide-white/8 md:grid-cols-2 md:divide-x md:divide-y-0">
-          <Section icon={<Globe />} title="Countries">
+        <div className="grid min-w-0 divide-y divide-cc-ink/8 md:grid-cols-2 md:divide-x md:divide-y-0">
+          <Section icon={<CCIcon name="globe"  />} title="Countries">
             <RankList rows={data.countries.map((c) => ({ label: c.country, count: c.count }))} />
           </Section>
-          <Section icon={<Link2 />} title="Referrers">
+          <Section icon={<CCIcon name="link"  />} title="Referrers">
             <RankList rows={data.referrers.map((r) => ({ label: r.referrer, count: r.count }))} />
           </Section>
         </div>
 
-        <Section icon={<MessageSquare />} title={`Comments (${data.comments.length})`}>
+        <Section icon={<CCIcon name="text-bubble"  />} title={`Comments (${data.comments.length})`}>
           {data.comments.length === 0 ? (
             <EmptyStage
               compact
@@ -402,7 +394,7 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
               description="Viewers comment at a moment of the video; each one lands here with its timestamp."
             />
           ) : (
-            <div className="divide-y divide-white/8">
+            <div className="divide-y divide-cc-ink/8">
               {data.comments.map((cm, i) => (
                 <div
                   key={cm.commentId}
@@ -417,12 +409,12 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
                         <a
                           href={`capturecat://open-project?id=${data.projectId}&t=${Math.floor(cm.videoTime)}`}
                           title="Open in CaptureCat at this moment"
-                          className="rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground transition-colors hover:bg-white/[0.12] hover:text-foreground"
+                          className="rounded-md border border-cc-ink/10 bg-cc-ink/[0.06] px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground transition-colors hover:bg-cc-ink/[0.12] hover:text-foreground"
                         >
                           {formatTime(cm.videoTime)} ↗
                         </a>
                       ) : (
-                        <span className="rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
+                        <span className="rounded-md border border-cc-ink/10 bg-cc-ink/[0.06] px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">
                           {formatTime(cm.videoTime)}
                         </span>
                       )}

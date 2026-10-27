@@ -64,7 +64,7 @@ final class ScreenRecorder: NSObject {
     /// External shared host-clock origin. When set before recording starts, all
     /// frame PTS are computed as `sampleTime − sharedOriginHostTime` instead of
     /// being anchored to the first sample. Camera + screen + cursor all share
-    /// this origin so their timelines line up by construction (Screen Studio
+    /// this origin so their timelines line up by construction (shared-origin
     /// approach — `cameraTimeOffset` is structurally 0 in this mode).
     @ObservationIgnored nonisolated(unsafe) var sharedOriginHostTime: CMTime?
     @ObservationIgnored private nonisolated(unsafe) var micOutputAttached = false

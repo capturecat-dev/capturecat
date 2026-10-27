@@ -22,6 +22,9 @@ final class CCHoverPoller {
         if Self.debug { NSLog("CCHoverPoller START") }
         let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { _ in
             MainActor.assumeIsolated {
+                // Probes drive hover through the real dispatchers themselves;
+                // the user's actual pointer must never leak into them.
+                guard !CCMenu.probeIsolated else { return }
                 tick()
             }
         }
@@ -181,8 +184,7 @@ class CCCombobox: NSControl {
 
         label.font = size.font
         label.lineBreakMode = .byTruncatingTail
-        chevron.image = NSImage(systemSymbolName: "chevron.up.chevron.down", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: size.chevronPointSize, weight: .semibold))
+        chevron.image = CCIcon.image("chevron.up.chevron.down", pointSize: size.chevronPointSize, weight: .semibold)
         for view in [label, chevron] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -343,8 +345,10 @@ final class CCSelect: CCCombobox {
 
 // MARK: - Popup
 
-/// The floating search-and-list surface. Internal (not private) so the kit
-/// gallery harness can drive the real filtering/keyboard machinery.
+/// The floating search-and-list surface — the house menu (CCMenuStage +
+/// CCMenuList, see CCMenu.swift) with an optional search row on top.
+/// Internal (not private) so the kit gallery harness can drive the real
+/// filtering/keyboard machinery.
 @MainActor
 final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
     var onCommit: ((Int) -> Void)?
@@ -354,35 +358,39 @@ final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
     private let searchable: Bool
     private let searchField: CCField
     private let emptyLabel: NSTextField
-    private let listStack = NSStackView()
-    private let chrome = NSView()
-    private let scroll = NSScrollView()
+    private let divider = CCDivider()
+    private let list = CCMenuList()
+    private let body = CCComboboxFlippedView()
+    private var scroll: NSScrollView?
+    private let stage = CCMenuStage()
     private let panel: CCComboboxKeyPanel
     private weak var parentWindow: NSWindow?
+    private var anchorOnScreen = NSRect.zero
+    private var opensUpward = false
     private var localMonitor: Any?
     private var globalMonitor: Any?
     private var hoverPoller: CCHoverPoller?
     private var themeObservation: CCThemeObservation?
 
-    private var glide: CCGlideHighlight?
     /// Reusable row pool — rows are REBOUND on filter changes, never
     /// recreated: with big option sets (the font list is every installed
     /// family, 300+) per-keystroke row rebuilding froze the main thread,
     /// which also starved the hover poller. The pool is capped; matches
     /// beyond it are reachable by narrowing the search.
-    private var rowPool: [CCComboboxRow] = []
-    private var rows: [CCComboboxRow] = []
+    private var rowPool: [CCMenuRow] = []
+    private var rows: [CCMenuRow] = []
     private let moreLabel = NSTextField(labelWithString: "")
     private static let maxVisibleRows = 80
     /// Indices into `options` for the rows currently shown.
     private(set) var visibleIndices: [Int] = []
-    private var activeRow: Int? // index into `rows`
-    private weak var hoveredRow: CCComboboxRow?
     private let selectedIndex: Int?
     private let minWidth: CGFloat
-
-    private static let rowHeight: CGFloat = 30
-    private static let maxListHeight: CGFloat = 9.5 * rowHeight
+    private var width: CGFloat = 0
+    /// Searchable lists stop growing at ~10 rows (typing narrows them);
+    /// a plain select grows until the screen runs out.
+    private static let searchableListCap: CGFloat = 10.5 * (CCMenu.simpleRowHeight + 1) + CCMenu.padding * 2
+    private var pulsingRow: CCMenuRow?
+    private var isDismissed = false
 
     init(
         options: [CCCombobox.Option],
@@ -405,128 +413,57 @@ final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
             defer: false
         )
         super.init()
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = .popUpMenu
-        panel.collectionBehavior = [.transient, .ignoresCycle]
-        panel.hidesOnDeactivate = false
-        panel.acceptsMouseMovedEvents = true
+        CCMenuStage.configure(panel)
         // Searchless select: no field editor to route keys through, so the
-        // panel itself drives the active row.
+        // panel itself drives the highlighted row.
         panel.onKeyCommand = { [weak self] selector in
             self?.handleKeyCommand(selector) ?? false
         }
-        buildChrome()
+        buildBody()
     }
 
-    private func buildChrome() {
-        chrome.wantsLayer = true
-        chrome.layer?.cornerCurve = .continuous
-        chrome.layer?.borderWidth = 1
-        chrome.layer?.shadowColor = NSColor.black.cgColor
-        chrome.layer?.shadowRadius = 18
-        chrome.layer?.shadowOffset = CGSize(width: 0, height: -6)
-
+    private func buildBody() {
         searchField.delegate = self
         searchField.onTextChange = { [weak self] text in self?.applyFilter(text) }
-
-        let divider = CCDivider()
-
-        listStack.orientation = .vertical
-        listStack.alignment = .leading
-        listStack.spacing = 2
-        listStack.edgeInsets = NSEdgeInsets(top: 5, left: 5, bottom: 5, right: 5)
-
-        let clipDoc = CCComboboxFlippedView()
-        listStack.translatesAutoresizingMaskIntoConstraints = false
-        clipDoc.addSubview(listStack)
-        scroll.documentView = clipDoc
-        scroll.drawsBackground = false
-        scroll.hasVerticalScroller = true
-        scroll.autohidesScrollers = true
-        clipDoc.translatesAutoresizingMaskIntoConstraints = false
-
         emptyLabel.font = CCTheme.font.label
         emptyLabel.alignment = .center
         emptyLabel.isHidden = true
         moreLabel.font = CCTheme.font.caption
         moreLabel.alignment = .center
-
-        let header: [NSView] = searchable ? [searchField, divider] : []
-        for view in header + [scroll, emptyLabel] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            chrome.addSubview(view)
-        }
-        let listTop: NSLayoutYAxisAnchor
+        moreLabel.isHidden = true
         if searchable {
-            NSLayoutConstraint.activate([
-                searchField.topAnchor.constraint(equalTo: chrome.topAnchor, constant: 6),
-                searchField.leadingAnchor.constraint(equalTo: chrome.leadingAnchor, constant: 6),
-                searchField.trailingAnchor.constraint(equalTo: chrome.trailingAnchor, constant: -6),
-
-                divider.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 6),
-                divider.leadingAnchor.constraint(equalTo: chrome.leadingAnchor),
-                divider.trailingAnchor.constraint(equalTo: chrome.trailingAnchor),
-            ])
-            listTop = divider.bottomAnchor
-        } else {
-            listTop = chrome.topAnchor
+            body.addSubview(searchField)
+            body.addSubview(divider)
         }
-        NSLayoutConstraint.activate([
-            scroll.topAnchor.constraint(equalTo: listTop, constant: searchable ? 0 : 1),
-            scroll.leadingAnchor.constraint(equalTo: chrome.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: chrome.trailingAnchor),
-            scroll.bottomAnchor.constraint(equalTo: chrome.bottomAnchor, constant: -1),
-
-            emptyLabel.centerXAnchor.constraint(equalTo: chrome.centerXAnchor),
-            emptyLabel.topAnchor.constraint(equalTo: listTop, constant: 14),
-
-            clipDoc.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
-            clipDoc.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
-            clipDoc.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
-            listStack.leadingAnchor.constraint(equalTo: clipDoc.leadingAnchor),
-            listStack.trailingAnchor.constraint(equalTo: clipDoc.trailingAnchor),
-            listStack.topAnchor.constraint(equalTo: clipDoc.topAnchor),
-            listStack.bottomAnchor.constraint(equalTo: clipDoc.bottomAnchor),
-        ])
-
-        glide = CCGlideHighlight(host: chrome)
+        body.addSubview(emptyLabel)
+        body.addSubview(moreLabel)
+        list.onActivate = { [weak self] row in
+            guard let self, let position = self.rows.firstIndex(where: { $0 === row }) else { return }
+            self.commit(position)
+        }
+        stage.setContent(body, inset: 0)
         themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
         applyFilter("")
     }
 
     private func applyTheme() {
-        chrome.layer?.backgroundColor = CCTheme.color.popover.cgColor
-        chrome.layer?.borderColor = CCTheme.color.border.cgColor
-        chrome.layer?.shadowOpacity = CCTheme.isDark ? 0.48 : 0.2
-        chrome.layer?.cornerRadius = CCTheme.radius(.lg)
         emptyLabel.textColor = CCTheme.color.mutedForeground
         moreLabel.textColor = CCTheme.color.faintForeground
     }
 
     // MARK: - Filtering
 
-    private func poolRow(at index: Int) -> CCComboboxRow {
+    private func poolRow(at index: Int) -> CCMenuRow {
         while rowPool.count <= index {
-            let row = CCComboboxRow()
-            row.onPick = { [weak self, weak row] in
-                guard let self, let row, let position = self.rows.firstIndex(of: row) else { return }
-                self.onCommit?(self.visibleIndices[position])
-            }
-            row.onHighlight = { [weak self] row, active in
-                self?.glide?.update(row: row, active: active)
-            }
-            listStack.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: listStack.widthAnchor, constant: -10).isActive = true
+            let row = CCMenuRow(.init(title: ""))
+            list.add(row)
             rowPool.append(row)
         }
         return rowPool[index]
     }
 
     func applyFilter(_ text: String) {
-        hoveredRow?.setHovered(false)
-        hoveredRow = nil
+        list.clearHover()
         let query = text.trimmingCharacters(in: .whitespaces)
         visibleIndices = options.indices.filter { index in
             query.isEmpty || options[index].title.localizedCaseInsensitiveContains(query)
@@ -537,35 +474,27 @@ final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
         let shown = min(visibleIndices.count, Self.maxVisibleRows)
         rows = (0..<shown).map { position in
             let optionIndex = visibleIndices[position]
+            let option = options[optionIndex]
             let row = poolRow(at: position)
-            row.bind(option: options[optionIndex], isSelected: optionIndex == selectedIndex)
+            // Selection check trails, far right — house rule.
+            row.update(.init(title: option.title, subtitle: option.subtitle,
+                             accessory: optionIndex == selectedIndex ? .check : .none))
             row.isHidden = false
             return row
         }
         // Hide (never destroy) the rest of the pool.
         for index in shown..<rowPool.count { rowPool[index].isHidden = true }
-        // Overflow hint sits at the end of the list.
-        moreLabel.removeFromSuperview()
-        if visibleIndices.count > shown {
+        moreLabel.isHidden = visibleIndices.count <= shown
+        if !moreLabel.isHidden {
             moreLabel.stringValue = "\(visibleIndices.count - shown) more — keep typing to narrow"
-            listStack.addArrangedSubview(moreLabel)
         }
-
-        // Filtering restarts keyboard focus at the top match.
-        setActiveRow(rows.isEmpty ? nil : 0)
         layoutPanel()
-    }
-
-    private func setActiveRow(_ index: Int?) {
-        if let activeRow, rows.indices.contains(activeRow) {
-            rows[activeRow].setKeyboardActive(false)
-        }
-        activeRow = index
-        if let index, rows.indices.contains(index) {
-            rows[index].setKeyboardActive(true)
-            chrome.layoutSubtreeIfNeeded()
-            rows[index].scrollToVisible(rows[index].bounds)
-        }
+        // Unfiltered, the highlight starts on the current value (macOS
+        // popup behavior); filtering restarts it at the top match.
+        let current = query.isEmpty ? selectedIndex.flatMap { visibleIndices.firstIndex(of: $0) } : nil
+        let start = current.flatMap { rows.indices.contains($0) ? rows[$0] : nil } ?? rows.first
+        list.setHighlighted(start, animated: false)
+        if let start, panel.isVisible { start.scrollToVisible(start.bounds) }
     }
 
     // MARK: - Keyboard
@@ -579,10 +508,10 @@ final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
     private func handleKeyCommand(_ selector: Selector) -> Bool {
         switch selector {
         case #selector(NSResponder.moveDown(_:)):
-            moveActive(1)
+            list.moveHighlight(1)
             return true
         case #selector(NSResponder.moveUp(_:)):
-            moveActive(-1)
+            list.moveHighlight(-1)
             return true
         case #selector(NSResponder.insertNewline(_:)):
             commitActive()
@@ -595,15 +524,18 @@ final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
         }
     }
 
-    private func moveActive(_ delta: Int) {
-        guard !rows.isEmpty else { return }
-        let next = ((activeRow ?? -delta) + delta + rows.count) % rows.count
-        setActiveRow(next)
+    func commitActive() {
+        guard let row = list.highlightedRow, let position = rows.firstIndex(where: { $0 === row }) else { return }
+        commit(position)
     }
 
-    func commitActive() {
-        guard let activeRow, visibleIndices.indices.contains(activeRow) else { return }
-        onCommit?(visibleIndices[activeRow])
+    /// The pick: the model hears it NOW (synchronously — callers and the
+    /// kit gate rely on that); the row's wash blinks once while the
+    /// surface closes behind it.
+    private func commit(_ position: Int) {
+        guard !isDismissed, visibleIndices.indices.contains(position) else { return }
+        pulsingRow = rows[position]
+        onCommit?(visibleIndices[position])
     }
 
     // MARK: - Presentation
@@ -611,33 +543,17 @@ final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
     func present(below trigger: NSView) {
         guard let window = trigger.window else { return }
         parentWindow = window
-        panel.contentView = chrome
+        anchorOnScreen = window.convertToScreen(trigger.convert(trigger.bounds, to: nil))
+        panel.contentView = stage
         layoutPanel()
-
-        let anchorOnScreen = window.convertToScreen(trigger.convert(trigger.bounds, to: nil))
-        var origin = NSPoint(x: anchorOnScreen.minX, y: anchorOnScreen.minY - panel.frame.height - 5)
-        if let visible = window.screen?.visibleFrame {
-            origin.x = min(max(origin.x, visible.minX + 8), visible.maxX - panel.frame.width - 8)
-            if origin.y < visible.minY + 8 {
-                origin.y = anchorOnScreen.maxY + 5
-            }
-        }
-        panel.setFrameOrigin(origin)
         window.addChildWindow(panel, ordered: .above)
-        panel.alphaValue = 0
+        stage.prepareForOpen()
         panel.orderFront(nil)
         panel.makeKey()
         if searchable { panel.makeFirstResponder(searchField) }
-        if let layer = chrome.layer {
-            let frame = layer.frame
-            layer.anchorPoint = CGPoint(x: 0.5, y: 1)
-            layer.frame = frame
-            layer.transform = CATransform3DMakeScale(0.96, 0.96, 1)
-            CCMotion.spring(layer, keyPath: "transform.scale", to: 1.0, .smooth)
-        }
-        CCMotion.run(duration: 0.18, curve: CCMotion.glide) {
-            self.panel.animator().alphaValue = 1
-        }
+        if let current = list.highlightedRow { current.scrollToVisible(current.bounds) }
+        stage.playOpen(from: opensUpward ? .bottom : .top,
+                       anchor: NSPoint(x: anchorOnScreen.midX, y: anchorOnScreen.midY), list: list)
 
         // Polled hover — floating panels drop tracking-area AND moved-event
         // delivery over regions overhanging the parent window; polling the
@@ -647,46 +563,81 @@ final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
         }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             guard let self else { return event }
-            if event.window !== self.panel { self.dismiss() }
+            if event.window !== self.panel || !self.stage.surfaceContains(windowPoint: event.locationInWindow) {
+                self.dismiss()
+            }
             return event
         }
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            guard !CCMenu.probeIsolated else { return }
             self?.dismiss()
         }
     }
 
+    /// Sizes the surface to the list (width fixed once measured, so typing
+    /// never jitters it) and keeps the edge facing the trigger pinned.
     private func layoutPanel() {
-        chrome.layoutSubtreeIfNeeded()
-        let listHeight = min(Self.maxListHeight, listStack.fittingSize.height)
+        let fieldHeight = searchField.intrinsicContentSize.height
+        let header: CGFloat = searchable ? 6 + fieldHeight + 6 + 1 : 0
+        let measured = list.fittingWidth(minWidth: max(minWidth, CCMenu.minWidth))
+        width = max(width, measured)
+        let listHeight = rows.isEmpty ? 0 : list.height(forWidth: width)
+        list.layoutEntries(width: width)
+        let anchor = anchorOnScreen
+        let screenCap = CCMenuStage.maxSurfaceHeight(for: anchor) - header
+        let cap = searchable ? min(Self.searchableListCap, screenCap) : screenCap
+        let visibleList = min(listHeight, cap)
         let emptyHeight: CGFloat = visibleIndices.isEmpty ? 44 : 0
-        let headerHeight: CGFloat = searchable
-            ? 6 + searchField.intrinsicContentSize.height + 6 + 1
-            : 1
-        let height = headerHeight + max(listHeight, emptyHeight) + 1
-        panel.setContentSize(NSSize(width: minWidth, height: height))
+        let moreHeight: CGFloat = moreLabel.isHidden ? 0 : 22
+        let height = header + max(visibleList, emptyHeight) + moreHeight
+
+        if scroll == nil {
+            let made = list.embedInScrollView(visibleHeight: visibleList)
+            body.addSubview(made)
+            scroll = made
+        }
+        if let scroll {
+            scroll.frame = NSRect(x: 0, y: header, width: width, height: visibleList)
+            let scrolls = listHeight > visibleList + 0.5
+            scroll.hasVerticalScroller = scrolls
+            scroll.verticalScrollElasticity = scrolls ? .allowed : .none
+            scroll.isHidden = rows.isEmpty
+        }
+        if searchable {
+            searchField.frame = NSRect(x: 6, y: 6, width: width - 12, height: fieldHeight)
+            divider.frame = NSRect(x: 0, y: 6 + fieldHeight + 6, width: width, height: 1)
+        }
+        emptyLabel.frame = NSRect(x: 0, y: header + 14, width: width, height: 18)
+        moreLabel.frame = NSRect(x: 0, y: height - moreHeight + 3, width: width, height: 16)
+        stage.resize(surfaceSize: NSSize(width: width, height: height))
+
+        // Placement: below the trigger, flipping above when the screen runs
+        // out; later resizes keep the trigger-facing edge pinned.
+        let visible = CCMenuStage.visibleFrame(for: anchor).insetBy(dx: 8, dy: 8)
+        guard anchor != .zero else { return }
+        if !panel.isVisible {
+            opensUpward = anchor.minY - 5 - height < visible.minY && anchor.maxY + 5 + height <= visible.maxY
+        }
+        let x = min(max(anchor.minX, visible.minX), visible.maxX - width)
+        // Neither side fits: stay on screen (overlapping the trigger beats
+        // running off the display).
+        let y = min(max(opensUpward ? anchor.maxY + 5 : anchor.minY - 5 - height, visible.minY),
+                    visible.maxY - height)
+        panel.setFrame(stage.panelFrame(surfaceOrigin: NSPoint(x: x, y: y)), display: panel.isVisible)
     }
 
     private func routeHover(screenPoint: NSPoint) {
-        var target: CCComboboxRow? = nil
-        if panel.isVisible, panel.frame.contains(screenPoint) {
-            let windowPoint = panel.convertPoint(fromScreen: screenPoint)
-            let point = chrome.convert(windowPoint, from: nil)
-            // Gap-tolerant hit test — see CCGlideHighlight's appearing note.
-            target = rows.first {
-                !$0.frame.isEmpty && chrome.convert($0.bounds, from: $0).insetBy(dx: 0, dy: -1).contains(point)
-            }
+        guard panel.isVisible, !isDismissed else { return }
+        if let surface = stage.surfaceScreenRect, surface.contains(screenPoint) {
+            list.routeHover(windowPoint: panel.convertPoint(fromScreen: screenPoint))
+        } else {
+            list.clearHover()
         }
-        guard target !== hoveredRow else { return }
-        if CCHoverPoller.debug {
-            NSLog("CCCombobox hover -> row=%d", target.flatMap { rows.firstIndex(of: $0) } ?? -1)
-        }
-        hoveredRow?.setHovered(false)
-        hoveredRow = target
-        target?.setHovered(true)
     }
 
     func dismiss() {
-        guard localMonitor != nil || panel.isVisible else { return }
+        guard !isDismissed else { return }
+        isDismissed = true
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
         localMonitor = nil
@@ -695,12 +646,19 @@ final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
         hoverPoller = nil
         let panel = self.panel
         let parent = parentWindow
-        CCMotion.run(duration: 0.12, curve: CCMotion.glide, {
-            panel.animator().alphaValue = 0
-        }, completion: {
-            parent?.removeChildWindow(panel)
-            panel.orderOut(nil)
-        })
+        let stage = self.stage
+        let close = {
+            stage.playClose {
+                parent?.removeChildWindow(panel)
+                panel.orderOut(nil)
+            }
+        }
+        if let pulsingRow {
+            // Picked: blink the chosen row, then close.
+            list.pulse(pulsingRow, then: close)
+        } else {
+            close()
+        }
         parent?.makeKey()
         onDismiss?()
         onDismiss = nil
@@ -711,8 +669,10 @@ final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
     var probeSearchField: CCField { searchField }
     var probeSearchVisible: Bool { searchField.superview != nil }
     var probeRowTitles: [String] { visibleIndices.map { options[$0].title } }
-    var probeActiveRow: Int? { activeRow }
+    var probeActiveRow: Int? { list.highlightedRow.flatMap { row in rows.firstIndex(where: { $0 === row }) } }
     var probePanel: NSWindow { panel }
+    var probeStage: CCMenuStage { stage }
+    var probeList: CCMenuList { list }
     /// Harness seam for the searchless keyboard path — same routing the real
     /// panel keyDown uses.
     func probeSendKey(_ selector: Selector) -> Bool { handleKeyCommand(selector) }
@@ -763,100 +723,6 @@ extension CCComboboxPopup {
         oneShot = popup
         popup.present(below: anchor)
         return popup
-    }
-}
-
-// MARK: - Row
-
-@MainActor
-private final class CCComboboxRow: NSControl {
-    var onPick: (() -> Void)?
-    var onHighlight: ((CCComboboxRow, Bool) -> Void)?
-
-    private let titleField = NSTextField(labelWithString: "")
-    private let subtitleField = NSTextField(labelWithString: "")
-    private let check = NSImageView()
-    private var isHovering = false
-    private var isKeyboardActive = false
-    private var themeObservation: CCThemeObservation?
-
-    override var isFlipped: Bool { true }
-    override var intrinsicContentSize: NSSize {
-        NSSize(width: 120 + titleField.intrinsicContentSize.width, height: 30)
-    }
-
-    init() {
-        super.init(frame: .zero)
-        wantsLayer = true
-        layer?.cornerCurve = .continuous
-
-        titleField.font = CCTheme.font.chip
-        titleField.lineBreakMode = .byTruncatingTail
-        subtitleField.font = CCTheme.font.caption
-        for view in [titleField, subtitleField, check] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(view)
-        }
-        NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 30),
-            titleField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 9),
-            titleField.centerYAnchor.constraint(equalTo: centerYAnchor),
-            subtitleField.leadingAnchor.constraint(equalTo: titleField.trailingAnchor, constant: CCSpace.sm),
-            subtitleField.centerYAnchor.constraint(equalTo: centerYAnchor),
-            check.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -9),
-            check.centerYAnchor.constraint(equalTo: centerYAnchor),
-        ])
-        themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    /// Pool rebinding — filter changes update contents in place instead of
-    /// recreating rows (see CCComboboxPopup.rowPool).
-    func bind(option: CCCombobox.Option, isSelected: Bool) {
-        titleField.stringValue = option.title
-        subtitleField.stringValue = option.subtitle ?? ""
-        subtitleField.isHidden = option.subtitle == nil
-        // Selection check trails, far right — house rule.
-        check.image = isSelected
-            ? NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: 10, weight: .bold))
-            : nil
-        setHovered(false)
-        setKeyboardActive(false)
-    }
-
-    override func layout() {
-        super.layout()
-        layer?.cornerRadius = CCTheme.radius(.md)
-    }
-
-    private func applyTheme() {
-        titleField.textColor = CCTheme.color.foreground
-        subtitleField.textColor = CCTheme.color.faintForeground
-        check.contentTintColor = CCTheme.color.primary
-    }
-
-    /// Hover is dispatched by the popup's event monitor — no tracking areas.
-    func setHovered(_ hovered: Bool) {
-        guard hovered != isHovering else { return }
-        isHovering = hovered
-        refresh()
-    }
-
-    func setKeyboardActive(_ active: Bool) {
-        guard active != isKeyboardActive else { return }
-        isKeyboardActive = active
-        refresh()
-    }
-
-    private func refresh() {
-        onHighlight?(self, isHovering || isKeyboardActive)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
-        onPick?()
     }
 }
 

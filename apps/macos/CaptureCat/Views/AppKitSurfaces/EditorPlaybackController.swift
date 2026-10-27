@@ -224,7 +224,7 @@ final class EditorPlaybackController {
         // Shared-origin recordings start with a PTS gap (capture spins up after
         // the origin is taken), so t=0 has no frame — the editor would open on
         // an empty background until playback reaches the first sample. Trim the
-        // project to the first real frame, Screen Studio-style.
+        // project to the first real frame so the editor never opens on a blank card.
         if project.trimStart <= 0.001 {
             let firstSample = await firstVideoSampleTime(for: asset)
             if firstSample > (1.0 / 30.0), firstSample < max(0, project.duration - 0.5) {

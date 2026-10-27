@@ -64,6 +64,15 @@ final class CCKbd: NSView {
 
     let size: Size
 
+    /// `.quiet` is the in-menu shortcut cap: a flat well in faint ink that
+    /// sits beside a title without competing with it (menu rows, lists).
+    enum Tone {
+        case standard
+        case quiet
+    }
+
+    let tone: Tone
+
     /// Held-down look for scripted demos (walkthroughs, tooltips that echo a
     /// pressed shortcut). Tints in place like every kit press.
     var isPressed = false {
@@ -81,8 +90,9 @@ final class CCKbd: NSView {
         return NSSize(width: max(size.height, textWidth + size.hPadding * 2), height: size.height)
     }
 
-    init(_ text: String, size: Size = .regular) {
+    init(_ text: String, size: Size = .regular, tone: Tone = .standard) {
         self.size = size
+        self.tone = tone
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerCurve = .continuous
@@ -122,6 +132,16 @@ final class CCKbd: NSView {
         guard let layer else { return }
         let colors = CCTheme.color
         label.font = size.font
+        if tone == .quiet {
+            // A flat well a shade off the surface it sits on, faint ink.
+            label.textColor = colors.faintForeground
+            let ink: NSColor = CCTheme.isDark ? .white : .black
+            let well = colors.popover.blended(withFraction: CCTheme.isDark ? 0.05 : 0.035, of: ink) ?? colors.popover
+            layer.backgroundColor = well.cgColor
+            CCMaterial.dress(layer, as: .recessed(tint: well),
+                             radius: size.radius.resolved(for: size.height))
+            return
+        }
         label.textColor = colors.foreground
         layer.backgroundColor = colors.elevated.cgColor
         // Inline caps sit in dense text rows — a cast shadow would smear

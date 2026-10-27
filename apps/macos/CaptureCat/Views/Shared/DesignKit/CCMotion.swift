@@ -4,7 +4,7 @@ import AppKit
 //
 // Two families:
 //  • Curves (bezier) for NSAnimationContext-driven work: constraints, frames,
-//    alpha. `easeOutQuint` is the Keynote "settle" — fast start, long soft tail.
+//    alpha. `easeOutQuint` is the house "settle" — fast start, long soft tail.
 //  • Springs (CASpringAnimation) for layer properties where a bit of physical
 //    overshoot reads as alive: toggle thumbs, knobs, press scale.
 
@@ -38,7 +38,7 @@ enum CCMotion {
 
     // MARK: - Curves
 
-    /// The house curve — Keynote-style ease-out with a long tail.
+    /// The house curve — presentation-style ease-out with a long tail.
     static let settle = CAMediaTimingFunction(controlPoints: 0.22, 1.0, 0.36, 1.0)
     /// Symmetric ease for reversible state (hover washes, color fades).
     static let glide = CAMediaTimingFunction(controlPoints: 0.4, 0.0, 0.2, 1.0)
@@ -114,16 +114,21 @@ enum CCMotion {
     enum Spring {
         /// UI acknowledgement — fast, barely any bounce.
         case snappy
-        /// Standard movement — Keynote "magic move" feel.
+        /// Standard movement — a smooth "magic move" glide between states.
         case smooth
         /// Playful — visible overshoot (toggle thumbs, pops).
         case bouncy
+        /// Floating-surface ARRIVAL (menus, popovers, flyouts): quick, with a
+        /// slight overshoot so the surface lands alive instead of stopping
+        /// flat — ~0.2% past target on a 0.96→1 scale, settled in ~0.35 s.
+        case arrive
 
         var response: CGFloat {
             switch self {
             case .snappy: return 0.28
             case .smooth: return 0.42
             case .bouncy: return 0.42
+            case .arrive: return 0.3
             }
         }
 
@@ -132,6 +137,7 @@ enum CCMotion {
             case .snappy: return 0.9
             case .smooth: return 1.0
             case .bouncy: return 0.68
+            case .arrive: return 0.72
             }
         }
     }
@@ -510,7 +516,7 @@ enum CCMotion {
     ///     dialog.entrance = .slideUp()          // CCDialog / CCAlert knob
     ///     CCMotion.enter(toast.layer!, .slideDown(distance: 16))
     enum Entrance {
-        /// Keynote settle: spring in from 96% scale — the house default.
+        /// Settle: spring in from 96% scale — the house default.
         case scaleIn
         /// Rises into place from `distance` pt below.
         case slideUp(distance: CGFloat = 24)

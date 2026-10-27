@@ -23,6 +23,7 @@ import { CameraIcon } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuLabel,
   ContextMenuRadioGroup,
   ContextMenuRadioItem,
   ContextMenuTrigger,
@@ -252,7 +253,8 @@ function FloatingBubble({ stream, leaving }: { stream: MediaStream | null; leavi
             <CameraSquircle stream={stream} />
           </div>
         </ContextMenuTrigger>
-        <ContextMenuContent className="min-w-36">
+        <ContextMenuContent>
+          <ContextMenuLabel>Bubble size</ContextMenuLabel>
           <ContextMenuRadioGroup value={current ? String(current.diameter) : ""} onValueChange={(v) => pickSize(Number(v))}>
             {BUBBLE_SIZES.map((s) => (
               <ContextMenuRadioItem key={s.diameter} value={String(s.diameter)}>

@@ -49,7 +49,9 @@ the timeline clock (`currentTime - startTime`), never a wall clock, so scrubbing
 Headless harnesses (run the built binary):
 `--preview-parity`, `--raster-golden`, `--videotrack-math-test [--canvas]`, `--voicetrack-test`,
 `--keysound-test`, `--playback-observer-test`, `--inspector-probe`, `--editor-shell-shot`,
-`--recording-panel-shot`, `--cursor-export-parity` (the ONLY gate that compares a preview frame
+`--recording-panel-shot`, `--menu-shot` (every custom menu, real window: no truncation +
+open/stagger/glide/close mid-flight), `--iconkit-test` (the CCIcon kit: parser, aliases,
+structure), `--cursor-export-parity` (the ONLY gate that compares a preview frame
 against a real exported frame; run it after touching cursor layout, `CursorStyleProvider`, or
 `renderCursorCI`).
 

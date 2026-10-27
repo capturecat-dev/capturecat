@@ -159,7 +159,7 @@ final class SegmentPillOverlay: NSView {
         wantsLayer = true
 
         hoverLayer.opacity = 0
-        // Screen Studio-style: a subtle wash square behind the active tab —
+        // Quiet selection: a subtle wash square behind the active tab —
         // no accent outline, no capsule.
         selectionLayer.borderWidth = 0
         selectionLayer.opacity = 0

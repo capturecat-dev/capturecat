@@ -56,9 +56,9 @@ export function Button({
 }
 
 /**
- * TimelineToolbarButton — 32×30 raised key. Every icon is its own key (no
- * grouping pills); keys stand on their under edge alone (no cast shadow —
- * packed keys would smear into each other).
+ * TimelineToolbarButton — 32×30 GHOST key (2026 look): no surface at rest, a
+ * flat wash on hover, a floating chip when active. Every icon is its own key
+ * (no grouping pills behind clusters).
  */
 export function IconKey({
   symbol,
@@ -81,7 +81,7 @@ export function IconKey({
   return (
     <button
       type={type}
-      className={`cc-key cc-mat-raised cc-mat-noshadow cc-press${className ? ` ${className}` : ""}`}
+      className={`cc-key cc-press${className ? ` ${className}` : ""}`}
       data-active={active || undefined}
       style={{ ...(tint ? ({ "--k-ink": tint } as CSSProperties) : null), ...style }}
       {...rest}
@@ -128,7 +128,7 @@ export function QuietButton({
   );
 }
 
-/** InspectorButton — flat raised chip inside panes; destructive = red text. */
+/** InspectorButton — a small floating chip inside panes; destructive = red text. */
 export function InspectorButton({
   children,
   destructive,

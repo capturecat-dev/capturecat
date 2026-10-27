@@ -2292,7 +2292,7 @@ enum PreviewParityHarness {
         // ramp that STARTED at the cut, so the content swap played at full
         // opacity and popped, while the exporter straddled the boundary. Both
         // sides now evaluate `DeviceSegmentDip`; these assert the properties
-        // that make it read as Keynote-smooth, so re-forking one side fails.
+        // that make it read as smooth, so re-forking one side fails.
         do {
             let cut: TimeInterval = 4.0
             let bounds = [cut]

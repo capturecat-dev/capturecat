@@ -1,19 +1,6 @@
 import { useRef, useState, type ComponentProps, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import {
-  AppWindowMac,
-  BarChart3,
-  CheckIcon,
-  Copy,
-  ExternalLink,
-  Globe,
-  ListVideo,
-  Lock,
-  MoreHorizontal,
-  Settings2,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
+import { BarChart3, Lock, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
 import { API_URL } from "@/lib/api-url";
@@ -22,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -32,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LiveDot, Meter } from "@/components/dashboard/studio";
 import type { DashboardVideo, Playlist } from "./video-types";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 import { formatDate, formatDuration, formatSize } from "./video-format";
 
 /** Public / Private, one look everywhere: smoked glass (legible on any
@@ -60,7 +49,7 @@ export function VisibilityBadge({
         </>
       ) : (
         <>
-          <Globe className="size-3" />
+          <CCIcon name="globe" className="size-3" />
           Public
         </>
       )}
@@ -129,8 +118,8 @@ export function VideoCard({
       className={cn(
         "group glass-panel hairline-top dsh-card dsh-rise relative overflow-hidden",
         selected
-          ? "border-cyan-300/50 bg-white/[0.07] shadow-[0_0_0_1px_rgba(103,232,249,0.25)]"
-          : "hover:border-white/16 hover:bg-white/[0.06]"
+          ? "border-primary/50 bg-cc-ink/[0.07] ring-1 ring-primary/30"
+          : "hover:border-cc-ink/16 hover:bg-cc-ink/[0.06]"
       )}
       style={{ "--i": Math.min(index, 11) } as CSSProperties}
     >
@@ -197,12 +186,12 @@ export function VideoCard({
         className={cn(
           "absolute left-2 top-2 z-10 flex size-6 items-center justify-center rounded-md border backdrop-blur-md transition-opacity",
           selected
-            ? "border-cyan-300 bg-cyan-300 text-black opacity-100"
+            ? "border-primary bg-primary text-white opacity-100"
             : "border-white/30 bg-black/50 text-transparent opacity-0 hover:text-white/60 group-hover:opacity-100",
           selectionActive && "opacity-100"
         )}
       >
-        <CheckIcon className="size-4" />
+        <CCIcon name="check" className="size-4" />
       </button>
 
       {/* Meta row */}
@@ -211,7 +200,7 @@ export function VideoCard({
           <Link
             to="/app/videos/$videoId"
             params={{ videoId: video.videoId }}
-            className="block truncate text-sm font-medium tracking-[-0.005em] transition-colors hover:text-cyan-200"
+            className="block truncate text-sm font-medium tracking-[-0.005em] transition-colors hover:text-primary"
             title={video.fileName}
           >
             {video.fileName}
@@ -225,14 +214,19 @@ export function VideoCard({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="-mr-1.5 size-7 shrink-0 text-muted-foreground hover:text-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`More actions for ${video.fileName}`}
+              className="-mr-1.5 size-7 shrink-0 text-muted-foreground hover:text-foreground"
+            >
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
               <Link to="/app/videos/$videoId" params={{ videoId: video.videoId }}>
-                <Settings2 className="mr-2 size-4" />
+                <CCIcon name="sliders" />
                 Details &amp; versions
               </Link>
             </DropdownMenuItem>
@@ -241,33 +235,34 @@ export function VideoCard({
                 to="/app/videos/$videoId/analytics"
                 params={{ videoId: video.videoId }}
               >
-                <BarChart3 className="mr-2 size-4" />
+                <BarChart3 />
                 Analytics
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onOpenShareSettings}>
-              <Settings2 className="mr-2 size-4" />
+              <CCIcon name="share" />
               Share settings
             </DropdownMenuItem>
             {playlists.length > 0 && (
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
-                  <ListVideo className="mr-2 size-4" />
+                  <CCIcon name="film" />
                   Playlists
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
                   {playlists.map((p) => {
                     const inPlaylist = p.videoIds.includes(video.videoId);
                     return (
-                      <DropdownMenuItem
+                      <DropdownMenuCheckboxItem
                         key={p.playlistId}
-                        onClick={() => onTogglePlaylist(p.playlistId, inPlaylist)}
+                        checked={inPlaylist}
+                        onCheckedChange={() => onTogglePlaylist(p.playlistId, inPlaylist)}
                       >
-                        <span className="mr-2 w-4 text-center">
-                          {inPlaylist ? "✓" : (p.emoji ?? "")}
+                        <span className="cc-dd-glyph" aria-hidden>
+                          {p.emoji ?? ""}
                         </span>
                         {p.name}
-                      </DropdownMenuItem>
+                      </DropdownMenuCheckboxItem>
                     );
                   })}
                 </DropdownMenuSubContent>
@@ -277,34 +272,31 @@ export function VideoCard({
               <DropdownMenuItem asChild>
                 {/* capturecat:// is handled by the app's DeepLinkHandler. */}
                 <a href={`capturecat://open-project?id=${video.projectId}`}>
-                  <AppWindowMac className="mr-2 size-4" />
+                  <CCIcon name="window" />
                   Open in CaptureCat
                 </a>
               </DropdownMenuItem>
             )}
             <DropdownMenuItem disabled={aiPending} onClick={onGenerateAi}>
-              <Sparkles className="mr-2 size-4" />
+              <CCIcon name="sparkles" />
               {aiPending ? "Generating…" : "Generate AI summary"}
             </DropdownMenuItem>
             {!video.isPrivate && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => window.open(video.url, "_blank")}>
-                  <ExternalLink className="mr-2 size-4" />
+                  <CCIcon name="arrow-up-right" />
                   Open share link
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={copyLink}>
-                  <Copy className="mr-2 size-4" />
+                  <CCIcon name="clipboard" />
                   Copy link
                 </DropdownMenuItem>
               </>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={onDelete}
-            >
-              <Trash2 className="mr-2 size-4" />
+            <DropdownMenuItem variant="destructive" onClick={onDelete}>
+              <CCIcon name="trash" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -328,10 +320,10 @@ export function UploadingCard({
 }) {
   const percent = Math.round(progress * 100);
   return (
-    <div className="glass-panel hairline-top dsh-pop relative overflow-hidden border-cyan-300/20">
-      <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-t-[inherit] bg-[radial-gradient(80%_70%_at_50%_40%,rgba(103,232,249,0.10),transparent_70%),rgba(0,0,0,0.6)]">
+    <div className="glass-panel hairline-top dsh-pop relative overflow-hidden border-primary/20">
+      <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-t-[inherit] bg-cc-elevated">
         <span aria-hidden className="dsh-sweep" />
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-white/85 backdrop-blur-md">
+        <span className="cc-float-chip inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px] font-medium text-foreground">
           <LiveDot />
           {completing ? "Finishing" : "Uploading"}
         </span>

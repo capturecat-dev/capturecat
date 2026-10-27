@@ -5,8 +5,8 @@
  *
  *  • shown only while an annotation is SELECTED (contextual only — adding
  *    annotations lives in the timeline toolbar's picker);
- *  • hidden during playback and while a canvas drag is in flight (Keynote;
- *    also what keeps drags at frame rate — no per-move toolbar layout);
+ *  • hidden during playback and while a canvas drag is in flight (as in
+ *    presentation apps; also what keeps drags at frame rate — no per-move toolbar layout);
  *  • floats 10pt above the annotation's on-screen rect
  *    (StageInteraction.selectedAnnotationViewRect — the hit rect through the
  *    camera), below it when there is no headroom, clamped 8pt inside the

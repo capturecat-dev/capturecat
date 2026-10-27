@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 
-import { GlideWash, IconKey, Popover, RailSlider, rectOf, SFIcon, ToolbarSeparator, useGlide, type AnchorRect } from "../kit";
+import { IconKey, MenuList, Popover, RailSlider, rectOf, SFIcon, ToolbarSeparator, type AnchorRect, type MenuEntry } from "../kit";
 import { formatTimecode } from "../timeline/snap";
 import { M } from "../timeline/metrics";
 import type {
@@ -30,23 +30,62 @@ interface PickerRow<T extends string> {
   enabled?: boolean;
 }
 
-function effectsRows(project: ShellProjectInfo): PickerRow<EffectsPick>[] {
+interface PickerGroup<T extends string> {
+  /** Sentence-case section header. */
+  title?: string;
+  /** Shown once under the header when the whole group is unavailable. */
+  disabledCaption?: string;
+  /** The group is unavailable (its rows dim; the caption says why). */
+  disabled?: boolean;
+  rows: PickerRow<T>[];
+}
+
+/**
+ * The Effects picker (TimelinePickerPopover), grouped like the Mac's:
+ * zoom & motion · transitions · camera. The camera looks need a recorded
+ * camera — without one the group stays visible, dimmed, with one caption.
+ */
+function effectsGroups(project: ShellProjectInfo): PickerGroup<EffectsPick>[] {
+  const camera = !!project.hasRecordedCamera;
   return [
-    ...(project.isImageCapture
-      ? [{ id: "motion" as const, icon: "wand.and.stars", title: "Motion", detail: "Cinematic corner tour across the image" }]
-      : []),
-    { id: "autoZoom", icon: "sparkle.magnifyingglass", title: "Auto Zoom", detail: "Generate zooms from cursor movement", enabled: project.hasCursorData !== false },
-    { id: "zoomIn", icon: "plus.magnifyingglass", title: "Zoom In", detail: "Push in at the playhead — drag the target to aim" },
-    { id: "showcase", icon: "sparkles.rectangle.stack", title: "Showcase", detail: "Gentle zoom + 3D skew, returns to centre" },
-    { id: "scaleDown", icon: "arrow.down.right.and.arrow.up.left", title: "Scale Down", detail: "Shrink the card for a beat, then back" },
-    { id: "tilt", icon: "rotate.3d", title: "Tilt", detail: "Skew the screen in 3D for a span" },
-    { id: "slide", icon: "arrow.up.to.line", title: "Slide", detail: "Card slides from an edge — place it anywhere" },
-    { id: "curtain", icon: "book.pages", title: "Curtain Unveil", detail: "A curtain peels from a corner to reveal the screen" },
-    { id: "cameraFull", icon: "person.crop.rectangle", title: "Camera: Full Screen", detail: "Webcam fills the card for a span — talking head", enabled: !!project.hasRecordedCamera },
-    { id: "cameraSideBySide", icon: "rectangle.split.2x1", title: "Camera: Side by Side", detail: "Screen shrinks left, webcam fills the right", enabled: !!project.hasRecordedCamera },
-    { id: "cameraHide", icon: "person.crop.rectangle.badge.xmark", title: "Camera: Hide", detail: "No webcam for a span — screen only", enabled: !!project.hasRecordedCamera },
-    { id: "cameraCutout", icon: "person.and.background.dotted", title: "Cutout", detail: "Webcam with its background removed, over the screen", enabled: !!project.hasRecordedCamera },
-    { id: "cameraPopOut", icon: "person.crop.square.filled.and.at.rectangle", title: "Pop-out card", detail: "Cut-out webcam on a card — the head breaks out the top", enabled: !!project.hasRecordedCamera },
+    {
+      title: "Zoom & motion",
+      rows: [
+        ...(project.isImageCapture
+          ? [{ id: "motion" as const, icon: "wand.and.stars", title: "Motion", detail: "A cinematic corner tour across the image" }]
+          : []),
+        {
+          id: "autoZoom",
+          icon: "sparkle.magnifyingglass",
+          title: "Auto Zoom",
+          detail: project.hasCursorData === false ? "Needs cursor data from the recording" : "Generate zooms from cursor movement",
+          enabled: project.hasCursorData !== false,
+        },
+        { id: "zoomIn", icon: "plus.magnifyingglass", title: "Zoom In", detail: "Push in at the playhead — drag the target to aim" },
+        { id: "showcase", icon: "sparkles.rectangle.stack", title: "Showcase", detail: "A gentle zoom and 3D skew that returns to centre" },
+        { id: "scaleDown", icon: "arrow.down.right.and.arrow.up.left", title: "Scale Down", detail: "Shrink the card for a beat, then back" },
+        { id: "tilt", icon: "rotate.3d", title: "Tilt", detail: "Skew the screen in 3D for a span" },
+      ],
+    },
+    {
+      title: "Transitions",
+      rows: [
+        { id: "slide", icon: "arrow.up.to.line", title: "Slide", detail: "The card slides in from an edge — place it anywhere" },
+        { id: "curtain", icon: "book.pages", title: "Curtain Unveil", detail: "A curtain peels from a corner to reveal the screen" },
+      ],
+    },
+    {
+      title: "Camera",
+      disabled: !camera,
+      disabledCaption: "Needs a camera recording",
+      rows: [
+        { id: "cameraFull", icon: "person.crop.rectangle", title: "Full Screen", detail: "The webcam fills the card — a talking head" },
+        { id: "cameraSideBySide", icon: "rectangle.split.2x1", title: "Side by Side", detail: "The screen shrinks left; the webcam fills the right" },
+        { id: "cameraCutout", icon: "person.and.background.dotted", title: "Cutout", detail: "The webcam with its background removed, over the screen" },
+        { id: "cameraPopOut", icon: "person-popout", title: "Pop-out card", detail: "A cut-out webcam on a card — the head breaks out the top" },
+        { id: "cameraHide", icon: "person.crop.rectangle.badge.xmark", title: "Hide Camera", detail: "No webcam for a span — the screen only" },
+      ],
+    },
   ];
 }
 
@@ -81,65 +120,47 @@ function CameraMaskChipView({ chip }: { chip: CameraMaskChip }) {
   );
 }
 
-const FOCUS_ROWS: PickerRow<FocusPick>[] = [
-  { id: "blur", icon: "eye.slash", title: "Add Blur", detail: "Drag over an area to blur it" },
-  { id: "pixelate", icon: "squareshape.split.3x3", title: "Add Pixelate", detail: "Drag over an area to pixelate it" },
-  { id: "highlight", icon: "highlighter", title: "Add Highlight", detail: "Highlight a region of the video" },
-  { id: "depthFocus", icon: "camera.aperture", title: "Add Depth Focus", detail: "Keep a region sharp, blur the rest" },
+const FOCUS_GROUPS: PickerGroup<FocusPick>[] = [
+  {
+    rows: [
+      { id: "blur", icon: "eye.slash", title: "Add Blur", detail: "Drag over an area to blur it" },
+      { id: "pixelate", icon: "squareshape.split.3x3", title: "Add Pixelate", detail: "Drag over an area to pixelate it" },
+      { id: "highlight", icon: "highlighter", title: "Add Highlight", detail: "Highlight a region of the video" },
+      { id: "depthFocus", icon: "camera.aperture", title: "Add Depth Focus", detail: "Keep a region sharp and blur the rest" },
+    ],
+  },
 ];
 
-const ANNOTATION_ROWS: PickerRow<AnnotationPick>[] = [
-  { id: "text", icon: "text.bubble", title: "Text Label", detail: "Add a text overlay" },
-  { id: "arrow", icon: "arrow.up.right", title: "Arrow", detail: "Draw a directional arrow" },
-  { id: "callout", icon: "pencil.tip", title: "Callout", detail: "Line with labelled box" },
-  { id: "drawing", icon: "pencil.and.scribble", title: "Drawing", detail: "Freehand brush strokes" },
-  { id: "rectangle", icon: "rectangle", title: "Rectangle", detail: "Box with optional fill" },
-  { id: "ellipse", icon: "oval", title: "Ellipse", detail: "Circle / oval with optional fill" },
-  { id: "tap", icon: "hand.tap", title: "Tap Indicator", detail: "Looping touch ripple for iPhone takes" },
+const ANNOTATION_GROUPS: PickerGroup<AnnotationPick>[] = [
+  {
+    rows: [
+      { id: "text", icon: "text.bubble", title: "Text Label", detail: "Add a text overlay" },
+      { id: "arrow", icon: "arrow.up.right", title: "Arrow", detail: "Draw a directional arrow" },
+      { id: "callout", icon: "pencil.tip", title: "Callout", detail: "A line with a labelled box" },
+      { id: "drawing", icon: "pencil.and.scribble", title: "Drawing", detail: "Freehand brush strokes" },
+      { id: "rectangle", icon: "rectangle", title: "Rectangle", detail: "A box with an optional fill" },
+      { id: "ellipse", icon: "oval", title: "Ellipse", detail: "A circle or oval with an optional fill" },
+      { id: "tap", icon: "hand.tap", title: "Tap Indicator", detail: "A looping touch ripple for iPhone takes" },
+    ],
+  },
 ];
 
-/** TimelinePickerPopover: 28pt icon chip + bold title + detail, one glide wash. */
-function PickerList<T extends string>({ rows, width, onPick }: { rows: PickerRow<T>[]; width: number; onPick: (id: T) => void }) {
-  const glide = useGlide();
-  const [hover, setHover] = useState<T | null>(null);
-  return (
-    <div
-      ref={glide.containerRef}
-      className="cc-picker-pop"
-      style={{ width }}
-      onPointerLeave={() => {
-        setHover(null);
-        glide.update(null);
-      }}
-    >
-      <GlideWash glide={glide} />
-      {rows.map((row) => (
-        <button
-          key={row.id}
-          type="button"
-          className="cc-pickrow"
-          disabled={row.enabled === false}
-          data-hover={hover === row.id || undefined}
-          onPointerEnter={(e) => {
-            if (row.enabled === false) return;
-            setHover(row.id);
-            glide.update(e.currentTarget);
-          }}
-          onClick={() => onPick(row.id)}
-        >
-          <span className="cc-pickrow__chip">
-            <SFIcon name={row.icon} size={15} weight="semibold" />
-          </span>
-          <span className="cc-pickrow__text">
-            <div className="cc-pickrow__title">{row.title}</div>
-            <div className="cc-pickrow__detail" title={row.detail}>
-              {row.detail}
-            </div>
-          </span>
-        </button>
-      ))}
-    </div>
-  );
+/** TimelinePickerPopover → the kit MenuList's rich rows (tile + title + description). */
+function pickerEntries<T extends string>(groups: PickerGroup<T>[], onPick: (id: T) => void): MenuEntry[] {
+  const entries: MenuEntry[] = [];
+  for (const g of groups) {
+    if (g.title) entries.push({ section: g.title, disabled: g.disabled, caption: g.disabled ? g.disabledCaption : undefined });
+    for (const row of g.rows) {
+      entries.push({
+        title: row.title,
+        description: row.detail,
+        icon: row.icon,
+        disabled: row.enabled === false,
+        onSelect: () => onPick(row.id),
+      });
+    }
+  }
+  return entries;
 }
 
 type OpenPicker = { kind: "effects" | "focus" | "annotate"; anchor: AnchorRect; el: Element } | null;
@@ -268,33 +289,24 @@ export function TransportBar({
       {open && (
         <Popover anchor={open.anchor} edge="above" onDismiss={() => setOpen(null)} ignore={open.el}>
           {open.kind === "effects" && (
-            <PickerList
-              rows={effectsRows(project)}
-              width={260}
-              onPick={(id) => {
-                setOpen(null);
-                callbacks.onEffectsPick?.(id);
-              }}
+            <MenuList
+              ariaLabel="Add effect"
+              entries={pickerEntries(effectsGroups(project), (id) => callbacks.onEffectsPick?.(id))}
+              onClose={() => setOpen(null)}
             />
           )}
           {open.kind === "focus" && (
-            <PickerList
-              rows={FOCUS_ROWS}
-              width={240}
-              onPick={(id) => {
-                setOpen(null);
-                callbacks.onFocusPick?.(id);
-              }}
+            <MenuList
+              ariaLabel="Add focus or blur"
+              entries={pickerEntries(FOCUS_GROUPS, (id) => callbacks.onFocusPick?.(id))}
+              onClose={() => setOpen(null)}
             />
           )}
           {open.kind === "annotate" && (
-            <PickerList
-              rows={ANNOTATION_ROWS}
-              width={220}
-              onPick={(id) => {
-                setOpen(null);
-                callbacks.onAnnotationPick?.(id);
-              }}
+            <MenuList
+              ariaLabel="Add annotation"
+              entries={pickerEntries(ANNOTATION_GROUPS, (id) => callbacks.onAnnotationPick?.(id))}
+              onClose={() => setOpen(null)}
             />
           )}
         </Popover>

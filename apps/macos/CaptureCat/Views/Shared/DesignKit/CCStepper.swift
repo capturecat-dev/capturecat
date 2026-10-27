@@ -234,8 +234,7 @@ private final class CCStepperKey: NSView {
         wantsLayer = true
         layer?.cornerCurve = .continuous
         layer?.borderWidth = 1
-        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold))
+        icon.image = CCIcon.image(symbol, pointSize: 11, weight: .semibold)
         icon.translatesAutoresizingMaskIntoConstraints = false
         addSubview(icon)
         NSLayoutConstraint.activate([

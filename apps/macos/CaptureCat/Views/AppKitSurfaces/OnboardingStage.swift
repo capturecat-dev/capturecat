@@ -676,10 +676,7 @@ enum Stage {
     static func symbol(_ name: String, size: CGFloat, weight: NSFont.Weight = .semibold,
                        color: NSColor) -> CALayer {
         let layer = CALayer()
-        let config = NSImage.SymbolConfiguration(pointSize: size, weight: weight)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
-        if let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-            .withSymbolConfiguration(config) {
+        if let image = CCIcon.image(name, pointSize: size, weight: weight, color: color) {
             layer.contents = image
             layer.bounds = CGRect(origin: .zero, size: image.size)
         }

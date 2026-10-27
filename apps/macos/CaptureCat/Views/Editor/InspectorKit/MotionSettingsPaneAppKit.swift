@@ -564,7 +564,7 @@ final class MotionSpeedPadControl: NSView {
 
 // MARK: - Tilt pad
 
-/// Screen Studio-style 2D skew pad — native twin of TiltPadView. Drag sets
+/// 2D skew pad (an XY pad for the 3D tilt) — native twin of TiltPadView. Drag sets
 /// yaw (x) + pitch (y); the mini card warps with the REAL TiltMath homography;
 /// double-click resets.
 @MainActor

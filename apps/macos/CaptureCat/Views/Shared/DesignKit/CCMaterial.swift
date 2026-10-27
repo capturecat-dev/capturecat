@@ -1,16 +1,21 @@
 import AppKit
 
-// CCKit material engine — the skeuomorphic dressing every component shares
-// (Mike's call, 2026-09-01: full skeuomorphism, kit-wide).
+// CCKit material engine — the dressing every component shares.
 //
-// Everything is DERIVED from the live theme tokens — no image assets. A
-// dressed layer gets, from back to front, all named `ccmat.*`:
-//  • base   — vertical surface gradient (raised: lit from the top;
-//             recessed: shaded at the top like a real well)
-//  • bevelTop / bevelBottom — 1px highlight + shade lines that sell the edge
-//  • innerTop — soft inner shadow falling from a recessed well's top lip
-// NO glass sheen anywhere — the gloss cap shipped once and Mike vetoed it
-// on sight; depth is gradient + bevels + shadows, nothing shiny.
+// THE 2026 LOOK (Mike, 2026-10-27: "a more 2026 style like macOS apps" —
+// soft light surfaces, our own take), replacing the 2026-09-01
+// skeuomorphic keys: soft, airy, floating. Still our own drawing — never
+// system Liquid Glass (Mike, 2026-08-17).
+//  • raised / raisedMatte — a FLOATING surface: the tint with a whisper of
+//    top light, a hairline edge that follows the corners, and a wide soft
+//    shadow scaled to the surface (tight under chips, airy under cards).
+//    No extruded side, no inner light, no bevel lines, no gloss.
+//  • recessed — a flat WELL: the tint, a hairline edge, no inner shadow.
+//
+// Everything is DERIVED from the live theme tokens — no image assets. The
+// sublayers keep their `ccmat.*` names (base, under, bevelTop/Bottom,
+// innerTop) so probes and the self-heal below work unchanged; the 2026 look
+// simply hides the ones it does not use.
 //
 // Components call `dress` from applyTheme() (colors + frames) and `refit`
 // from layout() (frames only). Both are idempotent and self-healing: AppKit
@@ -19,12 +24,14 @@ import AppKit
 @MainActor
 enum CCMaterial {
     enum Style {
-        /// Lit, touchable surface with a glass sheen — buttons, chips, thumbs.
+        /// Floating, touchable surface (hairline + soft cast shadow scaled to
+        /// its height) — buttons, chips, thumbs, popovers.
         case raised(tint: NSColor)
-        /// Raised without the sheen — large surfaces (cards, dialogs) where
-        /// gloss reads as kitsch instead of depth.
+        /// The same floating face WITHOUT the cast shadow — large surfaces
+        /// (cards, dialogs) whose host window or container supplies depth.
         case raisedMatte(tint: NSColor)
-        /// A well the content sits inside — fields, tracks, segmented wells.
+        /// A flat well the content sits inside (tint + quieter hairline, no
+        /// inner shadow) — fields, tracks, segmented wells.
         case recessed(tint: NSColor)
     }
 
@@ -59,8 +66,8 @@ enum CCMaterial {
         let bevelBottom = line(in: layer, name: "ccmat.bevelBottom", index: 3)
         let innerTop = gradient(in: layer, name: "ccmat.innerTop", index: 4)
         // NO gloss layer: the glass sheen shipped and Mike vetoed it on
-        // sight ("a big no no") — depth comes from gradient + bevels +
-        // shadows only. If a layer was dressed before the veto, clear it.
+        // sight ("a big no no") — depth comes from the hairline and the
+        // floating shadow only. If a layer was dressed before the veto, clear it.
         layer.sublayers?.first(where: { $0.name == "ccmat.gloss" })?.removeFromSuperlayer()
         // Dress resets visibility; refit's size guards then re-hide as needed
         // (without this, a guard that fired once would latch forever).
@@ -69,31 +76,23 @@ enum CCMaterial {
 
         switch style {
         case .raised(let tint), .raisedMatte(let tint):
-            // The reference look (Mike's calculator icon): soft matte keys
-            // extruding from the surface — a thick darker UNDER edge that
-            // follows the corners (the key's "side"), a soft top light, a
-            // gentle gradient, and a soft drop shadow. No hard 1px lines.
-            let lift: CGFloat = dark ? 0.10 : 0.14
-            let sink: CGFloat = dark ? 0.14 : 0.08
+            // A floating surface: the tint itself with a whisper of top
+            // light (2026 surfaces read flat; the gradient only keeps big
+            // panels from looking printed), and a hairline edge.
             base.colors = [
-                blend(tint, .white, lift).cgColor,
+                blend(tint, .white, dark ? 0.035 : 0.02).cgColor,
                 tint.cgColor,
-                blend(tint, .black, sink).cgColor,
             ]
-            base.locations = [0, 0.55, 1]
-            under.backgroundColor = blend(tint, .black, dark ? 0.45 : 0.30).cgColor
-            under.isHidden = false
+            base.locations = [0, 1]
+            base.borderWidth = 0.5
+            base.borderColor = hairline(dark: dark, onWell: false).cgColor
+            under.isHidden = true
             bevelTop.isHidden = true
             bevelBottom.isHidden = true
-            // Soft light falling on the key's top face.
-            innerTop.colors = [
-                NSColor.white.withAlphaComponent(dark ? 0.08 : 0.25).cgColor,
-                NSColor.white.withAlphaComponent(0).cgColor,
-            ]
-            innerTop.isHidden = false
+            innerTop.isHidden = true
             if case .raised = style, !layer.masksToBounds,
                layer.value(forKey: "ccmatNoShadow") == nil {
-                // The soft key shadow is APPLIED in refit, not here: AppKit
+                // The floating shadow is APPLIED in refit, not here: AppKit
                 // owns view backing layers and reconfigures them on window
                 // attach, wiping an init-time shadow — which shipped as
                 // "shadows only appear after hovering" (hover re-dressed).
@@ -103,27 +102,18 @@ enum CCMaterial {
                 layer.setValue(nil, forKey: "ccmatShadow")
             }
         case .recessed(let tint):
+            // A flat well: the tint and a hairline edge. Depth comes from the
+            // floating surfaces around it, not from shading inside it.
             under.isHidden = true
             layer.setValue(nil, forKey: "ccmatShadow")
-            layer.shadowOpacity = 0   // pressed keys sit flush — no cast shadow
-            base.colors = [
-                blend(tint, .black, dark ? 0.14 : 0.08).cgColor,
-                tint.cgColor,
-                blend(tint, .white, dark ? 0.03 : 0.05).cgColor,
-            ]
-            base.locations = [0, 0.45, 1]
-            // The well's top lip casts a soft inner shadow; the bottom lip
-            // catches a sliver of light. Kept quiet — heavy shading reads
-            // as a dirty band, not depth.
-            innerTop.colors = [
-                NSColor.black.withAlphaComponent(dark ? 0.26 : 0.14).cgColor,
-                NSColor.black.withAlphaComponent(0).cgColor,
-            ]
-            innerTop.isHidden = false
-            bevelTop.backgroundColor = NSColor.black
-                .withAlphaComponent(dark ? 0.5 : 0.22).cgColor
-            bevelBottom.backgroundColor = NSColor.white
-                .withAlphaComponent(dark ? 0.10 : 0.5).cgColor
+            layer.shadowOpacity = 0
+            base.colors = [tint.cgColor, tint.cgColor]
+            base.locations = [0, 1]
+            base.borderWidth = 0.5
+            base.borderColor = hairline(dark: dark, onWell: true).cgColor
+            innerTop.isHidden = true
+            bevelTop.isHidden = true
+            bevelBottom.isHidden = true
         }
         refit(layer, radius: radius)
     }
@@ -157,14 +147,17 @@ enum CCMaterial {
         // rather than render badly.
         let pillish = radius > b.height * 0.35 || b.width < 40
         let tooShortForSheen = b.height < 10
-        // Re-assert the key shadow every refit — AppKit reconfigures view
+        // Re-assert the floating shadow every refit — AppKit reconfigures view
         // backing layers on window attach and silently drops an init-time
         // shadow (seen as "shadows only appear after hovering").
         if layer.value(forKey: "ccmatShadow") as? Bool == true {
+            // Soft and wide, scaled to the surface: a chip gets a tight
+            // contact shadow, a card an airy one. Never a hard key shadow.
+            let shadow = floatShadow(height: b.height, dark: CCTheme.isDark)
             layer.shadowColor = NSColor.black.cgColor
-            layer.shadowOpacity = CCTheme.isDark ? 0.45 : 0.20
-            layer.shadowRadius = 3
-            layer.shadowOffset = CGSize(width: 0, height: flipped ? 2 : -2)
+            layer.shadowOpacity = shadow.opacity
+            layer.shadowRadius = shadow.radius
+            layer.shadowOffset = CGSize(width: 0, height: flipped ? shadow.y : -shadow.y)
         }
         // Gradient axis re-resolved every refit from LIVE flippedness —
         // colors[0] (the top shade/lift) must sit at the visual top.
@@ -179,8 +172,12 @@ enum CCMaterial {
             case "ccmat.base":
                 sub.frame = b
                 sub.cornerRadius = radius
+                // The hairline is a border, so it follows the corners;
+                // on a tiny surface it would read as an outline — drop it.
+                if b.height < 10 || b.width < 10 { sub.borderWidth = 0 }
             case "ccmat.under":
-                // The key's "side": the same rounded rect peeking out below.
+                // The 2026-09 key's "side" (hidden in the 2026 look; kept so
+                // probes and the self-heal keep their layer indices).
                 let extrude = min(2, b.height * 0.12)
                 sub.frame = b.offsetBy(dx: 0, dy: flipped ? extrude : -extrude)
                 sub.cornerRadius = radius
@@ -236,7 +233,7 @@ enum CCMaterial {
                       to: down ? (CCTheme.isDark ? 0.10 : 0.08) : 0, duration: 0.08)
     }
 
-    /// Opt a dressed surface out of the cast shadow — dense bars where key
+    /// Opt a dressed surface out of the cast shadow — dense bars where
     /// shadows smear across packed neighbors, or hosts whose fills are
     /// translucent (a shadow shows through the fill as a muddy halo).
     static func suppressShadow(_ layer: CALayer) {
@@ -262,6 +259,23 @@ enum CCMaterial {
     }
 
     // MARK: - Internals
+
+    /// The 2026 hairline: ink-relative so it reads on any tint, quieter on
+    /// wells than on floating surfaces.
+    static func hairline(dark: Bool, onWell: Bool) -> NSColor {
+        if dark { return NSColor.white.withAlphaComponent(onWell ? 0.06 : 0.09) }
+        return NSColor.black.withAlphaComponent(onWell ? 0.05 : 0.07)
+    }
+
+    /// Shadow for a floating surface of this height: radius, opacity and
+    /// downward offset grow with size (chip → card → dialog).
+    static func floatShadow(height: CGFloat, dark: Bool) -> (radius: CGFloat, opacity: Float, y: CGFloat) {
+        let t = max(0, min(1, (height - 20) / 140))       // 20 pt chip … 160 pt card
+        let radius = 2.5 + 11.5 * t                         // 2.5 … 14
+        let y = 1 + 4 * t                                   // 1 … 5
+        let opacity: Float = dark ? Float(0.32 + 0.10 * t) : Float(0.07 + 0.03 * t)
+        return (radius, opacity, y)
+    }
 
     private static func blend(_ base: NSColor, _ with: NSColor, _ fraction: CGFloat) -> NSColor {
         base.blended(withFraction: fraction, of: with) ?? base

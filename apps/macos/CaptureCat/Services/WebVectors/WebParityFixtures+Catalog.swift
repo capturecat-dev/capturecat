@@ -287,7 +287,7 @@ extension WebParityFixtures {
                 }),
             Fixture(
                 name: "14-source-segments-dip",
-                description: "Stitched take screen → iPhone → screen: the device segment is cropped to its content rect and bezel-framed (screen mask, bezel with its own shadow, island; the card shadow dropped), a Keynote dip straddles each cut, and a tilt region spans the second cut (side slab + dip under the warp). Frames on, beside and around both cuts.",
+                description: "Stitched take screen → iPhone → screen: the device segment is cropped to its content rect and bezel-framed (screen mask, bezel with its own shadow, island; the card shadow dropped), a segment dip straddles each cut, and a tilt region spans the second cut (side slab + dip under the warp). Frames on, beside and around both cuts.",
                 features: ["sourceSegments", "sourceSegments.deviceFraming", "deviceSegmentDip", "tilt.region", "deviceSide"],
                 duration: 5, sourceSize: screen, withCursor: false, withCamera: false,
                 frames: [0, 40, 45, 47, 48, 49, 52, 60, 80, 99, 101, 102, 103, 106, 125, 149],

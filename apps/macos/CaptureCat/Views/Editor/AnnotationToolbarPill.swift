@@ -8,8 +8,8 @@ import AppKit
 ///   arrow/drawing  line width · color
 ///   tap            ripple size · color
 ///
-/// It hides during playback and while a drag is in flight (Keynote does the
-/// same — and not laying out a toolbar per mouse-move is also what keeps
+/// It hides during playback and while a drag is in flight (presentation apps
+/// do the same — and not laying out a toolbar per mouse-move is also what keeps
 /// dragging at frame rate).
 ///
 /// Color wells are the SAME InspectorColorWellControl the properties panel

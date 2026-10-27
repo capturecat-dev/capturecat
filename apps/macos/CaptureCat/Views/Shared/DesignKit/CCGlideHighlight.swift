@@ -12,13 +12,22 @@ final class CCGlideHighlight {
     /// relayout — a foreign sublayer silently vanished from busy hosts (the
     /// timeline toolbar refreshes at playback rate), which shipped as "the
     /// toolbar never glides". Subviews are ours; AppKit leaves them alone.
-    private let washHost = NSView()
+    private let washHost: GlideWashHost
     private weak var host: NSView?
     private weak var current: NSView?
     private var themeObservation: CCThemeObservation?
+    /// Reduce Motion: a hop lands in place and only the fade plays (menus
+    /// set this from `accessibilityDisplayShouldReduceMotion`).
+    var crossfadesInsteadOfGliding = false
+    /// The row the wash currently rides (survives the exit fade — see below).
+    var currentRow: NSView? { current }
 
     init(host: NSView, radius: CCRadius = .md, color: NSColor? = nil) {
         self.host = host
+        // The wash layer's frames are HOST coordinates, so its host view
+        // must share the host's flippedness (a flipped list's wash otherwise
+        // lands vertically mirrored).
+        washHost = GlideWashHost(flipped: host.isFlipped)
         host.wantsLayer = true
         washHost.wantsLayer = true
         washHost.frame = host.bounds
@@ -63,7 +72,7 @@ final class CCGlideHighlight {
                       appearing ? 1 : 0)
             }
             current = row
-            if appearing {
+            if appearing || crossfadesInsteadOfGliding {
                 CATransaction.begin()
                 CATransaction.setDisableActions(true)
                 layer.frame = target
@@ -83,10 +92,38 @@ final class CCGlideHighlight {
         }
     }
 
+    /// The macOS "chosen" blink: the wash dips and returns once (~120 ms)
+    /// on the row it sits on, right before a menu closes on a pick.
+    func pulse(duration: TimeInterval = 0.12) {
+        let blink = CAKeyframeAnimation(keyPath: "opacity")
+        blink.values = [1, 0.22, 1]
+        blink.keyTimes = [0, 0.45, 1]
+        blink.duration = CCMotion.paced(duration)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.removeAnimation(forKey: "capmotion.fade.opacity")
+        layer.opacity = 1
+        CATransaction.commit()
+        layer.add(blink, forKey: "ccglide.pulse")
+    }
+
     /// Presentation geometry for animation probes. The model layer is already
     /// at its target while a spring is moving, so callers must inspect this
     /// value to prove the wash genuinely glides.
     var debugPresentationFrame: CGRect {
         (layer.presentation() ?? layer).frame
     }
+}
+
+/// The wash's own subview — flipped exactly like its host.
+private final class GlideWashHost: NSView {
+    private let flipsLikeHost: Bool
+    init(flipped: Bool) {
+        self.flipsLikeHost = flipped
+        super.init(frame: .zero)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+    override var isFlipped: Bool { flipsLikeHost }
+    // Never takes clicks — rows (or the host) do.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

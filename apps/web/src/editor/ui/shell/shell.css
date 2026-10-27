@@ -4,6 +4,10 @@
  *   (12 below the card, inset 14, bottom flush, top corners only) · 1px
  *   split divider · inspector column 380 (340…480) holding a card inset
  *   top 10 / trailing 14 with the 84pt icon rail.
+ *
+ * 2026 look: the cards FLOAT on the window — card tint, a 0.5px hairline that
+ * follows the corners and a wide soft shadow (CCMaterial.floatShadow at
+ * t = 1: CALayer radius 14 → CSS blur 28, y 5).
  */
 
 .cc-editor {
@@ -128,6 +132,9 @@
   background: var(--cc-card);
   overflow: hidden;
   container-type: size;
+  outline: 0.5px solid var(--cc-hairline);
+  outline-offset: -0.5px;
+  box-shadow: 0 5px 28px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain)));
 }
 .cc-stagescroll {
   position: absolute;
@@ -169,7 +176,11 @@
   gap: 2px;
   padding: 4px 6px;
   border-radius: 999px;
-  background: var(--cc-elevated);
+  /* floats over the stage: popover tint, hairline, a 28pt-tall contact shadow */
+  background: var(--cc-popover);
+  outline: 0.5px solid var(--cc-hairline);
+  outline-offset: -0.5px;
+  box-shadow: 0 1.23px 6.3px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) * 0.057));
   z-index: 3;
 }
 
@@ -191,9 +202,11 @@
   flex: none;
   margin: 12px 14px 0;
   box-sizing: border-box;
-  border: 1px solid var(--cc-border);
+  border: 1px solid var(--cc-hairline);
+  border-bottom: 0;
   border-radius: var(--cc-radius-lg) var(--cc-radius-lg) 0 0;
   background: var(--cc-card);
+  box-shadow: 0 5px 28px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain)));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -236,6 +249,7 @@
   border-radius: var(--cc-radius-lg) var(--cc-radius-lg) 0 0;
   background: var(--cc-card);
   overflow: hidden;
+  box-shadow: inset 0 0 0 0.5px var(--cc-hairline);
 }
 .cc-inspector__scroll {
   position: relative;
@@ -281,9 +295,24 @@
   cursor: default;
   transition: color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
 }
-.cc-railbtn[aria-selected="true"] {
-  background: var(--cc-elevated);
+/* The selected tab is a FLOATING chip (the toolbar-key recipe at 56pt):
+   active wash, hairline, a soft contact shadow; it fades between tabs. */
+.cc-railbtn {
+  outline: 0.5px solid transparent;
+  outline-offset: -0.5px;
+  box-shadow: 0 2px 11px 0 rgb(0 0 0 / 0);
+  transition:
+    color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    background-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    outline-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    box-shadow calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-theme .cc-railbtn[aria-selected="true"] {
+  background: var(--cc-active-on-card);
   color: var(--cc-foreground);
+  outline-color: var(--cc-hairline);
+  /* floatShadow(h 56): t = 0.257 */
+  box-shadow: 0 2.03px 10.9px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) * 0.257));
 }
 .cc-railbtn__label { max-width: 68px; margin-top: -3.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -313,51 +342,8 @@
 }
 .cc-reveal:hover { background: var(--cc-hover-solid); color: var(--cc-foreground); }
 
-/* ── Toolbar picker popover (TimelinePickerPopover) ───────────────────── */
-.cc-picker-pop {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-  background: var(--cc-card);
-  border-radius: inherit;
-}
-.cc-pickrow {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 8px;
-  border-radius: var(--cc-radius-md);
-  text-align: left;
-  cursor: default;
-}
-.cc-pickrow:disabled { opacity: 0.4; }
-.cc-pickrow__chip {
-  width: 28px;
-  height: 28px;
-  flex: none;
-  border-radius: var(--cc-radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--cc-muted);
-  transition: background-color 100ms var(--cc-ease-glide), color 100ms var(--cc-ease-glide);
-}
-.cc-pickrow[data-hover="true"] .cc-pickrow__chip { background: var(--cc-active); color: var(--cc-foreground); }
-.cc-pickrow__text { min-width: 0; flex: 1; }
-.cc-pickrow__title { font-size: 13px; font-weight: 600; color: var(--cc-foreground); white-space: nowrap; }
-/* One line, like the Mac's label rows (they clip rather than wrap). */
-.cc-pickrow__detail {
-  font-size: 11px;
-  color: var(--cc-muted);
-  margin-top: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* Toolbar picker popovers (TimelinePickerPopover) are kit MenuLists with rich
+   rows — styled in kit/kit.css (.cc-menu__row[data-rich]). */
 
 /* ── Unsupported browser screen ───────────────────────────────────────── */
 .cc-gate {
@@ -373,7 +359,9 @@
   padding: 28px;
   border-radius: var(--cc-radius-xl);
   background: var(--cc-card);
-  border: 1px solid var(--cc-border);
+  outline: 0.5px solid var(--cc-hairline);
+  outline-offset: -0.5px;
+  box-shadow: 0 5px 28px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain)));
   text-align: center;
   display: grid;
   gap: 10px;

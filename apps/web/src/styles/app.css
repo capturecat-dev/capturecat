@@ -3,10 +3,31 @@
 @import "shadcn/tailwind.css";
 /* The signed-in dashboard's motion + empty-state recreations. */
 @import "./dashboard.css";
+/* The signed-in app's 2026 look (the Mac's CCTheme/CCMaterial): tokens for
+   both appearances + the floating/well material, scoped to [data-cc-app]. */
+@import "./app-2026.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* The app's Mac-palette tokens (app-2026.css; only defined on app pages).
+     `cc-ink` is the hard-contrast colour washes blend toward — white on dark,
+     black on light — so `bg-cc-ink/6` is the theme's hover wash. */
+  --color-cc-ink: var(--cc-ink);
+  --color-cc-card: var(--cc-card);
+  --color-cc-popover: var(--cc-popover);
+  --color-cc-elevated: var(--cc-elevated);
+  --color-cc-face: var(--cc-face);
+  --color-cc-hover: var(--cc-hover);
+  --color-cc-active: var(--cc-active);
+  --color-cc-hairline: var(--cc-hairline);
+  --color-cc-faint: var(--cc-faint);
+  --color-cc-green: var(--cc-green);
+  --color-cc-green-text: var(--cc-green-text);
+  --color-cc-amber: var(--cc-amber);
+  --color-cc-amber-text: var(--cc-amber-text);
+  --color-cc-violet: var(--cc-violet);
+  --color-cc-violet-text: var(--cc-violet-text);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: "SF Pro Text", "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -365,44 +386,47 @@ input[type="date"].studio-input::-webkit-calendar-picker-indicator {
   filter: invert(1);
 }
 
-/* A list row inside a panel: members, domains, versions, invites. */
+/* A list row inside a panel: members, domains, versions, invites. The 2026
+   look (the Mac's CCMaterial): a flat WELL — the elevated tint and a quiet
+   hairline — that washes toward the ink on hover. */
 .studio-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-radius: 0.875rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.025);
+  border-radius: 0.75rem;
+  border: 0;
+  outline: 0.5px solid var(--cc-hairline-well, rgba(255, 255, 255, 0.06));
+  outline-offset: -0.5px;
+  background: var(--cc-elevated, rgba(255, 255, 255, 0.025));
   padding: 0.625rem 0.875rem;
-  transition: background-color 0.2s, border-color 0.2s;
+  transition: background-color 0.16s cubic-bezier(0.4, 0, 0.2, 1);
 }
 a.studio-row:hover,
 button.studio-row:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--cc-elevated, #2a2a30), var(--cc-ink, #fff) 4%);
 }
 .studio-row-dashed {
-  border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.14);
+  outline: 1px dashed var(--cc-border, rgba(255, 255, 255, 0.14));
+  outline-offset: -1px;
   background: transparent;
 }
 
-/* Uppercase micro-label: section eyebrows, stat labels, field labels. */
+/* Field / stat label: sentence case, medium, muted (the Mac retired tracked
+   uppercase eyebrows in its 2026 restyle). */
 .studio-eyebrow {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: -0.003em;
   color: var(--muted-foreground);
 }
 
-/* Recessed well inside a panel (code, previews, tables). */
+/* A flat well inside a panel (code, previews, tables): tint + hairline. */
 .studio-well {
   border-radius: 0.875rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.25);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  outline: 0.5px solid var(--cc-hairline-well, rgba(255, 255, 255, 0.06));
+  outline-offset: -0.5px;
+  background: var(--cc-elevated, rgba(0, 0, 0, 0.25));
 }
 
 /* ── Recording bar motion (the Mac panel's RecordingMotion family) ─────────
@@ -435,7 +459,7 @@ button.studio-row:hover {
   animation: rec-row-in calc(var(--rec-morph) / 2) ease-in-out calc(var(--rec-morph) / 2) both;
 }
 
-/* Camera bubble (CameraFloatPreview): arrives with the Keynote scale-in —
+/* Camera bubble (CameraFloatPreview): arrives with the house scale-in —
    0.96 → 1 on the settle curve while it fades in — and leaves with a short
    tuck to 0.97 under a fade (CCMotion.enter / exit .scaleIn). The exit's
    length is BUBBLE_EXIT_MS in cameraBubble.ts. */

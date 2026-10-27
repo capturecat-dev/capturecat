@@ -19,10 +19,14 @@
   margin: 24px auto 48px;
   padding: 0 16px;
 }
+/* A floating card (CCMaterial 2026): hairline + the airy float shadow. */
 .cc-picker-list {
   background: var(--cc-card);
   border-radius: var(--cc-radius-lg);
   overflow: hidden;
+  outline: 0.5px solid var(--cc-hairline);
+  outline-offset: -0.5px;
+  box-shadow: 0 5px 28px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain)));
 }
 .cc-picker-row {
   display: flex;

@@ -75,12 +75,10 @@
 /* ── Day sections + rows ────────────────────────────────────────────── */
 .cc-hsection__title {
   padding: 14px 8px 6px;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 12.5px;
+  line-height: 15px;
   font-weight: 600;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--cc-muted);
+  color: var(--cc-foreground);
 }
 .cc-hlist { position: relative; display: flex; flex-direction: column; gap: 2px; }
 

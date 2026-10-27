@@ -982,7 +982,7 @@ class StageInteractionSurface implements StageInteraction {
    * Geometry: the renderer's own labelRect through the camera (centre mapped
    * exactly, size by the camera's local zoom — the Mac also approximates the
    * tilt away here). Once the user types, the pill grows symmetrically about
-   * its centre from the measured text, Keynote-style.
+   * its centre from the measured text, like a presentation-app text box.
    */
   private layoutEditor(): void {
     const ed = this.editor;

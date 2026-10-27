@@ -1,21 +1,25 @@
 /**
- * SF Symbol → web icon map for the editor — THE table.
+ * Editor icons, asked for by their Swift SF Symbol names so web and Swift
+ * call sites read the same: <SFIcon name="scissors" />.
  *
- * Every glyph the Mac editor UI uses (toolbar keys, rail tabs, lane glyphs,
- * pickers, menus) is listed in `SF_SYMBOLS` under its Swift name, mapped to
- * the closest `lucide-react` icon — or, where lucide has no honest match
- * (`note` says why), a small hand-drawn path. Components ask for the Mac's
- * name so web and Swift call sites read the same: <SFIcon name="scissors" />.
+ * Resolution order (the Mac's CCIcon, 2026-10-27):
+ *  1. CaptureCat's own icon kit (ccIcon.tsx ← ccIcons.generated.ts): a kit
+ *     name or an SF alias the kit draws. This is what the Mac chrome shows.
+ *  2. `SF_SYMBOLS` — the older SF → lucide table (or a hand-drawn path where
+ *     lucide has no honest match; `note` says why) for names the kit does
+ *     not draw yet, so a missing icon degrades instead of vanishing.
  *
- * Rendering is TEMPLATE-IMAGE style, like NSImageView tinting: the glyph is
- * an SVG used as a CSS mask over a `currentColor` fill, so a translucent ink
- * (the kit's white .55 muted text) composites ONCE — inline SVG strokes
- * would double up wherever fill and stroke (or two strokes) overlap.
+ * Rendering is TEMPLATE-IMAGE style, like NSImageView tinting: inline SVG
+ * whose glyph is an alpha MASK over one `currentColor` rect, so a translucent
+ * ink (the kit's white .58 muted text) composites ONCE — painting strokes
+ * directly would double up wherever fill and stroke (or two strokes) overlap.
  *
- * Sizing: SF `pointSize` P → a (1.2·P)² box; weight → stroke width in the
- * 24-unit lucide grid.
+ * Sizing: SF `pointSize` P → a (1.2·P)² box; weight → stroke width (kit:
+ * 1.75 × CCIcon.strokeScale; lucide: the 24-unit grid table below).
  */
 import type { CSSProperties } from "react";
+
+import { ccKitBody, maskedGlyphMarkup, useGlyphId } from "./ccIcon";
 import {
   Aperture,
   AppWindow,
@@ -322,36 +326,29 @@ function lucideNodes(icon: LucideIcon): IconNode | null {
 
 const esc = (v: string | number) => String(v).replace(/"/g, "&quot;");
 
-/** Full SVG markup for a symbol, drawn in `color` (black for masks). */
-export function glyphSvgMarkup(name: string, px: number, color = "#000", weight: SFWeight = "semibold"): string | null {
+/** The glyph body for a name in solid black (kit first, then the SF table),
+ *  or null when neither draws it. */
+function glyphBody(name: string, weight: SFWeight): string | null {
+  const kit = ccKitBody(name, weight);
+  if (kit) return kit;
   const entry = SF_SYMBOLS[name] ?? SF_SYMBOLS[name.replace(/\.fill$/, "")];
   if (!entry) return null;
   const sw = strokeFor[weight];
-  let body: string;
-  if (entry.svg) {
-    body = entry.svg(sw);
-  } else {
-    const nodes = entry.icon ? lucideNodes(entry.icon) : null;
-    if (!nodes) return null;
-    const children = nodes
-      .map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).filter(([k]) => k !== "key").map(([k, v]) => `${k}="${esc(v)}"`).join(" ")}/>`)
-      .join("");
-    body = `<g fill="${entry.fill ? "#000" : "none"}" stroke="#000" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${children}</g>`;
-  }
-  if (color !== "#000") body = body.replace(/#000\b/g, color);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 24 24">${body}</svg>`;
+  if (entry.svg) return entry.svg(sw);
+  const nodes = entry.icon ? lucideNodes(entry.icon) : null;
+  if (!nodes) return null;
+  const children = nodes
+    .map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).filter(([k]) => k !== "key").map(([k, v]) => `${k}="${esc(v)}"`).join(" ")}/>`)
+    .join("");
+  return `<g fill="${entry.fill ? "#000" : "none"}" stroke="#000" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${children}</g>`;
 }
 
-const maskCache = new Map<string, string>();
-function maskUrl(name: string, weight: SFWeight): string | null {
-  const key = `${name}|${weight}`;
-  let url = maskCache.get(key);
-  if (url === undefined) {
-    const markup = glyphSvgMarkup(name, 24, "#000", weight);
-    url = markup ? `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}")` : "";
-    maskCache.set(key, url);
-  }
-  return url || null;
+/** Full SVG markup for a symbol, drawn in `color` (black for masks). */
+export function glyphSvgMarkup(name: string, px: number, color = "#000", weight: SFWeight = "semibold"): string | null {
+  let body = glyphBody(name, weight);
+  if (!body) return null;
+  if (color !== "#000") body = body.replace(/#000\b/g, color);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 24 24">${body}</svg>`;
 }
 
 export function SFIcon({
@@ -361,7 +358,7 @@ export function SFIcon({
   className,
   style,
 }: {
-  /** SF Symbol name as spelled in Swift. */
+  /** SF Symbol name as spelled in Swift (or a kit name). */
   name: string;
   /** SF pointSize. */
   size?: number;
@@ -369,27 +366,22 @@ export function SFIcon({
   className?: string;
   style?: CSSProperties;
 }) {
+  const uid = useGlyphId();
   const entry = SF_SYMBOLS[name] ?? SF_SYMBOLS[name.replace(/\.fill$/, "")];
-  const box = Math.round(size * 1.2 * (entry?.scale ?? 1));
-  const mask = maskUrl(name, weight);
+  const kit = ccKitBody(name, weight);
+  // Kit glyphs are drawn for the SF box; only the lucide fallbacks carry nudges.
+  const box = Math.round(size * 1.2 * (kit ? 1 : (entry?.scale ?? 1)));
+  const body = kit ?? glyphBody(name, weight);
   return (
-    <span
+    <svg
       className={className}
+      width={box}
+      height={box}
+      viewBox="0 0 24 24"
       aria-hidden
-      style={{
-        display: "inline-block",
-        flex: "none",
-        width: box,
-        height: box,
-        backgroundColor: mask ? "currentColor" : undefined,
-        WebkitMaskImage: mask ?? undefined,
-        maskImage: mask ?? undefined,
-        WebkitMaskSize: "100% 100%",
-        maskSize: "100% 100%",
-        WebkitMaskRepeat: "no-repeat",
-        maskRepeat: "no-repeat",
-        ...style,
-      }}
+      focusable="false"
+      style={{ display: "inline-block", flex: "none", overflow: "visible", ...style }}
+      dangerouslySetInnerHTML={body ? { __html: maskedGlyphMarkup(body, uid) } : undefined}
     />
   );
 }

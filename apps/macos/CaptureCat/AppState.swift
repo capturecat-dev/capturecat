@@ -46,7 +46,7 @@ final class AppState {
             recordingSession.durationLimit = recordingDurationLimit > 0 ? recordingDurationLimit : nil
         }
     }
-    /// Pre-recording countdown length in seconds (CapCut-style). 0 = off —
+    /// Pre-recording countdown length in seconds (a full-screen 3-2-1). 0 = off —
     /// recording starts immediately, no overlay. Persisted; the missing-key
     /// default is 3 (the classic 3-2-1), handled in `init`.
     var recordingCountdownSeconds: Int = 3 {
@@ -571,7 +571,7 @@ final class AppState {
                 try? await Task.sleep(for: .milliseconds(150))
             }
 
-            // Screen Studio-style countdown on the target screen, then capture
+            // Full-screen countdown on the target screen, then capture
             // starts at exactly 0. Length is user-configurable (Off/3/5/10);
             // `run` no-ops for 0, so Off starts recording immediately.
             await CountdownOverlayController.run(
@@ -579,7 +579,7 @@ final class AppState {
                 seconds: recordingCountdownSeconds
             )
 
-            // Screen Studio approach: define ONE shared host-clock origin and
+            // Shared-origin approach: define ONE shared host-clock origin and
             // anchor every recorder (screen, camera, cursor) to it. Each asset's
             // PTS = sampleTime − origin, so they all sit on the same timeline
             // by construction. cameraTimeOffset becomes structurally 0.

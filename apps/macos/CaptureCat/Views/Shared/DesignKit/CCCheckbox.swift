@@ -2,7 +2,7 @@ import AppKit
 
 /// CCKit checkbox — shadcn's Checkbox: an 18pt rounded-sm box that fills
 /// with `primary` and draws its checkmark as an animated stroke (the tick
-/// literally gets drawn, Things-style), with the house press scale. An
+/// literally gets drawn, like a pen stroke), with the house press scale. An
 /// optional title sits to the right; clicking either toggles.
 ///
 ///     let terms = CCCheckbox(title: "Also export captions") { on in ... }

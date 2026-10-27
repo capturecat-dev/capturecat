@@ -143,7 +143,7 @@ enum TiltMath {
     /// eased, not stepped: a spring chasing a step target takes its maximum
     /// acceleration on the very first frame — the "clicks first, then moves"
     /// feel — while a spring tracking this eased path starts with zero
-    /// acceleration and moves in a Keynote-style S-curve. Shared by zoom,
+    /// acceleration and moves in a smooth S-curve. Shared by zoom,
     /// offset and tilt so the whole camera releases as one gesture.
     static func rampOutScale(
         time: TimeInterval,

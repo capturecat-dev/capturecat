@@ -110,7 +110,7 @@ final class CCButton: NSControl {
         }
     }
 
-    /// Optional SF Symbol beside the title — or alone: a symbol with an empty
+    /// Optional icon (a CCIcon kit or SF-alias name) beside the title — or alone: a symbol with an empty
     /// title renders a square icon button.
     var symbol: String? {
         didSet {
@@ -192,10 +192,7 @@ final class CCButton: NSControl {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     private func refreshSymbolImage() {
-        icon.image = symbol.flatMap {
-            NSImage(systemSymbolName: $0, accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: size.symbolPointSize, weight: .medium))
-        }
+        icon.image = symbol.flatMap { CCIcon.image($0, pointSize: size.symbolPointSize, weight: .medium) }
         icon.isHidden = symbol == nil
     }
 

@@ -271,7 +271,7 @@ final class ProjectBrowserViewController: NSViewController {
         // project while it drops in.
         let endScale = 56 / max(startFrame.width, 1)
 
-        // Keynote-style flight: quick pop up, then an arced sweep that eases
+        // Presentation-style flight: quick pop up, then an arced sweep that eases
         // into the folder. The arc bows away from the straight line, toward
         // the top of the window (root view is unflipped: +y is up).
         let path = CGMutablePath()
@@ -332,28 +332,19 @@ final class ProjectBrowserViewController: NSViewController {
         let library = appState.library
         var rows: [BrowserSidebarView.Row] = [
             .init(id: .all, title: "All Captures",
-                  icon: SidebarIconRenderer.chip(
-                    symbol: "square.grid.2x2.fill",
-                    top: NSColor(calibratedRed: 0.47, green: 0.57, blue: 0.75, alpha: 1),
-                    bottom: NSColor(calibratedRed: 0.27, green: 0.37, blue: 0.56, alpha: 1)),
+                  icon: SidebarIconRenderer.icon("square.grid.2x2"),
                   isSelected: filter == .all),
             .init(id: .pinned, title: "Pinned",
-                  icon: SidebarIconRenderer.chip(
-                    symbol: "pin.fill",
-                    top: NSColor(calibratedRed: 0.87, green: 0.69, blue: 0.47, alpha: 1),
-                    bottom: NSColor(calibratedRed: 0.68, green: 0.47, blue: 0.26, alpha: 1)),
+                  icon: SidebarIconRenderer.icon("pin"),
                   isSelected: filter == .pinned),
             .init(id: .shared, title: "Shared",
-                  icon: SidebarIconRenderer.chip(
-                    symbol: "link",
-                    top: NSColor(calibratedRed: 0.52, green: 0.71, blue: 0.45, alpha: 1),
-                    bottom: NSColor(calibratedRed: 0.30, green: 0.50, blue: 0.26, alpha: 1)),
+                  icon: SidebarIconRenderer.icon("link"),
                   isSelected: filter == .shared),
         ]
         for folder in library.folders {
             rows.append(.init(
                 id: .folder(folder.id), title: folder.name,
-                icon: SidebarIconRenderer.folder(),
+                icon: SidebarIconRenderer.icon("folder"),
                 isSelected: filter == .folder(folder.id), isFolder: true
             ))
         }
@@ -779,10 +770,7 @@ final class ProjectBrowserViewController: NSViewController {
         emptyStateView.isHidden = true
 
         let icon = emptyIcon
-        icon.image = NSImage(
-            systemSymbolName: "film.stack", accessibilityDescription: nil
-        ) ?? NSImage()
-        icon.symbolConfiguration = .init(pointSize: 34, weight: .regular)
+        icon.image = CCIcon.image("film.stack", pointSize: 34, weight: .regular) ?? NSImage()
         icon.translatesAutoresizingMaskIntoConstraints = false
 
         emptyTitle.font = .systemFont(ofSize: 16, weight: .semibold)
@@ -1488,8 +1476,7 @@ private final class SearchSuggestionRow: NSView {
         }
 
         let icon = NSImageView(
-            image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil) ?? NSImage())
-        icon.symbolConfiguration = .init(pointSize: 11, weight: .medium)
+            image: CCIcon.image(symbol, pointSize: 11, weight: .medium) ?? NSImage())
         icon.contentTintColor = EditorThemeKit.textTertiary
         icon.translatesAutoresizingMaskIntoConstraints = false
         addSubview(icon)
@@ -1573,143 +1560,18 @@ private final class SearchSuggestionRow: NSView {
     override func mouseDown(with event: NSEvent) { onClick?() }
 }
 
-// MARK: - Sidebar icons (skeuomorphic, drawn in code)
+// MARK: - Sidebar icons
 
-/// iOS 6-era skeuomorphic sidebar icons, drawn in code — textured rounded
-/// "chips" (grain noise, vertical gradient, inner top highlight, dark outer
-/// stroke) with the glyph ENGRAVED into the surface: a dark cutout with a
-/// light edge below, like the leather-and-paper icons of that era. Cached;
-/// no image assets involved.
+/// Sidebar row icons — kit glyphs (CCIcon) in the 2026 flat look, replacing
+/// the 2026-09 engraved leather chips. TEMPLATE images: the row tints them
+/// with its own ink (secondary at rest, primary when selected), so they sit
+/// in the sidebar exactly like its labels and the New Folder action.
 @MainActor
 enum SidebarIconRenderer {
-    private static var cache: [String: NSImage] = [:]
-
-    /// Deterministic grain so cached icons are stable frame to frame.
-    private static func drawGrain(in rect: NSRect, seed: UInt64, alpha: CGFloat) {
-        var state = seed
-        func next() -> CGFloat {
-            state = state &* 6364136223846793005 &+ 1442695040888963407
-            return CGFloat((state >> 33) % 1000) / 1000
-        }
-        for _ in 0..<90 {
-            let x = rect.minX + next() * rect.width
-            let y = rect.minY + next() * rect.height
-            let bright = next() > 0.5
-            (bright ? NSColor.white : NSColor.black)
-                .withAlphaComponent(alpha * (0.4 + next() * 0.6)).setFill()
-            NSRect(x: x, y: y, width: 0.5, height: 0.5).fill()
-        }
-    }
-
-    /// Textured chip with an engraved SF Symbol glyph.
-    // 16pt exactly matches the row's icon slot — any mismatch rescales the
-    // bitmap and blurs every hairline.
-    static func chip(symbol: String, top: NSColor, bottom: NSColor, size: CGFloat = 16) -> NSImage {
-        let key = "chip:\(symbol):\(top.description):\(size)"
-        if let cached = cache[key] { return cached }
-        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
-            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
-            let plateRect = rect.insetBy(dx: 0.5, dy: 0.5)
-            let plate = NSBezierPath(roundedRect: plateRect, xRadius: size * 0.24, yRadius: size * 0.24)
-
-            // Base: vertical gradient + grain texture.
-            ctx.saveGState()
-            plate.addClip()
-            NSGradient(starting: top, ending: bottom)?.draw(in: rect, angle: -90)
-            drawGrain(in: rect, seed: UInt64(abs(symbol.hashValue)) | 1, alpha: 0.10)
-            // Inner top highlight — stitched-leather edge light.
-            NSColor.white.withAlphaComponent(0.28).setFill()
-            NSRect(x: plateRect.minX, y: plateRect.maxY - 1, width: plateRect.width, height: 1).fill()
-            ctx.restoreGState()
-
-            // Outer dark stroke grounds the chip.
-            bottom.blended(withFraction: 0.55, of: .black)?.setStroke()
-            plate.lineWidth = 1
-            plate.stroke()
-
-            // Engraved glyph: light edge offset below, dark glyph on top.
-            // Rasterize the glyph at 4x — cgImage(forProposedRect:) with no
-            // hints returns a 1x bitmap, which reads soft on Retina once
-            // masked. The CTM hint makes the vector symbol render dense.
-            guard let symbolImage = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: size * 0.56, weight: .bold)),
-                  let cg = symbolImage.cgImage(
-                    forProposedRect: nil, context: nil,
-                    hints: [.ctm: NSAffineTransform(transform: AffineTransform(scale: 4))]
-                  )
-            else { return true }
-            let aspect = CGFloat(cg.width) / CGFloat(cg.height)
-            var box = rect.insetBy(dx: size * 0.24, dy: size * 0.24)
-            if aspect > 1 {
-                let height = box.width / aspect
-                box = NSRect(x: box.minX, y: box.midY - height / 2, width: box.width, height: height)
-            } else {
-                let width = box.height * aspect
-                box = NSRect(x: box.midX - width / 2, y: box.minY, width: width, height: box.height)
-            }
-            ctx.saveGState()
-            ctx.clip(to: box.offsetBy(dx: 0, dy: -0.75), mask: cg)
-            NSColor.white.withAlphaComponent(0.30).setFill()
-            rect.fill()
-            ctx.restoreGState()
-            ctx.saveGState()
-            ctx.clip(to: box, mask: cg)
-            NSColor.black.withAlphaComponent(0.52).setFill()
-            rect.fill()
-            ctx.restoreGState()
-            return true
-        }
-        cache[key] = image
-        return image
-    }
-
-    /// Textured manila-meets-blue folder with a tab — dimensional, outlined,
-    /// grained like the era's Finder folders.
-    static func folder(size: CGFloat = 16) -> NSImage {
-        let key = "folder:\(size)"
-        if let cached = cache[key] { return cached }
-        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
-            guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
-            let w = rect.width, h = rect.height
-            let outline = NSColor(calibratedRed: 0.18, green: 0.30, blue: 0.47, alpha: 1)
-
-            // Tab.
-            let tab = NSBezierPath(
-                roundedRect: NSRect(x: w * 0.05, y: h * 0.66, width: w * 0.42, height: h * 0.22),
-                xRadius: 1.5, yRadius: 1.5
-            )
-            NSGradient(
-                starting: NSColor(calibratedRed: 0.55, green: 0.70, blue: 0.88, alpha: 1),
-                ending: NSColor(calibratedRed: 0.38, green: 0.55, blue: 0.78, alpha: 1)
-            )?.draw(in: tab, angle: -90)
-            outline.setStroke()
-            tab.lineWidth = 0.75
-            tab.stroke()
-
-            // Body with gradient, grain, and a bottom shadow line for depth.
-            let bodyRect = NSRect(x: w * 0.03, y: h * 0.10, width: w * 0.94, height: h * 0.62)
-            let body = NSBezierPath(roundedRect: bodyRect, xRadius: 2, yRadius: 2)
-            ctx.saveGState()
-            body.addClip()
-            NSGradient(
-                starting: NSColor(calibratedRed: 0.66, green: 0.79, blue: 0.93, alpha: 1),
-                ending: NSColor(calibratedRed: 0.40, green: 0.58, blue: 0.81, alpha: 1)
-            )?.draw(in: bodyRect, angle: -90)
-            drawGrain(in: bodyRect, seed: 0xF01DE5, alpha: 0.09)
-            // Inner top highlight.
-            NSColor.white.withAlphaComponent(0.35).setFill()
-            NSRect(x: bodyRect.minX, y: bodyRect.maxY - 1, width: bodyRect.width, height: 1).fill()
-            // Inner bottom shade.
-            NSColor.black.withAlphaComponent(0.18).setFill()
-            NSRect(x: bodyRect.minX, y: bodyRect.minY, width: bodyRect.width, height: 1.5).fill()
-            ctx.restoreGState()
-            outline.setStroke()
-            body.lineWidth = 0.75
-            body.stroke()
-            return true
-        }
-        cache[key] = image
-        return image
+    /// 12pt → the kit's 16pt box (CCIcon.side), which exactly fills the
+    /// row's icon slot (a mismatch rescales the glyph and softens strokes).
+    static func icon(_ name: String) -> NSImage {
+        CCIcon.image(name, pointSize: 12, weight: .medium) ?? NSImage()
     }
 }
 
@@ -1742,7 +1604,7 @@ final class BrowserSidebarView: NSView {
     private let foldersHeader = NSTextField(labelWithString: "FOLDERS")
     private let newFolderButton = SidebarRowControl(
         title: "New Folder...",
-        icon: NSImage(systemSymbolName: "plus", accessibilityDescription: nil) ?? NSImage(),
+        icon: CCIcon.image("plus", pointSize: 11, weight: .medium) ?? NSImage(),
         isAction: true)
     private let trailingHairline = NSView()
     private var themeObservation: CCThemeObservation?
@@ -1925,9 +1787,6 @@ private final class SidebarRowControl: NSView {
         layer?.cornerCurve = .continuous
 
         iconView.image = icon
-        if isAction {
-            iconView.symbolConfiguration = .init(pointSize: 11, weight: .medium)
-        }
         iconView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(iconView)
 
@@ -2079,8 +1938,7 @@ final class SidebarAccountControl: NSView {
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(nameLabel)
 
-        chevron.image = NSImage(systemSymbolName: "chevron.up.chevron.down", accessibilityDescription: nil)
-        chevron.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        chevron.image = CCIcon.image("chevron.up.chevron.down", pointSize: 9, weight: .semibold)
         chevron.translatesAutoresizingMaskIntoConstraints = false
         addSubview(chevron)
 
@@ -2260,13 +2118,12 @@ private final class ProjectCardItem: NSCollectionViewItem {
         container.addSubview(thumbView)
 
         placeholderIcon.translatesAutoresizingMaskIntoConstraints = false
-        placeholderIcon.image = NSImage(systemSymbolName: "film", accessibilityDescription: nil)
-        placeholderIcon.symbolConfiguration = .init(pointSize: 28, weight: .regular)
+        placeholderIcon.image = CCIcon.image("film", pointSize: 28, weight: .regular)
         container.addSubview(placeholderIcon)
 
         pinBadge.translatesAutoresizingMaskIntoConstraints = false
-        pinBadge.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: "Pinned")
-        pinBadge.symbolConfiguration = .init(pointSize: 9, weight: .semibold)
+        pinBadge.image = CCIcon.image("pin.fill", pointSize: 9, weight: .semibold,
+                                      accessibilityDescription: "Pinned")
         pinBadge.contentTintColor = .white
         pinBadge.wantsLayer = true
         pinBadge.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
@@ -2559,8 +2416,8 @@ private final class NoteCardItem: NSCollectionViewItem {
         previewBox.addSubview(previewLabel)
 
         noteGlyph.translatesAutoresizingMaskIntoConstraints = false
-        noteGlyph.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: "Note")
-        noteGlyph.symbolConfiguration = .init(pointSize: 10, weight: .semibold)
+        noteGlyph.image = CCIcon.image("note.text", pointSize: 10, weight: .semibold,
+                                       accessibilityDescription: "Note")
         previewBox.addSubview(noteGlyph)
 
         reminderBadge.translatesAutoresizingMaskIntoConstraints = false
@@ -2695,8 +2552,8 @@ fileprivate final class ReminderBadgeLabel: NSView {
         layer?.cornerRadius = 9
         layer?.cornerCurve = .continuous
 
-        icon.image = NSImage(systemSymbolName: "bell.fill", accessibilityDescription: "Reminder")
-        icon.symbolConfiguration = .init(pointSize: 8, weight: .semibold)
+        icon.image = CCIcon.image("bell.fill", pointSize: 8, weight: .semibold,
+                                  accessibilityDescription: "Reminder")
         icon.contentTintColor = .white
         icon.translatesAutoresizingMaskIntoConstraints = false
         addSubview(icon)
@@ -2815,8 +2672,7 @@ final class HoverPillButton: NSControl {
         layer?.borderWidth = 1
 
         if let symbol {
-            iconView.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-            iconView.symbolConfiguration = .init(pointSize: 11, weight: .semibold)
+            iconView.image = CCIcon.image(symbol, pointSize: 11, weight: .semibold)
             iconView.translatesAutoresizingMaskIntoConstraints = false
             addSubview(iconView)
         }

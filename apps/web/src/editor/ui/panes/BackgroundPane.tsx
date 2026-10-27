@@ -99,9 +99,9 @@ export function BackgroundPane({
   const menuFor = (tile: WallpaperItem): MenuEntry[] | null => {
     if (!images) return null;
     const entries: MenuEntry[] = [];
-    if (images.onSetDefault) entries.push({ title: "Set as Default", onSelect: () => images.onSetDefault?.(tile) });
+    if (images.onSetDefault) entries.push({ title: "Set as Default", icon: "pin", onSelect: () => images.onSetDefault?.(tile) });
     if (images.onRemoveFromLibrary && library.some((t) => t.path === tile.path)) {
-      entries.push({ title: "Remove from Library", onSelect: () => images.onRemoveFromLibrary?.(tile) });
+      entries.push({ title: "Remove from Library", icon: "trash", destructive: true, onSelect: () => images.onRemoveFromLibrary?.(tile) });
     }
     return entries;
   };

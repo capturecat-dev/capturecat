@@ -1,16 +1,6 @@
 import { useState, type CSSProperties } from "react";
 import { Link } from "@tanstack/react-router";
-import {
-  BarChart3,
-  Copy,
-  ExternalLink,
-  Eye,
-  History,
-  MousePointerClick,
-  RotateCcw,
-  ShieldCheck,
-  Trash2,
-} from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
 import { API_URL } from "@/lib/api-url";
@@ -33,9 +23,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 /**
- * Per-video details page — the YouTube-Studio-style home for one share link:
+ * Per-video details page — the creator-dashboard home for one share link:
  * the preview + link in a media bezel on the right (first on phones), and
  * the settings as ONE surface on the left — visibility, access, call to
  * action, version history. Versions exist because a re-share from the app
@@ -152,7 +143,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
             </Button>
             {!video.isPrivate && (
               <Button variant="outline" size="sm" onClick={() => window.open(video.url, "_blank")}>
-                <ExternalLink data-icon="inline-start" /> Share page
+                <CCIcon name="arrow-up-right" data-icon="inline-start" /> Share page
               </Button>
             )}
           </>
@@ -163,12 +154,8 @@ export function VideoDetails({ videoId }: { videoId: string }) {
         {/* Preview + link — the media itself, in the site's glass bezel.
             First on phones; beside the settings (and pinned) on wide screens. */}
         <aside className="dsh-pop min-w-0 max-w-3xl xl:sticky xl:top-20 xl:order-2 xl:max-w-none">
-          <div className="relative rounded-[22px] border border-white/12 bg-white/[0.04] p-1.5 shadow-[0_40px_100px_-30px_rgba(0,0,0,0.85)] backdrop-blur-2xl">
-            <span
-              aria-hidden
-              className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent"
-            />
-            <div className="overflow-hidden rounded-[16px] bg-black">
+          <div className="cc-app-panel relative p-1.5">
+            <div className="overflow-hidden rounded-[14px] bg-black">
               <video
                 key={previewUrl}
                 src={previewUrl}
@@ -195,7 +182,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                     toast.success("Link copied");
                   }}
                 >
-                  <Copy className="h-3.5 w-3.5" />
+                  <CCIcon name="clipboard" className="h-3.5 w-3.5" />
                 </Button>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -207,8 +194,8 @@ export function VideoDetails({ videoId }: { videoId: string }) {
 
         {/* Settings — ONE surface, hairline-divided sections. */}
         <Sections className="max-w-3xl xl:order-1 xl:max-w-none">
-          <Section icon={<Eye />} title="Visibility">
-            <div className="divide-y divide-white/8">
+          <Section icon={<CCIcon name="eye"  />} title="Visibility">
+            <div className="divide-y divide-cc-ink/8">
               <SettingRow label="Public link" description="Anyone with the link can watch.">
                 <Switch
                   checked={!video.isPrivate}
@@ -254,7 +241,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
             </div>
           </Section>
 
-          <Section icon={<ShieldCheck />} title="Access controls">
+          <Section icon={<CCIcon name="seal-check"  />} title="Access controls">
             <div className="space-y-4">
               <div className="space-y-2">
                 <SettingRow label="Password" description="Viewers must enter it before watching.">
@@ -327,7 +314,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
           </Section>
 
           <Section
-            icon={<MousePointerClick />}
+            icon={<CCIcon name="cursor-rays"  />}
             title="Call to action"
             description="A button on the share page — clicks are tracked in analytics as a play → watch → click funnel."
           >
@@ -382,17 +369,17 @@ export function VideoDetails({ videoId }: { videoId: string }) {
           </Section>
 
           <Section
-            icon={<History />}
+            icon={<CCIcon name="history"  />}
             title="Version history"
             description="Re-sharing this capture from the app replaces the video at the same link — every previous cut is kept here. Restore one to make it live again, or delete it to free storage."
           >
-            <div className="studio-well divide-y divide-white/8 overflow-hidden">
+            <div className="studio-well divide-y divide-cc-ink/8 overflow-hidden">
               {(history?.versions ?? []).map((v, i) => (
                 <div
                   key={v.version}
                   className={cn(
                     "dsh-rise flex items-center gap-3 px-3.5 py-2.5",
-                    v.current && "bg-cyan-400/[0.04]",
+                    v.current && "bg-primary/[0.05]",
                   )}
                   style={{ "--i": i } as CSSProperties}
                 >
@@ -407,7 +394,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                   {v.current && (
                     <Badge
                       variant="outline"
-                      className="gap-1.5 border-cyan-300/30 bg-cyan-400/10 text-xs text-cyan-200"
+                      className="gap-1.5 border-primary/30 bg-primary/10 text-xs text-primary"
                     >
                       <LiveDot className="size-1.5" />
                       Live
@@ -426,7 +413,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                           restore.mutate({ videoId: video.videoId, version: v.version })
                         }
                       >
-                        <RotateCcw className="h-3.5 w-3.5 sm:mr-1" />
+                        <CCIcon name="rotate-ccw" className="h-3.5 w-3.5 sm:mr-1" />
                         <span className="sr-only sm:not-sr-only">Restore</span>
                       </Button>
                       <Button
@@ -436,7 +423,7 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                         disabled={deleteVersion.isPending}
                         onClick={() => setDeleteVersionTarget(v.version)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <CCIcon name="trash" className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   )}
