@@ -1,7 +1,7 @@
 # CaptureCat 2026 Roadmap
 
 Positioning: **the screen recorder that edits itself — and that agents can drive.**
-Screen Studio owns "beautiful by default." Their known gaps (community complaints):
+The category leader owns "beautiful by default." Its known gaps (community complaints):
 weak real editing, no automation/API, slow exports, single-format output, mediocre
 captions, no external video import, subscription resentment. CaptureCat already beats
 them on editing (clips, effects lane, focus lane) and export parity. The 2026 bets
@@ -41,12 +41,12 @@ The demo writes itself: record, press one button, get a cut video.
 ### 6. Captions v2
 On-device Whisper transcription → styled captions using the existing subtitle
 renderer + word-highlight mode; per-language translation via the same model.
-Kills a standing Screen Studio complaint.
+Kills a standing complaint about the category leader.
 
 ### 7. Import external video
 Run any mp4/mov through the beautifier pipeline (background, zoom, cursor-less).
 Mostly relaxing recorder assumptions in Project + a file-open flow. Doubles the
-addressable use cases (phone footage, Loom re-polish).
+addressable use cases (phone footage, re-polishing async webcam recordings).
 
 ### 8. Wireless iPhone recording
 AirPlay-receiver window capture flow (assessed earlier: capture the mirror
@@ -71,11 +71,12 @@ where subscription pricing becomes defensible instead of resented.
 - Building our own AirPlay protocol stack (use the OS receiver).
 - Generic NLE feature chase (multicam, LUTs) — stay opinionated.
 
-## Added 2026-08-02 (from Screen Studio feature-request mining)
+## Added 2026-08-02 (from competitor feature-request mining)
 
 - **Brand watermark** — SHIPPED: Brand tab, logo PNG/JPEG copied into the project
   folder, free-placement pad + on-preview drag, size/opacity, burned into export
-  (83 upvotes on Screen Studio's board, "In Review" for over a year there).
+  (83 upvotes on the category leader's public feature board, "In Review" for
+  over a year there).
 - **Image overlays on the timeline** (PNG/JPEG track with timing, position,
   scale — educators' most-requested; natural extension of the watermark
   pipeline once overlay assets exist per-region rather than per-project).

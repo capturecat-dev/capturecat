@@ -262,7 +262,7 @@ function detectUnsupported(p: Json, _s: Json): string[] {
   const unsupportedKeys: string[] = [
     // Zoom/tilt (camera), blur/highlight/focus, subtitles, speed + clips (time
     // map), voice-overs (audio mix) and stitched device segments (per-frame
-    // bezel switch + keynote dip — core deviceSegmentDip, parity fixtures 14
+    // bezel switch + segment dip — core deviceSegmentDip, parity fixtures 14
     // and 15) all render on the web now.
   ];
   for (const k of unsupportedKeys) {

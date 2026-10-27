@@ -1,6 +1,6 @@
 -- Screenshot-rendering API: per-user access keys + monthly usage metering.
 --
--- /api/screenshot/take is a PAID surface (screenshotone-style). Two auth
+-- /api/screenshot/take is a PAID surface (a URL-to-image API). Two auth
 -- paths reach it: a Better Auth session (the app / dashboard) or one of these
 -- keys (third-party / curl use). Keys are stored HASHED — the plaintext is
 -- shown exactly once at mint time and cannot be recovered; a leak of this

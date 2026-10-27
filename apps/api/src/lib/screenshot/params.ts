@@ -2,9 +2,10 @@
  * Parameter validation + SSRF guard for /api/screenshot/take.
  *
  * PURE module — no Hono, no bindings — so the whole truth table is unit
- * testable in plain vitest. Parameter names follow screenshotone.com's /take
- * where sensible (url, viewport_width, full_page, block_cookie_banners, …) so
- * existing client snippets port over with a base-URL change.
+ * testable in plain vitest. Parameter names follow the common snake_case
+ * conventions of hosted URL-to-image APIs where sensible (url, viewport_width,
+ * full_page, block_cookie_banners, …) so existing client snippets port over
+ * with a base-URL change.
  */
 
 /** Device presets — the same three profiles the desktop app's web capture
@@ -217,7 +218,7 @@ export function parseScreenshotParams(raw: RawParams, blocklist?: string): Param
   if (urlError) return { ok: false, error: urlError };
 
   // Device preset seeds the profile; explicit viewport_* / device_scale_factor
-  // override it — same precedence screenshotone uses.
+  // override it — explicit parameters always beat the preset.
   const deviceRaw = asStr(raw.device);
   if (deviceRaw && !(deviceRaw in DEVICE_PRESETS)) {
     return err("invalid_parameter", "device must be one of desktop, tablet, mobile");

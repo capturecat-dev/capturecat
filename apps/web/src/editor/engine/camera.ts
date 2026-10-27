@@ -27,7 +27,7 @@
  * plus `motionBlurAt` — MotionBlurMath over consecutive export keys, drawn
  * as CIMotionBlur (a 1D Gaussian, σ = radius, clamped to the canvas).
  *
- * The keynote dip across stitched device segments is NOT here: it depends on
+ * The segment dip across stitched device segments is NOT here: it depends on
  * the SOURCE clock, and the FrameGraph folds it in as the innermost factor of
  * this matrix (passes/frameGraph.ts `withDeviceSegment`, core
  * deviceSegmentDip). Not yet: Lanczos minification for zoom < 1 (bilinear
