@@ -35,6 +35,7 @@ import { PAID_SUBSCRIPTION_STATUSES } from "../lib/stripe";
 import { z } from "zod";
 import { parseJsonBody } from "../lib/validate";
 import { registerPlanAdminRoutes } from "./admin-plans";
+import { registerAnalyticsAdminRoutes, signupSource, usageByUser } from "./admin-analytics";
 import { purgePlanCache } from "../lib/entitlement";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -87,6 +88,8 @@ adminRoutes.get("/admin/users", async (c) => {
   const placeholders = PAID_SUBSCRIPTION_STATUSES.map(() => "?").join(",");
   const { results } = await c.env.DB.prepare(
     `SELECT u.id, u.email, u.name, u.createdAt, u.tester, u.blocked, u.role,
+            u.signupCountry, u.signupVia, u.signupReferrer, u.signupUtm, u.signupLanding,
+            (SELECT GROUP_CONCAT(a."providerId") FROM "account" a WHERE a."userId" = u.id) AS providers,
             EXISTS (
               SELECT 1 FROM subscription s
                WHERE s.referenceId = u.id
@@ -105,8 +108,15 @@ adminRoutes.get("/admin/users", async (c) => {
       tester: number | null;
       blocked: number | null;
       role: string | null;
+      signupCountry: string | null;
+      signupVia: string | null;
+      signupReferrer: string | null;
+      signupUtm: string | null;
+      signupLanding: string | null;
+      providers: string | null;
       paid: number;
     }>();
+  const usage = await usageByUser(c.env.DB);
 
   return c.json({
     users: (results ?? []).map((r) => ({
@@ -121,6 +131,9 @@ adminRoutes.get("/admin/users", async (c) => {
       // Derived exactly as resolveTier() does, so the panel cannot disagree
       // with what the API actually serves.
       tier: r.blocked === 1 ? "blocked" : r.paid === 1 ? "paid" : r.tester === 1 ? "tester" : "free",
+      providers: r.providers ? [...new Set(r.providers.split(","))] : [],
+      signup: signupSource(r),
+      usage: usage.get(r.id) ?? null,
     })),
   });
 });
@@ -232,3 +245,4 @@ adminRoutes.delete("/admin/beta/:id", async (c) => {
 
 // Plans: the editor, Stripe sync on save, hide/publish, "Most popular".
 registerPlanAdminRoutes(adminRoutes);
+registerAnalyticsAdminRoutes(adminRoutes);

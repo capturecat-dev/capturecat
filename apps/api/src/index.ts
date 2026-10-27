@@ -21,6 +21,7 @@ import { releaseRoutes } from "./routes/releases";
 import { attestRoutes } from "./routes/attest";
 import { aiRoutes } from "./routes/ai";
 import { betaRoutes } from "./routes/beta";
+import { siteAnalyticsRoutes } from "./routes/site-analytics";
 import { screenshotRoutes } from "./routes/screenshot";
 import { ssoRoutes } from "./routes/sso";
 import { cloudProjectRoutes } from "./routes/cloud-projects";
@@ -217,6 +218,9 @@ app.use("/api/cloud-projects/*", rateLimit({ limit: 300, windowSec: 60, prefix: 
 // Public beta waitlist sign-up: 5 per minute per IP. This is the outer bound on
 // sign-up spam; the route itself adds a honeypot + Turnstile + email dedupe.
 app.use("/api/beta", rateLimit({ limit: 5, windowSec: 60, prefix: "beta" }));
+// Anonymous site visit/download events: a person browsing sends a handful a
+// minute at most; this only bounds a script replaying them.
+app.use("/api/site/*", rateLimit({ limit: 30, windowSec: 60, prefix: "site" }));
 
 // ---------------------------------------------------------------------------
 // Better Auth
@@ -268,6 +272,8 @@ app.route("/api", attestRoutes);
 app.route("/api", aiRoutes);
 // Public beta waitlist ingest (honeypot + Turnstile + email dedupe inside).
 app.route("/api", betaRoutes);
+// Anonymous acquisition events from the marketing site (no cookie, no id).
+app.route("/api", siteAnalyticsRoutes);
 // Gated screenshot-rendering API (session OR hashed access key; pro-plan
 // feature gate + monthly D1 quota inside). Engine is Browser Rendering's REST
 // endpoint — see src/lib/screenshot/renderer.ts for the cost rationale.
@@ -292,6 +298,7 @@ app.all("*", (c) => c.json({ error: "Not found" }, 404));
  *    /complete ever being called — those objects are billed but invisible
  *    to the storage quota);
  *  - rate_limits rows whose window ended over a day ago;
+ *  - site_events older than 13 months (0030);
  *  - cloud-project history retention + orphaned manifests (0027).
  */
 async function sweep(env: Env): Promise<void> {
@@ -335,6 +342,10 @@ async function sweep(env: Env): Promise<void> {
   ).run();
   await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
     .bind(Math.floor(Date.now() / 1000) - 86_400).run();
+  // Site acquisition events (0030) are kept 13 months: a year-on-year view,
+  // then gone.
+  await env.DB.prepare("DELETE FROM site_events WHERE created_at < ?")
+    .bind(new Date(Date.now() - 395 * 86_400_000).toISOString()).run();
   // Cloud-project history retention under each owner's CURRENT plan (a
   // downgrade trims here), then orphaned manifests. Saves prune a few
   // versions inline; this catches up the rest.
