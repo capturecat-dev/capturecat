@@ -20,6 +20,11 @@
  *
  * With a camera on, the dock also floats the camera bubble (camera-bubble.tsx,
  * the Mac's CameraFloatPreview) over whichever dashboard page you're on.
+ *
+ * During a take the controls stay on screen (editor/record/barHidden.ts):
+ * floating in Picture-in-Picture where the browser has it — over a whole
+ * display too, painted out of every frame by the clean plate, whose beacon
+ * stripe tops the floating window (`PlateBeacon`) — else this bar.
  */
 import {
   createContext,
@@ -53,6 +58,7 @@ import {
   GlobeIcon,
   MonitorIcon,
   PauseIcon,
+  PictureInPicture2Icon,
   PlayIcon,
   RotateCcwIcon,
   SettingsIcon,
@@ -82,8 +88,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { SurfaceKind } from "@/editor/record/capture";
 import { bubblePolicy } from "@/editor/record/cameraBubble";
+import { BEACON } from "@/editor/record/plate";
 import {
   COUNTDOWN_CHOICES,
+  DISPLAY_FALLBACK,
   LIMIT_CHOICES,
   limitTitle,
   useInputLevel,
@@ -655,6 +663,26 @@ function DockNotice({ icon, children, onDismiss }: { icon: ReactNode; children: 
 }
 
 /**
+ * The top edge of the floating controls window: a recording-red stripe over a
+ * near-black band. A whole-display take checks its frames for it — the window
+ * must be found exactly where it's painted out (editor/record/plate.ts) — so
+ * it is always drawn, at full strength, above everything in the window.
+ */
+function PlateBeacon() {
+  return (
+    <span
+      aria-hidden
+      data-plate-beacon
+      className="pointer-events-none absolute inset-x-0 top-0 z-50"
+      style={{
+        height: BEACON.stripe + BEACON.band,
+        background: `linear-gradient(${BEACON.red} 0 ${BEACON.stripe}px, ${BEACON.dark} ${BEACON.stripe}px 100%)`,
+      }}
+    />
+  );
+}
+
+/**
  * Docks the bar at the bottom of the dashboard content, riding the viewport
  * as pages scroll, with the recorder's notices just above it — plus the
  * floating camera bubble and the floating Picture-in-Picture copy of the
@@ -662,11 +690,14 @@ function DockNotice({ icon, children, onDismiss }: { icon: ReactNode; children: 
  *
  * The output never shows any of it (barHidden.ts): for a share that could
  * contain this page the whole dock fades out before the take's first frame
- * (`rec.uiHidden`; it keeps its layout, so nothing on the page moves) and
- * comes back only when you come back for it — those moments are cut.
+ * (`rec.uiHidden`; it keeps its layout, so nothing on the page moves) while
+ * the controls float — or, without the floating window, stays up while you're
+ * on the page (a window share) or comes back when you return (a display);
+ * those moments are cut.
  */
 export function RecorderDock() {
   const rec = useRecorderContext();
+  const [tipDismissed, setTipDismissed] = useState(false);
   const bubble = bubblePolicy({
     cameraOn: rec.armed && rec.prefs.camId !== null,
     phase: rec.phase.kind,
@@ -676,6 +707,7 @@ export function RecorderDock() {
   });
   if (!rec.support?.screen || !rec.support.encode) return null;
   const hidesForTake = rec.concealMode === "reveal" && rec.phase.kind === "countdown";
+  const displayTip = rec.phase.kind === "setup" && !tipDismissed ? rec.displayTip : null;
   return (
     <>
       <div
@@ -686,7 +718,19 @@ export function RecorderDock() {
       >
         {rec.revealed && (
           <DockNotice icon={<EyeOffIcon className="mt-0.5 size-3.5 shrink-0 text-white/60" />}>
-            Recording — the bar is hidden from your recording.
+            {rec.revealed === "focus"
+              ? "Recording a window — the moments you spend on this page are cut, so this bar never reaches your video."
+              : "Recording — the bar is hidden from your recording."}
+          </DockNotice>
+        )}
+        {displayTip && (
+          <DockNotice
+            icon={<PictureInPicture2Icon className="mt-0.5 size-3.5 shrink-0 text-white/60" />}
+            onDismiss={() => setTipDismissed(true)}
+          >
+            {displayTip === "plate"
+              ? "The controls float above your screen while you record, and stay out of the video: the spot they cover shows your screen as it was when you pressed Record. Tip: park them over a quiet corner."
+              : DISPLAY_FALLBACK.displays}
           </DockNotice>
         )}
         {hidesForTake && (
@@ -708,7 +752,8 @@ export function RecorderDock() {
       <CameraBubble stream={rec.camStream} show={bubble.host === "page"} />
       {rec.floating &&
         createPortal(
-          <div className="dark flex size-full items-center justify-center bg-background p-3 text-foreground">
+          <div className="dark relative flex size-full items-center justify-center bg-background p-3 text-foreground">
+            <PlateBeacon />
             <div className="flex flex-col items-center gap-2">
               {bubble.host === "floating" && (
                 <div className="relative size-40">
