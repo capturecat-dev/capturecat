@@ -18,11 +18,14 @@ export function LegalLayout({
   title,
   updated,
   sections,
+  eyebrow = "Legal",
   children,
 }: {
   title: string;
   updated: string;
   sections: LegalSection[];
+  /** The label above the title: "Legal" for the policies, "Company" for About/Contact. */
+  eyebrow?: string;
   children: ReactNode;
 }) {
   return (
@@ -31,7 +34,7 @@ export function LegalLayout({
       <section className="relative isolate overflow-hidden">
         <Ambient variant="top" />
         <Container className="pb-10 pt-16 md:pt-24">
-          <Eyebrow>Legal</Eyebrow>
+          <Eyebrow>{eyebrow}</Eyebrow>
           <h1 className="mt-6 max-w-3xl text-balance text-4xl font-semibold leading-[1.05] tracking-[-0.03em] text-foreground md:text-6xl">
             {title}
           </h1>

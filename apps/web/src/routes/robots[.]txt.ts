@@ -50,6 +50,8 @@ export const Route = createFileRoute("/robots.txt")({
           "",
           ...AI_AGENTS.map((a) => group(a, true) + "\n"),
           `Sitemap: ${SITE_URL}/sitemap.xml`,
+          // ARD spec §6.1: points agents at the capability manifest.
+          `Agentmap: ${SITE_URL}/.well-known/ai-catalog.json`,
           "",
         ].join("\n");
 

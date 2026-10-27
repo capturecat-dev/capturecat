@@ -14,6 +14,7 @@ import { WEB_APP } from "./sections/web-app";
 import { AI_AGENTS } from "./sections/ai-agents";
 import { ACCOUNT } from "./sections/account";
 import { SELF_HOSTING } from "./sections/self-hosting";
+import { API } from "./sections/api";
 
 export type { DocBlock, DocPage, DocSection } from "./types";
 
@@ -37,6 +38,7 @@ export const DOC_SECTIONS: DocSection[] = [
   WEB_APP,
   AI_AGENTS,
   ACCOUNT,
+  API,
   SELF_HOSTING,
 ].filter((s) => s.pages.length > 0);
 

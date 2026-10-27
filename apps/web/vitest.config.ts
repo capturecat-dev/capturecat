@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [tsConfigPaths({ projects: ["./tsconfig.json"] })],
   test: {
     // lib/docs: the documentation lint (slugs, links, descriptions).
-    include: ["src/editor/**/*.test.ts", "src/lib/**/*.test.ts"],
+    include: ["src/editor/**/*.test.ts", "src/lib/**/*.test.ts", "src/server/**/*.test.ts"],
     environment: "node",
     testTimeout: 60_000,
   },

@@ -2,6 +2,7 @@ import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 
 import { fetchSession } from "@/lib/session-fns";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { DashboardWebMcp } from "@/components/webmcp/page-webmcp";
 
 export const Route = createFileRoute("/app")({
   beforeLoad: async ({ location }) => {
@@ -29,6 +30,7 @@ function AppLayout() {
         avatar: session.user.image ?? "",
       }}
     >
+      <DashboardWebMcp />
       <Outlet />
     </DashboardShell>
   );

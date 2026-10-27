@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { jsonLd } from "@/lib/json-ld";
+import { ORGANIZATION_JSON_LD, jsonLd } from "@/lib/json-ld";
 import { pageHead } from "@/lib/site-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
@@ -30,12 +30,15 @@ const jsonLdData = {
         "A native screen recorder for Mac that adds zooms, smooths the cursor, and writes captions automatically, with share links and viewer analytics.",
       url: "https://capturecat.so",
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      publisher: { "@id": ORGANIZATION_JSON_LD["@id"] },
     },
     {
       "@type": "WebSite",
       name: "CaptureCat",
       url: "https://capturecat.so",
+      publisher: { "@id": ORGANIZATION_JSON_LD["@id"] },
     },
+    ORGANIZATION_JSON_LD,
     {
       "@type": "FAQPage",
       mainEntity: HOME_FAQ.map((f) => ({

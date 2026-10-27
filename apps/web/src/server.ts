@@ -14,19 +14,15 @@ import {
 import { createServerEntry } from "@tanstack/react-start/server-entry";
 
 import { findPageByPath, markdownHref } from "@/lib/site-content";
+import {
+  API_CATALOG_LINK,
+  acceptQ,
+  agentDiscoveryResponse,
+  agentNotFound,
+  htmlRenderable,
+} from "@/server/agent-discovery";
 
 const startHandler = createStartHandler({ handler: defaultStreamHandler });
-
-/** q-value of a media type in an Accept header (0 when absent). */
-function acceptQ(accept: string, type: string): number {
-  for (const part of accept.split(",")) {
-    const [media, ...params] = part.trim().split(";");
-    if (media.trim().toLowerCase() !== type) continue;
-    const q = params.map((p) => p.trim()).find((p) => p.startsWith("q="));
-    return q ? Number(q.slice(2)) || 0 : 1;
-  }
-  return 0;
-}
 
 /** An agent asking for Markdown at least as much as HTML (e.g. Claude Code's
  *  WebFetch sends `text/markdown, text/html;q=0.9`). Browsers never send it. */
@@ -121,6 +117,14 @@ async function rewrite(request: Request): Promise<Request | Response> {
       if (trailing) target.pathname = path.replace(/\/+$/, "");
       return Response.redirect(target.toString(), 301);
     }
+  }
+
+  // Agent discovery files (api-catalog, ai-catalog, skills, openapi.json,
+  // auth.md). Before the .md rewrite below, which would otherwise claim
+  // /auth.md and every SKILL.md.
+  if (isFirstPartyHost(host) && host !== "app.capturecat.so") {
+    const discovery = await agentDiscoveryResponse(request);
+    if (discovery) return discovery;
   }
 
   // Share-page markdown twin: /share/<id>.md → /md-share/<id> (per-video
@@ -238,6 +242,10 @@ async function withSecurityHeaders(
   }
   // Registry pages vary by Accept (HTML or Markdown twin) and advertise the
   // twin in a Link header, so caches keep them apart and agents can find it.
+  // RFC 9727 §3: the home page links the API catalog.
+  if (isFirstPartyHost(originalUrl.host) && originalUrl.pathname === "/") {
+    headers.append("Link", API_CATALOG_LINK);
+  }
   if (isFirstPartyHost(originalUrl.host) && findPageByPath(originalUrl.pathname)) {
     headers.append("Vary", "Accept");
     headers.append(
@@ -252,6 +260,16 @@ export default createServerEntry({
   async fetch(request: Request) {
     const routed = await rewrite(request);
     if (routed instanceof Response) return routed;
-    return withSecurityHeaders(routed, await startHandler(routed), request);
+    // Pages only render for an Accept naming HTML; agents asking for JSON or
+    // Markdown got a 500 from TanStack even for a plain 404. Render the HTML
+    // copy, then answer a 404 in the format they asked for.
+    const path = new URL(routed.url).pathname;
+    const renderable =
+      (routed.method === "GET" || routed.method === "HEAD") && !path.startsWith("/api/")
+        ? htmlRenderable(routed)
+        : routed;
+    const response = await startHandler(renderable);
+    const finalResponse = response.status === 404 ? (agentNotFound(request) ?? response) : response;
+    return withSecurityHeaders(routed, finalResponse, request);
   },
 });

@@ -78,7 +78,7 @@ export default function HowItWorks() {
                     <Canvas script="style" className="ccd-style-canvas" />
                     <div className="ccd-insp">
                       <div>
-                        <h5>Background</h5>
+                        <p className="ccd-insp-label">Background</p>
                         <div className="ccd-swatches">
                           <i />
                           <i />
@@ -88,21 +88,21 @@ export default function HowItWorks() {
                         </div>
                       </div>
                       <div>
-                        <h5>Padding</h5>
+                        <p className="ccd-insp-label">Padding</p>
                         <div className="ccd-slider">
                           <span className="ccd-slider-track" />
                           <span className="ccd-slider-thumb ccd-thumb-pad" />
                         </div>
                       </div>
                       <div>
-                        <h5>Shadow</h5>
+                        <p className="ccd-insp-label">Shadow</p>
                         <div className="ccd-slider">
                           <span className="ccd-slider-track" />
                           <span className="ccd-slider-thumb ccd-thumb-shadow" />
                         </div>
                       </div>
                       <div>
-                        <h5>Frame</h5>
+                        <p className="ccd-insp-label">Frame</p>
                         <div className="ccd-seg">
                           <span>Rounded</span>
                           <span>Squircle</span>
