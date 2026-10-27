@@ -221,7 +221,9 @@ export function Recorder() {
               style={rec.uiHidden ? { visibility: "hidden" } : undefined}
             >
               {rec.floating
-                ? "The controls are also floating above your other windows."
+                ? rec.plateLive
+                  ? "The controls float above your screen and stay out of the video — park them over a quiet corner."
+                  : "The controls are also floating above your other windows."
                 : `Stop from the bar below, with ${rec.stopShortcut}, or from the browser's sharing indicator.`}
             </p>
           )}

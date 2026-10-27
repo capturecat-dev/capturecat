@@ -12,6 +12,7 @@ import {
   cutsForReveals,
   mediaTimeAt,
   wallToMedia,
+  type ConcealInput,
   type TakeClock,
 } from "./barHidden";
 
@@ -36,25 +37,55 @@ function hiddenThroughout(p: ReturnType<typeof newProject>, a: number, b: number
 }
 
 describe("concealModeFor", () => {
+  const mode = (surface: ConcealInput["surface"], o: Partial<Omit<ConcealInput, "surface">> = {}) =>
+    concealModeFor({ surface, capturesThisTab: false, floatingOpen: false, plateLive: false, ...o });
+
   it("leaves the UI alone when nothing is shared, or the share is another tab", () => {
-    expect(concealModeFor({ surface: null, capturesThisTab: false, floatingOpen: false })).toBe("none");
-    expect(concealModeFor({ surface: "browser", capturesThisTab: false, floatingOpen: false })).toBe("none");
-    expect(concealModeFor({ surface: "browser", capturesThisTab: false, floatingOpen: true })).toBe("none");
+    expect(mode(null)).toBe("none");
+    expect(mode("browser")).toBe("none");
+    expect(mode("browser", { floatingOpen: true })).toBe("none");
   });
 
-  it("a window share: floats the controls when it can, else hides like a display", () => {
-    expect(concealModeFor({ surface: "window", capturesThisTab: false, floatingOpen: true })).toBe("floating");
-    expect(concealModeFor({ surface: "window", capturesThisTab: false, floatingOpen: false })).toBe("reveal");
+  it("a window share: floats the controls when it can; else keeps the bar up, logged while shown", () => {
+    expect(mode("window", { floatingOpen: true })).toBe("floating");
+    // A window capture can't contain the floating window: no plate needed (or used).
+    expect(mode("window", { floatingOpen: true, plateLive: true })).toBe("floating");
+    expect(mode("window")).toBe("shown");
   });
 
-  it("a display always hides (a PiP window would be recorded too)", () => {
-    expect(concealModeFor({ surface: "monitor", capturesThisTab: false, floatingOpen: false })).toBe("reveal");
-    expect(concealModeFor({ surface: "monitor", capturesThisTab: false, floatingOpen: true })).toBe("reveal");
+  it("a display floats the controls only with the plate painting them out", () => {
+    expect(mode("monitor", { floatingOpen: true, plateLive: true })).toBe("plate");
+    // No plate (Safari's engine, several displays, the window not found): hide and cut.
+    expect(mode("monitor")).toBe("reveal");
+    expect(mode("monitor", { floatingOpen: true })).toBe("reveal");
+    expect(mode("monitor", { plateLive: true })).toBe("reveal"); // the window closed mid-take
   });
 
-  it("this very tab (a browser ignored selfBrowserSurface: exclude) is treated like a display", () => {
-    expect(concealModeFor({ surface: "browser", capturesThisTab: true, floatingOpen: false })).toBe("reveal");
-    expect(concealModeFor({ surface: "browser", capturesThisTab: true, floatingOpen: true })).toBe("floating");
+  it("this very tab (a browser ignored selfBrowserSurface: exclude): floats, else hides and cuts", () => {
+    expect(mode("browser", { capturesThisTab: true })).toBe("reveal");
+    expect(mode("browser", { capturesThisTab: true, floatingOpen: true })).toBe("floating");
+  });
+
+  it("the whole matrix: controls on screen for the person, never in the output", () => {
+    // Every combination: wherever the person's controls are in the frames
+    // (a display with the floating window up, the page's bar on a share that
+    // can contain it), the mode hides or cuts them.
+    for (const surface of [null, "monitor", "window", "browser"] as const) {
+      for (const capturesThisTab of [false, true]) {
+        for (const floatingOpen of [false, true]) {
+          for (const plateLive of [false, true]) {
+            const m = mode(surface, { capturesThisTab, floatingOpen, plateLive });
+            const pageInFrames = surface === "monitor" || surface === "window" || (surface === "browser" && capturesThisTab);
+            const floatInFrames = surface === "monitor" && floatingOpen;
+            if (pageInFrames) expect(m, JSON.stringify({ surface, capturesThisTab, floatingOpen, plateLive })).not.toBe("none");
+            if (floatInFrames) expect(["plate", "reveal"]).toContain(m);
+            if (m === "plate") expect(floatInFrames && plateLive).toBe(true);
+            // The controls are visible to the person: floating, or the page's bar (shown / none / reveal on return).
+            if (m === "floating" || m === "plate") expect(floatingOpen).toBe(true);
+          }
+        }
+      }
+    }
   });
 });
 
@@ -119,6 +150,23 @@ describe("RevealLog / TakeTimeline", () => {
     expect(log.spansUntil(900)).toEqual([
       [100, 300],
       [500, 900],
+    ]);
+  });
+
+  it("keeps each source's spans apart: the page and the plate may overlap", () => {
+    const log = new RevealLog();
+    log.reveal(100); // page
+    log.reveal(150, "plate");
+    log.conceal(200); // closes the page's span only
+    expect(log.isOpen("plate")).toBe(true);
+    expect(log.open).toBe(false);
+    log.reveal(250, "plate"); // already open: nothing
+    log.conceal(400, "plate");
+    log.reveal(50, "plate"); // a span reported late (from the last good frame) still lands in order
+    expect(log.spansUntil(900)).toEqual([
+      [50, 900],
+      [100, 200],
+      [150, 400],
     ]);
   });
 

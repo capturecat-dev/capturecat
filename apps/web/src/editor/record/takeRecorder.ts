@@ -11,7 +11,7 @@
  * The switch is capability-based, not a user-agent sniff: no main-thread
  * MediaStreamTrackProcessor + an MP4-capable MediaRecorder = Safari's shape.
  */
-import type { TakeClock } from "./barHidden";
+import type { RevealSource, TakeClock } from "./barHidden";
 import { MediaRecorderSession, mediaRecorderMp4Supported } from "./mediaRecorderSession";
 import { RecordingSession, type RecordedTake, type SessionState, type SessionStreams } from "./session";
 
@@ -30,11 +30,12 @@ export interface TakeRecorder {
   discard(): Promise<void>;
   releaseStreams(): void;
   /**
-   * Log the page's recorder UI coming on screen (true) or leaving it (false)
-   * at `at` (performance.now ms) — stop() turns the log into the take's
+   * Log recorder UI coming on screen (true) or leaving it (false) at `at`
+   * (performance.now ms) — the page's UI ("page") or frames the clean plate
+   * couldn't vouch for ("plate"). stop() turns the log into the take's
    * `uiReveals`, on its own media clock (barHidden.ts).
    */
-  markUi(visible: boolean, at?: number): void;
+  markUi(visible: boolean, at?: number, source?: RevealSource): void;
   /** The media clock so far (zero, pauses), null before the first frame. */
   clock(now?: number): TakeClock | null;
 }

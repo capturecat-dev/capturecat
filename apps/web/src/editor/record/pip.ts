@@ -4,9 +4,20 @@
  * Edge) opens an always-on-top mini window; the page renders the control bar
  * into it through a React portal, so the SAME components drive both.
  *
- * The window is a real window on screen: a DISPLAY (whole-screen) share
- * would record it, which the Mac avoids by excluding its own UI from
- * capture. So the page only floats the controls for window/tab shares.
+ * Floated for EVERY share where the browser has it, so the controls are on
+ * screen for the whole take (barHidden.ts):
+ *
+ *   window / tab  a window or tab capture doesn't contain this window
+ *   display       it does — the Mac excludes its own UI from capture, a page
+ *                 can't. Each recorded frame gets the clean plate painted
+ *                 over this window (plate.ts), so it opens only AFTER the
+ *                 plate was grabbed, still inside the Record click's
+ *                 activation (requestWindow needs one; the share picker's
+ *                 click is long spent — Record is the fresh gesture). Its
+ *                 content starts with the plate's beacon stripe, which the
+ *                 frames are checked for.
+ *
+ * Without it (Safari, Firefox) the page's own bar stays the controls.
  */
 
 interface DocumentPictureInPicture {

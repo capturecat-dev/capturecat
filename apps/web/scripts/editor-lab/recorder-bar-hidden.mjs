@@ -14,7 +14,11 @@
  *   mediarecorder  the same take on the Safari engine (forced in Chrome), ⌘⇧S
  *   edge           display, no countdown, camera on: the pointer rests on the
  *                  bottom edge (reveal), leaves (hide); Esc stops while hidden
- *   window-nopip   window share, floating controls off → as a display
+ *   window-nopip   window share, floating controls off (Safari, Firefox) → "shown":
+ *                  the bar STAYS on screen while the page has focus — from
+ *                  before the first frame — off while you're away, back on
+ *                  return; every moment it's shown is logged and cut (head
+ *                  and tail here), so the output still never contains it
  *   window-pip     window share + Document PiP: the page's UI stays hidden all
  *                  take (no reveals even on return); Stop pressed in the PiP
  *   tab-self       the REAL requestScreen() on a tab share that caught THIS tab
@@ -135,7 +139,7 @@ const SCENARIOS = {
   monitor: { fake: "monitor", surface: "monitor", engine: "webcodecs", countdown: 1, float: false, steps: "full", stop: "click", expect: { mode: "reveal", reveals: 3, middleCut: true, tailCut: true }, noCutProof: true },
   mediarecorder: { fake: "monitor", surface: "monitor", engine: "mediarecorder", countdown: 1, float: false, steps: "full", stop: "shortcut-revealed", expect: { mode: "reveal", reveals: 3, middleCut: true, tailCut: true } },
   edge: { fake: "monitor", surface: "monitor", engine: "webcodecs", countdown: 0, camera: true, float: false, steps: "edge", stop: "escape", expect: { mode: "reveal", reveals: 1, middleCut: true, tailCut: false } },
-  "window-nopip": { fake: "window", surface: "window", engine: "webcodecs", countdown: 1, float: false, steps: "short", stop: "click", expect: { mode: "reveal", reveals: 1, middleCut: false, tailCut: true } },
+  "window-nopip": { fake: "window", surface: "window", engine: "webcodecs", countdown: 1, float: false, steps: "shown", stop: "click", expect: { mode: "shown", reveals: 2, headCut: true, middleCut: false, tailCut: true } },
   "window-pip": { fake: "window", surface: "window", engine: "webcodecs", countdown: 1, float: true, steps: "away", stop: "floating", expect: { mode: "floating", reveals: 0 } },
   "tab-self": { fake: null, surface: "browser", engine: "webcodecs", countdown: 1, float: false, steps: "short", stop: "click", expect: { mode: "reveal", reveals: 1, middleCut: false, tailCut: true } },
   "tab-other": { fake: "other-tab", surface: "browser", engine: "webcodecs", countdown: 1, float: false, steps: "other", stop: "click", expect: { mode: "none", reveals: 0 } },
@@ -434,6 +438,17 @@ async function runSteps(page, sc, notes) {
       await sleep(1500);
       notes.push({ step: "edge hidden again", dom: await domState(page) });
       await sleep(1000);
+      break;
+    }
+    case "shown": {
+      await sleep(1500); // on the page: the bar is up (and logged)
+      notes.push({ step: "on the page", dom: await domState(page) });
+      await sim("leave");
+      await sleep(1500);
+      notes.push({ step: "away", dom: await domState(page) });
+      await sim("back"); // came back to stop
+      await sleep(900);
+      notes.push({ step: "back", dom: await domState(page) });
       break;
     }
     case "short": {
@@ -758,7 +773,19 @@ async function analyse(browser, name, sc, rec) {
   }
 
   // ── first frame
-  if (sc.expect.mode !== "none") {
+  if (sc.expect.mode === "shown") {
+    // Nothing hides: the bar is on screen from before the first frame — so its
+    // span must be logged from before media zero (and is cut from the head).
+    check(conceal == null, "nothing hides at the start: the bar stays on screen", conceal ? "concealed" : "");
+    check(spans.length > 0 && spans[0].start <= clock.zeroMs, "the bar's span is logged from before the take's first frame (media zero)",
+      spans.length ? `span from ${spans[0].start.toFixed(1)} ms, first frame ${clock.zeroMs.toFixed(1)} ms` : "no span");
+    const on = rec.notes.find((n) => n.step === "on the page")?.dom;
+    const away = rec.notes.find((n) => n.step === "away")?.dom;
+    const back = rec.notes.find((n) => n.step === "back")?.dom;
+    check(on?.concealed === "false" && on.opacity > 0.99 && on.visibility === "visible", "the bar is on screen while the page has focus (mid-take)", JSON.stringify(on));
+    check(away?.concealed === "true" && away.visibility === "hidden", "…off the screen while you're away", JSON.stringify(away));
+    check(back?.concealed === "false" && back.visibility === "visible", "…and back when you return", JSON.stringify(back));
+  } else if (sc.expect.mode !== "none") {
     check(conceal != null && clock.zeroMs > conceal.painted, "the take's first frame (media zero) comes after the hide had left the screen and the capture pipeline",
       conceal ? `off screen ${conceal.offScreen.toFixed(1)} ms, pipeline clear ${conceal.painted.toFixed(1)} ms, first frame ${clock.zeroMs.toFixed(1)} ms (+${(clock.zeroMs - conceal.painted).toFixed(1)})` : "no conceal");
   } else {
@@ -777,7 +804,13 @@ async function analyse(browser, name, sc, rec) {
   log(`  raw: ${frames.length} frames, ${decoded.length} timecoded, ${marked.length} with the marker`);
   check(decoded.length >= frames.length * 0.95, "raw frames carry the timecode", `${decoded.length}/${frames.length}`);
   const first = frames[0];
-  check(first && first.blob < MIN_BLOB, "first raw frame shows no recorder UI", first ? `blob ${first.blob}` : "no frames");
+  if (sc.expect.mode === "shown") {
+    // The bar is up from the start: the first frame shows it, inside a logged span (cut below).
+    check(first && first.blob >= MIN_BLOB && first.wall !== null && inSpan(first.wall), "first raw frame shows the bar, inside a logged span (shown mode)",
+      first ? `blob ${first.blob}, drawn ${first.wall} ms` : "no frames");
+  } else {
+    check(first && first.blob < MIN_BLOB, "first raw frame shows no recorder UI", first ? `blob ${first.blob}` : "no frames");
+  }
   // A recorder may open on the newest frame already delivered: it must still post-date the hide.
   if (conceal && first?.wall != null) check(first.wall >= conceal.offScreen - 2 * (1000 / 60) - 1, "first raw frame was drawn after the UI left the screen", `drawn ${first.wall} ms, faded out by ${(conceal.offScreen - 2 * (1000 / 60)).toFixed(1)} ms`);
   const stray = marked.filter((f) => f.wall === null || !inSpan(f.wall));
@@ -802,7 +835,8 @@ async function analyse(browser, name, sc, rec) {
   if (marked.length) savePng(rawFile, marked[Math.floor(marked.length / 2)].pts, join(dir, "raw-bar-visible.png"));
 
   // ── shape of the cut
-  if (sc.expect.mode === "reveal") {
+  if (sc.expect.mode === "reveal" || sc.expect.mode === "shown") {
+    if (sc.expect.headCut !== undefined) check((doc.trimStart > 0) === sc.expect.headCut, `head ${sc.expect.headCut ? "trimmed" : "untouched"} (trimStart)`, doc.trimStart.toFixed(3));
     if (sc.expect.tailCut !== undefined) check((doc.trimEnd > 0) === sc.expect.tailCut, `tail ${sc.expect.tailCut ? "trimmed" : "untouched"} (trimEnd)`, doc.trimEnd.toFixed(3));
     if (sc.expect.middleCut !== undefined) check((doc.videoClipSegments.length >= 2) === sc.expect.middleCut, `middle ${sc.expect.middleCut ? "cut into clips" : "uncut"}`, `${doc.videoClipSegments.length} clips`);
   } else {

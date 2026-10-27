@@ -1,20 +1,30 @@
 /**
- * useConceal — the page half of barHidden.ts. During a take whose share could
- * contain this page, the recorder UI (dock, notices, bubble, the Record
- * page's live chrome) is off screen; in "reveal" mode it comes back when you
- * come back for it:
+ * useConceal — the page half of barHidden.ts: what the page's own recorder
+ * UI (dock, notices, bubble, the Record page's live chrome) does during a
+ * take, per conceal mode.
  *
- *   return   the tab becomes visible / the window regains focus after you
- *            left it (switched tab, app or window) — to stop, usually
- *   edge     the pointer rests on the bottom edge of the page (focused) for
- *            EDGE_DWELL_MS; it hides again once the pointer leaves the dock
- *   dialog   recorder UI outside the dock has to show (the "A recording is
- *            in progress" leave-route dialog) — `showFor` / `hideAfter`
+ *   none              stays as it is
+ *   floating, plate   off screen for the whole take — the controls are in
+ *                     the floating window. Recorder UI that must show anyway
+ *                     (a dialog) is logged and cut.
+ *   shown             ON screen whenever you're on the page (it has focus),
+ *                     off when you leave; every moment it's shown is logged
+ *                     and cut (the shared window may be this browser's)
+ *   reveal            off screen from before the first frame, and back when
+ *                     you come back for it:
+ *       return   the tab becomes visible / the window regains focus after you
+ *                left it (switched tab, app or window) — to stop, usually
+ *       edge     the pointer rests on the bottom edge of the page (focused) for
+ *                EDGE_DWELL_MS; it hides again once the pointer leaves the dock
+ *       dialog   recorder UI outside the dock has to show (the "A recording is
+ *                in progress" leave-route dialog) — `showFor` / `hideAfter`
+ *     and off again when you leave.
  *
- * and hides again when you leave. Every reveal is logged on the take
- * (`markUi`) BEFORE the UI renders, and its end only once the fade and a
- * capture's latency have passed — so the logged span always contains every
- * frame that can show it. Publishing cuts those spans out.
+ * Every reveal is logged on the take (`markUi`) BEFORE the UI renders, and
+ * its end only once the fade and a capture's latency have passed — so the
+ * logged span always contains every frame that can show it. A reveal that
+ * began before the take's session existed ("shown" at the press) is logged
+ * when the session attaches. Publishing cuts those spans out.
  */
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
@@ -34,7 +44,7 @@ export const EDGE_LEAVE_MS = 700;
  */
 const SWITCH_LEAD_MS = 250;
 
-export type RevealReason = "return" | "edge" | "dialog";
+export type RevealReason = "return" | "edge" | "dialog" | "focus";
 
 function nextFrame(): Promise<void> {
   // rAF stalls in a hidden tab; a hidden tab isn't on screen anyway.
@@ -77,10 +87,16 @@ function pageAway(): boolean {
 export interface Conceal {
   /** The in-page recorder UI must be off screen right now. */
   hidden: boolean;
-  /** Mid-take, it is on screen and being logged for the cut ("reveal" mode). */
+  /** Mid-take, it is on screen and being logged for the cut ("reveal" / "shown" mode). */
   revealed: RevealReason | null;
-  /** A take is about to start: hide (in `mode`) and resolve once no frame can show the UI. */
-  hideForTake: (mode: ConcealMode, extraMs?: number) => Promise<number>;
+  /**
+   * A take is about to start: hide (in `mode`) and resolve once no frame can
+   * show the UI — `offScreen` when it left the screen, `ready` once it has left
+   * the capture pipeline too ("shown"/"none": nothing hides, both are now).
+   */
+  hideForTake: (mode: ConcealMode, extraMs?: number) => Promise<{ offScreen: number; ready: number }>;
+  /** A take's session now exists (sessionRef is set): log any reveal already on screen. */
+  attach: () => void;
   /** The take is over (stopped, deleted, failed to start): the UI is back. */
   release: () => void;
   /** Some recorder UI must show mid-take (a dialog): log it like a return. No-op when nothing is concealed. */
@@ -99,7 +115,11 @@ export function useConceal({
   const [live, setLive] = useState(false);
   const [revealed, setRevealed] = useState<RevealReason | null>(null);
   const revealedRef = useRef<RevealReason | null>(null);
+  /** When the current reveal began (performance.now ms). */
+  const revealAtRef = useRef(0);
   const awayRef = useRef(false);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
 
   const loggable = useCallback(() => {
     const s = sessionRef.current;
@@ -112,15 +132,26 @@ export function useConceal({
     (reason: RevealReason) => {
       if (revealedRef.current) return;
       const s = loggable();
-      if (!s) return;
+      // "shown" puts the UI up whether or not the take's session exists yet
+      // (`attach` logs it then); elsewhere a reveal only happens mid-take.
+      if (!s && modeRef.current !== "shown") return;
       const at = performance.now();
-      s.markUi(true, at); // logged first: the UI can't reach a frame before this
+      s?.markUi(true, at); // logged first: the UI can't reach a frame before this
       revealedRef.current = reason;
+      revealAtRef.current = at;
       setRevealed(reason);
       recorderProbe("reveal", { at, reason });
     },
     [loggable],
   );
+
+  const attach = useCallback(() => {
+    const s = loggable();
+    if (s && revealedRef.current) {
+      s.markUi(true, revealAtRef.current);
+      recorderProbe("reveal-attach", { at: revealAtRef.current, reason: revealedRef.current });
+    }
+  }, [loggable]);
 
   const conceal = useCallback(() => {
     if (!revealedRef.current) return;
@@ -143,10 +174,11 @@ export function useConceal({
     prevMode.current = mode;
     recorderProbe("mode", { mode, was, live });
     if (!live) return;
-    if (mode !== "reveal") conceal();
+    if (mode !== "reveal" && mode !== "shown") conceal();
     if (was === "none" && mode !== "none") {
       const s = loggable();
-      if (s) {
+      // (An open reveal already covers it — don't close that one early.)
+      if (s && !revealedRef.current) {
         const at = performance.now();
         // The switch event trails the first frames of the new surface.
         const end = at + CONCEAL_FADE_MS + PAINT_SLACK_MS;
@@ -222,6 +254,23 @@ export function useConceal({
     };
   }, [live, mode, reveal, conceal]);
 
+  // "shown" mode: on the page, it's there; away, it isn't.
+  useEffect(() => {
+    if (!live || mode !== "shown") return;
+    const onPage = () => document.visibilityState !== "hidden" && document.hasFocus();
+    const sync = () => (onPage() ? reveal("focus") : conceal());
+    sync();
+    const onBlur = () => conceal();
+    document.addEventListener("visibilitychange", sync);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", sync);
+    return () => {
+      document.removeEventListener("visibilitychange", sync);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", sync);
+    };
+  }, [live, mode, reveal, conceal]);
+
   const hideForTake = useCallback(
     async (takeMode: ConcealMode, extraMs = 0) => {
       // A restart hides a revealed dock again; the old take's log goes with it.
@@ -230,10 +279,21 @@ export function useConceal({
       setLive(true);
       awayRef.current = pageAway();
       const at = performance.now();
-      if (takeMode === "none") return at;
+      if (takeMode === "none") return { offScreen: at, ready: at };
+      if (takeMode === "shown") {
+        // Nothing hides: on the page, the UI has been up all along (logged
+        // from before the take — once the session attaches).
+        if (!pageAway()) {
+          revealedRef.current = "focus";
+          revealAtRef.current = 0;
+          setRevealed("focus");
+          recorderProbe("reveal", { at: 0, reason: "focus" });
+        }
+        return { offScreen: at, ready: at };
+      }
       const { offScreen, ready } = await untilOffScreen(Math.max(CONCEAL_FADE_MS, extraMs));
       recorderProbe("conceal", { at, offScreen, painted: ready, mode: takeMode });
-      return ready;
+      return { offScreen, ready };
     },
     [],
   );
@@ -246,8 +306,6 @@ export function useConceal({
 
   const liveRef = useRef(live);
   liveRef.current = live;
-  const modeRef = useRef(mode);
-  modeRef.current = mode;
   const showFor = useCallback(
     (reason: RevealReason) => {
       if (liveRef.current && modeRef.current !== "none") reveal(reason);
@@ -261,10 +319,12 @@ export function useConceal({
     [conceal],
   );
 
+  const revealing = mode === "reveal" || mode === "shown";
   return {
-    hidden: live && mode !== "none" && !(mode === "reveal" && revealed !== null),
-    revealed: live && mode === "reveal" ? revealed : null,
+    hidden: live && mode !== "none" && !(revealing && revealed !== null),
+    revealed: live && revealing ? revealed : null,
     hideForTake,
+    attach,
     release,
     showFor,
     hideAfter,
