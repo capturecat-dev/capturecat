@@ -70,9 +70,20 @@ export interface Analytics {
     usersStoring: number;
   };
   daily: Array<{ day: string; visits: number; downloads: number; signups: number; uploads: number }>;
-  sources: Array<TrafficSource & Funnel & { hosts: Array<{ host: string; visits: number }> }>;
+  sources: Array<
+    TrafficSource &
+      Funnel & {
+        hosts: Array<{ host: string; visits: number }>;
+        /** The pages this source sends people to, busiest first. */
+        landings: Array<{ path: string } & Funnel>;
+      }
+  >;
   countries: Array<{ country: string } & Funnel>;
-  landings: Array<{ path: string; visits: number; downloads: number }>;
+  landings: Array<
+    { path: string } & Funnel & {
+      sources: Array<{ id: string; label: string; visits: number; signups: number }>;
+    }
+  >;
   devices: Array<{ device: string; visits: number; downloads: number }>;
   signupVia: { web: number; desktop: number; unknown: number };
   providers: Array<{ provider: string; users: number }>;

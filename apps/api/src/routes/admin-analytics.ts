@@ -203,7 +203,7 @@ export function registerAnalyticsAdminRoutes(app: App): void {
     const paid = PAID_SUBSCRIPTION_STATUSES.map(() => "?").join(",");
 
     const [
-      userCounts, signups, evDaily, evSource, evCountry, evLanding, evDevice,
+      userCounts, signups, evDaily, evSourceLanding, evCountry, evDevice,
       uploadsDaily, viewsInRange, edits, providers, features, featuresInRange, orgs,
     ] = await db.batch([
       db.prepare(
@@ -220,17 +220,15 @@ export function registerAnalyticsAdminRoutes(app: App): void {
         `SELECT substr(created_at, 1, 10) AS d, type, COUNT(*) AS n FROM site_events
           WHERE created_at >= ? GROUP BY d, type`
       ).bind(since),
+      // Source × landing page in one grouping: the sources table, the landing
+      // table, and "what does Google / ChatGPT send people to" all fold from it.
       db.prepare(
-        `SELECT referrer_host, utm_source, type, COUNT(*) AS n FROM site_events
-          WHERE created_at >= ? GROUP BY referrer_host, utm_source, type`
+        `SELECT referrer_host, utm_source, landing_path, type, COUNT(*) AS n FROM site_events
+          WHERE created_at >= ? GROUP BY referrer_host, utm_source, landing_path, type`
       ).bind(since),
       db.prepare(
         `SELECT country, type, COUNT(*) AS n FROM site_events
           WHERE created_at >= ? GROUP BY country, type`
-      ).bind(since),
-      db.prepare(
-        `SELECT landing_path, type, COUNT(*) AS n FROM site_events
-          WHERE created_at >= ? GROUP BY landing_path, type`
       ).bind(since),
       db.prepare(
         `SELECT device, type, COUNT(*) AS n FROM site_events
@@ -336,10 +334,26 @@ export function registerAnalyticsAdminRoutes(app: App): void {
     const sources = new Map<string, Bucket>();
     const sourceMeta = new Map<string, { label: string; kind: SourceKind }>();
     const referrers = new Map<string, Map<string, number>>();
-    for (const r of all(evSource)) {
+    const landings = new Map<string, Bucket>();
+    // source id → landing path → counts, and the transpose for the landing table
+    const sourceLandings = new Map<string, Map<string, Bucket>>();
+    const landingSources = new Map<string, Map<string, Bucket>>();
+    const cross = (sourceId: string, path: string, field: keyof Bucket, n: number) => {
+      const byPath = sourceLandings.get(sourceId) ?? new Map<string, Bucket>();
+      bump(byPath, path, field, n);
+      sourceLandings.set(sourceId, byPath);
+      const bySource = landingSources.get(path) ?? new Map<string, Bucket>();
+      bump(bySource, sourceId, field, n);
+      landingSources.set(path, bySource);
+    };
+    for (const r of all(evSourceLanding)) {
       const s = classifySource(r.referrer_host as string | null, r.utm_source as string | null);
+      const path = (r.landing_path as string | null) ?? "?";
+      const field = eventField(r.type as string);
       sourceMeta.set(s.id, { label: s.label, kind: s.kind });
-      bump(sources, s.id, eventField(r.type as string), num(r.n));
+      bump(sources, s.id, field, num(r.n));
+      bump(landings, path, field, num(r.n));
+      cross(s.id, path, field, num(r.n));
       const host = (r.referrer_host as string | null) ?? (r.utm_source ? `utm: ${r.utm_source}` : null);
       if (host && r.type === "visit") {
         const hosts = referrers.get(s.id) ?? new Map<string, number>();
@@ -349,8 +363,6 @@ export function registerAnalyticsAdminRoutes(app: App): void {
     }
     const countries = new Map<string, Bucket>();
     for (const r of all(evCountry)) bump(countries, (r.country as string | null) ?? "??", eventField(r.type as string), num(r.n));
-    const landings = new Map<string, Bucket>();
-    for (const r of all(evLanding)) bump(landings, (r.landing_path as string | null) ?? "?", eventField(r.type as string), num(r.n));
     const devices = new Map<string, Bucket>();
     for (const r of all(evDevice)) bump(devices, (r.device as string | null) ?? "other", eventField(r.type as string), num(r.n));
 
@@ -369,6 +381,11 @@ export function registerAnalyticsAdminRoutes(app: App): void {
       sourceMeta.set(key, key === "mac-app" ? { label: "Mac app sign-in (source not visible)", kind: "direct" } : { label: src.label, kind: src.kind });
       bump(sources, key, "signups", 1);
       bump(countries, s.country ?? "??", "signups", 1);
+      // Only a web sign-up knows the page its visit started on.
+      if (s.landing) {
+        bump(landings, s.landing, "signups", 1);
+        cross(key, s.landing, "signups", 1);
+      }
     }
 
     const table = <K extends string>(m: Map<K, Bucket>) =>
@@ -405,9 +422,17 @@ export function registerAnalyticsAdminRoutes(app: App): void {
         ...b,
         hosts: [...(referrers.get(id)?.entries() ?? [])]
           .sort((a, b) => b[1] - a[1]).slice(0, 5).map(([host, visits]) => ({ host, visits })),
+        landings: table(sourceLandings.get(id) ?? new Map<string, Bucket>())
+          .slice(0, 10).map(([path, lb]) => ({ path, ...lb })),
       })),
       countries: table(countries).map(([country, b]) => ({ country, ...b })).slice(0, 40),
-      landings: table(landings).map(([path, b]) => ({ path, visits: b.visits, downloads: b.downloads })).slice(0, 20),
+      landings: table(landings).slice(0, 25).map(([path, b]) => ({
+        path,
+        ...b,
+        sources: table(landingSources.get(path) ?? new Map<string, Bucket>())
+          .slice(0, 4)
+          .map(([sid, sb]) => ({ id: sid, label: sourceMeta.get(sid)?.label ?? sid, visits: sb.visits, signups: sb.signups })),
+      })),
       devices: table(devices).map(([device, b]) => ({ device, visits: b.visits, downloads: b.downloads })),
       signupVia: via,
       providers: all(providers).map((r) => ({ provider: r.provider as string, users: num(r.n) })),

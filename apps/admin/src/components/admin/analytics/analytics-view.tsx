@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -79,8 +80,11 @@ export function AnalyticsBody({ days }: { days: Days }) {
       </Section>
       <Sources a={data} />
       <Countries a={data} />
-      <Section title="Landing pages and devices" note="Where visits start, and what they arrive on.">
-        <div className="grid gap-8 lg:grid-cols-[2fr_1fr]">
+      <Section
+        title="Landing pages and devices"
+        note="Where visits start, which sources send people to each page, and what they arrive on. Sign-ups count where a browser sign-up's visit started."
+      >
+        <div className="grid gap-8 xl:grid-cols-[3fr_1fr]">
           <LandingTable a={data} />
           <DeviceTable a={data} />
         </div>
@@ -134,6 +138,14 @@ function Kpis({ a }: { a: Analytics }) {
 
 function Sources({ a }: { a: Analytics }) {
   const max = Math.max(1, ...a.sources.map((s) => s.visits));
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   return (
     <Section
       title="Where they come from"
@@ -155,15 +167,40 @@ function Sources({ a }: { a: Analytics }) {
           </TableHeader>
           <TableBody>
             {a.sources.map((s) => (
-              <TableRow key={s.id}>
+              <Fragment key={s.id}>
+              <TableRow
+                className={cn(s.landings.length > 0 && "cursor-pointer")}
+                onClick={() => s.landings.length > 0 && toggle(s.id)}
+                aria-expanded={s.landings.length > 0 ? open.has(s.id) : undefined}
+              >
                 <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{s.label}</span>
-                    {s.hosts.length > 0 && s.hosts[0]!.host !== s.label && (
-                      <span className="text-xs text-muted-foreground">
-                        {s.hosts.map((h) => `${h.host} (${formatNumber(h.visits)})`).join(", ")}
-                      </span>
-                    )}
+                  <div className="flex items-start gap-1.5">
+                    <ChevronRight
+                      className={cn(
+                        "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform",
+                        open.has(s.id) && "rotate-90",
+                        s.landings.length === 0 && "invisible",
+                      )}
+                    />
+                    <div className="flex min-w-0 flex-col">
+                      <span className="font-medium">{s.label}</span>
+                      {s.hosts.length > 0 && s.hosts[0]!.host !== s.label && (
+                        <span className="text-xs text-muted-foreground">
+                          {s.hosts.map((h) => `${h.host} (${formatNumber(h.visits)})`).join(", ")}
+                        </span>
+                      )}
+                      {/* What this source lands people on, at a glance; the row opens the rest. */}
+                      {s.landings.length > 0 && !open.has(s.id) && (
+                        <span className="truncate text-xs text-muted-foreground">
+                          lands on{" "}
+                          {s.landings
+                            .slice(0, 3)
+                            .map((l) => `${l.path} (${formatNumber(l.visits || l.signups)})`)
+                            .join(", ")}
+                          {s.landings.length > 3 && ` +${s.landings.length - 3} more`}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -176,11 +213,53 @@ function Sources({ a }: { a: Analytics }) {
                 <TableCell className="text-right tabular-nums text-muted-foreground">{formatPercent(s.downloads, s.visits)}</TableCell>
                 <TableCell className="text-right tabular-nums">{formatNumber(s.signups)}</TableCell>
               </TableRow>
+              {open.has(s.id) && <SourceLandings source={s} />}
+              </Fragment>
             ))}
           </TableBody>
         </Table>
       )}
     </Section>
+  );
+}
+
+/** The pages one source lands people on — a nested block under its row. */
+function SourceLandings({ source }: { source: Analytics["sources"][number] }) {
+  const max = Math.max(1, ...source.landings.map((l) => l.visits));
+  return (
+    <TableRow className="hover:bg-transparent">
+      <TableCell colSpan={6} className="bg-muted/30 py-3 pl-10">
+        <p className="mb-2 text-xs text-muted-foreground">
+          Where {source.label} sends people{source.landings.length === 10 ? " (top 10)" : ""}
+        </p>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-muted-foreground">
+              <th className="pb-1 text-left font-normal">Landing page</th>
+              <th className="pb-1 text-right font-normal">Visits</th>
+              <th className="pb-1 text-right font-normal">Downloads</th>
+              <th className="pb-1 text-right font-normal">Visit → download</th>
+              <th className="pb-1 text-right font-normal">Sign-ups</th>
+            </tr>
+          </thead>
+          <tbody>
+            {source.landings.map((l) => (
+              <tr key={l.path}>
+                <td className="max-w-[22rem] truncate py-1 font-mono text-xs">{l.path}</td>
+                <td className="py-1 text-right">
+                  <div className="ml-auto w-48">
+                    <Meter value={l.visits} max={max}>{formatNumber(l.visits)}</Meter>
+                  </div>
+                </td>
+                <td className="py-1 text-right tabular-nums">{formatNumber(l.downloads)}</td>
+                <td className="py-1 text-right tabular-nums text-muted-foreground">{formatPercent(l.downloads, l.visits)}</td>
+                <td className="py-1 text-right tabular-nums">{formatNumber(l.signups)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -226,18 +305,24 @@ function LandingTable({ a }: { a: Analytics }) {
       <TableHeader>
         <TableRow>
           <TableHead>Landing page</TableHead>
+          <TableHead>Top sources</TableHead>
           <TableHead className="text-right">Visits</TableHead>
           <TableHead className="text-right">Downloads</TableHead>
+          <TableHead className="text-right">Sign-ups</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {a.landings.map((l) => (
           <TableRow key={l.path}>
-            <TableCell className="max-w-[20rem] truncate font-mono text-xs">{l.path}</TableCell>
+            <TableCell className="max-w-[16rem] truncate font-mono text-xs">{l.path}</TableCell>
+            <TableCell className="max-w-[16rem] truncate text-xs text-muted-foreground">
+              {l.sources.map((s) => `${s.label} ${formatNumber(s.visits || s.signups)}`).join(" · ") || "—"}
+            </TableCell>
             <TableCell className="text-right">
               <Meter value={l.visits} max={max}>{formatNumber(l.visits)}</Meter>
             </TableCell>
             <TableCell className="text-right tabular-nums">{formatNumber(l.downloads)}</TableCell>
+            <TableCell className="text-right tabular-nums">{formatNumber(l.signups)}</TableCell>
           </TableRow>
         ))}
       </TableBody>
