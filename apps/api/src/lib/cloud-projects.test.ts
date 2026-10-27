@@ -37,6 +37,7 @@ describe("checkLogicalPath", () => {
       "keys.json",
       "camera.mov",
       "camera_poster.png",
+      "camera-mask.ccmask",
       "thumbnail.jpg",
       "voiceover-3F2504E0-4F89-11D3-9A0C-0305E82C3301.m4a",
       "watermark-1a2b3c4d.png",
@@ -79,6 +80,13 @@ describe("checkManifest", () => {
     expect(parsed.files[0].sha256).toBe(SHA);
     expect(parsed.files[0].contentType).toBe("video/quicktime");
     expect(checkManifest(parsed)).toBeNull();
+  });
+
+  it("accepts the camera mask only as an octet stream", () => {
+    const ok = body([{ path: "camera-mask.ccmask", sha256: SHA, bytes: 10, contentType: "application/octet-stream" }]);
+    expect(checkManifest(ok)).toBeNull();
+    const wrong = body([{ path: "camera-mask.ccmask", sha256: SHA, bytes: 10, contentType: "image/png" }]);
+    expect(checkManifest(wrong)?.body.code).toBe("invalid_content_type");
   });
 
   it("refuses a content type the extension does not allow", () => {

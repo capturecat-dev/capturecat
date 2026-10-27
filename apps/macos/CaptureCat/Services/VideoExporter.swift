@@ -631,14 +631,28 @@ final class VideoExporter {
                                    atOutputTime: outputFrameTimes[frameIdx].seconds)
         }
 
-        // Diagnostic: dump the full camera path (CAPTURECAT_DUMP_CAMERA=1) so
+        // Diagnostic: dump the full camera path (CAPTURECAT_DUMP_CAMERA) so
         // motion discontinuities can be measured in the numbers, not eyeballed.
-        if ProcessInfo.processInfo.environment["CAPTURECAT_DUMP_CAMERA"] != nil {
+        // `=1` prints to stdout; `=<absolute path>` writes that file in one
+        // go. Harnesses that PARSE the dump must use the file: stdout mixes
+        // buffered `print` with the exporter's unbuffered progress writes, and
+        // a write landing between two buffer flushes split a CAM line — the
+        // parity fixtures silently lost one camera-path row that way.
+        if let dumpTarget = ProcessInfo.processInfo.environment["CAPTURECAT_DUMP_CAMERA"] {
+            var lines: [String] = []
+            lines.reserveCapacity(cameraPath.count)
             for (i, k) in cameraPath.enumerated() {
-                print(String(
+                lines.append(String(
                     format: "CAM t=%.4f z=%.5f fx=%.4f fy=%.4f ox=%.4f oy=%.4f p=%.3f yw=%.3f r=%.3f",
                     outputFrameTimes[i].seconds, k.zoom, k.focalX, k.focalY,
                     k.offsetX, k.offsetY, k.tiltPitch, k.tiltYaw, k.tiltRoll))
+            }
+            if dumpTarget.hasPrefix("/") {
+                try? (lines.joined(separator: "\n") + "\n").write(
+                    to: URL(fileURLWithPath: dumpTarget), atomically: true, encoding: .utf8)
+            } else {
+                for line in lines { print(line) }
+                fflush(stdout)
             }
         }
 
@@ -710,6 +724,28 @@ final class VideoExporter {
             if !settings.showCamera { print("[Export Camera] disabled: showCamera=false") }
             if project.cameraVideoURL == nil { print("[Export Camera] disabled: cameraVideoURL is nil") }
         }
+
+        // Camera looks (docs/camera-cutout.md §2): the person mask beside the
+        // camera file, usable only when FRESH for it. Missing or stale → every
+        // look renders as the plain bubble (lookWeights stay .none below).
+        var cameraMaskTrack: CameraMaskTrack?
+        if cameraReader != nil, let cameraURL = project.cameraVideoURL,
+           project.cameraLayoutRegions.contains(where: { $0.effectiveLook != nil }) {
+            let maskURL = CameraMaskTrack.url(besideCamera: cameraURL)
+            let cameraBytes = ((try? FileManager.default.attributesOfItem(atPath: cameraURL.path))?[.size] as? NSNumber)?.int64Value ?? -1
+            do {
+                let track = try CameraMaskTrack(contentsOf: maskURL)
+                if CameraMaskTrack.isFresh(track.header, cameraByteSize: cameraBytes, cameraDuration: cameraDuration) {
+                    cameraMaskTrack = track
+                    print("[Export Camera] mask: \(track.header.width)x\(track.header.height) frames=\(track.header.frameCount)")
+                } else {
+                    print("[Export Camera] mask: stale (source \(track.header.sourceByteSize) B / \(track.header.sourceDuration)s vs camera \(cameraBytes) B / \(cameraDuration)s) — looks draw as the bubble")
+                }
+            } catch {
+                print("[Export Camera] mask: unavailable (\(error.localizedDescription)) — looks draw as the bubble")
+            }
+        }
+        let cameraMaskDecoder = cameraMaskTrack.map { CameraMaskTrack.Decoder(track: $0) }
 
         // Working space MATCHES the source file (Display P3 for new
         // recordings, sRGB for older ones) — same non-linear transfer curve in
@@ -1349,6 +1385,29 @@ final class VideoExporter {
                 cardCornerRadius: max(0, settings.cornerRadius * canvasScale),
                 hasCamera: cameraStaticAssets != nil
             )
+            // Camera looks, eased across region edges like the layout itself
+            // (CameraLayoutMath.lookWeights — the preview calls the same).
+            let lookWeights: CameraLayoutMath.LookWeights =
+                cameraMaskDecoder != nil && cameraStaticAssets != nil
+                    ? CameraLayoutMath.lookWeights(at: currentTime, regions: project.cameraLayoutRegions)
+                    : .none
+            /// The look stack's camera: the already mirrored + adjusted
+            /// source × the mask frame for the camera sample actually drawn
+            /// (`currentCameraSampleTime`), or mask frame 0 under the poster.
+            func lookStack(_ source: CIImage, live: Bool, rect: CGRect) -> CameraLookStack? {
+                guard lookWeights.isActive, let decoder = cameraMaskDecoder,
+                      let baseRect = cameraStaticAssets?.baseRect else { return nil }
+                let index = live ? decoder.track.frameIndex(at: CMTimeGetSeconds(currentCameraSampleTime)) : 0
+                guard let alpha = try? decoder.frame(index),
+                      let mask = CameraStyleMath.maskCIImage(
+                          alpha: alpha, width: decoder.track.header.width, height: decoder.track.header.height)
+                else { return nil }
+                let sizeFactor = CameraCutoutMath.sizeFactor(rect: rect, baseWidth: baseRect.width)
+                return CameraLookStack(
+                    weights: lookWeights,
+                    masked: CameraStyleMath.maskedImage(source, mask: mask, mirrored: settings.cameraMirrored),
+                    shadowSigma: CameraCutoutMath.cardShadowRadius * canvasScale * sizeFactor)
+            }
             // Cover-compensated like the preview — see TiltMath.effectiveCoverZoom.
             let zoom = Double(TiltMath.effectiveCoverZoom(
                 zoom: CGFloat(cam.zoom),
@@ -1398,7 +1457,7 @@ final class VideoExporter {
                         : false,
                     dimAlpha: backdropDimAlpha,
                     deviceSegment: segmentDeviceAssets != nil && deviceSegmentActive(currentTime),
-                    cameraLayout: StaticSpanCollapse.cameraLayoutKey(camLayout)
+                    cameraLayout: StaticSpanCollapse.cameraLayoutKey(camLayout, looks: lookWeights)
                 )
                 if staticCollapse.shouldSkip(
                     frameIndex: frameIndex,
@@ -1788,6 +1847,7 @@ final class VideoExporter {
                    !camLayout.isPlainBubble, camLayout.cameraOpacity > 0.001,
                    let rect = camLayout.cameraRect {
                     let cameraTargetTime = currentTime - project.cameraTimeOffset
+                    let cameraIsLive = cameraTargetTime >= 0 && currentCameraPixelBuffer != nil
                     let cameraSource: CIImage? = {
                         let raw: CIImage?
                         if cameraTargetTime >= 0, let camBuffer = currentCameraPixelBuffer {
@@ -1801,6 +1861,7 @@ final class VideoExporter {
                         }
                     }()
                     if let cameraSource {
+                        let looks = lookStack(cameraSource, live: cameraIsLive, rect: rect)
                         let radius = min(
                             camLayout.cameraCornerRadius,
                             min(rect.width, rect.height) / 2
@@ -1851,6 +1912,7 @@ final class VideoExporter {
                             opacity: settings.cameraOpacity * camLayout.cameraOpacity,
                             tiltPitch: settings.cameraTiltPitch * chrome,
                             tiltYaw: settings.cameraTiltYaw * chrome,
+                            looks: looks,
                             onto: CIImage(color: .clear).cropped(to: outputRect),
                             outputRect: outputRect
                         )
@@ -2063,6 +2125,7 @@ final class VideoExporter {
             // the poster frame during the pre-first-sample gap, so must we.
             if sourceCMTime != nil, let assets = cameraStaticAssets, camLayout.cameraOpacity > 0.001, camLayout.isPlainBubble {
                 let cameraTargetTime = currentTime - project.cameraTimeOffset
+                let cameraIsLive = cameraTargetTime >= 0 && currentCameraPixelBuffer != nil
                 let cameraSource: CIImage? = {
                     let raw: CIImage?
                     if cameraTargetTime >= 0, let camBuffer = currentCameraPixelBuffer {
@@ -2102,6 +2165,7 @@ final class VideoExporter {
                         opacity: settings.cameraOpacity,
                         tiltPitch: settings.cameraTiltPitch,
                         tiltYaw: settings.cameraTiltYaw,
+                        looks: lookStack(cameraSource, live: cameraIsLive, rect: dynRect),
                         onto: composited,
                         outputRect: outputRect
                     )
@@ -2991,6 +3055,7 @@ final class VideoExporter {
         opacity: Double = 1,
         tiltPitch: Double = 0,
         tiltYaw: Double = 0,
+        looks: CameraLookStack? = nil,
         onto image: CIImage,
         outputRect: CGRect
     ) -> CIImage {
@@ -3002,10 +3067,13 @@ final class VideoExporter {
         let scaledH = camExtent.height * fillScale
         let dx = rect.minX - (scaledW - rect.width) / 2 - camExtent.minX * fillScale
         let dy = rect.minY - (scaledH - rect.height) / 2 - camExtent.minY * fillScale
-        let scaledCamera = camera
-            .transformed(by: CGAffineTransform(scaleX: fillScale, y: fillScale))
-            .transformed(by: CGAffineTransform(translationX: dx, y: dy))
-            .cropped(to: rect)
+        func placed(_ frame: CIImage) -> CIImage {
+            frame
+                .transformed(by: CGAffineTransform(scaleX: fillScale, y: fillScale))
+                .transformed(by: CGAffineTransform(translationX: dx, y: dy))
+                .cropped(to: rect)
+        }
+        let scaledCamera = placed(camera)
 
         // Apply the shape mask so the camera takes the chosen outline. Bound
         // the filter to the camera rect — the background and output extents
@@ -3042,6 +3110,34 @@ final class VideoExporter {
         if let stroke {
             overlay = stroke.composited(over: overlay)
         }
+        // Camera looks (docs/camera-cutout.md §4/§5): the stack above is the
+        // "existing camera drawing". With a look in play the stacks are a
+        // TRUE cross-dissolve — each composed over transparent, scaled as a
+        // whole by its weight (premultiplied RGBA × w), then SUMMED — so a
+        // fade between two opaque stacks never dips see-through or dark.
+        // A settled look (or none) takes no extra pass: scale(x, 1) is x.
+        if let looks, looks.weights.isActive {
+            let w = looks.weights
+            var sum: CIImage?
+            func add(_ stack: CIImage, _ weight: Double) {
+                let scaled = Self.scaleStack(stack, by: weight)
+                sum = sum.map {
+                    scaled.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: $0])
+                } ?? scaled
+            }
+            if w.bubble > 0 { add(overlay, w.bubble) }
+            // "masked camera": mirror → adjustments → × mask, aspect-filled
+            // into B with the same transform as the plain camera.
+            let person = placed(looks.masked)
+            // Cutout: ONE crop to B — no shape mask.
+            if w.cutout > 0 { add(person, w.cutout) }
+            if w.popOut > 0 {
+                add(popOutCardStack(person: person, rect: rect,
+                                    cameraAspect: Double(camExtent.width / camExtent.height),
+                                    shadowSigma: looks.shadowSigma), w.popOut)
+            }
+            overlay = sum ?? CIImage.empty()
+        }
         if let tag {
             overlay = tag.composited(over: overlay)
         }
@@ -3060,6 +3156,87 @@ final class VideoExporter {
             overlay = fadeImage(overlay, alpha: opacity)
         }
         return overlay.composited(over: image).cropped(to: outputRect)
+    }
+
+    /// The pop-out card stack in CI (Y-up) space (contract §5): the bubble
+    /// shadow recipe on the card's rounded rect, the card (a CILinearGradient
+    /// through the card's rounded-rect generator), then the masked person
+    /// clipped to B with only its BOTTOM corners rounded — the head rises
+    /// into the headroom above the card. Geometry is CameraCutoutMath's, the
+    /// same call the preview makes in Y-down space.
+    private func popOutCardStack(person: CIImage, rect: CGRect, cameraAspect: Double, shadowSigma: CGFloat) -> CIImage {
+        let g = CameraCutoutMath.geometry(look: .popOut, bubbleRect: rect, cameraAspect: cameraAspect, yAxisIsUp: true)
+        var stack = CIImage.empty()
+        func roundedMask(_ r: CGRect, _ radius: CGFloat) -> CIImage? {
+            CIFilter(name: "CIRoundedRectangleGenerator", parameters: [
+                "inputExtent": CIVector(cgRect: r),
+                kCIInputRadiusKey: max(0, radius),
+                kCIInputColorKey: CIColor.white,
+            ])?.outputImage?.cropped(to: r)
+        }
+        if let card = g.cardRect, card.width > 0, card.height > 0,
+           let cardMask = roundedMask(card, g.cardCornerRadius) {
+            // Card shadow: black 0.45 through the card shape, blurred σ, no
+            // offset, cropped to the card outset by 4σ + 4.
+            if shadowSigma > 0 {
+                let extent = card.insetBy(dx: -(shadowSigma * 4 + 4), dy: -(shadowSigma * 4 + 4))
+                let shaped = CIImage(color: CIColor(red: 0, green: 0, blue: 0, alpha: CameraCutoutMath.cardShadowExportAlpha))
+                    .cropped(to: extent)
+                    .applyingFilter("CIBlendWithMask", parameters: [
+                        kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: extent),
+                        kCIInputMaskImageKey: cardMask,
+                    ])
+                    .cropped(to: extent)
+                stack = shaped
+                    .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: shadowSigma])
+                    .cropped(to: extent)
+            }
+            // Card: top colour at the card's TOP edge (maxY in CI space) →
+            // bottom colour at its bottom edge, interpolated by CI.
+            let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
+            let top = CameraCutoutMath.cardTopColor, bottom = CameraCutoutMath.cardBottomColor
+            if let color0 = CIColor(red: top.r, green: top.g, blue: top.b, alpha: 1, colorSpace: srgb),
+               let color1 = CIColor(red: bottom.r, green: bottom.g, blue: bottom.b, alpha: 1, colorSpace: srgb),
+               let gradient = CIFilter(name: "CILinearGradient", parameters: [
+                "inputPoint0": CIVector(x: card.midX, y: card.maxY),
+                "inputPoint1": CIVector(x: card.midX, y: card.minY),
+                "inputColor0": color0,
+                "inputColor1": color1,
+            ])?.outputImage {
+                let rounded = gradient.cropped(to: card).applyingFilter("CIBlendWithMask", parameters: [
+                    kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: card),
+                    kCIInputMaskImageKey: cardMask,
+                ]).cropped(to: card)
+                stack = rounded.composited(over: stack)
+            }
+        }
+        // Person clip: the rounded-rect generator over B extended UP by r,
+        // cropped to B — its top corners fall outside B, so only the bottom
+        // two are rounded.
+        let clip = g.clipRect
+        let clipMask = roundedMask(CameraCutoutMath.personClipMaskRect(g, yAxisIsUp: true), g.clipBottomCornerRadius)?
+            .cropped(to: clip) ?? CIImage(color: .white).cropped(to: clip)
+        let clippedPerson = person.applyingFilter("CIBlendWithMask", parameters: [
+            kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: clip),
+            kCIInputMaskImageKey: clipMask,
+        ]).cropped(to: clip)
+        return clippedPerson.composited(over: stack)
+    }
+
+    /// `scale(x, w)` of the camera-look cross-dissolve (contract §5):
+    /// premultiplied RGBA × w. CIColorMatrix works on UNpremultiplied colour,
+    /// so only the alpha vector is scaled — scaling RGB too (`fadeImage`)
+    /// would multiply premultiplied colour by w² and darken every mid-fade.
+    /// w ≥ 1 is the identity (no pass).
+    static func scaleStack(_ image: CIImage, by weight: Double) -> CIImage {
+        guard weight < 1 else { return image }
+        let w = CGFloat(max(0, weight))
+        return image.applyingFilter("CIColorMatrix", parameters: [
+            "inputRVector": CIVector(x: 1, y: 0, z: 0, w: 0),
+            "inputGVector": CIVector(x: 0, y: 1, z: 0, w: 0),
+            "inputBVector": CIVector(x: 0, y: 0, z: 1, w: 0),
+            "inputAVector": CIVector(x: 0, y: 0, z: 0, w: w),
+        ])
     }
 
     /// Uniformly scales an image's premultiplied RGBA by `alpha` — a fade
@@ -3865,4 +4042,16 @@ final class VideoExporter {
             }
         }
     }
+}
+
+
+/// What `compositeCamera` needs to draw the camera LOOKS over the existing
+/// camera stack (docs/camera-cutout.md §4/§5).
+struct CameraLookStack {
+    var weights: CameraLayoutMath.LookWeights
+    /// The camera source — already mirrored + adjusted — × the person mask
+    /// (CameraStyleMath.maskedImage); same extent as the plain source.
+    var masked: CIImage
+    /// Card shadow blur sigma in output pixels (bubble recipe × size factor).
+    var shadowSigma: CGFloat
 }

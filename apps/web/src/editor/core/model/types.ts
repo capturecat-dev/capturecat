@@ -27,6 +27,7 @@ import type {
   BlurStyle,
   CameraFilterStyle,
   CameraLayoutMode,
+  CameraLook,
   CameraOrientation,
   CameraPosition,
   CameraShape,
@@ -324,6 +325,9 @@ export interface CameraLayoutRegion extends HasExtra {
   startTime: number;
   endTime: number;
   mode: CameraLayoutMode;
+  /** Cutout / pop-out card (docs/camera-cutout.md §1) — only while `mode` is
+   *  "bubble"; absent = the plain bubble. Encoded only when set. */
+  look?: CameraLook;
 }
 
 /** Annotation.swift (custom decoder, synthesized encoder). */

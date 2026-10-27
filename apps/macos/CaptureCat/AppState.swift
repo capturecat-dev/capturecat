@@ -176,6 +176,9 @@ final class AppState {
     /// On-device OCR search index over captures — the browser's search and
     /// the MCP search_captures tool both read it. See CaptureTextIndex.
     let captureTextIndex = CaptureTextIndex()
+    /// Person segmentation for the camera looks (Cutout / Pop-out card) —
+    /// writes camera-mask.ccmask in the background. See CameraSegmentation.
+    let cameraSegmentation = CameraSegmentation()
     /// Folders / pins / shared marks — browser organization, separate from
     /// the per-project files.
     let library = ProjectLibrary()
@@ -903,6 +906,7 @@ final class AppState {
                 openEditor(with: project)
                 onRecordingFinished?(project)
                 captureTextIndex.scheduleIndex(projectID: project.id)
+                cameraSegmentation.scheduleAfterRecording(project: project)
             }
         }
     }

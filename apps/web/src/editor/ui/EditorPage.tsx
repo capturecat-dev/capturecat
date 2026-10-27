@@ -30,6 +30,7 @@ import { loadInteractionInputs } from "../state/interactionInputs";
 import { loadEditorProject, type LoadedEditorProject } from "../state/projectSource";
 import { EditorStore, useEditorStore, type EditorState, type Persistence } from "../state/store";
 import { useSubtitleGeneration } from "../state/subtitleGeneration";
+import { useCameraMask } from "../state/cameraMask";
 import { timelineSnapshot } from "../state/timeline";
 import { buildEditorToolHandlers, registerEditorWebMCP } from "../state/webmcpHandlers";
 import { REPLACE_ZOOM_BLOCKS, editorPaneActions, useInspectorRevealKey, usePendingSeek, useRecordingFacts } from "./editorPageWiring";
@@ -253,7 +254,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
             const doc = store.documentJSON();
             const refs = refsOf(doc);
             const files: Record<string, string> = {};
-            for (const ref of [refs.cursor, refs.keystrokes, refs.camera, ...refs.images, ...refs.audio]) {
+            for (const ref of [refs.cursor, refs.keystrokes, refs.camera, refs.mask, ...refs.images, ...refs.audio]) {
               const url = ref ? loaded.mediaUrl(ref) : undefined;
               if (ref && url) files[ref] = url;
             }
@@ -388,6 +389,22 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
   const mediaActions = useMediaPickers(store, loaded);
   // Generate / Regenerate Subtitles: on-device Whisper (state/subtitleGeneration.ts).
   const subtitleActions = useSubtitleGeneration(store, loaded?.mediaUrl);
+  // Cutout / Pop-out card: on-device background removal (state/cameraMask.ts).
+  const cameraMask = useCameraMask(store, loaded?.media, () => controller.client);
+  useEffect(() => {
+    controller.hooks.cameraLookAdded = cameraMask.kick;
+    return () => {
+      controller.hooks.cameraLookAdded = undefined;
+    };
+  }, [controller, cameraMask.kick]);
+  const [maskDismissed, setMaskDismissed] = useState<string | null>(null);
+  const maskStatus = cameraMask.status;
+  const maskMessage = maskStatus.error ?? maskStatus.notice;
+  const cameraMaskChip = maskStatus.busy
+    ? { busy: true, fraction: maskStatus.fraction, text: maskStatus.progress, tone: "progress" as const, onCancel: cameraMask.cancel }
+    : maskMessage && maskMessage !== maskDismissed
+      ? { busy: false, fraction: null, text: maskMessage, tone: maskStatus.error ? ("error" as const) : ("notice" as const), onDismiss: () => setMaskDismissed(maskMessage) }
+      : null;
   const paneFacts = useRecordingFacts(project, loaded);
   const selectionRevealKey = useInspectorRevealKey(store);
   // Opening History re-shows a collapsed inspector column (it lives there).
@@ -464,6 +481,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
             stillTreatment: project?.stillTreatment,
             hasCursorData: project?.cursorDataURL != null,
             hasRecordedCamera: project?.cameraVideoURL != null,
+            cameraMask: cameraMaskChip,
             syncState: state.sync,
             historyOpen,
           }}

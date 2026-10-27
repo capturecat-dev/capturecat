@@ -78,8 +78,12 @@ describe("exporter camera-bubble golden vectors", () => {
     checkUnit("exportCameraFrame", (i) => {
       const statics = staticsFor(i);
       return {
+        // maskAvailable is per case (a fresh mask loaded for the export): it gates the looks.
         frames: i.frames.map((f: ECB.ExportFrameCameraInput) =>
-          ECB.exportFrameCamera(statics, i.settings, i.regions, i.videoRect, i.outputSize, i.cameraTimeOffset, f),
+          ECB.exportFrameCamera(statics, i.settings, i.regions, i.videoRect, i.outputSize, i.cameraTimeOffset, {
+            ...f,
+            maskAvailable: i.maskAvailable === true,
+          }),
         ),
       };
     });

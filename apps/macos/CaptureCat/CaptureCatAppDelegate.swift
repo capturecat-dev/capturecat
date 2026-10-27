@@ -93,6 +93,9 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
         // captures starts after a launch-settle delay, one project at a time
         // at utility QoS (and never while recording/exporting).
         appState.captureTextIndex.start(appState: appState)
+        // Camera-look masks: segmentation runs on demand (a look applied in
+        // the editor, or a recording into a project that uses one).
+        appState.cameraSegmentation.start(appState: appState)
         if appState.needsOnboarding || OnboardingViewController.isForcedPreview {
             openWindow(id: "onboarding")
         }

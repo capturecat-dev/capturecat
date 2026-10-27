@@ -707,6 +707,13 @@ if CommandLine.arguments.contains("--cameralayout-test") {
     CameraLayoutHarness.run()
 }
 
+// Camera-look mask cost: the real Vision segmentation job on a COPY of a
+// camera file (temp dir only) → frames, bytes/frame and MB/min at
+// keyframeInterval 15 and 30. Never reached in a normal launch.
+if CommandLine.arguments.contains("--camera-mask-bench") {
+    CameraMaskBenchHarness.run()
+}
+
 // Preview↔export CURSOR gate: the arrow the editor shows vs the arrow the
 // exporter burns in, measured on the same 1920×1080 pixel grid (2× preview
 // snapshot vs a real 1080p export). Never reached in a normal launch.

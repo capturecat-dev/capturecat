@@ -235,7 +235,7 @@ export const FOCUS_REGION_KEYS = [
   "rectH",
 ] as const;
 
-export const CAMERA_LAYOUT_REGION_KEYS = ["id", "startTime", "endTime", "mode"] as const;
+export const CAMERA_LAYOUT_REGION_KEYS = ["id", "startTime", "endTime", "mode", "look"] as const;
 
 export const ANNOTATION_KEYS = [
   "id",

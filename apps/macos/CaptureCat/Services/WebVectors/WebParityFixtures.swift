@@ -18,7 +18,7 @@ import UniformTypeIdentifiers
 /// camera.mp4?, frames/NNNN.png, fixture.json}`; plus `<dir>/manifest.json`.
 ///
 /// The exporter's per-frame camera path is captured from its own
-/// `CAPTURECAT_DUMP_CAMERA` diagnostic (print precision) and stored in
+/// `CAPTURECAT_DUMP_CAMERA=<file>` diagnostic (print precision) and stored in
 /// fixture.json — and compared against the web-vector camera oracle when it
 /// is linked in (`WebParityFixtures.cameraOracle`).
 ///
@@ -46,6 +46,13 @@ enum WebParityFixtures {
         /// Output frame indices to extract (clamped to the frame count).
         let frames: [Int]
         let configure: (Project) -> Void
+        /// Camera looks: write `camera-mask.ccmask` (synthetic silhouette,
+        /// this app's encoder, header fresh for the fixture's own camera file)
+        /// and, when set, structurally verify a settled cutout frame against
+        /// a camera-less export (`settledCutout`) with the plain-bubble frame
+        /// as the must-fail self-test (`plainBubble`).
+        var cameraMask = false
+        var lookCheck: (settledCutout: Int, plainBubble: Int)?
     }
 
     static func run() -> Never {
@@ -115,6 +122,9 @@ enum WebParityFixtures {
             try await SyntheticMovie.write(to: url, size: CGSize(width: 640, height: 480), duration: f.duration,
                                            fps: sourceFPS, style: .camera)
             cameraURL = url
+            if f.cameraMask {
+                try await writeSyntheticCameraMask(cameraURL: url)
+            }
         }
         var cursorURL: URL?
         var cursorEventsRaw: [CursorEvent] = []
@@ -154,10 +164,14 @@ enum WebParityFixtures {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(project).write(to: projectURL)
 
-        // Export with the REAL exporter, capturing its camera-path dump.
+        // Export with the REAL exporter. Its camera-path dump goes to a FILE
+        // (never parsed back from stdout — see the exporter's note: an
+        // unbuffered progress write once split a buffered CAM line and the
+        // fixture silently lost a row).
         let exportURL = dir.appendingPathComponent("export.mp4")
         let dumpURL = dir.appendingPathComponent("export-log.txt")
-        setenv("CAPTURECAT_DUMP_CAMERA", "1", 1)
+        let cameraPathURL = dir.appendingPathComponent("camera-path.txt")
+        setenv("CAPTURECAT_DUMP_CAMERA", cameraPathURL.path, 1)
         // Reference frames come from the exporter's pre-encode tap (lossless):
         // a decoded HEVC frame carries compression noise no renderer can match.
         let tapDir = dir.appendingPathComponent("tap", isDirectory: true)
@@ -174,7 +188,9 @@ enum WebParityFixtures {
         }
         let tapped = (try? fm.contentsOfDirectory(atPath: tapDir.path).count) ?? 0
         print("WEB-PARITY \(f.name) reference frames: \(tapped) lossless tap(s) at \(tapDir.path)")
-        let camDump = parseCameraDump((try? String(contentsOf: dumpURL, encoding: .utf8)) ?? "")
+        unsetenv("CAPTURECAT_DUMP_CAMERA")
+        let camDump = parseCameraDump((try? String(contentsOf: cameraPathURL, encoding: .utf8)) ?? "")
+        try? fm.removeItem(at: cameraPathURL)
 
         // Frame times exactly as the exporter computes them.
         let asset = AVURLAsset(url: videoURL)
@@ -223,6 +239,15 @@ enum WebParityFixtures {
             ])
         }
 
+        // Camera looks: the settled cutout is structurally verified against a
+        // camera-less export of the same frame (throws on failure).
+        var cameraLookCheck: WV = .null
+        if let check = f.lookCheck {
+            cameraLookCheck = try await verifySettledCutout(
+                project: project, fixtureDir: dir, frameIndex: check.settledCutout,
+                plainBubbleFrameIndex: check.plainBubble)
+        }
+
         // Camera path: exporter dump (print precision) vs the oracle, if linked.
         var cameraCheck: WV = ["oracle": "not linked"]
         if let oracle = cameraOracle {
@@ -247,6 +272,12 @@ enum WebParityFixtures {
                 }
                 compared += 1
             }
+            // Every output frame must have its dumped row — a missing row
+            // shifts the web's per-frame comparison. Fail loudly, never
+            // write a fixture that says frameCountMatches: false.
+            guard camDump.count == keys.count, camDump.count == frameTimes.count else {
+                throw FixtureError(message: "camera-path dump has \(camDump.count) rows for \(frameTimes.count) output frames (oracle \(keys.count))")
+            }
             cameraCheck = [
                 "oracle": "WebCameraPathOracle.cameraPath",
                 "framesCompared": .int(compared),
@@ -268,6 +299,7 @@ enum WebParityFixtures {
                 "video": "recording.mp4",
                 "cursor": f.withCursor ? "cursor.json" : .null,
                 "camera": f.withCamera ? "camera.mp4" : .null,
+                "mask": f.cameraMask ? .str(CameraMaskTrack.fileName) : .null,
                 "export": "export.mp4",
             ],
             "sourceSize": f.sourceSize.wv,
@@ -284,6 +316,7 @@ enum WebParityFixtures {
                  "tiltYaw": row[7].wv, "tiltRoll": row[8].wv]
             }),
             "cameraOracleCheck": cameraCheck,
+            "cameraLookCheck": cameraLookCheck,
         ]
         try Data(summary.serialized().utf8).write(to: dir.appendingPathComponent("fixture.json"))
         print("WEB-PARITY fixture=\(f.name) frames=\(frames.count)/\(frameTimes.count) output=\(Int(naturalSize.width))x\(Int(naturalSize.height)) total=\(String(format: "%.3f", totalSeconds))s camDump=\(camDump.count)")

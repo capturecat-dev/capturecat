@@ -246,6 +246,63 @@ enum CameraLayoutMath {
         )
     }
 
+    // MARK: - Looks (docs/camera-cutout.md §4)
+
+    /// How much of each camera LOOK to draw. Each 0…1, summing to ≤ 1; the
+    /// plain camera drawing gets the rest (`bubble`). Renderers composite,
+    /// wherever `resolve` puts the camera, source-over in this order:
+    /// existing camera stack faded by `bubble`, then the cutout stack faded by
+    /// `cutout`, then the pop-out stack faded by `popOut`.
+    struct LookWeights: Equatable {
+        var cutout: Double
+        var popOut: Double
+
+        static let none = LookWeights(cutout: 0, popOut: 0)
+
+        /// Weight of the existing (non-look) camera drawing.
+        var bubble: Double { max(0, 1 - cutout - popOut) }
+        /// True when any look draws at all.
+        var isActive: Bool { cutout > 0 || popOut > 0 }
+
+        static func settled(_ look: CameraBubbleLook?) -> LookWeights {
+            switch look {
+            case .cutout: return LookWeights(cutout: 1, popOut: 0)
+            case .popOut: return LookWeights(cutout: 0, popOut: 1)
+            case nil: return .none
+            }
+        }
+    }
+
+    /// The look drawn at `t`: the containing region's `look` while its mode
+    /// is `.bubble`, else none (a look on any other mode is kept, ignored).
+    static func look(at t: TimeInterval, regions: [CameraLayoutRegion]) -> CameraBubbleLook? {
+        region(at: t, regions: regions)?.effectiveLook
+    }
+
+    /// Look weights at `t`, eased across region edges exactly like `resolve`
+    /// eases the geometry: the most recent edge at or before `t` (edges at
+    /// t ≤ 0.05 s never morph — no intro morph), `transitionDuration`,
+    /// smootherstep, from the look just before the edge to the look after it.
+    /// Pure function of timeline position.
+    static func lookWeights(at t: TimeInterval, regions: [CameraLayoutRegion]) -> LookWeights {
+        guard !regions.isEmpty else { return .none }
+        let current = look(at: t, regions: regions)
+        let settled = LookWeights.settled(current)
+        let edges = regions.flatMap { [$0.startTime, $0.endTime] }.sorted()
+        guard let boundary = edges.last(where: { $0 <= t }),
+              boundary > 0.05,
+              t - boundary < transitionDuration else {
+            return settled
+        }
+        let previous = look(at: boundary - 0.001, regions: regions)
+        guard previous != current else { return settled }
+        let from = LookWeights.settled(previous)
+        let p = ease((t - boundary) / transitionDuration)
+        return LookWeights(
+            cutout: lerp(from.cutout, settled.cutout, p),
+            popOut: lerp(from.popOut, settled.popOut, p))
+    }
+
     /// Card transform about its own centre. Shared so the two paths cannot
     /// derive it differently; safe in both Y-down and Y-up space because the
     /// scale is uniform and the translation is X-only.

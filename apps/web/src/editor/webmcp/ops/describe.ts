@@ -219,6 +219,8 @@ export function describeProject(project: Project, inputs: DescribeInputs): JSONO
       id: id(r.id),
       start: round3(r.startTime),
       end: round3(r.endTime),
+      // Cutout / Pop-out card on a Bubble region (docs/camera-cutout.md §1).
+      ...(r.look ? { look: r.look } : {}),
     })),
   ];
   if (otherFocus.length > 0) result.otherFocusLaneRegions = otherFocus;

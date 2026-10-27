@@ -53,6 +53,8 @@ nonisolated enum CloudPath {
         "png": ["image/png"], "jpg": ["image/jpeg"], "jpeg": ["image/jpeg"], "heic": ["image/heic"],
         "webp": ["image/webp"], "gif": ["image/gif"],
         "json": ["application/json"],
+        // Camera-look person mask (docs/camera-cutout.md §7).
+        "ccmask": ["application/octet-stream"],
     ]
 
     /// Extension → the canonical content type the server accepts for it.
@@ -147,7 +149,7 @@ nonisolated struct CloudFileReference: Equatable, Sendable {
 enum CloudProjectManifest {
     /// Every file the project references: the four media URLs, voice-over
     /// clips, the watermark and curtain logos, the background image, plus the
-    /// camera poster and thumbnail when present. Order is stable; duplicates
+    /// camera poster, thumbnail and camera-look mask when present. Order is stable; duplicates
     /// collapse. project.json itself is never a file (it has its own endpoint).
     static func references(for project: Project, projectDirectory: URL) -> [CloudFileReference] {
         let fm = FileManager.default
@@ -180,6 +182,7 @@ enum CloudProjectManifest {
         }
         add(projectDirectory.appendingPathComponent("camera_poster.png"))
         add(projectDirectory.appendingPathComponent("thumbnail.jpg"))
+        add(projectDirectory.appendingPathComponent(CameraMaskTrack.fileName))
         return out
     }
 
