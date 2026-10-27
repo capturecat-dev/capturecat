@@ -3,7 +3,7 @@ import AppKit
 // CCKit dialog — the house replacement for NSAlert.
 //
 // A dimmed scrim fades over the parent window and a flat elevated card
-// springs in above it (Keynote-style settle, no Aqua sheet chrome). Buttons
+// springs in above it (the house settle, no Aqua sheet chrome). Buttons
 // are CCButtons, so dialogs share the exact chrome of every other control.
 //
 // API mirrors NSAlert closely enough that call sites translate 1:1:
@@ -217,7 +217,7 @@ private final class CCAlertSession {
             panel.makeFirstResponder(responder)
         }
 
-        // Scrim fades while the card plays its entrance (Keynote settle by
+        // Scrim fades while the card plays its entrance (house settle by
         // default; the alert's `entrance` picks slide/fade variants).
         card.wantsLayer = true
         if let layer = card.layer {

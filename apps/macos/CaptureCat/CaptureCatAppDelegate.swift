@@ -239,7 +239,8 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
             cat.size = NSSize(width: 18 * (728.0 / 834.0), height: 18)
             item.button?.image = cat
         } else {
-            item.button?.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "CaptureCat")
+            item.button?.image = CCIcon.image("record.circle", pointSize: 13, weight: .regular,
+                                              accessibilityDescription: "CaptureCat")
         }
         let menu = NSMenu()
         menu.delegate = self

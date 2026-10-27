@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
-import { CheckIcon, Settings2, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import type { DashboardVideo } from "./video-types";
 import { formatDate, formatDuration, formatSize } from "./video-format";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 interface UploadJob {
   jobId: string;
@@ -49,7 +49,7 @@ export function VideoTable({
     <div className="glass-panel hairline-top studio-panel dsh-rise overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="border-white/8 hover:bg-transparent">
+          <TableRow className="border-cc-ink/8 hover:bg-transparent">
             <TableHead className="w-10" />
             <TableHead>Name</TableHead>
             <TableHead className="hidden sm:table-cell">Duration</TableHead>
@@ -61,7 +61,7 @@ export function VideoTable({
         </TableHeader>
         <TableBody>
           {uploads.map((job) => (
-            <TableRow key={job.jobId} className="border-white/8 bg-cyan-400/[0.03]">
+            <TableRow key={job.jobId} className="border-cc-ink/8 bg-primary/[0.05]">
               <TableCell />
               <TableCell className="max-w-[240px] font-medium">
                 <div className="truncate">{job.projectName || job.fileName}</div>
@@ -87,7 +87,7 @@ export function VideoTable({
             return (
               <TableRow
                 key={video.videoId}
-                className={cn("dsh-rise border-white/8", selected && "bg-white/[0.05]")}
+                className={cn("dsh-rise border-cc-ink/8", selected && "bg-cc-ink/[0.05]")}
                 style={{ "--i": Math.min(index, 11) } as CSSProperties}
               >
                 <TableCell>
@@ -97,11 +97,11 @@ export function VideoTable({
                     className={cn(
                       "flex size-5 items-center justify-center rounded border transition-colors",
                       selected
-                        ? "border-cyan-300 bg-cyan-300 text-black"
-                        : "border-white/20 text-transparent hover:border-white/40"
+                        ? "border-primary bg-primary text-white"
+                        : "border-cc-ink/20 text-transparent hover:border-cc-ink/40"
                     )}
                   >
-                    <CheckIcon className="size-3.5" />
+                    <CCIcon name="check" className="size-3.5" />
                   </button>
                 </TableCell>
                 <TableCell className="max-w-[240px] truncate font-medium">
@@ -142,7 +142,7 @@ export function VideoTable({
                       title="Share settings"
                       onClick={() => onOpenShareSettings(video)}
                     >
-                      <Settings2 className="size-4" />
+                      <CCIcon name="sliders" className="size-4" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -151,7 +151,7 @@ export function VideoTable({
                       title="Delete"
                       onClick={() => onDelete(video.videoId)}
                     >
-                      <Trash2 className="size-4" />
+                      <CCIcon name="trash" className="size-4" />
                     </Button>
                   </div>
                 </TableCell>

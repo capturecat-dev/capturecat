@@ -942,7 +942,7 @@ final class VideoExporter {
         // never the background.
         // Camera layout regions need the card composited over TRANSPARENCY —
         // the side-by-side squeeze transforms the card with the background
-        // staying put, exactly like the keynote dip.
+        // staying put, exactly like the segment dip.
         // Intro slide is in this list because its transform is applied INSIDE
         // the card-compositing branch below — a project with a slide but no
         // tilt/zoom/camera/device otherwise took the cheap whole-frame path
@@ -1074,7 +1074,7 @@ final class VideoExporter {
             ))
         }()
 
-        // Keynote-style segment cut: the framing switches INSTANTLY at the
+        // Presentation-style segment cut: the framing switches INSTANTLY at the
         // boundary (a mask morph would expose the source's pillarboxed
         // in-between frame), and the whole card does a quick dip — easing
         // down in scale and opacity across the cut and springing back — the
@@ -1094,7 +1094,7 @@ final class VideoExporter {
         // ── Camera overlay assets — baked once at a canonical base rect ─────
         // The on-canvas rect is computed *per frame* via ReactiveCameraLayout
         // so the bubble can shrink and slide away from the zoom focal point
-        // (Screen Studio-style). The cached mask/stroke/shadow are built at a
+        // (it gets out of the way of what the zoom is showing). The cached mask/stroke/shadow are built at a
         // canonical base rect and re-targeted per frame by a CIAffineTransform,
         // so we still avoid the CGContext + Gaussian-blur cost in the hot path.
         // The chosen base corner is arbitrary — only the rect's size and the
@@ -1604,7 +1604,7 @@ final class VideoExporter {
 
                 // Segment-level device framing: crop the video to the phone's
                 // content rect (removes pillarbox bars) and slot the bezel
-                // behind. Framing snaps at the boundary — the keynote dip
+                // behind. Framing snaps at the boundary — the segment dip
                 // below hides the swap.
                 var baseForVideo = cardStatics
                 var activeIsland = cachedDeviceIsland
@@ -1837,7 +1837,7 @@ final class VideoExporter {
                 // then card-only zoom about the (tilt-projected) focal point.
                 // Camera layout override: the tile is composed onto a CLEAR
                 // canvas and composited BEFORE the card transform stage, so
-                // tilt, zoom and the keynote dip move the camera exactly as
+                // tilt, zoom and the segment dip move the camera exactly as
                 // they move the card — effects apply to whatever occupies the
                 // card. (The side-by-side squeeze is applied before this
                 // composite, so the camera tile itself is never squeezed.)
@@ -1939,7 +1939,7 @@ final class VideoExporter {
                             .cropped(to: outputRect)
                     }
 
-                    // Keynote dip across device-segment cuts: the whole card
+                    // Segment dip across device-segment cuts: the whole card
                     // eases down in scale + opacity through the boundary.
                     let dip = deviceBoundaryDip(currentTime)
                     if dip > 0.01 {
@@ -2106,7 +2106,7 @@ final class VideoExporter {
             // so the bubble lives in canvas space, mirroring the preview.
             //
             // ReactiveCameraLayout picks a per-frame rect that shrinks and slides
-            // away from the focal point as zoom increases (Screen Studio-style).
+            // away from the focal point as zoom increases, out of the zoom's way.
             // The cached mask/stroke/shadow are baked once at a canonical size
             // and re-targeted with a single CIAffineTransform here, so per-frame
             // work stays cheap.

@@ -458,6 +458,9 @@ final class EditorShellViewController: NSSplitViewController {
 
     var focusTarget: NSView? { stageController?.timelineFocusView }
 
+    /// Harness seam (`--menu-shot`): the real timeline controller.
+    var probeTimeline: TimelineViewController? { stageController?.probeTimeline }
+
     // MARK: - Playback wiring (the AppKit twin of EditorView's onChange chain)
 
     private var isStartingPlayback = false
@@ -668,8 +671,8 @@ final class InspectorRevealTab: NSView {
         layer?.borderWidth = 1
         toolTip = "Show Inspector (⌥⌘I)"
 
-        chevron.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Show Inspector")?
-            .withSymbolConfiguration(.init(pointSize: 9, weight: .semibold))
+        chevron.image = CCIcon.image("chevron.left", pointSize: 9, weight: .semibold,
+                                     accessibilityDescription: "Show Inspector")
         chevron.translatesAutoresizingMaskIntoConstraints = false
         addSubview(chevron)
         NSLayoutConstraint.activate([
@@ -733,7 +736,7 @@ final class EditorToolbarController: NSObject {
     // macOS 26 wraps adjacent toolbar items in ONE Liquid Glass capsule with
     // no opt-out, so both controls live in a single cluster item: plain-
     // chrome kit controls separated by a hairline, letting the system
-    // capsule be the only box — the Safari-style grouped pill.
+    // capsule be the only box — one grouped pill, as in a browser toolbar.
     private let aspectSelect = CCSelect(placeholder: "Aspect", size: .sm, chrome: .plain)
     private let treatmentSwitch: CCSegmented
     private let controlsCluster = NSStackView()
@@ -936,6 +939,10 @@ final class EditorStageViewController: NSViewController {
     /// Focus lands on the timeline's root view — the single first responder
     /// that owns the panel's keyboard handling.
     var timelineFocusView: NSView? { timelineController?.view }
+
+    /// Harness seam (`--menu-shot`): the real timeline controller, so probes
+    /// open its pickers through the shipping presentation path.
+    var probeTimeline: TimelineViewController? { timelineController }
 
     /// The History-preview banner over the top of the preview card.
     private(set) var callout: CCCallout?
@@ -1262,7 +1269,7 @@ final class EditorStageViewController: NSViewController {
     private func repositionAnnotationPill() {
         guard let compositor else { return }
         // The pill is EDITING chrome: hidden during playback AND while a drag
-        // is in flight (Keynote behaviour — and per-mouse-move toolbar layout
+        // is in flight (presentation-app behaviour — and per-mouse-move toolbar layout
         // is exactly the work dragging must never pay).
         if playback.isPlaying || compositor.isDraggingOnCanvas {
             annotationPill.isHidden = true

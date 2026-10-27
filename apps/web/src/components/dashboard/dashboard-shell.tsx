@@ -35,8 +35,8 @@ const CRUMBS: Array<{ prefix: string; label: string }> = [
 export type ShellUser = { name: string; email: string; avatar: string };
 
 /**
- * The signed-in dashboard's frame: sidebar, glass header with breadcrumbs,
- * one content column, and the recording bar docked under every page. The
+ * The signed-in dashboard's frame: sidebar, header with breadcrumbs, one
+ * content column, and the recording bar docked under every page. The
  * /app route renders it around its <Outlet />; the DEV lab renders it around
  * a page with `pathname` pinned, so screenshots show the real chrome.
  */
@@ -56,36 +56,23 @@ export function DashboardShell({
   const isAnalytics = /^\/app\/videos\/[^/]+\/analytics/.test(pathname);
 
   return (
-    /* forcedTheme: the liquid-glass surfaces are dark-only (white-opacity
-       borders and washes) — a light theme renders them invisible. */
+    /* The app's palette follows the system appearance through CSS
+       (app-2026.css, `prefers-color-scheme` under [data-cc-app]) — the Mac's
+       CCThemeMode.system. next-themes stays pinned to "dark" so <html> keeps
+       the root layout's permanent `.dark` class across client navigations
+       back to the (dark-only) marketing site. */
     <ThemeProvider attribute="class" forcedTheme="dark" disableTransitionOnChange>
       {/* The vendored sidebar's tooltip'd menu buttons need a provider —
           this sidebar.tsx doesn't bundle its own. */}
       <TooltipProvider delayDuration={300}>
-      <SidebarProvider>
+      {/* data-cc-app: the app's 2026 tokens + material (app-2026.css) apply
+          while this frame is mounted — portals included. */}
+      <SidebarProvider data-cc-app="">
         <AppSidebar user={user} pathname={pathname} />
         <SidebarInset className="relative isolate">
-          {/* Ambient light — same glass language as the marketing site; two
-              soft glows drift very slowly behind the glass (static under
-              reduced motion). */}
-          <div aria-hidden className="dsh-ambient">
-            <i />
-            <i />
-          </div>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 -z-10"
-            style={{
-              background:
-                "radial-gradient(90% 60% at 50% -10%, rgba(120,140,255,0.07), transparent 60%)," +
-                "radial-gradient(60% 40% at 90% 20%, rgba(80,220,255,0.04), transparent 55%)",
-            }}
-          />
-          <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b border-white/8 bg-background/60 backdrop-blur-2xl">
-            <span
-              aria-hidden
-              className="absolute inset-x-12 bottom-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent"
-            />
+          {/* The window is one airy plane (the Mac's 2026 look): panels float
+              on it with hairlines and soft shadows — no ambient glows. */}
+          <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 bg-background/85 backdrop-blur-xl">
             <div className="flex w-full items-center gap-2 px-4">
               <SidebarTrigger className="-ml-1" />
               <Separator

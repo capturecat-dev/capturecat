@@ -129,6 +129,10 @@ export function ThemeRoot({
       <div
         ref={rootRef}
         className={`cc-theme${className ? ` ${className}` : ""}`}
+        /* Marks an app page: :root picks up the app's 2026 tokens
+           (styles/app-2026.css), so portals outside this scope (toasts)
+           match the editor. */
+        data-cc-app=""
         data-cc-theme={mode}
         data-cc-resolved={resolved}
         data-cc-pace={pace}

@@ -133,7 +133,7 @@ final class RemoteScreenshotClient {
 
         guard http.statusCode == 200 else {
             if http.statusCode == 401 { throw ClientError.notSignedIn }
-            // Quota / entitlement / render errors arrive screenshotone-shaped:
+            // Quota / entitlement / render errors arrive shaped
             // { error: { code, message } } — surface the API's message inline.
             let message = Self.apiErrorMessage(from: data) ?? "The page could not be captured (HTTP \(http.statusCode))."
             remoteShotLogger.error("screenshot API \(http.statusCode, privacy: .public): \(message, privacy: .public)")

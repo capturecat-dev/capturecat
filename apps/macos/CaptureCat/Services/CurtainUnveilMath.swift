@@ -62,7 +62,7 @@ enum CurtainUnveilMath {
     /// the base this much — computed HERE so both renderers agree.
     static let coverDarkenFraction: CGFloat = 0.12
 
-    // Surface materiality (Keynote-restrained, single-digit opacities).
+    // Surface materiality (restrained, single-digit opacities).
     /// Diagonal sheen band across the cover, drifting with progress.
     static let sheenOpacity: CGFloat = 0.06
     static let sheenHalfWidth: CGFloat = 0.22

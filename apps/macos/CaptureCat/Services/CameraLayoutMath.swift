@@ -13,7 +13,7 @@ import CoreGraphics
 ///
 /// The card squeeze is expressed as a UNIFORM SCALE plus an X-ONLY
 /// translation about the card's centre. That is deliberate: it rides the same
-/// seam the keynote dip uses (card composited over transparency, background
+/// seam the segment dip uses (card composited over transparency, background
 /// underneath), it carries the cursor, annotations and window mask along for
 /// free, and because Y never moves it is identical in the preview's Y-down
 /// space and Core Image's Y-up space.

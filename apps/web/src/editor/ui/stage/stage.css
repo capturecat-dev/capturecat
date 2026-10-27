@@ -14,8 +14,12 @@
   padding: 9px 18px;
   box-sizing: border-box;
   border-radius: 999px;
-  border: 1px solid var(--cc-border);
-  background: var(--cc-elevated);
+  /* floats over the stage (2026): popover tint, hairline, a soft shadow */
+  border: 1px solid var(--cc-hairline);
+  background: var(--cc-popover);
+  box-shadow:
+    0 1px 2px 0 rgb(0 0 0 / calc(var(--cc-float-op) * 0.6)),
+    0 3px 14px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) * 0.2));
   white-space: nowrap;
   transition: opacity calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
 }

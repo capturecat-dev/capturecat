@@ -293,18 +293,20 @@ enum CCKitGalleryHarness {
                     }
 
                     // 5. Select — searchless popup: no search row mounted,
-                    // ↓↓ + ↩ commit through the panel's key routing.
+                    // the highlight OPENS on the current value (1, macOS
+                    // popup behavior), ↓ + ↩ commit through the panel's key
+                    // routing.
                     var selectOK = false
                     var selectPicked: Int? = nil
                     select.onSelect = { selectPicked = $0 }
                     select.open()
                     if let popup = select.probePopup {
                         let searchHidden = !popup.probeSearchVisible
-                        _ = popup.probeSendKey(#selector(NSResponder.moveDown(_:)))
+                        let opensOnValue = popup.probeActiveRow == 1
                         _ = popup.probeSendKey(#selector(NSResponder.moveDown(_:)))
                         _ = popup.probeSendKey(#selector(NSResponder.insertNewline(_:)))
-                        selectOK = searchHidden && selectPicked == 2 && select.probePopup == nil
-                        print("CAPKIT select searchHidden=\(searchHidden) picked=\(String(describing: selectPicked)) ok=\(selectOK)")
+                        selectOK = searchHidden && opensOnValue && selectPicked == 2 && select.probePopup == nil
+                        print("CAPKIT select searchHidden=\(searchHidden) opensOnValue=\(opensOnValue) picked=\(String(describing: selectPicked)) ok=\(selectOK)")
                     } else {
                         print("CAPKIT select FAIL popup did not open")
                     }

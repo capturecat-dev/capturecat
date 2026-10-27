@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { BadgeCheck, Globe, RefreshCw, Trash2 } from "lucide-react";
 
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyStage, LiveDot, PlanChip, Row, Section, UpgradeNote } from "@/components/dashboard/studio";
 import { DomainArt } from "@/components/dashboard/empty-art";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 /**
  * Pro feature: serve share pages from the user's own domain. The card walks
@@ -47,7 +47,7 @@ export function CustomDomainsCard() {
 
   return (
     <Section
-      icon={<Globe />}
+      icon={<CCIcon name="globe"  />}
       title="Custom share domain"
       badge={<PlanChip plan="pro" />}
       description={
@@ -83,18 +83,18 @@ export function CustomDomainsCard() {
                 <Row key={d.domain} className="dsh-rise" index={i}>
                   <div className="flex min-w-0 items-center gap-2.5">
                     {d.verified ? (
-                      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
+                      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-cc-green" />
                     ) : (
                       <LiveDot tone="amber" className="size-1.5" />
                     )}
                     <span className="truncate text-sm">{d.domain}</span>
                     {d.verified ? (
-                      <Badge variant="outline" className="gap-1 border-emerald-400/25 bg-emerald-400/10 text-[10px] text-emerald-300">
-                        <BadgeCheck />
+                      <Badge variant="outline" className="gap-1 border-cc-green/25 bg-cc-green/10 text-[10px] text-cc-green-text">
+                        <CCIcon name="seal-check"  />
                         verified
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="border-amber-400/25 bg-amber-400/10 text-[10px] text-amber-200">
+                      <Badge variant="outline" className="border-cc-amber/25 bg-cc-amber/10 text-[10px] text-cc-amber-text">
                         pending DNS
                       </Badge>
                     )}
@@ -107,7 +107,7 @@ export function CustomDomainsCard() {
                         disabled={verify.isPending}
                         onClick={() => verify.mutate({ domain: d.domain })}
                       >
-                        <RefreshCw data-icon="inline-start" />
+                        <CCIcon name="sync" data-icon="inline-start" />
                         Verify
                       </Button>
                     )}
@@ -118,7 +118,7 @@ export function CustomDomainsCard() {
                       aria-label={`Remove ${d.domain}`}
                       onClick={() => remove.mutate({ domain: d.domain })}
                     >
-                      <Trash2 />
+                      <CCIcon name="trash"  />
                     </Button>
                   </div>
                 </Row>

@@ -996,8 +996,7 @@ private final class KeyTile: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
         layer?.cornerCurve = .continuous
-        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        icon.symbolConfiguration = .init(pointSize: side * 0.43, weight: .semibold)
+        icon.image = CCIcon.image(symbol, pointSize: side * 0.43, weight: .semibold)
         icon.translatesAutoresizingMaskIntoConstraints = false
         addSubview(icon)
         NSLayoutConstraint.activate([
@@ -1271,8 +1270,7 @@ private final class AccountCardView: NSView {
         signedInLabel.font = OnboardingType.caption
         emailField.font = .systemFont(ofSize: 13, weight: .semibold)
         emailField.lineBreakMode = .byTruncatingMiddle
-        check.image = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: nil)
-        check.symbolConfiguration = .init(pointSize: 16, weight: .semibold)
+        check.image = CCIcon.image("checkmark.circle.fill", pointSize: 16, weight: .semibold)
         check.contentTintColor = .systemGreen
         for view in [signedInLabel, emailField, check] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false

@@ -66,8 +66,8 @@ final class CCSearchField: NSView, NSTextFieldDelegate {
         layer?.cornerCurve = .continuous
         layer?.borderWidth = 1
 
-        loupe.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: "Search")
-        loupe.symbolConfiguration = .init(pointSize: 12, weight: .medium)
+        loupe.image = CCIcon.image("magnifyingglass", pointSize: 12, weight: .medium,
+                                   accessibilityDescription: "Search")
         loupe.translatesAutoresizingMaskIntoConstraints = false
         addSubview(loupe)
 

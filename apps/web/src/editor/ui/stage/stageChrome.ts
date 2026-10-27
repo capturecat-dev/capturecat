@@ -7,7 +7,7 @@
  *   inside the box, eight 8pt resize dots, the floating value pill (icons +
  *   CCSlider-style ticks and bar thumb). Selected region only.
  * - `AnnotationRenderer.Chrome` (Services/AnnotationRenderer.swift): the
- *   accent selection ring (1.5pt, 3pt off the shape), Keynote grab handles
+ *   accent selection ring (1.5pt, 3pt off the shape), round grab handles
  *   (10pt white discs; unselected annotations' handles at 0.55), the tap's
  *   dashed ring. Paused only (`showsHandles = !isPlaying`).
  * - The zoom block's focal reticle (PreviewCompositorView focalReticleLayer).
@@ -431,7 +431,7 @@ export function drawAnnotationChrome(ctx: Ctx, f: ChromeFrame, input: Annotation
   }
 }
 
-/** Keynote grab handle: white disc, hairline grey rim, soft drop shadow
+/** Grab handle: white disc, hairline grey rim, soft drop shadow
  * (raw CG shadow offset (0, 1) in Y-UP base space = 1 device px UP). */
 function drawHandle(ctx: Ctx, f: ChromeFrame, p: Pt, diameter: number, alpha: number): void {
   inCard(ctx, f, p, () => {

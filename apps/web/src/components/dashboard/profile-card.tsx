@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Check, ExternalLink, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Field, Section } from "@/components/dashboard/studio";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 /** The form's own shape while the profile loads — the real labels over
  *  control-sized ghosts, so the section below doesn't move when it lands. */
@@ -63,7 +63,7 @@ export function ProfileCard() {
   if (isLoading) {
     return (
       <Section
-        icon={<UserRound />}
+        icon={<CCIcon name="person-circle"  />}
         title="Public profile"
         description="Claim a username to get a public page listing the videos you choose to show."
       >
@@ -96,7 +96,7 @@ export function ProfileCard() {
 
   return (
     <Section
-      icon={<UserRound />}
+      icon={<CCIcon name="person-circle"  />}
       title="Public profile"
       description="Claim a username to get a public page listing the videos you choose to show."
     >
@@ -106,7 +106,7 @@ export function ProfileCard() {
           error={check.data?.error && username !== claimed ? check.data.error : undefined}
           hint={
             claimed && draftUsername !== null && draftUsername !== claimed ? (
-              <span className="text-amber-400">Changing your username breaks the old profile link.</span>
+              <span className="text-cc-amber-text">Changing your username breaks the old profile link.</span>
             ) : undefined
           }
         >
@@ -124,9 +124,9 @@ export function ProfileCard() {
               {availability !== null && (
                 <span key={String(availability)} className="dsh-pop pointer-events-none absolute right-3 top-[calc(50%-0.5rem)]">
                   {availability ? (
-                    <Check className="size-4 text-emerald-400" />
+                    <CCIcon name="check" className="size-4 text-cc-green-text" />
                   ) : (
-                    <X className="size-4 text-destructive" />
+                    <CCIcon name="close" className="size-4 text-destructive" />
                   )}
                 </span>
               )}
@@ -136,7 +136,7 @@ export function ProfileCard() {
             {claimed && (
               <Button variant="outline" size="sm" className="shrink-0" asChild>
                 <a href={`/${claimed}`} target="_blank" rel="noreferrer">
-                  View <ExternalLink data-icon="inline-end" />
+                  View <CCIcon name="arrow-up-right" data-icon="inline-end" />
                 </a>
               </Button>
             )}

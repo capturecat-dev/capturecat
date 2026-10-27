@@ -35,7 +35,7 @@ final class CCDialog {
     /// Called when the user presses Escape (nil disables Escape dismissal).
     var onEscape: (() -> Void)?
 
-    /// How the card arrives/leaves (`.scaleIn` Keynote settle by default;
+    /// How the card arrives/leaves (`.scaleIn` house settle by default;
     /// `.slideUp()` rises from below, etc. — see CCMotion.Entrance). Set
     /// before `present(over:)`.
     var entrance: CCMotion.Entrance = .scaleIn

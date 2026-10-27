@@ -1,18 +1,11 @@
 import * as React from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  CircleDotIcon,
-  CreditCardIcon,
-  FolderOpenIcon,
-  ListVideoIcon,
-  SettingsIcon,
-  UsersIcon,
-  VideoIcon,
-} from "lucide-react";
+import { CreditCardIcon } from "lucide-react";
 
 import CaptureCatMark from "@/components/brand/CaptureCatMark";
 import { trpc } from "@/lib/trpc/client";
 import { useGlide, usePill } from "@/components/dashboard/motion";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 import {
   Sidebar,
@@ -28,19 +21,26 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 
+/** Icons are CaptureCat's own kit (the Mac's CCIcon); the kit draws no card,
+ *  so Billing keeps lucide's at the kit's 1.75 stroke. */
 const NAV_MAIN = [
-  { title: "Library", url: "/app", icon: VideoIcon, exact: true },
-  { title: "Record", url: "/app/record", icon: CircleDotIcon },
-  { title: "Projects", url: "/app/projects", icon: FolderOpenIcon },
-  { title: "Team", url: "/app/team", icon: UsersIcon },
-  { title: "Settings", url: "/app/settings", icon: SettingsIcon },
-  { title: "Billing", url: "/app/billing", icon: CreditCardIcon },
+  { title: "Library", url: "/app", icon: "film-stack", exact: true },
+  { title: "Record", url: "/app/record", icon: "record" },
+  { title: "Projects", url: "/app/projects", icon: "folder" },
+  { title: "Team", url: "/app/team", icon: "person-circle" },
+  { title: "Settings", url: "/app/settings", icon: "gear" },
+  { title: "Billing", url: "/app/billing", icon: "credit-card" },
 ] as const;
+
+function NavIcon({ icon, className }: { icon: string; className?: string }) {
+  if (icon === "credit-card") return <CreditCardIcon className={className} strokeWidth={1.75} />;
+  return <CCIcon name={icon} size={16} className={className} />;
+}
 
 /* The menu's own hover/active fills give way to the glide wash and the pill
    (one of each per menu, like the recording bar's keys). */
 const BUTTON_QUIET =
-  "relative bg-transparent hover:bg-transparent active:bg-white/[0.04] data-[active=true]:bg-transparent data-active:bg-transparent data-[active=true]:text-foreground transition-colors";
+  "relative bg-transparent hover:bg-transparent active:bg-cc-hover data-[active=true]:bg-transparent data-active:bg-transparent data-[active=true]:text-foreground data-[active=true]:font-medium transition-colors";
 
 export function AppSidebar({
   user,
@@ -72,7 +72,7 @@ export function AppSidebar({
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-white/8 [&_[data-slot=sidebar-inner]]:bg-white/[0.03] [&_[data-slot=sidebar-inner]]:backdrop-blur-2xl"
+      className="border-r-0 [&_[data-slot=sidebar-inner]]:bg-background"
       {...props}
     >
       <SidebarHeader>
@@ -107,7 +107,7 @@ export function AppSidebar({
                   <SidebarMenuItem key={item.title} data-pill-key={item.url} data-glide>
                     <SidebarMenuButton asChild isActive={active} tooltip={item.title} className={BUTTON_QUIET}>
                       <Link to={item.url}>
-                        <item.icon className={item.url === "/app/record" ? "text-red-400" : undefined} />
+                        <NavIcon icon={item.icon} className={item.url === "/app/record" ? "text-[#ff453a]" : undefined} />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -130,7 +130,7 @@ export function AppSidebar({
                     <SidebarMenuButton asChild isActive={activePlaylist === p.playlistId} className={BUTTON_QUIET}>
                       <Link to="/app" search={{ playlist: p.playlistId }}>
                         <span className="w-4 text-center">
-                          {p.emoji || <ListVideoIcon className="size-4" />}
+                          {p.emoji || <CCIcon name="film" size={16} />}
                         </span>
                         <span className="truncate">{p.name}</span>
                       </Link>

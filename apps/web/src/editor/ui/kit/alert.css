@@ -29,17 +29,21 @@
   align-items: stretch;
   padding: var(--cc-space-lg);
   border-radius: var(--cc-radius-xl);
-  border: 1px solid var(--cc-border);
-  --m-tint: var(--cc-elevated);
+  /* A floating card: elevated tint, 0.5px hairline, the airy end of the
+     float shadow (CCMaterial 2026). */
+  --m-tint: var(--cc-popover);
+  background: var(--m-tint);
   color: var(--cc-foreground);
+  outline: 0.5px solid var(--cc-hairline);
+  outline-offset: -0.5px;
   box-shadow:
-    0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
-    0 10px 28px 0 rgb(0 0 0 / 0.5);
+    0 1px 3px 0 rgb(0 0 0 / 0.2),
+    0 12px 40px 0 rgb(0 0 0 / 0.5);
 }
 .cc-theme[data-cc-resolved="light"] .cc-alert__card {
   box-shadow:
-    0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
-    0 10px 28px 0 rgb(0 0 0 / 0.25);
+    0 1px 3px 0 rgb(0 0 0 / 0.05),
+    0 12px 40px 0 rgb(0 0 0 / 0.14);
 }
 
 .cc-alert__title {

@@ -1,5 +1,5 @@
 /*
- * CCCallout (Callout.tsx) — raised matte panel, radius lg, padding md, a
+ * CCCallout (Callout.tsx) — floating matte panel (no cast shadow), radius lg, padding md, a
  * 14pt variant glyph centred on the 13pt semibold title, 12pt muted message
  * two points under it; a ghost × (sm) at trailing sm. Arrives falling 6pt
  * into place (spring smooth) while fading in over 0.22 s; dismissing lifts
@@ -54,6 +54,8 @@
   --m-tint: var(--cc-card);
   border-color: var(--cc-border);
 }
+/* Its own tinted 1px edge IS the hairline — no second one from the material. */
+.cc-theme .cc-callout__surface { outline: none; }
 .cc-callout[data-leaving] .cc-callout__surface { opacity: 0; }
 
 .cc-callout__icon {

@@ -52,8 +52,9 @@
   color: var(--cc-foreground);
   transition: opacity calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
 }
-.cc-button[data-size="sm"] { --h: 24px; --px: 12px; --fs: 11px; }
-.cc-button[data-size="lg"] { --h: 36px; --px: 20px; --fs: 13.5px; }
+.cc-button { --m-h: 30; }
+.cc-button[data-size="sm"] { --h: 24px; --px: 12px; --fs: 11px; --m-h: 24; }
+.cc-button[data-size="lg"] { --h: 36px; --px: 20px; --fs: 13.5px; --m-h: 36; }
 .cc-button[data-icon-only="true"] { width: var(--h); padding: 0; }
 .cc-button[data-radius="full"] { border-radius: 999px; }
 .cc-button[data-radius="sm"] { border-radius: var(--cc-radius-sm); }
@@ -61,32 +62,32 @@
 .cc-button:disabled,
 .cc-button[aria-disabled="true"] { opacity: var(--cc-disabled-alpha); }
 
-/* The material rides a ::before so clear↔dressed can fade (ghost/outline). */
+/* The material rides a ::before so clear↔dressed can fade (ghost/outline).
+   Floating surface (CCMaterial .raised): tint + whisper of top light, 0.5px
+   hairline, a soft shadow scaled to the button's height. */
 .cc-button::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
   border-radius: inherit;
-  border: 1px solid var(--b-border, transparent);
   box-sizing: border-box;
   --m-tint: var(--b-tint, var(--cc-elevated));
-  background:
-    linear-gradient(to bottom, rgb(255 255 255 / var(--cc-mat-toplight)) 0, rgb(255 255 255 / 0) min(6px, 40%)),
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--m-tint), #ffffff var(--cc-mat-lift)) 0%,
-      var(--m-tint) 55%,
-      color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-sink)) 100%
-    );
-  box-shadow:
-    0 2px 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
-    0 2px 6px 0 rgb(0 0 0 / var(--cc-mat-shadow));
+  --m-t: clamp(0, calc((var(--m-h) - 20) / 140), 1);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--m-tint), #ffffff var(--cc-mat-toplight)) 0%,
+    var(--m-tint) 100%
+  );
+  outline: 0.5px solid var(--b-border, var(--cc-hairline));
+  outline-offset: -0.5px;
+  box-shadow: var(--b-shadow, 0 calc(1px + 4px * var(--m-t)) calc(5px + 23px * var(--m-t)) 0
+    rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) * var(--m-t))));
   opacity: var(--b-dressed, 1);
   transition:
     --m-tint calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
     opacity calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
-    border-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+    outline-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
 }
 
 .cc-button[data-variant="primary"] {
@@ -105,7 +106,6 @@
 
 .cc-button[data-variant="secondary"] {
   --b-tint: var(--cc-elevated);
-  --b-border: var(--cc-border);
 }
 .cc-button[data-variant="secondary"]:not(:disabled):hover { --b-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 8%); }
 .cc-button[data-variant="secondary"]:not(:disabled):active { --b-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 14%); }
@@ -117,7 +117,7 @@
   --b-dressed: 0;
   --b-tint: var(--cc-hover-solid);
 }
-.cc-button[data-variant="outline"] { box-shadow: inset 0 0 0 1px var(--cc-border); }
+.cc-button[data-variant="outline"] { outline: 0.5px solid var(--cc-border); outline-offset: -0.5px; }
 .cc-button[data-variant="ghost"]:not(:disabled):hover,
 .cc-button[data-variant="outline"]:not(:disabled):hover { --b-dressed: 1; }
 .cc-button[data-variant="ghost"]:not(:disabled):active,
@@ -154,7 +154,11 @@
 .cc-quiet:disabled { opacity: var(--cc-disabled-alpha); }
 .cc-quiet[data-selected="true"] { background: var(--cc-active); color: var(--cc-foreground); }
 
-/* ── TimelineToolbarButton: every icon its own raised key ────────────── */
+/* ── TimelineToolbarButton: a GHOST key (2026 look) ─────────────────────
+   No surface at rest, a flat soft wash on hover (a recessed tint: elevated
+   blended 6% toward the ink, quiet hairline), a FLOATING chip when active
+   (the active wash, hairline, the 30pt contact shadow). Press tints in
+   place (.cc-press). Every icon stays its own key — no grouping pills. */
 .cc-key {
   display: inline-flex;
   align-items: center;
@@ -166,14 +170,27 @@
   color: var(--k-ink, var(--cc-foreground));
   cursor: default;
   user-select: none;
-  --m-tint: var(--cc-elevated);
+  background-color: transparent;
+  outline: 0.5px solid transparent;
+  outline-offset: -0.5px;
+  box-shadow: 0 1px 5px 0 rgb(0 0 0 / 0);
   transition:
-    --m-tint calc(100ms / var(--cc-pace)) var(--cc-ease-glide),
+    background-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    outline-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    box-shadow calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
     opacity calc(100ms / var(--cc-pace)) var(--cc-ease-glide),
     color calc(100ms / var(--cc-pace)) var(--cc-ease-glide);
 }
-.cc-key:not(:disabled):hover { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 8%); }
-.cc-key[data-active="true"] { --m-tint: var(--cc-active-solid); }
+.cc-theme .cc-key:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 6%);
+  outline-color: var(--cc-hairline-well);
+}
+.cc-theme .cc-key[data-active="true"] {
+  background-color: var(--cc-active-on-card);
+  outline-color: var(--cc-hairline);
+  box-shadow: 0 calc(1px + 4px * 0.0714) calc(5px + 23px * 0.0714) 0
+    rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) * 0.0714));
+}
 .cc-key:disabled { opacity: 0.35; }
 
 /* ── Transport separators (1×18 hairline in an 11pt slot) ────────────── */
@@ -201,6 +218,9 @@
   padding-bottom: 6px;
   width: 100%;
 }
+/* 2026 look: unselected chips are flat WELLS; the selected one FLOATS. The
+   chip carries both recipes and cross-fades between them (tint, hairline
+   and shadow all transition on the glide). */
 .cc-chip {
   --chip-pad: var(--chips-pad, 14px);
   height: 32px;
@@ -213,11 +233,27 @@
   cursor: default;
   user-select: none;
   --m-tint: var(--cc-elevated);
-  box-shadow:
-    0 2px 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
-    0 1px 4px 0 rgb(0 0 0 / var(--cc-mat-chip-shadow));
+  --m-h: 32;
+  background: var(--m-tint);
+  box-shadow: 0 1.43px 6.64px 0 rgb(0 0 0 / 0);
+  transition:
+    --m-tint calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    box-shadow calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    outline-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
 }
-.cc-chip[aria-checked="true"] { --m-tint: var(--cc-active-solid); }
+.cc-theme .cc-chip { outline: 0.5px solid var(--cc-hairline-well); outline-offset: -0.5px; }
+.cc-chip:not([aria-checked="true"]):hover { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 4%); }
+.cc-chip[aria-checked="true"] {
+  --m-tint: var(--cc-chip-selected);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--m-tint), #ffffff var(--cc-mat-toplight)) 0%,
+    var(--m-tint) 100%
+  );
+  /* floatShadow(h 32): t = 0.0857 */
+  box-shadow: 0 1.34px 6.97px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) * 0.0857));
+}
+.cc-theme .cc-chip[aria-checked="true"] { outline-color: var(--cc-hairline); }
 .cc-chip-measure {
   position: absolute;
   visibility: hidden;
@@ -232,7 +268,8 @@
   height: 36px;
   width: 100%;
   border-radius: 18px;
-  border: 1px solid var(--cc-border);
+  /* geometry keeps the 1px edge; the hairline is the well's outline */
+  border: 1px solid transparent;
   box-sizing: border-box;
   overflow: hidden;
   touch-action: none;
@@ -290,13 +327,13 @@
   border-radius: 2px;
   pointer-events: none;
   background: #ffffff;
-  box-shadow: 0 0 6px 0 rgb(0 0 0 / 0.35);
+  box-shadow: 0 1px 4px 0 rgb(0 0 0 / 0.3);
   transition:
     left calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle),
     height var(--cc-spring-bouncy-dur) var(--cc-spring-bouncy),
     margin-top var(--cc-spring-bouncy-dur) var(--cc-spring-bouncy);
 }
-[data-cc-resolved="light"] .cc-pill-slider__thumb { background: rgb(0 0 0 / 0.85); }
+[data-cc-resolved="light"] .cc-pill-slider__thumb { background: rgb(0 0 0 / 0.85); box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.12); }
 .cc-pill-slider[data-dragging="true"] .cc-pill-slider__thumb {
   height: 22px;
   margin-top: -11px;
@@ -334,15 +371,23 @@
   height: var(--knob, 12px);
   margin-top: calc(var(--knob, 12px) / -2);
   border-radius: 50%;
-  --m-tint: var(--cc-ink);
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
-    0 1px 4px 0 rgb(0 0 0 / 0.3);
+  /* 2026 look: a WHITE floating knob in both themes, like current macOS
+     sliders (InspectorSliderControl) — floatShadow at its size, plus a
+     light-theme hairline so it holds its edge on the pale rail. */
+  --m-tint: #ffffff;
+  --m-h: 12;
+  box-shadow: 0 1px 5px 0 rgb(0 0 0 / max(var(--cc-float-op), 0.18));
   transition:
     left calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle),
     width calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle),
     height calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle),
     margin-top calc(var(--cc-dur-settle) / var(--cc-pace)) var(--cc-ease-settle);
+}
+[data-cc-resolved="light"] .cc-rail-slider__knob {
+  outline-color: rgb(0 0 0 / 0.12);
+  box-shadow:
+    0 0.5px 1.5px 0 rgb(0 0 0 / 0.22),
+    0 1px 5px 0 rgb(0 0 0 / 0.1);
 }
 .cc-rail-slider:hover,
 .cc-rail-slider[data-dragging="true"] { --knob: 14px; }
@@ -357,7 +402,7 @@
   flex: none;
   border-radius: 999px;
   box-sizing: border-box;
-  border: 1px solid var(--cc-border);
+  border: 1px solid transparent;
   --m-tint: var(--cc-active-solid);
   --m-radius: 10.5px;
   cursor: default;
@@ -374,11 +419,10 @@
   width: 17px;
   height: 17px;
   border-radius: 50%;
+  /* A floating white thumb (CCToggle .raised(tint: .white)). */
   --m-tint: #ffffff;
-  --m-extrude: 1px;
-  box-shadow:
-    0 1px 0 0 color-mix(in srgb, #ffffff, #000000 var(--cc-mat-under)),
-    0 0.5px 4px 0 rgb(0 0 0 / 0.3);
+  --m-h: 17;
+  box-shadow: 0 1px 5px 0 rgb(0 0 0 / max(var(--cc-float-op), 0.2));
   transform: translateX(0);
   transition: transform var(--cc-spring-bouncy-dur) var(--cc-spring-bouncy);
 }
@@ -409,14 +453,14 @@
   padding: 0 var(--seg-inset);
   box-sizing: border-box;
   border-radius: var(--seg-radius, var(--cc-radius-md));
-  border: 1px solid var(--cc-border);
+  border: 1px solid transparent;
   font-size: 12px;
   font-weight: 500;
   user-select: none;
   cursor: default;
 }
 .cc-seg[data-size="sm"] { --seg-h: 24px; --seg-inset: 2px; --seg-pad: 18px; font-size: 11px; }
-.cc-seg[data-chrome="plain"] { border-color: transparent; background: none; box-shadow: none; }
+.cc-seg[data-chrome="plain"] { border-color: transparent; background: none; box-shadow: none; outline: none; }
 .cc-seg__item {
   position: relative;
   z-index: 1;
@@ -438,18 +482,18 @@
   border-radius: var(--seg-chip-radius, var(--cc-radius-sm));
   pointer-events: none;
 }
+/* The selection FLOATS out of the flat well (CCSegmented: raised card). */
 .cc-seg__chip {
   --m-tint: var(--cc-card);
+  --m-h: 24;
   transition:
     transform var(--cc-spring-snappy-dur) var(--cc-spring-snappy),
     width var(--cc-spring-snappy-dur) var(--cc-spring-snappy);
-  box-shadow:
-    0 2px 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
-    0 0 6px 0 rgb(0 0 0 / var(--cc-mat-chip-shadow));
 }
+[data-cc-resolved="dark"] .cc-seg__chip { --m-tint: var(--cc-active-on-card); }
 .cc-seg[data-chrome="plain"] .cc-seg__chip {
   --m-tint: var(--cc-active-solid);
-  box-shadow: 0 2px 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under));
+  box-shadow: none;
 }
 .cc-seg__hover {
   background: var(--cc-hover);
@@ -552,11 +596,11 @@
   box-sizing: border-box;
   padding: 0 10px;
   border-radius: var(--cc-radius-md);
-  border: 1px solid var(--cc-border);
+  border: 1px solid transparent;
   font: inherit;
   font-size: 13px;
   color: var(--cc-foreground);
-  --m-radius: 6px;
+  --m-radius: 9px;
   transition: border-color calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
 }
 .cc-field::placeholder { color: var(--cc-faint); }
@@ -576,18 +620,18 @@
   padding: 0 calc(var(--sel-px) - 1px) 0 var(--sel-px);
   box-sizing: border-box;
   border-radius: var(--cc-radius-md);
-  border: 1px solid var(--cc-border);
+  border: 1px solid transparent;
   font-size: 13px;
   color: var(--cc-foreground);
   cursor: default;
   user-select: none;
   white-space: nowrap;
-  --m-radius: 6px;
+  --m-radius: 9px;
 }
 .cc-select[data-size="sm"] { --sel-h: 24px; --sel-px: 9px; font-size: 11.5px; }
 .cc-select[data-empty="true"] .cc-select__label { color: var(--cc-muted); }
 .cc-select__chev { color: var(--cc-muted); }
-.cc-select:hover { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 6%); }
+.cc-select:hover { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 4%); }
 /* .plain chrome (title bars): bare at rest, quiet wash on hover/open */
 .cc-select[data-chrome="plain"] {
   border-color: transparent;
@@ -612,52 +656,300 @@
 
 /* ── Floating surfaces: menus, popovers ─────────────────────────────── */
 .cc-portal { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 50; }
+/* A floating panel (CCMaterial floating surface): popover tint, a whisper of
+   top light, a 0.5px hairline that follows the corners, and the soft WIDE
+   menu shadow (blur 48, y 10; opacity .45 dark / .16 light) under a tight
+   contact shadow. Radius lg (14). */
 .cc-float {
   position: fixed;
   z-index: 60;
-  background: var(--cc-popover);
-  border: 1px solid var(--cc-border);
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / var(--cc-mat-toplight)), transparent 28px),
+    var(--cc-popover);
   border-radius: var(--cc-radius-lg);
-  box-shadow: 0 6px 36px rgb(0 0 0 / 0.48);
+  outline: 0.5px solid var(--cc-hairline);
+  outline-offset: -0.5px;
+  box-shadow:
+    0 1px 2px 0 rgb(0 0 0 / calc(var(--cc-menu-shadow-op) * 0.35)),
+    0 10px 48px 0 rgb(0 0 0 / var(--cc-menu-shadow-op));
   color: var(--cc-foreground);
   transform-origin: var(--float-origin, top center);
-  animation:
-    cc-float-in var(--cc-spring-smooth-dur) var(--cc-spring-smooth) both,
-    cc-fade-in calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide) both;
 }
-[data-cc-resolved="light"] .cc-float { box-shadow: 0 6px 36px rgb(0 0 0 / 0.2); }
-@keyframes cc-float-in { from { transform: scale(0.96); } to { transform: scale(1); } }
+/* OPEN: fade (120ms) + scale .96→1 and a 6px slide from the trigger's side,
+   on the house bounce (a slight overshoot). Starts once positioned. */
+.cc-float[data-side] {
+  animation:
+    cc-float-fade-in 120ms var(--cc-ease-glide) both,
+    cc-float-in calc(280ms / var(--cc-pace)) var(--cc-ease-bounce) both;
+}
+/* CLOSE: the ghost Floating leaves behind fades + settles to .98. */
+.cc-float.cc-float--leaving {
+  pointer-events: none;
+  animation: cc-float-out 100ms var(--cc-ease-glide) both;
+}
+/* …after a pick, the chosen row's wash pulses once (120ms) first. */
+.cc-float.cc-float--leaving[data-picked] {
+  animation: cc-float-pick-out 220ms linear both;
+}
+.cc-float--leaving * { animation: none !important; }
+.cc-float--leaving[data-picked] .cc-glide {
+  animation: cc-wash-pulse 120ms var(--cc-ease-glide) both !important;
+}
+@keyframes cc-float-in {
+  from { transform: translate(var(--float-dx, 0px), var(--float-dy, 0px)) scale(0.96); }
+  to { transform: translate(0, 0) scale(1); }
+}
+@keyframes cc-float-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cc-float-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.98); }
+}
+@keyframes cc-float-pick-out {
+  0%, 54.5% { opacity: 1; transform: scale(1); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  100% { opacity: 0; transform: scale(0.98); }
+}
+@keyframes cc-wash-pulse {
+  0% { background-color: var(--cc-menu-wash); }
+  45% { background-color: var(--cc-menu-pulse); }
+  100% { background-color: var(--cc-menu-wash); }
+}
 @keyframes cc-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
+/* ── Menu list ──────────────────────────────────────────────────────── */
+/* Width fits the content (titles AND descriptions) between 220 and 380:
+   titles never truncate; a description longer than the cap wraps, and
+   Menu.tsx widens the list until each wraps to ≤ 2 lines. Height grows;
+   it scrolls only when the viewport caps it — with soft fading edges. */
 .cc-menu {
   position: relative;
-  padding: 5px;
-  min-width: 160px;
-  max-height: calc(9.5 * 30px + 10px);
+  isolation: isolate;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 220px;
+  max-width: min(380px, calc(100vw - 16px));
+  max-height: inherit;
+  padding: 6px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   outline: none;
+  display: flex;
+  flex-direction: column;
 }
-.cc-menu__search { padding: 6px 6px 6px; border-bottom: 1px solid var(--cc-border); margin: -5px -5px 5px; }
+.cc-menu[data-scroll~="up"] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18px);
+  mask-image: linear-gradient(to bottom, transparent, #000 18px);
+}
+.cc-menu[data-scroll~="down"] {
+  -webkit-mask-image: linear-gradient(to top, transparent, #000 18px);
+  mask-image: linear-gradient(to top, transparent, #000 18px);
+}
+.cc-menu[data-scroll="up down"] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18px, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 18px, #000 calc(100% - 18px), transparent);
+}
+.cc-menu > .cc-glide {
+  border-radius: 9px;
+  background: var(--cc-menu-wash);
+}
+.cc-menu[data-rich] > .cc-glide { border-radius: 10px; }
+.cc-menu > .cc-glide[data-tone="destructive"] {
+  background: color-mix(in srgb, var(--cc-destructive) 14%, transparent);
+}
+.cc-menu__search { padding: 6px; border-bottom: 1px solid var(--cc-border); margin: -6px -6px 6px; }
+
+/* Rows + headers stagger in: fade + 6px rise, 18ms apart (first 8 rows).
+   No `to` frame, so a dimmed row keeps its own resting opacity. */
+.cc-menu__row,
+.cc-menu__section,
+.cc-menu__sep {
+  animation: cc-menu-row-in calc(220ms / var(--cc-pace)) var(--cc-ease-settle) calc(var(--i, 0) * 18ms) both;
+}
+@keyframes cc-menu-row-in { from { opacity: 0; transform: translateY(6px); } }
+
 .cc-menu__row {
   position: relative;
   z-index: 1;
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 9px;
-  border-radius: var(--cc-radius-md);
+  gap: 10px;
+  min-height: 30px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border-radius: 9px;
   font-size: 13px;
+  line-height: 16px;
   white-space: nowrap;
   cursor: default;
   user-select: none;
 }
-.cc-menu__row[aria-disabled="true"] { opacity: 0.4; }
-.cc-menu__row--destructive { color: var(--cc-destructive); }
-.cc-menu__sub { color: var(--cc-faint); font-size: 10.5px; }
-.cc-menu__check { margin-left: auto; color: var(--cc-primary); }
-.cc-menu__sep { height: 1px; margin: 4px 6px; background: var(--cc-border); }
+.cc-menu__icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cc-muted);
+  margin-left: -1px;
+}
+.cc-menu__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cc-menu__title { overflow: hidden; text-overflow: ellipsis; }
+.cc-menu__row--destructive,
+.cc-menu__row[data-destructive] { color: var(--cc-destructive); }
+.cc-menu__row[data-destructive] .cc-menu__icon { color: var(--cc-destructive); }
+.cc-menu__sub { color: var(--cc-faint); font-size: 12px; flex: none; }
+/* Key equivalent: a faint key cap, right-aligned. */
+.cc-menu__kbd {
+  flex: none;
+  margin-left: auto;
+  padding: 0 5px;
+  min-width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: rgb(var(--cc-ink-rgb) / 0.05);
+  box-shadow: inset 0 0 0 0.5px var(--cc-hairline);
+  font: 500 11px/1 var(--cc-font);
+  letter-spacing: 0.02em;
+  color: var(--cc-faint);
+}
+.cc-menu__kbd + .cc-menu__check { margin-left: 0; }
+.cc-menu__check {
+  flex: none;
+  width: 14px;
+  margin-left: auto;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--cc-primary);
+}
+.cc-menu__text + .cc-menu__check,
+.cc-menu__sub + .cc-menu__check { margin-left: 6px; }
+
+/* Rich rows: icon tile + semibold title + a wrapped description. */
+.cc-menu__row[data-rich] {
+  align-items: flex-start;
+  gap: 11px;
+  min-height: 46px;
+  padding: 8px;
+  border-radius: 10px;
+  white-space: normal;
+}
+.cc-menu__tile {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cc-elevated);
+  box-shadow: inset 0 0 0 0.5px var(--cc-hairline-well);
+  color: var(--cc-muted);
+  transition:
+    background-color calc(140ms / var(--cc-pace)) var(--cc-ease-glide),
+    color calc(140ms / var(--cc-pace)) var(--cc-ease-glide),
+    box-shadow calc(140ms / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-menu__row[data-active] .cc-menu__tile {
+  background: var(--cc-primary);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.08), 0 1px 3px 0 rgb(0 64 160 / 0.3);
+}
+.cc-menu__row[data-rich] .cc-menu__text { padding-top: 1px; gap: 2px; }
+.cc-menu__row[data-rich] .cc-menu__title {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+.cc-menu__desc {
+  font-size: 11.5px;
+  line-height: 15px;
+  color: var(--cc-muted);
+  white-space: normal;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.cc-menu[data-measuring] .cc-menu__desc { display: block; -webkit-line-clamp: none; line-clamp: none; }
+
+/* Disabled rows: dimmed, never hovered (Menu.tsx skips the wash). */
+.cc-menu__row[aria-disabled="true"] > * { opacity: 0.4; }
+.cc-menu__row[aria-disabled="true"] .cc-menu__tile { background: transparent; box-shadow: inset 0 0 0 0.5px var(--cc-hairline); }
+
+/* Sections: a sentence-case header, a hairline above every group but the first. */
+.cc-menu__section {
+  flex: none;
+  position: relative;
+  padding: 10px 10px 4px;
+  margin-top: 7px;
+}
+.cc-menu__section::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 0;
+  height: 1px;
+  background: var(--cc-border);
+}
+.cc-menu__section[data-first] { margin-top: 0; padding-top: 4px; }
+.cc-menu__section[data-first]::before { display: none; }
+.cc-menu__header {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  color: var(--cc-muted);
+  white-space: nowrap;
+}
+.cc-menu__section[data-disabled] .cc-menu__header { color: var(--cc-faint); }
+.cc-menu__caption {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--cc-muted);
+  white-space: nowrap;
+}
+.cc-menu__caption > svg { color: var(--cc-faint); }
+.cc-menu__sep { flex: none; height: 1px; margin: 6px 4px; background: var(--cc-border); }
 .cc-menu__empty { height: 44px; display: flex; align-items: center; justify-content: center; color: var(--cc-muted); font-size: 12px; }
+
+/* Reduced motion: fades only — no scale, slide, rise or pulse. (The theme's
+   blanket rule shortens every animation; menus keep their fades.) */
+@media (prefers-reduced-motion: reduce) {
+  .cc-theme .cc-float[data-side],
+  .cc-float[data-side] {
+    animation: cc-float-fade-in 120ms var(--cc-ease-glide) both !important;
+  }
+  .cc-theme .cc-float.cc-float--leaving,
+  .cc-float.cc-float--leaving {
+    animation: cc-fade-out 100ms var(--cc-ease-glide) both !important;
+  }
+  .cc-theme .cc-menu__row,
+  .cc-theme .cc-menu__section,
+  .cc-theme .cc-menu__sep {
+    animation: none !important;
+  }
+}
+@keyframes cc-fade-out { from { opacity: 1; } to { opacity: 0; } }
 
 /* ── CCGlideHighlight: ONE travelling wash per sibling group ────────── */
 .cc-glide {
@@ -694,13 +986,14 @@
   margin-bottom: 18px;
 }
 .cc-section[data-first="true"] > .cc-section__rule { display: none; }
+/* 2026 header voice (InspectorSectionBox): sentence case, a size up, full
+   ink — groups are titled, not shouted in tracked uppercase. */
 .cc-section__header {
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 12.5px;
+  line-height: 15px;
   font-weight: 600;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--cc-muted);
+  letter-spacing: -0.005em;
+  color: var(--cc-foreground);
   margin-bottom: 10px;
 }
 .cc-section__body {
@@ -748,7 +1041,7 @@
   margin: 0 -2px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid var(--cc-border);
+  border: 1px solid var(--cc-hairline-well);
   background: var(--cc-elevated);
   font: inherit;
   font-size: 13px;
@@ -781,6 +1074,7 @@
   cursor: default;
   user-select: none;
   --m-tint: var(--cc-elevated);
+  --m-h: 25;
 }
 .cc-ibutton:not(:disabled):hover { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 6%); }
 .cc-ibutton:not(:disabled):active { --m-tint: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 10%); }
@@ -792,10 +1086,10 @@
   position: relative;
   height: 96px;
   border-radius: var(--cc-radius-lg);
-  border: 1px solid rgb(var(--cc-ink-rgb) / 0.12);
+  border: 1px solid transparent;
   box-sizing: border-box;
   overflow: hidden;
-  --m-radius: 10px;
+  --m-radius: 14px;
   touch-action: none;
 }
 .cc-pad__dot {
@@ -810,8 +1104,8 @@
 .cc-pad__card {
   position: absolute;
   border-radius: 3px;
-  background: rgb(255 255 255 / 0.85);
-  box-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.22);
   transition:
     left 150ms var(--cc-ease-glide),
     top 150ms var(--cc-ease-glide),

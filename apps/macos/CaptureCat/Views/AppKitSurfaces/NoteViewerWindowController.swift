@@ -63,10 +63,8 @@ final class NoteViewerWindowController: NSWindowController, NSWindowDelegate {
         window.contentView = root
 
         // Header: note icon + meta line + actions.
-        icon.image = NSImage(
-            systemSymbolName: "note.text", accessibilityDescription: "Note"
-        ) ?? NSImage()
-        icon.symbolConfiguration = .init(pointSize: 14, weight: .medium)
+        icon.image = CCIcon.image("note.text", pointSize: 14, weight: .medium,
+                                  accessibilityDescription: "Note") ?? NSImage()
         icon.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(icon)
 

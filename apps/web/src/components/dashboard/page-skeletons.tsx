@@ -1,8 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * Polaris-style page skeletons: every loading state mirrors the LAYOUT of the
- * page it stands in for (Shopify's SkeletonPage/SkeletonBodyText pattern) —
+ * Layout-shaped page skeletons: every loading state mirrors the LAYOUT of the
+ * page it stands in for (a page skeleton plus body-text ghosts) —
  * a title ghost, then panel/table ghosts shaped like the real content — so
  * the page doesn't jump when data lands. Ghost surfaces are the same glass
  * panels the real pages use. Use these instead of PageSpinner.
@@ -62,13 +62,13 @@ export function SkeletonCard({
 export function SkeletonTable({ rows = 6 }: { rows?: number }) {
   return (
     <div className="glass-panel hairline-top overflow-hidden">
-      <div className="flex items-center gap-4 border-b border-white/8 px-4 py-3">
+      <div className="flex items-center gap-4 border-b border-cc-ink/8 px-4 py-3">
         <Skeleton className="h-3.5 w-32" />
         <Skeleton className="ml-auto h-3.5 w-20" />
         <Skeleton className="h-3.5 w-16" />
       </div>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="flex items-center gap-4 border-b border-white/8 px-4 py-3.5 last:border-b-0">
+        <div key={i} className="flex items-center gap-4 border-b border-cc-ink/8 px-4 py-3.5 last:border-b-0">
           <Skeleton className="h-9 w-14 shrink-0 rounded-md" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <Skeleton className="h-3.5" style={{ width: `${45 + ((i * 17) % 35)}%` }} />
@@ -133,7 +133,7 @@ export function TeamSkeleton() {
 /** One surface, hairline-divided sections — the shape Sections renders. */
 export function SkeletonSections({ sections }: { sections: Array<{ lines: number; action?: boolean }> }) {
   return (
-    <div className="glass-panel hairline-top divide-y divide-white/8 overflow-hidden lg:max-w-3xl">
+    <div className="glass-panel hairline-top divide-y divide-cc-ink/8 overflow-hidden lg:max-w-3xl">
       {sections.map((s, i) => (
         <div key={i} className="p-5">
           <div className="flex items-center justify-between gap-3">
@@ -196,7 +196,7 @@ export function AnalyticsSkeleton() {
           </div>
         ))}
       </div>
-      <div className="glass-panel hairline-top divide-y divide-white/8 overflow-hidden">
+      <div className="glass-panel hairline-top divide-y divide-cc-ink/8 overflow-hidden">
         {[220, 200].map((h, i) => (
           <div key={i} className="p-5 md:p-6">
             <Skeleton className="h-3.5 w-32" />

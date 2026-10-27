@@ -23,7 +23,7 @@ enum RecordingPanelMetrics {
     /// Small-radius rounded rect for every interior surface that needs one —
     /// hover wash, selection square, the filled Record button. Nothing inside
     /// the bar is a capsule (user call: "no pill buttons inside"); controls
-    /// are flat icon/label targets on the bar surface, Screen Studio style.
+    /// are flat icon/label targets on the bar surface.
     /// The segment overlay MUST use the same radius (it glides over the tabs).
     /// CCKit `.lg` — shared with menus, popovers and preview cards.
     @MainActor static var tabRadius: CGFloat { CCTheme.radius(.lg) }
@@ -41,18 +41,17 @@ enum RecordingPanelMetrics {
     @MainActor static var dotOff: NSColor { ink.withAlphaComponent(0.22) }
     @MainActor static var ink: NSColor { CCTheme.isDark ? .white : .black }
 
-    /// Compact bar text font (Screen Studio scale).
+    /// Compact bar text font (12pt medium).
     static func toolbarText() -> NSFont { .systemFont(ofSize: 12, weight: .medium) }
     /// Monospaced digits for the running timer: SwiftUI gets stability from
     /// `.contentTransition(.numericText())`, AppKit gets it from the font.
     static func timer() -> NSFont { .monospacedDigitSystemFont(ofSize: 12, weight: .medium) }
-    /// Tiny label under the tab icon — Screen Studio's ~10pt caption.
+    /// Tiny label under the tab icon — a ~10pt caption.
     static func tabLabel() -> NSFont { .systemFont(ofSize: 10, weight: .medium) }
     static func sourceLabel() -> NSFont { .systemFont(ofSize: 11, weight: .medium) }
 
     static func symbol(_ name: String, size: CGFloat, weight: NSFont.Weight = .medium) -> NSImage? {
-        NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: size, weight: weight))
+        CCIcon.image(name, pointSize: size, weight: weight)
     }
 
     // MARK: - Panel geometry
@@ -105,7 +104,7 @@ enum RecordingPanelMetrics {
 
 /// Flat, near-opaque surface for the recording bar — the Liquid Glass /
 /// vibrancy material is gone (user call: "no glass, too crammed"; the new
-/// look follows Screen Studio's recorder bar). Kept the name and the API
+/// look is a quiet, flat, solid recorder bar). Kept the name and the API
 /// (`contentView`, `cornerRadius`, `tintColor`) so the eleven chip subclasses
 /// stayed untouched; visually it is now just a layer-backed rounded rect
 /// painted with EditorThemeKit colors.
@@ -263,7 +262,7 @@ class RecordingGlassChip: GlassCompatView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         // No fill at rest — controls are flat, background-less targets on the
-        // bar surface (Screen Studio interior). Only primaries (Record) and
+        // bar surface (a flat interior). Only primaries (Record) and
         // transient washes paint anything.
         contentView = body
     }
@@ -337,7 +336,7 @@ class RecordingGlassChip: GlassCompatView {
     }
 
     /// Small state dot in the chip's top-right corner: accent = on, dim = off
-    /// (Screen Studio-style quiet toggles). Lazy — chips without state stay
+    /// (quiet toggles). Lazy — chips without state stay
     /// dot-free.
     func setIndicator(on: Bool) {
         let color = (on ? RecordingPanelMetrics.accentOn : RecordingPanelMetrics.dotOff).cgColor
@@ -466,7 +465,7 @@ final class RecordingTabChip: RecordingButtonChip {
     }
 
     init(title: String, symbol: String, width: CGFloat = RecordingPanelMetrics.tabWidth) {
-        // Screen Studio proportions: ~16pt icon stacked over a ~10pt label in
+        // Tab proportions: ~16pt icon stacked over a ~10pt label in
         // a near-square chip.
         iconView = RecordingGlassChip.icon(symbol, size: 15, weight: .medium)
         titleField = RecordingGlassChip.label(title, font: RecordingPanelMetrics.tabLabel())

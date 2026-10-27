@@ -487,8 +487,8 @@ final class SettingsSidebarRow: NSControl {
         iconTile.layer?.cornerCurve = .continuous
         iconTile.layer?.cornerRadius = 5
         iconTile.layer?.backgroundColor = section.tint.cgColor
-        iconView.image = NSImage(systemSymbolName: section.symbol, accessibilityDescription: section.title)?
-            .withSymbolConfiguration(.init(pointSize: 11, weight: .medium))
+        iconView.image = CCIcon.image(section.symbol, pointSize: 11, weight: .medium,
+                                      accessibilityDescription: section.title)
         iconView.contentTintColor = .white
 
         label.stringValue = section.title

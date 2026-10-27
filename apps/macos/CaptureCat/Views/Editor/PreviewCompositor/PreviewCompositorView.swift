@@ -11,7 +11,7 @@ import AVFoundation
 /// tilt-projected anchor, cursor + click ripple INSIDE the warped subtree
 /// (CA does not suffer SwiftUI's hosted-view subtree split), subtitles,
 /// watermark, camera bubble with reactive shrink. Deferred: device bezel +
-/// keynote dip, blur/highlight regions, annotations, and edit gestures —
+/// segment dip, blur/highlight regions, annotations, and edit gestures —
 /// see the P4 report.
 final class PreviewCompositorView: NSView {
     override var isFlipped: Bool { true } // Y-down everywhere, like SwiftUI
@@ -44,7 +44,7 @@ final class PreviewCompositorView: NSView {
         var selectedBlurID: UUID?
         var selectedDepthFocusID: UUID?
         /// Selected EFFECTS-lane zoom block — shows the on-canvas focal
-        /// target (drag it on the preview to aim the zoom, CapCut-style).
+        /// target (drag it on the preview to aim the zoom).
         var selectedZoomID: UUID?
         /// FRESH person mask for the camera looks (docs/camera-cutout.md §2);
         /// nil — missing or stale — draws every look as the plain bubble.
@@ -73,7 +73,7 @@ final class PreviewCompositorView: NSView {
     /// Tilt homography happens here; its coordinate space = the padded
     /// content area, exactly the GeometryEffect's local space in SwiftUI.
     private let contentGroup = CALayer()
-    /// Keynote-dip target: bezel + shadow + video + island (the exact subtree
+    /// Segment-dip target: bezel + shadow + video + island (the exact subtree
     /// PreviewView's phaseAnimator scales/fades at device-segment boundaries).
     private let cardGroup = CALayer()
     private let bezelButtonsLayer = CALayer()
@@ -191,7 +191,7 @@ final class PreviewCompositorView: NSView {
     }
 
     /// True while the user is dragging on the canvas — the shell hides the
-    /// contextual toolbar for the duration (Keynote behaviour, and zero
+    /// contextual toolbar for the duration (presentation-app behaviour, and zero
     /// toolbar layout work per mouse-move).
     var isDraggingOnCanvas: Bool {
         interactionView?.isActivelyDragging ?? false
@@ -304,7 +304,7 @@ final class PreviewCompositorView: NSView {
     private var cachedFocusMasks: [UUID: (key: String, image: CIImage)] = [:]
     private let ciContext = CIContext(options: [.cacheIntermediates: false])
 
-    // Keynote dip — transient wall-clock animation on device-segment change,
+    // Segment dip — transient wall-clock animation on device-segment change,
     // replicating PreviewView's phaseAnimator([0,1], easeInOut 0.15 per phase).
     private var lastVideoPlacement: ProjectSettings.VideoPlacement?
 
@@ -803,13 +803,13 @@ final class PreviewCompositorView: NSView {
         }
 
         // Camera layout must resolve BEFORE applyDip — the side-by-side
-        // squeeze rides the same card transform the keynote dip owns.
+        // squeeze rides the same card transform the segment dip owns.
         lastContentOrigin = contentRect.origin
         resolveCameraLayout(
             input, canvas: canvas,
             cardRectInCanvas: videoRect.offsetBy(dx: contentRect.minX, dy: contentRect.minY))
 
-        // Keynote dip: device-segment index change triggers the transient
+        // Segment dip: device-segment index change triggers the transient
         // scale/opacity dip on the card subtree (same curve as phaseAnimator).
         let segmentIndex = activeDeviceSegmentIndex(input)
         applyDip(input, contentSize: contentRect.size)
@@ -844,7 +844,7 @@ final class PreviewCompositorView: NSView {
 
         // On-canvas focal target: the selected zoom block's aim point, drawn
         // in content space so it rides every card transform. Screen-constant
-        // size (radius divided by zoom), CapCut-style ring + crosshair.
+        // size (radius divided by zoom), a ring + crosshair reticle.
         if visible,
            let zoomID = input.selectedZoomID,
            let region = input.project.zoomRegions.first(where: { $0.id == zoomID }) {
@@ -946,7 +946,7 @@ final class PreviewCompositorView: NSView {
         )
     }
 
-    // MARK: - Keynote dip (device-segment cut)
+    // MARK: - Segment dip (device-segment cut)
 
     /// Evaluates `DeviceSegmentDip` for this frame's timeline position.
     ///
@@ -1750,7 +1750,7 @@ final class PreviewCompositorView: NSView {
         }
         guard active else { return }
 
-        // Tap ripples AND Keynote build effects animate off the timeline
+        // Tap ripples AND build-in/out effects animate off the timeline
         // clock — include quantized time in the key whenever any live
         // annotation needs the clock (tap, or inside its enter/exit build
         // window), so static overlays still never re-raster during playback.

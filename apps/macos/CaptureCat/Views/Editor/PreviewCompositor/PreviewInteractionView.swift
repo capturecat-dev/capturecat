@@ -123,7 +123,7 @@ final class PreviewInteractionView: NSView {
     var inlineEditingID: UUID?
     /// Center of the label being edited (content space) plus its pill padding —
     /// the field grows symmetrically about the center as the user types,
-    /// exactly like a Keynote text box.
+    /// exactly like a text box in a presentation app.
     var inlineEditCenter: CGPoint?
     var inlineEditPads: CGSize?
 
@@ -251,7 +251,7 @@ final class PreviewInteractionView: NSView {
         let p = convert(event.locationInWindow, from: nil)
         downPoint = p
 
-        // Click-away COMMITS the in-place edit (Keynote). The click is
+        // Click-away COMMITS the in-place edit. The click is
         // consumed — ending the edit is that click's whole job; the next
         // click selects or drags as usual. Clicks inside the field itself
         // never reach here (the field is a subview and takes them first).
@@ -380,7 +380,7 @@ final class PreviewInteractionView: NSView {
         }
 
         // Clicking anything that is NOT an annotation deselects the current
-        // one (Keynote) — the contextual toolbar drops back to the add tools
+        // one — the contextual toolbar drops back to the add tools
         // and the selection ring disappears. The click still proceeds to
         // whatever it actually hit (region handle, card drag, empty canvas).
         if !ctx.isPlaying, ctx.selectedAnnotationID != nil {
@@ -1170,7 +1170,7 @@ extension PreviewInteractionView {
 }
 
 extension PreviewInteractionView: NSTextFieldDelegate {
-    /// Keynote-style: the pill grows symmetrically about its center as the
+    /// The pill grows symmetrically about its center as the
     /// user types, instead of clipping or left-aligning into a fixed box.
     func controlTextDidChange(_ obj: Notification) {
         guard let field = inlineEditor, let center = inlineEditCenter,

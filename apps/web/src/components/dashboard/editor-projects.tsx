@@ -6,7 +6,7 @@
  */
 import { useEffect, useState, type CSSProperties } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowRightIcon, CircleIcon, CloudIcon, LaptopIcon } from "lucide-react";
+import { CloudIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { EditorArt } from "@/components/dashboard/empty-art";
 import { MEDIA_GRID, SkeletonMediaCard } from "@/components/dashboard/page-skeletons";
 import { formatClock } from "@/editor/record/useRecorder";
 import { listEditorProjects, type EditorProjectSummary } from "@/editor/state/projectSource";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 import { MAC_DOWNLOAD_URL, continueOnMac } from "@/editor/state/continueOnMac";
 
 /** A cloud project from this grid to the Mac app (nothing unsaved here). */
@@ -47,7 +48,7 @@ function ProjectCard({ project: p, index, onOpen }: { project: EditorProjectSumm
     <button
       type="button"
       onClick={onOpen}
-      className="glass-panel hairline-top dsh-card dsh-rise relative block w-full overflow-hidden text-left outline-none hover:border-white/16 hover:bg-white/[0.06] focus-visible:border-cyan-300/50"
+      className="glass-panel hairline-top dsh-card dsh-rise relative block w-full overflow-hidden text-left outline-none hover:border-cc-ink/16 hover:bg-cc-ink/[0.06] focus-visible:border-primary/50"
       style={{ "--i": Math.min(index, 11) } as CSSProperties}
     >
       <span className="relative block aspect-video w-full overflow-hidden rounded-t-[inherit] bg-black">
@@ -63,7 +64,7 @@ function ProjectCard({ project: p, index, onOpen }: { project: EditorProjectSumm
         )}
         <span aria-hidden className="dsh-thumb-shade" />
         <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white/85 backdrop-blur-md">
-          {p.origin === "cloud" ? <CloudIcon className="size-3" /> : <LaptopIcon className="size-3" />}
+          {p.origin === "cloud" ? <CloudIcon className="size-3" /> : <CCIcon name="laptop" className="size-3" />}
           {p.origin === "cloud" ? "Cloud" : "This Mac"}
         </span>
         {p.duration > 0 && (
@@ -72,7 +73,7 @@ function ProjectCard({ project: p, index, onOpen }: { project: EditorProjectSumm
           </span>
         )}
         <span className="dsh-hover-hint absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-black shadow-lg">
-          Open in editor <ArrowRightIcon className="size-3" />
+          Open in editor <CCIcon name="chevron-right" className="size-3" />
         </span>
       </span>
       <span className="block px-3.5 pb-3 pt-3">
@@ -91,7 +92,7 @@ function ProjectCard({ project: p, index, onOpen }: { project: EditorProjectSumm
         title="Open in CaptureCat for Mac, with everything recorded and edited here"
         className="absolute right-2 top-2 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white/85 opacity-0 backdrop-blur-md transition-opacity hover:bg-black/70 hover:text-white focus-visible:opacity-100 group-hover:opacity-100"
       >
-        <LaptopIcon className="size-3" />
+        <CCIcon name="laptop" className="size-3" />
         Continue on Mac
       </button>
     )}
@@ -123,7 +124,7 @@ export function EditorProjects() {
         actions={
           <Button size="sm" className="bg-red-500 text-white hover:bg-red-500/90" asChild>
             <Link to="/app/record">
-              <CircleIcon className="fill-current" /> Record
+              <CCIcon name="ellipse" className="fill-current" /> Record
             </Link>
           </Button>
         }
@@ -149,7 +150,7 @@ export function EditorProjects() {
             actions={
               <Button size="sm" className="bg-red-500 text-white hover:bg-red-500/90" asChild>
                 <Link to="/app/record">
-                  <CircleIcon className="fill-current" /> Record a project
+                  <CCIcon name="ellipse" className="fill-current" /> Record a project
                 </Link>
               </Button>
             }

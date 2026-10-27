@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { BadgeCheck, Copy, HardDrive, Pencil, RefreshCw, TriangleAlert, Unplug } from "lucide-react";
+import { Unplug } from "lucide-react";
 
 import { trpc } from "@/lib/trpc/client";
 import type { BucketState, StorageProvider } from "@/lib/trpc/routers/storage";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Field, PlanChip, Row, Section, UpgradeNote } from "@/components/dashboard/studio";
 import { cn } from "@/lib/utils";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 /**
  * Bring-your-own bucket: share videos upload to — and play from — the
@@ -159,7 +160,7 @@ export function StorageBucketCard() {
 
   return (
     <Section
-      icon={<HardDrive />}
+      icon={<CCIcon name="drive"  />}
       title="Your own storage"
       badge={<PlanChip plan="pro" />}
       description="Keep share videos in your own S3-compatible bucket — AWS S3, Cloudflare R2, Backblaze B2, Wasabi or MinIO. Videos you share from the Mac app or the web editor upload straight to it, and share links play from it. Web recordings themselves stay in CaptureCat storage until you share them."
@@ -243,15 +244,15 @@ function ConnectedRow({
   return (
     <Row className="dsh-rise">
       <div className="flex min-w-0 items-center gap-2.5">
-        <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
+        <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-cc-green" />
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm">
               {b.bucket}
               {b.pathPrefix && <span className="text-muted-foreground">/{b.pathPrefix.replace(/\/$/, "")}</span>}
             </span>
-            <Badge variant="outline" className="gap-1 border-emerald-400/25 bg-emerald-400/10 text-[10px] text-emerald-300">
-              <BadgeCheck />
+            <Badge variant="outline" className="gap-1 border-cc-green/25 bg-cc-green/10 text-[10px] text-cc-green-text">
+              <CCIcon name="seal-check"  />
               connected
             </Badge>
           </div>
@@ -263,7 +264,7 @@ function ConnectedRow({
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <Button variant="ghost" size="sm" onClick={onEdit}>
-          <Pencil data-icon="inline-start" />
+          <CCIcon name="pencil" data-icon="inline-start" />
           Edit
         </Button>
         <AlertDialog>
@@ -317,7 +318,7 @@ function CorsSnippet({ origins }: { origins: string[] }) {
             void navigator.clipboard.writeText(rules).then(() => toast.success("CORS rules copied"));
           }}
         >
-          <Copy data-icon="inline-start" />
+          <CCIcon name="clipboard" data-icon="inline-start" />
           Copy
         </Button>
       </div>
@@ -336,8 +337,8 @@ function BrowserUploadCheck({ cors, origins, onRun }: { cors: CorsCheck; origins
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm">
           {cors.state === "running" && <Spinner className="size-3.5" />}
-          {cors.state === "ok" && <BadgeCheck className="size-4 text-emerald-300" />}
-          {cors.state === "blocked" && <TriangleAlert className="size-4 text-amber-300" />}
+          {cors.state === "ok" && <CCIcon name="seal-check" className="size-4 text-cc-green-text" />}
+          {cors.state === "blocked" && <CCIcon name="warning-fill" className="size-4 text-cc-amber-text" />}
           <span className={cn(cors.state === "idle" && "text-muted-foreground")}>
             {cors.state === "idle" && "Sharing from the web editor: not checked yet"}
             {cors.state === "running" && "Checking uploads from this browser…"}
@@ -346,7 +347,7 @@ function BrowserUploadCheck({ cors, origins, onRun }: { cors: CorsCheck; origins
           </span>
         </div>
         <Button variant="ghost" size="sm" disabled={cors.state === "running"} onClick={onRun}>
-          <RefreshCw data-icon="inline-start" />
+          <CCIcon name="sync" data-icon="inline-start" />
           {cors.state === "idle" ? "Check now" : "Check again"}
         </Button>
       </div>
@@ -409,8 +410,8 @@ function BucketForm({
               className={cn(
                 "h-8 rounded-full border px-3 text-xs transition-colors",
                 draft.provider === p.id
-                  ? "border-white/25 bg-white/[0.12] text-foreground"
-                  : "border-white/10 bg-white/[0.03] text-muted-foreground hover:bg-white/[0.07] hover:text-foreground"
+                  ? "border-cc-ink/25 bg-cc-ink/[0.12] text-foreground"
+                  : "border-cc-ink/10 bg-cc-ink/[0.03] text-muted-foreground hover:bg-cc-ink/[0.07] hover:text-foreground"
               )}
             >
               {p.label}
@@ -508,7 +509,7 @@ function BucketForm({
         )}
 
         {draft.publicBaseUrl.trim() && (
-          <p className="text-xs text-amber-200/90">
+          <p className="text-xs text-cc-amber-text/90">
             With a public URL, anyone who has a video's file address can play it, even if the share link has a password or
             has expired.
           </p>

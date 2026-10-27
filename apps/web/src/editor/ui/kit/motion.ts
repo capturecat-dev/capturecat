@@ -2,7 +2,7 @@
  * CCMotion for the web — one vocabulary of Apple-feel animation.
  *
  * Port of `Views/Shared/DesignKit/CCMotion.swift`:
- *  • Curves (bezier): settle (Keynote ease-out, the house curve), glide
+ *  • Curves (bezier): settle (long-tail ease-out, the house curve), glide
  *    (symmetric, hover washes/colour fades), bounce (growth — settle with a
  *    ~10% overshoot; growth bounces at the PUSHED edge only).
  *  • Springs (response, dampingRatio) exactly as the Mac converts them for
@@ -48,7 +48,7 @@ export interface SpringSpec {
 export const springs: Record<SpringName, SpringSpec> = {
   /** UI acknowledgement — fast, barely any bounce. */
   snappy: { response: 0.28, dampingRatio: 0.9 },
-  /** Standard movement — Keynote "magic move". */
+  /** Standard movement — a smooth "magic move" glide. */
   smooth: { response: 0.42, dampingRatio: 1.0 },
   /** Playful — visible overshoot (toggle thumbs, pops). */
   bouncy: { response: 0.42, dampingRatio: 0.68 },

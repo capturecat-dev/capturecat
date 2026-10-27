@@ -21,7 +21,7 @@ export const M = {
   maxEffectsRows: 3,
 
   blockInset: 3,
-  blockCornerRadius: 9,
+  blockCornerRadius: 10,
   handleWidth: 8,
   minBlockWidth: 20,
   minDuration: 0.5,

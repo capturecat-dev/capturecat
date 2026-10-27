@@ -44,19 +44,19 @@ export function HeaderUser({
       <DropdownMenuTrigger asChild>
         <button
           aria-label="Account menu"
-          className="rounded-full ring-1 ring-white/10 transition hover:ring-white/25 data-[state=open]:ring-white/25"
+          className="rounded-full ring-1 ring-cc-ink/10 transition hover:ring-cc-ink/25 data-[state=open]:ring-cc-ink/25"
         >
           <Avatar className="size-8 rounded-full">
             <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback className="rounded-full bg-white/[0.06] text-xs font-medium">
+            <AvatarFallback className="rounded-full bg-cc-ink/[0.06] text-xs font-medium">
               {initials(user.name)}
             </AvatarFallback>
           </Avatar>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="min-w-56 rounded-lg">
+      <DropdownMenuContent align="end" sideOffset={8}>
         <DropdownMenuLabel className="p-0 font-normal">
-          <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+          <div className="flex items-center gap-2.5 px-2 py-1.5 text-left text-[13px]">
             <Avatar className="size-8 rounded-lg">
               <AvatarImage src={user.avatar} alt={user.name} />
               <AvatarFallback className="rounded-lg">
