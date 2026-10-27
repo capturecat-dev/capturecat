@@ -88,6 +88,9 @@ export const CLOUD_FILE_TYPES: Record<string, { kind: CloudFileKind; types: read
   webp: { kind: "image", types: ["image/webp"] },
   gif: { kind: "image", types: ["image/gif"] },
   json: { kind: "data", types: ["application/json"] },
+  // The camera person-mask track (docs/camera-cutout.md): a binary sidecar the
+  // cutout and pop-out camera looks render through, written by either app.
+  ccmask: { kind: "data", types: ["application/octet-stream"] },
 };
 
 /**

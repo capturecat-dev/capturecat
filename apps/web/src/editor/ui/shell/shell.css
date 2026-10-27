@@ -380,3 +380,63 @@
 }
 .cc-gate__title { font-size: 15px; font-weight: 600; }
 .cc-gate__body { font-size: 13px; color: var(--cc-muted); line-height: 1.45; }
+
+/* ── Camera background removal chip (beside the Effects key) ───────────
+   A recessed well (cc-mat-recessed): spinner + one line + a hairline fill
+   bar while the camera is segmented; an error / notice reads in the same
+   well until dismissed. */
+.cc-maskchip {
+  --m-tint: var(--cc-elevated);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  max-width: 260px;
+  padding: 0 4px 0 8px;
+  border-radius: 999px;
+  font: 500 11px var(--cc-font);
+  font-variant-numeric: tabular-nums;
+  color: var(--cc-muted);
+  flex: none;
+  position: relative;
+  overflow: hidden;
+  animation: cc-maskchip-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.cc-maskchip--error { color: var(--cc-destructive); }
+.cc-maskchip__spin { width: 11px; height: 11px; border-width: 1.5px; flex: none; }
+.cc-maskchip__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cc-maskchip__bar {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(var(--cc-ink-rgb) / 0.1);
+  overflow: hidden;
+}
+.cc-maskchip__fill {
+  display: block;
+  height: 100%;
+  background: var(--cc-primary);
+  transform-origin: left center;
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cc-maskchip__x {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: default;
+}
+.cc-maskchip__x:hover { background: rgb(var(--cc-ink-rgb) / 0.1); }
+@keyframes cc-maskchip-in {
+  from { opacity: 0; transform: scaleX(0.6); transform-origin: left center; }
+  to { opacity: 1; transform: none; }
+}

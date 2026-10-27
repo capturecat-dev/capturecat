@@ -167,14 +167,21 @@ struct StaticSpanCollapse {
         }
     }
 
-    /// The resolved camera layout as the key's string (`CameraLayoutMath.Resolved`).
-    static func cameraLayoutKey(_ layout: CameraLayoutMath.Resolved) -> String {
+    /// The resolved camera layout as the key's string (`CameraLayoutMath.Resolved`)
+    /// plus the camera-look weights (docs/camera-cutout.md §11) — a span whose
+    /// look is fading must never collapse. A key without any look ends in
+    /// `,0.000,0.000`.
+    static func cameraLayoutKey(
+        _ layout: CameraLayoutMath.Resolved,
+        looks: CameraLayoutMath.LookWeights = .none
+    ) -> String {
         String(
-            format: "%.0f,%.0f,%.0f,%.0f,%.3f,%.3f,%.4f,%.1f",
+            format: "%.0f,%.0f,%.0f,%.0f,%.3f,%.3f,%.4f,%.1f,%.3f,%.3f",
             layout.cameraRect?.minX ?? -1, layout.cameraRect?.minY ?? -1,
             layout.cameraRect?.width ?? -1, layout.cameraRect?.height ?? -1,
             layout.cameraOpacity, layout.chromeOpacity,
-            layout.cardScale, layout.cardTranslationX)
+            layout.cardScale, layout.cardTranslationX,
+            looks.cutout, looks.popOut)
     }
 
     let enabled: Bool

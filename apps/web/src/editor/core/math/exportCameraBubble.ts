@@ -64,7 +64,22 @@ import type { CameraLayoutRegion, Point, ProjectSettings, Rect, Size } from "../
 import type { CameraShape, FrameShape } from "../model/enums";
 import { type AffineTransform, insetBy, minX, minY, rectHeight, rectWidth } from "./geometry";
 import { bubbleSize, cameraRect, canvasFitScale, shapeAspect } from "./reactiveCameraLayout";
-import { bubbleApproxCornerRadius, cardTransform, resolve, type CameraLayoutResolved } from "./cameraLayoutMath";
+import {
+  bubbleApproxCornerRadius,
+  cardTransform,
+  lookWeights as layoutLookWeights,
+  resolve,
+  type CameraLayoutResolved,
+  type CameraLookWeights,
+} from "./cameraLayoutMath";
+import {
+  bubbleWeight as lookBubbleWeight,
+  cardShadowRadius,
+  cutoutGeometry,
+  personClipMaskRect,
+  sizeFactor as lookSizeFactor,
+  type CameraCutoutGeometry,
+} from "./cameraCutoutMath";
 import {
   borderColor,
   clipPath,
@@ -341,6 +356,8 @@ export interface ExportCameraStatics {
   cameraBaseSize: number;
   cameraPadding: number;
   cameraAspect: number;
+  /** The camera IMAGE aspect (naturalSize w ÷ h, 1 when unknown) — the looks' aspect-fill (not the bubble shape's). */
+  cameraImageAspect: number;
   /** null when there is no camera reader (no camera composited at all). */
   assets: ExportCameraAssets | null;
 }
@@ -368,8 +385,10 @@ export function exportCameraStatics(
     cameraNaturalSize.width > 0 && cameraNaturalSize.height > 0 ? cameraNaturalSize.width / cameraNaturalSize.height : 1,
     s.cameraOrientation,
   );
+  const cameraImageAspect =
+    cameraNaturalSize.width > 0 && cameraNaturalSize.height > 0 ? cameraNaturalSize.width / cameraNaturalSize.height : 1;
   if (!hasCameraReader) {
-    return { referenceCanvas, canvasScale, cameraFit, cameraBaseSize, cameraPadding, cameraAspect, assets: null };
+    return { referenceCanvas, canvasScale, cameraFit, cameraBaseSize, cameraPadding, cameraAspect, cameraImageAspect, assets: null };
   }
   const baseBubble = bubbleSize(cameraBaseSize, cameraAspect);
   const baseRect: Rect = {
@@ -418,6 +437,7 @@ export function exportCameraStatics(
     cameraBaseSize,
     cameraPadding,
     cameraAspect,
+    cameraImageAspect,
     assets: { baseRect, shadowRadius, shadowSlack, shadowExtent, mask, stroke, shadow, ring, tag },
   };
 }
@@ -450,6 +470,8 @@ export interface ExportFrameCameraInput {
   cameraFrameDecoded: boolean;
   /** The poster image loaded (project.cameraPosterURL decodes). */
   posterAvailable: boolean;
+  /** A FRESH camera person mask is loaded (docs/camera-cutout.md §2) — gates the looks. */
+  maskAvailable?: boolean;
 }
 
 export interface ExportPlainCamera {
@@ -485,6 +507,30 @@ export interface ExportOverrideCamera {
   tiltYaw: number;
 }
 
+/** One look's geometry in the exporter's Y-up space (CameraCutoutMath.geometry(…, yAxisIsUp: true)). */
+export interface ExportLookGeometry extends CameraCutoutGeometry {
+  /** Pop-out only: the person clip's generator rect (B extended up by r). */
+  personClipMaskRect?: Rect;
+  /** Pop-out only: the card shadow's crop (the card outset by 4σ + 4). */
+  cardShadowExtent?: Rect | null;
+}
+
+/** The camera LOOKS stage of a drawn frame (docs/camera-cutout.md §3–§5), Y-up. */
+export interface ExportCameraLooks {
+  /** B — resolve's tile (override) or the plain bubble. */
+  rect: Rect;
+  /** Weight of today's bubble stack (1 − cutout − popOut, ≥ 0). */
+  bubbleWeight: number;
+  /** B.width ÷ the base bubble's width. */
+  sizeFactor: number;
+  /** Pop-out card shadow σ = cardShadowRadius × canvasScale × sizeFactor. */
+  shadowSigma: number;
+  /** Mask frame: the drawn live sample's, or frame 0 under the poster. */
+  maskFrame: "live" | "poster";
+  cutout: ExportLookGeometry | null;
+  popOut: ExportLookGeometry | null;
+}
+
 export interface ExportFrameCamera {
   bubbleRectNow: Rect;
   bubbleCornerRadius: number;
@@ -499,6 +545,10 @@ export interface ExportFrameCamera {
   path: "plain" | "override" | "none";
   plain: ExportPlainCamera | null;
   override: ExportOverrideCamera | null;
+  /** CameraLayoutMath.lookWeights, gated on a fresh mask AND the camera statics (zero otherwise). */
+  lookWeights: CameraLookWeights;
+  /** The looks stage of a drawn frame (null: no look active, or nothing drawn). */
+  looks: ExportCameraLooks | null;
 }
 
 /** assetXform: scale(sx, sy) then translate so baseRect lands on rect. */
@@ -552,6 +602,9 @@ export function exportFrameCamera(
   const source: ExportFrameCamera["source"] =
     cameraTargetTime >= 0 && f.cameraFrameDecoded ? "live" : f.posterAvailable ? "poster" : "none";
 
+  // The look gate (VideoExporter: a decoder for a FRESH mask AND the camera statics).
+  const lookWeights: CameraLookWeights =
+    f.maskAvailable === true && statics.assets !== null ? layoutLookWeights(f.currentTime, regions) : { cutout: 0, popOut: 0 };
   const out: ExportFrameCamera = {
     bubbleRectNow,
     bubbleCornerRadius,
@@ -563,9 +616,13 @@ export function exportFrameCamera(
     path: "none",
     plain: null,
     override: null,
+    lookWeights,
+    looks: null,
   };
   const assets = statics.assets;
   if (!assets || !f.sourceVisible || source === "none") return out;
+  const looksAt = (rect: Rect): ExportCameraLooks | null =>
+    exportCameraLooks(lookWeights, rect, assets.baseRect, statics.canvasScale, statics.cameraImageAspect, source);
 
   if (!layout.isPlainBubble && layout.cameraOpacity > 0.001 && layout.cameraRect) {
     const rect = layout.cameraRect;
@@ -584,6 +641,7 @@ export function exportFrameCamera(
       };
     }
     out.path = "override";
+    out.looks = looksAt(rect);
     out.override = {
       rect,
       maskRadius: smax(0, radius),
@@ -599,6 +657,7 @@ export function exportFrameCamera(
     };
   } else if (layout.cameraOpacity > 0.001 && layout.isPlainBubble) {
     out.path = "plain";
+    out.looks = looksAt(bubbleRectNow);
     out.plain = {
       rect: bubbleRectNow,
       assetTransform: assetTransformFor(bubbleRectNow, assets.baseRect),
@@ -608,6 +667,42 @@ export function exportFrameCamera(
     };
   }
   return out;
+}
+
+/**
+ * The looks stage at the drawn rect B (Y-up): bubble weight, size factor,
+ * card-shadow σ, mask-frame choice and CameraCutoutMath geometry — what the
+ * exporter's `lookStack` / `popOutCardStack` build from (oracle in
+ * WebVectors+StyleExportCamera.swift). Null when no look is active.
+ */
+export function exportCameraLooks(
+  weights: CameraLookWeights,
+  rect: Rect,
+  baseRect: Rect,
+  canvasScale: number,
+  cameraImageAspect: number,
+  source: "live" | "poster" | "none",
+): ExportCameraLooks | null {
+  if (!(weights.cutout > 0 || weights.popOut > 0)) return null;
+  const sf = lookSizeFactor(rect, rectWidth(baseRect));
+  const sigma = cardShadowRadius * canvasScale * sf;
+  const geometry = (look: "cutout" | "popOut"): ExportLookGeometry => {
+    const g: ExportLookGeometry = { ...cutoutGeometry(look, rect, cameraImageAspect, true) };
+    if (look === "popOut") {
+      g.personClipMaskRect = personClipMaskRect(g, true);
+      g.cardShadowExtent = g.cardRect ? insetBy(g.cardRect, -(sigma * 4 + 4), -(sigma * 4 + 4)) : null;
+    }
+    return g;
+  };
+  return {
+    rect,
+    bubbleWeight: lookBubbleWeight(weights),
+    sizeFactor: sf,
+    shadowSigma: sigma,
+    maskFrame: source === "live" ? "live" : "poster",
+    cutout: weights.cutout > 0 ? geometry("cutout") : null,
+    popOut: weights.popOut > 0 ? geometry("popOut") : null,
+  };
 }
 
 // -- Camera reader advance (VideoExporter.swift:1425-1441) --------------------------

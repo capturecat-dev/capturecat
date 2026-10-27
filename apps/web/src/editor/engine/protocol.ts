@@ -49,7 +49,12 @@ export type ToWorker =
   /** Fresh media URLs (refreshed presigned GETs, a newly added file) — no reload (media/liveUrls.ts). */
   | { type: "setMediaFiles"; video?: string; files: Record<string, string>; expiresAt?: number | null }
   /** The stage's in-place label editor opened (id) or closed (null) — preview only. */
-  | { type: "editingAnnotation"; id: string | null };
+  | { type: "editingAnnotation"; id: string | null }
+  /**
+   * A camera person mask (camera-mask.ccmask bytes) just produced on this
+   * device — used at once, before its upload lands (docs/camera-cutout.md §6).
+   */
+  | { type: "setCameraMask"; bytes: ArrayBuffer };
 
 export interface ExportOptions {
   /** Output-time range; default the whole timeline. */

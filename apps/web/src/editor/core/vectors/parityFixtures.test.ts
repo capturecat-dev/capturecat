@@ -19,6 +19,7 @@ import { numbersMatch } from "./harness";
 const manifests = import.meta.glob("/.fixtures/parity/manifest.json", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
 const projects = import.meta.glob("/.fixtures/parity/*/project.json", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
 const pngs = import.meta.glob("/.fixtures/parity/*/frames/*.png", { query: "?url", import: "default" });
+const masks = import.meta.glob("/.fixtures/parity/*/*.ccmask", { query: "?url", import: "default" });
 
 const HELP =
   "Generate them: `<BUILT_PRODUCTS_DIR>/CaptureCat.app/Contents/MacOS/CaptureCat --web-parity-fixtures parity` " +
@@ -81,6 +82,12 @@ describe("render-parity fixtures", () => {
         expect(hasVisibleVideo(project, source), `${f.name}#${fr.index}: visibility`).toBe(fr.hasVisibleVideo);
         const png = Object.keys(pngs).some((p) => p.endsWith(`/${f.dir}/${fr.png}`));
         expect(png, `${f.name}: ${fr.png} exists`).toBe(true);
+      }
+      // Camera looks (docs/camera-cutout.md §8): a fixture that uses one ships
+      // the person mask it was exported with, or the web would draw the bubble.
+      if (project.cameraLayoutRegions.some((r) => r.look)) {
+        const mask = Object.keys(masks).some((p) => p.includes(`/${f.dir}/`));
+        expect(mask, `${f.name}: camera-mask.ccmask exists`).toBe(true);
       }
     }
   });

@@ -98,6 +98,43 @@ enum CameraStyleMath {
         return out
     }
 
+    // MARK: - Person mask (camera looks, docs/camera-cutout.md §5)
+
+    /// A decoded `.ccmask` frame as a CIImage: one 8-bit channel, row 0 = the
+    /// TOP of the camera image, NOT colour-managed (the values are alpha, not
+    /// light — a colour space would gamma-shift them). The bytes are copied:
+    /// the exporter renders frames asynchronously and decoders reuse buffers.
+    static func maskCIImage(alpha: [UInt8], width: Int, height: Int) -> CIImage? {
+        guard width > 0, height > 0, alpha.count == width * height else { return nil }
+        return CIImage(
+            bitmapData: Data(alpha), bytesPerRow: width,
+            size: CGSize(width: width, height: height),
+            format: .L8, colorSpace: nil)
+    }
+
+    /// The camera frame × mask alpha — THE one masking step both renderers
+    /// run (preview: VideoFrameLayerDriver's per-frame CI pass; export:
+    /// before compositeCamera places the frame). The mask is stretched to the
+    /// frame's extent (bilinear, edge-clamped) and, when the frame was
+    /// mirrored, mirrored with it, so it lands on the same pixels the
+    /// segmentation saw. Order (§5): frame → mirror → adjustments → this.
+    static func maskedImage(_ image: CIImage, mask: CIImage, mirrored: Bool) -> CIImage {
+        let e = image.extent
+        let m = mask.extent
+        guard !e.isInfinite, e.width > 0, e.height > 0, m.width > 0, m.height > 0 else { return image }
+        var t = CGAffineTransform(translationX: -m.minX, y: -m.minY)
+            .concatenating(CGAffineTransform(scaleX: e.width / m.width, y: e.height / m.height))
+        if mirrored {
+            t = t.concatenating(CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: e.width, ty: 0))
+        }
+        t = t.concatenating(CGAffineTransform(translationX: e.minX, y: e.minY))
+        let placed = mask.clampedToExtent().samplingLinear().transformed(by: t).cropped(to: e)
+        return image.applyingFilter("CIBlendWithMask", parameters: [
+            kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: e),
+            kCIInputMaskImageKey: placed,
+        ]).cropped(to: e)
+    }
+
     // MARK: - Shape / corner radius
 
     /// Corner radius per shape, in the SAME units as `rect` (multiply by the

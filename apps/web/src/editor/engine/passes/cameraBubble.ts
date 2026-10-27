@@ -21,6 +21,16 @@
  *    a cardness-faded card shadow — is composed onto the card layer AFTER the
  *    side-by-side squeeze (`cardTransform` hook → FrameGraph) and BEFORE the
  *    camera warp ("cardTop" stage), so tilt / zoom move it with the card.
+ *  - Camera looks (docs/camera-cutout.md §4/§5): wherever the camera draws (either
+ *    stage, at `resolve`'s rect B), the group is three weighted STACKS —
+ *    today's bubble × (1 − cutout − popOut), the cutout (camera × person
+ *    mask, one crop to B) × cutout, the pop-out card (card shadow → gradient
+ *    card → person clipped to B with rounded bottom corners) × popOut —
+ *    SUMMED as a cross-dissolve (each stack composed over transparent in a
+ *    scratch target, scaled premultiplied by its weight, added; drawn
+ *    straight into the group when settled), then the name tag, unweighted.
+ *    The person mask (camera-mask.ccmask) is looked up by the DRAWN camera
+ *    frame's PTS; a missing or stale mask draws every look as the bubble.
  *
  * Mac EXPORT behaviour ported on purpose (each measured against the real
  * exporter output — parity fixture 13 — or the real CoreImage filters):
@@ -38,6 +48,15 @@
  *    CoreImage ≤ 2/255 (see cameraShaders.ts).
  */
 import { adjustmentsFromSettings, isIdentity as adjustmentsIdentity } from "../../core/math/cameraStyleMath";
+import { lookWeights, type CameraLookWeights } from "../../core/math/cameraLayoutMath";
+import {
+  bubbleWeight,
+  cardShadowExportAlpha,
+  maskIsFresh,
+  popOutCardBottom,
+  popOutCardTop,
+} from "../../core/math/cameraCutoutMath";
+import type { CameraMaskTrack } from "../../core/mask/cameraMaskCodec";
 import {
   compositeCameraGeometry,
   exportCameraStatics,
@@ -49,18 +68,21 @@ import {
 import type { AffineTransform } from "../../core/math/geometry";
 import { perspectiveDistance, projectionTransform } from "../../core/math/tiltMath";
 import type { Project, Rect } from "../../core/model";
-import type { WorkingSpace } from "../color";
+import { srgbToWorking, type WorkingSpace } from "../color";
 import { L, Uniforms } from "../gpu/resources";
 import {
   cameraAssetWGSL,
   cameraCardShadowWGSL,
+  cameraCardWGSL,
   cameraComposeWGSL,
+  cameraStackWGSL,
   cameraLiveWGSL,
   cameraPosterWGSL,
 } from "../gpu/cameraShaders";
 import { CAMERA_FILTER_LUTS, CAMERA_LUT_SIZE } from "../gpu/cameraFilterLuts";
 import { apply, IDENTITY, invert, isIdentity, multiply, toRows, type Mat3 } from "../mat3";
 import { CameraSource, type CameraFrame } from "../media/cameraSource";
+import { CameraMaskFeed } from "../media/cameraMaskFeed";
 import { stageHitRecorder } from "../stageHits";
 import { bakeCameraAssets, measureTag, type BakedAsset } from "./cameraAssets";
 import type { FrameEncoder, FrameState, PassContext, RenderPass, Scene, StaticKeyParts } from "./types";
@@ -140,13 +162,37 @@ interface AssetLayer {
   fade: number;
   alphaOnly: boolean;
 }
-interface CardShadowLayer {
-  kind: "cardShadow";
+/** An analytic blurred rounded-rect shadow, cached in an r16float target ("card": the layout tile's, "look": the pop-out card's). */
+interface ShadowLayer {
+  kind: "shadow";
+  slot: ShadowSlot;
 }
+/** How the camera layer is clipped (each matches a CoreImage mask the exporter builds). */
+type CameraClip =
+  | { kind: "asset"; xform: Mat3 }                 // the baked bubble shape mask, re-targeted
+  | { kind: "roundedRect"; radius: number }        // CIRoundedRectangleGenerator (layout tile)
+  | { kind: "none" }                               // the cutout: one crop to B
+  | { kind: "bottomRounded"; radius: number; maskRect: Rect }; // the pop-out person: generator over B extended up, cropped to B
 interface CameraLayer {
   kind: "camera";
+  clip: CameraClip;
+  /** × the person mask (a look). */
+  person: boolean;
 }
-type Layer = AssetLayer | CardShadowLayer | CameraLayer;
+/** The pop-out card fill. */
+interface CardLayer {
+  kind: "card";
+  rect: Rect;
+  radius: number;
+}
+type Layer = AssetLayer | ShadowLayer | CameraLayer | CardLayer;
+type ShadowSlot = "card" | "look";
+
+/** A weighted part of the group: composed as a whole, scaled by `weight` and summed with the others. */
+interface Stack {
+  weight: number;
+  layers: Layer[];
+}
 
 interface GpuAsset {
   baked: BakedAsset;
@@ -171,11 +217,17 @@ interface Plan {
   /** "plain" → overlay stage, "override" → cardTop stage. */
   path: "plain" | "override" | "none";
   source: { kind: "live"; frame: CameraFrame } | { kind: "poster" } | null;
-  /** Camera tile rect (Y-down). */
+  /** Camera tile rect (Y-down) — the looks' B. */
   rect: Rect;
-  layers: Layer[];
-  mask: { kind: "asset"; xform: Mat3 } | { kind: "roundedRect"; radius: number };
-  cardShadow: CardShadowSpec | null;
+  /** Weighted stacks, bottom to top (bubble, cutout, pop-out). */
+  stacks: Stack[];
+  /** Unweighted layers over every stack (the name tag). */
+  top: Layer[];
+  shadows: Record<ShadowSlot, CardShadowSpec | null>;
+  /** The look weights drawn (zero when the mask is missing or stale). */
+  looks: CameraLookWeights;
+  /** Person-mask frame for the drawn camera frame (−1: no look drawn). */
+  maskIndex: number;
   /** Group bounds (Y-down, integer, inside the target). */
   bounds: Rect;
   tilt: Mat3;
@@ -195,7 +247,13 @@ export class CameraFeature {
   private statics: Statics | null = null;
   private poster: { bitmap: ImageBitmap; space: WorkingSpace; texture: GPUTexture; view: GPUTextureView } | null = null;
   private group: { texture: GPUTexture; view: GPUTextureView; width: number; height: number } | null = null;
-  private shadowCache: { texture: GPUTexture; view: GPUTextureView; width: number; height: number; key: string } | null = null;
+  /** A stack being cross-faded renders here first (its weight scales the stack as a whole). */
+  private scratch: { texture: GPUTexture; view: GPUTextureView; width: number; height: number } | null = null;
+  private shadowCaches: Record<ShadowSlot, { texture: GPUTexture; view: GPUTextureView; width: number; height: number; key: string } | null> = { card: null, look: null };
+  /** camera-mask.ccmask for this renderer (null: none in the scene). */
+  private maskFeed: CameraMaskFeed | null = null;
+  /** Export: the person-mask frame prefetch decoded for this output time. */
+  private exactMask: { outputTime: number; index: number } | null = null;
   private plan: Plan | null = null;
   private requestFrame: () => void = () => {};
   /** Export: the exact camera frame for this output time (set by prefetch). */
@@ -203,8 +261,11 @@ export class CameraFeature {
   private lastTime = Number.NaN;
   private warned = false;
   private assetU: Uniforms[] = [];
-  private camU: Uniforms | null = null;
-  private shadowU: Uniforms | null = null;
+  /** One uniform block per camera draw in a frame (a cross-fade draws up to three). */
+  private camU: Uniforms[] = [];
+  private cardU: Uniforms[] = [];
+  private stackU: Uniforms[] = [];
+  private shadowU: Record<ShadowSlot, Uniforms | null> = { card: null, look: null };
   private composeU: Uniforms | null = null;
   /** The rect the bubble / tile was composited at this frame (stage hit-testing). */
   private readonly hit = stageHitRecorder("camera");
@@ -263,6 +324,11 @@ export class CameraFeature {
       waiting: this.wait.waiting,
       rect: this.plan?.rect ?? null,
       chrome: this.plan?.cam.layout.chromeOpacity ?? null,
+      /** Look weights drawn this frame (zero: no look, or the mask is missing / stale). */
+      looks: this.plan?.looks ?? null,
+      maskIndex: this.plan?.maskIndex ?? -1,
+      maskUploaded: this.maskFeed?.uploadedIndex ?? -1,
+      maskFresh: this.maskFeed && this.source ? maskIsFresh(this.maskFeed.track.header, this.source.fileFacts) : null,
       counters: this.source?.counters ?? null,
       stream: this.source?.stats ?? null,
     };
@@ -389,6 +455,27 @@ export class CameraFeature {
     return this.poster.view;
   }
 
+  /** The scene's person mask as this renderer's feed (re-made when the asset changes). */
+  private ensureMaskFeed(scene: Scene, device?: GPUDevice): CameraMaskFeed | null {
+    const track: CameraMaskTrack | null = scene.extras.assets.cameraMask ?? null;
+    if (this.maskFeed?.track === track) return this.maskFeed;
+    this.maskFeed?.dispose(device);
+    this.maskFeed = track ? new CameraMaskFeed(track, () => this.requestFrame()) : null;
+    return this.maskFeed;
+  }
+
+  /** The person mask can be drawn (present, decodable, made from THIS camera file — §2). */
+  private maskUsable(feed: CameraMaskFeed | null, source: CameraSource): feed is CameraMaskFeed {
+    return !!feed && !feed.broken && feed.frameCount > 0 && maskIsFresh(feed.track.header, source.fileFacts);
+  }
+
+  /** Mask frame for the camera frame drawn: the live frame's PTS, or frame 0 under the poster (§2). */
+  private maskIndexFor(feed: CameraMaskFeed, source: CameraSource, live: CameraFrame | null): number {
+    if (!live) return 0;
+    const pts = source.ptsOf(live.index);
+    return pts === null ? 0 : feed.indexForPts(pts);
+  }
+
   // ── Per frame ────────────────────────────────────────────────────────────
 
   private async prefetch(scene: Scene, frame: FrameState): Promise<void> {
@@ -402,6 +489,19 @@ export class CameraFeature {
     const p = scene.extras.project!;
     const f = await this.source.exact(frame.sourceTime - p.cameraTimeOffset);
     this.exact = { outputTime: frame.outputTime, frame: f };
+    // The person mask joins the exact-frame wait: decoded before this frame renders.
+    this.exactMask = null;
+    const w = lookWeights(frame.sourceTime, p.cameraLayoutRegions);
+    const feed = this.ensureMaskFeed(scene);
+    if ((w.cutout > 0 || w.popOut > 0) && this.maskUsable(feed, this.source)) {
+      const index = this.maskIndexFor(feed, this.source, f);
+      try {
+        await feed.load(index);
+        this.exactMask = { outputTime: frame.outputTime, index };
+      } catch {
+        // feed.broken → the looks draw the plain bubble
+      }
+    }
   }
 
   /**
@@ -433,8 +533,10 @@ export class CameraFeature {
       sourceVisible: frame.video !== null,
       cameraFrameDecoded: true,
       posterAvailable: false,
+      maskAvailable: this.maskUsable(this.ensureMaskFeed(scene), source),
     });
-    return { cameraSampleSeconds: source.exportSampleSeconds, cameraLayout: cameraLayoutKey(cam.layout) };
+    // The (gated) look weights end the key (docs/camera-cutout.md §11): a fading look never collapses.
+    return { cameraSampleSeconds: source.exportSampleSeconds, cameraLayout: cameraLayoutKey(cam.layout, cam.lookWeights) };
   }
 
   private cardTransform(ctx: PassContext, frame: FrameState): Mat3 | null {
@@ -468,39 +570,70 @@ export class CameraFeature {
 
     const vr = scene.geometry.videoRect;
     const videoRectYUp: Rect = { x: vr.x, y: H - vr.y - vr.height, width: vr.width, height: vr.height };
+    // The person mask gates the looks (§2): present, decodable, FRESH for this camera file.
+    const feed = this.ensureMaskFeed(scene, ctx.device);
+    const maskAvailable = this.maskUsable(feed, source);
     const cam = exportFrameCamera(statics.statics, s, project.cameraLayoutRegions, videoRectYUp, scene.target, project.cameraTimeOffset, {
       currentTime: frame.sourceTime,
       zoom: frame.cameraKey?.zoom ?? 1,
       sourceVisible: frame.video !== null,
       cameraFrameDecoded: live !== null,
       posterAvailable,
+      maskAvailable,
     });
-    if (!(this.exact && this.exact.outputTime === frame.outputTime)) {
+    const exporting = !!(this.exact && this.exact.outputTime === frame.outputTime);
+    if (!exporting) {
       this.wait = previewWait(source, target, live, frame.video !== null, cam.layout.cameraOpacity);
     }
     const squeeze = yDown(cam.cardTransform, H);
+    const planSource: Plan["source"] =
+      cam.source === "live" && live ? { kind: "live", frame: live } : cam.source === "poster" ? { kind: "poster" } : null;
+
+    // Camera looks (docs/camera-cutout.md §4/§5): exportFrameCamera's looks
+    // stage — weights gated on the fresh mask, geometry at the drawn rect B —
+    // and the mask frame of the camera frame actually DRAWN (frame 0 under
+    // the poster).
+    const zero: CameraLookWeights = { cutout: 0, popOut: 0 };
+    const camLooks = planSource && maskAvailable && feed ? cam.looks : null;
+    const looks: CameraLookWeights = camLooks ? cam.lookWeights : zero;
+    let maskIndex = -1;
+    if (camLooks && feed) {
+      if (exporting) {
+        maskIndex = this.exactMask?.outputTime === frame.outputTime ? this.exactMask.index : this.maskIndexFor(feed, source, live);
+      } else {
+        maskIndex = this.maskIndexFor(feed, source, camLooks.maskFrame === "live" ? live : null);
+        feed.readAhead(maskIndex);
+        // Seek gate: hold until the drawn frame's mask has decoded.
+        if (!feed.peek(maskIndex)) this.wait = { ...this.wait, waiting: true };
+      }
+    }
+
     const plan: Plan = {
       outputTime: frame.outputTime,
       cam,
       squeeze,
       path: cam.path,
-      source: cam.source === "live" && live ? { kind: "live", frame: live } : cam.source === "poster" ? { kind: "poster" } : null,
+      source: planSource,
       rect: { x: 0, y: 0, width: 0, height: 0 },
-      layers: [],
-      mask: { kind: "roundedRect", radius: 0 },
-      cardShadow: null,
+      stacks: [],
+      top: [],
+      shadows: { card: null, look: null },
+      looks,
+      maskIndex,
       bounds: { x: 0, y: 0, width: 0, height: 0 },
       tilt: IDENTITY,
       opacity: 1,
     };
     if (cam.path === "none" || !plan.source) {
       plan.path = "none";
+      plan.looks = zero;
+      plan.maskIndex = -1;
       return plan;
     }
     const a = statics.assets;
-    const layers: Layer[] = [];
-    const asset = (g: GpuAsset | null, xform: Mat3, fade = 1, alphaOnly = false) => {
-      if (g) layers.push({ kind: "asset", asset: g, xform, fade, alphaOnly });
+    const bubble: Layer[] = [];
+    const asset = (list: Layer[], g: GpuAsset | null, xform: Mat3, fade = 1, alphaOnly = false) => {
+      if (g) list.push({ kind: "asset", asset: g, xform, fade, alphaOnly });
     };
     let pitch = 0;
     let yaw = 0;
@@ -508,12 +641,11 @@ export class CameraFeature {
     if (cam.path === "plain" && cam.plain) {
       const x = yDown(cam.plain.assetTransform, H);
       plan.rect = rectYDown(cam.plain.rect, H);
-      asset(a.shadow, x);
-      asset(a.ring, x);
-      layers.push({ kind: "camera" });
-      asset(a.stroke, x);
-      asset(a.tag, x);
-      plan.mask = { kind: "asset", xform: x };
+      asset(bubble, a.shadow, x);
+      asset(bubble, a.ring, x);
+      bubble.push({ kind: "camera", clip: { kind: "asset", xform: x }, person: false });
+      asset(bubble, a.stroke, x);
+      asset(plan.top, a.tag, x);
       pitch = cam.plain.tiltPitch;
       yaw = cam.plain.tiltYaw;
       opacity = cam.plain.opacity;
@@ -522,7 +654,7 @@ export class CameraFeature {
       const x = yDown(o.assetTransform, H);
       plan.rect = rectYDown(o.rect, H);
       const chrome = o.chromeVisible ? o.chrome : 0;
-      if (o.chromeVisible) asset(a.shadow, x, chrome);
+      if (o.chromeVisible) asset(bubble, a.shadow, x, chrome);
       if (o.cardShadow) {
         const cs = o.cardShadow;
         const spec = {
@@ -533,27 +665,58 @@ export class CameraFeature {
           offsetY: cs.shadowRadius / 3,
           extent: rectYDown(cs.extent, H),
         };
-        plan.cardShadow = { ...spec, key: JSON.stringify(spec) };
-        layers.push({ kind: "cardShadow" });
+        plan.shadows.card = { ...spec, key: JSON.stringify(spec) };
+        bubble.push({ kind: "shadow", slot: "card" });
       }
-      if (o.chromeVisible) asset(a.ring, x, chrome);
-      layers.push({ kind: "camera" });
+      if (o.chromeVisible) asset(bubble, a.ring, x, chrome);
+      bubble.push({ kind: "camera", clip: { kind: "roundedRect", radius: o.maskRadius }, person: false });
       if (o.chromeVisible) {
-        asset(a.stroke, x, chrome);
-        asset(a.tag, x, chrome);
+        asset(bubble, a.stroke, x, chrome);
+        asset(plan.top, a.tag, x, chrome);
       }
-      plan.mask = { kind: "roundedRect", radius: o.maskRadius };
       pitch = o.tiltPitch;
       yaw = o.tiltYaw;
       opacity = o.opacity;
     }
-    plan.layers = layers;
+
+    // The weighted stacks (§5): bubble × (1 − c − p), cutout × c, pop-out × p.
+    const wb = camLooks ? camLooks.bubbleWeight : bubbleWeight(looks);
+    if (wb > 0) plan.stacks.push({ weight: wb, layers: bubble });
+    if (looks.cutout > 0) {
+      plan.stacks.push({ weight: looks.cutout, layers: [{ kind: "camera", clip: { kind: "none" }, person: true }] });
+    }
+    const pop = camLooks?.popOut ?? null;
+    if (looks.popOut > 0 && pop?.cardRect) {
+      // The plan's Y-up geometry, flipped like every other camera rect.
+      const card = rectYDown(pop.cardRect, H);
+      const layers: Layer[] = [];
+      if (camLooks!.shadowSigma > 0 && pop.cardShadowExtent) {
+        const spec = {
+          rect: card,
+          radius: pop.cardCornerRadius,
+          sigma: camLooks!.shadowSigma,
+          alpha: cardShadowExportAlpha,
+          offsetY: 0,
+          extent: rectYDown(pop.cardShadowExtent, H),
+        };
+        plan.shadows.look = { ...spec, key: JSON.stringify(spec) };
+        layers.push({ kind: "shadow", slot: "look" });
+      }
+      if (card.width > 0 && card.height > 0) layers.push({ kind: "card", rect: card, radius: pop.cardCornerRadius });
+      layers.push({
+        kind: "camera",
+        clip: { kind: "bottomRounded", radius: pop.clipBottomCornerRadius, maskRect: rectYDown(pop.personClipMaskRect!, H) },
+        person: true,
+      });
+      plan.stacks.push({ weight: looks.popOut, layers });
+    }
 
     // Group bounds: every layer's footprint, clipped to the target.
     let b: Rect | null = { ...plan.rect };
-    for (const l of layers) {
+    for (const l of [...plan.stacks.flatMap((st) => st.layers), ...plan.top]) {
       if (l.kind === "asset") b = union(b, boundsOf(l.xform, l.asset.baked.crop));
-      else if (l.kind === "cardShadow" && plan.cardShadow) b = union(b, plan.cardShadow.extent);
+      else if (l.kind === "shadow" && plan.shadows[l.slot]) b = union(b, plan.shadows[l.slot]!.extent);
+      else if (l.kind === "card") b = union(b, l.rect);
     }
     const x0 = Math.max(0, Math.floor(b.x));
     const y0 = Math.max(0, Math.floor(b.y));
@@ -589,18 +752,61 @@ export class CameraFeature {
     return this.group;
   }
 
-  private ensureShadowCache(device: GPUDevice, w: number, h: number) {
-    if (this.shadowCache && this.shadowCache.width === w && this.shadowCache.height === h) return this.shadowCache;
-    const old = this.shadowCache;
+  private ensureScratch(device: GPUDevice, w: number, h: number) {
+    if (this.scratch && this.scratch.width === w && this.scratch.height === h) return this.scratch;
+    const old = this.scratch;
     if (old) void device.queue.onSubmittedWorkDone().then(() => old.texture.destroy());
-    const texture = device.createTexture({ label: "camera-card-shadow", size: { width: w, height: h }, format: "r16float", usage: RT });
-    this.shadowCache = { texture, view: texture.createView(), width: w, height: h, key: "" };
-    return this.shadowCache;
+    const texture = device.createTexture({ label: "camera-look-fade", size: { width: w, height: h }, format: GROUP_FORMAT, usage: RT });
+    this.scratch = { texture, view: texture.createView(), width: w, height: h };
+    return this.scratch;
+  }
+
+  private ensureShadowCache(device: GPUDevice, slot: ShadowSlot, w: number, h: number) {
+    const hit = this.shadowCaches[slot];
+    if (hit && hit.width === w && hit.height === h) return hit;
+    if (hit) void device.queue.onSubmittedWorkDone().then(() => hit.texture.destroy());
+    const texture = device.createTexture({ label: `camera-${slot}-shadow`, size: { width: w, height: h }, format: "r16float", usage: RT });
+    const cache = { texture, view: texture.createView(), width: w, height: h, key: "" };
+    this.shadowCaches[slot] = cache;
+    return cache;
   }
 
   private uni(i: number, device: GPUDevice): Uniforms {
     while (this.assetU.length <= i) this.assetU.push(new Uniforms(device, 24, `camera-asset-u${this.assetU.length}`));
     return this.assetU[i];
+  }
+
+  /** Renders a blurred rounded-rect shadow into its r16float cache (only when its geometry changed). */
+  private renderShadow(ctx: PassContext, enc: FrameEncoder, slot: ShadowSlot, cs: CardShadowSpec): void {
+    const { device, pipelines } = ctx;
+    const { width: W, height: H } = ctx.scene.target;
+    const cache = this.ensureShadowCache(device, slot, W, H);
+    if (cache.key === cs.key) return;
+    const u = (this.shadowU[slot] ??= new Uniforms(device, 12, `camera-${slot}-shadow-u`));
+    u.write([
+      cs.rect.x, cs.rect.y, cs.rect.width, cs.rect.height,
+      cs.radius, cs.sigma, cs.alpha, cs.offsetY,
+      cs.extent.x, cs.extent.y, cs.extent.width, cs.extent.height,
+    ]);
+    const { pipeline, layout } = pipelines.get({
+      id: "camera-card-shadow", code: cameraCardShadowWGSL, format: "r16float", blend: "replace", entries: [L.uniform(0)],
+    });
+    const pass = enc.beginPass({
+      label: `camera-${slot}-shadow`,
+      colorAttachments: [{ view: cache.view, loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }],
+    });
+    const ex0 = Math.max(0, Math.floor(cs.extent.x));
+    const ey0 = Math.max(0, Math.floor(cs.extent.y));
+    const ex1 = Math.min(W, Math.ceil(cs.extent.x + cs.extent.width));
+    const ey1 = Math.min(H, Math.ceil(cs.extent.y + cs.extent.height));
+    if (ex1 > ex0 && ey1 > ey0) {
+      pass.setScissorRect(ex0, ey0, ex1 - ex0, ey1 - ey0);
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, device.createBindGroup({ layout, entries: [{ binding: 0, resource: { buffer: u.buffer } }] }));
+      pass.draw(3);
+    }
+    pass.end();
+    cache.key = cs.key;
   }
 
   private encodeGroup(ctx: PassContext, frame: FrameState, enc: FrameEncoder): void {
@@ -613,50 +819,21 @@ export class CameraFeature {
     const group = this.ensureGroup(device, W, H);
     const b = plan.bounds;
 
-    // Card shadow cache (re-rendered only when its geometry changes — morphs).
-    if (plan.cardShadow) {
-      const cache = this.ensureShadowCache(device, W, H);
-      if (cache.key !== plan.cardShadow.key) {
-        const cs = plan.cardShadow;
-        this.shadowU ??= new Uniforms(device, 12, "camera-card-shadow-u");
-        this.shadowU.write([
-          cs.rect.x, cs.rect.y, cs.rect.width, cs.rect.height,
-          cs.radius, cs.sigma, cs.alpha, cs.offsetY,
-          cs.extent.x, cs.extent.y, cs.extent.width, cs.extent.height,
-        ]);
-        const { pipeline, layout } = pipelines.get({
-          id: "camera-card-shadow", code: cameraCardShadowWGSL, format: "r16float", blend: "replace", entries: [L.uniform(0)],
-        });
-        const pass = enc.beginPass({
-          label: "camera-card-shadow",
-          colorAttachments: [{ view: cache.view, loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }],
-        });
-        const ex0 = Math.max(0, Math.floor(cs.extent.x));
-        const ey0 = Math.max(0, Math.floor(cs.extent.y));
-        const ex1 = Math.min(W, Math.ceil(cs.extent.x + cs.extent.width));
-        const ey1 = Math.min(H, Math.ceil(cs.extent.y + cs.extent.height));
-        if (ex1 > ex0 && ey1 > ey0) {
-          pass.setScissorRect(ex0, ey0, ex1 - ex0, ey1 - ey0);
-          pass.setPipeline(pipeline);
-          pass.setBindGroup(0, device.createBindGroup({ layout, entries: [{ binding: 0, resource: { buffer: this.shadowU.buffer } }] }));
-          pass.draw(3);
-        }
-        pass.end();
-        cache.key = cs.key;
-      }
+    // Shadow caches (re-rendered only when their geometry changes — morphs, a moving bubble).
+    for (const slot of ["card", "look"] as const) {
+      const spec = plan.shadows[slot];
+      if (spec) this.renderShadow(ctx, enc, slot, spec);
     }
 
-    const pass = enc.beginPass({
-      label: "camera-group",
-      colorAttachments: [{ view: group.view, loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }],
-    });
-    pass.setScissorRect(b.x, b.y, b.width, b.height);
     const assetPipe = pipelines.get({
       id: "camera-asset", code: cameraAssetWGSL, format: GROUP_FORMAT, blend: "premultipliedOver",
       entries: [L.uniform(0), L.texture(1)],
     });
     let slot = 0;
-    const drawAsset = (view: GPUTextureView, inv: Mat3, origin: { x: number; y: number }, crop: Rect, fade: number, alphaOnly: boolean) => {
+    let camSlot = 0;
+    let cardSlot = 0;
+    let stackSlot = 0;
+    const drawAsset = (pass: GPURenderPassEncoder, view: GPUTextureView, inv: Mat3, origin: { x: number; y: number }, crop: Rect, fade: number, alphaOnly: boolean) => {
       const u = this.uni(slot++, device);
       // Pixel footprint in asset px (axis-aligned scale): the CI crop's AA coverage.
       const fpx = Math.max(1e-6, Math.abs(inv[0]));
@@ -672,22 +849,103 @@ export class CameraFeature {
       }));
       pass.draw(3);
     };
-
-    for (const l of plan.layers) {
-      if (l.kind === "asset") {
-        const bk = l.asset.baked;
-        drawAsset(l.asset.view, invert(l.xform), bk.origin, bk.crop, l.fade, l.alphaOnly);
-      } else if (l.kind === "cardShadow" && this.shadowCache && plan.cardShadow) {
-        drawAsset(this.shadowCache.view, IDENTITY, { x: 0, y: 0 }, { x: 0, y: 0, width: W, height: H }, 1, true);
-      } else if (l.kind === "camera") {
-        this.drawCamera(ctx, pass, plan, H);
+    const full: Rect = { x: 0, y: 0, width: W, height: H };
+    const drawLayers = (pass: GPURenderPassEncoder, layers: readonly Layer[]) => {
+      for (const l of layers) {
+        if (l.kind === "asset") {
+          const bk = l.asset.baked;
+          drawAsset(pass, l.asset.view, invert(l.xform), bk.origin, bk.crop, l.fade, l.alphaOnly);
+        } else if (l.kind === "shadow") {
+          const cache = this.shadowCaches[l.slot];
+          if (cache && plan.shadows[l.slot]) drawAsset(pass, cache.view, IDENTITY, { x: 0, y: 0 }, full, 1, true);
+        } else if (l.kind === "card") {
+          this.drawCard(ctx, pass, l, cardSlot++);
+        } else if (l.kind === "camera") {
+          this.drawCamera(ctx, pass, plan, l, camSlot++);
+        }
       }
+    };
+
+    // The group: the weighted stacks SUMMED (a cross-dissolve, §5), then the
+    // tag over them. A settled stack (weight 1, the others 0) draws straight
+    // into the cleared group; a cross-fading one renders into the scratch
+    // target and is ADDED scaled by its weight (premultiplied RGBA × w).
+    let pass: GPURenderPassEncoder | null = null;
+    let cleared = false;
+    const open = (): GPURenderPassEncoder => {
+      if (!pass) {
+        pass = enc.beginPass({
+          label: "camera-group",
+          colorAttachments: [{ view: group.view, loadOp: cleared ? "load" : "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }],
+        });
+        cleared = true;
+        pass.setScissorRect(b.x, b.y, b.width, b.height);
+      }
+      return pass;
+    };
+    const close = () => {
+      if (pass) (pass as GPURenderPassEncoder).end();
+      pass = null;
+    };
+    for (const stack of plan.stacks) {
+      if (stack.weight >= 1) {
+        drawLayers(open(), stack.layers);
+        continue;
+      }
+      close();
+      const scratch = this.ensureScratch(device, W, H);
+      const sp = enc.beginPass({
+        label: "camera-look-stack",
+        colorAttachments: [{ view: scratch.view, loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }],
+      });
+      sp.setScissorRect(b.x, b.y, b.width, b.height);
+      drawLayers(sp, stack.layers);
+      sp.end();
+      const gp = open();
+      while (this.stackU.length <= stackSlot) this.stackU.push(new Uniforms(device, 4, `camera-stack-u${this.stackU.length}`));
+      const su = this.stackU[stackSlot++]!;
+      su.write([stack.weight, 0, 0, 0]);
+      const sumPipe = pipelines.get({
+        id: "camera-stack", code: cameraStackWGSL, format: GROUP_FORMAT, blend: "add", entries: [L.uniform(0), L.texture(1)],
+      });
+      gp.setPipeline(sumPipe.pipeline);
+      gp.setBindGroup(0, device.createBindGroup({
+        layout: sumPipe.layout,
+        entries: [
+          { binding: 0, resource: { buffer: su.buffer } },
+          { binding: 1, resource: scratch.view },
+        ],
+      }));
+      gp.draw(3);
     }
-    pass.end();
+    drawLayers(open(), plan.top);
+    close();
   }
 
-  private drawCamera(ctx: PassContext, pass: GPURenderPassEncoder, plan: Plan, H: number): void {
+  /** The pop-out card: gradient through its rounded rect (cameraCardWGSL). */
+  private drawCard(ctx: PassContext, pass: GPURenderPassEncoder, card: CardLayer, slot: number): void {
     const { device, pipelines, scene } = ctx;
+    while (this.cardU.length <= slot) this.cardU.push(new Uniforms(device, 16, `camera-card-u${this.cardU.length}`));
+    const u = this.cardU[slot]!;
+    const top = srgbToWorking([popOutCardTop.red, popOutCardTop.green, popOutCardTop.blue], scene.workingSpace);
+    const bottom = srgbToWorking([popOutCardBottom.red, popOutCardBottom.green, popOutCardBottom.blue], scene.workingSpace);
+    u.write([
+      card.rect.x, card.rect.y, card.rect.width, card.rect.height,
+      card.radius, 0, 0, 0,
+      top[0], top[1], top[2], 1,
+      bottom[0], bottom[1], bottom[2], 1,
+    ]);
+    const { pipeline, layout } = pipelines.get({
+      id: "camera-card", code: cameraCardWGSL, format: GROUP_FORMAT, blend: "premultipliedOver", entries: [L.uniform(0)],
+    });
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, device.createBindGroup({ layout, entries: [{ binding: 0, resource: { buffer: u.buffer } }] }));
+    pass.draw(3);
+  }
+
+  private drawCamera(ctx: PassContext, pass: GPURenderPassEncoder, plan: Plan, layer: CameraLayer, slot: number): void {
+    const { device, pipelines, scene } = ctx;
+    const H = scene.target.height;
     const src = plan.source!;
     let binding: GPUExternalTexture | GPUTextureView;
     let cw: number;
@@ -715,12 +973,18 @@ export class CameraFeature {
     const adj = adjustmentsFromSettings(s);
     const identity = adjustmentsIdentity(adj);
     const preset = adj.filter !== "None" ? this.presetView(device, adj.filter as PresetName) : null;
-    const mask = plan.mask;
+    const clip = layer.clip;
     const maskAsset = this.statics?.assets.mask ?? null;
-    const mInv = mask.kind === "asset" ? invert(mask.xform) : IDENTITY;
-    const mb = maskAsset?.baked;
-    this.camU ??= new Uniforms(device, 52, "camera-u");
-    this.camU.write([
+    const mInv = clip.kind === "asset" ? invert(clip.xform) : IDENTITY;
+    const mb = clip.kind === "asset" ? maskAsset?.baked : undefined;
+    // bottomRounded: the generator rect (personClipMaskRect, Y-down) rides the mask-crop slot.
+    const mCrop = clip.kind === "bottomRounded" ? clip.maskRect : mb?.crop;
+    // Clip kind (cameraShaders.ts CamU.mode): 0 baked shape, 1 generator, 2 none, 3 bottom-rounded generator.
+    const kind = clip.kind === "asset" ? (maskAsset ? 0 : 1) : clip.kind === "roundedRect" ? 1 : clip.kind === "none" ? 2 : 3;
+    const radius = clip.kind === "roundedRect" || clip.kind === "bottomRounded" ? clip.radius : 0;
+    while (this.camU.length <= slot) this.camU.push(new Uniforms(device, 56, `camera-u${this.camU.length}`));
+    const u = this.camU[slot]!;
+    u.write([
       ...toRows(inv),
       cw, ch, s.cameraMirrored ? 1 : 0, 0,
       plan.rect.x, plan.rect.y, plan.rect.width, plan.rect.height,
@@ -731,29 +995,35 @@ export class CameraFeature {
       identity ? 1 : 0,
       ...toRows(mInv),
       mb?.origin.x ?? 0, mb?.origin.y ?? 0, 0, 0,
-      mb?.crop.x ?? 0, mb?.crop.y ?? 0, mb?.crop.width ?? 0, mb?.crop.height ?? 0,
-      mask.kind === "roundedRect" || !maskAsset ? 1 : 0,
-      mask.kind === "roundedRect" ? mask.radius : 0,
+      mCrop?.x ?? 0, mCrop?.y ?? 0, mCrop?.width ?? 0, mCrop?.height ?? 0,
+      kind,
+      radius,
       Math.max(1e-6, Math.abs(mInv[0])),
       Math.max(1e-6, Math.abs(mInv[4])),
+      layer.person ? 1 : 0,
+      clip.kind === "none" ? 1 : 2,
+      0,
+      0,
     ]);
+    const personView = layer.person && this.maskFeed && plan.maskIndex >= 0 ? this.maskFeed.view(device, plan.maskIndex) : this.dummyR8(device);
     const live = src.kind === "live";
     const { pipeline, layout } = pipelines.get({
       id: live ? "camera-live" : "camera-poster",
       code: live ? cameraLiveWGSL : cameraPosterWGSL,
       format: GROUP_FORMAT,
       blend: "premultipliedOver",
-      entries: [L.uniform(0), L.sampler(1), L.texture(2), live ? L.external(3) : L.texture(3), LUT_ENTRY(4)],
+      entries: [L.uniform(0), L.sampler(1), L.texture(2), live ? L.external(3) : L.texture(3), LUT_ENTRY(4), L.texture(5)],
     });
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, device.createBindGroup({
       layout,
       entries: [
-        { binding: 0, resource: { buffer: this.camU.buffer } },
+        { binding: 0, resource: { buffer: u.buffer } },
         { binding: 1, resource: pipelines.linearSampler() },
         { binding: 2, resource: maskAsset?.view ?? this.dummyRGBA(device) },
         { binding: 3, resource: binding },
         { binding: 4, resource: preset ?? this.presetView(device, null) },
+        { binding: 5, resource: personView },
       ],
     }));
     pass.draw(3);
@@ -788,6 +1058,16 @@ export class CameraFeature {
       this.dummy = t.createView();
     }
     return this.dummy;
+  }
+
+  /** Bound to the person-mask slot when no look is drawn (never sampled then). */
+  private dummyMask: GPUTextureView | null = null;
+  private dummyR8(device: GPUDevice): GPUTextureView {
+    if (!this.dummyMask) {
+      const t = device.createTexture({ label: "camera-dummy-mask", size: { width: 1, height: 1 }, format: "r8unorm", usage: GPUTextureUsage.TEXTURE_BINDING });
+      this.dummyMask = t.createView();
+    }
+    return this.dummyMask;
   }
 
   // ── GPU: composite ───────────────────────────────────────────────────────
@@ -841,18 +1121,30 @@ export class CameraFeature {
     this.source = null;
     for (const u of this.assetU) u.destroy();
     this.assetU = [];
-    this.camU?.destroy();
-    this.shadowU?.destroy();
+    for (const u of this.camU) u.destroy();
+    this.camU = [];
+    for (const u of this.cardU) u.destroy();
+    this.cardU = [];
+    for (const u of this.stackU) u.destroy();
+    this.stackU = [];
+    this.shadowU.card?.destroy();
+    this.shadowU.look?.destroy();
+    this.shadowU = { card: null, look: null };
     this.composeU?.destroy();
     this.group?.texture.destroy();
-    this.shadowCache?.texture.destroy();
+    this.scratch?.texture.destroy();
+    this.scratch = null;
+    this.shadowCaches.card?.texture.destroy();
+    this.shadowCaches.look?.texture.destroy();
+    this.shadowCaches = { card: null, look: null };
+    this.maskFeed?.dispose();
+    this.maskFeed = null;
     this.poster?.texture.destroy();
     for (const p of this.presets.values()) p.texture.destroy();
     this.presets.clear();
     if (this.statics) for (const a of Object.values(this.statics.assets)) a?.texture.destroy();
     this.statics = null;
     this.group = null;
-    this.shadowCache = null;
     this.poster = null;
   }
 }

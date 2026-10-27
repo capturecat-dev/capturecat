@@ -1209,6 +1209,18 @@ final class EditorStageViewController: NSViewController {
                 settings: self.project.settings,
                 trimEnd: self.project.effectiveTrimEnd)
             let showCameraOverlay = self.playback.showCameraOverlay(for: self.project)
+            // Camera looks: a FRESH mask or none (looks then draw as the
+            // plain bubble). Reading `revision` re-renders when a mask lands;
+            // a project that uses a look without one queues segmentation.
+            var cameraMask: CameraMaskTrack?
+            if self.project.usesCameraLook, let segmentation = AppState.current?.cameraSegmentation {
+                _ = segmentation.revision
+                cameraMask = segmentation.usableMask(for: self.project)
+                if cameraMask == nil {
+                    let project = self.project
+                    DispatchQueue.main.async { segmentation.ensureMask(for: project) }
+                }
+            }
             // Blur chrome renders from the compositor's preview-local ID;
             // reading the SHARED ID here (which also registers it with this
             // observation) keeps regions selected from outside the canvas —
@@ -1234,7 +1246,9 @@ final class EditorStageViewController: NSViewController {
                 selectedHighlightID: self.selection.selectedHighlightID,
                 selectedBlurID: compositor.localSelectedBlurID,
                 selectedDepthFocusID: self.selection.selectedDepthFocusID,
-                selectedZoomID: self.selection.selectedZoomID
+                selectedZoomID: self.selection.selectedZoomID,
+                cameraMask: cameraMask,
+                cameraSourceLeadIn: self.playback.cameraSourceLeadIn
             ))
             // Reading selectedAnnotationID above also registered it with this
             // observation, so selection changes re-run us and the pill follows.

@@ -79,6 +79,9 @@ ui/              React: shell, top bar, stage, transport, timeline (canvas),
                  inspector rail + panes, design tokens + primitives
 webmcp/          document.modelContext tool registration (same catalog as
                  the Mac MCP server's MCPServer+Catalog)
+segment/         camera background removal (MODNet worker) for the Cutout /
+                 Pop-out card looks — docs/camera-cutout.md (mask codec:
+                 core/mask/, job: state/cameraMask.ts)
 lab/             DEV-ONLY fixture loader (never in prod bundles)
 ```
 

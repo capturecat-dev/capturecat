@@ -46,6 +46,13 @@ final class PreviewCompositorView: NSView {
         /// Selected EFFECTS-lane zoom block — shows the on-canvas focal
         /// target (drag it on the preview to aim the zoom, CapCut-style).
         var selectedZoomID: UUID?
+        /// FRESH person mask for the camera looks (docs/camera-cutout.md §2);
+        /// nil — missing or stale — draws every look as the plain bubble.
+        var cameraMask: CameraMaskTrack? = nil
+        /// Seconds of leading gap the preview's normalized camera asset
+        /// trimmed: raw camera PTS = player item time + this (the mask is
+        /// keyed by raw PTS, like the exporter's camera reader).
+        var cameraSourceLeadIn: TimeInterval = 0
     }
 
     // MARK: - Layers
@@ -106,6 +113,31 @@ final class PreviewCompositorView: NSView {
     private let cameraStroke = CAShapeLayer()
     /// Name-tag pill riding the bubble (outside the clip — it may overhang).
     private let cameraTag = CALayer()
+    /// Camera LOOKS (docs/camera-cutout.md §4/§5). The existing bubble stack
+    /// (shadow, card shadow, ring, clip, stroke) lives in its own group so it
+    /// fades AS ONE by the bubble weight — the exporter fades the composed
+    /// stack — then the cutout and pop-out stacks fade over it, in that
+    /// order. At weight 1 the group is a plain container (no offscreen pass),
+    /// so projects without looks render exactly as before.
+    /// Holds the three weighted stacks (not the tag). While a cross-fade is
+    /// in flight it renders as ONE isolated group so the look stacks can be
+    /// ADDED onto the bubble stack (true cross-dissolve, contract §5)
+    /// instead of laid over the screen.
+    private let cameraStacksGroup = CALayer()
+    private let cameraBubbleStack = CALayer()
+    private let cameraCutoutStack = CALayer()
+    private let cameraCutoutClip = CALayer()
+    private let cameraCutoutVideo = CALayer()
+    private let cameraCutoutPoster = CALayer()
+    private let cameraPopStack = CALayer()
+    private let cameraPopShadow = CALayer()
+    private let cameraPopCard = CAGradientLayer()
+    private let cameraPopClip = CALayer()
+    private let cameraPopVideo = CALayer()
+    private let cameraPopPoster = CALayer()
+    private var lastLookWeights = CameraLayoutMath.LookWeights.none
+    /// Poster through mask frame 0 (cached per poster/adjustments/mask).
+    private var cachedLookPoster: (key: String, image: NSImage)?
     private let watermarkLayer = CALayer()
 
     private var videoDriver: VideoFrameLayerDriver?
@@ -471,9 +503,13 @@ final class PreviewCompositorView: NSView {
 
         cameraGroup.anchorPoint = .zero
         root.addSublayer(cameraGroup)
+        cameraStacksGroup.anchorPoint = .zero
+        cameraGroup.addSublayer(cameraStacksGroup)
+        cameraBubbleStack.anchorPoint = .zero
+        cameraStacksGroup.addSublayer(cameraBubbleStack)
         cameraShadow.shadowColor = NSColor.black.cgColor
         cameraShadow.shadowOpacity = 0.33 // SwiftUI .shadow(radius:) default alpha
-        cameraGroup.addSublayer(cameraShadow)
+        cameraBubbleStack.addSublayer(cameraShadow)
         // Card-style shadow for camera layout overrides — the camera tile
         // gets the FRAME's shadow treatment (radius/opacity/offset from the
         // card settings). Kept as a second layer so the morph is a crossfade
@@ -481,19 +517,55 @@ final class PreviewCompositorView: NSView {
         // images — one lerped shadow here would diverge mid-morph.
         cameraCardShadow.shadowColor = NSColor.black.cgColor
         cameraCardShadow.shadowOpacity = 0
-        cameraGroup.addSublayer(cameraCardShadow)
+        cameraBubbleStack.addSublayer(cameraCardShadow)
         // Outer ring-light glow — around the bubble, above the shadow, below
         // the clipped video (a physical ring light behind the camera).
         cameraRing.contentsGravity = .resize
-        cameraGroup.addSublayer(cameraRing)
+        cameraBubbleStack.addSublayer(cameraRing)
         cameraClip.masksToBounds = true
-        cameraGroup.addSublayer(cameraClip)
+        cameraBubbleStack.addSublayer(cameraClip)
         cameraClip.addSublayer(cameraVideo)
         cameraPoster.contentsGravity = .resizeAspectFill
         cameraClip.addSublayer(cameraPoster)
         cameraStroke.fillColor = nil
         cameraStroke.strokeColor = NSColor.white.withAlphaComponent(0.3).cgColor
-        cameraGroup.addSublayer(cameraStroke)
+        cameraBubbleStack.addSublayer(cameraStroke)
+        // Cutout: the masked person clipped to B — no card, ring or stroke.
+        cameraCutoutStack.anchorPoint = .zero
+        cameraCutoutStack.isHidden = true
+        cameraStacksGroup.addSublayer(cameraCutoutStack)
+        cameraCutoutClip.masksToBounds = true
+        cameraCutoutStack.addSublayer(cameraCutoutClip)
+        cameraCutoutVideo.contentsGravity = .resizeAspectFill
+        cameraCutoutClip.addSublayer(cameraCutoutVideo)
+        cameraCutoutPoster.contentsGravity = .resizeAspectFill
+        cameraCutoutClip.addSublayer(cameraCutoutPoster)
+        // Pop-out card: bubble shadow on the card's rounded rect, the shared
+        // gradient raster, then the masked person in B with only its BOTTOM
+        // corners rounded, so the head rises above the card's top edge.
+        cameraPopStack.anchorPoint = .zero
+        cameraPopStack.isHidden = true
+        cameraStacksGroup.addSublayer(cameraPopStack)
+        cameraPopShadow.shadowColor = NSColor.black.cgColor
+        cameraPopShadow.shadowOffset = .zero
+        cameraPopStack.addSublayer(cameraPopShadow)
+        // The card: a vertical sRGB gradient, top colour at the card's top
+        // edge (Y-down tree), rounded with the card radius.
+        let top = CameraCutoutMath.cardTopColor, bottom = CameraCutoutMath.cardBottomColor
+        cameraPopCard.colors = [
+            CGColor(srgbRed: top.r, green: top.g, blue: top.b, alpha: 1),
+            CGColor(srgbRed: bottom.r, green: bottom.g, blue: bottom.b, alpha: 1),
+        ]
+        cameraPopCard.startPoint = CGPoint(x: 0.5, y: 0)
+        cameraPopCard.endPoint = CGPoint(x: 0.5, y: 1)
+        cameraPopCard.masksToBounds = true
+        cameraPopCard.cornerCurve = .circular
+        cameraPopStack.addSublayer(cameraPopCard)
+        cameraPopStack.addSublayer(cameraPopClip)
+        cameraPopVideo.contentsGravity = .resizeAspectFill
+        cameraPopClip.addSublayer(cameraPopVideo)
+        cameraPopPoster.contentsGravity = .resizeAspectFill
+        cameraPopClip.addSublayer(cameraPopPoster)
         cameraTag.contentsGravity = .resize
         cameraGroup.addSublayer(cameraTag)
 
@@ -506,7 +578,7 @@ final class PreviewCompositorView: NSView {
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         let scale = effectiveScale
-        for l in [subtitleLayer, keystrokeLayer, menuBarLayer, cursorLayer, watermarkLayer, posterLayer, cameraPoster, cameraRing, cameraTag, backgroundImage] {
+        for l in [subtitleLayer, keystrokeLayer, menuBarLayer, cursorLayer, watermarkLayer, posterLayer, cameraPoster, cameraRing, cameraTag, backgroundImage, cameraCutoutPoster, cameraPopPoster] {
             l.contentsScale = scale
         }
     }
@@ -2213,6 +2285,11 @@ final class PreviewCompositorView: NSView {
         cameraGroup.isHidden = !show
         lastCameraRect = nil
         guard show else { return }
+        // Camera looks — weights only when a FRESH mask is at hand; without
+        // one every look draws as the plain bubble (contract §2).
+        let weights = input.cameraMask == nil ? CameraLayoutMath.LookWeights.none
+            : CameraLayoutMath.lookWeights(at: input.currentTime, regions: input.project.cameraLayoutRegions)
+        lastLookWeights = weights
 
         if !camLayout.isPlainBubble, let overrideRect = camLayout.cameraRect {
             // The camera IS the card here: card corner treatment, no bubble
@@ -2297,12 +2374,18 @@ final class PreviewCompositorView: NSView {
                         player: player, layer: cameraVideo, gravity: .resizeAspectFill)
                 }
                 cameraDriver?.cameraAdjustments = adjustments
+                configureCameraDriverMask(input, weights: weights)
                 cameraPoster.isHidden = cameraDriver?.hasFrame == true
             } else {
                 cameraPoster.isHidden = input.cameraPosterImage == nil
             }
             cameraPoster.frame = local
             cameraPoster.contents = adjustedPosterImage(input.cameraPosterImage, adjustments: adjustments)
+            let scaledBase = s.effectiveCameraSize * ReactiveCameraLayout.canvasFitScale(for: canvas)
+            renderCameraLooks(
+                input, local: local, weights: weights,
+                sizeFactor: CameraCutoutMath.sizeFactor(rect: local, baseWidth: baseBubbleWidth(s, input: input, scaledBase: scaledBase)),
+                adjustments: adjustments)
             return
         }
 
@@ -2470,12 +2553,162 @@ final class PreviewCompositorView: NSView {
                 cameraDriver = VideoFrameLayerDriver(player: player, layer: cameraVideo, gravity: .resizeAspectFill)
             }
             cameraDriver?.cameraAdjustments = adjustments
+            configureCameraDriverMask(input, weights: weights)
             cameraPoster.isHidden = cameraDriver?.hasFrame == true
         } else {
             cameraPoster.isHidden = input.cameraPosterImage == nil
         }
         cameraPoster.frame = local
         cameraPoster.contents = adjustedPosterImage(input.cameraPosterImage, adjustments: adjustments)
+        renderCameraLooks(
+            input, local: local, weights: weights,
+            sizeFactor: CameraCutoutMath.sizeFactor(rect: local, baseWidth: baseBubbleWidth(s, input: input, scaledBase: scaledBase)),
+            adjustments: adjustments)
+    }
+
+    // MARK: - Camera looks (docs/camera-cutout.md §4/§5)
+
+    /// Width of the base (zoom-envelope 1) bubble — the look shadow scales by
+    /// B.width over it, like the exporter's baked bubble shadow.
+    private func baseBubbleWidth(_ s: ProjectSettings, input: FrameInput, scaledBase: CGFloat) -> CGFloat {
+        ReactiveCameraLayout.bubbleSize(
+            baseSize: scaledBase,
+            aspect: ReactiveCameraLayout.shapeAspect(
+                shape: s.cameraShape, videoAspect: Double(input.cameraVideoAspect),
+                orientation: s.cameraOrientation)
+        ).width
+    }
+
+    /// Hands the camera driver what it needs to produce the MASKED frame the
+    /// look layers show: the mask track, the raw-PTS lead-in, and whether any
+    /// look draws this frame (no look → no extra CI pass).
+    private func configureCameraDriverMask(_ input: FrameInput, weights: CameraLayoutMath.LookWeights) {
+        guard let driver = cameraDriver else { return }
+        driver.maskedLayers = [cameraCutoutVideo, cameraPopVideo]
+        driver.maskSourceLeadIn = input.cameraSourceLeadIn
+        driver.maskTrack = input.cameraMask
+        driver.producesMasked = weights.isActive
+    }
+
+    /// Lays out and weights the three camera stacks inside `cameraGroup`
+    /// (local space = B, origin zero): the existing bubble stack faded by
+    /// `weights.bubble`, then cutout, then pop-out — the exporter's
+    /// compositeCamera stacks them in the same order with the same weights.
+    /// The tag stays above all three at full strength.
+    private func renderCameraLooks(
+        _ input: FrameInput, local: CGRect, weights: CameraLayoutMath.LookWeights,
+        sizeFactor: CGFloat, adjustments: CameraStyleMath.Adjustments
+    ) {
+        cameraStacksGroup.frame = local
+        cameraBubbleStack.frame = local
+        cameraBubbleStack.opacity = Float(min(1, max(0, weights.bubble)))
+        cameraBubbleStack.isHidden = weights.bubble <= 0
+        cameraCutoutStack.isHidden = weights.cutout <= 0
+        cameraPopStack.isHidden = weights.popOut <= 0
+        // True cross-dissolve (contract §5): Σ stack × weight. Only while two
+        // stacks share the frame — a settled look (or none) is one stack at
+        // weight 1 and composites plainly. The group renders isolated
+        // (rasterized onto transparent) so the look stacks ADD onto the bubble
+        // stack, not onto the screen behind it; layer opacity is the weight.
+        let visibleStacks = [weights.bubble, weights.cutout, weights.popOut].filter { $0 > 0 }.count
+        let dissolving = visibleStacks > 1
+        if dissolving != (cameraStacksGroup.shouldRasterize) {
+            cameraStacksGroup.shouldRasterize = dissolving
+            let add: Any? = dissolving ? CIFilter(name: "CIAdditionCompositing") : nil
+            cameraCutoutStack.compositingFilter = add
+            cameraPopStack.compositingFilter = add
+        }
+        if dissolving { cameraStacksGroup.rasterizationScale = effectiveScale }
+        guard weights.isActive else { return }
+
+        let s = input.project.settings
+        let mirror = s.cameraMirrored
+            ? CATransform3DConcat(CATransform3DMakeScale(-1, 1, 1),
+                                  CATransform3DMakeTranslation(local.width, 0, 0))
+            : CATransform3DIdentity
+        // Video vs poster follows the bubble's own choice exactly.
+        let showPoster = !cameraPoster.isHidden
+        let showVideo = input.cameraPlayer != nil && cameraDriver?.hasFrame == true
+        let poster = showPoster
+            ? lookPosterImage(input.cameraPosterImage, adjustments: adjustments, mask: input.cameraMask)
+            : nil
+        let aspect = Double(input.cameraVideoAspect)
+
+        func place(video: CALayer, poster posterLayer: CALayer, in clip: CGRect) {
+            let inner = CGRect(origin: .zero, size: clip.size)
+            video.frame = inner
+            video.transform = mirror
+            video.isHidden = !showVideo
+            posterLayer.frame = inner
+            posterLayer.transform = mirror
+            posterLayer.contents = poster
+            posterLayer.isHidden = poster == nil
+        }
+
+        if weights.cutout > 0 {
+            let g = CameraCutoutMath.geometry(look: .cutout, bubbleRect: local, cameraAspect: aspect)
+            cameraCutoutStack.frame = local
+            cameraCutoutStack.opacity = Float(min(1, weights.cutout))
+            cameraCutoutClip.frame = g.clipRect
+            place(video: cameraCutoutVideo, poster: cameraCutoutPoster, in: g.clipRect)
+        }
+
+        if weights.popOut > 0 {
+            let g = CameraCutoutMath.geometry(look: .popOut, bubbleRect: local, cameraAspect: aspect)
+            cameraPopStack.frame = local
+            cameraPopStack.opacity = Float(min(1, weights.popOut))
+            if let card = g.cardRect, let cardPath = CameraCutoutMath.cardPath(g) {
+                cameraPopShadow.isHidden = false
+                cameraPopShadow.frame = local
+                cameraPopShadow.shadowPath = cardPath
+                cameraPopShadow.shadowRadius = CameraCutoutMath.cardShadowRadius * sizeFactor
+                cameraPopShadow.shadowOpacity = CameraCutoutMath.cardShadowOpacity
+                cameraPopCard.isHidden = false
+                cameraPopCard.frame = card
+                cameraPopCard.cornerRadius = min(g.cardCornerRadius, min(card.width, card.height) / 2)
+            } else {
+                cameraPopShadow.isHidden = true
+                cameraPopCard.isHidden = true
+            }
+            // Person clip: the rounded rect over B extended UP by r, cut to
+            // B (masksToBounds) — only the bottom corners round, as the
+            // exporter's generator-cropped-to-B mask does.
+            cameraPopClip.frame = g.clipRect
+            cameraPopClip.masksToBounds = true
+            let clipMask = CAShapeLayer()
+            var localGeometry = g
+            localGeometry.clipRect = CGRect(origin: .zero, size: g.clipRect.size)
+            clipMask.path = CameraCutoutMath.personClipPath(localGeometry, yAxisIsUp: false)
+            cameraPopClip.mask = clipMask
+            place(video: cameraPopVideo, poster: cameraPopPoster, in: g.clipRect)
+        }
+    }
+
+    /// The poster through mask frame 0 — what a look shows before the camera
+    /// starts (contract §2), via the SAME CameraStyleMath steps the live
+    /// frames take. Unmirrored here: the layer's mirror transform flips poster
+    /// and mask together, as the exporter's mirrored mask does.
+    private func lookPosterImage(
+        _ poster: NSImage?, adjustments: CameraStyleMath.Adjustments, mask: CameraMaskTrack?
+    ) -> NSImage? {
+        // Defect injection for `--preview-parity`'s look self-test: the
+        // person mask is NOT applied (the structural check must then fail).
+        if Self.debugUnmaskedLooks { return adjustedPosterImage(poster, adjustments: adjustments) }
+        guard let poster, let mask else { return nil }
+        let key = "\(ObjectIdentifier(poster).hashValue):\(adjustments.brightness):\(adjustments.contrast):\(adjustments.saturation):\(adjustments.hue):\(adjustments.filter.rawValue):\(mask.token)"
+        if let cached = cachedLookPoster, cached.key == key { return cached.image }
+        guard let cg = poster.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let alpha = try? CameraMaskTrack.Decoder(track: mask).frame(0),
+              let maskCI = CameraStyleMath.maskCIImage(
+                  alpha: alpha, width: mask.header.width, height: mask.header.height) else { return nil }
+        let adjusted = CameraStyleMath.adjustedImage(CIImage(cgImage: cg), adjustments: adjustments)
+        let masked = CameraStyleMath.maskedImage(adjusted, mask: maskCI, mirrored: false)
+        guard let out = VideoFrameLayerDriver.sharedCIContext.createCGImage(masked, from: masked.extent) else {
+            return nil
+        }
+        let image = NSImage(cgImage: out, size: poster.size)
+        cachedLookPoster = (key, image)
+        return image
     }
 
     /// Poster through the shared CameraStyleMath pipeline (identity = the
@@ -2518,6 +2751,17 @@ final class PreviewCompositorView: NSView {
     func debugCameraRingLayer() -> CALayer { cameraRing }
     func debugCameraTagLayer() -> CALayer { cameraTag }
     func debugCameraGroupOpacity() -> Float { cameraGroup.opacity }
+    /// Defect injection (`--preview-parity` look self-test only): draw the
+    /// looks WITHOUT the person mask. Never set in a normal launch.
+    static var debugUnmaskedLooks = false
+    /// Camera-look weights resolved for the last render (contract §4).
+    func debugCameraLookWeights() -> CameraLayoutMath.LookWeights { lastLookWeights }
+    /// Opacities of the bubble / cutout / pop-out stacks as rendered.
+    func debugCameraStackOpacities() -> (bubble: Float, cutout: Float, popOut: Float) {
+        (cameraBubbleStack.isHidden ? 0 : cameraBubbleStack.opacity,
+         cameraCutoutStack.isHidden ? 0 : cameraCutoutStack.opacity,
+         cameraPopStack.isHidden ? 0 : cameraPopStack.opacity)
+    }
     func debugCameraGroupTransform() -> CATransform3D { cameraGroup.transform }
 
     // MARK: - Watermark
@@ -2799,6 +3043,39 @@ final class VideoFrameLayerDriver {
     /// layer contents path stays identical to the raw path).
     private var adjustedBuffer: CVPixelBuffer?
 
+    // ── Camera looks (docs/camera-cutout.md §2/§5) ──────────────────────────
+    /// Layers that show the frame × person mask (the look stacks' videos).
+    var maskedLayers: [CALayer] = []
+    /// The fresh mask track; nil = no masked output.
+    var maskTrack: CameraMaskTrack? {
+        didSet {
+            guard maskTrack?.token != oldValue?.token else { return }
+            maskDecoder = maskTrack.map { CameraMaskTrack.Decoder(track: $0) }
+            representIfMasked()
+        }
+    }
+    /// Raw camera PTS = player item time + this (the preview plays a
+    /// normalized asset that trimmed the leading gap off).
+    var maskSourceLeadIn: TimeInterval = 0 {
+        didSet { if maskSourceLeadIn != oldValue { representIfMasked() } }
+    }
+    /// Whether any look draws this frame — no look, no extra CI pass.
+    var producesMasked = false {
+        didSet { if producesMasked != oldValue { representIfMasked() } }
+    }
+    private var maskDecoder: CameraMaskTrack.Decoder?
+    private var maskedBuffer: CVPixelBuffer?
+    /// Item time of the DISPLAYED frame — the mask is looked up by the frame
+    /// actually drawn, never the target time (contract §2).
+    private var displayedItemSeconds: Double = 0
+    /// Mask frame index used for the last masked frame (probes).
+    private(set) var lastMaskIndex = -1
+
+    private func representIfMasked() {
+        guard producesMasked, let buffer = displayedPixelBuffer else { return }
+        present(buffer)
+    }
+
     init(player: AVPlayer, layer: CALayer, gravity: CALayerContentsGravity = .resize) {
         self.player = player
         self.layer = layer
@@ -2829,8 +3106,11 @@ final class VideoFrameLayerDriver {
         attachOutputIfNeeded()
         guard let output else { return }
         let itemTime = player.currentTime()
+        var displayTime = CMTime.invalid
         guard output.hasNewPixelBuffer(forItemTime: itemTime),
-              let pixelBuffer = output.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: nil) else { return }
+              let pixelBuffer = output.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: &displayTime) else { return }
+        displayedItemSeconds = displayTime.isValid && displayTime.seconds.isFinite
+            ? displayTime.seconds : itemTime.seconds
         present(pixelBuffer)
     }
 
@@ -2846,13 +3126,52 @@ final class VideoFrameLayerDriver {
                 ?? CVPixelBufferGetIOSurface(pixelBuffer)?.takeUnretainedValue()
         }
         guard let surface else { return }
+        let masked = producesMasked && !maskedLayers.isEmpty ? maskedSurface(for: pixelBuffer) : nil
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         layer?.contents = surface
+        if let masked {
+            for maskedLayer in maskedLayers { maskedLayer.contents = masked }
+        }
         CATransaction.commit()
         displayedPixelBuffer = pixelBuffer
         hasFrame = true
         frameToken &+= 1
+    }
+
+    /// The displayed frame × the person mask at its raw PTS, through the
+    /// SAME CameraStyleMath steps the exporter runs (adjust, then
+    /// `maskedImage`). Unmirrored: the look layers carry the mirror
+    /// transform, which flips frame and mask together.
+    private func maskedSurface(for pixelBuffer: CVPixelBuffer) -> IOSurface? {
+        guard let decoder = maskDecoder else { return nil }
+        let rawPTS = displayedItemSeconds + maskSourceLeadIn
+        guard let (index, alpha) = try? decoder.alpha(at: rawPTS),
+              let maskCI = CameraStyleMath.maskCIImage(
+                  alpha: alpha, width: decoder.track.header.width, height: decoder.track.header.height)
+        else { return nil }
+        lastMaskIndex = index
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        if maskedBuffer == nil
+            || CVPixelBufferGetWidth(maskedBuffer!) != width
+            || CVPixelBufferGetHeight(maskedBuffer!) != height {
+            var created: CVPixelBuffer?
+            CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA, [
+                kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any],
+            ] as CFDictionary, &created)
+            maskedBuffer = created
+        }
+        guard let dest = maskedBuffer else { return nil }
+        let adjusted = CameraStyleMath.adjustedImage(
+            CIImage(cvPixelBuffer: pixelBuffer), adjustments: cameraAdjustments)
+        let masked = CameraStyleMath.maskedImage(adjusted, mask: maskCI, mirrored: false)
+        Self.sharedCIContext.render(
+            masked, to: dest,
+            bounds: CGRect(x: 0, y: 0, width: width, height: height),
+            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
+        )
+        return CVPixelBufferGetIOSurface(dest)?.takeUnretainedValue()
     }
 
     private func adjustedSurface(for pixelBuffer: CVPixelBuffer) -> IOSurface? {

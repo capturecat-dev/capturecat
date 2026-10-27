@@ -17,6 +17,7 @@ import { configureCanvas, EngineCapabilityError, initGpu, type GpuContext } from
 import { cardGeometry, cmTime600, resolvedOutputSize, type Size } from "./layout";
 import { IDENTITY, scaleAbout, type Mat3 } from "./mat3";
 import { disposeSceneAssets, EMPTY_ASSETS, loadSceneAssets, missingSceneAssets, refsOf, type SceneAssets } from "./media/assets";
+import { parseCameraMask, type CameraMaskTrack } from "../core/mask/cameraMaskCodec";
 import { DemuxedVideo } from "./media/demux";
 import { currentUrl, LiveUrlTable, liveUrlEntries } from "./media/liveUrls";
 import { VideoStream } from "./media/videoStream";
@@ -168,7 +169,7 @@ export class Engine {
     this.doc = rawProject as Record<string, unknown>;
     this.core = parseCore(rawProject);
     this.renderMedia = media;
-    this.assets = assets;
+    this.assets = this.withDeviceMask(assets);
     this.timeMap = createTimeMap(project, demux.info.duration, this.core);
     this.workingSpace = demux.info.workingSpace;
     this.canvasSpace = configureCanvas(this.context, this.gpu, this.workingSpace);
@@ -207,6 +208,7 @@ export class Engine {
   }
 
   private unload(): void {
+    this.deviceMask = null;
     if (this.displayed && this.stream) this.stream.cache.unpin(this.displayed.index);
     this.displayed = null;
     this.stream?.dispose();
@@ -247,7 +249,7 @@ export class Engine {
       void loadSceneAssets(this.doc, media).then((assets) => {
         if (this.disposed || media !== this.renderMedia) return assets.images.forEach((b) => b.close());
         disposeSceneAssets(this.assets);
-        this.assets = assets;
+        this.assets = this.withDeviceMask(assets);
         this.rebuildScene();
         this.requestFrame(true);
       });
@@ -281,7 +283,7 @@ export class Engine {
     void loadSceneAssets(this.doc, media).then((assets) => {
       if (this.disposed || media !== this.renderMedia) return assets.images.forEach((b) => b.close());
       disposeSceneAssets(this.assets);
-      this.assets = assets;
+      this.assets = this.withDeviceMask(assets);
       this.rebuildScene();
       this.requestFrame(true);
     });
@@ -431,6 +433,32 @@ export class Engine {
 
     if (d.forceLayer !== undefined) this.graph.forceLayer = d.forceLayer;
     this.requestFrame(true);
+  }
+
+  /**
+   * A camera person mask produced on this device (segment/): swapped into the
+   * scene assets at once — the upload that makes it the project's file lands
+   * later, and a reload then fetches the same bytes.
+   */
+  setCameraMask(bytes: Uint8Array): void {
+    let track: CameraMaskTrack;
+    try {
+      track = parseCameraMask(bytes);
+    } catch (error) {
+      this.post({ type: "error", code: "camera", message: `Camera mask unreadable: ${String(error)}` });
+      return;
+    }
+    this.deviceMask = track;
+    this.assets = { ...this.assets, cameraMask: track };
+    if (!this.media) return;
+    this.rebuildScene();
+    this.requestFrame(true);
+  }
+
+  /** A mask this device produced wins over a fetched one (the fetch may still be the old file). */
+  private deviceMask: CameraMaskTrack | null = null;
+  private withDeviceMask(assets: SceneAssets): SceneAssets {
+    return this.deviceMask ? { ...assets, cameraMask: this.deviceMask } : assets;
   }
 
   /** The stage's in-place label editor opened/closed (Mac `Chrome.editingID`). */

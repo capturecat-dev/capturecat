@@ -654,6 +654,14 @@ final class TimelineViewController: NSViewController {
             .init(icon: "rectangle.split.2x1", title: "Camera: Side by Side",
                   detail: "Screen shrinks left, webcam fills the right",
                   isEnabled: hasRecordedCamera) { [weak self] in self?.addCameraLayoutRegion(mode: .sideBySide) },
+            .init(icon: Self.symbol("person.and.background.dotted", fallback: "person.fill"),
+                  title: "Camera: \(CameraBubbleLook.cutout.displayName)",
+                  detail: "Background removed — you, right over the screen",
+                  isEnabled: hasRecordedCamera) { [weak self] in self?.addCameraLayoutRegion(mode: .bubble, look: .cutout) },
+            .init(icon: Self.symbol("person.crop.artframe", fallback: "person.crop.square"),
+                  title: "Camera: \(CameraBubbleLook.popOut.displayName)",
+                  detail: "You on a gradient card, head popping out the top",
+                  isEnabled: hasRecordedCamera) { [weak self] in self?.addCameraLayoutRegion(mode: .bubble, look: .popOut) },
             .init(icon: "person.crop.rectangle.badge.xmark", title: "Camera: Hide",
                   detail: "No webcam for a span — screen only",
                   isEnabled: hasRecordedCamera) { [weak self] in self?.addCameraLayoutRegion(mode: .screenOnly) },
@@ -1315,7 +1323,7 @@ final class TimelineViewController: NSViewController {
                     isHighlight: false,
                     startTime: map.outputTime(forSource: region.startTime),
                     endTime: map.outputTime(forSource: region.endTime),
-                    label: "Camera: \(region.mode.displayName)",
+                    label: "Camera: \(region.effectiveLook?.displayName ?? region.mode.displayName)",
                     isSelected: selectedCameraLayoutID == region.id
                 )
             }
@@ -1937,7 +1945,12 @@ final class TimelineViewController: NSViewController {
 
     // MARK: - Camera layout regions (FOCUS lane)
 
-    private func addCameraLayoutRegion(mode: CameraLayoutMode) {
+    /// An SF Symbol name when this OS has it, else the fallback.
+    private static func symbol(_ name: String, fallback: String) -> String {
+        NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil ? name : fallback
+    }
+
+    private func addCameraLayoutRegion(mode: CameraLayoutMode, look: CameraBubbleLook? = nil) {
         // Playhead near the start = "this is my intro": snap to 0 so the
         // video OPENS on the arrangement (CameraLayoutMath renders a block
         // at t=0 settled from frame one, no ease-in from the bubble).
@@ -1955,14 +1968,17 @@ final class TimelineViewController: NSViewController {
         )
         guard start < end else { NSSound.beep(); return } // lane full
 
-        let region = CameraLayoutRegion(startTime: start, endTime: end, mode: mode)
+        let region = CameraLayoutRegion(startTime: start, endTime: end, mode: mode, look: look)
         project.cameraLayoutRegions.append(region)
         selectedCameraLayoutID = region.id
+        // A look needs the person mask — start segmenting now rather than on
+        // the next preview render (CameraSegmentation is idempotent).
+        if look != nil { AppState.current?.cameraSegmentation.ensureMask(for: project) }
 
         undoManager?.registerUndo(withTarget: project) { project in
             project.cameraLayoutRegions.removeAll { $0.id == region.id }
         }
-        undoManager?.setActionName("Add Camera Layout")
+        undoManager?.setActionName(look.map { "Add \($0.displayName)" } ?? "Add Camera Layout")
     }
 
     private func deleteCameraLayoutRegion(id: UUID) {

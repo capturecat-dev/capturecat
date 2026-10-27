@@ -95,6 +95,9 @@ async function handle(msg: ToWorker): Promise<void> {
     case "editingAnnotation":
       engine.setEditingAnnotation(msg.id);
       break;
+    case "setCameraMask":
+      engine.setCameraMask(new Uint8Array(msg.bytes));
+      break;
     case "dispose":
       engine.dispose();
       engine = null;

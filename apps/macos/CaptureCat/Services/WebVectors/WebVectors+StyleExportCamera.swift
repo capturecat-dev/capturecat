@@ -29,7 +29,7 @@ extension WebVectors {
                 build: exportCameraStaticsCases),
             WebVectorUnit(
                 name: "exportCameraFrame",
-                notes: "VERBATIM ORACLE of the per-frame camera flow (1445-1475, 1919-1990, 2197-2240): REAL cameraRect / bubbleApproxCornerRadius / CameraLayoutMath.resolve / cardTransform, then the override-tile vs plain-bubble decision, asset transform, card shadow, opacity and tilt",
+                notes: "VERBATIM ORACLE of the per-frame camera flow (1445-1475, 1919-1990, 2197-2240): REAL cameraRect / bubbleApproxCornerRadius / CameraLayoutMath.resolve / cardTransform, then the override-tile vs plain-bubble decision, asset transform, card shadow, opacity and tilt; plus the camera LOOKS stage (docs/camera-cutout.md): lookWeights gated on a fresh mask (input.maskAvailable) and the camera, and per drawn frame the look rect (resolve's tile or the plain bubble), bubble weight, size factor, card-shadow sigma, mask frame choice and REAL CameraCutoutMath geometry in Y-up",
                 build: exportCameraFrameCases),
             WebVectorUnit(
                 name: "exportCameraReader",
@@ -351,7 +351,11 @@ extension WebVectors {
     private static func exportCameraFrameCases() -> [WV] {
         var rng = WVRandom(seed: "exportCameraFrame")
         var cases: [WV] = []
-        for _ in 0..<500 {
+        for caseIndex in 0..<500 {
+            // Drawn from its own stream so the main stream (and every other
+            // input of this unit) is unchanged by the looks stage.
+            var maskRng = WVRandom(seed: "exportCameraFrame-mask-\(caseIndex)")
+            let maskAvailable = maskRng.bool(0.75)
             let s = randomCameraSettings(&rng)
             let output = rng.pick(Array(cameraOutputSizes.dropLast()))
             let preview: CGSize = rng.bool(0.6) ? .zero : rng.size(200, 2000)
@@ -394,6 +398,36 @@ extension WebVectors {
                     hasCamera: o.baseRect != nil)
                 let cameraTargetTime = t - offset
                 let source: String = (cameraTargetTime >= 0 && decoded) ? "live" : (poster ? "poster" : "none")
+                // VERBATIM look gate: a fresh mask AND the camera statics.
+                let lookWeights: CameraLayoutMath.LookWeights = maskAvailable && o.baseRect != nil
+                    ? CameraLayoutMath.lookWeights(at: t, regions: regions) : .none
+                var looks: WV = .null
+                func looksWV(rect: CGRect, baseRect: CGRect) -> WV {
+                    guard lookWeights.isActive else { return .null }
+                    let aspect = natural.width > 0 && natural.height > 0 ? Double(natural.width / natural.height) : 1
+                    let sizeFactor = CameraCutoutMath.sizeFactor(rect: rect, baseWidth: baseRect.width)
+                    func geometry(_ look: CameraBubbleLook) -> WV {
+                        let g = CameraCutoutMath.geometry(look: look, bubbleRect: rect, cameraAspect: aspect, yAxisIsUp: true)
+                        var out: WV = ["personRect": g.personRect.wv, "clipRect": g.clipRect.wv,
+                                       "clipBottomCornerRadius": g.clipBottomCornerRadius.wv,
+                                       "cardRect": g.cardRect.map { $0.wv } ?? .null, "cardCornerRadius": g.cardCornerRadius.wv]
+                        if look == .popOut {
+                            // VERBATIM popOutCardStack extents (Y-up).
+                            let sigma = CameraCutoutMath.cardShadowRadius * canvasScale * sizeFactor
+                            out = out
+                                .setting("personClipMaskRect", CameraCutoutMath.personClipMaskRect(g, yAxisIsUp: true).wv)
+                                .setting("cardShadowExtent", (g.cardRect.map { $0.insetBy(dx: -(sigma * 4 + 4), dy: -(sigma * 4 + 4)).wv }) ?? .null)
+                        }
+                        return out
+                    }
+                    return [
+                        "rect": rect.wv, "bubbleWeight": lookWeights.bubble.wv, "sizeFactor": sizeFactor.wv,
+                        "shadowSigma": (CameraCutoutMath.cardShadowRadius * canvasScale * sizeFactor).wv,
+                        "maskFrame": .str(source == "live" ? "live" : "poster"),
+                        "cutout": lookWeights.cutout > 0 ? geometry(.cutout) : .null,
+                        "popOut": lookWeights.popOut > 0 ? geometry(.popOut) : .null,
+                    ]
+                }
                 var path = "none"
                 var plain: WV = .null
                 var override: WV = .null
@@ -418,6 +452,7 @@ extension WebVectors {
                             ]
                         }
                         path = "override"
+                        looks = looksWV(rect: rect, baseRect: baseRect)
                         override = [
                             "rect": rect.wv, "maskRadius": max(0, radius).wv, "radius": radius.wv, "chrome": chrome.wv,
                             "chromeVisible": (chrome > 0.01).wv, "assetTransform": assetXform.wv, "cardness": cardness.wv,
@@ -433,6 +468,7 @@ extension WebVectors {
                         let assetXform = CGAffineTransform(scaleX: sx, y: sy)
                             .concatenating(CGAffineTransform(translationX: tx, y: ty))
                         path = "plain"
+                        looks = looksWV(rect: dynRect, baseRect: baseRect)
                         plain = ["rect": dynRect.wv, "assetTransform": assetXform.wv, "opacity": s.cameraOpacity.wv,
                                  "tiltPitch": s.cameraTiltPitch.wv, "tiltYaw": s.cameraTiltYaw.wv]
                     }
@@ -445,6 +481,8 @@ extension WebVectors {
                     "cardTransform": CameraLayoutMath.cardTransform(camLayout, videoRect: videoRect).wv,
                     "cameraTargetTime": cameraTargetTime.wv, "source": .str(source), "path": .str(path),
                     "plain": plain, "override": override,
+                    "lookWeights": ["cutout": lookWeights.cutout.wv, "popOut": lookWeights.popOut.wv],
+                    "looks": looks,
                 ])
             }
             let measurements = o.baseRect.map { tagMeasurements(s, bubbleWidth: $0.width) } ?? []
@@ -452,7 +490,7 @@ extension WebVectors {
                 ["settings": cameraSettingsWV(s), "outputSize": output.wv, "previewCanvasSize": preview.wv,
                  "cameraNaturalSize": natural.wv, "hasCameraReader": hasReader.wv, "measurements": .arr(measurements),
                  "regions": .arr(regions.map(styleRegionWV)), "videoRect": videoRect.wv, "cameraTimeOffset": offset.wv,
-                 "frames": .arr(frameInputs)],
+                 "maskAvailable": maskAvailable.wv, "frames": .arr(frameInputs)],
                 ["frames": .arr(frameOutputs)]
             ))
         }

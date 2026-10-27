@@ -62,7 +62,9 @@ final class InspectorColumnAppKit: NSView {
             .contains { $0.shortcut != nil } ?? false
         cameraPane = CameraSettingsPaneAppKit(
             settings: project.settings,
-            hasRecordedCamera: project.cameraVideoURL != nil
+            hasRecordedCamera: project.cameraVideoURL != nil,
+            project: project,
+            segmentation: AppState.current?.cameraSegmentation
         )
         audioPane = AudioSettingsPaneAppKit(settings: project.settings)
         feelPane = MotionFeelPaneAppKit(settings: project.settings)

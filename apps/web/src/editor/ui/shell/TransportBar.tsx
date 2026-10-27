@@ -13,6 +13,7 @@ import { formatTimecode } from "../timeline/snap";
 import { M } from "../timeline/metrics";
 import type {
   AnnotationPick,
+  CameraMaskChip,
   EditorShellCallbacks,
   EffectsPick,
   FocusPick,
@@ -44,7 +45,40 @@ function effectsRows(project: ShellProjectInfo): PickerRow<EffectsPick>[] {
     { id: "cameraFull", icon: "person.crop.rectangle", title: "Camera: Full Screen", detail: "Webcam fills the card for a span — talking head", enabled: !!project.hasRecordedCamera },
     { id: "cameraSideBySide", icon: "rectangle.split.2x1", title: "Camera: Side by Side", detail: "Screen shrinks left, webcam fills the right", enabled: !!project.hasRecordedCamera },
     { id: "cameraHide", icon: "person.crop.rectangle.badge.xmark", title: "Camera: Hide", detail: "No webcam for a span — screen only", enabled: !!project.hasRecordedCamera },
+    { id: "cameraCutout", icon: "person.and.background.dotted", title: "Cutout", detail: "Webcam with its background removed, over the screen", enabled: !!project.hasRecordedCamera },
+    { id: "cameraPopOut", icon: "person.crop.square.filled.and.at.rectangle", title: "Pop-out card", detail: "Cut-out webcam on a card — the head breaks out the top", enabled: !!project.hasRecordedCamera },
   ];
+}
+
+/**
+ * Background removal beside the Effects key (docs/camera-cutout.md §9): a
+ * recessed well with a spinner, the progress line and a fill bar while the
+ * camera is segmented (Cancel stops it); an error / notice reads in the same
+ * well until dismissed.
+ */
+function CameraMaskChipView({ chip }: { chip: CameraMaskChip }) {
+  const pct = chip.fraction != null ? Math.max(0, Math.min(1, chip.fraction)) : null;
+  return (
+    <span className={`cc-maskchip cc-mat-recessed cc-mat-pill cc-maskchip--${chip.tone}`} role="status" aria-live="polite" title={chip.text}>
+      {chip.busy ? <span className="cc-spin cc-maskchip__spin" aria-hidden /> : <SFIcon name={chip.tone === "error" ? "exclamationmark.triangle" : "info.circle"} size={11} />}
+      <span className="cc-maskchip__text">{chip.text}</span>
+      {chip.busy && pct != null ? (
+        <span className="cc-maskchip__bar" aria-hidden>
+          <span className="cc-maskchip__fill" style={{ transform: `scaleX(${pct})` }} />
+        </span>
+      ) : null}
+      {chip.busy && chip.onCancel ? (
+        <button type="button" className="cc-maskchip__x" title="Cancel background removal" onClick={chip.onCancel}>
+          <SFIcon name="xmark" size={9} weight="bold" />
+        </button>
+      ) : null}
+      {!chip.busy && chip.onDismiss ? (
+        <button type="button" className="cc-maskchip__x" title="Dismiss" onClick={chip.onDismiss}>
+          <SFIcon name="xmark" size={9} weight="bold" />
+        </button>
+      ) : null}
+    </span>
+  );
 }
 
 const FOCUS_ROWS: PickerRow<FocusPick>[] = [
@@ -181,6 +215,7 @@ export function TransportBar({
       />
       <ToolbarSeparator />
       <IconKey symbol="sparkles" title="Zoom" active={open?.kind === "effects"} onClick={toggle("effects")} />
+      {project.cameraMask ? <CameraMaskChipView chip={project.cameraMask} /> : null}
       <IconKey symbol="scope" title="Focus & Blur" active={open?.kind === "focus"} onClick={toggle("focus")} />
       <IconKey
         symbol="scissors"
