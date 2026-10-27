@@ -7,7 +7,7 @@ import { SITE_URL } from "./site-url";
  * Job-to-be-done guides: /guides/{slug}.
  *
  * The compare and alternatives pages answer questions that name the category
- * ("best Mac screen recorder", "Screen Studio alternative"). These answer the
+ * ("best Mac screen recorder", "<product> alternative"). These answer the
  * questions people ask when they describe the problem instead ("how do I make
  * my screen recording zoom in where I click"), which is where an AI answer
  * engine has no page to cite unless one exists.

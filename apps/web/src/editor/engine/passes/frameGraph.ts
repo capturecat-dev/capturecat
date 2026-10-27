@@ -12,7 +12,7 @@
  *                     [target]  backdrop(bg) → layer2∘camera → overlays
  *
  * Stitched device segments (`withDeviceSegment`): a framed segment forces the
- * layer path; the keynote dip is the innermost factor of `camera` and fades
+ * layer path; the segment dip is the innermost factor of `camera` and fades
  * the layer (`cardOpacity`).
  */
 import type { AffineTransform } from "../../core/math/geometry";
@@ -352,7 +352,7 @@ export class FrameGraph {
 /**
  * Stitched takes (VideoExporter device segments), resolved ONCE per frame for
  * every pass from the SOURCE clock: `deviceSegment` (the segment framing is
- * on) and the keynote dip — its scale folded into `camera` as the innermost
+ * on) and the segment dip — its scale folded into `camera` as the innermost
  * card transform (the exporter dips the finished card after the camera-layout
  * squeeze and its tile, before tilt / zoom / offset / intro) and its fade as
  * `cardOpacity` on the layer resample.

@@ -1,5 +1,5 @@
 /**
- * /api/screenshot — the gated screenshot-rendering API (screenshotone-style).
+ * /api/screenshot — the gated screenshot-rendering API (a URL-to-image API).
  *
  *   GET|POST /screenshot/take     render a URL (query params or JSON body)
  *   POST     /screenshot/keys     mint an access key   (session auth only)
@@ -23,7 +23,7 @@
  * The per-IP Cache API rate limit is registered in index.ts like every other
  * route family.
  *
- * ERRORS are screenshotone-shaped: { error: { code, message } }.
+ * ERRORS are shaped { error: { code, message } }.
  */
 
 import { Hono, type Context } from "hono";

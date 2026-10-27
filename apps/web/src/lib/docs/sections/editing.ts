@@ -517,7 +517,7 @@ export const EDITING: DocSection = {
       description:
         "Add text labels, arrows, callouts, rectangles, ellipses, freehand drawings and tap indicators to a screen recording, with Build In and Build Out effects.",
       summary:
-        "Click **Add Annotation** in the timeline toolbar to drop a text label, arrow, callout, drawing, rectangle, ellipse or tap indicator at the playhead. Each one is a block on the ANNOTATE lane that you style in the Annotate tab and animate with Keynote-style **Build In** and **Build Out** effects.",
+        "Click **Add Annotation** in the timeline toolbar to drop a text label, arrow, callout, drawing, rectangle, ellipse or tap indicator at the playhead. Each one is a block on the ANNOTATE lane that you style in the Annotate tab and animate with **Build In** and **Build Out** effects (animated entrances and exits).",
       platforms: ["mac", "web"],
       blocks: [
         { type: "h2", text: "Annotation types" },

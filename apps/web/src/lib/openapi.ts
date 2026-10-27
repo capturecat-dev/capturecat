@@ -239,7 +239,7 @@ function takeResponses(method: "get" | "post") {
 }
 
 const TAKE_COMMON_DESCRIPTION =
-  "Requires a plan that includes the screenshot API (CaptureCat Pro; otherwise 403 `upgrade_required`). Each request that passes authentication, the plan check and validation takes one render from the plan's monthly quota BEFORE rendering: requests refused earlier consume nothing, but a failed render (502/504) or a refused store (402/413) does not give the unit back. The quota resets on the 1st of each month (UTC); `X-Screenshot-Quota-Limit` / `X-Screenshot-Quota-Remaining` report it. Unknown parameters (for example screenshotone's `response_type`) are ignored. Per-IP rate limit: 10 requests per fixed 60-second window, shared with /api/screenshot/stored.";
+  "Requires a plan that includes the screenshot API (CaptureCat Pro; otherwise 403 `upgrade_required`). Each request that passes authentication, the plan check and validation takes one render from the plan's monthly quota BEFORE rendering: requests refused earlier consume nothing, but a failed render (502/504) or a refused store (402/413) does not give the unit back. The quota resets on the 1st of each month (UTC); `X-Screenshot-Quota-Limit` / `X-Screenshot-Quota-Remaining` report it. Unknown parameters (for example a `response_type` that other screenshot APIs accept) are ignored. Per-IP rate limit: 10 requests per fixed 60-second window, shared with /api/screenshot/stored.";
 
 export const OPENAPI_DOCUMENT = {
   openapi: "3.1.0",
@@ -248,7 +248,7 @@ export const OPENAPI_DOCUMENT = {
     version: "1.0.0",
     description:
       "Public developer API of CaptureCat, the macOS screen recorder with a web editor and share links. Use it to:\n\n" +
-      "- **Render screenshots of public web pages** (`/api/screenshot/take`, a paid Screenshot API with screenshotone-style parameter names), and manage its access keys and stored screenshots.\n" +
+      "- **Render screenshots of public web pages** (`/api/screenshot/take`, a paid Screenshot API with conventional snake_case parameter names), and manage its access keys and stored screenshots.\n" +
       "- **Find and download CaptureCat for Mac** (`/api/releases/*`).\n" +
       "- **Check service health** (`/api/health`).\n" +
       "- **Embed a CaptureCat share link** via oEmbed (`/api/oembed`, served from https://capturecat.so).\n\n" +
@@ -710,7 +710,7 @@ export const OPENAPI_DOCUMENT = {
         in: "query",
         name: "access_key",
         description:
-          "The same access key as a query parameter (screenshotone-compatible). Used when no `X-Access-Key` header is sent. Accepted ONLY by /api/screenshot/take. POST /api/screenshot/take also reads an `access_key` field in the JSON body as a last resort.",
+          "The same access key as a query parameter (the `access_key` convention common to screenshot APIs). Used when no `X-Access-Key` header is sent. Accepted ONLY by /api/screenshot/take. POST /api/screenshot/take also reads an `access_key` field in the JSON body as a last resort.",
       },
       sessionBearer: {
         type: "http",
@@ -916,7 +916,7 @@ export const OPENAPI_DOCUMENT = {
       },
       ScreenshotError: {
         type: "object",
-        description: "screenshotone-style error body of the /api/screenshot/* endpoints.",
+        description: "Error body of the /api/screenshot/* endpoints: { error: { code, message } }.",
         required: ["error"],
         properties: {
           error: {

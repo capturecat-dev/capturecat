@@ -136,7 +136,7 @@ export function siteTools(deps: SiteDeps): PageTool[] {
       inputSchema: {
         type: "object",
         properties: {
-          query: { type: "string", minLength: 2, description: 'Keywords, e.g. "auto zoom", "custom domain", "vs Loom".' },
+          query: { type: "string", minLength: 2, description: 'Keywords, e.g. "auto zoom", "custom domain", "self-hosting".' },
           limit: { type: "integer", minimum: 1, maximum: 20, default: 8, description: "Maximum results." },
         },
         required: ["query"],

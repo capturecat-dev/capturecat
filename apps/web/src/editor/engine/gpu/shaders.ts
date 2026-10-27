@@ -480,7 +480,7 @@ fn cropCoverage(s: vec2f, dims: vec2f) -> f32 {
     if (q.z <= 0.0) { return vec4f(0.0); }
     c *= cropCoverage(q.xy / q.z, u.clipDims.xy);
   }
-  // clipDims.w: the keynote dip's VideoExporter.fadeImage (1 otherwise) —
+  // clipDims.w: the segment dip's VideoExporter.fadeImage (1 otherwise) —
   // CIColorMatrix works on UNPREMULTIPLIED colour, so premultiplied RGB × a²
   // and alpha × a (see cameraShaders.ts fadeImage).
   let a = u.clipDims.w;
