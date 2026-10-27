@@ -10,7 +10,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { fetchSession } from "@/lib/session-fns";
-import { webmcpOriginTrialMeta } from "@/editor/webmcp/originTrial";
 import editorCss from "@/editor/ui/editor.css?url";
 import { EditorPage } from "@/editor/ui/EditorPage";
 import { parsePendingSeek } from "@/editor/state/pendingSeek";
@@ -31,7 +30,7 @@ export const Route = createFileRoute("/app_/editor/$projectId")({
     return { session };
   },
   head: () => ({
-    meta: [{ title: "Editor · CaptureCat" }, { name: "robots", content: "noindex" }, ...webmcpOriginTrialMeta()],
+    meta: [{ title: "Editor · CaptureCat" }, { name: "robots", content: "noindex" }],
     links: [{ rel: "stylesheet", href: editorCss }],
   }),
   component: EditorRoute,

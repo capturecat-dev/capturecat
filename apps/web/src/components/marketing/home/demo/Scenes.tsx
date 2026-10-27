@@ -18,7 +18,7 @@ export function ExportScene({ quality = false, bucket }: { quality?: boolean; bu
       <Canvas script="export" className="ccd-canvas--cover" />
       <div className="ccd-sheet-scrim" />
       <div className={`ccd-sheet ${quality ? "ccd-sheet--q" : ""}`}>
-        <h5>Export</h5>
+        <p className="ccd-sheet-title">Export</p>
         <div className="ccd-sheet-body">
           <div className="ccd-sheet-form">
             <div className="ccd-sheet-row">

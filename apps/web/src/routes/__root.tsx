@@ -10,6 +10,8 @@ import {
 import { TRPCProvider } from "@/lib/trpc/client";
 import { Toaster } from "@/components/ui/sonner";
 import { trackVisit } from "@/lib/attribution";
+import { SiteWebMcp } from "@/components/webmcp/page-webmcp";
+import { webmcpOriginTrialMeta } from "@/editor/webmcp/originTrial";
 import appCss from "@/styles/app.css?url";
 
 export const Route = createRootRoute({
@@ -23,10 +25,17 @@ export const Route = createRootRoute({
         content:
           "CaptureCat records your Mac and adds the zooms, cursor smoothing, and captions automatically. Free to record and export, with share links and viewer analytics on Pro.",
       },
+      // WebMCP's Chrome origin trial, on every page now that every surface
+      // registers tools (see originTrial.ts for the token and its origin).
+      ...webmcpOriginTrialMeta(),
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/apple-icon.png", type: "image/png" },
+      // Agent discovery (src/server/agent-discovery.ts): RFC 9727 API catalog
+      // and the ARD manifest, linked from every page.
+      { rel: "api-catalog", href: "/.well-known/api-catalog" },
+      { rel: "ai-catalog", href: "/.well-known/ai-catalog.json" },
     ],
   }),
   component: RootComponent,
@@ -39,6 +48,7 @@ function RootComponent() {
   return (
     <RootDocument>
       <TRPCProvider>
+        <SiteWebMcp />
         <Outlet />
       </TRPCProvider>
     </RootDocument>
