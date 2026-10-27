@@ -416,6 +416,7 @@ enum CloudSyncHarness {
 
             // ── 14. Media the web editor added: pull brings it, push keeps it
             try await webMediaChecks(checks, apiBase: apiBase)
+            try await cloneChecks(checks, apiBase: apiBase)
             try await secondMacChecks(checks, apiBase: apiBase)
             await httpDownloadChecks(checks)
 

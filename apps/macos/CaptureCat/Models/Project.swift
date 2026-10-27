@@ -219,7 +219,11 @@ final class Project: Identifiable, Codable {
         return hash
     }
 
-    var projectDirectory: URL {
+    var projectDirectory: URL { Self.directory(for: id) }
+
+    /// Where a project with this id lives — also before it exists (a cloud
+    /// clone downloads into it).
+    static func directory(for id: UUID) -> URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("CaptureCat/Projects/\(id.uuidString)", isDirectory: true)
     }

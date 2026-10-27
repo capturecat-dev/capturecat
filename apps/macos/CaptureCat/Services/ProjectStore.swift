@@ -64,6 +64,20 @@ final class ProjectStore {
         projects = loaded.sorted { $0.createdAt > $1.createdAt }
     }
 
+    /// A project another writer just put on disk (a cloud clone): load it
+    /// and list it. nil when its project.json does not decode.
+    @discardableResult
+    func adopt(projectAt directory: URL) -> Project? {
+        let jsonURL = directory.appendingPathComponent("project.json")
+        guard let data = try? Data(contentsOf: jsonURL),
+              let project = try? JSONDecoder().decode(Project.self, from: data) else { return nil }
+        project.diskModificationDate = Self.modificationDate(of: jsonURL)
+        projects.removeAll { $0.id == project.id }
+        projects.append(project)
+        projects.sort { $0.createdAt > $1.createdAt }
+        return project
+    }
+
     // MARK: - Save
 
     /// The one save gate. A History preview is an OLD version shown

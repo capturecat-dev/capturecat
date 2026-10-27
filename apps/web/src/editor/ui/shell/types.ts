@@ -180,6 +180,9 @@ export interface EditorShellCallbacks {
   onSyncRetry?(): void;
   /** Top-bar History key (cloud projects): swap the inspector column to the History pane. */
   onShowHistory?(): void;
+  /** Top-bar "Continue on Mac" (cloud projects): save, then open the project
+   *  in the Mac app with everything recorded and edited here (state/continueOnMac.ts). */
+  onContinueOnMac?(): void;
   onRename?(name: string): void;
   onAspectChange?(aspectId: string): void;
   onStillTreatmentChange?(treatment: "image" | "video"): void;

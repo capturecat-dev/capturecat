@@ -172,16 +172,27 @@ final class DeepLinkHandler {
             return
         }
 
+        // Optional &t= — output-time seconds (e.g. a dashboard comment's
+        // timestamp); the timeline consumes it once the editor is up.
+        let seek = params["t"].flatMap(Double.init).flatMap { $0 >= 0 ? $0 : nil }
+
         guard let project = appState.projectStore.projects.first(where: { $0.id == uuid }) else {
-            print("[DeepLink] Project not found: \(uuidString)")
+            // Not on this Mac: a project recorded or built in the web app
+            // (or on another Mac). Bring it here from the cloud, then open it.
+            print("[DeepLink] Project not on this Mac, opening from the cloud: \(uuidString)")
+            CloudSyncController.shared.openFromCloud(projectID: uuid, appState: appState, seek: seek)
             return
         }
 
-        // Optional &t= — output-time seconds (e.g. a dashboard comment's
-        // timestamp); the timeline consumes it once the editor is up.
-        if let tString = params["t"], let t = Double(tString), t >= 0 {
-            appState.pendingSeekOutputTime = t
+        // &from=web — the web app's "Continue on Mac": open it AND bring in
+        // what the web changed since this Mac last synced.
+        if params["from"] == "web" {
+            CloudSyncController.shared.continueFromWeb(project: project, appState: appState, seek: seek)
+            print("[DeepLink] Continuing from the web: \(project.name)")
+            return
         }
+
+        if let seek { appState.pendingSeekOutputTime = seek }
         appState.openEditor(with: project)
         NSApplication.shared.activate(ignoringOtherApps: true)
         print("[DeepLink] Opened project: \(project.name)")

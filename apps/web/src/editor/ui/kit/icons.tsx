@@ -54,6 +54,7 @@ import {
   ImagePlus,
   Info,
   Keyboard,
+  Laptop,
   Layers,
   LayoutGrid,
   Link,
@@ -249,6 +250,7 @@ export const SF_SYMBOLS: Record<string, Entry> = {
   "square.stack.3d.up": { icon: Layers },
   // History pane (ui/history): the top-bar key, row menu, compare, restore.
   "clock.arrow.circlepath": { icon: History },
+  laptopcomputer: { icon: Laptop },
   ellipsis: { icon: Ellipsis },
   eye: { icon: Eye },
   bookmark: { icon: Bookmark },

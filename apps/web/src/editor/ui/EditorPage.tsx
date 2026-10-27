@@ -23,6 +23,7 @@ import { useShareCenter } from "./export/useShareCenter";
 import type { LoadedInfo, TransportState as EngineTransport } from "../engine/protocol";
 import { refsOf } from "../engine/media/assets";
 import { saveCloudProject, webClientId } from "../state/cloud";
+import { MAC_DOWNLOAD_URL, continueOnMac } from "../state/continueOnMac";
 import { EditorController } from "../state/controller";
 import * as E from "../state/edits";
 import { loadInteractionInputs } from "../state/interactionInputs";
@@ -355,10 +356,31 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
     return {
       ...base,
       onShowHistory: () => history.toggle(),
+      // Cloud projects only (History is cloud-only too): the Mac app opens
+      // exactly what the cloud holds, so save first.
+      onContinueOnMac: async () => {
+        const result = await continueOnMac(projectId, {
+          flush: () => store.flush(),
+          saved: () => !store.getState().dirty && !store.getState().conflict,
+        });
+        if (result === "save-failed") {
+          await alerts.present({
+            title: "Not saved yet",
+            message: "This project has changes the cloud doesn’t have yet, so the Mac would open an older version. Once it shows Saved, try again.",
+          });
+        } else if (result === "no-app") {
+          const choice = await alerts.present({
+            title: "Didn’t open?",
+            message: "CaptureCat for Mac opens this project with everything you recorded and edited here. Install it, then try again.",
+            buttons: [{ title: "Get CaptureCat for Mac", role: "primary" }, { title: "Close" }],
+          });
+          if (choice === 0) window.open(MAC_DOWNLOAD_URL, "_blank", "noopener");
+        }
+      },
       // "Needs review" opens Merge Review; the other states retry as before.
       onSyncRetry: () => (store.getState().sync === "review" ? history.open() : base.onSyncRetry?.()),
     };
-  }, [controller, history, store]);
+  }, [controller, history, store, alerts, projectId]);
   // Share links: the top-bar Share key and the sheet's share-after-export.
   const shareCenter = useShareCenter(store, controller, info ? { width: info.width, height: info.height } : null);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
