@@ -53,3 +53,19 @@ dist/
 !.env.development
 *.bak
 *.bak-*
+# Every other env file (.env.production, .env.staging, …): only the committed
+# development defaults and examples are allowed.
+.env.*
+!.env.development
+!.env.example
+!.env.*.example
+# Signing material: Apple AuthKey .p8, certificates, provisioning profiles.
+*.p8
+*.p12
+*.pfx
+*.pem
+*.cer
+*.mobileprovision
+*.provisionprofile
+# Old OpenNext build output (inlines env values; once committed by accident).
+.open-next/
