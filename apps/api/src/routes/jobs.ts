@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/auth";
 import { userRateLimit } from "../lib/entitlement";
 import { generateId } from "../lib/id";
 import type { ShareJobRow } from "../share-jobs";
+import { backgroundOf, queueWebhookEvent } from "../lib/webhooks";
 
 /**
  * Background share-upload jobs, backed by the per-user ShareJobsDO.
@@ -112,5 +113,13 @@ jobRoutes.post("/upload/jobs/:jobId/fail", requireAuth, async (c) => {
     typeof body.error === "string" ? body.error : "upload failed"
   );
   if (!job) return c.json({ error: "Job not found" }, 404);
+  // The uploader's own client reported it; the text is the app's message.
+  queueWebhookEvent(backgroundOf(c), c.env, c.get("user").uid, "upload.failed", {
+    videoId: job.video_id,
+    fileName: job.file_name,
+    projectId: job.project_id,
+    reason: "client_reported",
+    error: (job.error ?? "upload failed").slice(0, 200),
+  });
   return c.json({ job: publicJob(job) });
 });

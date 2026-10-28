@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc/client";
 import {
+  CONNECTOR_URL,
   DEFAULT_SCOPES,
   EXPIRY_OPTIONS,
   MCP_ENDPOINT,
@@ -34,6 +35,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { EmptyStage, Field, Row, Section } from "@/components/dashboard/studio";
+import { PlanUnavailableNote } from "@/components/dashboard/plan-unavailable-note";
+import { ConnectedApps, PendingApprovals } from "@/components/dashboard/agent-connections";
 import { CCIcon } from "@/editor/ui/kit/ccIcon";
 import { cn } from "@/lib/utils";
 
@@ -43,12 +46,18 @@ import { cn } from "@/lib/utils";
  * remote MCP server at mcp.capturecat.so/mcp. One Section in Settings' single
  * surface: create (name, scopes, expiry) → the token shown ONCE with ready
  * snippets → the list with revoke → recent agent activity from the audit log.
- * Every rule (scopes, caps, hashing, plan gates) is the API's; this only asks.
+ * Above the tokens: requests waiting for the owner's approval ("ask me
+ * first"); below them: apps connected with OAuth ("Sign in with
+ * CaptureCat"). A plan without `agentAccess` shows the upgrade state instead
+ * of a form the API would refuse. Every rule (scopes, caps, hashing, plan
+ * gates) is the API's; this only asks.
  */
 export function AgentAccessCard() {
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.agentTokens.list.useQuery();
   const audit = trpc.agentTokens.audit.useQuery();
+  const approvals = trpc.agentApprovals.pending.useQuery(undefined, { refetchInterval: 30_000 });
+  const apps = trpc.oauth.apps.useQuery();
   const [creating, setCreating] = useState(false);
   // The plaintext token lives only here, only until "Done".
   const [created, setCreated] = useState<{ token: string; name: string } | null>(null);
@@ -73,6 +82,8 @@ export function AgentAccessCard() {
   const activeCount = tokens.filter((t) => tokenStatus(t) === "active").length;
   const atLimit = data ? activeCount >= data.maxActive : false;
   const entries = audit.data?.entries ?? [];
+  // The plan gate (lib/agent-features.ts on the API): off → upgrade state.
+  const unavailable = data?.features ? !data.features.agentAccess : false;
 
   return (
     <Section
@@ -82,11 +93,12 @@ export function AgentAccessCard() {
         <>
           Let a cloud agent (Claude, ChatGPT, a scheduled job) read your videos and act on them through CaptureCat's MCP
           server at <code className="text-xs text-foreground/80">{MCP_ENDPOINT.replace("https://", "")}</code>. Each token
-          gets only the scopes you pick, never more than your plan allows, and can be revoked at any time.
+          gets only the scopes you pick, never more than your plan allows, and can be revoked at any time. Agents ask you
+          first before they post a comment or make a video more visible.
         </>
       }
       actions={
-        !creating && !created && tokens.length > 0 ? (
+        !unavailable && !creating && !created && tokens.length > 0 ? (
           <Button size="sm" variant="outline" disabled={atLimit} onClick={() => setCreating(true)}>
             <CCIcon name="plus" data-icon="inline-start" />
             New token
@@ -95,6 +107,17 @@ export function AgentAccessCard() {
       }
     >
       <div className="space-y-3">
+        <PendingApprovals approvals={approvals.data?.approvals ?? []} />
+
+        {unavailable ? (
+          <PlanUnavailableNote>
+            Agent access isn't part of your {data?.plan?.displayName ?? "current"} plan, so agents and connected apps
+            can't reach your account. Existing tokens stay listed so you can revoke them.
+          </PlanUnavailableNote>
+        ) : (
+          <ConnectorHint />
+        )}
+
         {created && <NewTokenReveal token={created.token} name={created.name} onDone={() => setCreated(null)} />}
 
         {creating && (
@@ -111,6 +134,7 @@ export function AgentAccessCard() {
             <Skeleton className="h-[62px] w-full rounded-[0.875rem]" />
           </div>
         ) : tokens.length === 0 ? (
+          !unavailable &&
           !creating &&
           !created && (
             <EmptyStage
@@ -145,9 +169,26 @@ export function AgentAccessCard() {
           </div>
         )}
 
+        <ConnectedApps apps={apps.data?.apps ?? []} />
+
         {entries.length > 0 && <RecentActivity entries={entries.slice(0, 8)} />}
       </div>
     </Section>
+  );
+}
+
+/** Claude.ai / ChatGPT custom connectors need no token: just the URL, then
+ *  they sign in with CaptureCat (OAuth) and appear under Connected apps. */
+function ConnectorHint() {
+  return (
+    <div className="cc-well flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-[0.875rem] px-3 py-2.5">
+      <CCIcon name="link" className="size-4 shrink-0 text-muted-foreground" />
+      <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">Claude.ai or ChatGPT?</span> Add a custom connector with this URL —
+        it signs in with CaptureCat, no token needed.
+      </p>
+      <CopyBlock label="Connector URL" value={CONNECTOR_URL} inline />
+    </div>
   );
 }
 
@@ -252,7 +293,7 @@ function CreateTokenForm({
   );
 }
 
-function ScopeCheckbox({ scope, checked, onToggle }: { scope: AgentScope; checked: boolean; onToggle: () => void }) {
+export function ScopeCheckbox({ scope, checked, onToggle }: { scope: AgentScope; checked: boolean; onToggle: () => void }) {
   const info = SCOPE_INFO[scope];
   return (
     <button
@@ -319,13 +360,36 @@ function NewTokenReveal({ token, name, onDone }: { token: string; name: string; 
   );
 }
 
-function CopyBlock({ label, value, multiline = false }: { label: string; value: string; multiline?: boolean }) {
+export function CopyBlock({
+  label,
+  value,
+  multiline = false,
+  inline = false,
+}: {
+  label: string;
+  value: string;
+  multiline?: boolean;
+  /** Just the value and its copy button, no label row. */
+  inline?: boolean;
+}) {
   const copy = () => {
     void navigator.clipboard.writeText(value).then(
       () => toast.success(`${label} copied`),
       () => toast.error("Could not copy — select the text and copy it instead"),
     );
   };
+  if (inline) {
+    return (
+      <div className="flex min-w-0 items-center gap-1.5">
+        <code className="truncate text-xs text-foreground/85" title={value}>
+          {value}
+        </code>
+        <Button variant="outline" size="icon-sm" aria-label={`Copy ${label}`} onClick={copy}>
+          <CCIcon name="clipboard" />
+        </Button>
+      </div>
+    );
+  }
   return (
     <div className="min-w-0">
       <span className="studio-eyebrow block">{label}</span>

@@ -295,7 +295,9 @@ Other clients: a remote (Streamable HTTP) server at that URL with the header
 Tools: ${MCP_TOOLS.map((t) => `\`${t.name}\``).join(", ")}. A token only gets
 the scopes you pick, never more than your plan, and you can revoke it at any
 time. There are no delete or billing tools; comments an agent posts are
-marked "(via agent)"; text written by viewers comes back marked untrusted.
+marked "(via agent)"; project edits (\`projects:write\`) are saved as
+versions in the project's History, marked as agent edits, and can be restored;
+text written by viewers comes back marked untrusted.
 How tokens work: [auth.md](${SITE_URL}/auth.md).
 `,
   },

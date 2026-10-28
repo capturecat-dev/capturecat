@@ -63,3 +63,12 @@ export function shareBaseURL(env: Env): string {
   // :3200 is the TanStack Start dev server (the Next app on :3000 is gone).
   return isLocalInstance(env) ? "http://localhost:3200" : "https://capturecat.so";
 }
+
+/**
+ * The web dashboard's origin, for links an agent hands to its human (the
+ * approval page, the OAuth consent page). Locally the Start dev server on
+ * :3200 serves the same routes under /app.
+ */
+export function appBaseURL(env: Env): string {
+  return isLocalInstance(env) ? "http://localhost:3200" : "https://app.capturecat.so";
+}

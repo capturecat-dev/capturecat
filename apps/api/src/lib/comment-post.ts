@@ -13,6 +13,7 @@ import type { Env, VideoComment, VideoMetadata } from "../types";
 import { countCommentReplies, countVideoComments, getVideoComment, insertVideoComment } from "./db";
 import { planForUser } from "./entitlement";
 import { generateId } from "./id";
+import { queueWebhookEvent, videoEventData } from "./webhooks";
 import {
   checkReplyParent,
   isCommentId,
@@ -64,16 +65,26 @@ export type PostCommentResult =
   | { ok: true; comment: PublicComment }
   | { ok: false; status: 400 | 403 | 404; error: string };
 
+/** Where the comment.created webhook (lib/webhooks.ts) is sent from: the
+ *  Worker env, and ctx.waitUntil so delivery never delays the response. */
+export interface CommentWebhookHook {
+  env: Env;
+  waitUntil: ((promise: Promise<unknown>) => void) | undefined;
+}
+
 /**
  * Validate and store one comment on a video whose comments are open. The
  * order of refusals matches what the share page has always answered: video
- * full, body, drawing, parent, reply-with-drawing, thread full.
+ * full, body, drawing, parent, reply-with-drawing, thread full. With
+ * `webhook`, a stored comment emits `comment.created` to the OWNER's
+ * endpoints (the text marked untrusted unless the owner wrote it).
  */
 export async function postComment(
   env: Pick<Env, "DB">,
   doc: VideoMetadata,
   input: CommentInput,
   author: CommentAuthor,
+  webhook?: CommentWebhookHook,
 ): Promise<PostCommentResult> {
   if ((await countVideoComments(env.DB, doc.videoId)) >= MAX_COMMENTS_PER_VIDEO) {
     return { ok: false, status: 403, error: "This video is no longer accepting comments" };
@@ -128,5 +139,20 @@ export async function postComment(
     authorImage: author.authorImage,
   };
   await insertVideoComment(env.DB, comment);
-  return { ok: true, comment: toPublicComment(comment, doc.uid) };
+  const posted = toPublicComment(comment, doc.uid);
+  if (webhook) {
+    // Minimal: no author name (a viewer's), no IP. Viewer text is untrusted.
+    queueWebhookEvent(webhook.waitUntil, webhook.env, doc.uid, "comment.created", {
+      ...videoEventData(webhook.env, doc),
+      comment: {
+        commentId: posted.commentId,
+        parentId: posted.parentId,
+        videoTime: posted.videoTime,
+        byOwner: posted.isOwner,
+        body: posted.body,
+        untrusted: !posted.isOwner,
+      },
+    });
+  }
+  return { ok: true, comment: posted };
 }

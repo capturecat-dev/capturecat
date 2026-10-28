@@ -344,7 +344,8 @@ function fromBase64url(text: string): string | null {
     const binary = atob(padded);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    // ignoreBOM spelled out (its default) — the Workers TextDecoder typing wants it.
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes);
   } catch {
     return null;
   }

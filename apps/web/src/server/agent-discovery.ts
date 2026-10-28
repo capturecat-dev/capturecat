@@ -12,14 +12,15 @@
  *   /.well-known/agent-skills/index.json   Agent Skills Discovery RFC v0.2.0
  *   /.well-known/agent-skills/<name>/SKILL.md
  *   /openapi.json                       OpenAPI 3.1 for api.capturecat.so
- *   /auth.md                            how agents authenticate (agent tokens for
- *                                       the remote MCP server, access keys for the
- *                                       Screenshot API; self-contained — there is
- *                                       no OAuth server for third parties)
+ *   /auth.md                            how agents authenticate (OAuth "Sign in with
+ *                                       CaptureCat" and agent tokens for the remote
+ *                                       MCP server, access keys for the Screenshot API)
  *
- * Deliberately NOT published, because they would be false today:
- *   /.well-known/oauth-*, openid-configuration   no third-party OAuth/OIDC issuer;
- *                                       the remote MCP server takes agent tokens.
+ * Deliberately NOT published on THIS origin: /.well-known/oauth-* and
+ * openid-configuration. The OAuth documents belong to the hosts they
+ * describe — RFC 9728 protected-resource metadata on mcp.capturecat.so, RFC
+ * 8414 authorization-server metadata on api.capturecat.so (both served by
+ * the API Worker, apps/api/src/routes/oauth.ts). There is no OIDC issuer.
  *
  * Also here: agent-friendly 404s. TanStack Start answers an unmatched path
  * with 500 "Only HTML requests are supported here" when the Accept header
@@ -78,11 +79,12 @@ export function aiCatalog() {
         identifier: `urn:air:${HOST}:mcp:capturecat-remote`,
         displayName: "CaptureCat remote MCP server",
         description:
-          `Streamable HTTP MCP server at ${MCP_ENDPOINT} for cloud agents: list shared videos, read transcripts, summaries, comments and analytics, post comments, change share settings, manage playlists and take screenshots. Authenticated with a scoped agent token (Authorization: Bearer cc_pat_…).`,
+          `Streamable HTTP MCP server at ${MCP_ENDPOINT} for cloud agents: list shared videos, read transcripts, summaries, comments and analytics, post comments, change share settings, manage playlists, edit cloud projects, register webhooks and take screenshots. Claude.ai and ChatGPT custom connectors connect with OAuth 2.1 ("Sign in with CaptureCat", PKCE, discovered from the 401's resource_metadata); other clients can send a scoped agent token (Authorization: Bearer cc_pat_…). Agents ask the owner first before posting comments or making a video more visible.`,
         type: "application/json",
         url: `${SITE_URL}${SERVER_CARD_PATH}`,
         representativeQueries: [
           "connect Claude to my CaptureCat videos",
+          "add CaptureCat as a ChatGPT connector",
           "summarize the comments on my latest CaptureCat video",
           "which of my screen recordings mention pricing",
           "make my CaptureCat share link private",
@@ -149,9 +151,14 @@ export function mcpServerCard() {
     capabilities: { tools: {} },
     authentication: {
       required: true,
-      schemes: ["bearer"],
+      schemes: ["oauth2", "bearer"],
       description:
-        "A CaptureCat agent token (cc_pat_…) in Authorization: Bearer. The account owner creates it in Settings → Agent access, picks its scopes and expiry, and can revoke it at any time.",
+        "OAuth 2.1 (\"Sign in with CaptureCat\"): authorization code + PKCE S256, Client ID Metadata Documents or Dynamic Client Registration, resource indicator https://mcp.capturecat.so/mcp — what Claude.ai and ChatGPT custom connectors use. Or a personal agent token (cc_pat_…) in Authorization: Bearer, created in Settings → Agent access with chosen scopes and expiry. Either can be revoked at any time.",
+      oauth2: {
+        protectedResourceMetadata: "https://mcp.capturecat.so/.well-known/oauth-protected-resource",
+        authorizationServer: "https://api.capturecat.so",
+        authorizationServerMetadata: "https://api.capturecat.so/.well-known/oauth-authorization-server",
+      },
       scopes: [...AGENT_SCOPES],
       documentation: `${SITE_URL}/auth.md`,
     },

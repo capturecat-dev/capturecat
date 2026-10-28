@@ -19,6 +19,11 @@
  *   apps/api/src/lib/agent-tokens.ts              agent-token format, scopes, active-token cap
  *   apps/api/src/mcp/                             the remote MCP server those tokens open
  *                                                 (not a REST path: see `x-mcp-servers`)
+ *   apps/api/src/routes/agent-approvals.ts        /api/agent-approvals/* — "ask me first", session only
+ *   apps/api/src/routes/oauth.ts                  /api/oauth/apps* (the OAuth protocol endpoints
+ *                                                 themselves are described by RFC 8414 metadata,
+ *                                                 not here: see the `mcpOAuth` scheme)
+ *   apps/api/src/routes/webhooks.ts               /api/webhooks/*
  *   apps/api/src/routes/releases.ts               /api/releases/*
  *   apps/macos/scripts/publish_release.sh         the release JSON those routes pass through
  *   apps/web/src/routes/api/oembed.ts             https://capturecat.so/api/oembed (web Worker)
@@ -148,7 +153,7 @@ const takeBodyProperties: Record<string, Record<string, unknown>> = {
   },
 };
 
-import { AGENT_SCOPES, MCP_ENDPOINT } from "./agent-access";
+import { AGENT_SCOPES, MCP_ENDPOINT, SCOPE_INFO } from "./agent-access";
 
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 const json = (schemaName: string) => ({ "application/json": { schema: ref(schemaName) } });
@@ -279,7 +284,7 @@ export const OPENAPI_DOCUMENT = {
       url: MCP_ENDPOINT,
       transport: "streamable-http",
       description:
-        "Remote MCP server for cloud agents (stateless JSON-RPC over POST). Authenticate with an agent token: `Authorization: Bearer cc_pat_…` (security scheme `agentToken`).",
+        "Remote MCP server for cloud agents (stateless JSON-RPC over POST). Claude.ai and ChatGPT custom connectors sign in with OAuth 2.1 (security scheme `mcpOAuth`: PKCE S256, Client ID Metadata Documents or Dynamic Client Registration, discovered from https://mcp.capturecat.so/.well-known/oauth-protected-resource). Other clients send a personal agent token: `Authorization: Bearer cc_pat_…` (security scheme `agentToken`).",
       serverCard: "https://capturecat.so/.well-known/mcp/server-card.json",
     },
   ],
@@ -302,6 +307,21 @@ export const OPENAPI_DOCUMENT = {
       name: "Agent tokens",
       description:
         "Create, list and revoke the scoped tokens cloud agents use with the remote MCP server, and read the agent audit log. Session authentication only — an agent token cannot manage tokens.",
+    },
+    {
+      name: "Agent approvals",
+      description:
+        "\"Ask me first\": an agent's request to post a comment or make a video more visible waits here for the account owner. Session authentication only — no agent credential can approve.",
+    },
+    {
+      name: "Connected apps",
+      description:
+        "OAuth clients the user signed in to the remote MCP server with (Claude.ai, ChatGPT…), grouped by app. Session authentication only.",
+    },
+    {
+      name: "Webhooks",
+      description:
+        "Endpoints CaptureCat POSTs signed events to (Standard Webhooks). Plan-gated (`agentWebhooks`). Session authentication only; agents use the MCP tools list_webhooks / create_webhook.",
     },
     { name: "Releases", description: "CaptureCat for Mac release metadata and DMG downloads. Public." },
     { name: "Health", description: "Liveness check. Public." },
@@ -557,6 +577,256 @@ export const OPENAPI_DOCUMENT = {
         },
       },
     },
+    "/api/agent-approvals": {
+      get: {
+        operationId: "listPendingApprovals",
+        summary: "List requests waiting for approval",
+        description:
+          "Use this to see what agents are waiting for the signed-in user to approve: posting a comment (visible to viewers) or making a video more visible (public, no password, no expiry or view cap, profile listing). Undecided and unexpired only, newest first, with who asked, a summary, the exact changes and the video. Session only.",
+        tags: ["Agent approvals"],
+        security: [{ sessionBearer: [] }],
+        responses: {
+          "200": { description: "Pending requests.", content: json("AgentApprovalList") },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`agent_token_forbidden`, or the account is blocked.", content: json("AgentError") },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/api/agent-approvals/{id}": {
+      get: {
+        operationId: "getApproval",
+        summary: "Get an approval request",
+        description:
+          "Use this to show the user one request in full before they decide: who asked (token name or OAuth app), what exactly, which video, and its status (pending, approved, denied, expired, used). Session only.",
+        tags: ["Agent approvals"],
+        security: [{ sessionBearer: [] }],
+        parameters: [{ name: "id", in: "path", required: true, description: "The request's `id` (also the end of its `approve_url`).", schema: { type: "string" } }],
+        responses: {
+          "200": { description: "The request.", content: json("AgentApprovalResponse") },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`agent_token_forbidden`, or the account is blocked.", content: json("AgentError") },
+          "404": { description: "No such request for this user.", content: json("AgentError") },
+        },
+      },
+    },
+    "/api/agent-approvals/{id}/approve": {
+      post: {
+        operationId: "approveRequest",
+        summary: "Approve an agent's request",
+        description:
+          "Use this when the user approves. The agent's identical repeat call (with `approval_id`) then runs ONCE, within 15 minutes of approval, by the token that asked, with canonically equal arguments. Session only — an agent credential gets 403. 409 when the request was already decided or expired.",
+        tags: ["Agent approvals"],
+        security: [{ sessionBearer: [] }],
+        parameters: [{ name: "id", in: "path", required: true, description: "The request's `id` (also the end of its `approve_url`).", schema: { type: "string" } }],
+        responses: {
+          "200": { description: "Approved.", content: json("AgentApprovalResponse") },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`agent_token_forbidden`, an untrusted Origin, or a blocked account.", content: json("AgentError") },
+          "404": { description: "No such request for this user.", content: json("AgentError") },
+          "409": { description: "Already decided, used or expired.", content: json("AgentError") },
+        },
+      },
+    },
+    "/api/agent-approvals/{id}/deny": {
+      post: {
+        operationId: "denyRequest",
+        summary: "Deny an agent's request",
+        description: "Use this when the user says no. Final: the agent's repeat call is refused. Session only.",
+        tags: ["Agent approvals"],
+        security: [{ sessionBearer: [] }],
+        parameters: [{ name: "id", in: "path", required: true, description: "The request's `id` (also the end of its `approve_url`).", schema: { type: "string" } }],
+        responses: {
+          "200": { description: "Denied.", content: json("AgentApprovalResponse") },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`agent_token_forbidden`, an untrusted Origin, or a blocked account.", content: json("AgentError") },
+          "404": { description: "No such request for this user.", content: json("AgentError") },
+          "409": { description: "Already decided, used or expired.", content: json("AgentError") },
+        },
+      },
+    },
+    "/api/oauth/apps": {
+      get: {
+        operationId: "listConnectedApps",
+        summary: "List connected OAuth apps",
+        description:
+          "Use this to see which OAuth clients (Claude.ai, ChatGPT and other MCP clients that signed in with CaptureCat) can reach the user's account: name, logo, the verified host of a metadata-document client, granted scopes, connected and last-used times. Session only.",
+        tags: ["Connected apps"],
+        security: [{ sessionBearer: [] }],
+        responses: {
+          "200": { description: "Connected apps.", content: json("ConnectedAppList") },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`agent_token_forbidden`, or the account is blocked.", content: json("AgentError") },
+        },
+      },
+    },
+    "/api/oauth/apps/revoke": {
+      post: {
+        operationId: "revokeConnectedApp",
+        summary: "Disconnect an OAuth app",
+        description:
+          "Use this to cut an app off: every grant the user gave that client is revoked, with all its access and refresh tokens, from the next request on. Session only.",
+        tags: ["Connected apps"],
+        security: [{ sessionBearer: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["clientId"],
+                properties: { clientId: { type: "string", description: "`clientId` from `listConnectedApps`." } },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Disconnected.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { clientId: { type: "string" }, revoked: { type: "integer", description: "Grants revoked." } },
+                },
+              },
+            },
+          },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`agent_token_forbidden`, an untrusted Origin, or a blocked account.", content: json("AgentError") },
+          "404": { description: "No connected app with that id.", content: json("AgentError") },
+        },
+      },
+    },
+    "/api/webhooks": {
+      get: {
+        operationId: "listWebhooks",
+        summary: "List webhook endpoints",
+        description:
+          "Use this to see the user's webhook endpoints (URL, events, on/off, delivery health), the event catalogue, and whether the plan includes webhooks (`available`). Secrets are never returned. Session only.",
+        tags: ["Webhooks"],
+        security: [{ sessionBearer: [] }],
+        responses: {
+          "200": { description: "Endpoints and events.", content: json("WebhookEndpointList") },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`agent_token_forbidden`, or the account is blocked.", content: json("AgentError") },
+        },
+      },
+      post: {
+        operationId: "createWebhook",
+        summary: "Add a webhook endpoint",
+        description:
+          "Use this to register an https endpoint for signed events (video.ready, comment.created, share.viewed, project.saved, upload.failed). Public hosts only — IP addresses, private and internal hosts and CaptureCat's own are refused. The `whsec_` signing secret is in this response ONLY. At most 10 endpoints. 403 `upgrade_required` when the plan lacks webhooks. Session only.",
+        tags: ["Webhooks"],
+        security: [{ sessionBearer: [] }],
+        requestBody: { required: true, content: json("CreateWebhookRequest") },
+        responses: {
+          "201": { description: "The endpoint and its secret, shown once.", content: json("CreatedWebhook") },
+          "400": { description: "Invalid URL or events, or the endpoint cap.", content: json("AgentError") },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`upgrade_required`, `agent_token_forbidden`, an untrusted Origin, or a blocked account.", content: json("AgentError") },
+        },
+      },
+    },
+    "/api/webhooks/{id}": {
+      patch: {
+        operationId: "updateWebhook",
+        summary: "Change a webhook endpoint",
+        description:
+          "Use this to switch an endpoint on or off, or change its events, URL or label. Switching on clears its failure streak. Switching off works on any plan; anything else needs webhooks in the plan. Session only.",
+        tags: ["Webhooks"],
+        security: [{ sessionBearer: [] }],
+        parameters: [{ name: "id", in: "path", required: true, description: "The endpoint's `id` from `listWebhooks`.", schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  active: { type: "boolean" },
+                  events: { type: "array", items: { type: "string" } },
+                  url: { type: "string" },
+                  description: { type: ["string", "null"] },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "The endpoint.", content: json("WebhookEndpointResponse") },
+          "400": { description: "Invalid change.", content: json("AgentError") },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`upgrade_required`, `agent_token_forbidden`, or a blocked account.", content: json("AgentError") },
+          "404": { description: "No such endpoint for this user.", content: json("AgentError") },
+        },
+      },
+      delete: {
+        operationId: "deleteWebhook",
+        summary: "Delete a webhook endpoint",
+        description: "Use this to delete an endpoint and its delivery history; queued retries are dropped. Any plan. Session only.",
+        tags: ["Webhooks"],
+        security: [{ sessionBearer: [] }],
+        parameters: [{ name: "id", in: "path", required: true, description: "The endpoint's `id` from `listWebhooks`.", schema: { type: "string" } }],
+        responses: {
+          "200": {
+            description: "Deleted.",
+            content: {
+              "application/json": {
+                schema: { type: "object", properties: { id: { type: "string" }, deleted: { type: "boolean", const: true } } },
+              },
+            },
+          },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`agent_token_forbidden`, an untrusted Origin, or a blocked account.", content: json("AgentError") },
+          "404": { description: "No such endpoint for this user.", content: json("AgentError") },
+        },
+      },
+    },
+    "/api/webhooks/{id}/test": {
+      post: {
+        operationId: "testWebhook",
+        summary: "Send a test event",
+        description:
+          "Use this to check an endpoint: one signed `webhook.test` event is sent now (never retried) and the outcome — status, HTTP code or error — is returned. Session only.",
+        tags: ["Webhooks"],
+        security: [{ sessionBearer: [] }],
+        parameters: [{ name: "id", in: "path", required: true, description: "The endpoint's `id` from `listWebhooks`.", schema: { type: "string" } }],
+        responses: {
+          "200": {
+            description: "How the delivery went.",
+            content: { "application/json": { schema: { type: "object", properties: { delivery: ref("WebhookDelivery") } } } },
+          },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`upgrade_required`, `agent_token_forbidden`, or a blocked account.", content: json("AgentError") },
+          "404": { description: "No such endpoint for this user.", content: json("AgentError") },
+        },
+      },
+    },
+    "/api/webhooks/{id}/deliveries": {
+      get: {
+        operationId: "listWebhookDeliveries",
+        summary: "List recent deliveries",
+        description:
+          "Use this to see the 20 most recent deliveries to an endpoint: event, status (pending, delivered, failed, cancelled), attempts, HTTP code or error, and the next retry time. Session only.",
+        tags: ["Webhooks"],
+        security: [{ sessionBearer: [] }],
+        parameters: [{ name: "id", in: "path", required: true, description: "The endpoint's `id` from `listWebhooks`.", schema: { type: "string" } }],
+        responses: {
+          "200": {
+            description: "Newest first.",
+            content: {
+              "application/json": {
+                schema: { type: "object", properties: { deliveries: { type: "array", items: ref("WebhookDelivery") } } },
+              },
+            },
+          },
+          "401": { description: "No valid session.", content: json("AgentError") },
+          "403": { description: "`agent_token_forbidden`, or the account is blocked.", content: json("AgentError") },
+          "404": { description: "No such endpoint for this user.", content: json("AgentError") },
+        },
+      },
+    },
     "/api/releases/latest": {
       get: {
         operationId: "getLatestRelease",
@@ -805,6 +1075,19 @@ export const OPENAPI_DOCUMENT = {
         bearerFormat: "cc_pat_<40 × [A-Za-z0-9]>",
         description:
           `Agent token for the remote MCP server at ${MCP_ENDPOINT} (not used by any REST path here): \`Authorization: Bearer cc_pat_…\`. Created with \`createAgentToken\` from a signed-in session, shown once, stored hashed, scoped (${AGENT_SCOPES.join(", ")}), optionally expiring, revocable. A missing, unknown, revoked or expired token gets 401 with \`WWW-Authenticate: Bearer realm="capturecat", error="invalid_token"\`.`,
+      },
+      mcpOAuth: {
+        type: "oauth2",
+        description:
+          `"Sign in with CaptureCat" for the remote MCP server at ${MCP_ENDPOINT} (not used by any REST path here): OAuth 2.1 authorization code with PKCE S256 (required), resource indicator ${MCP_ENDPOINT} (RFC 8707). Clients identify with a Client ID Metadata Document (an https client_id) or register at https://api.capturecat.so/oauth/register (RFC 7591). Discovery: https://mcp.capturecat.so/.well-known/oauth-protected-resource → https://api.capturecat.so/.well-known/oauth-authorization-server. Access tokens \`cc_oat_…\` last 1 hour; refresh tokens rotate (30 days) and reuse revokes the connection. A tool outside the granted scopes answers 403 \`insufficient_scope\` with a \`scope=\` hint.`,
+        flows: {
+          authorizationCode: {
+            authorizationUrl: "https://api.capturecat.so/oauth/authorize",
+            tokenUrl: "https://api.capturecat.so/oauth/token",
+            refreshUrl: "https://api.capturecat.so/oauth/token",
+            scopes: Object.fromEntries(AGENT_SCOPES.map((s) => [s, SCOPE_INFO[s].description])),
+          },
+        },
       },
       accessKeyHeader: {
         type: "apiKey",
@@ -1137,6 +1420,139 @@ export const OPENAPI_DOCUMENT = {
             enum: ["too_many_tokens", "agent_token_forbidden"],
             description: "Present for the two refusals a client may want to branch on.",
           },
+        },
+      },
+      AgentError: {
+        type: "object",
+        description: "Error body of /api/agent-approvals/*, /api/oauth/* and /api/webhooks/*.",
+        required: ["error"],
+        properties: {
+          error: { type: "string", description: "Human-readable message." },
+          code: {
+            type: "string",
+            enum: ["agent_token_forbidden", "upgrade_required"],
+            description: "Present for refusals a client may want to branch on.",
+          },
+          feature: { type: "string", description: "With `upgrade_required`: the plan feature that is off." },
+        },
+      },
+      AgentApproval: {
+        type: "object",
+        description: "An agent's \"ask me first\" request.",
+        properties: {
+          id: { type: "string" },
+          tool: { type: "string", description: "The MCP tool: post_comment or update_share_settings." },
+          summary: { type: "string" },
+          details: { type: "array", items: { type: "string" }, description: "The exact changes, one per line." },
+          status: { type: "string", enum: ["pending", "approved", "denied", "expired", "used"] },
+          createdAt: { type: "string", format: "date-time" },
+          decidedAt: { type: ["string", "null"], format: "date-time" },
+          expiresAt: { type: "string", format: "date-time", description: "Pending: decide by then. Approved: the agent must use it by then." },
+          usedAt: { type: ["string", "null"], format: "date-time" },
+          requester: {
+            type: "object",
+            properties: {
+              tokenName: { type: ["string", "null"] },
+              tokenPrefix: { type: ["string", "null"] },
+              kind: { type: "string", enum: ["personal", "oauth"] },
+              oauthClient: { type: ["object", "null"], description: "The OAuth app (clientId, name, logoUri, clientUri), when it asked." },
+            },
+          },
+          video: { type: ["object", "null"], description: "The video (id, title, isPrivate)." },
+          approveUrl: { type: "string", description: "The page the user decides on." },
+          videoShareUrl: { type: ["string", "null"] },
+        },
+      },
+      AgentApprovalList: {
+        type: "object",
+        properties: { approvals: { type: "array", items: ref("AgentApproval") } },
+      },
+      AgentApprovalResponse: {
+        type: "object",
+        properties: { approval: ref("AgentApproval") },
+      },
+      ConnectedApp: {
+        type: "object",
+        description: "An OAuth client the user connected, aggregated over its grants.",
+        properties: {
+          clientId: { type: "string" },
+          name: { type: "string" },
+          kind: { type: "string", enum: ["dcr", "cimd"], description: "Registered (dcr) or a Client ID Metadata Document (cimd)." },
+          logoUri: { type: ["string", "null"] },
+          clientUri: { type: ["string", "null"] },
+          verifiedHost: { type: ["string", "null"], description: "The host serving a metadata-document client_id." },
+          scopes: { type: "array", items: { type: "string", enum: [...AGENT_SCOPES] } },
+          connectedAt: { type: "string", format: "date-time" },
+          lastUsedAt: { type: ["string", "null"], format: "date-time" },
+          connections: { type: "integer" },
+        },
+      },
+      ConnectedAppList: {
+        type: "object",
+        properties: { apps: { type: "array", items: ref("ConnectedApp") } },
+      },
+      WebhookEndpoint: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          url: { type: "string" },
+          description: { type: ["string", "null"] },
+          events: { type: "array", items: { type: "string" } },
+          active: { type: "boolean" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          createdBy: { type: "string", enum: ["settings", "agent"] },
+          lastSuccessAt: { type: ["string", "null"], format: "date-time" },
+          lastFailureAt: { type: ["string", "null"], format: "date-time" },
+          failureCount: { type: "integer", description: "Failed attempts in a row." },
+          disabledReason: { type: ["string", "null"], description: "Why it was switched off automatically." },
+        },
+      },
+      WebhookEndpointList: {
+        type: "object",
+        properties: {
+          endpoints: { type: "array", items: ref("WebhookEndpoint") },
+          events: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" } } } },
+          available: { type: "boolean", description: "The plan includes webhooks." },
+          maxEndpoints: { type: "integer" },
+        },
+      },
+      WebhookEndpointResponse: {
+        type: "object",
+        properties: { endpoint: ref("WebhookEndpoint") },
+      },
+      CreateWebhookRequest: {
+        type: "object",
+        required: ["url", "events"],
+        properties: {
+          url: { type: "string", description: "Public https URL." },
+          events: {
+            type: "array",
+            items: { type: "string", enum: ["video.ready", "comment.created", "share.viewed", "project.saved", "upload.failed"] },
+          },
+          description: { type: "string", maxLength: 100 },
+        },
+      },
+      CreatedWebhook: {
+        type: "object",
+        properties: {
+          endpoint: ref("WebhookEndpoint"),
+          secret: { type: "string", description: "`whsec_…` — shown once. Verify `webhook-signature` (v1, HMAC-SHA256 of id.timestamp.body) with it." },
+        },
+      },
+      WebhookDelivery: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Also the `webhook-id` header." },
+          event: { type: "string" },
+          status: { type: "string", enum: ["pending", "delivered", "failed", "cancelled"] },
+          attempt: { type: "integer" },
+          responseCode: { type: ["integer", "null"] },
+          error: { type: ["string", "null"] },
+          createdAt: { type: "string", format: "date-time" },
+          lastAttemptAt: { type: ["string", "null"], format: "date-time" },
+          nextAttemptAt: { type: ["string", "null"], format: "date-time" },
+          deliveredAt: { type: ["string", "null"], format: "date-time" },
         },
       },
       RateLimitError: {

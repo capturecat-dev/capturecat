@@ -41,18 +41,21 @@ export class MemoryBucket {
       : null;
   }
 
-  async get(key: string) {
+  /** Honours `range: { offset, length }` like R2 (ranged reads of a recording). */
+  async get(key: string, opts?: { range?: { offset?: number; length?: number } }) {
     const o = this.objects.get(key);
     if (!o) return null;
-    const bytes = o.bytes;
+    const offset = opts?.range?.offset ?? 0;
+    const bytes = opts?.range ? o.bytes.slice(offset, offset + (opts.range.length ?? o.bytes.byteLength)) : o.bytes;
     return {
       key,
-      size: bytes.byteLength,
-      etag: `etag-${bytes.byteLength}`,
+      size: o.bytes.byteLength,
+      etag: `etag-${o.bytes.byteLength}`,
       customMetadata: o.customMetadata ?? {},
       httpMetadata: { contentType: o.contentType },
       body: new Response(bytes).body!,
       text: async () => new TextDecoder().decode(bytes),
+      json: async () => JSON.parse(new TextDecoder().decode(bytes)) as unknown,
       arrayBuffer: async () => bytes.slice().buffer,
     };
   }

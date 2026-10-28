@@ -24,7 +24,10 @@ export function getRouter() {
         if (
           url.pathname.startsWith("/app") ||
           url.pathname.startsWith("/api/") ||
-          url.pathname.startsWith("/login")
+          url.pathname.startsWith("/login") ||
+          // The OAuth consent page is a root route on every host
+          // (routes/oauth.authorize.tsx) — the API sends clients there.
+          url.pathname.startsWith("/oauth/")
         ) {
           return undefined;
         }

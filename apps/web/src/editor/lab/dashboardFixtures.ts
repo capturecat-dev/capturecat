@@ -233,6 +233,62 @@ const AGENT_AUDIT = [
   { id: "a4", tokenId: "lab-token-2", tokenName: "Weekly digest agent", tokenPrefix: "cc_pat_Rk4vN0pZ", tool: "get_video_analytics", videoId: "lab-video-3", ok: true, error: null, at: ago(26) },
 ];
 
+const AGENT_APPROVALS = [
+  {
+    id: "labapproval0000000001",
+    tool: "post_comment",
+    summary: "Reply to a comment on “Onboarding walkthrough.mp4”, visible to everyone who can open its share page",
+    details: ["Comment: “Thanks — fixed in the next build!”", "In reply to comment c1", "Posted as you, marked “(via agent)”"],
+    videoId: "lab-video-1",
+    status: "pending",
+    createdAt: ago(0.05),
+    decidedAt: null,
+    expiresAt: ago(-0.2),
+    usedAt: null,
+    requester: {
+      tokenName: "Claude",
+      tokenPrefix: "cc_oat_Lab00000",
+      kind: "oauth",
+      oauthClient: { clientId: "https://claude.ai/oauth/mcp-client.json", name: "Claude", logoUri: null, clientUri: "https://claude.ai" },
+    },
+    video: { id: "lab-video-1", title: "Onboarding walkthrough.mp4", isPrivate: false },
+    approveUrl: "https://app.capturecat.so/app/approvals/labapproval0000000001",
+    videoShareUrl: "https://capturecat.so/share/lab-video-1",
+  },
+];
+
+const OAUTH_APPS = [
+  {
+    clientId: "https://claude.ai/oauth/mcp-client.json",
+    name: "Claude",
+    kind: "cimd",
+    logoUri: null,
+    clientUri: "https://claude.ai",
+    verifiedHost: "claude.ai",
+    scopes: ["videos:read", "comments:read", "comments:write", "account:read"],
+    connectedAt: ago(72),
+    lastUsedAt: ago(0.05),
+    connections: 1,
+  },
+];
+
+const WEBHOOK_ENDPOINTS = [
+  {
+    id: "we_lab1",
+    url: "https://hooks.example.com/capturecat",
+    description: "Support agent",
+    events: ["comment.created", "video.ready"],
+    active: true,
+    createdAt: ago(200),
+    updatedAt: ago(200),
+    createdBy: "agent",
+    lastSuccessAt: ago(0.4),
+    lastFailureAt: null,
+    failureCount: 0,
+    disabledReason: null,
+  },
+];
+
 function trpcData(path: string, input: unknown, o: LabOptions): unknown {
   const empty = o.state === "empty";
   const videos = empty ? [] : makeVideos();
@@ -355,6 +411,41 @@ function trpcData(path: string, input: unknown, o: LabOptions): unknown {
         tokens: empty ? [] : AGENT_TOKENS,
         scopes: ["videos:read", "videos:write", "comments:read", "comments:write", "analytics:read", "playlists:read", "playlists:write", "screenshots", "account:read"],
         maxActive: 20,
+        features: { agentAccess: o.tier !== "free", agentWebhooks: o.tier !== "free", agentEditing: o.tier !== "free" },
+        plan: { name: o.tier === "free" ? "free" : "pro", displayName: o.tier === "free" ? "Free" : "CaptureCat Pro" },
+      };
+    case "agentApprovals.pending":
+      return { approvals: empty ? [] : AGENT_APPROVALS };
+    case "agentApprovals.get":
+      return { approval: AGENT_APPROVALS[0] };
+    case "oauth.apps":
+      return { apps: empty ? [] : OAUTH_APPS };
+    case "webhooks.list":
+      return {
+        endpoints: empty ? [] : WEBHOOK_ENDPOINTS,
+        events: [],
+        available: o.tier !== "free",
+        maxEndpoints: 10,
+      };
+    case "webhooks.deliveries":
+      return { deliveries: [] };
+    case "oauth.info":
+      return {
+        ok: true,
+        client: {
+          clientId: "https://claude.ai/oauth/mcp-client.json",
+          name: "Claude",
+          kind: "cimd",
+          logoUri: null,
+          clientUri: "https://claude.ai",
+          verifiedHost: "claude.ai",
+          redirectUri: "https://claude.ai/api/mcp/auth_callback",
+          redirectHost: "claude.ai",
+        },
+        scopes: ["account:read", "videos:read", "comments:read", "comments:write", "analytics:read"],
+        resource: "https://mcp.capturecat.so/mcp",
+        available: o.tier !== "free",
+        unavailableReason: o.tier === "free" ? "Agent access (agent tokens, connectors and the remote MCP server) isn't included in the account's Free plan." : null,
       };
     case "agentTokens.audit":
       return { entries: empty ? [] : AGENT_AUDIT };

@@ -180,6 +180,26 @@ function structured(name: string, result: CallToolResult): any {
   return sc;
 }
 
+/**
+ * "Ask me first": the call answers approval_required; the OWNER approves it
+ * through the session route (Authorization: Bearer <uid> is a session in
+ * fake-session); the identical call with approval_id then runs.
+ */
+async function callApproved(tok: string, name: string, args: Record<string, unknown>, uid = OWNER): Promise<CallToolResult> {
+  const first = await call(tok, name, args);
+  expect(first.isError, JSON.stringify(first.content)).toBeFalsy();
+  const ask = first.structuredContent as { status: string; approval_id: string; approve_url: string };
+  expect(ask.status).toBe("approval_required");
+  expect(findTool(name)!.output.parse(ask)).toEqual(ask);
+  const res = await worker.fetch(
+    new Request(`${API}/api/agent-approvals/${ask.approval_id}/approve`, { method: "POST", headers: { Authorization: `Bearer ${uid}` } }),
+    env,
+    ctx,
+  );
+  expect(res.status).toBe(200);
+  return call(tok, name, { ...args, approval_id: ask.approval_id });
+}
+
 function errorText(result: CallToolResult): string {
   expect(result.isError).toBe(true);
   expect(result.structuredContent).toBeUndefined();
@@ -270,6 +290,13 @@ describe("protocol", () => {
       "list_playlists",
       "add_to_playlist",
       "take_screenshot",
+      // Cloud-project editing (project-tools.ts; tested in project-tools.test.ts).
+      ...["list_projects", "describe_project", "style_options", "get_editing_playbook", "apply_edits", "set_style"],
+      ...["list_versions", "restore_version", "open_in_editor"],
+      // "Ask me first" polling and webhooks (approval-gate.ts, lib/webhooks.ts).
+      "get_approval",
+      "list_webhooks",
+      "create_webhook",
     ]);
     for (const tool of tools) {
       expect(tool.inputSchema.type, tool.name).toBe("object");
@@ -321,15 +348,21 @@ describe("protocol", () => {
 });
 
 describe("authentication", () => {
+  // RFC 9728 §5.1: the challenge names the protected-resource metadata
+  // (this Worker's own while it runs locally, as in these tests).
+  const METADATA = 'resource_metadata="http://localhost:8787/.well-known/oauth-protected-resource"';
   async function expect401(res: Response) {
     expect(res.status).toBe(401);
-    expect(res.headers.get("WWW-Authenticate")).toBe('Bearer realm="capturecat", error="invalid_token"');
+    expect(res.headers.get("WWW-Authenticate")).toBe(`Bearer realm="capturecat", error="invalid_token", ${METADATA}`);
     expect(((await res.json()) as { error: string }).error).toBe("invalid_token");
   }
 
   it("missing, malformed, session-shaped and unknown tokens are 401", async () => {
     const ping = { jsonrpc: "2.0", id: 1, method: "initialize", params: {} };
-    await expect401(await post(ping));
+    // No credential at all: no error code (RFC 6750 §3), still the metadata.
+    const none = await post(ping);
+    expect(none.status).toBe(401);
+    expect(none.headers.get("WWW-Authenticate")).toBe(`Bearer realm="capturecat", ${METADATA}`);
     await expect401(await post(ping, { token: "cc_pat_nope" }));
     await expect401(await post(ping, { token: OWNER })); // a session-style bearer is not an agent token
     await expect401(await post(ping, { token: `cc_pat_${"a".repeat(40)}` }));
@@ -542,7 +575,7 @@ describe("tools", () => {
     const drawing = { v: 1, shapes: [{ kind: "arrow", color: "#FBBF24", size: 2, from: [0.1, 0.1], to: [0.5, 0.5] }] };
     const posted = structured(
       "post_comment",
-      await call(t, "post_comment", { video_id: "vid1", body: "Thanks for watching", video_time: 30, annotation: drawing }),
+      await callApproved(t, "post_comment", { video_id: "vid1", body: "Thanks for watching", video_time: 30, annotation: drawing }),
     );
     expect(posted.comment).toMatchObject({
       authorName: "Olive Owner (via agent)",
@@ -558,7 +591,7 @@ describe("tools", () => {
     );
     expect(row).toEqual({ author_uid: OWNER, author_image: "https://avatars.test/owner.png" });
 
-    const reply = structured("post_comment", await call(t, "post_comment", { video_id: "vid1", body: "Glad you liked it", parent_id: "viewer0001" }));
+    const reply = structured("post_comment", await callApproved(t, "post_comment", { video_id: "vid1", body: "Glad you liked it", parent_id: "viewer0001" }));
     expect(reply.comment).toMatchObject({ parentId: "viewer0001", videoTime: 2 });
 
     // Same validation as the share page: a reply can't carry a drawing, a
@@ -580,8 +613,8 @@ describe("tools", () => {
 
   it("post_comment is rate-limited per token like the share page is per IP", async () => {
     const { token: t } = await token();
-    for (let i = 0; i < 10; i++) structured("post_comment", await call(t, "post_comment", { video_id: "vid1", body: `n${i}` }));
-    expect(errorText(await call(t, "post_comment", { video_id: "vid1", body: "one too many" }))).toContain("Slow down");
+    for (let i = 0; i < 10; i++) structured("post_comment", await callApproved(t, "post_comment", { video_id: "vid1", body: `n${i}` }));
+    expect(errorText(await callApproved(t, "post_comment", { video_id: "vid1", body: "one too many" }))).toContain("Slow down");
   });
 
   it("update_share_settings: the dashboard's validation, hashed password, privacy", async () => {
@@ -611,7 +644,8 @@ describe("tools", () => {
     expect(row.is_private).toBe(1);
     expect(JSON.stringify(sc)).not.toContain("hunter2");
 
-    const cleared = structured("update_share_settings", await call(t, "update_share_settings", { video_id: "vid1", password: null, cta: null }));
+    // Removing the password makes it MORE visible: ask first.
+    const cleared = structured("update_share_settings", await callApproved(t, "update_share_settings", { video_id: "vid1", password: null, cta: null }));
     expect(cleared.share).toMatchObject({ hasPassword: false, cta: null });
     expect(errorText(await call(t, "update_share_settings", { video_id: "vid1", cta: { label: "x", url: "http://insecure.test" } }))).toContain("https");
   });

@@ -31,7 +31,9 @@ describe("scopes", () => {
   });
 
   it("the documented tools match the API's registry (apps/api/src/mcp/tools.ts)", () => {
-    const source = readFileSync(fileURLToPath(new URL("../../../api/src/mcp/tools.ts", import.meta.url)), "utf8");
+    const read = (file: string) => readFileSync(fileURLToPath(new URL(`../../../api/src/mcp/${file}`, import.meta.url)), "utf8");
+    // tools.ts plus the files whose tool lists it spreads in (`...PROJECT_TOOLS`).
+    const source = read("tools.ts") + "\n" + read("project-tools.ts");
     // `const ident = defineTool({ name: "…", …, scope: "…", … })`, then the
     // TOOLS array's order of those identifiers (= tools/list order).
     const byIdent = new Map(
@@ -40,8 +42,12 @@ describe("scopes", () => {
         { name: m[2], scope: m[3] },
       ]),
     );
-    const order = /export const TOOLS: ToolDefinition\[\] = \[([\s\S]*?)\]/.exec(source)?.[1] ?? "";
-    const registry = [...order.matchAll(/(\w+),/g)].map((m) => byIdent.get(m[1]));
+    const lists = new Map(
+      [...source.matchAll(/export const (\w+): ToolDefinition\[\] = \[([\s\S]*?)\]/g)].map((m) => [m[1], m[2]]),
+    );
+    const expand = (list: string): Array<{ name: string; scope: string } | undefined> =>
+      [...list.matchAll(/(\.\.\.)?(\w+),/g)].flatMap((m) => (m[1] ? expand(lists.get(m[2]) ?? "") : [byIdent.get(m[2])]));
+    const registry = expand(lists.get("TOOLS") ?? "");
     expect(registry.length).toBeGreaterThan(0);
     expect(MCP_TOOLS.map(({ name, scope }) => ({ name, scope }))).toEqual(registry);
   });

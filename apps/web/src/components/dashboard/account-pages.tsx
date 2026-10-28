@@ -10,6 +10,7 @@ import { ProfileCard } from "@/components/dashboard/profile-card";
 import { StorageBucketCard } from "@/components/dashboard/storage-bucket-card";
 import { PageHeader, Sections } from "@/components/dashboard/studio";
 import { TeamCards } from "@/components/dashboard/team-cards";
+import { WebhooksCard } from "@/components/dashboard/webhooks-card";
 
 export function SettingsPageBody() {
   return (
@@ -24,6 +25,7 @@ export function SettingsPageBody() {
         <CustomDomainsCard />
         <StorageBucketCard />
         <AgentAccessCard />
+        <WebhooksCard />
       </Sections>
     </div>
   );

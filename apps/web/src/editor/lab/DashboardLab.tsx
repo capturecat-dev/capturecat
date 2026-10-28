@@ -4,7 +4,8 @@
  * canned (dashboardFixtures.ts answers every request in the page, nothing
  * reaches a server). The real pages live under the /app layout (auth).
  *
- *   ?page=library|record|projects|team|settings|billing|video|analytics
+ *   ?page=library|record|projects|team|settings|billing|video|analytics|approval|consent
+ *                    (consent = the OAuth consent page, which has no dashboard shell)
  *   &state=full|empty|loading   (default full; see dashboardFixtures.ts)
  *   &tier=paid|free  &team=owner|none  &uploads=0  &success=1 (billing)
  *   &playlist=pl-1   (library filtered to a playlist)
@@ -25,6 +26,8 @@ import { RecorderDock, RecorderProvider } from "@/components/dashboard/recorder-
 import { VideoAnalytics } from "@/components/dashboard/video-analytics";
 import { VideoDetails } from "@/components/dashboard/video-details";
 import { VideoLibrary } from "@/components/dashboard/video-library";
+import { ApprovalPage } from "@/components/dashboard/approval-page";
+import { ConsentPage } from "@/components/oauth/consent-page";
 
 const params = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
 
@@ -46,12 +49,17 @@ function pageFor(page: string): { path: string; node: ReactNode } {
       return { path: `/app/videos/${VIDEO_ID}`, node: <VideoDetails videoId={VIDEO_ID} /> };
     case "analytics":
       return { path: `/app/videos/${VIDEO_ID}/analytics`, node: <VideoAnalytics videoId={VIDEO_ID} /> };
+    case "approval":
+      return { path: "/app/approvals/labapproval0000000001", node: <ApprovalPage id="labapproval0000000001" /> };
     default:
       return { path: "/app/record", node: <Recorder /> };
   }
 }
 
 export default function DashboardLab() {
+  if (params.get("page") === "consent") {
+    return <ConsentPage params={{ client_id: "https://claude.ai/oauth/mcp-client.json" }} email="mike@acme.test" />;
+  }
   const { path, node } = pageFor(params.get("page") ?? "record");
 
   if (params.get("shell") !== "0") {

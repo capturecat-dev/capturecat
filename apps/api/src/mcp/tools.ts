@@ -58,7 +58,20 @@ import { videoAnalytics } from "../lib/video-analytics";
 import { addVideoToPlaylist, listUserPlaylists } from "../lib/playlists";
 import { takeScreenshot } from "../lib/screenshot/take";
 import { monthlyQuotaUsed } from "../lib/screenshot/quota";
+import { getApprovalForToken } from "../lib/agent-approvals";
+import { checkReplyParent, isCommentId, parseCommentAnnotation } from "../lib/comments";
+import { getVideoComment } from "../lib/db";
+import {
+  MAX_WEBHOOK_ENDPOINTS,
+  WEBHOOK_EVENTS,
+  WEBHOOK_EVENT_INFO,
+  createWebhookEndpoint,
+  listWebhookEndpoints,
+} from "../lib/webhooks";
+import { ApprovalIdSchema, approveUrl, withApproval } from "./approval-gate";
+import { requireAgentWebhooks } from "./gates";
 import { AGENT_SCOPES } from "../lib/agent-tokens";
+import { PROJECT_TOOLS } from "./project-tools";
 import {
   ToolError,
   Untrusted,
@@ -78,7 +91,12 @@ import {
 // Shared output shapes
 // ---------------------------------------------------------------------------
 
-const Privacy = z.enum(["public", "private"]);
+/** Same three words as the Mac's share_project: private (owner/team only),
+ *  unlisted (anyone with the link), public (anyone with the link AND listed
+ *  on the owner's profile page). */
+const Privacy = z.enum(["public", "unlisted", "private"]);
+const privacyOf = (v: { isPrivate: boolean; profileVisible: boolean }) =>
+  v.isPrivate ? ("private" as const) : v.profileVisible ? ("public" as const) : ("unlisted" as const);
 
 const ShareSettings = z.object({
   isPrivate: z.boolean().describe("Private videos play only for the owner (and their team, for team videos)."),
@@ -235,7 +253,7 @@ const listVideos = defineTool({
       title: v.fileName,
       aiTitle: v.aiTitle,
       shareUrl: shareUrlFor(ctx.env, v.videoId),
-      privacy: v.isPrivate ? ("private" as const) : ("public" as const),
+      privacy: privacyOf(v),
       hasPassword: v.passwordHash !== null,
       durationSeconds: v.durationSeconds,
       createdAt: v.createdAt,
@@ -300,7 +318,7 @@ const getVideo = defineTool({
       title: doc.fileName,
       aiTitle: ai?.title ?? null,
       shareUrl: shareUrlFor(ctx.env, doc.videoId),
-      privacy: doc.isPrivate ? ("private" as const) : ("public" as const),
+      privacy: privacyOf(doc),
       access: isOwner ? ("owner" as const) : ("team" as const),
       teamId: doc.orgId ?? null,
       durationSeconds: doc.durationSeconds,
@@ -549,7 +567,7 @@ const postCommentTool = defineTool({
   name: "post_comment",
   title: "Post comment",
   description:
-    `Post a comment on one of the account's videos, as the owner: it shows on the public share page with the owner badge and the account's name followed by "${AGENT_NAME_SUFFIX.trim()}". Pass parent_id (a top-level comment id from list_comments) to reply; replies sit at their thread's time and cannot carry a drawing. The video must be public with comments switched on, on a plan that includes comments. At most ${COMMENT_RATE_LIMIT} posts per 10 minutes per token. Requires scope comments:write.`,
+    `Post a comment on one of the account's videos, as the owner: it shows on the public share page with the owner badge and the account's name followed by "${AGENT_NAME_SUFFIX.trim()}". Pass parent_id (a top-level comment id from list_comments) to reply; replies sit at their thread's time and cannot carry a drawing. The video must be public with comments switched on, on a plan that includes comments. ASK FIRST: viewers see comments, so every post needs the account owner's approval — the first call answers status "approval_required" with an approve_url to show them; once they approve, repeat the identical call with approval_id. At most ${COMMENT_RATE_LIMIT} posts per 10 minutes per token. Requires scope comments:write.`,
   scope: "comments:write",
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   input: z.object({
@@ -558,12 +576,54 @@ const postCommentTool = defineTool({
     parent_id: z.string().optional().describe("Reply to this top-level comment (an id from list_comments)."),
     video_time: z.number().min(0).optional().describe("Seconds into the video to anchor a top-level comment at. Default 0."),
     annotation: AnnotationInput.optional(),
+    approval_id: ApprovalIdSchema.optional(),
   }),
-  output: z.object({
-    videoId: z.string(),
-    shareUrl: z.string(),
-    comment: Comment.extend({ parentId: z.string().nullable() }),
-  }),
+  output: withApproval(
+    z.object({
+      videoId: z.string(),
+      shareUrl: z.string(),
+      comment: Comment.extend({ parentId: z.string().nullable() }),
+    }),
+  ),
+  // Comments are seen by viewers: always ask. Refusals that need no human
+  // (not the owner's video, comments closed, bad body) come first.
+  async approval(args, ctx) {
+    const doc = await videoFor(ctx, args.video_id, "owner");
+    if (!(await commentsOpen(ctx.env, doc))) {
+      throw new ToolError(
+        "Comments are not open on this video: it must be ready, public, have comments switched on, and be on a plan that includes comments and sharing.",
+        doc.videoId,
+      );
+    }
+    const text = args.body.trim();
+    if (!text || text.length > MAX_COMMENT_LENGTH) {
+      throw new ToolError(`Comment must be 1–${MAX_COMMENT_LENGTH} characters`, doc.videoId);
+    }
+    // postComment's drawing and threading rules, so nobody is asked to
+    // approve a comment that would then be refused anyway.
+    const drawing = parseCommentAnnotation(args.annotation);
+    if (!drawing.ok) throw new ToolError(`Invalid drawing: ${drawing.error}`, doc.videoId);
+    if (args.parent_id !== undefined) {
+      const parent = isCommentId(args.parent_id) ? await getVideoComment(ctx.env.DB, args.parent_id) : null;
+      const verdict = checkReplyParent(parent ? { videoId: parent.videoId, parentId: parent.parentId ?? null } : null, doc.videoId);
+      if (!verdict.ok) throw new ToolError(verdict.error, doc.videoId);
+      if (drawing.annotation) throw new ToolError("Replies can't carry a drawing — start a new comment", doc.videoId);
+    }
+    const shapes = Array.isArray(args.annotation?.shapes) ? args.annotation.shapes.length : 0;
+    const what = args.parent_id
+      ? `Reply to a comment on “${oneLine(doc.fileName, 80)}”`
+      : `Post a comment on “${oneLine(doc.fileName, 80)}” at ${formatSeconds(args.video_time ?? 0)}`;
+    return {
+      summary: `${what}, visible to everyone who can open its share page`,
+      details: [
+        `Comment: “${oneLine(text, 280)}”`,
+        ...(args.parent_id ? [`In reply to comment ${args.parent_id}`] : [`At ${formatSeconds(args.video_time ?? 0)} into the video`]),
+        ...(shapes > 0 ? [`With a drawing (${shapes} shape${shapes === 1 ? "" : "s"})`] : []),
+        `Posted as you, marked “${AGENT_NAME_SUFFIX.trim()}”`,
+      ],
+      videoId: doc.videoId,
+    };
+  },
   async run(args, ctx) {
     const doc = await videoFor(ctx, args.video_id, "owner");
     if (!(await commentsOpen(ctx.env, doc))) {
@@ -592,6 +652,7 @@ const postCommentTool = defineTool({
         authorUid: ctx.principal.uid,
         authorImage: sessionAvatar(owner?.image),
       },
+      { env: ctx.env, waitUntil: (p) => ctx.waitUntil(p) },
     );
     if (!result.ok) throw new ToolError(result.error, doc.videoId);
     const c = result.comment;
@@ -636,11 +697,43 @@ const SETTING_ARGS = [
   "profile_visible",
 ] as const;
 
+/**
+ * The requested changes that make `doc` viewable by more people — each needs
+ * the owner's approval ("ask me first"). Making a video MORE private never
+ * does: setting a password, an expiry, a lower cap, unlisting or going
+ * private are absent from this list by construction.
+ */
+export function moreVisibleChanges(
+  doc: Pick<VideoMetadata, "isPrivate" | "passwordHash" | "expiresAt" | "maxViews" | "profileVisible">,
+  args: {
+    is_private?: boolean;
+    password?: string | null;
+    expires_at?: string | null;
+    max_views?: number | null;
+    profile_visible?: boolean;
+  },
+): string[] {
+  const out: string[] = [];
+  if (args.is_private === false && doc.isPrivate) out.push("Make it viewable: anyone with the link can watch");
+  if (args.password === null && doc.passwordHash) out.push("Remove its share-page password");
+  if (args.expires_at !== undefined && doc.expiresAt) {
+    if (args.expires_at === null) out.push("Remove the link's expiry");
+    else if (Date.parse(args.expires_at) > Date.parse(doc.expiresAt)) out.push(`Extend the link's expiry to ${args.expires_at}`);
+  }
+  const cap = doc.maxViews && doc.maxViews > 0 ? doc.maxViews : null;
+  if (args.max_views !== undefined && cap !== null) {
+    if (args.max_views === null || args.max_views === 0) out.push(`Remove the ${cap}-viewer cap`);
+    else if (args.max_views > cap) out.push(`Raise the viewer cap from ${cap} to ${args.max_views}`);
+  }
+  if (args.profile_visible === true && !doc.profileVisible) out.push("List it on your public profile page");
+  return out;
+}
+
 const updateShareSettings = defineTool({
   name: "update_share_settings",
   title: "Update share settings",
   description:
-    "Change the share-page settings of one of the account's videos: privacy, a password (set a string, or null to remove it), link expiry, a viewer cap, the download button, the brand accent, version history, the call-to-action button and profile listing. Pass only what should change; anything omitted is left alone. Never deletes anything. Requires scope videos:write.",
+    "Change the share-page settings of one of the account's videos: privacy, a password (set a string, or null to remove it), link expiry, a viewer cap, the download button, the brand accent, version history, the call-to-action button and profile listing. Pass only what should change; anything omitted is left alone. Never deletes anything. ASK FIRST: a change that lets more people see the video (going public, removing the password, removing or extending the expiry, removing or raising the viewer cap, listing it on the profile) answers status \"approval_required\" with an approve_url to show the account owner; once they approve, repeat the identical call with approval_id. Making a video more private runs at once. Requires scope videos:write.",
   scope: "videos:write",
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   input: z
@@ -662,15 +755,35 @@ const updateShareSettings = defineTool({
         .optional()
         .describe("Call-to-action button {label, https url}, or null to remove it."),
       profile_visible: z.boolean().optional().describe("List the video on the owner's public profile page."),
+      approval_id: ApprovalIdSchema.optional(),
     })
     .refine((a) => SETTING_ARGS.some((k) => a[k] !== undefined), { error: "Pass at least one setting to change." }),
-  output: z.object({
-    videoId: z.string(),
-    updated: z.array(z.string()).describe("The arguments that were applied."),
-    ignored: z.array(z.string()).describe("Arguments passed but not applied (no valid value)."),
-    shareUrl: z.string(),
-    share: ShareSettings,
-  }),
+  output: withApproval(
+    z.object({
+      videoId: z.string(),
+      updated: z.array(z.string()).describe("The arguments that were applied."),
+      ignored: z.array(z.string()).describe("Arguments passed but not applied (no valid value)."),
+      shareUrl: z.string(),
+      share: ShareSettings,
+    }),
+  ),
+  async approval(args, ctx) {
+    const doc = await videoFor(ctx, args.video_id, "owner");
+    const lines = moreVisibleChanges(doc, args);
+    if (lines.length === 0) return null;
+    const also = SETTING_ARGS.filter(
+      (k) =>
+        args[k] !== undefined &&
+        !["is_private", "password", "expires_at", "max_views", "profile_visible"].includes(k),
+    );
+    return {
+      summary: `Make “${oneLine(doc.fileName, 80)}” more visible: ${lines.map((l) => l.charAt(0).toLowerCase() + l.slice(1)).join("; ")}`,
+      details: [...lines, ...(also.length ? [`Also changes: ${also.join(", ")}`] : [])],
+      videoId: doc.videoId,
+      // A NEW password in the same call is matched by hash, never stored.
+      secretKeys: ["password"],
+    };
+  },
   async run(args, ctx) {
     const doc = await videoFor(ctx, args.video_id, "owner");
     const body: ShareControlsBody = {};
@@ -913,6 +1026,142 @@ const takeScreenshotTool = defineTool({
 });
 
 // ---------------------------------------------------------------------------
+// Approvals ("ask me first") and webhooks
+// ---------------------------------------------------------------------------
+
+const getApprovalTool = defineTool({
+  name: "get_approval",
+  title: "Get approval",
+  description:
+    "Whether the account owner has decided an approval request this token made (the approval_id from an approval_required answer of post_comment or update_share_settings): pending, approved, denied, expired or used. When it is approved, repeat the original call with exactly the same arguments plus approval_id — it runs once. Poll sparingly (every 10–30 seconds). Requires scope videos:write or comments:write.",
+  scope: "videos:write",
+  anyScope: ["videos:write", "comments:write"],
+  annotations: READ,
+  input: z.object({
+    approval_id: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9]{8,64}$/, { error: "approval_id is the id an approval_required answer returned" })
+      .describe("The approval_id from an approval_required answer."),
+  }),
+  output: z.object({
+    approvalId: z.string(),
+    status: z.enum(["pending", "approved", "denied", "expired", "used"]),
+    tool: z.string().describe("The tool the request is for."),
+    summary: z.string(),
+    approveUrl: z.string(),
+    expiresAt: z.string().describe("Pending: decide by then. Approved: use it by then."),
+    decidedAt: z.string().nullable(),
+    usedAt: z.string().nullable(),
+  }),
+  async run(args, ctx) {
+    const a = await getApprovalForToken(ctx.env.DB, ctx.principal.uid, ctx.principal.tokenId, args.approval_id);
+    if (!a) throw new ToolError(`No approval "${args.approval_id}" was requested by this token.`);
+    const next: Record<typeof a.status, string> = {
+      pending: "Still waiting for the account owner.",
+      approved: `Approved — repeat the ${a.tool} call with the same arguments and approval_id "${a.id}".`,
+      denied: "Denied by the account owner. Don't retry unless they ask.",
+      expired: "Expired. Ask again by repeating the call without approval_id.",
+      used: "Already used.",
+    };
+    return {
+      videoId: a.videoId,
+      text: `Approval ${a.id} (${a.tool}): ${a.status}. ${next[a.status]}`,
+      structured: {
+        approvalId: a.id,
+        status: a.status,
+        tool: a.tool,
+        summary: a.summary,
+        approveUrl: approveUrl(ctx.env, a.id),
+        expiresAt: a.expiresAt,
+        decidedAt: a.decidedAt,
+        usedAt: a.usedAt,
+      },
+    };
+  },
+});
+
+const WebhookEndpoint = z.object({
+  id: z.string(),
+  url: z.string(),
+  description: z.string().nullable(),
+  events: z.array(z.enum(WEBHOOK_EVENTS)),
+  active: z.boolean(),
+  createdAt: z.string(),
+  createdBy: z.enum(["settings", "agent"]),
+  lastSuccessAt: z.string().nullable(),
+  lastFailureAt: z.string().nullable(),
+  failureCount: z.number().describe("Failed deliveries in a row."),
+  disabledReason: z.string().nullable(),
+});
+
+const EVENT_LIST = WEBHOOK_EVENTS.map((e) => `${e} (${WEBHOOK_EVENT_INFO[e]})`).join("; ");
+
+const listWebhooksTool = defineTool({
+  name: "list_webhooks",
+  title: "List webhooks",
+  description:
+    `The account's webhook endpoints: URL, subscribed events, whether each is on, and its delivery health. Secrets are never returned. Events: ${EVENT_LIST}. Needs a plan with webhooks. Requires scope webhooks:write.`,
+  scope: "webhooks:write",
+  annotations: READ,
+  input: z.object({}),
+  output: z.object({
+    endpoints: z.array(WebhookEndpoint),
+    maxEndpoints: z.number(),
+  }),
+  async run(_args, ctx) {
+    await requireAgentWebhooks(ctx);
+    const endpoints = await listWebhookEndpoints(ctx.env.DB, ctx.principal.uid);
+    return {
+      text:
+        endpoints.length === 0
+          ? "No webhook endpoints yet. Add one with create_webhook."
+          : endpoints
+              .map((e) => `- ${e.id} · ${e.url} · ${e.events.join(", ")} · ${e.active ? "on" : `off${e.disabledReason ? ` (${e.disabledReason})` : ""}`}`)
+              .join("\n"),
+      structured: {
+        endpoints: endpoints.map(({ updatedAt: _u, ...e }) => e),
+        maxEndpoints: MAX_WEBHOOK_ENDPOINTS,
+      },
+    };
+  },
+});
+
+const createWebhookTool = defineTool({
+  name: "create_webhook",
+  title: "Create webhook",
+  description:
+    `Register an https endpoint that CaptureCat POSTs signed events to (Standard Webhooks: webhook-id, webhook-timestamp and webhook-signature "v1,<base64 HMAC-SHA256 of id.timestamp.body>" keyed by the returned whsec_ secret). The secret is returned ONCE — store it to verify deliveries. Events: ${EVENT_LIST}. Failed deliveries are retried with backoff for about a day. Public https hosts only (no IP addresses or private hosts). At most ${MAX_WEBHOOK_ENDPOINTS} endpoints; the owner can switch them off or delete them in Settings. Needs a plan with webhooks. Requires scope webhooks:write.`,
+  scope: "webhooks:write",
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  input: z.object({
+    url: z.string().trim().min(1).max(2048).describe("The https URL to POST events to."),
+    events: z.array(z.enum(WEBHOOK_EVENTS)).min(1).max(WEBHOOK_EVENTS.length).describe("Which events to send."),
+    description: z.string().trim().max(100).optional().describe("A label the owner sees in Settings, e.g. the agent's name."),
+  }),
+  output: z.object({
+    endpoint: WebhookEndpoint,
+    secret: z.string().describe("whsec_… — shown only now. Verify every delivery's webhook-signature with it."),
+  }),
+  async run(args, ctx) {
+    await requireAgentWebhooks(ctx);
+    const created = await createWebhookEndpoint(ctx.env, {
+      uid: ctx.principal.uid,
+      url: args.url,
+      events: args.events,
+      description: args.description ?? `Added by ${ctx.principal.tokenName}`,
+      createdByToken: ctx.principal.tokenId,
+    });
+    if (!created.ok) throw new ToolError(created.error);
+    const { updatedAt: _u, ...endpoint } = created.endpoint;
+    return {
+      text: `Created webhook ${endpoint.id} for ${endpoint.events.join(", ")} → ${endpoint.url}. Secret (shown once): ${created.secret}`,
+      structured: { endpoint, secret: created.secret },
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
 
 export const TOOLS: ToolDefinition[] = [
   getAccount,
@@ -928,6 +1177,10 @@ export const TOOLS: ToolDefinition[] = [
   listPlaylists,
   addToPlaylist,
   takeScreenshotTool,
+  ...PROJECT_TOOLS,
+  getApprovalTool,
+  listWebhooksTool,
+  createWebhookTool,
 ] as unknown as ToolDefinition[];
 
 // Every tool names a scope a token can actually hold.
