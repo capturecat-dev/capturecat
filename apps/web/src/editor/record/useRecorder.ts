@@ -49,6 +49,7 @@ import {
 } from "./capture";
 import { BUBBLE_EXIT_MS } from "./cameraBubble";
 import { closeControlsWindow, openControlsWindow, pipSupported } from "./pip";
+import { cameraPipSupported, enterCameraPip, exitCameraPip, onCameraPipChange, primeCameraPip } from "./cameraPip";
 import { PlatePipeline, displayForShare, grabPlate, plateSupported } from "./platePipeline";
 import { publishTake, type PublishProgress } from "./publish";
 import { discardTakeFiles, leftoverTakes, warmRecorder, type RecordedTake } from "./session";
@@ -205,6 +206,9 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
   const [phase, setPhase] = useState<RecorderPhase>({ kind: "setup" });
   /** Record pressed, take not live yet (the floating window / countdown / start). */
   const [starting, setStarting] = useState(false);
+  /** The camera floats in the browser's own picture-in-picture window (cameraPip.ts). */
+  const [cameraPip, setCameraPip] = useState(false);
+  useEffect(() => onCameraPipChange(setCameraPip), []);
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -340,6 +344,16 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
       stopStream(stream);
     };
   }, [armed, prefs.camId, setPrefs, camEpoch]);
+
+  // The camera's picture-in-picture video stays ready with the live camera,
+  // so the Record press can float it at once (cameraPip.ts).
+  useEffect(() => primeCameraPip(camStream), [camStream]);
+  useEffect(() => () => primeCameraPip(null), []);
+  // It floats only while a take is starting or live: after Stop the camera
+  // is released for the upload, and a deleted take is back to setup.
+  useEffect(() => {
+    if (!starting && phase.kind !== "countdown" && phase.kind !== "recording") exitCameraPip();
+  }, [starting, phase.kind]);
 
   useEffect(() => () => stopStream(screen), [screen]);
 
@@ -619,10 +633,18 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
   /** The red Record button. Must run inside the click (floating controls need its activation). */
   const record = useCallback(async () => {
     if (!screen || phase.kind !== "setup") return;
+    const surface = surfaceOf(screen);
+    // Without the floating controls window (Safari, or turned off) the camera
+    // floats in the browser's own picture-in-picture window, like the Mac's:
+    // a window of its own, which a window or tab capture never contains. A
+    // display would contain it, so there the camera steps aside as before.
+    // FIRST, before any await: the browser opens it only inside the click.
+    if (prefs.camId && surface !== "monitor" && !(prefs.floatControls && pipSupported()) && cameraPipSupported()) {
+      void enterCameraPip();
+    }
     setNotice(null);
     setStarting(true);
     const pressed = performance.now();
-    const surface = surfaceOf(screen);
     const bubbleExit = () => (prefs.camId ? BUBBLE_EXIT_MS - (performance.now() - pressed) : 0);
     const size = { width: 440, height: prefs.camId ? 280 : 72 };
     try {
@@ -783,6 +805,8 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     deleteLeftover,
     floating,
     pipSupported: pipSupported(),
+    /** The camera floats in the browser's own picture-in-picture window. */
+    cameraPip,
     /** The floating window is painted out of a whole-display take (barHidden.ts "plate"). */
     plateLive,
     /**

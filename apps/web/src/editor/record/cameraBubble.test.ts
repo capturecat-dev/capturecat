@@ -258,7 +258,7 @@ describe("squircle", () => {
 });
 
 describe("policy", () => {
-  const base: BubblePolicyInput = { cameraOn: true, phase: "setup", conceal: "none", starting: false, floatingOpen: false };
+  const base: BubblePolicyInput = { cameraOn: true, phase: "setup", conceal: "none", starting: false, floatingOpen: false, cameraPipOpen: false };
 
   it("shows on the page while setting up with a camera on", () => {
     expect(bubblePolicy(base)).toEqual({ host: "page", hiddenForScreen: false });
@@ -294,6 +294,19 @@ describe("policy", () => {
     // Pressed: the page's UI and the bubble leave before the plate is grabbed ("reveal" until the window floats).
     expect(bubblePolicy({ ...base, conceal: "reveal", starting: true })).toEqual({ host: "none", hiddenForScreen: true });
     expect(bubblePolicy({ ...base, conceal: "plate", phase: "recording", floatingOpen: true })).toEqual({ host: "floating", hiddenForScreen: false });
+  });
+
+  it("a window share in a browser without the floating controls: the camera floats in its own picture-in-picture window", () => {
+    const pip = { host: "pip", hiddenForScreen: false };
+    expect(bubblePolicy({ ...base, conceal: "shown", starting: true, cameraPipOpen: true })).toEqual(pip);
+    expect(bubblePolicy({ ...base, conceal: "shown", phase: "countdown", cameraPipOpen: true })).toEqual(pip);
+    expect(bubblePolicy({ ...base, conceal: "shown", phase: "recording", cameraPipOpen: true })).toEqual(pip);
+    // Closed by the viewer mid-take: aside, as without it.
+    expect(bubblePolicy({ ...base, conceal: "shown", phase: "recording", cameraPipOpen: false })).toEqual({ host: "none", hiddenForScreen: true });
+    // Never past the take: after Stop the camera is released.
+    expect(bubblePolicy({ ...base, conceal: "shown", phase: "saving", cameraPipOpen: true }).host).toBe("none");
+    // The floating controls window wins when both exist (one camera preview at a time).
+    expect(bubblePolicy({ ...base, conceal: "floating", phase: "recording", floatingOpen: true, cameraPipOpen: true }).host).toBe("floating");
   });
 
   it("a window share without the floating window: the bar comes and goes, the bubble stays aside", () => {
