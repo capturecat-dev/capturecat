@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc/client";
+import { UserPlanSection } from "@/components/admin/user-plan-section";
 import type { SignupSource } from "@/lib/analytics-types";
 import {
   PROVIDER_LABEL,
@@ -45,6 +46,10 @@ export function UserActivitySheet({ userId, onClose }: { userId: string | null; 
 
         {data && (
           <div className="flex flex-col divide-y px-4 pb-8">
+            <Section title="Plan">
+              <UserPlanSection userId={data.user.id} email={data.user.email} />
+            </Section>
+
             <Section title="Came from">
               <SignupFacts signup={data.signup} providers={data.providers} />
             </Section>

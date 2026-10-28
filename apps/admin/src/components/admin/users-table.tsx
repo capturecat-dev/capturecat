@@ -30,6 +30,9 @@ type AdminUser = {
   role: string;
   paid: boolean;
   tier: Tier;
+  /** Live paid plan (null = free); `planGranted` = assigned in this console. */
+  plan: string | null;
+  planGranted: boolean;
   providers: string[];
   signup: SignupSource;
   usage: UserUsage | null;
@@ -184,7 +187,14 @@ function UserRow({
       <TableCell>{user.name ?? "—"}</TableCell>
       <TableCell>
         <div className="flex items-center gap-1.5">
-          <Badge variant={badgeVariant(user.tier)}>{TIER_LABEL[user.tier]}</Badge>
+          <Badge variant={badgeVariant(user.tier)}>
+            {user.tier === "paid" && user.plan ? user.plan.charAt(0).toUpperCase() + user.plan.slice(1) : TIER_LABEL[user.tier]}
+          </Badge>
+          {user.planGranted && (
+            <Badge variant="outline" title="Assigned in this console — complimentary">
+              Comp
+            </Badge>
+          )}
           {user.role !== "user" && <Badge variant="outline">{user.role}</Badge>}
         </div>
       </TableCell>

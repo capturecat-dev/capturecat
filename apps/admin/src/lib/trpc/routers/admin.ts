@@ -29,6 +29,16 @@ import type { Analytics, SignupSource, UserActivity, UserUsage } from "@/lib/ana
  */
 export type Plan = AdminPlan;
 
+/** GET /api/admin/users/:id/plan. `source`: "grant" = assigned in this
+ *  console; "stripe" = the customer pays (never changed from here); "none". */
+export interface UserPlan {
+  plan: string;
+  source: "grant" | "stripe" | "none";
+  status: string | null;
+  grant: { plan: string; grantedAt: string; grantedBy: string; until: string | null } | null;
+  plans: Array<{ name: string; displayName: string; isActive: boolean }>;
+}
+
 /** What one save or sync did in Stripe (apps/api lib/stripe-catalog.ts). */
 export interface PriceSyncResult {
   interval: "month" | "year";
@@ -109,6 +119,9 @@ export const adminRouter = createTRPCRouter({
         role: string;
         paid: boolean;
         tier: "free" | "tester" | "paid" | "blocked";
+        /** The live paid plan's name (null = free) and whether it was assigned here. */
+        plan: string | null;
+        planGranted: boolean;
         providers: string[];
         signup: SignupSource;
         /** null = the user has never stored or done anything server-side. */
@@ -209,6 +222,30 @@ export const adminRouter = createTRPCRouter({
       results: Array<{ planId: string; plan: string; summary?: PlanSyncSummary; skipped?: string; error?: string }>;
     }>("/api/admin/plans/stripe-sync", jsonBody("POST", {}), "Stripe sync failed"),
   ),
+
+  /** What the user is on, where it comes from, and the assignable plans. */
+  userPlan: adminProcedure
+    .input(z.object({ userId: z.string().min(1) }))
+    .query(({ input }) =>
+      apiJson<UserPlan>(`/api/admin/users/${encodeURIComponent(input.userId)}/plan`, { method: "GET" }, "Could not load the plan"),
+    ),
+
+  /** Assign a plan (a complimentary Stripe subscription) — "free" removes it. */
+  assignPlan: adminProcedure
+    .input(
+      z.object({
+        userId: z.string().min(1),
+        plan: z.string().min(1).max(32),
+        until: z.string().min(1).max(40).nullable(),
+      }),
+    )
+    .mutation(({ input }) =>
+      apiJson<{ plan: string; source: "grant" | "none"; until?: string | null }>(
+        `/api/admin/users/${encodeURIComponent(input.userId)}/plan`,
+        jsonBody("POST", { plan: input.plan, until: input.until }),
+        "Could not assign the plan",
+      ),
+    ),
 
   setEntitlement: adminProcedure
     .input(
