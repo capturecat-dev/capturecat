@@ -273,20 +273,29 @@ enum CameraLayoutMath {
         }
     }
 
-    /// The look drawn at `t`: the containing region's `look` while its mode
-    /// is `.bubble`, else none (a look on any other mode is kept, ignored).
-    static func look(at t: TimeInterval, regions: [CameraLayoutRegion]) -> CameraBubbleLook? {
-        region(at: t, regions: regions)?.effectiveLook
+    /// The look drawn at `t` (docs/camera-cutout.md §1a): inside a region, its
+    /// `look` while its mode is `.bubble` — `defaultLook` when it sets none —
+    /// and nothing on any other mode (a look there is kept, ignored); outside
+    /// every region, `defaultLook` (the Camera panel's whole-video
+    /// Background, `ProjectSettings.cameraLook`).
+    static func look(
+        at t: TimeInterval, regions: [CameraLayoutRegion], defaultLook: CameraBubbleLook?
+    ) -> CameraBubbleLook? {
+        guard let region = region(at: t, regions: regions) else { return defaultLook }
+        return region.mode == .bubble ? (region.look ?? defaultLook) : nil
     }
 
     /// Look weights at `t`, eased across region edges exactly like `resolve`
     /// eases the geometry: the most recent edge at or before `t` (edges at
-    /// t ≤ 0.05 s never morph — no intro morph), `transitionDuration`,
+    /// t ≤ 0.05 s never morph — no intro morph, so a whole-video
+    /// `defaultLook` is settled from frame one), `transitionDuration`,
     /// smootherstep, from the look just before the edge to the look after it.
     /// Pure function of timeline position.
-    static func lookWeights(at t: TimeInterval, regions: [CameraLayoutRegion]) -> LookWeights {
-        guard !regions.isEmpty else { return .none }
-        let current = look(at: t, regions: regions)
+    static func lookWeights(
+        at t: TimeInterval, regions: [CameraLayoutRegion], defaultLook: CameraBubbleLook?
+    ) -> LookWeights {
+        guard !regions.isEmpty else { return .settled(defaultLook) }
+        let current = look(at: t, regions: regions, defaultLook: defaultLook)
         let settled = LookWeights.settled(current)
         let edges = regions.flatMap { [$0.startTime, $0.endTime] }.sorted()
         guard let boundary = edges.last(where: { $0 <= t }),
@@ -294,7 +303,7 @@ enum CameraLayoutMath {
               t - boundary < transitionDuration else {
             return settled
         }
-        let previous = look(at: boundary - 0.001, regions: regions)
+        let previous = look(at: boundary - 0.001, regions: regions, defaultLook: defaultLook)
         guard previous != current else { return settled }
         let from = LookWeights.settled(previous)
         let p = ease((t - boundary) / transitionDuration)

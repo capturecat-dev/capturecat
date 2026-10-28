@@ -75,6 +75,27 @@ extension MCPServer {
         )
     }
 
+    /// An optional enum, where "none" means unset (nil).
+    private static func optionalEnumKey<T: RawRepresentable & CaseIterable>(
+        _ key: String, _ group: String,
+        _ path: ReferenceWritableKeyPath<Settings, T?>,
+        note: String? = nil
+    ) -> StyleKey where T.RawValue == String {
+        let allowed = ["none"] + T.allCases.map(\.rawValue)
+        return StyleKey(
+            key: key, group: group, kind: .enumeration(allowed), note: note,
+            read: { $0[keyPath: path]?.rawValue ?? "none" },
+            write: { settings, value in
+                guard let raw = value as? String, raw == "none" || T(rawValue: raw) != nil else {
+                    throw ToolError("invalid value for \(key): \(value) (allowed: "
+                        + allowed.map { "\"\($0)\"" }.joined(separator: ", ")
+                        + " — exact, case-sensitive)")
+                }
+                settings[keyPath: path] = T(rawValue: raw)
+            }
+        )
+    }
+
     private static func numberKey(
         _ key: String, _ group: String,
         _ path: ReferenceWritableKeyPath<Settings, Double>,
@@ -298,6 +319,8 @@ extension MCPServer {
         enumKey("cameraOrientation", "camera", \.cameraOrientation),
         numberKey("cameraSize", "camera", \.cameraSize, 60...240),
         boolKey("cameraMirrored", "camera", \.cameraMirrored),
+        optionalEnumKey("cameraLook", "camera", \.cameraLook,
+                        note: "background removal for the whole video: cutout = you over the screen, popOut = you on a gradient card. The app finds the person when the project is next open in the editor; until then it renders as the plain bubble"),
         numberKey("cameraBrightness", "camera", \.cameraBrightness, -1...1),
         numberKey("cameraContrast", "camera", \.cameraContrast, 0.5...1.5),
         numberKey("cameraSaturation", "camera", \.cameraSaturation, 0...2),

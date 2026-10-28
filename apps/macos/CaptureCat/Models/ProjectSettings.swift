@@ -143,6 +143,12 @@ final class ProjectSettings: Codable {
     /// Wide = landscape cap. Circle/square are always 1:1 regardless.
     var cameraOrientation: CameraOrientation = .auto
     var cameraMirrored: Bool = false
+    /// The camera look for the whole video (docs/camera-cutout.md §1a): the
+    /// Camera panel's Background choice. nil = the plain bubble. Wherever no
+    /// camera-layout block covers the time — and inside a Bubble block that
+    /// sets no look of its own — CameraLayoutMath.look(at:) draws this. Not
+    /// a timeline block, so it never takes a lane slot.
+    var cameraLook: CameraBubbleLook?
     // Camera color adjustments — all defaults are IDENTITY so existing
     // projects render exactly as before. Mapping to CIFilter inputs lives
     // ONLY in CameraStyleMath (shared by preview + exporter).
@@ -446,6 +452,7 @@ final class ProjectSettings: Codable {
         case keystrokeOverlayAnimation
         case keystrokeOverlayScopeToRecordedApp
         case showCamera, cameraPosition, cameraCustomX, cameraCustomY, cameraSize, cameraShape, cameraOrientation, cameraMirrored, showDeviceFrame
+        case cameraLook
         case cameraBrightness, cameraContrast, cameraSaturation, cameraHue, cameraFilter, cameraRingLight
         case cameraCornerRadius, cameraBorderWidth, cameraBorderColor, cameraOpacity, cameraTiltPitch, cameraTiltYaw
         case cameraTagText, cameraTagSubtext, cameraTagFontName, cameraTagTextColor, cameraTagBackgroundColor, cameraTagPosition
@@ -553,6 +560,9 @@ final class ProjectSettings: Codable {
         // to Auto instead of failing the whole project decode.
         cameraOrientation = ((try? c.decodeIfPresent(CameraOrientation.self, forKey: .cameraOrientation)) ?? .some(.auto)) ?? .auto
         cameraMirrored = try c.decodeIfPresent(Bool.self, forKey: .cameraMirrored) ?? false
+        // Lenient like a region's `look`: missing, null, unknown or mistyped
+        // → nil (the plain bubble), never a failed project decode.
+        cameraLook = (try? c.decodeIfPresent(CameraBubbleLook.self, forKey: .cameraLook)) ?? nil
         cameraBrightness = try c.decodeIfPresent(Double.self, forKey: .cameraBrightness) ?? 0
         cameraContrast = try c.decodeIfPresent(Double.self, forKey: .cameraContrast) ?? 1
         cameraSaturation = try c.decodeIfPresent(Double.self, forKey: .cameraSaturation) ?? 1
@@ -698,6 +708,8 @@ final class ProjectSettings: Codable {
         try c.encode(cameraShape, forKey: .cameraShape)
         try c.encode(cameraOrientation, forKey: .cameraOrientation)
         try c.encode(cameraMirrored, forKey: .cameraMirrored)
+        // Only when set, so projects that never use it stay byte-identical.
+        try c.encodeIfPresent(cameraLook, forKey: .cameraLook)
         try c.encode(cameraBrightness, forKey: .cameraBrightness)
         try c.encode(cameraContrast, forKey: .cameraContrast)
         try c.encode(cameraSaturation, forKey: .cameraSaturation)

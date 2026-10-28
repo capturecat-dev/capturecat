@@ -146,7 +146,7 @@ nonisolated struct MergePolicy: Sendable {
             ]),
             SettingsTab(tab: "camera", keys: [
                 "showCamera", "cameraPosition", "cameraCustomX", "cameraCustomY", "cameraSize", "cameraShape",
-                "cameraOrientation", "cameraMirrored", "cameraBrightness", "cameraContrast", "cameraSaturation",
+                "cameraOrientation", "cameraMirrored", "cameraLook", "cameraBrightness", "cameraContrast", "cameraSaturation",
                 "cameraHue", "cameraFilter", "cameraRingLight", "cameraCornerRadius", "cameraBorderWidth",
                 "cameraBorderColor", "cameraOpacity", "cameraTiltPitch", "cameraTiltYaw", "cameraTagText",
                 "cameraTagSubtext", "cameraTagFontName", "cameraTagTextColor", "cameraTagBackgroundColor",

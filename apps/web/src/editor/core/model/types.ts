@@ -182,6 +182,9 @@ export interface ProjectSettings extends HasExtra {
   cameraShape: CameraShape;
   cameraOrientation: CameraOrientation;
   cameraMirrored: boolean;
+  /** The Camera pane's whole-video look (docs/camera-cutout.md §1a): absent =
+   *  the plain bubble. Decoded leniently; written only when set. */
+  cameraLook?: CameraLook;
   cameraBrightness: number;
   cameraContrast: number;
   cameraSaturation: number;

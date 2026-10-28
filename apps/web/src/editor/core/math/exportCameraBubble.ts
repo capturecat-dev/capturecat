@@ -457,6 +457,7 @@ export type ExportFrameCameraSettings = Pick<
   | "cameraOpacity"
   | "cameraTiltPitch"
   | "cameraTiltYaw"
+  | "cameraLook"
 >;
 
 export interface ExportFrameCameraInput {
@@ -604,7 +605,7 @@ export function exportFrameCamera(
 
   // The look gate (VideoExporter: a decoder for a FRESH mask AND the camera statics).
   const lookWeights: CameraLookWeights =
-    f.maskAvailable === true && statics.assets !== null ? layoutLookWeights(f.currentTime, regions) : { cutout: 0, popOut: 0 };
+    f.maskAvailable === true && statics.assets !== null ? layoutLookWeights(f.currentTime, regions, s.cameraLook) : { cutout: 0, popOut: 0 };
   const out: ExportFrameCamera = {
     bubbleRectNow,
     bubbleCornerRadius,

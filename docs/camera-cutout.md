@@ -41,6 +41,29 @@ new modes. A region keeps `mode: "bubble"` and gains an optional key:
     `{error: true}` to a decoded project; it changes once, regenerated from the
     Mac binary (web is already on the new rule).
 
+## 1a. The whole-video look — `settings.cameraLook`
+
+Owner decision (Mike, 2026-10-28): background removal must be a Camera-panel
+choice for the whole video, not only a timeline block.
+
+| key | type | values | default |
+|---|---|---|---|
+| `settings.cameraLook` | string? | `"cutout"`, `"popOut"` (raw values = `look`'s) | absent = the plain bubble |
+
+- Same lenient rules as `look`: missing, null, unknown or mistyped → absent;
+  written only when set, right after `cameraMirrored`.
+- `look(at:)` gains the default: outside every region → `cameraLook`; inside a
+  `bubble` region → its own `look`, else `cameraLook`; any other mode → none.
+  Blocks therefore still override it for their span and §4's edge easing
+  applies unchanged (no intro morph, so it is settled from frame one).
+- "Uses a look" (segmentation queue, mask fetch, export mask gate) counts
+  `cameraLook` too.
+- Surfaces: Mac Camera pane and web `CameraPane` — "Background: None / Cutout /
+  Pop-out card", first row under the pad; MCP / WebMCP `set_style` key
+  `cameraLook` (`"none"` clears it). It never adds a timeline block.
+- Vectors: `cameraLookWeights` cases carry an optional `defaultLook`;
+  `exportCameraFrame` settings carry `cameraLook` when set.
+
 ## 2. The mask track — `camera-mask.ccmask`
 
 The shared source of truth for "where is the person". Format and codec:

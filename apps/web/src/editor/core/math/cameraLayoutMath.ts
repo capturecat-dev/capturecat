@@ -257,11 +257,18 @@ export function boundaries(regions: readonly CameraLayoutRegion[], duration: num
 
 // ── Camera looks (docs/camera-cutout.md §4) ─────────────────────────────────
 
-/** `look(at:regions:)` — the containing region's `look` while its mode is
- *  `bubble`; null outside every region, on any other mode, or with no look. */
-export function look(t: number, regions: readonly CameraLayoutRegion[]): CameraLook | null {
+/** `look(at:regions:defaultLook:)` (docs/camera-cutout.md §1a) — inside a
+ *  region, its `look` while its mode is `bubble` (the default look when it
+ *  sets none) and null on any other mode; outside every region, the default
+ *  look (`settings.cameraLook`, the Camera pane's whole-video Background). */
+export function look(
+  t: number,
+  regions: readonly CameraLayoutRegion[],
+  defaultLook: CameraLook | null | undefined,
+): CameraLook | null {
   const r = region(t, regions);
-  return r && r.mode === "bubble" ? (r.look ?? null) : null;
+  if (!r) return defaultLook ?? null;
+  return r.mode === "bubble" ? (r.look ?? defaultLook ?? null) : null;
 }
 
 /** `LookWeights` — each 0…1, summing to ≤ 1. */
@@ -275,15 +282,20 @@ function lookTarget(l: CameraLook | null): CameraLookWeights {
 }
 
 /**
- * `lookWeights(at:regions:)` — how much of each look draws at t, eased across
- * region edges exactly like `resolve` morphs modes: the last edge ≤ t, no
- * morph when that edge is ≤ 0.05 s (no intro morph at t = 0) or more than
+ * `lookWeights(at:regions:defaultLook:)` — how much of each look draws at t,
+ * eased across region edges exactly like `resolve` morphs modes: the last
+ * edge ≤ t, no morph when that edge is ≤ 0.05 s (no intro morph at t = 0, so
+ * a whole-video default look is settled from frame one) or more than
  * `transitionDuration` ago; otherwise smootherstep from the look just before
  * the edge (`look(at: edge − 0.001)`) to the look at t.
  */
-export function lookWeights(t: number, regions: readonly CameraLayoutRegion[]): CameraLookWeights {
-  if (regions.length === 0) return lookTarget(null);
-  const current = look(t, regions);
+export function lookWeights(
+  t: number,
+  regions: readonly CameraLayoutRegion[],
+  defaultLook: CameraLook | null | undefined,
+): CameraLookWeights {
+  if (regions.length === 0) return lookTarget(defaultLook ?? null);
+  const current = look(t, regions, defaultLook);
   const settled = lookTarget(current);
 
   const edges = regions.flatMap((r) => [r.startTime, r.endTime]).sort((a, b) => a - b);
@@ -298,7 +310,7 @@ export function lookWeights(t: number, regions: readonly CameraLayoutRegion[]): 
     return settled;
   }
 
-  const previous = look(boundary - 0.001, regions);
+  const previous = look(boundary - 0.001, regions, defaultLook);
   if (previous === current) return settled;
 
   const from = lookTarget(previous);

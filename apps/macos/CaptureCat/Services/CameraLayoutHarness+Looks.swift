@@ -82,6 +82,39 @@ extension CameraLayoutHarness {
         } else {
             expect(false, "project fixture encode failed")
         }
+
+        // The Camera panel's whole-video look (ProjectSettings.cameraLook):
+        // absent until set, round-trips, and an unknown or mistyped value
+        // decodes to nil instead of failing the project.
+        let whole = Project(id: UUID(), name: "whole", videoURL: URL(fileURLWithPath: "/tmp/none.mov"), duration: 10)
+        func settingsObject(_ p: Project) -> [String: Any]? {
+            (try? JSONEncoder().encode(p))
+                .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["settings"] as? [String: Any]
+        }
+        expect(settingsObject(whole).map { $0["cameraLook"] == nil } == true,
+               "no whole-video look → no cameraLook key (untouched projects stay byte-identical)")
+        whole.settings.cameraLook = .popOut
+        expect(settingsObject(whole)?["cameraLook"] as? String == "popOut", "cameraLook encodes its raw value")
+        if let data = try? JSONEncoder().encode(whole),
+           var object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           var settings = object["settings"] as? [String: Any] {
+            let back = try? JSONDecoder().decode(Project.self, from: data)
+            expect(back?.settings.cameraLook == .popOut, "cameraLook round-trips")
+            for (bad, label) in [("hologram" as Any, "unknown"), (3 as Any, "non-string"), (NSNull() as Any, "null")] {
+                settings["cameraLook"] = bad
+                object["settings"] = settings
+                let decoded = (try? JSONSerialization.data(withJSONObject: object))
+                    .flatMap { try? JSONDecoder().decode(Project.self, from: $0) }
+                expect(decoded != nil && decoded?.settings.cameraLook == nil,
+                       "\(label) cameraLook → nil, and the project still loads")
+            }
+        } else {
+            expect(false, "whole-video look fixture encode failed")
+        }
+        whole.settings.cameraLook = nil
+        expect(!whole.usesCameraLook, "no look anywhere → no segmentation needed")
+        whole.settings.cameraLook = .cutout
+        expect(whole.usesCameraLook, "a whole-video look alone needs the person mask")
     }
 
     // MARK: - lookWeights
@@ -94,11 +127,13 @@ extension CameraLayoutHarness {
             CameraLayoutRegion(startTime: 12, endTime: 14, mode: .cameraOnly, look: .cutout),
             CameraLayoutRegion(startTime: 16, endTime: 18, mode: .bubble),
         ]
-        func w(_ t: Double, _ r: [CameraLayoutRegion] = regions) -> CameraLayoutMath.LookWeights {
-            CameraLayoutMath.lookWeights(at: t, regions: r)
+        func w(
+            _ t: Double, _ r: [CameraLayoutRegion] = regions, _ whole: CameraBubbleLook? = nil
+        ) -> CameraLayoutMath.LookWeights {
+            CameraLayoutMath.lookWeights(at: t, regions: r, defaultLook: whole)
         }
         expect(w(1) == .none, "before any look → none")
-        expect(CameraLayoutMath.lookWeights(at: 3, regions: []) == .none, "no regions → none")
+        expect(CameraLayoutMath.lookWeights(at: 3, regions: [], defaultLook: nil) == .none, "no regions → none")
         expect(w(2 + D + 0.01) == .init(cutout: 1, popOut: 0), "settled cutout draws only the cutout")
         expect(w(6 + D + 0.01) == .init(cutout: 0, popOut: 1), "settled pop-out draws only the card")
         expect(w(13) == .none, "a look on a cameraOnly block is ignored")
@@ -125,6 +160,25 @@ extension CameraLayoutHarness {
         let exit = w(10 + D / 2)
         expect(exit.popOut > 0.01 && exit.popOut < 0.99 && exit.cutout == 0, "pop-out fades out after its block")
         expect(abs(exit.bubble + exit.popOut - 1) < 1e-12, "weights + bubble always sum to 1")
+
+        // The Camera panel's whole-video look (ProjectSettings.cameraLook):
+        // no regions → settled everywhere, frame one included; blocks still
+        // override it for their span and ease in and out of it.
+        for t in [0.0, 0.01, 3, 99] {
+            expect(w(t, [], .cutout) == .init(cutout: 1, popOut: 0), "whole-video cutout, no blocks: settled at t=\(t)")
+            expect(w(t, [], .popOut) == .init(cutout: 0, popOut: 1), "whole-video pop-out, no blocks: settled at t=\(t)")
+        }
+        expect(w(1, regions, .popOut) == .init(cutout: 0, popOut: 1), "outside every block → the whole-video look")
+        expect(w(2 + D + 0.01, regions, .popOut) == .init(cutout: 1, popOut: 0), "a block's own look overrides it")
+        expect(w(13, regions, .cutout) == .none, "a Full Screen block shows no look over it")
+        expect(w(17, regions, .cutout) == .init(cutout: 1, popOut: 0), "a Bubble block without a look inherits it")
+        let into = w(12 + D / 2, regions, .cutout)
+        expect(into.cutout > 0.01 && into.cutout < 0.99, "whole-video look eases out into a Full Screen block")
+        let back = w(14 + D / 2, regions, .cutout)
+        expect(back.cutout > 0.01 && back.cutout < 0.99 && abs(back.cutout - (1 - into.cutout)) < 1e-9,
+               "…and eases back in after it, symmetrically")
+        expect(w(10 + D / 2, regions, .popOut) == .init(cutout: 0, popOut: 1),
+               "leaving a pop-out block into a whole-video pop-out: nothing to fade")
 
         // No intro morph: a look block at (or within 0.05 s of) t = 0 opens
         // settled; its EXIT still morphs.

@@ -233,6 +233,7 @@ export const MERGE_POLICY: MergePolicy = {
         "cameraShape",
         "cameraOrientation",
         "cameraMirrored",
+        "cameraLook",
         "cameraBrightness",
         "cameraContrast",
         "cameraSaturation",

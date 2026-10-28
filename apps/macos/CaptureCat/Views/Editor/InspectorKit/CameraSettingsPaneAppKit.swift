@@ -17,6 +17,12 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     /// Bubble orientation (Auto / Vertical / Wide) — only meaningful for the
     /// aspect-following shapes; hidden for circle/square (always 1:1).
     private let orientationChips = InspectorChipsControl()
+    /// Background removal for the WHOLE video (ProjectSettings.cameraLook):
+    /// None / Cutout / Pop-out card. Not a timeline block — camera-layout
+    /// blocks still override it for their span.
+    private let backgroundLabel = InspectorKitViews.label("Background")
+    private let backgroundChips = InspectorChipsControl()
+    private static let backgroundLooks: [CameraBubbleLook?] = [nil] + CameraBubbleLook.allCases
     private let mirrorToggle = InspectorToggleControl("Mirror Camera")
     private let sizeSlider: InspectorSliderRow
 
@@ -124,14 +130,14 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         let tagTextColorRow = InspectorKitViews.row("Text Color", control: tagTextColorWell)
         let tagBackgroundRow = InspectorKitViews.row("Tag Fill", control: tagBackgroundColorWell)
 
-        cameraBox.addRow(positionRow)
-        cameraBox.addRow(shapeRow)
-        cameraBox.addRow(orientationChips, attached: true)
-        cameraBox.addRow(mirrorToggle)
-        cameraBox.addRow(sizeSlider)
+        // Background first, right under the pad: below Shape it would
+        // inherit the hidden orientation chips' 6pt gap on circle/square.
+        cameraBox.addRow(backgroundLabel)
+        cameraBox.addRow(backgroundChips, attached: true)
         // Background removal for the Cutout / Pop-out card looks: a caption
         // over the house progress bar (springs to each value; sweeps while
-        // queued). Shown only while the project uses a look.
+        // queued), right under the choice that starts it. Shown only while
+        // the project uses a look.
         lookStatusRow.orientation = .vertical
         lookStatusRow.alignment = .leading
         lookStatusRow.spacing = 6
@@ -141,7 +147,14 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         lookStatusLabel.widthAnchor.constraint(equalTo: lookStatusRow.widthAnchor).isActive = true
         lookStatusRow.wantsLayer = true
         lookStatusRow.isHidden = true
+        // Not `attached`: while hidden it would pull Position up tight
+        // against the chips.
         cameraBox.addRow(lookStatusRow)
+        cameraBox.addRow(positionRow)
+        cameraBox.addRow(shapeRow)
+        cameraBox.addRow(orientationChips, attached: true)
+        cameraBox.addRow(mirrorToggle)
+        cameraBox.addRow(sizeSlider)
         fullWidth(cameraBox)
 
         let adjustBox = InspectorSectionBox("Adjust")
@@ -169,13 +182,15 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         fullWidth(tagBox)
 
         detailViews = [
-            positionRow, shapeRow, orientationChips, mirrorToggle, sizeSlider,
+            backgroundLabel, backgroundChips, positionRow, shapeRow, orientationChips, mirrorToggle, sizeSlider,
             adjustBox, styleBox, tagBox,
         ]
 
         positionMenu.items = ProjectSettings.CameraPosition.allCases.map { .init(title: $0.rawValue) }
         shapeMenu.items = ProjectSettings.CameraShape.allCases.map { .init(title: $0.rawValue) }
         orientationChips.items = ProjectSettings.CameraOrientation.allCases.map(\.rawValue)
+        backgroundChips.items = Self.backgroundLooks.map { $0?.displayName ?? "None" }
+        backgroundChips.toolTip = "Remove the background behind you for the whole video"
         tagPositionMenu.items = ProjectSettings.CameraTagPosition.allCases.map { .init(title: $0.rawValue) }
         filterChips.items = ProjectSettings.CameraFilterStyle.allCases.map(\.rawValue)
         sizeSlider.format = { $0.truncatingRemainder(dividingBy: 1) == 0
@@ -206,6 +221,13 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         }
         orientationChips.onSelect = { [weak self] index in
             self?.settings.cameraOrientation = ProjectSettings.CameraOrientation.allCases[index]
+        }
+        backgroundChips.onSelect = { [weak self] index in
+            guard let self else { return }
+            settings.cameraLook = Self.backgroundLooks[index]
+            // Start finding the person now rather than on the next preview
+            // render (idempotent; a fresh mask is reused).
+            if let project, project.usesCameraLook { segmentation?.ensureMask(for: project) }
         }
 
         // Adjust
@@ -292,6 +314,7 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         shapeMenu.selectedIndex = ProjectSettings.CameraShape.allCases
             .firstIndex(of: settings.cameraShape) ?? 0
         mirrorToggle.isOn = settings.cameraMirrored
+        backgroundChips.selectedIndex = Self.backgroundLooks.firstIndex(of: settings.cameraLook) ?? 0
         sizeSlider.setValue(settings.effectiveCameraSize / 1456 * 100)
 
         brightnessSlider.setValue(settings.cameraBrightness)

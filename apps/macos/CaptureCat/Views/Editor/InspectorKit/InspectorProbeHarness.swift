@@ -40,6 +40,17 @@ enum InspectorProbeHarness {
             project.settings.videoCustomY = 0.25
         }
 
+        // `--inspector-probe camera` — a project with a recorded camera and the
+        // whole-video Cutout look, on the Camera tab, so the camera details
+        // (Background chips included) render with a selection.
+        if CommandLine.arguments.contains("camera") {
+            project.cameraVideoURL = URL(fileURLWithPath: "/tmp/capturecat-probe-camera.mov")
+            project.settings.showCamera = true
+            project.settings.cameraShape = .squircle
+            project.settings.cameraLook = .cutout
+            selection.inspectorTab = .camera
+        }
+
         // `--inspector-probe annotate` — seed a selected text annotation and
         // open the Annotate tab so the native pane's editor state renders.
         if CommandLine.arguments.contains("annotate") {

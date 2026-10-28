@@ -31,11 +31,12 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 describe("camera look golden vectors", () => {
   it("cameraLookWeights", () => {
-    checkUnit("cameraLookWeights", (i: { regions: unknown[]; queries: number[] }) => {
+    checkUnit("cameraLookWeights", (i: { regions: unknown[]; queries: number[]; defaultLook?: "cutout" | "popOut" }) => {
       // Regions as project.json: decoded like the Mac's Codable (lenient look,
       // unknown mode → bubble).
       const regions = i.regions.map((r, k) => decodeCameraLayoutRegion(r, `regions[${k}]`));
-      return { results: i.queries.map((t) => CLM.lookWeights(t, regions)) };
+      // defaultLook = settings.cameraLook (the whole-video look), absent = none.
+      return { results: i.queries.map((t) => CLM.lookWeights(t, regions, i.defaultLook ?? null)) };
     });
   });
 

@@ -1,12 +1,13 @@
 /**
  * The Camera tab, 1:1 with CameraSettingsPaneAppKit: Camera Overlay (toggle,
  * drag-to-place pad, position/shape menus, orientation chips for the
- * aspect-following shapes, mirror, size as % of canvas width), Adjust
+ * aspect-following shapes, mirror, size as % of canvas width — and, first
+ * under the pad, Background: the whole-video camera look), Adjust
  * (colour sliders, look chips, ring light), Style (corner radius for rounded
  * rect, border + colour with reset, opacity, ±25° skew pad) and Name Tag.
  */
 import type { ProjectSettings } from "../../core/model";
-import { CameraFilterStyle, CameraOrientation, CameraPosition, CameraShape, CameraTagPosition, enumValues } from "../../core/model/enums";
+import { CameraFilterStyle, CameraOrientation, CameraPosition, CameraShape, CameraTagPosition, enumValues, type CameraLook } from "../../core/model/enums";
 import { borderColor } from "../../core/math/cameraStyleMath";
 import { formatFixed, sInt } from "../../core/math/swift";
 import { Chips, ColorSwatch, InspectorButton, InspectorField, PillSlider, Row, ToggleRow } from "../kit";
@@ -20,6 +21,10 @@ const SHAPES = enumValues(CameraShape);
 const ORIENTATIONS = enumValues(CameraOrientation);
 const TAG_POSITIONS = enumValues(CameraTagPosition);
 const FILTERS = enumValues(CameraFilterStyle);
+/** Background: settings.cameraLook for the whole video (absent = None) — not a
+ *  timeline block; camera-layout blocks still override it for their span. */
+const BACKGROUNDS: readonly (CameraLook | undefined)[] = [undefined, "cutout", "popOut"];
+const BACKGROUND_LABELS = ["None", "Cutout", "Pop-out card"];
 /** Size is shown as % of a 1456pt nominal canvas width (persisted in points). */
 const NOMINAL = 1456;
 
@@ -64,6 +69,24 @@ export function CameraPane({ settings: s, onSettingsChange, onCommit, project, f
                       dimmed={!details}
                       onPlace={(x, y) => set({ cameraCustomX: x, cameraCustomY: y })}
                       onSnap={(corner) => pick({ cameraPosition: corner, cameraCustomX: undefined, cameraCustomY: undefined })}
+                    />
+                  ),
+                },
+                {
+                  key: "backgroundLabel",
+                  show: details,
+                  node: <Row label="Background">{null}</Row>,
+                },
+                {
+                  key: "background",
+                  show: details,
+                  attached: true,
+                  node: (
+                    <Chips
+                      items={BACKGROUND_LABELS}
+                      selectedIndex={Math.max(0, BACKGROUNDS.indexOf(s.cameraLook))}
+                      onSelect={(i) => pick({ cameraLook: BACKGROUNDS[i] })}
+                      ariaLabel="Background"
                     />
                   ),
                 },

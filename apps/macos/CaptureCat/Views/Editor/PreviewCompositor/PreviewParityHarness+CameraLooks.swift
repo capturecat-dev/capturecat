@@ -214,6 +214,25 @@ extension PreviewParityHarness {
         }
         PreviewCompositorView.debugUnmaskedLooks = false
 
+        // ── Whole-video look (the Camera panel's Background) ──────────────
+        // settings.cameraLook with NO timeline block at all must be the same
+        // settled cutout, pixel for pixel — the panel never adds a region.
+        fixture.project.cameraLayoutRegions = []
+        fixture.project.settings.cameraLook = .cutout
+        if let wholeRaw = await capture("whole-video-cutout") {
+            let whole = Frame(pixels: wholeRaw.pixels, image: wholeRaw.image, flipped: flipped)
+            let weights = compositor.debugCameraLookWeights()
+            let holds = cutoutHolds(whole)
+            let same = agreement(whole, cutout, inside + outside, tol: 2)
+            expect("whole-video-cutout",
+                   weights == .init(cutout: 1, popOut: 0) && holds.ok && same >= 0.99,
+                   String(format: "no regions · weights (%.2f, %.2f) · %@ · == region cutout %.3f",
+                          weights.cutout, weights.popOut, holds.detail, same))
+        } else {
+            expect("whole-video-cutout", false, "capture failed")
+        }
+        fixture.project.settings.cameraLook = nil
+
         // ── Mid-fade pixel: between the bubble and the cutout ─────────────
         fixture.project.cameraLayoutRegions = [
             CameraLayoutRegion(startTime: edge, endTime: edge + 5, mode: .bubble, look: .cutout),
