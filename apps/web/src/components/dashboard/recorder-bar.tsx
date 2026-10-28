@@ -115,9 +115,14 @@ export function useRecorderContext(): Recorder {
 
 export function RecorderProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
-  const rec = useRecorder({
-    onSaved: (id) => void navigate({ to: "/app/editor/$projectId", params: { projectId: id } }),
-  });
+  // The project a finished upload just created. It opens in the editor from
+  // the effect below, once the recorder is idle again — never from inside
+  // the save: the save flips the phase back to setup and reports the id in
+  // the same tick, before the blocker's check has seen that render, so
+  // navigating right there was blocked as "A recording is in progress" and
+  // the take never opened (2026-10-28).
+  const [savedProject, setSavedProject] = useState<string | null>(null);
+  const rec = useRecorder({ onSaved: setSavedProject });
   const busy = rec.phase.kind === "recording" || rec.phase.kind === "countdown" || rec.phase.kind === "saving";
   // Leaving the dashboard (the editor, the marketing site) unmounts the
   // recorder — ask first while a take is live or uploading, in the house
@@ -131,20 +136,34 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     enableBeforeUnload: busy,
     withResolver: true,
   });
+  // After useBlocker, so its check is already re-armed with this render's
+  // (idle) state when the navigation runs.
+  useEffect(() => {
+    if (!savedProject || busy) return;
+    setSavedProject(null);
+    void navigate({ to: "/app/editor/$projectId", params: { projectId: savedProject } });
+  }, [savedProject, busy, navigate]);
   const uploading = rec.phase.kind === "saving";
   const blocked = blocker.status === "blocked";
+  // A block decided on a state that is already over (the take finished in
+  // the same tick as the navigation) protects nothing: let it through
+  // instead of asking about a recording that no longer exists.
+  useEffect(() => {
+    if (blocked && !busy) blocker.proceed?.();
+  }, [blocked, busy, blocker]);
+  const asking = blocked && busy;
   // Mid-take this dialog is recorder UI on the page: logged (before it
   // paints) and cut like any return of the bar.
   const { showUiFor, hideUiAfter } = rec;
   useLayoutEffect(() => {
-    if (!blocked) return;
+    if (!asking) return;
     showUiFor("dialog");
     return () => hideUiAfter("dialog");
-  }, [blocked, showUiFor, hideUiAfter]);
+  }, [asking, showUiFor, hideUiAfter]);
   return (
     <RecorderContext.Provider value={rec}>
       {children}
-      <AlertDialog open={blocked} onOpenChange={(open) => !open && blocker.reset?.()}>
+      <AlertDialog open={asking} onOpenChange={(open) => !open && blocker.reset?.()}>
         <AlertDialogContent data-rec-ui="dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>{uploading ? "Your recording is still uploading" : "A recording is in progress"}</AlertDialogTitle>
