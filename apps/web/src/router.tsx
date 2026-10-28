@@ -2,12 +2,7 @@ import { createRouter } from "@tanstack/react-router";
 
 import { routeTree } from "./routeTree.gen";
 import { withEditorLabRoutes } from "./editor/lab/labRoutes";
-
-/** Dashboard hosts where the internal /app prefix must never show in URLs —
- *  app.capturecat.so/billing IS /app/billing. */
-function isAppHost(host: string): boolean {
-  return host === "app.capturecat.so" || host.startsWith("app.localhost");
-}
+import { appHostInput, appHostOutput } from "./lib/app-host-rewrite";
 
 export function getRouter() {
   return createRouter({
@@ -19,31 +14,8 @@ export function getRouter() {
     // strips the prefix back off every href the router generates — so links,
     // pushes, and redirects all render without the double "app".
     rewrite: {
-      input: ({ url }) => {
-        if (!isAppHost(url.host)) return undefined;
-        if (
-          url.pathname.startsWith("/app") ||
-          url.pathname.startsWith("/api/") ||
-          url.pathname.startsWith("/login") ||
-          // The OAuth consent page is a root route on every host
-          // (routes/oauth.authorize.tsx) — the API sends clients there.
-          url.pathname.startsWith("/oauth/")
-        ) {
-          return undefined;
-        }
-        const next = new URL(url);
-        next.pathname = url.pathname === "/" ? "/app" : `/app${url.pathname}`;
-        return next;
-      },
-      output: ({ url }) => {
-        if (!isAppHost(url.host)) return undefined;
-        if (url.pathname === "/app" || url.pathname.startsWith("/app/")) {
-          const next = new URL(url);
-          next.pathname = url.pathname.slice("/app".length) || "/";
-          return next;
-        }
-        return undefined;
-      },
+      input: ({ url }) => appHostInput(url),
+      output: ({ url }) => appHostOutput(url),
     },
     defaultPreload: "intent",
     scrollRestoration: true,
