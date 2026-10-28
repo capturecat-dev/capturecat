@@ -1,6 +1,6 @@
 {
   "generatedBy" : "CaptureCat --mcp-catalog-json",
-  "instructions" : "CaptureCat edits screen recordings non-destructively. A project = one recording (video + recorded cursor, clicks, keystrokes) + an edit list in project.json. Tools rewrite that edit list; media is never touched.\n\nLANES\n- VIDEO: trim window (set_trim), clips (cut_video lifts footage out), speed regions (set_speed\/remove_speed).\n- EFFECTS: zoom + tilt blocks (add_effect, update_effect, remove_effect, auto_zoom). ONE lane: blocks never overlap; a \"zoomtilt\" is a linked zoom+tilt pair on one span.\n- FOCUS: blur (add_blur), highlight, depth-focus and camera-layout regions share one lane that never overlaps.\n- ANNOTATIONS (text, arrow, callout, rectangle, ellipse, tap) may overlap. Subtitles come from transcribe. The look is set_style (style_options lists every key, range and current value).\n\nTWO CLOCKS (the #1 mistake)\n- SOURCE seconds = position in the original recording. ALL edit tools take SOURCE time, and every start\/end\/at in describe_project (clips, effects, interactionDigest, pacing) is SOURCE. So are get_transcript's sourceStart\/sourceEnd (per segment and per word) and search_captures' bestFrameTime.\n- OUTPUT seconds = position in the exported video, after trim + speed regions. Only render_frames (times\/span) and get_transcript start\/end\/words use OUTPUT.\n- With no speed regions, output = source - trimStart. Otherwise convert with get_transcript's paired times or render_frames' tile captions (\"src\" = SOURCE). describe_project.outputDuration is the exported length.\n- Edits are anchored to content: trimming or speeding up shifts OUTPUT time, never an effect's SOURCE time.\n- cut_video does NOT ripple: the removed span shows only the background and the video keeps its length (only cutting the very end shortens it). To shorten, use set_trim (head\/tail) and set_speed (middle).\n\nCOORDINATES: normalized 0-1 fractions of the recorded video frame, Y-down, (0,0) = top-left — zoom focalX\/focalY, annotation x\/y\/arrowEndX\/arrowEndY, blur x\/y\/width\/height, click-cluster meanPosition. Never pixels.\n\nLOOP\n1. describe_project: clips, effects and annotations with ids, interactionDigest (click clusters = where attention goes), pacing (quietSpans = no motion, no input, no sound). Speech? get_transcript (transcribe first if it has no subtitles).\n2. Plan the whole edit, then send it as ONE apply_edits batch (all-or-nothing, one undo step).\n3. render_frames {layout: \"contact_sheet\", span: {count: 12}} — one image, every tile labelled with OUTPUT and SOURCE time. Check framing, focal points, text placement and anything private.\n4. Fix with apply_edits or undo; re-render only the changed range (span start\/end).\n5. export_project when it looks right (ask the user where to save if they haven't said).\n\nTASTE (screen recordings)\n- Zoom: start from auto_zoom, then refine. Depth 1.3-2.75 (auto_zoom's range; above 3 disorients). Begin ~0.35s before the action, hold at least 1.8s, release ~0.9s after the last action, leave >= 1s between separate zooms. For nearby consecutive actions extend ONE block: while zoomed the camera blends toward the cursor (followsCursor: false pins it to the focal point). Keep focal within [0.5\/z, 1-0.5\/z] on each axis (auto_zoom does) or the zoomed view runs past the video's edge. Omit animationStyle to use the project pace; \"Smooth\"\/\"Slow Glide\" read calm, \"Snappy\" energetic. Re-running auto_zoom replaces every auto block (describe marks them auto: true), including ones you tweaked.\n- Pacing: set_speed (0.5x-4x, spans >= 0.8s, never overlapping) at 2-4x on quietSpans and dead waits (loading, long typing); never speed through speech. Trim dead head\/tail with set_trim.\n- Annotations: restraint. One on screen at a time, 2-4s, <= 6 words, placed away from the action. backdropOpacity (spotlight) sparingly. Tilt: subtle (pitch <= 20).\n- Privacy: blur (style \"Pixelate\" for a censor look) emails, API keys, tokens, customer data, notifications. Look for them in the contact sheet.\n- Vertical: set_style {aspectRatio: \"9:16\"} (or \"4:5\" for feeds). A landscape recording becomes a small card in a tall canvas, so zooms must carry most of the video, captions help, and shorter is better. Always verify with render_frames.\n\nSAFETY\n- Every write snapshots the previous project.json into <project folder>\/.mcp-history (last 30) plus project.json.bak. undo {id, steps} walks MCP writes back; it refuses if the file changed outside MCP since (force: true overrides).\n- If the CaptureCat app is running, write results carry a warning: the app reloads the edit automatically unless that project is open with unsaved changes — then the app's copy wins and may overwrite yours. Ask the user to save or close it first.\n- render_frames' first call after an edit re-renders the whole project (up to about the video's length); later calls on the same edit state are cached — batch edits before looking. transcribe's first run downloads the on-device Whisper model (~150 MB).\n- start_recording is always visible to the user (floating panel + 3-2-1 countdown) and needs Screen Recording permission.",
+  "instructions" : "CaptureCat edits screen recordings non-destructively. A project = one recording (video + recorded cursor, clicks, keystrokes) + an edit list in project.json. Tools rewrite that edit list; media is never touched.\n\nLANES\n- VIDEO: trim window (set_trim), clips (cut_video lifts footage out), speed regions (set_speed\/remove_speed).\n- EFFECTS: zoom + tilt blocks (add_effect, update_effect, remove_effect, auto_zoom). ONE lane: blocks never overlap; a \"zoomtilt\" is a linked zoom+tilt pair on one span.\n- FOCUS: blur (add_blur), highlight, depth-focus and camera-layout regions share one lane that never overlaps.\n- ANNOTATIONS (text, arrow, callout, rectangle, ellipse, tap) may overlap. Subtitles come from transcribe. The look is set_style (style_options lists every key, range and current value).\n\nTWO CLOCKS (the #1 mistake)\n- SOURCE seconds = position in the original recording. ALL edit tools take SOURCE time, and every start\/end\/at in describe_project (clips, effects, interactionDigest, pacing) is SOURCE. So are get_transcript's sourceStart\/sourceEnd (per segment and per word) and search_captures' bestFrameTime.\n- OUTPUT seconds = position in the exported video, after trim + speed regions. Only render_frames (times\/span) and get_transcript start\/end\/words use OUTPUT.\n- With no speed regions, output = source - trimStart. Otherwise convert with get_transcript's paired times or render_frames' tile captions (\"src\" = SOURCE). describe_project.outputDuration is the exported length.\n- Edits are anchored to content: trimming or speeding up shifts OUTPUT time, never an effect's SOURCE time.\n- cut_video does NOT ripple: the removed span shows only the background and the video keeps its length (only cutting the very end shortens it). To shorten, use set_trim (head\/tail) and set_speed (middle).\n\nCOORDINATES: normalized 0-1 fractions of the recorded video frame, Y-down, (0,0) = top-left — zoom focalX\/focalY, annotation x\/y\/arrowEndX\/arrowEndY, blur x\/y\/width\/height, click-cluster meanPosition. Never pixels.\n\nLOOP\n1. describe_project: clips, effects and annotations with ids, interactionDigest (click clusters = where attention goes), pacing (quietSpans = no motion, no input, no sound). Speech? get_transcript (transcribe first if it has no subtitles).\n2. Plan the whole edit, then send it as ONE apply_edits batch (all-or-nothing, one undo step).\n3. render_frames {layout: \"contact_sheet\", span: {count: 12}} — one image, every tile labelled with OUTPUT and SOURCE time. Check framing, focal points, text placement and anything private.\n4. Fix with apply_edits or undo; re-render only the changed range (span start\/end).\n5. export_project when it looks right (ask the user where to save if they haven't said).\n\nTASTE (screen recordings)\n- Zoom: start from auto_zoom, then refine. Depth 1.3-2.75 (auto_zoom's range; above 3 disorients). Begin ~0.35s before the action, hold at least 1.8s, release ~0.9s after the last action, leave >= 1s between separate zooms. For nearby consecutive actions extend ONE block: while zoomed the camera blends toward the cursor (followsCursor: false pins it to the focal point). Keep focal within [0.5\/z, 1-0.5\/z] on each axis (auto_zoom does) or the zoomed view runs past the video's edge. Omit animationStyle to use the project pace; \"Smooth\"\/\"Slow Glide\" read calm, \"Snappy\" energetic. Re-running auto_zoom replaces every auto block (describe marks them auto: true), including ones you tweaked.\n- Pacing: set_speed (0.5x-4x, spans >= 0.8s, never overlapping) at 2-4x on quietSpans and dead waits (loading, long typing); never speed through speech. Trim dead head\/tail with set_trim.\n- Annotations: restraint. One on screen at a time, 2-4s, <= 6 words, placed away from the action. backdropOpacity (spotlight) sparingly. Tilt: subtle (pitch <= 20).\n- Privacy: blur (style \"Pixelate\" for a censor look) emails, API keys, tokens, customer data, notifications. Look for them in the contact sheet.\n- Vertical: set_style {aspectRatio: \"9:16\"} (or \"4:5\" for feeds). A landscape recording becomes a small card in a tall canvas, so zooms must carry most of the video, captions help, and shorter is better. Always verify with render_frames.\n\nSAFETY\n- Every write snapshots the previous project.json into <project folder>\/.mcp-history (last 30) plus project.json.bak. undo {id, steps} walks MCP writes back; it refuses if the file changed outside MCP since (force: true overrides).\n- If the CaptureCat app is running, write results carry a warning: the app reloads the edit automatically unless that project is open with unsaved changes — then the app's copy wins and may overwrite yours. Ask the user to save or close it first.\n- render_frames' first call after an edit re-renders the whole project (up to about the video's length); later calls on the same edit state are cached — batch edits before looking. transcribe's first run downloads the on-device Whisper model (~150 MB).\n- start_recording is always visible to the user (floating panel + 3-2-1 countdown) and needs Screen Recording permission.\n- share_project never publishes on its own: the user approves every share in CaptureCat (it refuses, uploading nothing, if they decline, aren't signed in or the app can't ask). Default privacy \"unlisted\" = anyone with the link. Poll share_status; the link is live only once state is \"done\". No tool deletes.",
   "prompts" : [
     {
       "arguments" : [
@@ -64,6 +64,8 @@
   "tools" : [
     {
       "annotations" : {
+        "destructiveHint" : false,
+        "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : true,
         "title" : "List projects"
@@ -79,10 +81,58 @@
         "type" : "object"
       },
       "name" : "list_projects",
+      "outputSchema" : {
+        "properties" : {
+          "projects" : {
+            "description" : "Newest first.",
+            "items" : {
+              "properties" : {
+                "createdAt" : {
+                  "description" : "ISO-8601.",
+                  "type" : "string"
+                },
+                "duration" : {
+                  "description" : "Recording length, seconds.",
+                  "type" : "number"
+                },
+                "id" : {
+                  "description" : "Project UUID — the id every tool takes.",
+                  "type" : "string"
+                },
+                "name" : {
+                  "type" : "string"
+                },
+                "recordingSourceKind" : {
+                  "type" : "string"
+                },
+                "reminderDate" : {
+                  "description" : "ISO-8601, when set.",
+                  "type" : "string"
+                }
+              },
+              "required" : [
+                "id",
+                "name",
+                "createdAt",
+                "duration",
+                "recordingSourceKind"
+              ],
+              "type" : "object"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [
+          "projects"
+        ],
+        "type" : "object"
+      },
       "title" : "List projects"
     },
     {
       "annotations" : {
+        "destructiveHint" : false,
+        "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : true,
         "title" : "Describe project"
@@ -101,10 +151,315 @@
         "type" : "object"
       },
       "name" : "describe_project",
+      "outputSchema" : {
+        "description" : "Every start\/end\/at is SOURCE seconds.",
+        "properties" : {
+          "annotations" : {
+            "description" : "Annotations (type, x\/y, text, …).",
+            "items" : {
+              "properties" : {
+                "end" : {
+                  "type" : "number"
+                },
+                "id" : {
+                  "type" : "string"
+                },
+                "start" : {
+                  "type" : "number"
+                }
+              },
+              "required" : [
+                "id",
+                "start",
+                "end"
+              ],
+              "type" : "object"
+            },
+            "type" : "array"
+          },
+          "blurRegions" : {
+            "description" : "Blur regions (rect, style, intensity).",
+            "items" : {
+              "properties" : {
+                "end" : {
+                  "type" : "number"
+                },
+                "id" : {
+                  "type" : "string"
+                },
+                "start" : {
+                  "type" : "number"
+                }
+              },
+              "required" : [
+                "id",
+                "start",
+                "end"
+              ],
+              "type" : "object"
+            },
+            "type" : "array"
+          },
+          "clips" : {
+            "description" : "Video-lane clips.",
+            "items" : {
+              "properties" : {
+                "end" : {
+                  "type" : "number"
+                },
+                "id" : {
+                  "type" : "string"
+                },
+                "start" : {
+                  "type" : "number"
+                }
+              },
+              "required" : [
+                "id",
+                "start",
+                "end"
+              ],
+              "type" : "object"
+            },
+            "type" : "array"
+          },
+          "clock" : {
+            "type" : "string"
+          },
+          "duration" : {
+            "type" : "number"
+          },
+          "effects" : {
+            "properties" : {
+              "tiltRegions" : {
+                "description" : "Tilt blocks (pitch, yaw, roll, …).",
+                "items" : {
+                  "properties" : {
+                    "end" : {
+                      "type" : "number"
+                    },
+                    "id" : {
+                      "type" : "string"
+                    },
+                    "start" : {
+                      "type" : "number"
+                    }
+                  },
+                  "required" : [
+                    "id",
+                    "start",
+                    "end"
+                  ],
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "zoomRegions" : {
+                "description" : "Zoom blocks (zoomLevel, focalPoint, …).",
+                "items" : {
+                  "properties" : {
+                    "end" : {
+                      "type" : "number"
+                    },
+                    "id" : {
+                      "type" : "string"
+                    },
+                    "start" : {
+                      "type" : "number"
+                    }
+                  },
+                  "required" : [
+                    "id",
+                    "start",
+                    "end"
+                  ],
+                  "type" : "object"
+                },
+                "type" : "array"
+              }
+            },
+            "required" : [
+              "zoomRegions",
+              "tiltRegions"
+            ],
+            "type" : "object"
+          },
+          "highlightRegions" : {
+            "description" : "Highlight regions.",
+            "items" : {
+              "properties" : {
+                "end" : {
+                  "type" : "number"
+                },
+                "id" : {
+                  "type" : "string"
+                },
+                "start" : {
+                  "type" : "number"
+                }
+              },
+              "required" : [
+                "id",
+                "start",
+                "end"
+              ],
+              "type" : "object"
+            },
+            "type" : "array"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "interactionDigest" : {
+            "description" : "Click clusters + idle spans (needs recorded cursor data).",
+            "type" : "object"
+          },
+          "isImageCapture" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "otherFocusLaneRegions" : {
+            "description" : "FOCUS-lane occupants edit tools can't change (route around them).",
+            "items" : {
+              "properties" : {
+                "end" : {
+                  "type" : "number"
+                },
+                "id" : {
+                  "type" : "string"
+                },
+                "start" : {
+                  "type" : "number"
+                }
+              },
+              "required" : [
+                "id",
+                "start",
+                "end"
+              ],
+              "type" : "object"
+            },
+            "type" : "array"
+          },
+          "outputDuration" : {
+            "description" : "Exported length after trim + speed.",
+            "type" : "number"
+          },
+          "pacing" : {
+            "description" : "silenceSpans + quietSpans (speed-up candidates).",
+            "type" : "object"
+          },
+          "recordingSourceKind" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "description" : "Key settings (style_options lists all).",
+            "type" : "object"
+          },
+          "settingsNote" : {
+            "type" : "string"
+          },
+          "speedRegions" : {
+            "description" : "Speed regions (speed).",
+            "items" : {
+              "properties" : {
+                "end" : {
+                  "type" : "number"
+                },
+                "id" : {
+                  "type" : "string"
+                },
+                "start" : {
+                  "type" : "number"
+                }
+              },
+              "required" : [
+                "id",
+                "start",
+                "end"
+              ],
+              "type" : "object"
+            },
+            "type" : "array"
+          },
+          "splitPoints" : {
+            "items" : {
+              "type" : "number"
+            },
+            "type" : "array"
+          },
+          "subtitles" : {
+            "properties" : {
+              "count" : {
+                "type" : "integer"
+              },
+              "showSubtitles" : {
+                "type" : "boolean"
+              }
+            },
+            "required" : [
+              "count",
+              "showSubtitles"
+            ],
+            "type" : "object"
+          },
+          "trim" : {
+            "properties" : {
+              "end" : {
+                "type" : "number"
+              },
+              "start" : {
+                "type" : "number"
+              }
+            },
+            "required" : [
+              "start",
+              "end"
+            ],
+            "type" : "object"
+          },
+          "trimEnd" : {
+            "type" : "number"
+          },
+          "trimStart" : {
+            "type" : "number"
+          },
+          "voiceOverClips" : {
+            "type" : "integer"
+          }
+        },
+        "required" : [
+          "id",
+          "name",
+          "clock",
+          "duration",
+          "trimStart",
+          "trimEnd",
+          "trim",
+          "recordingSourceKind",
+          "isImageCapture",
+          "clips",
+          "splitPoints",
+          "effects",
+          "annotations",
+          "blurRegions",
+          "highlightRegions",
+          "speedRegions",
+          "subtitles",
+          "settings",
+          "settingsNote",
+          "pacing"
+        ],
+        "type" : "object"
+      },
       "title" : "Describe project"
     },
     {
       "annotations" : {
+        "destructiveHint" : false,
+        "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : true,
         "title" : "Get transcript"
@@ -127,6 +482,8 @@
     },
     {
       "annotations" : {
+        "destructiveHint" : false,
+        "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : true,
         "title" : "Render frames"
@@ -205,6 +562,8 @@
     },
     {
       "annotations" : {
+        "destructiveHint" : false,
+        "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : true,
         "title" : "Style options"
@@ -244,6 +603,8 @@
     },
     {
       "annotations" : {
+        "destructiveHint" : false,
+        "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : true,
         "title" : "Search captures"
@@ -272,6 +633,8 @@
     },
     {
       "annotations" : {
+        "destructiveHint" : false,
+        "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : true,
         "title" : "List notes"
@@ -291,7 +654,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : false,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -460,7 +823,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -553,7 +916,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -583,7 +946,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -753,7 +1116,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -869,7 +1232,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -979,7 +1342,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -1007,7 +1370,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -1050,7 +1413,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -1085,7 +1448,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -1122,7 +1485,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -1170,7 +1533,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -1199,7 +1562,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : false,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -1231,7 +1594,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : false,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -1264,7 +1627,7 @@
     },
     {
       "annotations" : {
-        "destructiveHint" : true,
+        "destructiveHint" : false,
         "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : false,
@@ -1293,6 +1656,220 @@
     },
     {
       "annotations" : {
+        "destructiveHint" : false,
+        "idempotentHint" : false,
+        "openWorldHint" : true,
+        "readOnlyHint" : false,
+        "title" : "Share project (asks the user)"
+      },
+      "description" : "Publish a project as a CaptureCat share link — ONLY with the user's approval: CaptureCat shows them a confirmation naming the project, that an AI agent is asking, and who will be able to watch; they click Allow or Don't Allow. Every call asks again (it can't be pre-approved). Needs the CaptureCat app running and signed in — otherwise it refuses and nothing is uploaded. On Allow the app exports the project and uploads it exactly like its Share button (a project shared before keeps its link and gets the new version). Returns a jobId at once (state awaiting_approval if the user hasn't answered within ~45s); poll share_status until state is done, then give the user shareUrl. privacy: \"unlisted\" (default: anyone with the link), \"public\" (anyone with the link, and listed on the user's public profile page), \"private\" (only the user).",
+      "inputSchema" : {
+        "additionalProperties" : false,
+        "properties" : {
+          "privacy" : {
+            "default" : "unlisted",
+            "description" : "Who can watch: unlisted (default) | public | private.",
+            "enum" : [
+              "unlisted",
+              "public",
+              "private"
+            ],
+            "type" : "string"
+          },
+          "project_id" : {
+            "description" : "Project UUID from list_projects.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "project_id"
+        ],
+        "type" : "object"
+      },
+      "name" : "share_project",
+      "outputSchema" : {
+        "properties" : {
+          "error" : {
+            "type" : "string"
+          },
+          "jobId" : {
+            "description" : "Pass to share_status.",
+            "type" : "string"
+          },
+          "note" : {
+            "description" : "What to do next.",
+            "type" : "string"
+          },
+          "privacy" : {
+            "enum" : [
+              "unlisted",
+              "public",
+              "private"
+            ],
+            "type" : "string"
+          },
+          "progress" : {
+            "description" : "Within the current phase (exporting, then uploading).",
+            "maximum" : 1,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "projectId" : {
+            "type" : "string"
+          },
+          "projectName" : {
+            "type" : "string"
+          },
+          "replacesExistingLink" : {
+            "description" : "The project was shared before: same link, new version.",
+            "type" : "boolean"
+          },
+          "shareUrl" : {
+            "description" : "The link — present once state is done.",
+            "type" : "string"
+          },
+          "state" : {
+            "enum" : [
+              "awaiting_approval",
+              "declined",
+              "refused",
+              "exporting",
+              "uploading",
+              "completing",
+              "done",
+              "failed",
+              "interrupted"
+            ],
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string"
+          },
+          "videoId" : {
+            "description" : "The cloud video id (remote MCP tools take it).",
+            "type" : "string"
+          },
+          "warning" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "jobId",
+          "state",
+          "projectId",
+          "projectName",
+          "privacy",
+          "note"
+        ],
+        "type" : "object"
+      },
+      "title" : "Share project (asks the user)"
+    },
+    {
+      "annotations" : {
+        "destructiveHint" : false,
+        "idempotentHint" : true,
+        "openWorldHint" : false,
+        "readOnlyHint" : true,
+        "title" : "Share status"
+      },
+      "description" : "Progress of a share_project job: awaiting_approval → exporting → uploading → completing → done (shareUrl, videoId, privacy), or declined \/ refused \/ failed \/ interrupted with an error. Poll every few seconds while it is active.",
+      "inputSchema" : {
+        "additionalProperties" : false,
+        "properties" : {
+          "job_id" : {
+            "description" : "The jobId share_project returned.",
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "job_id"
+        ],
+        "type" : "object"
+      },
+      "name" : "share_status",
+      "outputSchema" : {
+        "properties" : {
+          "error" : {
+            "type" : "string"
+          },
+          "jobId" : {
+            "description" : "Pass to share_status.",
+            "type" : "string"
+          },
+          "note" : {
+            "description" : "What to do next.",
+            "type" : "string"
+          },
+          "privacy" : {
+            "enum" : [
+              "unlisted",
+              "public",
+              "private"
+            ],
+            "type" : "string"
+          },
+          "progress" : {
+            "description" : "Within the current phase (exporting, then uploading).",
+            "maximum" : 1,
+            "minimum" : 0,
+            "type" : "number"
+          },
+          "projectId" : {
+            "type" : "string"
+          },
+          "projectName" : {
+            "type" : "string"
+          },
+          "replacesExistingLink" : {
+            "description" : "The project was shared before: same link, new version.",
+            "type" : "boolean"
+          },
+          "shareUrl" : {
+            "description" : "The link — present once state is done.",
+            "type" : "string"
+          },
+          "state" : {
+            "enum" : [
+              "awaiting_approval",
+              "declined",
+              "refused",
+              "exporting",
+              "uploading",
+              "completing",
+              "done",
+              "failed",
+              "interrupted"
+            ],
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string"
+          },
+          "videoId" : {
+            "description" : "The cloud video id (remote MCP tools take it).",
+            "type" : "string"
+          },
+          "warning" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "jobId",
+          "state",
+          "projectId",
+          "projectName",
+          "privacy",
+          "note"
+        ],
+        "type" : "object"
+      },
+      "title" : "Share status"
+    },
+    {
+      "annotations" : {
+        "destructiveHint" : false,
+        "idempotentHint" : true,
         "openWorldHint" : false,
         "readOnlyHint" : true,
         "title" : "List capture targets"

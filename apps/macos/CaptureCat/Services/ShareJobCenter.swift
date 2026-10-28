@@ -3,6 +3,30 @@ import os
 
 private let jobLogger = Logger(subsystem: "so.capturecat.CaptureCat", category: "ShareJobCenter")
 
+/// Who can watch a share, in the API's own terms (apps/api: `is_private` on
+/// the share row, plus `profile_visible` for the owner's public profile page
+/// /u/:username — which only ever lists ready, non-private, ungated videos).
+///
+/// Raw values are the MCP `privacy` argument (share_project, Mac + web) —
+/// never rename one.
+enum ShareVisibility: String, CaseIterable, Sendable {
+    /// Anyone with the link; not listed on the owner's public profile.
+    case unlisted
+    /// Anyone with the link, and listed on the owner's public profile page.
+    case `public`
+    /// Owner only (signed in) — `is_private`.
+    case `private`
+
+    /// One line for consent UI and tool results.
+    var summary: String {
+        switch self {
+        case .unlisted: return "Anyone with the link can watch. Not listed on your profile."
+        case .public: return "Anyone with the link can watch, and it's listed on your public profile."
+        case .private: return "Only you can watch it (signed in to CaptureCat)."
+        }
+    }
+}
+
 /// Background share uploads. Starting a job returns immediately — the export
 /// sheet can close, the app can be used, and progress shows on the project's
 /// card in the browser. Each job is mirrored to the API's per-user ShareJobs
@@ -17,6 +41,11 @@ final class ShareJobCenter {
         let projectName: String
         var state: ShareService.ShareState
         var remoteJobID: String?
+        /// The cloud video id once the presign (or replace) answered.
+        var videoID: String?
+        /// Set when the link went live but a visibility step after it
+        /// failed — the share is then LESS visible than requested, never more.
+        var warning: String?
 
         var isActive: Bool {
             switch state {
@@ -76,16 +105,24 @@ final class ShareJobCenter {
 
     /// Share straight from a project card: headless export to a temp file,
     /// then the normal background upload. The card shows both phases.
+    ///
+    /// `visibility` nil = the card's behaviour (the link's existing settings
+    /// are left alone). An agent share (AgentShareBroker) passes the level
+    /// the user approved, and the upload enforces it — see `runUpload`.
+    /// Returns the job's id, or nil when a share of this project is already
+    /// in flight.
+    @discardableResult
     func shareProject(
         projectID: UUID,
         projectName: String,
         durationSeconds: Double,
         annotationMarkers: [[String: Any]],
-        transcript: [[String: Any]] = []
-    ) {
+        transcript: [[String: Any]] = [],
+        visibility: ShareVisibility? = nil
+    ) -> UUID? {
         if let existing = job(for: projectID), existing.isActive {
             jobLogger.info("share already in flight for \(projectID.uuidString, privacy: .public)")
-            return
+            return nil
         }
         jobs.removeAll { $0.projectID == projectID && !$0.isActive }
 
@@ -120,13 +157,20 @@ final class ShareJobCenter {
                     fileURL: result.url, durationSeconds: durationSeconds,
                     commentsEnabled: false, annotationMarkers: annotationMarkers,
                     transcript: transcript,
-                    deleteFileWhenDone: true
+                    deleteFileWhenDone: true,
+                    visibility: visibility
                 )
             } catch {
                 jobLogger.error("card share export failed: \(error.localizedDescription, privacy: .public)")
                 self.update(localID) { $0.state = .failed(error.localizedDescription) }
             }
         }
+        return localID
+    }
+
+    /// A job by its id (agent shares track theirs by id, not by project).
+    func job(id: UUID) -> Job? {
+        jobs.first { $0.id == id }
     }
 
     private func runUpload(
@@ -138,7 +182,8 @@ final class ShareJobCenter {
         commentsEnabled: Bool,
         annotationMarkers: [[String: Any]],
         transcript: [[String: Any]] = [],
-        deleteFileWhenDone: Bool
+        deleteFileWhenDone: Bool,
+        visibility: ShareVisibility? = nil
     ) async {
         defer {
             if deleteFileWhenDone { try? FileManager.default.removeItem(at: fileURL) }
@@ -192,6 +237,23 @@ final class ShareJobCenter {
                         aiSummary: localAI?.summary,
                         aiChapters: localAI?.chapters ?? []
                     )
+                }
+                self.update(localID) { $0.videoID = videoId }
+
+                // Requested visibility (agent shares): never MORE visible than
+                // approved at any instant. Narrowing runs now, before a single
+                // byte of the new cut goes up (a fresh row is still pending,
+                // so nobody can watch it yet; a replaced link narrows at once).
+                // Widening waits until the new cut is live — see below.
+                if let visibility {
+                    switch visibility {
+                    case .private:
+                        try await ShareUploadAPI.setPrivacy(token: token, videoId: videoId, isPrivate: true)
+                    case .unlisted:
+                        try await ShareUploadAPI.setProfileVisible(token: token, videoId: videoId, visible: false)
+                    case .public:
+                        break // a fresh row is born link-visible + profile-listed
+                    }
                 }
 
                 // Register the job server-side so the dashboard sees it too.
@@ -248,6 +310,23 @@ final class ShareJobCenter {
                     )
                 } else {
                     shareURL = try await ShareUploadAPI.confirmUpload(token: token, videoId: videoId)
+                }
+                // Widening, only for a REPLACED link (a fresh row already has
+                // the API defaults: not private, profile-listed): the old
+                // link may have been private or unlisted. The new cut is live
+                // now, so the old one is never exposed. A failure here leaves
+                // the link LESS visible than approved — a warning, not a fail.
+                if let visibility, replaceUpload != nil, visibility != .private {
+                    do {
+                        try await ShareUploadAPI.setPrivacy(token: token, videoId: videoId, isPrivate: false)
+                        if visibility == .public {
+                            try await ShareUploadAPI.setProfileVisible(token: token, videoId: videoId, visible: true)
+                        }
+                    } catch {
+                        let message = "The link is live but its visibility could not be widened to "
+                            + "\(visibility.rawValue): \(error.localizedDescription)"
+                        self.update(localID) { $0.warning = message }
+                    }
                 }
                 self.update(localID) { $0.state = .done(shareURL: shareURL) }
                 self.library?.markShared(projectID, url: shareURL, videoID: videoId)
@@ -510,6 +589,41 @@ enum ShareUploadAPI {
             throw ShareError.invalidResponse
         }
         return url
+    }
+
+    // MARK: Visibility (the dashboard's own owner routes)
+
+    /// PATCH /api/video/:id/privacy — `is_private` (owner only when true).
+    static func setPrivacy(token: String, videoId: String, isPrivate: Bool) async throws {
+        try await patchVideo(token: token, videoId: videoId, path: "privacy",
+                             body: ["isPrivate": isPrivate], failure: "Could not update privacy")
+    }
+
+    /// PATCH /api/video/:id/settings {profileVisible} — listed on the
+    /// owner's public profile page or not.
+    static func setProfileVisible(token: String, videoId: String, visible: Bool) async throws {
+        try await patchVideo(token: token, videoId: videoId, path: "settings",
+                             body: ["profileVisible": visible], failure: "Could not update profile listing")
+    }
+
+    private static func patchVideo(
+        token: String, videoId: String, path: String, body: [String: Any], failure: String
+    ) async throws {
+        guard let escaped = videoId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = URL(string: "\(apiBaseURL)/api/video/\(escaped)/\(path)") else {
+            throw ShareError.invalidURL
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("capturecat-v1-9f3a7c2e", forHTTPHeaderField: "X-App-Token")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            let text = String(data: data, encoding: .utf8) ?? failure
+            throw ShareError.apiError("\(failure): \(text)")
+        }
     }
 
     // MARK: Job mirror (ShareJobs Durable Object)

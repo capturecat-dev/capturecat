@@ -17,6 +17,14 @@
  *   done      POST /api/upload/jobs/:id/complete {shareUrl}                   (non-fatal)
  *   failure   POST /api/upload/jobs/:id/fail {error}                           (non-fatal)
  *
+ * With a requested `privacy` (agent shares — webmcp/share.ts; the Mac's
+ * `ShareJobCenter.runUpload(visibility:)`), the link is never MORE visible
+ * than approved at any instant: narrowing runs before the bytes go up,
+ * widening (a replaced link only) once the new cut is live:
+ *   narrow    PATCH /api/video/:id/privacy {isPrivate: true}      (private)
+ *             PATCH /api/video/:id/settings {profileVisible: false} (unlisted)
+ *   widen     PATCH …/privacy {isPrivate: false} (+ …/settings {profileVisible: true} for public)
+ *
  * Auth is the web session cookie (`credentials: "include"`), exactly like
  * state/cloud.ts — the API accepts cookie auth for the web origins (CSRF
  * gate: Origin must be a web origin). The Mac's bearer token, X-App-Token
@@ -59,6 +67,14 @@ export interface UploadVideoBody {
   projectId?: string;
   transcript?: TranscriptSegment[];
 }
+
+/**
+ * Who can watch a share — the API's `is_private` plus `profile_visible` (the
+ * owner's public profile page lists ready, non-private, ungated videos).
+ * Raw values are the MCP `privacy` argument (the Mac's `ShareVisibility`).
+ */
+export type ShareVisibility = "unlisted" | "public" | "private";
+export const SHARE_VISIBILITIES: readonly ShareVisibility[] = ["unlisted", "public", "private"];
 
 /** Any non-2xx from the share API. */
 export class ShareApiError extends Error {
@@ -106,6 +122,33 @@ async function post(path: string, body: unknown, opts: RequestOptions, fallback:
 }
 
 const invalid = () => new ShareApiError(0, {}, "Received an invalid response from the server.");
+
+async function patch(path: string, body: unknown, opts: RequestOptions, fallback: string): Promise<void> {
+  const f = opts.fetch ?? fetch;
+  const res = await f(`${API_URL}/api${path}`, {
+    method: "PATCH",
+    credentials: "include",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal: opts.signal,
+  });
+  if (res.status !== 200) {
+    const json = (await res.json().catch(() => null)) as unknown;
+    const obj = json && typeof json === "object" && !Array.isArray(json) ? (json as Record<string, unknown>) : {};
+    throw new ShareApiError(res.status, obj, `${fallback} (HTTP ${res.status})`);
+  }
+}
+
+/** `PATCH /video/:id/privacy` — owner only when true (the dashboard's toggle). */
+export async function setPrivacy(videoId: string, isPrivate: boolean, opts: RequestOptions = {}): Promise<void> {
+  await patch(`/video/${encodeURIComponent(videoId)}/privacy`, { isPrivate }, opts, "Could not update privacy");
+}
+
+/** `PATCH /video/:id/settings {profileVisible}` — listed on the owner's public profile or not. */
+export async function setProfileVisible(videoId: string, visible: boolean, opts: RequestOptions = {}): Promise<void> {
+  await patch(`/video/${encodeURIComponent(videoId)}/settings`, { profileVisible: visible }, opts, "Could not update profile listing");
+}
 
 // ---------------------------------------------------------------------------
 // ShareUploadAPI
@@ -292,11 +335,15 @@ export interface ShareUploadInput {
   projectName: string;
   /** The project's previous share (same link, new version); null = a fresh link. */
   replaceVideoId: string | null;
+  /** Requested visibility (agent shares). Absent = the link's settings are left alone. */
+  privacy?: ShareVisibility;
 }
 
 export interface ShareUploadResult {
   url: string;
   videoId: string;
+  /** The link is live but a widening step failed — LESS visible than requested, never more. */
+  warning?: string;
 }
 
 export async function runShareUpload(
@@ -340,6 +387,11 @@ export async function runShareUpload(
           opts,
         );
 
+    // Requested visibility: narrow now, before a byte of the new cut goes up
+    // (a fresh row is still pending, so nobody can watch it yet).
+    if (input.privacy === "private") await setPrivacy(videoId, true, opts);
+    else if (input.privacy === "unlisted") await setProfileVisible(videoId, false, opts);
+
     // The dashboard's progress mirror — never fatal.
     jobId = await registerJob(
       { videoId, projectId: input.projectId, projectName: input.projectName, fileName: input.fileName, fileSizeBytes: size },
@@ -369,9 +421,21 @@ export async function runShareUpload(
       ? // The new cut's markers / transcript ride the completion.
         await confirmReplace(videoId, replace.version, { annotations: input.annotations, transcript: input.transcript }, opts)
       : await confirmUpload(videoId, opts);
+    // Widen a REPLACED link only once the new cut is live (a fresh row is born
+    // link-visible and profile-listed). A failure leaves it less visible.
+    let warning: string | undefined;
+    if (replace && input.privacy && input.privacy !== "private") {
+      try {
+        await setPrivacy(videoId, false, opts);
+        if (input.privacy === "public") await setProfileVisible(videoId, true, opts);
+      } catch (e) {
+        if ((e as DOMException)?.name === "AbortError") throw e;
+        warning = `The link is live but its visibility could not be widened to ${input.privacy}: ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
     onState({ phase: "done", url });
     if (jobId) await completeJob(jobId, url, opts).catch(() => undefined);
-    return { url, videoId };
+    return warning ? { url, videoId, warning } : { url, videoId };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     onState({ phase: "failed", message });

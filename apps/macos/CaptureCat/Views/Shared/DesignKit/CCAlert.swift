@@ -15,6 +15,13 @@ import AppKit
 //
 // The first added button is the default (Return); Escape picks the last
 // button when there is more than one, mirroring NSAlert's cancel slot.
+//
+// Consent prompts (an agent asking to share) opt out of the keyboard
+// default and arm late, so nothing but a deliberate click approves:
+//
+//     alert.returnKeyChoosesDefault = false   // Return does nothing
+//     alert.armDelay = 0.6                    // non-cancel buttons wake up late
+//     alert.beginStandalone { index in ... }  // no parent: centred on screen
 
 @MainActor
 final class CCAlert {
@@ -34,6 +41,14 @@ final class CCAlert {
     /// How the card arrives/leaves (`.scaleIn` by default; `.slideUp()`
     /// rises from below — see CCMotion.Entrance). Set before presenting.
     var entrance: CCMotion.Entrance = .scaleIn
+    /// false = Return is swallowed instead of choosing button 0. For
+    /// consent prompts: a card that appears while the user is typing
+    /// elsewhere must never be approved by a stray Return.
+    var returnKeyChoosesDefault = true
+    /// Seconds every button except the cancel slot stays disabled after the
+    /// card appears — one that opens under a moving pointer can't be
+    /// clicked through by accident. 0 = armed at once.
+    var armDelay: TimeInterval = 0
 
     private var buttons: [(title: String, role: ButtonRole)] = []
     private var session: CCAlertSession?
@@ -54,6 +69,17 @@ final class CCAlert {
     func beginSheet(for window: NSWindow, completion: ((Int) -> Void)? = nil) {
         present(over: window, modal: false, completion: completion)
     }
+
+    /// Present with no parent window: centred on the active screen, above
+    /// other apps' windows and on the current Space (full-screen apps
+    /// included). For prompts that arrive while the app may have no window
+    /// open — an agent's share request. Never blocks.
+    func beginStandalone(completion: ((Int) -> Void)? = nil) {
+        present(over: nil, modal: false, completion: completion)
+    }
+
+    /// Probe seam: the presented card view (nil once dismissed).
+    var probeCard: NSView? { session?.probeCard }
 
     /// Blocking presentation for call sites that need a synchronous answer.
     /// Centers on the key window when one exists, else on screen.
@@ -114,6 +140,9 @@ private final class CCAlertSession {
     private var keyMonitor: Any?
     private var finished: ((Int) -> Void)?
     private var isModal = false
+    private var buttonViews: [Int: CCButton] = [:]
+
+    var probeCard: NSView? { finished == nil ? nil : card }
     /// Keeps the card narrower than the parent window (with a usability
     /// floor) and re-clamps while the parent resizes.
     private var widthClamp: NSLayoutConstraint?
@@ -197,7 +226,15 @@ private final class CCAlertSession {
             x: anchor.midX - size.width / 2,
             y: anchor.midY - size.height / 2 + 20
         )
-        if !parentHasVisibleFrame {
+        if parent == nil {
+            // Standalone (beginStandalone / runModal with no window): sit on
+            // the user's current Space, even over a full-screen app — and
+            // stay out of every screen capture: a recording must never pick
+            // the prompt up, and a screenshot-driven agent can't read (or
+            // aim at) a consent card it is waiting on.
+            panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+            panel.sharingType = .none
+        } else if !parentHasVisibleFrame {
             // A slim floating bar: centering would bury the card under it.
             // Hang the card just below the bar (or above, when the bar sits
             // near the bottom edge), keeping it on screen.
@@ -209,7 +246,9 @@ private final class CCAlertSession {
             origin.x = max(bounds.minX + gap, min(origin.x, bounds.maxX - gap - size.width))
         }
         panel.setFrameOrigin(origin)
-        (parent ?? scrim).addChildWindow(panel, ordered: .above)
+        // Standalone cards have no parent to ride; the (never-shown) scrim
+        // must not own them either, or they inherit its invisibility.
+        parent?.addChildWindow(panel, ordered: .above)
         panel.alphaValue = 0
         panel.orderFront(nil)
         panel.makeKey()
@@ -237,6 +276,8 @@ private final class CCAlertSession {
             case 36, 76: // return → default button, unless typing multiline
                 if self.panel.firstResponder is NSTextView,
                    self.alert.accessoryView is NSScrollView { return event }
+                // Consent prompts: Return never approves (swallowed).
+                guard self.alert.returnKeyChoosesDefault else { return nil }
                 self.finish(0)
                 return nil
             default:
@@ -244,7 +285,24 @@ private final class CCAlertSession {
             }
         }
 
+        armButtons()
+
         if modal { NSApp.runModal(for: panel) }
+    }
+
+    /// `armDelay`: everything but the cancel slot wakes up late.
+    private func armButtons() {
+        let delay = alert.armDelay
+        guard delay > 0 else { return }
+        let cancelIndex = buttons.count > 1 ? buttons.count - 1 : nil
+        let armed = buttonViews.filter { $0.key != cancelIndex }.map(\.value)
+        for button in armed { button.isEnabled = false }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard self?.finished != nil else { return }
+            CCMotion.quick {
+                for button in armed { button.isEnabled = true }
+            }
+        }
     }
 
     private func buildCard() {
@@ -307,6 +365,7 @@ private final class CCAlertSession {
             let button = CCButton(title: spec.title, style: index == 0 && spec.role == .secondary ? .primary : style) { [weak self] in
                 self?.finish(index)
             }
+            buttonViews[index] = button
             buttonRow.addArrangedSubview(button)
         }
         let rowHolder = NSView()

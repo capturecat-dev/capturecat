@@ -62,6 +62,32 @@
   color: var(--cc-muted);
 }
 
+/* Consent details (the Mac card's accessory well): label over value, a
+   flat recessed well, md insets, sm between rows. */
+.cc-alert__details {
+  margin: var(--cc-space-md) 0 0;
+  padding: var(--cc-space-md);
+  border-radius: var(--cc-radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cc-space-sm);
+}
+.cc-alert__details.cc-mat-recessed {
+  --m-tint: var(--cc-background);
+}
+.cc-alert__detail dt {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--cc-muted);
+}
+.cc-alert__detail dd {
+  margin: 1px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--cc-foreground);
+  overflow-wrap: anywhere;
+}
+
 .cc-alert__buttons {
   margin-top: var(--cc-space-lg);
   display: flex;

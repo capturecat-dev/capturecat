@@ -25,6 +25,7 @@ import { newUUID, parseProject, serializeProject, type Project } from "../core/m
 import { SpeedTimeMap } from "../core/time/speedTimeMap";
 import { registerEditorTools, type ToolArgs, type ToolHandlers } from "../webmcp/register";
 import * as ops from "../webmcp/ops";
+import { createShareTools, type ShareToolHost } from "../webmcp/share";
 import type { EditorController } from "./controller";
 import { loadInteractionInputs, type InteractionInputs } from "./interactionInputs";
 import { listEditorProjects, type LoadedEditorProject } from "./projectSource";
@@ -37,6 +38,9 @@ export interface WebMCPContext {
   controller: EditorController;
   loaded: LoadedEditorProject;
   projectId: string;
+  /** share_project / share_status (webmcp/share.ts): the page's AlertDialog
+   *  + share center, filled in once the page has wired them. */
+  share?: { current: ShareToolHost | null };
 }
 
 /** The project as the Mac's `loadProject` would decode it from disk. */
@@ -194,6 +198,8 @@ export function buildEditorToolHandlers(ctx: WebMCPContext): ToolHandlers {
     if (!core) continue;
     (handlers as Record<string, (args: ToolArgs) => Promise<string>>)[name] = (args) => mutate(name, args, (d, c) => core(d, args, c));
   }
+  const share = ctx.share;
+  if (share) Object.assign(handlers, createShareTools(() => share.current));
   return handlers;
 }
 

@@ -7,7 +7,8 @@
  *
  *   shareExported(file)  the sheet's "Share link after export" (and auto-sync)
  *   shareProject()       the top-bar Share: export an MP4, then upload
- *                        (ShareJobCenter.shareProject — comments off)
+ *                        (ShareJobCenter.shareProject — comments off);
+ *                        WebMCP share_project passes the approved privacy
  *   retry()              re-runs the last failed job (reusing its file)
  *   copyLink()           the Copy button
  *
@@ -15,7 +16,14 @@
  */
 import { annotationMarkers } from "../core/export/shareMarkers";
 import type { Project } from "../core/model";
-import { runShareUpload, transcriptForShare, type ShareState, type ShareUploadInput } from "./share";
+import {
+  runShareUpload,
+  transcriptForShare,
+  type ShareState,
+  type ShareUploadInput,
+  type ShareUploadResult,
+  type ShareVisibility,
+} from "./share";
 
 export interface ShareCenterDeps {
   /** The project as edited (markers + transcript come from it at share time). */
@@ -88,11 +96,16 @@ export class ShareCenter {
     await this.runUpload();
   }
 
-  /** The top-bar Share: headless MP4 export of the project, then the upload. */
-  async shareProject(): Promise<void> {
-    if (this.isActive) return;
+  /**
+   * The top-bar Share: headless MP4 export of the project, then the upload.
+   * `privacy` (an agent share the user approved — webmcp/share.ts) is
+   * enforced by the upload; absent, the link's settings are left alone.
+   * Resolves with the link, or null when it didn't finish (state says why).
+   */
+  async shareProject(opts: { privacy?: ShareVisibility } = {}): Promise<ShareUploadResult | null> {
+    if (this.isActive) return null;
     const project = this.deps.project();
-    if (!project) return;
+    if (!project) return null;
     const abort = new AbortController();
     this.abort = abort;
     this.set({ phase: "exporting", progress: 0 });
@@ -101,8 +114,9 @@ export class ShareCenter {
       file = await this.deps.exportMovie((p) => this.set({ phase: "exporting", progress: p }), abort.signal);
     } catch (e) {
       this.abort = null;
-      if ((e as DOMException)?.name === "AbortError") return this.set({ phase: "idle" });
-      return this.set({ phase: "failed", message: e instanceof Error ? e.message : String(e) });
+      if ((e as DOMException)?.name === "AbortError") this.set({ phase: "idle" });
+      else this.set({ phase: "failed", message: e instanceof Error ? e.message : String(e) });
+      return null;
     }
     this.last = {
       file: file.blob,
@@ -111,8 +125,9 @@ export class ShareCenter {
       commentsEnabled: false,
       projectId: project.id,
       projectName: project.name,
+      ...(opts.privacy ? { privacy: opts.privacy } : {}),
     };
-    await this.runUpload();
+    return this.runUpload();
   }
 
   /** Error → Retry: the same file again (or a fresh export if there is none). */
@@ -144,10 +159,10 @@ export class ShareCenter {
     }
   }
 
-  private async runUpload(): Promise<void> {
+  private async runUpload(): Promise<ShareUploadResult | null> {
     const last = this.last;
     const project = this.deps.project();
-    if (!last || !project) return;
+    if (!last || !project) return null;
     const abort = new AbortController();
     this.abort = abort;
     const upload = this.deps.upload ?? runShareUpload;
@@ -163,8 +178,10 @@ export class ShareCenter {
         { signal: abort.signal },
       );
       if (last.projectId) this.saveMark(last.projectId, { url: result.url, videoId: result.videoId });
+      return result;
     } catch {
       // The state already says "failed" (runShareUpload reports it).
+      return null;
     } finally {
       this.abort = null;
     }

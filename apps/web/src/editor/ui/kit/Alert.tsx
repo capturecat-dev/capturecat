@@ -15,6 +15,12 @@
  * cancel slot) — both consumed so the editor's own shortcuts never see
  * them; the card is 340…440 wide (never wider than the window − 32, floor
  * 280) and sits 20 pt above centre.
+ *
+ * Consent prompts (an agent asking to share — CCAlert's
+ * `returnKeyChoosesDefault = false` / `armDelay`): `noDefault` makes Return
+ * do nothing, `armDelayMs` keeps every button but the cancel slot disabled
+ * for a beat, and `details` renders the recessed key/value well the Mac
+ * card carries as its accessory view.
  */
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -30,11 +36,22 @@ export interface AlertButton {
   role?: AlertButtonRole;
 }
 
+export interface AlertDetail {
+  label: string;
+  value: string;
+}
+
 export interface AlertSpec {
   title: string;
   message?: string;
   /** Default-first (index 0 = Return). Empty → a single "OK". */
   buttons?: AlertButton[];
+  /** Key/value rows in a recessed well between the message and the buttons. */
+  details?: AlertDetail[];
+  /** Return picks nothing (consent prompts approve by click only). */
+  noDefault?: boolean;
+  /** Buttons other than the cancel slot stay disabled this long after the card appears. */
+  armDelayMs?: number;
 }
 
 interface PendingAlert {
@@ -92,6 +109,13 @@ function AlertCard({ alert, onFinish }: { alert: PendingAlert; onFinish: (index:
   const [top, setTop] = useState<number | null>(null);
   const finishing = useRef(false);
   const buttons: AlertButton[] = alert.spec.buttons?.length ? alert.spec.buttons : [{ title: "OK", role: "primary" }];
+  const cancelIndex = buttons.length > 1 ? buttons.length - 1 : -1;
+  const [armed, setArmed] = useState(!(alert.spec.armDelayMs && alert.spec.armDelayMs > 0));
+  useEffect(() => {
+    if (armed) return;
+    const timer = setTimeout(() => setArmed(true), alert.spec.armDelayMs);
+    return () => clearTimeout(timer);
+  }, [armed, alert.spec.armDelayMs]);
 
   // Entrance: scrim + card fade on the glide curve while the card settles in.
   useLayoutEffect(() => {
@@ -118,6 +142,7 @@ function AlertCard({ alert, onFinish }: { alert: PendingAlert; onFinish: (index:
   };
   const finishRef = useRef(finish);
   finishRef.current = finish;
+  const noDefault = alert.spec.noDefault === true;
 
   // Return → the default button; Escape → the cancel slot. Capture phase +
   // stopPropagation: the editor's Esc (deselect) / Space (play) never fire.
@@ -130,7 +155,7 @@ function AlertCard({ alert, onFinish }: { alert: PendingAlert; onFinish: (index:
       } else if (e.key === "Enter") {
         e.preventDefault();
         e.stopPropagation();
-        finishRef.current(0);
+        if (!noDefault) finishRef.current(0);
       } else if (!(e.metaKey || e.ctrlKey)) {
         // Modal: the editor underneath gets no plain keys.
         e.stopPropagation();
@@ -138,7 +163,7 @@ function AlertCard({ alert, onFinish }: { alert: PendingAlert; onFinish: (index:
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [buttons.length]);
+  }, [buttons.length, noDefault]);
 
   if (!portal) return null;
   return createPortal(
@@ -156,6 +181,16 @@ function AlertCard({ alert, onFinish }: { alert: PendingAlert; onFinish: (index:
           {alert.spec.title}
         </div>
         {alert.spec.message ? <div className="cc-alert__message">{alert.spec.message}</div> : null}
+        {alert.spec.details?.length ? (
+          <dl className="cc-alert__details cc-mat-recessed">
+            {alert.spec.details.map((d, i) => (
+              <div key={i} className="cc-alert__detail">
+                <dt>{d.label}</dt>
+                <dd>{d.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
         <div className="cc-alert__buttons">
           {buttons
             .map((b, index) => ({ b, index }))
@@ -164,7 +199,7 @@ function AlertCard({ alert, onFinish }: { alert: PendingAlert; onFinish: (index:
               const role = b.role ?? "secondary";
               const variant = index === 0 && role === "secondary" ? "primary" : role;
               return (
-                <Button key={index} variant={variant} onClick={() => finish(index)}>
+                <Button key={index} variant={variant} disabled={!armed && index !== cancelIndex} onClick={() => finish(index)}>
                   {b.title}
                 </Button>
               );

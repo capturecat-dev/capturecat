@@ -27,6 +27,9 @@ final class AutomationBridge {
 
     private weak var appState: AppState?
     private var timer: Timer?
+    /// The MCP share_project consent + job mirror (AgentShareBroker) — it
+    /// rides this bridge's timer and container folder.
+    private var shareBroker: AgentShareBroker?
     /// Nonce of the most recent automation command — echoed into every status
     /// write so the MCP side can correlate request → outcome.
     private var lastNonce: String?
@@ -50,8 +53,17 @@ final class AutomationBridge {
             ])
         }
 
+        if let appState {
+            let broker = AgentShareBroker.live(appState: appState)
+            broker.start()
+            shareBroker = broker
+        }
+
         let timer = Timer(timeInterval: 0.4, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.poll() }
+            Task { @MainActor in
+                self?.poll()
+                self?.shareBroker?.poll()
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer

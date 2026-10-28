@@ -13,7 +13,9 @@ persists.
 | `MCPServer+Edits.swift` | every mutating tool as a pure `(project, args) → result` core, and `apply_edits` |
 | `MCPServer+Style.swift` | the one table behind `set_style` and `style_options` |
 | `MCPServer+Analysis.swift` | `describe_project`, the interaction digest and the audio/pacing digest |
-| `MCPServer+Catalog.swift` | tool schemas + annotations, prompts, the `initialize` instructions |
+| `MCPServer+Catalog.swift` | tool schemas + annotations + outputSchemas, prompts, the `initialize` instructions |
+| `MCPServer+Share.swift` | `share_project` / `share_status`: files a request for the running app, waits for the user's answer off the stdio loop |
+| `AgentShareIPC.swift` / `AgentShareBroker.swift` | the request/status file protocol, and the GUI side that shows the consent card and runs the share |
 
 ## Register with Claude Code
 
@@ -54,10 +56,18 @@ code that enforces them, so they can't drift.
 
 ## Tools
 
-Every tool carries a `title` and MCP `annotations` (`readOnlyHint`,
+Every tool carries a `title` and all four MCP `annotations` (`readOnlyHint`,
 `destructiveHint`, `idempotentHint`, `openWorldHint`) so clients can
-auto-approve the read-only ones. `id` accepts a project UUID, a project folder
+auto-approve the read-only ones. `destructiveHint` is `false` on every tool:
+nothing deletes (edits are snapshotted and undoable, media is never touched,
+shares need the user's click). `id` accepts a project UUID, a project folder
 path, or a `project.json` path.
+
+`initialize` echoes `2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26` or
+`2024-11-05` and answers anything else with `2026-07-28`; `serverInfo` carries
+`websiteUrl`. `list_projects`, `describe_project`, `share_project` and
+`share_status` declare an `outputSchema`: their result carries the same object
+as `structuredContent` next to the JSON text (errors carry none).
 
 ### Look (read-only)
 
@@ -109,6 +119,28 @@ Every mutating result carries `undoSteps` and, when the GUI is running, a
 | `start_recording` | `{source?: display\|window\|chrome\|safari, display?, app?, title?, url?, audio?}` | returns once capture is live; `url` opens a page in the target browser first |
 | `stop_recording` | — | `{projectId, projectName, duration}` |
 
+### Share (asks the user first)
+
+| tool | input | returns |
+|---|---|---|
+| `share_project` | `{project_id, privacy?: unlisted\|public\|private}` (closed — nothing else is accepted) | `{jobId, state, projectId, projectName, privacy, note, …}` once the user has answered (or `state: awaiting_approval` after ~45 s); a decline, sign-out, missing app or busy project is a tool error and nothing is uploaded |
+| `share_status` | `{job_id}` | `awaiting_approval` → `exporting` → `uploading` → `completing` → `done` (`shareUrl`, `videoId`), or `declined` / `refused` / `failed` / `interrupted` with `error` |
+
+The owner's rules: an agent must ASK FIRST before a video becomes viewable to
+others, and agents never delete anything. `--mcp` never uploads: it writes
+`Automation/shares/<job>.request.json`; the running app's `AgentShareBroker`
+claims it, refuses up front what it can't ask about (onboarding, unknown
+project, signed out, a share already running), then shows a CCKit consent card
+(project, "an AI agent via MCP" plus the client's self-reported name, who can
+watch, the existing link it replaces, the account). Return can't approve and
+Allow arms after 0.6 s; Escape / Don't Allow declines. Only Allow runs the
+project card's own share (`ShareJobCenter.shareProject`), with the approved
+visibility enforced by the upload — narrowing before any bytes go up, widening
+a replaced link only once the new cut is live. `privacy`: `unlisted` (default,
+anyone with the link), `public` (also listed on the owner's profile page),
+`private` (owner only). If the app isn't running it refuses — it is not
+launched for a share. Gate: `CaptureCat --share-consent-test`.
+
 The `--mcp` process is headless; recording happens in the GUI app, which is
 launched automatically when needed. Commands and status flow through
 `Application Support/CaptureCat/Automation/{command,status}.json` in the shared
@@ -157,6 +189,10 @@ fresh `render_frames` renders (percent) and `transcribe` (stages 1–5).
 python3 tools/capturecat-mcp/smoke.py /path/to/CaptureCat.app/Contents/MacOS/CaptureCat
 python3 tools/capturecat-mcp/smoke.py <binary> --skip-render --skip-export   # fast
 python3 tools/capturecat-mcp/smoke.py <binary> --transcribe                  # + real transcription
+# an ad-hoc re-signed (unsandboxed) copy, on a synthetic fixture — no real data:
+python3 tools/capturecat-mcp/smoke.py <copy>/CaptureCat.app/Contents/MacOS/CaptureCat \
+  --projects-root ~/Library/Application\ Support/CaptureCat/Projects \
+  --fixture apps/web/.fixtures/parity/06-cursor-hand-physics
 ```
 
 The script copies the most recent real project to a throwaway UUID folder and
@@ -165,6 +201,11 @@ tool over stdio: an `apply_edits` batch, an all-or-nothing failure that must
 leave `project.json` byte-identical, lane/overlap/range rejections,
 `update_annotation`, blur, speed, trim, cut, a contact-sheet render with
 progress notifications, multi-step `undo` (including the refusal after an
-outside change), and an export. It prints PASS/FAIL per check and deletes the
-copy. `--transcribe` is opt-in because the first run downloads the Whisper
+outside change), and an export — plus protocol negotiation (2025-11-25,
+2026-07-28, unknown → latest), `structuredContent` against each `outputSchema`,
+and the share refusals (no app to ask, an `approved` argument, bad privacy,
+unknown project/job). The live `share_project` call is skipped while a
+CaptureCat GUI is running, so it can never put a real consent card in front of
+the user (`--share-live` forces it). It prints PASS/FAIL per check and deletes
+the copy. `--transcribe` is opt-in because the first run downloads the Whisper
 model (~150 MB) into the app container.

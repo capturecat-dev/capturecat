@@ -1,6 +1,7 @@
 import Foundation
 
-/// What a client sees: tool schemas (+ MCP 2025-06-18 titles/annotations),
+/// What a client sees: tool schemas (+ MCP 2025-06-18 titles/annotations and
+/// outputSchemas),
 /// workflow prompts, and the `initialize` instructions playbook. Numbers in
 /// here are read from the code that enforces them (auto-zoom tuning, the
 /// editor's speed presets, the history depth) so the text can't drift.
@@ -79,32 +80,133 @@ extension MCPServer {
         later calls on the same edit state are cached — batch edits before looking. transcribe's first run downloads the on-device Whisper model (~150 MB).
         - start_recording is always visible to the user (floating panel + 3-2-1 countdown) and needs Screen \
         Recording permission.
+        - share_project never publishes on its own: the user approves every share in CaptureCat (it refuses, \
+        uploading nothing, if they decline, aren't signed in or the app can't ask). Default privacy "unlisted" = \
+        anyone with the link. Poll share_status; the link is live only once state is "done". No tool deletes.
         """
     }
 
     // MARK: - Tool definitions
 
+    /// Every tool carries all four hints. `destructiveHint` is false
+    /// everywhere: no tool deletes anything — edits are snapshotted and
+    /// undoable (undo / .mcp-history), media is never touched, exports write
+    /// new files, and shares need the user's click (the owner's rule: agents
+    /// never delete). Reads are idempotent by definition.
     private static func tool(
         _ name: String, title: String, description: String,
         properties: [String: Any] = [:], required: [String] = [],
-        readOnly: Bool = false, destructive: Bool = false, idempotent: Bool = false,
-        openWorld: Bool = false
+        readOnly: Bool = false, idempotent: Bool = false,
+        openWorld: Bool = false,
+        closedInput: Bool = false,
+        outputSchema: [String: Any]? = nil
     ) -> [String: Any] {
-        var annotations: [String: Any] = [
+        let annotations: [String: Any] = [
             "title": title,
             "readOnlyHint": readOnly,
+            "destructiveHint": false,
+            "idempotentHint": readOnly || idempotent,
             "openWorldHint": openWorld,
         ]
-        if !readOnly {
-            annotations["destructiveHint"] = destructive
-            annotations["idempotentHint"] = idempotent
-        }
-        return [
+        var inputSchema: [String: Any] = ["type": "object", "properties": properties, "required": required]
+        if closedInput { inputSchema["additionalProperties"] = false }
+        var definition: [String: Any] = [
             "name": name,
             "title": title,
             "description": description,
-            "inputSchema": ["type": "object", "properties": properties, "required": required],
+            "inputSchema": inputSchema,
             "annotations": annotations,
+        ]
+        if let outputSchema { definition["outputSchema"] = outputSchema }
+        return definition
+    }
+
+    // MARK: Output schemas (structuredContent mirrors the text JSON)
+
+    private static var listProjectsOutputSchema: [String: Any] {
+        [
+            "type": "object",
+            "properties": [
+                "projects": [
+                    "type": "array",
+                    "description": "Newest first.",
+                    "items": [
+                        "type": "object",
+                        "properties": [
+                            "id": ["type": "string", "description": "Project UUID — the id every tool takes."],
+                            "name": ["type": "string"],
+                            "createdAt": ["type": "string", "description": "ISO-8601."],
+                            "duration": ["type": "number", "description": "Recording length, seconds."],
+                            "recordingSourceKind": ["type": "string"],
+                            "reminderDate": ["type": "string", "description": "ISO-8601, when set."],
+                        ],
+                        "required": ["id", "name", "createdAt", "duration", "recordingSourceKind"],
+                    ],
+                ],
+            ],
+            "required": ["projects"],
+        ]
+    }
+
+    private static var describeProjectOutputSchema: [String: Any] {
+        let span: [String: Any] = [
+            "type": "object",
+            "properties": ["id": ["type": "string"], "start": ["type": "number"], "end": ["type": "number"]],
+            "required": ["id", "start", "end"],
+        ]
+        func spans(_ description: String) -> [String: Any] {
+            ["type": "array", "items": span, "description": description]
+        }
+        return [
+            "type": "object",
+            "description": "Every start/end/at is SOURCE seconds.",
+            "properties": [
+                "id": ["type": "string"],
+                "name": ["type": "string"],
+                "clock": ["type": "string"],
+                "duration": ["type": "number"],
+                "outputDuration": ["type": "number", "description": "Exported length after trim + speed."],
+                "trimStart": ["type": "number"],
+                "trimEnd": ["type": "number"],
+                "trim": [
+                    "type": "object",
+                    "properties": ["start": ["type": "number"], "end": ["type": "number"]],
+                    "required": ["start", "end"],
+                ],
+                "recordingSourceKind": ["type": "string"],
+                "isImageCapture": ["type": "boolean"],
+                "clips": spans("Video-lane clips."),
+                "splitPoints": ["type": "array", "items": ["type": "number"]],
+                "effects": [
+                    "type": "object",
+                    "properties": [
+                        "zoomRegions": spans("Zoom blocks (zoomLevel, focalPoint, …)."),
+                        "tiltRegions": spans("Tilt blocks (pitch, yaw, roll, …)."),
+                    ],
+                    "required": ["zoomRegions", "tiltRegions"],
+                ],
+                "annotations": spans("Annotations (type, x/y, text, …)."),
+                "blurRegions": spans("Blur regions (rect, style, intensity)."),
+                "highlightRegions": spans("Highlight regions."),
+                "speedRegions": spans("Speed regions (speed)."),
+                "otherFocusLaneRegions": spans("FOCUS-lane occupants edit tools can't change (route around them)."),
+                "voiceOverClips": ["type": "integer"],
+                "subtitles": [
+                    "type": "object",
+                    "properties": ["count": ["type": "integer"], "showSubtitles": ["type": "boolean"]],
+                    "required": ["count", "showSubtitles"],
+                ],
+                "settings": ["type": "object", "description": "Key settings (style_options lists all)."],
+                "settingsNote": ["type": "string"],
+                "interactionDigest": ["type": "object",
+                                      "description": "Click clusters + idle spans (needs recorded cursor data)."],
+                "pacing": ["type": "object", "description": "silenceSpans + quietSpans (speed-up candidates)."],
+            ],
+            "required": [
+                "id", "name", "clock", "duration", "trimStart", "trimEnd", "trim", "recordingSourceKind",
+                "isImageCapture", "clips", "splitPoints", "effects", "annotations", "blurRegions",
+                "highlightRegions", "speedRegions", "subtitles", "settings", "settingsNote", "pacing",
+            ],
         ]
     }
 
@@ -186,14 +288,15 @@ extension MCPServer {
             tool("list_projects", title: "List projects",
                  description: "List all CaptureCat screen-recording projects (id, name, createdAt, duration in "
                     + "seconds, recordingSourceKind, reminderDate when set). Start here to get a project id.",
-                 readOnly: true),
+                 readOnly: true, outputSchema: listProjectsOutputSchema),
             tool("describe_project", title: "Describe project",
                  description: "Everything needed to plan an edit, compact: duration + outputDuration (exported "
                     + "length), trim, clips, zoom/tilt blocks, annotations, blur/highlight/speed regions (all with "
                     + "ids), subtitle count, key settings; interactionDigest (click clusters with normalized "
                     + "positions, idle cursor spans) and pacing (audio silenceSpans, plus quietSpans = no cursor "
                     + "motion, no clicks/keys/scrolls and no sound — speed-up candidates). Every time is SOURCE seconds.",
-                 properties: ["id": idProperty], required: ["id"], readOnly: true),
+                 properties: ["id": idProperty], required: ["id"], readOnly: true,
+                 outputSchema: describeProjectOutputSchema),
             tool("get_transcript", title: "Get transcript",
                  description: "Timed transcript of the project's speech (its subtitles). Segment start/end and "
                     + "per-word timings are OUTPUT seconds (the render_frames clock); each segment and word also "
@@ -279,7 +382,7 @@ extension MCPServer {
                         ],
                     ],
                  ],
-                 required: ["id", "ops"], destructive: true),
+                 required: ["id", "ops"]),
             tool("add_effect", title: "Add zoom/tilt block",
                  description: "Add an EFFECTS-lane block on a SOURCE span: type \"zoom\" (zoomLevel default 2.0, "
                     + "focalX/Y default centre), \"tilt\" (pitch/yaw/roll, default 20/0/0) or \"zoomtilt\" (a linked "
@@ -301,11 +404,11 @@ extension MCPServer {
                     "at": number("A SOURCE time inside the block (e.g. its start).", min: 0),
                     "start": spanStart, "end": spanEnd,
                  ]),
-                 required: ["id", "at"], destructive: true, idempotent: true),
+                 required: ["id", "at"], idempotent: true),
             tool("remove_effect", title: "Remove zoom/tilt block",
                  description: "Remove the zoom/tilt block(s) containing SOURCE time 'at'.",
                  properties: ["id": idProperty, "at": number("SOURCE seconds inside the block.", min: 0)],
-                 required: ["id", "at"], destructive: true, idempotent: true),
+                 required: ["id", "at"], idempotent: true),
             tool("auto_zoom", title: "Auto zoom",
                  description: "Run the app's real auto-zoom pipeline: clusters recorded clicks, typing bursts and "
                     + "dwells, picks a depth per cluster (tight = deeper, spread = gentler, 1.3–2.75), pans between "
@@ -318,7 +421,7 @@ extension MCPServer {
                     "zoomLevel": number("Base depth before per-cluster adjustment; default the project's autoZoomLevel.",
                                         min: 1.5, max: 4),
                  ],
-                 required: ["id"], destructive: true, idempotent: true),
+                 required: ["id"], idempotent: true),
             tool("add_annotation", title: "Add annotation",
                  description: "Add an on-screen annotation on a SOURCE span: text, arrow, callout, rectangle, "
                     + "ellipse, or tap (looping touch ripple for iPhone/iPad takes). Starts from the editor's "
@@ -339,11 +442,11 @@ extension MCPServer {
                     "annotationId": ["type": "string"],
                     "start": spanStart, "end": spanEnd,
                  ]),
-                 required: ["id", "annotationId"], destructive: true, idempotent: true),
+                 required: ["id", "annotationId"], idempotent: true),
             tool("remove_annotation", title: "Remove annotation",
                  description: "Remove an annotation by annotationId (add_annotation's 'created' or describe_project).",
                  properties: ["id": idProperty, "annotationId": ["type": "string"]],
-                 required: ["id", "annotationId"], destructive: true, idempotent: true),
+                 required: ["id", "annotationId"], idempotent: true),
             tool("add_blur", title: "Add privacy blur",
                  description: "Blur (or pixelate) a rectangle of the video over a SOURCE span — for emails, API "
                     + "keys, tokens, customer data. Rect is x/y/width/height normalized 0–1 of the video frame, "
@@ -366,7 +469,7 @@ extension MCPServer {
             tool("remove_blur", title: "Remove blur",
                  description: "Remove a blur region by blurId (add_blur's 'created' or describe_project's blurRegions).",
                  properties: ["id": idProperty, "blurId": ["type": "string"]],
-                 required: ["id", "blurId"], destructive: true, idempotent: true),
+                 required: ["id", "blurId"], idempotent: true),
             tool("set_speed", title: "Set playback speed",
                  description: "Play a SOURCE span faster or slower (\(formatNumber(speeds.lowerBound))–"
                     + "\(formatNumber(speeds.upperBound))×; editor presets \(presetList)). Speed regions are >= 0.8s "
@@ -378,7 +481,7 @@ extension MCPServer {
                     "speed": number("Multiplier; 1.0 is not allowed (use remove_speed).",
                                     min: speeds.lowerBound, max: speeds.upperBound),
                  ],
-                 required: ["id", "start", "end", "speed"], destructive: true, idempotent: true),
+                 required: ["id", "start", "end", "speed"], idempotent: true),
             tool("remove_speed", title: "Remove speed region",
                  description: "Clear speed regions: by speedId, by 'at' (a SOURCE time inside the region), or all: true.",
                  properties: [
@@ -387,7 +490,7 @@ extension MCPServer {
                     "at": number("SOURCE seconds inside the region.", min: 0),
                     "all": ["type": "boolean"],
                  ],
-                 required: ["id"], destructive: true, idempotent: true),
+                 required: ["id"], idempotent: true),
             tool("set_trim", title: "Set trim",
                  description: "Set the trim window in SOURCE seconds — what plays from the recording. Omitted "
                     + "start/end keep their current value; reset: true restores the full recording. At least 0.5s "
@@ -399,7 +502,7 @@ extension MCPServer {
                     "end": number("SOURCE seconds.", min: 0),
                     "reset": ["type": "boolean"],
                  ],
-                 required: ["id"], destructive: true, idempotent: true),
+                 required: ["id"], idempotent: true),
             tool("cut_video", title: "Cut footage",
                  description: "Remove SOURCE-time ranges of footage from the video lane (e.g. a flubbed sentence — "
                     + "take ranges from get_transcript's sourceStart/sourceEnd). Same as deleting a sliced clip in "
@@ -417,7 +520,7 @@ extension MCPServer {
                         "description": "SOURCE-time ranges (seconds) to remove, end > start each.",
                     ],
                  ],
-                 required: ["id", "ranges"], destructive: true, idempotent: true),
+                 required: ["id", "ranges"], idempotent: true),
             tool("set_style", title: "Set style",
                  description: "Patch project settings with {key: value}. Keys are whitelisted and validated "
                     + "against the real settings types (unknown keys and bad values are rejected with the allowed "
@@ -428,7 +531,7 @@ extension MCPServer {
                     "id": idProperty,
                     "patch": ["type": "object", "description": "Partial settings, e.g. {\"backgroundPadding\": 64}."],
                  ],
-                 required: ["id", "patch"], destructive: true, idempotent: true),
+                 required: ["id", "patch"], idempotent: true),
             tool("transcribe", title: "Transcribe speech",
                  description: "Generate the project's subtitles on-device with the app's Whisper transcription "
                     + "(same as the editor's Generate button) so get_transcript and word-exact cuts work. The FIRST "
@@ -440,7 +543,7 @@ extension MCPServer {
                     "replace": ["type": "boolean", "description": "Regenerate even if subtitles exist (discards hand edits)."],
                     "showSubtitles": ["type": "boolean", "description": "Also set whether captions are burned in."],
                  ],
-                 required: ["id"], destructive: true),
+                 required: ["id"]),
             tool("undo", title: "Undo MCP edits",
                  description: "Restore the project to before the last MCP write(s) — every mutating tool and "
                     + "apply_edits batch is one step (up to \(historyLimit) kept in the project's .mcp-history). "
@@ -451,7 +554,7 @@ extension MCPServer {
                     "steps": ["type": "integer", "minimum": 1, "maximum": historyLimit, "description": "Default 1."],
                     "force": ["type": "boolean"],
                  ],
-                 required: ["id"], destructive: true),
+                 required: ["id"]),
 
             // MARK: Output
             tool("export_project", title: "Export video",
@@ -463,7 +566,37 @@ extension MCPServer {
                     "id": idProperty,
                     "output": ["type": "string", "description": "Absolute destination path for the mp4."],
                  ],
-                 required: ["id", "output"], destructive: true, idempotent: true),
+                 required: ["id", "output"], idempotent: true),
+
+            // MARK: Share
+            tool("share_project", title: "Share project (asks the user)",
+                 description: "Publish a project as a CaptureCat share link — ONLY with the user's approval: "
+                    + "CaptureCat shows them a confirmation naming the project, that an AI agent is asking, and "
+                    + "who will be able to watch; they click Allow or Don't Allow. Every call asks again (it can't "
+                    + "be pre-approved). Needs the CaptureCat app running and signed in — otherwise it refuses "
+                    + "and nothing is uploaded. On Allow the app exports the project and uploads it exactly like "
+                    + "its Share button (a project shared before keeps its link and gets the new version). "
+                    + "Returns a jobId at once (state awaiting_approval if the user hasn't answered within ~45s); "
+                    + "poll share_status until state is done, then give the user shareUrl. privacy: \"unlisted\" "
+                    + "(default: anyone with the link), \"public\" (anyone with the link, and listed on the "
+                    + "user's public profile page), \"private\" (only the user).",
+                 properties: [
+                    "project_id": ["type": "string", "description": "Project UUID from list_projects."],
+                    "privacy": ["type": "string", "enum": ShareVisibility.allCases.map(\.rawValue),
+                                "default": ShareVisibility.unlisted.rawValue,
+                                "description": "Who can watch: unlisted (default) | public | private."],
+                 ],
+                 required: ["project_id"], openWorld: true, closedInput: true,
+                 outputSchema: shareJobOutputSchema),
+            tool("share_status", title: "Share status",
+                 description: "Progress of a share_project job: awaiting_approval → exporting → uploading → "
+                    + "completing → done (shareUrl, videoId, privacy), or declined / refused / failed / "
+                    + "interrupted with an error. Poll every few seconds while it is active.",
+                 properties: [
+                    "job_id": ["type": "string", "description": "The jobId share_project returned."],
+                 ],
+                 required: ["job_id"], readOnly: true, closedInput: true,
+                 outputSchema: shareJobOutputSchema),
 
             // MARK: Record
             tool("list_capture_targets", title: "List capture targets",

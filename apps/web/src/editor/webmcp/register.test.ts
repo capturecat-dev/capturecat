@@ -59,7 +59,9 @@ describe("registerEditorTools", () => {
     const describeTool = ctx.registered.find((t) => t.name === "describe_project")!;
     const cutTool = ctx.registered.find((t) => t.name === "cut_video")!;
     expect(describeTool.annotations).toEqual({ readOnlyHint: true, consequentialHint: false });
-    expect(cutTool.annotations).toEqual({ readOnlyHint: false, consequentialHint: true });
+    // Edits are undoable and stay in the tab (destructiveHint false, not
+    // open-world) — publishing a share link is the consequential kind.
+    expect(cutTool.annotations).toEqual({ readOnlyHint: false, consequentialHint: false });
 
     const signal = new AbortController().signal;
     expect(await describeTool.execute({}, { signal })).toBe('{"id":"p1"}');
