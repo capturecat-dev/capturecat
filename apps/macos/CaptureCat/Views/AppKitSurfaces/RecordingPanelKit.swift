@@ -28,13 +28,31 @@ enum RecordingPanelMetrics {
     /// CCKit `.lg` — shared with menus, popovers and preview cards.
     @MainActor static var tabRadius: CGFloat { CCTheme.radius(.lg) }
 
-    // Flat-surface palette (EditorThemeKit + quiet washes).
+    // 2026 palette: the bar is the same floating card as menus and popovers.
     // Fully opaque: any see-through on this bar reads as "glass", which the
     // design explicitly rejects — the desktop must never bleed through.
-    // Computed so every read resolves the CURRENT theme (EditorThemeKit is a
-    // live façade over CCTheme; ink flips with CCTheme.isDark).
-    @MainActor static var barFill: NSColor { EditorThemeKit.panel }
+    // Computed so every read resolves the CURRENT theme (ink flips with
+    // CCTheme.isDark).
+    @MainActor static var barFill: NSColor { CCTheme.color.popover }
     @MainActor static var barStroke: NSColor { ink.withAlphaComponent(0.09) }
+    /// The selected tab's floating chip: lifts off the bar in dark, a white
+    /// thumb with a soft shadow in light (the macOS segmented-thumb read).
+    @MainActor static var chipFill: NSColor { CCTheme.isDark ? CCTheme.color.elevated : CCTheme.color.card }
+    /// Recessed wells (mode switch, timer): DARKER than the bar in dark (the
+    /// window background sunk into the popover face), the elevated grey in
+    /// light — either way the lifted `chipFill` thumb reads as floating in it.
+    @MainActor static var wellFill: NSColor { CCTheme.isDark ? CCTheme.color.background : CCTheme.color.elevated }
+    /// Icon tile when its input is off; on is `accentOn`.
+    @MainActor static var tileOff: NSColor { ink.withAlphaComponent(CCTheme.isDark ? 0.08 : 0.06) }
+    static let tileSize: CGFloat = 24
+    static let tileRadius: CGFloat = 7
+    /// Primary keys (Record, Screenshot) and the smaller Stop key.
+    static let keySize: CGFloat = 40
+    static let stopKeySize: CGFloat = 36
+    static let keyRadius: CGFloat = 12
+    /// Mode-switch well inset around its segments; the thumb's radius is the
+    /// well's minus this, so the two corners stay concentric.
+    static let wellInset: CGFloat = 3
     /// On-state indicator dots keep the ACCENT hue — decoupled from the ring
     /// token when rings went ink-white (a white "on" dot loses the signal).
     @MainActor static var accentOn: NSColor { CCTheme.color.primary.withAlphaComponent(1) }
@@ -337,7 +355,8 @@ class RecordingGlassChip: GlassCompatView {
 
     /// Small state dot in the chip's top-right corner: accent = on, dim = off
     /// (quiet toggles). Lazy — chips without state stay
-    /// dot-free.
+    /// dot-free. Chips with an icon tile or a bare icon override this and
+    /// show the state on the tile / icon instead.
     func setIndicator(on: Bool) {
         let color = (on ? RecordingPanelMetrics.accentOn : RecordingPanelMetrics.dotOff).cgColor
         let dotLayer = indicatorDot().layer
@@ -384,6 +403,68 @@ class RecordingGlassChip: GlassCompatView {
         let frameHeight = (size + 3).rounded(.up) + ((size + 3).rounded(.up).truncatingRemainder(dividingBy: 2) == 0 ? 0 : 1)
         view.heightAnchor.constraint(equalToConstant: frameHeight).isActive = true
         return view
+    }
+}
+
+// MARK: - Icon tile
+
+/// The 2026 menus' icon tile, on the bar: a small rounded square holding the
+/// chip's glyph. Off = a quiet ink tile with a muted glyph; on = the accent
+/// tile with a white glyph — the same read as a highlighted menu row. It
+/// replaces the old top-right "on" dot on the labelled chips.
+final class RecordingIconTile: NSView {
+    let iconView: NSImageView
+    private(set) var isOn = false
+    private var themeObservation: CCThemeObservation?
+
+    init(symbol: String?, size: CGFloat = 13) {
+        iconView = RecordingGlassChip.icon(symbol, size: size, color: .secondaryLabelColor)
+        super.init(frame: .zero)
+        wantsLayer = true
+        translatesAutoresizingMaskIntoConstraints = false
+        layer?.cornerRadius = RecordingPanelMetrics.tileRadius
+        layer?.cornerCurve = .continuous
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(iconView)
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: RecordingPanelMetrics.tileSize),
+            heightAnchor.constraint(equalToConstant: RecordingPanelMetrics.tileSize),
+            iconView.centerXAnchor.constraint(equalTo: centerXAnchor),
+            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        themeObservation = CCThemeObservation { [weak self] in self?.paint(animated: false) }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func setOn(_ on: Bool) {
+        guard on != isOn else { return }
+        isOn = on
+        paint(animated: window != nil)
+    }
+
+    private func paint(animated: Bool) {
+        guard let layer else { return }
+        let fill = (isOn ? RecordingPanelMetrics.accentOn : RecordingPanelMetrics.tileOff).cgColor
+        // A backing layer ignores implicit actions, so the crossfade is an
+        // explicit animation from whatever is on glass right now.
+        if animated {
+            let fade = CABasicAnimation(keyPath: "backgroundColor")
+            fade.fromValue = layer.presentation()?.backgroundColor ?? layer.backgroundColor
+            fade.toValue = fill
+            fade.duration = RecordingMotion.reduceMotion
+                ? RecordingMotion.reducedDuration : RecordingMotion.fadeDuration
+            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            layer.add(fade, forKey: "tile-fill")
+            if let iconLayer = iconView.layer {
+                let swap = CATransition()
+                swap.type = .fade
+                swap.duration = fade.duration
+                iconLayer.add(swap, forKey: "tile-glyph")
+            }
+        }
+        layer.backgroundColor = fill
+        iconView.contentTintColor = isOn ? .white : .secondaryLabelColor
     }
 }
 
@@ -464,7 +545,8 @@ final class RecordingTabChip: RecordingButtonChip {
         didSet { restyle() }
     }
 
-    init(title: String, symbol: String, width: CGFloat = RecordingPanelMetrics.tabWidth) {
+    init(title: String, symbol: String, width: CGFloat = RecordingPanelMetrics.tabWidth,
+         height: CGFloat = RecordingPanelMetrics.controlHeight) {
         // Tab proportions: ~16pt icon stacked over a ~10pt label in
         // a near-square chip.
         iconView = RecordingGlassChip.icon(symbol, size: 15, weight: .medium)
@@ -476,7 +558,7 @@ final class RecordingTabChip: RecordingButtonChip {
         stack.orientation = .vertical
         stack.spacing = 2
         stack.alignment = .centerX
-        install(stack, horizontalPadding: 2)
+        install(stack, horizontalPadding: 2, height: height)
         widthAnchor.constraint(equalToConstant: width).isActive = true
         restyle()
     }
@@ -522,13 +604,15 @@ final class RecordingTabChip: RecordingButtonChip {
 
 // MARK: - Menu field ("menuChip")
 
-/// `icon · title · ⌄` in a capsule — the SwiftUI `menuChip(icon:title:)`.
+/// `[tile] title ⌄` — the SwiftUI `menuChip(icon:title:)`, with the glyph in
+/// an icon tile (accent when its input is on).
 final class RecordingMenuFieldChip: RecordingMenuChip {
-    private let iconView: NSImageView
+    private let tile: RecordingIconTile
+    private var iconView: NSImageView { tile.iconView }
     private let titleField: NSTextField
 
     init(symbol: String, title: String, width: CGFloat) {
-        iconView = RecordingGlassChip.icon(symbol, size: 13, color: .secondaryLabelColor)
+        tile = RecordingIconTile(symbol: symbol)
         titleField = RecordingGlassChip.label(title, font: RecordingPanelMetrics.toolbarText())
         super.init()
 
@@ -536,9 +620,10 @@ final class RecordingMenuFieldChip: RecordingMenuChip {
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
 
-        let stack = NSStackView(views: [iconView, titleField, spacer, chevron])
+        let stack = NSStackView(views: [tile, titleField, spacer, chevron])
         stack.orientation = .horizontal
         stack.spacing = RecordingPanelMetrics.controlSpacing
+        stack.setCustomSpacing(8, after: tile)
         stack.alignment = .centerY
         // Title gets the slack; the chevron stays pinned right.
         titleField.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -546,7 +631,7 @@ final class RecordingMenuFieldChip: RecordingMenuChip {
         spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 4).isActive = true
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
 
-        install(stack, horizontalPadding: 10)
+        install(stack, horizontalPadding: 8)
         // Not required: on a panel too narrow for the full toolbar the wide
         // chips give up width (labels truncate) rather than pushing the record
         // and close buttons off the panel edge.
@@ -566,6 +651,10 @@ final class RecordingMenuFieldChip: RecordingMenuChip {
         didSet { iconView.image = RecordingPanelMetrics.symbol(symbolName, size: 13) }
     }
 
+    /// On/off shows on the icon tile, not as a corner dot.
+    override func setIndicator(on: Bool) { tile.setOn(on) }
+    var debugTileIsOn: Bool { tile.isOn }
+
     /// Alignment probe (`--panel-live-capture`).
     var debugIconCenterYInWindow: CGFloat {
         iconView.convert(iconView.bounds, to: nil).midY
@@ -578,21 +667,22 @@ final class RecordingMenuFieldChip: RecordingMenuChip {
 
 // MARK: - Labelled button ("toolbarChipLabel")
 
-/// `icon · title` in a capsule with a minimum width — `toolbarChipLabel`.
+/// `[tile] title` with a minimum width — `toolbarChipLabel`.
 final class RecordingLabelChip: RecordingButtonChip {
-    private let iconView: NSImageView
+    private let tile: RecordingIconTile
+    private var iconView: NSImageView { tile.iconView }
     private let titleField: NSTextField
 
     init(title: String, symbol: String, minWidth: CGFloat) {
-        iconView = RecordingGlassChip.icon(symbol, size: 13)
+        tile = RecordingIconTile(symbol: symbol)
         titleField = RecordingGlassChip.label(title, font: RecordingPanelMetrics.toolbarText())
         super.init()
 
-        let stack = NSStackView(views: [iconView, titleField])
+        let stack = NSStackView(views: [tile, titleField])
         stack.orientation = .horizontal
-        stack.spacing = 6
+        stack.spacing = 8
         stack.alignment = .centerY
-        install(stack, horizontalPadding: 10)
+        install(stack, horizontalPadding: 8)
         let minimum = widthAnchor.constraint(greaterThanOrEqualToConstant: minWidth)
         minimum.priority = .init(999)
         minimum.isActive = true
@@ -604,6 +694,10 @@ final class RecordingLabelChip: RecordingButtonChip {
         titleField.stringValue = title
         iconView.image = RecordingPanelMetrics.symbol(symbol, size: 13)
     }
+
+    /// On/off shows on the icon tile, not as a corner dot.
+    override func setIndicator(on: Bool) { tile.setOn(on) }
+    var debugTileIsOn: Bool { tile.isOn }
 
     /// Alignment probe (`--panel-live-capture`).
     var debugIconCenterYInWindow: CGFloat {
@@ -620,22 +714,58 @@ final class RecordingLabelChip: RecordingButtonChip {
 /// Square 42×42 capsule holding a single symbol — `toolbarIconChip`.
 final class RecordingIconChip: RecordingButtonChip {
     private let iconView: NSImageView
+    private let restingColor: NSColor
+    private let glyphSize: CGFloat
+    /// A filled KEY (Record, Screenshot, Stop) rather than a ghost button.
+    private let isKey: Bool
 
     /// `fill` promotes the chip to a primary action (accent-filled, like the
     /// Record button); `width` lets primaries be wider than the 44pt square.
+    /// `keySize` makes it a square raised key of that size, centred in the
+    /// row, with a `glyphSize` symbol.
     init(symbol: String, color: NSColor = .labelColor, fill: NSColor? = nil,
-         width: CGFloat = RecordingPanelMetrics.controlHeight) {
-        iconView = RecordingGlassChip.icon(symbol, size: 14, color: color)
+         width: CGFloat = RecordingPanelMetrics.controlHeight,
+         keySize: CGFloat? = nil, glyphSize: CGFloat = 14) {
+        iconView = RecordingGlassChip.icon(symbol, size: glyphSize, color: color)
+        restingColor = color
+        self.glyphSize = glyphSize
+        isKey = keySize != nil
         super.init()
         if let fill { fillColor = fill }
-        install(iconView, horizontalPadding: 0)
-        widthAnchor.constraint(equalToConstant: width).isActive = true
+        if let keySize {
+            install(iconView, horizontalPadding: 0, height: keySize)
+            widthAnchor.constraint(equalToConstant: keySize).isActive = true
+        } else {
+            install(iconView, horizontalPadding: 0)
+            widthAnchor.constraint(equalToConstant: width).isActive = true
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    override func layout() {
+        super.layout()
+        if isKey { cornerRadius = RecordingPanelMetrics.keyRadius }
+    }
+
     func setSymbol(_ symbol: String) {
-        iconView.image = RecordingPanelMetrics.symbol(symbol, size: 14)
+        iconView.image = RecordingPanelMetrics.symbol(symbol, size: glyphSize)
+    }
+
+    /// Icon-only chips show "on" by inking the glyph in the accent — a dot
+    /// beside a lone glyph read as noise.
+    override func setIndicator(on: Bool) {
+        iconView.contentTintColor = on ? RecordingPanelMetrics.accentOn : restingColor
+    }
+
+    // Keys get the house press (CCMaterial's shade); ghosts keep the wash.
+    override func mouseDown(with event: NSEvent) {
+        if isKey, isEnabled, let layer { CCMaterial.press(layer, down: true) }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if isKey, let layer { CCMaterial.press(layer, down: false) }
+        super.mouseUp(with: event)
     }
 
     /// Recording heartbeat: the icon breathes (opacity 1 ⇄ 0.45 on the glide
@@ -679,6 +809,11 @@ final class RecordingIconMenuChip: RecordingMenuChip {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    /// Same as RecordingIconChip: "on" inks the glyph in the accent.
+    override func setIndicator(on: Bool) {
+        iconView.contentTintColor = on ? RecordingPanelMetrics.accentOn : .labelColor
+    }
+
     /// Alignment probe (`--recording-panel-shot`).
     var debugIconCenterYInWindow: CGFloat {
         iconView.convert(iconView.bounds, to: nil).midY
@@ -712,16 +847,23 @@ final class RecordingTimerChip: RecordingGlassChip {
         stack.spacing = 8
         stack.setCustomSpacing(5, after: timeField)
         stack.alignment = .centerY
-        install(stack, horizontalPadding: 12)
+        // A recessed pill well inside the row, not a full-height chip.
+        install(stack, horizontalPadding: 12, height: Self.wellHeight)
         applyTheme() // base observation fired before `dot` was styled
     }
+
+    static let wellHeight: CGFloat = 30
+    private var isLive = true
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     override func applyTheme() {
         super.applyTheme()
-        // systemRed is dynamic — re-snapshot it for the new appearance.
-        dot.layer?.backgroundColor = NSColor.systemRed.cgColor
+        if let layer {
+            CCMaterial.dress(layer, as: .recessed(tint: RecordingPanelMetrics.wellFill), radius: cornerRadius)
+        }
+        // systemRed/Orange are dynamic — re-snapshot for the new appearance.
+        dot.layer?.backgroundColor = (isLive ? NSColor.systemRed : NSColor.systemOrange).cgColor
     }
 
     func update(text: String, live: Bool, color: NSColor = .labelColor, limitText: String? = nil) {
@@ -729,20 +871,38 @@ final class RecordingTimerChip: RecordingGlassChip {
         timeField.textColor = color
         limitField.stringValue = limitText.map { "of \($0)" } ?? ""
         limitField.isHidden = limitText == nil
-        // Pause/resume dims the dot with a fade rather than a snap.
-        let target: CGFloat = live ? 1 : 0.3
-        guard dot.alphaValue != target else { return }
-        guard window != nil else {
-            dot.alphaValue = target
-            return
-        }
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = RecordingMotion.reduceMotion
+        guard live != isLive || dot.layer?.animation(forKey: Self.pulseKey) == nil else { return }
+        isLive = live
+        // Live: red, breathing gently. Paused: amber and steady. The colour
+        // change is a fade, never a snap.
+        guard let dotLayer = dot.layer else { return }
+        let target = (live ? NSColor.systemRed : NSColor.systemOrange).cgColor
+        if window != nil, dotLayer.backgroundColor != target {
+            let fade = CABasicAnimation(keyPath: "backgroundColor")
+            fade.fromValue = dotLayer.presentation()?.backgroundColor ?? dotLayer.backgroundColor
+            fade.toValue = target
+            fade.duration = RecordingMotion.reduceMotion
                 ? RecordingMotion.reducedDuration : RecordingMotion.fadeDuration
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            dot.animator().alphaValue = target
+            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            dotLayer.add(fade, forKey: "dot-color")
+        }
+        dotLayer.backgroundColor = target
+        if live, !RecordingMotion.reduceMotion {
+            let pulse = CABasicAnimation(keyPath: "opacity")
+            pulse.fromValue = 1.0
+            pulse.toValue = 0.35
+            pulse.duration = 0.9
+            pulse.autoreverses = true
+            pulse.repeatCount = .infinity
+            pulse.timingFunction = CCMotion.glide
+            dotLayer.add(pulse, forKey: Self.pulseKey)
+        } else {
+            dotLayer.removeAnimation(forKey: Self.pulseKey)
         }
     }
+
+    private static let pulseKey = "capturecat.timer-pulse"
+    var debugDotIsPulsing: Bool { dot.layer?.animation(forKey: Self.pulseKey) != nil }
 }
 
 /// "what is being captured right now" — icon + truncating source name.
@@ -867,12 +1027,12 @@ final class RecordingSeparator: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         themeObservation = CCThemeObservation { [weak self] in
-            self?.layer?.backgroundColor = RecordingPanelMetrics.ink.withAlphaComponent(0.10).cgColor
+            self?.layer?.backgroundColor = RecordingPanelMetrics.ink.withAlphaComponent(0.08).cgColor
         }
         translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: 1),
-            heightAnchor.constraint(equalToConstant: 24),
+            heightAnchor.constraint(equalToConstant: 20),
         ])
     }
 
@@ -1023,6 +1183,10 @@ final class RecordingModeSwitch: NSView {
     private var chips: [CaptureMode: RecordingTabChip] = [:]
     private let pill = SegmentPillOverlay()
     private let stack = NSStackView()
+    private var themeObservation: CCThemeObservation?
+
+    /// The recessed track the segments sit in (CCSegmented's well).
+    private static var wellRadius: CGFloat { RecordingPanelMetrics.tabRadius }
 
     var mode: CaptureMode = .record {
         didSet {
@@ -1034,14 +1198,20 @@ final class RecordingModeSwitch: NSView {
 
     init() {
         super.init(frame: .zero)
+        wantsLayer = true
         stack.orientation = .horizontal
-        stack.spacing = 2
+        stack.spacing = 0
         stack.alignment = .centerY
         stack.translatesAutoresizingMaskIntoConstraints = false
 
+        let inset = RecordingPanelMetrics.wellInset
+        pill.selectionRadius = Self.wellRadius - inset
         for m in CaptureMode.allCases {
-            // "Screenshot" needs more room than the 52pt source tabs.
-            let chip = RecordingTabChip(title: m.rawValue, symbol: m.icon, width: 66)
+            // "Screenshot" needs more room than the 52pt source tabs. The
+            // segments are inset-shorter than the row so the well around
+            // them is exactly one control tall.
+            let chip = RecordingTabChip(title: m.rawValue, symbol: m.icon, width: 66,
+                                        height: RecordingPanelMetrics.controlHeight - inset * 2)
             chip.usesExternalSelection = true
             chip.onClick = { [weak self] in
                 guard let self, self.mode != m else { return }
@@ -1056,17 +1226,23 @@ final class RecordingModeSwitch: NSView {
         }
 
         addSubview(stack)
-        addSubview(pill) // above the chips; never hit-tested
+        // BELOW the chips: the thumb is an opaque floating chip now, so it
+        // must sit under the glyphs it selects. Never hit-tested.
+        addSubview(pill, positioned: .below, relativeTo: stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: inset),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -inset),
             pill.leadingAnchor.constraint(equalTo: leadingAnchor),
             pill.trailingAnchor.constraint(equalTo: trailingAnchor),
             pill.topAnchor.constraint(equalTo: topAnchor),
             pill.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+        themeObservation = CCThemeObservation { [weak self] in
+            guard let self, let layer = self.layer else { return }
+            CCMaterial.dress(layer, as: .recessed(tint: RecordingPanelMetrics.wellFill), radius: Self.wellRadius)
+        }
         restyle()
     }
 
@@ -1074,9 +1250,11 @@ final class RecordingModeSwitch: NSView {
 
     /// Exposed for the panel harness's click gate.
     var debugChips: [CaptureMode: RecordingTabChip] { chips }
+    var debugPill: SegmentPillOverlay { pill }
 
     override func layout() {
         super.layout()
+        if let layer { CCMaterial.refit(layer, radius: Self.wellRadius) }
         // Keep the pill glued to the selected chip through re-layouts without
         // interrupting an in-flight glide. `layout()` runs before the stack
         // positions its chips, so force the children current first — syncing

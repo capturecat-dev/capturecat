@@ -947,6 +947,30 @@ enum RecordingPanelHarness {
         if !stormOK { failures += 1 }
         vc.debugSelectTab(.display)
 
+        // Selection chip (2026 restyle): an opaque floating chip UNDER the tab
+        // glyphs that must TRAVEL between tabs. Settled frames can't see a
+        // snap, so sample the presentation mid-glide and require it between
+        // the two tabs.
+        try? await Task.sleep(nanoseconds: 800_000_000)
+        let start = vc.debugTabsPillProbe(target: .display)
+        vc.debugAnimatedSelect(.device)
+        try? await Task.sleep(nanoseconds: 70_000_000)
+        let mid = vc.debugTabsPillProbe(target: .device)
+        let lo = min(start.target.midX, mid.target.midX)
+        let hi = max(start.target.midX, mid.target.midX)
+        let midX = mid.presentation.midX
+        if RecordingMotion.reduceMotion {
+            print("CHIPGLIDE SKIP (reduce motion is on: the glide is a fade by design)")
+        } else {
+            let inFlight = midX > lo + 2 && midX < hi - 2
+            let glideOK = inFlight && start.below && start.floating
+            print(String(format: "CHIPGLIDE display→iPhone midX=%.1f between %.1f…%.1f below=%d floating=%d %@",
+                         midX, lo, hi, start.below ? 1 : 0, start.floating ? 1 : 0, glideOK ? "PASS" : "FAIL"))
+            if !glideOK { failures += 1 }
+        }
+        try? await Task.sleep(nanoseconds: 800_000_000)
+        vc.debugSelectTab(.display)
+
         return failures
     }
 

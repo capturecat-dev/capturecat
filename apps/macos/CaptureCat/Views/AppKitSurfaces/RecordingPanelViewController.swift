@@ -75,10 +75,10 @@ final class RecordingPanelViewController: NSViewController {
     private let tabsPill = SegmentPillOverlay()
     private let modeSwitch = RecordingModeSwitch()
     private let modeSeparator = RecordingSeparator()
-    // Primary actions: accent-filled, sized to the bar (no oversize squares).
+    // Primary actions: raised keys, smaller than the row (no oversize squares).
     private let shotChip = RecordingIconChip(
-        symbol: "camera.fill", color: .white,
-        fill: NSColor.systemBlue.withAlphaComponent(0.85)
+        symbol: "camera.fill", color: .white, fill: CCTheme.color.primary,
+        keySize: RecordingPanelMetrics.keySize, glyphSize: 16
     )
     private let urlChip = RecordingURLFieldChip(width: 320)
     /// Desktop / Tablet / Mobile layout for URL captures — visible only on the
@@ -99,8 +99,8 @@ final class RecordingPanelViewController: NSViewController {
     private let areaStack = NSStackView()
     private let deviceChip = RecordingMenuFieldChip(symbol: "iphone", title: "Choose Device", width: 200)
     private let separator = RecordingSeparator()
-    private let devicesChip = RecordingMenuFieldChip(symbol: "slider.horizontal.3", title: "Mic · No Cam", width: 152)
-    private let audioChip = RecordingLabelChip(title: "Audio On", symbol: "speaker.wave.2.fill", minWidth: 100)
+    private let devicesChip = RecordingMenuFieldChip(symbol: "slider.horizontal.3", title: "Mic · No Cam", width: 164)
+    private let audioChip = RecordingLabelChip(title: "Audio On", symbol: "speaker.wave.2.fill", minWidth: 108)
     // One gear menu holds the recording-behaviour options (countdown,
     // duration limit, shortcut capture) — one gear instead of a chip per option.
     private let settingsChip = RecordingIconMenuChip(symbol: "gearshape")
@@ -108,17 +108,20 @@ final class RecordingPanelViewController: NSViewController {
     private let spinnerChip = RecordingSpinnerChip()
     private let warningChip = RecordingIconChip(symbol: "exclamationmark.triangle.fill", color: .systemYellow)
     private let recordChip = RecordingIconChip(
-        symbol: "record.circle", color: .white,
-        fill: NSColor.systemRed.withAlphaComponent(0.88)
+        symbol: "record.circle", color: .white, fill: NSColor.systemRed,
+        keySize: RecordingPanelMetrics.keySize, glyphSize: 18
     )
-    private let closeChip = RecordingIconChip(symbol: "xmark")
+    private let closeChip = RecordingIconChip(symbol: "xmark", color: .secondaryLabelColor)
 
     private let timerChip = RecordingTimerChip()
     private let sourceChip = RecordingSourceChip()
     private let pauseChip = RecordingIconChip(symbol: "pause.fill")
     private let switchChip = RecordingIconMenuChip(symbol: "arrow.triangle.2.circlepath")
     private let restartChip = RecordingIconChip(symbol: "arrow.counterclockwise")
-    private let stopChip = RecordingIconChip(symbol: "stop.fill", color: .systemRed)
+    private let stopChip = RecordingIconChip(
+        symbol: "stop.fill", color: .white, fill: NSColor.systemRed,
+        keySize: RecordingPanelMetrics.stopKeySize, glyphSize: 13
+    )
     private let deleteChip = RecordingIconChip(symbol: "trash.fill", color: .systemRed)
 
     // Quiet close sits far left INSIDE the bar.
@@ -152,8 +155,10 @@ final class RecordingPanelViewController: NSViewController {
 
     private func buildShell() {
         shell.translatesAutoresizingMaskIntoConstraints = false
-        // Flat near-opaque bar: solid theme panel color
-        // with a 1pt hairline, no material.
+        // The 2026 floating card — the menus' and popovers' surface: popover
+        // tint with a whisper of top light and the material's 0.5pt hairline.
+        // Opaque fills are dressed raised by GlassCompatView with the cast
+        // shadow suppressed; the panel window's own shadow supplies the depth.
         //
         // Re-read from RecordingPanelMetrics on every theme flip. GlassCompatView's
         // own applyTheme only re-assigns the color it was ALREADY holding, and the
@@ -164,7 +169,7 @@ final class RecordingPanelViewController: NSViewController {
         themeObservation = CCThemeObservation { [weak self] in
             guard let self else { return }
             self.shell.fillColor = RecordingPanelMetrics.barFill
-            self.shell.strokeColor = RecordingPanelMetrics.barStroke
+            self.shell.strokeColor = nil
         }
         shell.contentView = shellBody
         view.addSubview(shell)
@@ -200,7 +205,9 @@ final class RecordingPanelViewController: NSViewController {
             tabChips[tab] = chip
             tabsStack.addArrangedSubview(chip)
         }
-        tabsStack.addSubview(tabsPill) // non-arranged, above the chips
+        // Non-arranged and BELOW the chips: the selection is an opaque
+        // floating chip that the tab glyphs sit on.
+        tabsStack.addSubview(tabsPill, positioned: .below, relativeTo: nil)
         NSLayoutConstraint.activate([
             tabsPill.leadingAnchor.constraint(equalTo: tabsStack.leadingAnchor),
             tabsPill.trailingAnchor.constraint(equalTo: tabsStack.trailingAnchor),
@@ -1091,6 +1098,15 @@ final class RecordingPanelViewController: NSViewController {
 
     /// Runs the REAL animated tab switch — same code path as a click.
     func debugAnimatedSelect(_ tab: SourceTab) { select(tab: tab) }
+
+    /// Selection-chip probe: the chip's on-glass frame and `target`'s frame
+    /// (both in the strip's coordinates), whether the chip sits UNDER the tab
+    /// glyphs, and whether it carries the floating material's shadow.
+    func debugTabsPillProbe(target: SourceTab) -> (presentation: CGRect, target: CGRect, below: Bool, floating: Bool) {
+        let chipFrame = tabChips[target].map { tabsStack.convert($0.bounds, from: $0) } ?? .zero
+        return (tabsPill.debugSelectionPresentationFrame, chipFrame,
+                tabsStack.subviews.first === tabsPill, tabsPill.debugSelectionHasShadow)
+    }
 
     private func select(tab: SourceTab) {
         guard !isRecordingActive else { return } // `.disabled(isRecordingActive)`

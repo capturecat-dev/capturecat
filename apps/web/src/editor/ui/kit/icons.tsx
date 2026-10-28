@@ -17,7 +17,7 @@
  * Sizing: SF `pointSize` P → a (1.2·P)² box; weight → stroke width (kit:
  * 1.75 × CCIcon.strokeScale; lucide: the 24-unit grid table below).
  */
-import type { CSSProperties } from "react";
+import { useMemo, type CSSProperties } from "react";
 
 import { ccKitBody, maskedGlyphMarkup, useGlyphId } from "./ccIcon";
 import {
@@ -372,6 +372,9 @@ export function SFIcon({
   // Kit glyphs are drawn for the SF box; only the lucide fallbacks carry nudges.
   const box = Math.round(size * 1.2 * (kit ? 1 : (entry?.scale ?? 1)));
   const body = kit ?? glyphBody(name, weight);
+  // One object per glyph (see CCIcon): a fresh one per render makes React
+  // rewrite innerHTML and replace the nodes under the pointer.
+  const html = useMemo(() => (body ? { __html: maskedGlyphMarkup(body, uid) } : undefined), [body, uid]);
   return (
     <svg
       className={className}
@@ -381,7 +384,7 @@ export function SFIcon({
       aria-hidden
       focusable="false"
       style={{ display: "inline-block", flex: "none", overflow: "visible", ...style }}
-      dangerouslySetInnerHTML={body ? { __html: maskedGlyphMarkup(body, uid) } : undefined}
+      dangerouslySetInnerHTML={html}
     />
   );
 }

@@ -20,7 +20,7 @@
  * This module is deliberately light (no lucide) so the dashboard can use the
  * kit without pulling the editor's SF fallback table.
  */
-import { useId, type CSSProperties, type SVGProps } from "react";
+import { useId, useMemo, type CSSProperties, type SVGProps } from "react";
 
 import { CC_ICONS, CC_ICON_ALIASES, CC_ICON_STROKE } from "./ccIcons.generated";
 
@@ -96,6 +96,12 @@ export function CCIcon({
 }) {
   const uid = useGlyphId();
   const body = ccKitBody(name, weight);
+  // ONE object per glyph: React rewrites innerHTML whenever this prop's
+  // identity changes, so a fresh object per render would replace the glyph's
+  // nodes on every re-render — under a pointer that breaks :active and loses
+  // the click (the recording bar re-renders at frame rate while a mic meter
+  // is live).
+  const html = useMemo(() => (body ? { __html: maskedGlyphMarkup(body, uid) } : undefined), [body, uid]);
   return (
     <svg
       className={className}
@@ -108,7 +114,7 @@ export function CCIcon({
       focusable="false"
       {...rest}
       style={{ display: "inline-block", flex: "none", overflow: "visible", ...style }}
-      dangerouslySetInnerHTML={body ? { __html: maskedGlyphMarkup(body, uid) } : undefined}
+      dangerouslySetInnerHTML={html}
     />
   );
 }
