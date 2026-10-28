@@ -48,7 +48,7 @@ describe("CameraMaskJob", () => {
       { getState: () => ({ project: project(true) }) },
       () => media(true, added),
       () => ({ setCameraMask: (b) => void engine.push(b) }),
-      () => fakeSegmenter({ kind: "done", bytes, stats: { device: "wasm", frames: 1, width: 1, height: 1, bytes: 3, loadMs: 0, segmentMs: 0 } }, calls),
+      () => fakeSegmenter({ kind: "done", bytes, stats: { device: "cpu", frames: 1, width: 1, height: 1, bytes: 3, loadMs: 0, segmentMs: 0 } }, calls),
     );
     expect(await job.ensure()).toBe(true);
     expect(calls[0]).toMatchObject({ maskUrl: "blob:camera-mask.ccmask", checkOnly: false });

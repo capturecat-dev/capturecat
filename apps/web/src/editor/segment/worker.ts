@@ -6,21 +6,23 @@
  * beside the Whisper worker (transcribe/).
  *
  * Nothing leaves the device but the finished mask: the camera recording is
- * decoded here (mediabunny + WebCodecs) and MODNet runs here (transformers.js
- * `background-removal` on ONNX Runtime Web — WebGPU, else WASM). The only
- * other network traffic is the one-time model download, cached afterwards.
+ * decoded here (mediabunny + WebCodecs) and MediaPipe's multiclass selfie
+ * segmenter runs here (@mediapipe/tasks-vision — GPU delegate, else CPU;
+ * segment/model.ts says why this model). The only other network traffic is
+ * the one-time model and runtime download, cached afterwards.
  *
  * Flow: open the camera (byte size + duration: the mask's staleness keys) →
  * the project's existing mask still matches? done → load the model → every
- * decoded camera frame, in presentation order: draw at the model's working
- * size (shortest edge 512) → matte → area-resample to the producer mask
+ * decoded camera frame, in presentation order: draw at the working size
+ * (shortest edge MATTING_SHORTEST_EDGE) → person confidence (1 − background)
+ * → area-resample to the producer mask
  * resolution (height 192, width round(192 × aspect) ≤ 341) → producer alpha
  * conditioning (dead zone, hold, 8 levels — docs/camera-cutout.md §6, the
  * Mac's CameraMaskConditioning twin) → append to the streaming encoder
  * (frame time = the sample's PTS, as the renderer looks it up) →
  * camera-mask.ccmask bytes back to the main thread.
  */
-import { env, pipeline, RawImage } from "@huggingface/transformers";
+import { ImageSegmenter } from "@mediapipe/tasks-vision";
 import { VideoSampleSink } from "mediabunny";
 
 import { maskIsFresh } from "../core/math/cameraCutoutMath";
@@ -29,66 +31,83 @@ import { conditionAlpha, PRODUCER_KEYFRAME_INTERVAL, producerMaskSize } from "..
 import { resampleAlpha } from "../core/mask/resampleAlpha";
 import { DemuxedVideo } from "../engine/media/demux";
 import { cameraFileFacts } from "../engine/media/cameraSource";
-import { MATTING_DTYPE, MATTING_MODEL, MATTING_SHORTEST_EDGE, type MattingDevice } from "./model";
+import { MATTING_SHORTEST_EDGE, MODEL_CACHE, SEGMENTER_MODEL_URL, SEGMENTER_RUNTIME, personAlpha, type MattingDevice } from "./model";
 import type { SegmentReply, SegmentRequest } from "./protocol";
 
 declare const self: DedicatedWorkerGlobalScope;
 
-// Hub only (never probe this site's /models/ path), browser Cache Storage on.
-env.allowLocalModels = false;
-env.allowRemoteModels = true;
-env.useBrowserCache = true;
-
 /** A key frame at least this often (the codec's seek bound) — both producers write 30. */
 const KEYFRAME_INTERVAL = PRODUCER_KEYFRAME_INTERVAL;
 
-type Matte = (image: RawImage) => Promise<RawImage | RawImage[]>;
+/** One frame in, the person alpha (0–255, `width × height`) out. */
+type Matte = (frame: OffscreenCanvas, timestampMs: number) => { alpha: Uint8Array; width: number; height: number };
 
-let loaded: { matte: Matte; device: MattingDevice } | null = null;
-let loading: Promise<{ matte: Matte; device: MattingDevice }> | null = null;
+let loaded: { matte: Matte; device: MattingDevice; close: () => void } | null = null;
+let loading: Promise<{ matte: Matte; device: MattingDevice; close: () => void }> | null = null;
 
 const post = (msg: SegmentReply, transfer: Transferable[] = []) => self.postMessage(msg, transfer);
 
-async function webgpuUsable(): Promise<boolean> {
-  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
-  if (!gpu) return false;
-  try {
-    return (await gpu.requestAdapter()) != null;
-  } catch {
-    return false;
+/** The model bytes: Cache Storage first, else downloaded once (with progress) and kept. */
+async function modelBytes(jobId: number): Promise<Uint8Array> {
+  const cache = await caches.open(MODEL_CACHE).catch(() => null);
+  const hit = await cache?.match(SEGMENTER_MODEL_URL);
+  if (hit) return new Uint8Array(await hit.arrayBuffer());
+  const res = await fetch(SEGMENTER_MODEL_URL);
+  if (!res.ok || !res.body) throw new Error(`The background-removal model could not be downloaded (HTTP ${res.status}).`);
+  const total = Number(res.headers.get("Content-Length")) || 0;
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  let lastPost = 0;
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.byteLength;
+    const now = performance.now();
+    if (total && now - lastPost > 150) {
+      lastPost = now;
+      post({ type: "progress", jobId, stage: "download", loaded: received, total });
+    }
   }
+  const bytes = new Uint8Array(received);
+  let at = 0;
+  for (const c of chunks) {
+    bytes.set(c, at);
+    at += c.byteLength;
+  }
+  await cache?.put(SEGMENTER_MODEL_URL, new Response(bytes, { headers: { "Content-Type": "application/octet-stream" } })).catch(() => undefined);
+  return bytes;
 }
 
-const DTYPE_SUFFIX: Record<string, string> = { fp32: "", fp16: "_fp16", q8: "_quantized", q4: "_q4" };
-
-async function weightsCached(device: MattingDevice): Promise<boolean> {
-  try {
-    const cache = await caches.open(env.cacheKey);
-    const urls = (await cache.keys()).map((r) => r.url).filter((u) => u.includes(`/${MATTING_MODEL}/`));
-    return urls.some((u) => u.endsWith(`/onnx/model${DTYPE_SUFFIX[MATTING_DTYPE[device]] ?? ""}.onnx`));
-  } catch {
-    return false;
-  }
-}
-
-function loadMatte(jobId: number, forced?: MattingDevice): Promise<{ matte: Matte; device: MattingDevice }> {
+function loadMatte(jobId: number, forced?: MattingDevice): Promise<{ matte: Matte; device: MattingDevice; close: () => void }> {
   if (loaded && (!forced || loaded.device === forced)) return Promise.resolve(loaded);
   loading ??= (async () => {
-    const devices: MattingDevice[] = forced ? [forced] : (await webgpuUsable()) ? ["webgpu", "wasm"] : ["wasm"];
+    const model = await modelBytes(jobId);
+    post({ type: "progress", jobId, stage: "load" });
+    const devices: MattingDevice[] = forced ? [forced] : ["gpu", "cpu"];
     let lastError: unknown = null;
     for (const device of devices) {
       try {
-        const cached = await weightsCached(device);
-        const matte = (await pipeline("background-removal", MATTING_MODEL, {
-          device,
-          dtype: MATTING_DTYPE[device] as never,
-          progress_callback: (p: { status: string; loaded?: number; total?: number }) => {
-            if (!cached && p.status === "progress_total" && p.total && p.loaded !== undefined) {
-              post({ type: "progress", jobId, stage: p.loaded < p.total ? "download" : "load", loaded: p.loaded, total: p.total });
-            }
-          },
-        })) as unknown as Matte;
-        loaded = { matte, device };
+        const segmenter = await ImageSegmenter.createFromOptions(SEGMENTER_RUNTIME, {
+          baseOptions: { modelAssetBuffer: model, delegate: device === "gpu" ? "GPU" : "CPU" },
+          runningMode: "VIDEO",
+          outputConfidenceMasks: true,
+          outputCategoryMask: false,
+        });
+        const matte: Matte = (frame, timestampMs) => {
+          const result = segmenter.segmentForVideo(frame, timestampMs);
+          try {
+            // Category 0 is the background: the person is everything else.
+            const background = result.confidenceMasks?.[0];
+            if (!background) throw new Error("The segmenter returned no mask.");
+            const alpha = personAlpha(background.getAsFloat32Array());
+            return { alpha, width: background.width, height: background.height };
+          } finally {
+            result.close();
+          }
+        };
+        loaded = { matte, device, close: () => segmenter.close() };
         return loaded;
       } catch (error) {
         lastError = error;
@@ -123,18 +142,6 @@ function parseHeaderOnly(bytes: Uint8Array): { frameCount: number; sourceDuratio
   return { frameCount: view.getUint32(12, true), sourceDuration: view.getFloat64(16, true), sourceByteSize: view.getFloat64(24, true) };
 }
 
-/** The alpha channel of the pipeline's RGBA output (or a 1-channel matte). */
-function alphaOf(image: RawImage): Uint8Array {
-  const { data, width, height, channels } = image as unknown as { data: Uint8ClampedArray | Uint8Array; width: number; height: number; channels: number };
-  const out = new Uint8Array(width * height);
-  if (channels === 1) {
-    out.set(data);
-    return out;
-  }
-  for (let i = 0, p = channels - 1; i < out.length; i++, p += channels) out[i] = data[p]!;
-  return out;
-}
-
 async function segment(req: SegmentRequest): Promise<void> {
   const { jobId } = req;
   post({ type: "progress", jobId, stage: "check" });
@@ -160,11 +167,11 @@ async function segment(req: SegmentRequest): Promise<void> {
     const sh = demux.info.height;
     const aspect = sh > 0 ? sw / sh : 16 / 9;
     const size = producerMaskSize(aspect);
-    // The model's working size: shortest edge 512 (its processor resizes to that anyway).
+    // The working size handed to the model (it resizes to 256×256 itself).
     const inW = aspect >= 1 ? Math.max(1, Math.round(MATTING_SHORTEST_EDGE * aspect)) : MATTING_SHORTEST_EDGE;
     const inH = aspect >= 1 ? MATTING_SHORTEST_EDGE : Math.max(1, Math.round(MATTING_SHORTEST_EDGE / aspect));
     const canvas = new OffscreenCanvas(inW, inH);
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("No 2D canvas in this browser's workers.");
 
     const encoder = new CameraMaskEncoder({
@@ -190,23 +197,19 @@ async function segment(req: SegmentRequest): Promise<void> {
         if (!(time > lastTime)) continue;
         ctx.clearRect(0, 0, inW, inH);
         sample.draw(ctx, 0, 0, inW, inH);
-        const pixels = ctx.getImageData(0, 0, inW, inH).data;
-        const input = new RawImage(pixels, inW, inH, 4);
-        let out: RawImage | RawImage[];
+        // VIDEO mode wants strictly increasing timestamps (ms): the PTS is.
+        let out: ReturnType<Matte>;
         try {
-          out = await matte(input);
+          out = matte(canvas, time * 1000);
         } catch (error) {
-          // A GPU that loaded the model but cannot run it: once, fall back to WASM.
-          if (device !== "webgpu" || req.device) throw error;
+          // A GPU that loaded the model but cannot run it: once, fall back to the CPU.
+          if (device !== "gpu" || req.device) throw error;
+          loaded?.close();
           loaded = null;
-          ({ matte, device } = await loadMatte(jobId, "wasm"));
-          out = await matte(input);
+          ({ matte, device } = await loadMatte(jobId, "cpu"));
+          out = matte(canvas, time * 1000);
         }
-        const image = Array.isArray(out) ? out[0]! : out;
-        const alpha = alphaOf(image);
-        const w = (image as unknown as { width: number }).width;
-        const h = (image as unknown as { height: number }).height;
-        const conditioned = conditionAlpha(resampleAlpha(alpha, w, h, size.width, size.height, small), previousAlpha);
+        const conditioned = conditionAlpha(resampleAlpha(out.alpha, out.width, out.height, size.width, size.height, small), previousAlpha);
         await encoder.add(time, conditioned);
         // `small` is reused next frame — keep a copy for the hold.
         previousAlpha = conditioned.slice();
