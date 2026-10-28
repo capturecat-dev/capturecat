@@ -5,6 +5,7 @@ import { billingRouter } from "./billing";
 import { profileRouter } from "./profile";
 import { ssoRouter } from "./sso";
 import { storageRouter } from "./storage";
+import { agentTokensRouter } from "./agent-tokens";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   profile: profileRouter,
   sso: ssoRouter,
   storage: storageRouter,
+  agentTokens: agentTokensRouter,
 });
 
 export type AppRouter = typeof appRouter;

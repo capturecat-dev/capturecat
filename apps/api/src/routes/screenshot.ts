@@ -32,17 +32,10 @@ import { webOrigins } from "../lib/origins";
 import { getAuth } from "../lib/auth";
 import { resolveEntitlement } from "../lib/entitlement";
 import { planForEntitlement } from "../lib/plans";
-import { checkUploadAllowance } from "../lib/upload-policy";
-import { deleteStoredObject, listStoredObjects, recordStoredObject, storageUsageBytes } from "../lib/db";
-import { createPresignedDownloadUrl } from "../lib/presign";
-import {
-  parseScreenshotParams,
-  screenshotGate,
-  type RawParams,
-} from "../lib/screenshot/params";
+import { deleteStoredObject, listStoredObjects } from "../lib/db";
+import { screenshotGate, type RawParams } from "../lib/screenshot/params";
 import { mintKey, parseKeyToken, verifySecret } from "../lib/screenshot/keys";
-import { consumeQuota } from "../lib/screenshot/quota";
-import { RestRenderer, cacheKey, CONTENT_TYPES } from "../lib/screenshot/renderer";
+import { takeScreenshot } from "../lib/screenshot/take";
 
 export const screenshotRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -128,119 +121,18 @@ async function handleTake(
     }
   }
 
-  // Tier + subscribed plan (features AND limits in one lookup).
-  const ent = await resolveEntitlement(c.env.DB, caller.uid, caller.claims);
-  if (ent === "blocked") {
-    return c.json(errBody("account_blocked", "This account is blocked."), 403);
+  // Gate, params, quota, render, store: lib/screenshot/take.ts, shared with
+  // the MCP take_screenshot tool so an agent token meets the same rules.
+  const out = await takeScreenshot(c.env, { uid: caller.uid, claims: caller.claims, door: caller.via }, raw);
+  if (out.quota) {
+    c.header("X-Screenshot-Quota-Limit", String(out.quota.cap));
+    c.header("X-Screenshot-Quota-Remaining", String(Math.max(0, out.quota.cap - out.quota.used)));
   }
-  const plan = await planForEntitlement(c.env.DB, ent);
-  const tier = ent.tier;
-  // POLICY (2026-09-03, supersedes 2026-08-10): both doors are plan-gated.
-  // The old "sessions render on every plan" rule contradicted the pricing
-  // page (web capture is listed under Pro) and the plan table (free has
-  // webCapture:false), and was bypassable by forging the Origin header.
-  const gate = screenshotGate({ tier, features: plan.features, door: caller.via });
-  if (!gate.ok) {
-    return c.json({ error: gate.error }, gate.status);
-  }
+  if (!out.ok) return c.json({ error: out.error }, out.status);
+  if (out.kind === "stored") return c.json(out.stored);
 
-  // `engine` — chromium is the only implemented engine. A "kitesurf" beta
-  // engine was floated but does not exist in Cloudflare's current REST docs;
-  // refuse unknown values loudly rather than silently rendering on chromium.
-  const engine = typeof raw.engine === "string" && raw.engine.trim() !== "" ? raw.engine.trim() : "chromium";
-  if (engine !== "chromium") {
-    return c.json(
-      errBody("engine_unavailable", `Unknown engine "${engine}". Supported: chromium.`),
-      400,
-    );
-  }
-
-  const parsed = parseScreenshotParams(raw, c.env.SCREENSHOT_URL_BLOCKLIST);
-  if (!parsed.ok) {
-    return c.json({ error: parsed.error }, 400);
-  }
-  const params = parsed.params;
-
-  if (!c.env.CF_ACCOUNT_ID || !c.env.BROWSER_RENDERING_TOKEN) {
-    return c.json(errBody("not_configured", "Screenshot rendering is not configured."), 503);
-  }
-
-  // store=true keeps bytes: that needs the imageUpload flag AND room in the
-  // storage cap, decided BEFORE rendering so a refused request bills nothing.
-  if (params.store && !plan.features.imageUpload) {
-    return c.json(
-      errBody("upgrade_required", "Storing screenshots requires a plan with image uploads."),
-      403,
-    );
-  }
-
-  // Quota BEFORE rendering: refused requests consume nothing, and the SQL's
-  // conditional upsert means a race can never spend the last unit twice.
-  // One monthly counter for both doors, from the plan row.
-  const cap = plan.limits.maxScreenshotsPerMonth;
-  const period = "month" as const;
-  const quota = await consumeQuota(c.env.DB, caller.uid, cap, new Date(), period).catch(
-    (e) => {
-      // Fail closed — a broken meter must not become unmetered renders.
-      console.error("screenshot: quota check failed", e instanceof Error ? e.message : e);
-      return { allowed: false, used: 0, cap };
-    },
-  );
-  c.header("X-Screenshot-Quota-Limit", String(quota.cap));
-  c.header("X-Screenshot-Quota-Remaining", String(Math.max(0, quota.cap - quota.used)));
-  if (!quota.allowed) {
-    return c.json(
-      errBody(
-        "quota_exceeded",
-        quota.cap <= 0
-          ? "Your plan includes no screenshot renders."
-          : `Monthly screenshot quota (${quota.cap}) exhausted. It resets on the 1st (UTC).`,
-      ),
-      429,
-    );
-  }
-
-  const renderer = new RestRenderer(c.env.CF_ACCOUNT_ID, c.env.BROWSER_RENDERING_TOKEN);
-  const result = await renderer.render(params);
-  if ("error" in result) {
-    return c.json({ error: { code: result.error.code, message: result.error.message } }, result.error.status);
-  }
-
-  if (params.store) {
-    // Persist under a deterministic options-hash key (repeat call = overwrite,
-    // not accretion) and answer JSON with a presigned URL — the same S3-API
-    // serving convention upload.ts uses, so no new public route exists.
-    const hash = await cacheKey(params);
-    const key = `screenshots/${caller.uid}/${hash}.${params.format}`;
-    // The rendered size is known now: hold it to the same storage cap as a
-    // video, and record it so the cap sees it next time.
-    const usedBytes = await storageUsageBytes(c.env.DB, caller.uid);
-    const verdict = checkUploadAllowance(plan, { fileSizeBytes: result.bytes.byteLength, usedBytes });
-    if (!verdict.ok) {
-      return c.json(errBody(verdict.body.code, verdict.body.error), verdict.status);
-    }
-    await c.env.R2.put(key, result.bytes, {
-      httpMetadata: { contentType: CONTENT_TYPES[params.format] },
-    });
-    await recordStoredObject(c.env.DB, {
-      r2Key: key,
-      uid: caller.uid,
-      kind: "screenshot",
-      bytes: result.bytes.byteLength,
-    });
-    const url = await createPresignedDownloadUrl({
-      endpoint: c.env.R2_ENDPOINT,
-      accessKeyId: c.env.R2_ACCESS_KEY_ID,
-      secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
-      bucket: "capturecat",
-      key,
-      expiresIn: 3600,
-    });
-    return c.json({ cache_key: hash, key, url, expires_in: 3600, format: params.format });
-  }
-
-  return c.body(result.bytes, 200, {
-    "Content-Type": result.contentType,
+  return c.body(out.bytes, 200, {
+    "Content-Type": out.contentType,
     "Cache-Control": "no-store",
   });
 }

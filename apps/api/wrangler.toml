@@ -8,7 +8,15 @@ compatibility_date = "2025-01-01"
 # (Needs a compatibility_date >= 2024-09-23; ours is 2025-01-01.)
 compatibility_flags = ["nodejs_compat"]
 
-routes = [{ pattern = "api.capturecat.so", custom_domain = true }]
+# Two custom domains on this one Worker. mcp.capturecat.so is the remote MCP
+# server's canonical host (https://mcp.capturecat.so/mcp); src/index.ts lets
+# that host reach ONLY /mcp and its well-known card. Custom domains only —
+# NEVER a zone route like "*/*" or "capturecat.so/*": one took api. and
+# admin. down before.
+routes = [
+  { pattern = "api.capturecat.so", custom_domain = true },
+  { pattern = "mcp.capturecat.so", custom_domain = true },
+]
 
 [[r2_buckets]]
 binding = "R2"

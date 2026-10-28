@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { SITE_PAGES, SITE_URL, markdownHref } from "@/lib/site-content";
+import { MCP_ENDPOINT } from "@/lib/agent-access";
 
 /**
  * /llms.txt — the llmstxt.org discovery file.
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/llms.txt")({
           // as llmstxt.org link lists so parsers still read every H2 as files.
           "## When to use CaptureCat",
           `- [Record and edit on the user's Mac](${SITE_URL}${markdownHref("/agents")}): Use when the user wants a screen recording made or polished: a product demo, tutorial, bug report or launch video with zooms, captions, blur or a vertical cut. Call the local MCP server (\`CaptureCat --mcp\`, stdio) from the user's Mac; it edits real projects and \`render_frames\` shows the result before \`export_project\`.`,
+          `- [Work with the user's shared videos from a cloud agent](${SITE_URL}/auth.md): Use when an agent that is not on the user's Mac (Claude.ai, Claude Code over HTTP, ChatGPT, a scheduled job) needs their CaptureCat videos: list them, read transcripts, AI summaries, comments and analytics, reply to viewers, change share settings, manage playlists. Call the remote MCP server at \`${MCP_ENDPOINT}\` with \`Authorization: Bearer cc_pat_…\`, a scoped agent token the user creates in Settings → Agent access.`,
           `- [Record or edit in a browser](https://app.capturecat.so): Use when the user is on Windows, Linux or ChromeOS, or has no Mac. The web editor exposes the same editing tools to browser agents through WebMCP.`,
           `- [Render a web page to an image](${SITE_URL}/docs/api): Use when code needs a screenshot of a URL (viewport or full page; PNG, JPEG or WebP; Pro plan). Call \`GET|POST https://api.capturecat.so/api/screenshot/take\` with an access key; see the OpenAPI description.`,
           `- [Embed a CaptureCat share link](${SITE_URL}/docs/api): Use when a page needs the player for a capturecat.so/share/... link. Call the oEmbed endpoint \`https://capturecat.so/api/oembed?url=...\`.`,
@@ -45,8 +47,9 @@ export const Route = createFileRoute("/llms.txt")({
           `- [API reference](${SITE_URL}/docs/api): The CaptureCat API: Screenshot API, release feed, oEmbed.`,
           `- [OpenAPI 3.1 description](${SITE_URL}/openapi.json): Every public operation with operationIds, typed parameters and response schemas.`,
           `- [API catalog](${SITE_URL}/.well-known/api-catalog): RFC 9727 Linkset pointing at the spec, docs and health endpoint.`,
-          `- [How agents authenticate](${SITE_URL}/auth.md): Access keys for the Screenshot API; the MCP server needs none.`,
-          `- [Agent skills](${SITE_URL}/.well-known/agent-skills/index.json): SKILL.md files for the MCP server and the Screenshot API.`,
+          `- [How agents authenticate](${SITE_URL}/auth.md): Scoped agent tokens for the remote MCP server, access keys for the Screenshot API; the local MCP server needs none.`,
+          `- [Remote MCP server card](${SITE_URL}/.well-known/mcp/server-card.json): ${MCP_ENDPOINT}, its tools and the scope each needs.`,
+          `- [Agent skills](${SITE_URL}/.well-known/agent-skills/index.json): SKILL.md files for the local and remote MCP servers and the Screenshot API.`,
           `- [AI catalog](${SITE_URL}/.well-known/ai-catalog.json): ARD manifest of everything above.`,
           "",
           "## Pages",
@@ -74,7 +77,8 @@ export const Route = createFileRoute("/llms.txt")({
           "",
           "## Agents",
           `- [Everything in one file](${SITE_URL}/llms-full.txt): Every page on this site as Markdown, in a single fetch.`,
-          `- [Agents & MCP](${SITE_URL}${markdownHref("/agents")}): How to connect Claude, ChatGPT, Cursor, Copilot, and Windsurf to CaptureCat's MCP server.`,
+          `- [Agents & MCP](${SITE_URL}${markdownHref("/agents")}): How to connect Claude, ChatGPT, Cursor, Copilot, and Windsurf to CaptureCat's MCP server on the Mac.`,
+          `- [Connect any agent](${SITE_URL}${markdownHref("/agents")}): The remote MCP server at ${MCP_ENDPOINT} for cloud agents, with a scoped token from Settings → Agent access.`,
           ""
         );
 

@@ -8,10 +8,11 @@
  * these exact bytes, so the digest can never disagree with what is served.
  *
  * Facts here mirror the /agents page (site-content.ts) and the API routes
- * (apps/api/src/routes/screenshot.ts); change them together.
+ * (apps/api/src/routes/screenshot.ts, apps/api/src/mcp/); change them together.
  */
 import { SITE_URL } from "./site-url";
 import { SCREENSHOT_API_SKILL } from "./screenshot-api-skill";
+import { REMOTE_MCP_SKILL } from "./remote-mcp-skill";
 
 export interface AgentSkill {
   /** Lowercase alphanumeric + hyphens (the RFC's name rule). */
@@ -41,7 +42,9 @@ editor, so what the agent sees in \`render_frames\` is what the export contains.
 
 Do not use it for: non-Mac machines (use the browser editor at
 https://app.capturecat.so instead), or anything that needs a server-side
-recording API — this server runs locally inside the Mac app.
+recording API — this server runs locally inside the Mac app. A cloud agent
+that only needs the user's shared videos, comments and analytics should use
+the remote server (\`capturecat-remote\`, https://mcp.capturecat.so/mcp).
 
 ## Connect
 
@@ -83,7 +86,7 @@ More: ${SITE_URL}/agents.md
 `,
 };
 
-export const AGENT_SKILLS: AgentSkill[] = [MCP_SKILL, SCREENSHOT_API_SKILL];
+export const AGENT_SKILLS: AgentSkill[] = [MCP_SKILL, REMOTE_MCP_SKILL, SCREENSHOT_API_SKILL];
 
 /** Where a skill's SKILL.md is served. */
 export function skillPath(name: string): string {

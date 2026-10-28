@@ -30,8 +30,30 @@ import { stalePendingObjects } from "./lib/cloud-projects-db";
 import { sweepCloudProjectHistory } from "./lib/project-history-db";
 import { planForUser } from "./lib/entitlement";
 import { rateLimit } from "./middleware/rate-limit";
+import { agentTokenRoutes } from "./routes/agent-tokens";
+import { mcpRoutes } from "./mcp/routes";
+import { AGENT_AUDIT_RETENTION_DAYS } from "./lib/agent-tokens";
 
 const app = new Hono<{ Bindings: Env }>();
+
+// ---------------------------------------------------------------------------
+// mcp.capturecat.so — the remote MCP endpoint's own host, and NOTHING else
+// ---------------------------------------------------------------------------
+// The same Worker answers on api.capturecat.so and mcp.capturecat.so (two
+// custom domains in wrangler.toml). On the MCP host only the MCP endpoint
+// and its well-known card exist: Better Auth, the session API, uploads and
+// admin are a JSON 404 there. Registered FIRST so no route or middleware
+// below — /api/auth/* included — ever sees a request for that host.
+// api.capturecat.so/mcp stays as an alias (and is what `wrangler dev` serves).
+const MCP_HOST = "mcp.capturecat.so";
+const MCP_HOST_PATHS = new Set(["/mcp", "/.well-known/mcp/server-card.json"]);
+app.use("*", async (c, next) => {
+  const url = new URL(c.req.url);
+  if (url.hostname === MCP_HOST && !MCP_HOST_PATHS.has(url.pathname)) {
+    return c.json({ error: "Not found" }, 404);
+  }
+  await next();
+});
 
 // Stripe webhooks are now served by the Better Auth Stripe plugin at
 // POST /api/auth/stripe/webhook — see src/lib/stripe.ts. The old
@@ -86,6 +108,20 @@ app.use(
     // web client gets 401 on every one of them even though requireAuth now
     // accepts cookies.
     credentials: true,
+    maxAge: 86400,
+  })
+);
+
+// Remote MCP: bearer-token only (never cookies), so any origin may call it —
+// browser-based MCP clients included — without credentials.
+app.use(
+  "/mcp",
+  cors({
+    origin: "*",
+    allowMethods: ["POST", "GET", "DELETE", "OPTIONS"],
+    allowHeaders: ["Authorization", "Content-Type", "Mcp-Protocol-Version", "Mcp-Session-Id"],
+    exposeHeaders: ["WWW-Authenticate"],
+    credentials: false,
     maxAge: 86400,
   })
 );
@@ -215,6 +251,10 @@ app.use("/api/screenshot/*", async (c, next) => {
 // One pattern only: Hono's `/*` also matches the bare `/api/cloud-projects`
 // (the list), so registering both would count that request twice.
 app.use("/api/cloud-projects/*", rateLimit({ limit: 300, windowSec: 60, prefix: "cloudproj" }));
+// Agent-token management (session only): cheap D1 work, minting has its own
+// per-user limit in the router. /mcp itself is limited per TOKEN, not per
+// IP — see src/mcp/routes.ts for why.
+app.use("/api/agent-tokens/*", rateLimit({ limit: 60, windowSec: 60, prefix: "agenttokens" }));
 // Public beta waitlist sign-up: 5 per minute per IP. This is the outer bound on
 // sign-up spam; the route itself adds a honeypot + Turnstile + email dedupe.
 app.use("/api/beta", rateLimit({ limit: 5, windowSec: 60, prefix: "beta" }));
@@ -287,6 +327,11 @@ app.route("/api", cloudProjectRoutes);
 // Members read, name and restore; the owner deletes. See
 // src/routes/cloud-project-history.ts and docs/project-history.md.
 app.route("/api", cloudProjectHistoryRoutes);
+// Scoped tokens for cloud agents (session-only management + audit log).
+app.route("/api", agentTokenRoutes);
+// The remote MCP server (agent tokens): https://mcp.capturecat.so/mcp, and
+// /mcp on this host as an alias. See src/mcp/.
+app.route("/", mcpRoutes);
 
 // Catch-all — block everything else
 app.all("*", (c) => c.json({ error: "Not found" }, 404));
@@ -299,6 +344,7 @@ app.all("*", (c) => c.json({ error: "Not found" }, 404));
  *    to the storage quota);
  *  - rate_limits rows whose window ended over a day ago;
  *  - site_events older than 13 months (0030);
+ *  - agent_audit_log rows older than 90 days (0033);
  *  - cloud-project history retention + orphaned manifests (0027).
  */
 async function sweep(env: Env): Promise<void> {
@@ -340,6 +386,10 @@ async function sweep(env: Env): Promise<void> {
         AND NOT EXISTS (SELECT 1 FROM video_versions vv WHERE vv.storage_id = storage_buckets.id)
         AND NOT EXISTS (SELECT 1 FROM shared_videos sv WHERE sv.storage_id = storage_buckets.id)`
   ).run();
+  // Agent audit rows (0033): 90 days is enough to answer "what did my
+  // agent do last month", and the table is written on every tool call.
+  await env.DB.prepare("DELETE FROM agent_audit_log WHERE at < ?")
+    .bind(new Date(Date.now() - AGENT_AUDIT_RETENTION_DAYS * 86_400_000).toISOString()).run();
   await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
     .bind(Math.floor(Date.now() / 1000) - 86_400).run();
   // Site acquisition events (0030) are kept 13 months: a year-on-year view,

@@ -10,7 +10,9 @@ import { defineConfig } from "vitest/config";
 // Exception by construction: src/routes/cloud-projects.test.ts drives a Hono
 // router in Node against the REAL migrations/SQL through node:sqlite
 // (src/test-support/d1-sqlite.js, Node ≥ 22.5), with the session and the S3
-// presigner mocked and R2 in memory — it never reaches Cloudflare.
+// presigner mocked and R2 in memory — it never reaches Cloudflare. So do
+// the other route tests, and src/mcp/mcp.test.ts drives the WHOLE Worker
+// entrypoint (src/index.ts) the same way, with `fetch` stubbed.
 export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],

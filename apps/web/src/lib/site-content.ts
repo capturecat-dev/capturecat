@@ -11,6 +11,7 @@
  */
 
 import { SITE_URL } from "./site-url";
+import { MCP_ENDPOINT, MCP_TOOLS, claudeMcpAddCommand } from "./agent-access";
 import { PSEO_SITE_PAGES } from "./pseo-content";
 import { GUIDE_SITE_PAGES } from "./guides-content";
 import { BEST_SITE_PAGES } from "./best-content";
@@ -222,7 +223,7 @@ by the subscription.
     seoTitle: "Screen recorder MCP server for AI agents | CaptureCat",
     description:
       "CaptureCat has a built-in MCP server. Let Claude, Codex, Cursor, Copilot, or Windsurf record, inspect, edit, restyle, and export your recordings.",
-    lastModified: "2026-09-29",
+    lastModified: "2026-10-28",
     markdown: `# Agents and MCP
 
 CaptureCat ships a Model Context Protocol (MCP) server inside the app binary.
@@ -275,6 +276,27 @@ entry to the client's MCP config pointing \`command\` at the binary with
 
 An open project reloads an agent's edits automatically, unless it has unsaved
 changes in the editor; then the in-app edits win, so save first.
+
+## Connect any agent (remote MCP)
+
+For agents that don't run on your Mac (Claude.ai, Claude Code, ChatGPT, a
+scheduled agent), CaptureCat runs a remote MCP server at
+\`${MCP_ENDPOINT}\`. Create a token in Settings, Agent access
+(https://app.capturecat.so/app/settings): pick its scopes and expiry, copy it
+once, then:
+
+\`\`\`sh
+${claudeMcpAddCommand("<token>")}
+\`\`\`
+
+Other clients: a remote (Streamable HTTP) server at that URL with the header
+\`Authorization: Bearer <token>\`.
+
+Tools: ${MCP_TOOLS.map((t) => `\`${t.name}\``).join(", ")}. A token only gets
+the scopes you pick, never more than your plan, and you can revoke it at any
+time. There are no delete or billing tools; comments an agent posts are
+marked "(via agent)"; text written by viewers comes back marked untrusted.
+How tokens work: [auth.md](${SITE_URL}/auth.md).
 `,
   },
   {

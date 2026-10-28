@@ -15,6 +15,10 @@
  *   apps/api/src/lib/screenshot/renderer.ts       content types, 502/504 mapping, cache_key
  *   apps/api/src/lib/upload-policy.ts             store=true storage-cap refusals (402/413)
  *   apps/api/src/middleware/rate-limit.ts         429 body + Retry-After / X-RateLimit-* headers
+ *   apps/api/src/routes/agent-tokens.ts           /api/agent-tokens/* — session-only token management
+ *   apps/api/src/lib/agent-tokens.ts              agent-token format, scopes, active-token cap
+ *   apps/api/src/mcp/                             the remote MCP server those tokens open
+ *                                                 (not a REST path: see `x-mcp-servers`)
  *   apps/api/src/routes/releases.ts               /api/releases/*
  *   apps/macos/scripts/publish_release.sh         the release JSON those routes pass through
  *   apps/web/src/routes/api/oembed.ts             https://capturecat.so/api/oembed (web Worker)
@@ -144,6 +148,8 @@ const takeBodyProperties: Record<string, Record<string, unknown>> = {
   },
 };
 
+import { AGENT_SCOPES, MCP_ENDPOINT } from "./agent-access";
+
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 const json = (schemaName: string) => ({ "application/json": { schema: ref(schemaName) } });
 
@@ -249,13 +255,14 @@ export const OPENAPI_DOCUMENT = {
     description:
       "Public developer API of CaptureCat, the macOS screen recorder with a web editor and share links. Use it to:\n\n" +
       "- **Render screenshots of public web pages** (`/api/screenshot/take`, a paid Screenshot API with conventional snake_case parameter names), and manage its access keys and stored screenshots.\n" +
+      `- **Manage agent tokens** (\`/api/agent-tokens\`): scoped \`cc_pat_…\` tokens for cloud agents using CaptureCat's remote MCP server at ${MCP_ENDPOINT} (Streamable HTTP, JSON-RPC; listed under \`x-mcp-servers\`, not as a REST path).\n` +
       "- **Find and download CaptureCat for Mac** (`/api/releases/*`).\n" +
       "- **Check service health** (`/api/health`).\n" +
       "- **Embed a CaptureCat share link** via oEmbed (`/api/oembed`, served from https://capturecat.so).\n\n" +
       "Documentation: https://capturecat.so/docs — machine-readable index for LLMs: https://capturecat.so/llms.txt\n\n" +
-      "**Authentication.** Screenshot renders take an access key (`cc_live_…`) in the `X-Access-Key` header or the `access_key` query parameter. Keys are minted, listed and revoked with a signed-in CaptureCat session (Better Auth, `Authorization: Bearer <session token>` as the Mac app sends it); an access key can never manage keys. Release, health and oEmbed endpoints are public.\n\n" +
+      "**Authentication.** Screenshot renders take an access key (`cc_live_…`) in the `X-Access-Key` header or the `access_key` query parameter. Keys are minted, listed and revoked with a signed-in CaptureCat session (Better Auth, `Authorization: Bearer <session token>` as the Mac app sends it); an access key can never manage keys. Agent tokens (`cc_pat_…`) authenticate ONLY the remote MCP server, as `Authorization: Bearer`; they are minted, listed and revoked with a session and can never manage tokens themselves. Release, health and oEmbed endpoints are public.\n\n" +
       "**Errors.** Screenshot endpoints answer `{ \"error\": { \"code\": \"…\", \"message\": \"…\" } }`; branch on `code`. Release and oEmbed endpoints, the per-IP rate limiter (429) and unknown routes (404) answer `{ \"error\": \"<message>\" }`.\n\n" +
-      "**Rate limits** (per client IP, fixed 60-second windows): `/api/screenshot/take` and `/api/screenshot/stored*` share 10 requests; `/api/screenshot/keys*` allows 30. Release, health and oEmbed endpoints have no application-level rate limit.",
+      "**Rate limits** (per client IP, fixed 60-second windows): `/api/screenshot/take` and `/api/screenshot/stored*` share 10 requests; `/api/screenshot/keys*` allows 30; `/api/agent-tokens*` allows 60 (and creating a token 10 per user per minute). Release, health and oEmbed endpoints have no application-level rate limit.",
     contact: {
       name: "CaptureCat",
       email: "contact@capturecat.so",
@@ -267,6 +274,15 @@ export const OPENAPI_DOCUMENT = {
     url: "https://capturecat.so/docs",
   },
   servers: [{ url: "https://api.capturecat.so", description: "CaptureCat API (Cloudflare Worker)" }],
+  "x-mcp-servers": [
+    {
+      url: MCP_ENDPOINT,
+      transport: "streamable-http",
+      description:
+        "Remote MCP server for cloud agents (stateless JSON-RPC over POST). Authenticate with an agent token: `Authorization: Bearer cc_pat_…` (security scheme `agentToken`).",
+      serverCard: "https://capturecat.so/.well-known/mcp/server-card.json",
+    },
+  ],
   tags: [
     {
       name: "Screenshots",
@@ -281,6 +297,11 @@ export const OPENAPI_DOCUMENT = {
     {
       name: "Stored screenshots",
       description: "Screenshots saved with `store=true`, which count against the user's storage. Session authentication only.",
+    },
+    {
+      name: "Agent tokens",
+      description:
+        "Create, list and revoke the scoped tokens cloud agents use with the remote MCP server, and read the agent audit log. Session authentication only — an agent token cannot manage tokens.",
     },
     { name: "Releases", description: "CaptureCat for Mac release metadata and DMG downloads. Public." },
     { name: "Health", description: "Liveness check. Public." },
@@ -452,6 +473,86 @@ export const OPENAPI_DOCUMENT = {
             description: "`not_found`: the caller has no stored screenshot with that name.",
             content: json("ScreenshotError"),
           },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/api/agent-tokens": {
+      get: {
+        operationId: "listAgentTokens",
+        summary: "List agent tokens",
+        description:
+          "Use this to see the signed-in user's agent tokens — names, public prefixes, scopes, created / last-used / expiry / revoked times — for example to find the id of a token to revoke. Newest first, revoked and expired tokens included. Token secrets and hashes are never returned. Also returns every valid scope and the active-token cap. Session only. Per-IP rate limit: 60 requests per 60-second window for /api/agent-tokens*.",
+        tags: ["Agent tokens"],
+        security: [{ sessionBearer: [] }],
+        responses: {
+          "200": { description: "The user's tokens, newest first.", content: json("AgentTokenList") },
+          "401": { description: "No valid session.", content: json("AgentTokenError") },
+          "403": { description: "`agent_token_forbidden` (an agent token was sent), or the account is blocked.", content: json("AgentTokenError") },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+      post: {
+        operationId: "createAgentToken",
+        summary: "Create an agent token",
+        description:
+          `Use this once, as the signed-in user, to obtain a token a cloud agent sends to the remote MCP server (${MCP_ENDPOINT}) as \`Authorization: Bearer\`. The plaintext token is in this response ONLY — just its SHA-256 hash is stored. Scopes narrow what the token may do; it never exceeds the user's plan. At most 20 active (unrevoked, unexpired) tokens (400 \`too_many_tokens\`). Session only; a browser session cookie additionally needs a CaptureCat \`Origin\`. Rate limits: 10 creations per user per minute, plus the per-IP 60.`,
+        tags: ["Agent tokens"],
+        security: [{ sessionBearer: [] }],
+        requestBody: { required: true, content: json("CreateAgentTokenRequest") },
+        responses: {
+          "201": { description: "The new token. Store `token` now; it is never returned again.", content: json("CreatedAgentToken") },
+          "400": {
+            description: "Validation (`{ error }` naming the field: unknown scope, no scopes, name 1–60 characters, expiresInDays 1–365), or `too_many_tokens`.",
+            content: json("AgentTokenError"),
+          },
+          "401": { description: "No valid session.", content: json("AgentTokenError") },
+          "403": {
+            description: "`agent_token_forbidden` (an agent token cannot create tokens), a cookie request from an untrusted Origin, or a blocked account.",
+            content: json("AgentTokenError"),
+          },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/api/agent-tokens/audit": {
+      get: {
+        operationId: "listAgentAudit",
+        summary: "List recent agent activity",
+        description:
+          "Use this to see what agents did with the user's tokens: the 50 most recent MCP tool calls (tool name, video id, success or the refusal message, time, and which token). Every tool call writes one entry, including refused ones; entries are kept 90 days. Session only.",
+        tags: ["Agent tokens"],
+        security: [{ sessionBearer: [] }],
+        responses: {
+          "200": { description: "Most recent first.", content: json("AgentAuditList") },
+          "401": { description: "No valid session.", content: json("AgentTokenError") },
+          "403": { description: "`agent_token_forbidden`, or the account is blocked.", content: json("AgentTokenError") },
+          "429": { $ref: "#/components/responses/RateLimited" },
+        },
+      },
+    },
+    "/api/agent-tokens/{id}": {
+      delete: {
+        operationId: "revokeAgentToken",
+        summary: "Revoke an agent token",
+        description:
+          "Use this to revoke a leaked or unused agent token; it is refused (401) from its next request on. Revoked tokens stay in the list with `revokedAt` set. Session only.",
+        tags: ["Agent tokens"],
+        security: [{ sessionBearer: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "The token's `id` from `createAgentToken` or `listAgentTokens` (not its prefix).",
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": { description: "The token is revoked.", content: json("RevokedAgentToken") },
+          "401": { description: "No valid session.", content: json("AgentTokenError") },
+          "403": { description: "`agent_token_forbidden`, a cookie request from an untrusted Origin, or a blocked account.", content: json("AgentTokenError") },
+          "404": { description: "The user has no ACTIVE token with that id (unknown, someone else's, or already revoked).", content: json("AgentTokenError") },
           "429": { $ref: "#/components/responses/RateLimited" },
         },
       },
@@ -698,6 +799,13 @@ export const OPENAPI_DOCUMENT = {
   },
   components: {
     securitySchemes: {
+      agentToken: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "cc_pat_<40 × [A-Za-z0-9]>",
+        description:
+          `Agent token for the remote MCP server at ${MCP_ENDPOINT} (not used by any REST path here): \`Authorization: Bearer cc_pat_…\`. Created with \`createAgentToken\` from a signed-in session, shown once, stored hashed, scoped (${AGENT_SCOPES.join(", ")}), optionally expiring, revocable. A missing, unknown, revoked or expired token gets 401 with \`WWW-Authenticate: Bearer realm="capturecat", error="invalid_token"\`.`,
+      },
       accessKeyHeader: {
         type: "apiKey",
         in: "header",
@@ -717,7 +825,7 @@ export const OPENAPI_DOCUMENT = {
         scheme: "bearer",
         bearerFormat: "Better Auth session token",
         description:
-          "A signed-in CaptureCat session (Better Auth bearer plugin): `Authorization: Bearer <session token>`, as the CaptureCat Mac app sends it. In a browser on capturecat.so the Better Auth session cookie is accepted the same way. Required for key management and stored screenshots; an access key is never accepted there. On /api/screenshot/take a session is honoured only for POSTs from the CaptureCat web app.",
+          "A signed-in CaptureCat session (Better Auth bearer plugin): `Authorization: Bearer <session token>`, as the CaptureCat Mac app sends it. In a browser on capturecat.so the Better Auth session cookie is accepted the same way. Required for key management, agent-token management and stored screenshots; an access key or agent token is never accepted there. On /api/screenshot/take a session is honoured only for POSTs from the CaptureCat web app.",
       },
     },
     headers: {
@@ -926,6 +1034,108 @@ export const OPENAPI_DOCUMENT = {
               code: ref("ScreenshotErrorCode"),
               message: { type: "string", description: "Human-readable explanation. Branch on `code`, not on this text." },
             },
+          },
+        },
+      },
+      AgentScope: {
+        type: "string",
+        enum: [...AGENT_SCOPES],
+        description:
+          "What an agent token may do on the remote MCP server. Deliberately no billing, admin or delete scope.",
+      },
+      CreateAgentTokenRequest: {
+        type: "object",
+        required: ["name", "scopes"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 60, description: "Label shown in the dashboard; trimmed." },
+          scopes: { type: "array", items: ref("AgentScope"), minItems: 1, description: "Duplicates are ignored." },
+          expiresInDays: {
+            type: ["integer", "null"],
+            minimum: 1,
+            maximum: 365,
+            description: "Lifetime in days; null or absent = never expires.",
+          },
+        },
+      },
+      AgentToken: {
+        type: "object",
+        required: ["id", "name", "prefix", "scopes", "createdAt", "expiresAt", "lastUsedAt", "revokedAt"],
+        properties: {
+          id: { type: "string", description: "Token id, for `revokeAgentToken`." },
+          name: { type: "string" },
+          prefix: { type: "string", pattern: "^cc_pat_[A-Za-z0-9]{8}$", description: "Public start of the token, for recognising it." },
+          scopes: { type: "array", items: ref("AgentScope") },
+          createdAt: { type: "string", format: "date-time" },
+          expiresAt: { type: ["string", "null"], format: "date-time", description: "null = never expires." },
+          lastUsedAt: { type: ["string", "null"], format: "date-time", description: "Updated at most once a minute; null = never used." },
+          revokedAt: { type: ["string", "null"], format: "date-time", description: "null while not revoked." },
+        },
+      },
+      CreatedAgentToken: {
+        allOf: [
+          ref("AgentToken"),
+          {
+            type: "object",
+            required: ["token"],
+            properties: {
+              token: {
+                type: "string",
+                pattern: "^cc_pat_[A-Za-z0-9]{40}$",
+                description: "The full token. Shown ONLY in this response; send it as `Authorization: Bearer` to the remote MCP server.",
+              },
+            },
+          },
+        ],
+      },
+      AgentTokenList: {
+        type: "object",
+        required: ["tokens", "scopes", "maxActive"],
+        properties: {
+          tokens: { type: "array", items: ref("AgentToken"), description: "Newest first, revoked and expired included." },
+          scopes: { type: "array", items: ref("AgentScope"), description: "Every scope a token can hold." },
+          maxActive: { type: "integer", description: "Active tokens one user may hold (20)." },
+        },
+      },
+      RevokedAgentToken: {
+        type: "object",
+        required: ["id", "revoked"],
+        properties: {
+          id: { type: "string" },
+          revoked: { type: "boolean", const: true },
+        },
+      },
+      AgentAuditEntry: {
+        type: "object",
+        required: ["id", "tokenId", "tokenName", "tokenPrefix", "tool", "videoId", "ok", "error", "at"],
+        properties: {
+          id: { type: "string" },
+          tokenId: { type: "string" },
+          tokenName: { type: ["string", "null"] },
+          tokenPrefix: { type: ["string", "null"] },
+          tool: { type: "string", description: "The MCP tool called (unknown names included)." },
+          videoId: { type: ["string", "null"], description: "The video it named, if any." },
+          ok: { type: "boolean", description: "false = refused or failed (missing scope, bad arguments, not found, plan limit)." },
+          error: { type: ["string", "null"], description: "Why it was refused, when ok is false." },
+          at: { type: "string", format: "date-time" },
+        },
+      },
+      AgentAuditList: {
+        type: "object",
+        required: ["entries"],
+        properties: {
+          entries: { type: "array", items: ref("AgentAuditEntry"), description: "The 50 most recent, newest first." },
+        },
+      },
+      AgentTokenError: {
+        type: "object",
+        description: "Error body of /api/agent-tokens/*.",
+        required: ["error"],
+        properties: {
+          error: { type: "string", description: "Human-readable message." },
+          code: {
+            type: "string",
+            enum: ["too_many_tokens", "agent_token_forbidden"],
+            description: "Present for the two refusals a client may want to branch on.",
           },
         },
       },

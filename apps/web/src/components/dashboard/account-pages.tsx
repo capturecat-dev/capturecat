@@ -3,6 +3,7 @@
  * The route files only declare the route; the DEV lab renders these same
  * bodies without a session, so its screenshots are the real pages.
  */
+import { AgentAccessCard } from "@/components/dashboard/agent-access-card";
 import { BillingStatus } from "@/components/dashboard/billing-status";
 import { CustomDomainsCard } from "@/components/dashboard/custom-domains-card";
 import { ProfileCard } from "@/components/dashboard/profile-card";
@@ -16,12 +17,13 @@ export function SettingsPageBody() {
       <PageHeader
         eyebrow="Account"
         title="Settings"
-        description="Your public profile, the domains your share links live on, and where their videos are stored."
+        description="Your public profile, the domains your share links live on, where their videos are stored, and which agents can reach them."
       />
       <Sections className="max-w-3xl">
         <ProfileCard />
         <CustomDomainsCard />
         <StorageBucketCard />
+        <AgentAccessCard />
       </Sections>
     </div>
   );

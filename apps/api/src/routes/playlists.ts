@@ -2,8 +2,13 @@ import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import { requireAuth } from "../middleware/auth";
 import { requireEntitlement } from "../lib/entitlement";
-import { getSharedVideo } from "../lib/db";
 import { generateId } from "../lib/id";
+import {
+  MAX_PLAYLISTS_PER_USER,
+  addVideoToPlaylist,
+  listUserPlaylists,
+  ownedPlaylist,
+} from "../lib/playlists";
 
 /**
  * Dashboard playlists (migration 0018): private, owner-only collections of
@@ -12,29 +17,8 @@ import { generateId } from "../lib/id";
  */
 export const playlistRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-const MAX_PLAYLISTS_PER_USER = 100;
-const MAX_VIDEOS_PER_PLAYLIST = 500;
-
-interface PlaylistRow {
-  playlist_id: string;
-  uid: string;
-  name: string;
-  emoji: string | null;
-  position: number;
-  created_at: string;
-}
-
-async function ownedPlaylist(
-  db: D1Database,
-  playlistId: string,
-  uid: string
-): Promise<PlaylistRow | null> {
-  const row = await db
-    .prepare("SELECT * FROM video_playlists WHERE playlist_id = ?")
-    .bind(playlistId)
-    .first<PlaylistRow>();
-  return row && row.uid === uid ? row : null;
-}
+// Caps, ownership and the add-a-video write live in lib/playlists.ts — the
+// MCP list_playlists / add_to_playlist tools run the same code.
 
 function sanitizedName(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -54,37 +38,7 @@ function sanitizedEmoji(raw: unknown): string | null {
 /** GET /playlists — the user's playlists with member video ids, so the
  *  dashboard can filter its already-loaded list client-side. */
 playlistRoutes.get("/playlists", requireAuth, requireEntitlement(), async (c) => {
-  const uid = c.get("user").uid;
-  const { results: playlists } = await c.env.DB
-    .prepare("SELECT * FROM video_playlists WHERE uid = ? ORDER BY position, created_at")
-    .bind(uid)
-    .all<PlaylistRow>();
-
-  const { results: members } = await c.env.DB
-    .prepare(
-      `SELECT pv.playlist_id, pv.video_id
-         FROM playlist_videos pv
-         JOIN video_playlists p ON p.playlist_id = pv.playlist_id
-        WHERE p.uid = ?
-        ORDER BY pv.position, pv.created_at`
-    )
-    .bind(uid)
-    .all<{ playlist_id: string; video_id: string }>();
-
-  const byPlaylist = new Map<string, string[]>();
-  for (const m of members ?? []) {
-    byPlaylist.set(m.playlist_id, [...(byPlaylist.get(m.playlist_id) ?? []), m.video_id]);
-  }
-
-  return c.json({
-    playlists: (playlists ?? []).map((p) => ({
-      playlistId: p.playlist_id,
-      name: p.name,
-      emoji: p.emoji,
-      videoIds: byPlaylist.get(p.playlist_id) ?? [],
-      createdAt: p.created_at,
-    })),
-  });
+  return c.json({ playlists: await listUserPlaylists(c.env.DB, c.get("user").uid) });
 });
 
 playlistRoutes.post("/playlists", requireAuth, requireEntitlement(), async (c) => {
@@ -150,35 +104,13 @@ playlistRoutes.post(
   requireAuth,
   requireEntitlement(),
   async (c) => {
-    const uid = c.get("user").uid;
-    const playlist = await ownedPlaylist(c.env.DB, c.req.param("playlistId"), uid);
-    if (!playlist) return c.json({ error: "Playlist not found" }, 404);
-
     const body: { videoId?: unknown } = await c.req.json().catch(() => ({}));
     const videoId = typeof body.videoId === "string" ? body.videoId : null;
     if (!videoId) return c.json({ error: "videoId required" }, 400);
 
-    // Only the user's own videos — a playlist must never reference someone
-    // else's media, even by id.
-    const video = await getSharedVideo(c.env.DB, videoId);
-    if (!video || video.uid !== uid) return c.json({ error: "Video not found" }, 404);
-
-    const count = await c.env.DB
-      .prepare("SELECT COUNT(*) AS n FROM playlist_videos WHERE playlist_id = ?")
-      .bind(playlist.playlist_id)
-      .first<{ n: number }>();
-    if ((count?.n ?? 0) >= MAX_VIDEOS_PER_PLAYLIST) {
-      return c.json({ error: "Playlist is full" }, 403);
-    }
-
-    await c.env.DB
-      .prepare(
-        `INSERT OR IGNORE INTO playlist_videos (playlist_id, video_id, position, created_at)
-         VALUES (?, ?, ?, ?)`
-      )
-      .bind(playlist.playlist_id, videoId, count?.n ?? 0, new Date().toISOString())
-      .run();
-    return c.json({ playlistId: playlist.playlist_id, videoId });
+    const result = await addVideoToPlaylist(c.env.DB, c.get("user").uid, c.req.param("playlistId"), videoId);
+    if (!result.ok) return c.json({ error: result.error }, result.status);
+    return c.json({ playlistId: result.playlistId, videoId: result.videoId });
   }
 );
 

@@ -203,6 +203,36 @@ const SSO = {
   ],
 };
 
+const AGENT_TOKENS = [
+  {
+    id: "lab-token-1",
+    name: "Claude Code on my laptop",
+    prefix: "cc_pat_7Hq2xLm9",
+    scopes: ["account:read", "videos:read", "comments:read", "comments:write", "analytics:read"],
+    createdAt: ago(24 * 12),
+    expiresAt: ago(-24 * 78),
+    lastUsedAt: ago(0.2),
+    revokedAt: null,
+  },
+  {
+    id: "lab-token-2",
+    name: "Weekly digest agent",
+    prefix: "cc_pat_Rk4vN0pZ",
+    scopes: ["videos:read", "analytics:read"],
+    createdAt: ago(24 * 40),
+    expiresAt: null,
+    lastUsedAt: ago(26),
+    revokedAt: null,
+  },
+];
+
+const AGENT_AUDIT = [
+  { id: "a1", tokenId: "lab-token-1", tokenName: "Claude Code on my laptop", tokenPrefix: "cc_pat_7Hq2xLm9", tool: "post_comment", videoId: "lab-video-1", ok: true, error: null, at: ago(0.2) },
+  { id: "a2", tokenId: "lab-token-1", tokenName: "Claude Code on my laptop", tokenPrefix: "cc_pat_7Hq2xLm9", tool: "list_comments", videoId: "lab-video-1", ok: true, error: null, at: ago(0.25) },
+  { id: "a3", tokenId: "lab-token-1", tokenName: "Claude Code on my laptop", tokenPrefix: "cc_pat_7Hq2xLm9", tool: "update_share_settings", videoId: "lab-video-2", ok: false, error: "This token lacks the \"videos:write\" scope", at: ago(0.3) },
+  { id: "a4", tokenId: "lab-token-2", tokenName: "Weekly digest agent", tokenPrefix: "cc_pat_Rk4vN0pZ", tool: "get_video_analytics", videoId: "lab-video-3", ok: true, error: null, at: ago(26) },
+];
+
 function trpcData(path: string, input: unknown, o: LabOptions): unknown {
   const empty = o.state === "empty";
   const videos = empty ? [] : makeVideos();
@@ -320,6 +350,28 @@ function trpcData(path: string, input: unknown, o: LabOptions): unknown {
       return { available: true };
     case "sso.overview":
       return empty ? { ...SSO, enabled: o.tier === "paid", providers: [] } : SSO;
+    case "agentTokens.list":
+      return {
+        tokens: empty ? [] : AGENT_TOKENS,
+        scopes: ["videos:read", "videos:write", "comments:read", "comments:write", "analytics:read", "playlists:read", "playlists:write", "screenshots", "account:read"],
+        maxActive: 20,
+      };
+    case "agentTokens.audit":
+      return { entries: empty ? [] : AGENT_AUDIT };
+    case "agentTokens.create": {
+      const req = (input ?? {}) as { name?: string; scopes?: string[]; expiresInDays?: number | null };
+      return {
+        token: "cc_pat_LabT0k3nLabT0k3nLabT0k3nLabT0k3nLabT0k3n",
+        id: "lab-token-new",
+        name: req.name ?? "New token",
+        prefix: "cc_pat_LabT0k3n",
+        scopes: req.scopes ?? ["videos:read"],
+        createdAt: ago(0),
+        expiresAt: req.expiresInDays ? ago(-24 * req.expiresInDays) : null,
+        lastUsedAt: null,
+        revokedAt: null,
+      };
+    }
     default:
       // Mutations: succeed quietly with an empty object.
       return { ok: true };

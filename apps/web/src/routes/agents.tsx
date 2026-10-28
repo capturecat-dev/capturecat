@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { jsonLd } from "@/lib/json-ld";
+import { MCP_ENDPOINT, MCP_TOOLS, claudeMcpAddCommand, mcpJsonConfig } from "@/lib/agent-access";
 import { pageHead } from "@/lib/site-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
@@ -315,6 +316,68 @@ function AgentsPage() {
             automatically, unless it has unsaved changes in the editor. Then
             your in-app edits win, so save before handing a project to an
             agent. The server warns about exactly this if it happens.
+          </p>
+        </Container>
+      </section>
+
+      <section className="relative isolate py-16">
+        <Container>
+          <SectionTitle muted="For agents that don't run on your Mac.">Connect any agent</SectionTitle>
+          <p className="mt-4 max-w-2xl text-muted-foreground">
+            CaptureCat also runs a remote MCP server at{" "}
+            <code className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[13px]">{MCP_ENDPOINT}</code>. Claude.ai,
+            Claude Code, ChatGPT or a scheduled agent can list your shared videos, read transcripts, comments and
+            analytics, reply to viewers and change share settings. Create a token in Settings, Agent access: it gets
+            only the scopes you pick, never more than your plan, and you can revoke it at any time.
+          </p>
+          <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <GlassCard padding="p-6">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.07]">
+                  <ClaudeLogo className="h-5 w-5" />
+                </span>
+                <div>
+                  <h4 className="font-medium tracking-[-0.01em]">Claude Code</h4>
+                  <p className="text-xs text-muted-foreground">Paste your token in place of &lt;token&gt;.</p>
+                </div>
+              </div>
+              <pre className="mt-4 overflow-x-auto rounded-2xl border border-white/8 bg-black/40 p-4 text-[12.5px] leading-relaxed text-muted-foreground">
+                <code>{claudeMcpAddCommand("<token>")}</code>
+              </pre>
+            </GlassCard>
+            <GlassCard padding="p-6">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.07]">
+                  <OpenAILogo className="h-5 w-5" />
+                </span>
+                <div>
+                  <h4 className="font-medium tracking-[-0.01em]">Any MCP client</h4>
+                  <p className="text-xs text-muted-foreground">A remote server with a bearer header.</p>
+                </div>
+              </div>
+              <pre className="mt-4 overflow-x-auto rounded-2xl border border-white/8 bg-black/40 p-4 text-[12.5px] leading-relaxed text-muted-foreground">
+                <code>{mcpJsonConfig("<token>")}</code>
+              </pre>
+            </GlassCard>
+          </div>
+          <div className="mt-6 flex max-w-3xl flex-wrap gap-1.5">
+            {MCP_TOOLS.map((tool) => (
+              <code
+                key={tool.name}
+                title={`${tool.summary} Scope: ${tool.scope}.`}
+                className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[12px] text-muted-foreground"
+              >
+                {tool.name}
+              </code>
+            ))}
+          </div>
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            No delete or billing tools. Comments an agent posts show your name followed by "(via agent)", every call
+            lands in your activity log, and text written by viewers comes back marked as untrusted.{" "}
+            <a href="/auth.md" className="text-foreground underline underline-offset-4">
+              How tokens work
+            </a>
+            .
           </p>
         </Container>
       </section>
