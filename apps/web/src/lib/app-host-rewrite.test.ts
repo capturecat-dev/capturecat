@@ -19,6 +19,13 @@ describe("app.capturecat.so clean URLs", () => {
     expect(input("https://app.capturecat.so/oauth/authorize")).toBeNull();
     expect(input("https://capturecat.so/approvals/apr_123")).toBeNull();
   });
+  it("leaves the files crawlers and agents read at the root alone", () => {
+    for (const path of ["/robots.txt", "/sitemap.xml", "/llms.txt", "/.well-known/api-catalog", "/.well-known/agent-card.json"]) {
+      expect(input(`https://app.capturecat.so${path}`), path).toBeNull();
+    }
+    // Only those exact files: a dashboard path that merely looks similar still maps.
+    expect(input("https://app.capturecat.so/robots")).toBe("/app/robots");
+  });
   it("strips the prefix from generated links, and only a real /app prefix", () => {
     expect(output("https://app.capturecat.so/app/approvals/apr_123")).toBe("/approvals/apr_123");
     expect(output("https://app.capturecat.so/app")).toBe("/");

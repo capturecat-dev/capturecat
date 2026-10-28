@@ -9,6 +9,11 @@ export function isAppHost(host: string): boolean {
   return host === "app.capturecat.so" || host.startsWith("app.localhost");
 }
 
+/** Root files crawlers and agents read on every host (routes/robots[.]txt.ts,
+ *  sitemap[.]xml.ts, llms[.]txt.ts answer per host). Mapped onto /app they
+ *  bounced to sign-in, so app.capturecat.so had no robots.txt at all. */
+const ROOT_FILES = new Set(["/robots.txt", "/sitemap.xml", "/llms.txt"]);
+
 /** Visible URL → internal route URL, or undefined to leave it alone. */
 export function appHostInput(url: URL): URL | undefined {
   if (!isAppHost(url.host)) return undefined;
@@ -22,7 +27,12 @@ export function appHostInput(url: URL): URL | undefined {
     path.startsWith("/login") ||
     // The OAuth consent page is a root route on every host
     // (routes/oauth.authorize.tsx) — the API sends clients there.
-    path.startsWith("/oauth/")
+    path.startsWith("/oauth/") ||
+    ROOT_FILES.has(path) ||
+    // Discovery documents (src/server/agent-discovery.ts answers the ones
+    // that exist before the router runs); anything else is a real 404, not
+    // a sign-in page.
+    path.startsWith("/.well-known/")
   ) {
     return undefined;
   }

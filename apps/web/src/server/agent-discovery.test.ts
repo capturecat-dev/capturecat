@@ -8,10 +8,14 @@ import {
   agentDiscoveryResponse,
   agentNotFound,
   aiCatalog,
+  appHostMarkdown,
+  appHostMarkdownResponse,
   htmlRenderable,
   mcpServerCard,
+  poppyManifest,
   sha256Hex,
 } from "./agent-discovery";
+import { appHostLlmsTxt, appHostRobots, appHostSitemap } from "./app-host-files";
 import { AGENT_SCOPES, MCP_ENDPOINT, MCP_TOOLS } from "@/lib/agent-access";
 
 const get = (path: string, init: RequestInit = {}) => new Request(`https://capturecat.so${path}`, init);
@@ -23,12 +27,15 @@ describe("api-catalog (RFC 9727)", () => {
     expect(res.headers.get("Content-Type")).toBe(`application/linkset+json; profile="${API_CATALOG_PROFILE}"`);
     expect(res.headers.get("Link")).toContain('rel="api-catalog"');
     const body = (await res.json()) as { linkset: Array<Record<string, unknown>> };
-    expect(body.linkset).toHaveLength(1);
+    // The REST API and the remote MCP server — the same two the API Worker's
+    // own catalog lists (apps/api routes/front-door.ts).
+    expect(body.linkset.map((e) => e.anchor)).toEqual(["https://api.capturecat.so/api", MCP_ENDPOINT]);
     const entry = body.linkset[0]!;
-    expect(entry.anchor).toBe("https://api.capturecat.so/api");
     for (const rel of ["service-desc", "service-doc", "status"]) {
       expect(Array.isArray(entry[rel]) && (entry[rel] as Array<{ href: string }>)[0]!.href).toMatch(/^https:\/\//);
     }
+    const mcp = body.linkset[1] as { "service-desc": Array<{ href: string }> };
+    expect(mcp["service-desc"][0]!.href).toBe("https://capturecat.so/.well-known/mcp/server-card.json");
   });
 
   it("answers HEAD with the Link header and no body (§3)", async () => {
@@ -148,6 +155,78 @@ describe("openapi.json and auth.md", () => {
   it("falls through for everything else and for non-GET methods", async () => {
     expect(await agentDiscoveryResponse(get("/pricing"))).toBeNull();
     expect(await agentDiscoveryResponse(get("/openapi.json", { method: "POST" }))).toBeNull();
+  });
+});
+
+describe("OAuth pointers", () => {
+  it("redirects the OAuth well-known paths to the hosts they describe, with CORS", async () => {
+    for (const host of ["capturecat.so", "app.capturecat.so"]) {
+      const as = (await agentDiscoveryResponse(new Request(`https://${host}/.well-known/oauth-authorization-server`)))!;
+      expect(as.status, host).toBe(307);
+      expect(as.headers.get("Location")).toBe("https://api.capturecat.so/.well-known/oauth-authorization-server");
+      expect(as.headers.get("Access-Control-Allow-Origin")).toBe("*");
+      const pr = (await agentDiscoveryResponse(new Request(`https://${host}/.well-known/oauth-protected-resource`)))!;
+      expect(pr.status, host).toBe(307);
+      expect(pr.headers.get("Location")).toBe("https://mcp.capturecat.so/.well-known/oauth-protected-resource");
+    }
+    // No OIDC issuer: not even a pointer.
+    expect(await agentDiscoveryResponse(get("/.well-known/openid-configuration"))).toBeNull();
+  });
+});
+
+describe("Personal Agent Protocol (poppy.json)", () => {
+  it("declares the remote MCP server behind the OAuth issuer, and every scope with a hint", async () => {
+    const res = (await agentDiscoveryResponse(get("/.well-known/poppy.json")))!;
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toMatch(/^application\/json/);
+    const body = (await res.json()) as ReturnType<typeof poppyManifest>;
+    expect(body).toMatchObject({
+      protocol_version: "0.1",
+      organization: { name: "CaptureCat", domain: "capturecat.so" },
+      auth: { issuer: "https://api.capturecat.so" },
+      apis: [{ type: "mcp", url: MCP_ENDPOINT }],
+      web: {},
+    });
+    expect(Object.keys(body.auth.scopes).sort()).toEqual([...AGENT_SCOPES].sort());
+    expect(Object.keys(body.auth.scope_hints).sort()).toEqual([...AGENT_SCOPES].sort());
+    // Declares no Poppy conversation endpoint and no browser sessions: neither exists.
+    expect(body).not.toHaveProperty("agent");
+  });
+
+  it("is only served on the domain it names", async () => {
+    expect(await agentDiscoveryResponse(new Request("https://app.capturecat.so/.well-known/poppy.json"))).toBeNull();
+  });
+});
+
+describe("app.capturecat.so for agents", () => {
+  it("has a Markdown guide that sends agents to the MCP server and states the rules", async () => {
+    const md = appHostMarkdown();
+    expect(md.split("\n")[0]).toBe("# CaptureCat web app");
+    expect(md).toContain(MCP_ENDPOINT);
+    expect(md).toContain("https://capturecat.so/auth.md");
+    expect(md).toContain("ask the owner first");
+    const res = appHostMarkdownResponse(new Request("https://app.capturecat.so/login.md"));
+    expect(res.headers.get("Content-Type")).toBe("text/markdown; charset=utf-8");
+    expect(res.headers.get("Vary")).toBe("Accept");
+    expect(res.headers.get("Link")).toContain('rel="api-catalog"');
+    const head = appHostMarkdownResponse(new Request("https://app.capturecat.so/index.md", { method: "HEAD" }));
+    expect(await head.text()).toBe("");
+  });
+
+  it("robots.txt leaves only sign-in and the agent files crawlable, with signals for every AI bot", () => {
+    const robots = appHostRobots("https://app.capturecat.so");
+    expect(robots).toContain("User-agent: *\nContent-Signal: search=yes, ai-input=yes, ai-train=yes\nAllow: /login\n");
+    expect(robots).toContain("Allow: /.well-known/\nDisallow: /");
+    for (const bot of ["GPTBot", "ClaudeBot", "PerplexityBot"]) expect(robots).toContain(`User-agent: ${bot}\n`);
+    expect(robots).toContain("Sitemap: https://app.capturecat.so/sitemap.xml");
+  });
+
+  it("sitemap.xml lists sign-in and llms.txt points at the guide", () => {
+    expect(appHostSitemap("https://app.capturecat.so")).toContain("<loc>https://app.capturecat.so/login</loc>");
+    const llms = appHostLlmsTxt("https://app.capturecat.so");
+    expect(llms.split("\n")[0]).toBe("# CaptureCat web app");
+    expect(llms).toContain("https://app.capturecat.so/index.md");
+    expect(llms).toContain("https://capturecat.so/llms.txt");
   });
 });
 

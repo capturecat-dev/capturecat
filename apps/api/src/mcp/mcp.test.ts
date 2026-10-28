@@ -428,13 +428,17 @@ describe("host isolation (mcp.capturecat.so)", () => {
       ["GET", "/api/health"],
       ["GET", "/api/videos"],
       ["GET", "/api/agent-tokens"],
-      ["GET", "/"],
+      ["POST", "/"],
       ["GET", "/mcp/"],
     ] as const) {
       const res = await worker.fetch(new Request(`${MCP}${path}`, { method, headers: { Authorization: `Bearer ${OWNER}` } }), env, ctx);
       expect(res.status, path).toBe(404);
       expect(await res.json(), path).toEqual({ error: "Not found" });
     }
+    // GET / is the static front door (routes/front-door.ts), nothing more.
+    const root = await worker.fetch(new Request(`${MCP}/`, { headers: { Authorization: `Bearer ${OWNER}` } }), env, ctx);
+    expect(root.status).toBe(200);
+    expect(await root.json()).toMatchObject({ name: "CaptureCat remote MCP server", transport: "streamable-http" });
   });
 
   it("the API host still serves the API, and /mcp as an alias", async () => {

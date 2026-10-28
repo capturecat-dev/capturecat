@@ -55,8 +55,9 @@ CaptureCat follows the MCP authorization specification:
 - **Discovery.** A request to \`${MCP_ENDPOINT}\` without a token gets HTTP 401
   with \`WWW-Authenticate: Bearer realm="capturecat", resource_metadata="https://mcp.capturecat.so/.well-known/oauth-protected-resource"\`.
   That RFC 9728 document (also at \`/.well-known/oauth-protected-resource/mcp\`)
-  names the authorization server \`https://api.capturecat.so\`, whose RFC 8414
-  metadata is at \`https://api.capturecat.so/.well-known/oauth-authorization-server\`.
+  names the authorization server https://api.capturecat.so, whose RFC 8414
+  metadata is at https://api.capturecat.so/.well-known/oauth-authorization-server
+  (capturecat.so's own OAuth well-known paths redirect to these two documents).
 - **Clients.** Either a Client ID Metadata Document — use the https URL of your
   client's metadata JSON as \`client_id\` (\`client_id_metadata_document_supported: true\`;
   public https hosts only, fetched without redirects, 5 s, 64 KB) — or Dynamic
@@ -169,6 +170,7 @@ same monthly allowance through the MCP \`take_screenshot\` tool.
 - MCP server card: ${SITE_URL}/.well-known/mcp/server-card.json
 - OpenAPI 3.1: ${SITE_URL}/openapi.json
 - API catalog (RFC 9727): ${SITE_URL}/.well-known/api-catalog
+- Personal Agent Protocol: ${SITE_URL}/.well-known/poppy.json
 - Agent skills: ${SITE_URL}/.well-known/agent-skills/index.json
 - Docs: ${SITE_URL}/docs/api · Agents: ${SITE_URL}/agents
 

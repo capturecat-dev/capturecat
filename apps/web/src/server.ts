@@ -15,11 +15,13 @@ import { createServerEntry } from "@tanstack/react-start/server-entry";
 
 import { findPageByPath, markdownHref } from "@/lib/site-content";
 import { changelogMarkdownHref, isChangelogPath } from "@/lib/changelog/site";
+import { isAppHost } from "@/lib/app-host-rewrite";
 import {
   API_CATALOG_LINK,
   acceptQ,
   agentDiscoveryResponse,
   agentNotFound,
+  appHostMarkdownResponse,
   htmlRenderable,
 } from "@/server/agent-discovery";
 
@@ -121,11 +123,22 @@ async function rewrite(request: Request): Promise<Request | Response> {
   }
 
   // Agent discovery files (api-catalog, ai-catalog, skills, openapi.json,
-  // auth.md). Before the .md rewrite below, which would otherwise claim
-  // /auth.md and every SKILL.md.
-  if (isFirstPartyHost(host) && host !== "app.capturecat.so") {
+  // auth.md, the OAuth pointers, poppy.json). Before the .md rewrite below,
+  // which would otherwise claim /auth.md and every SKILL.md. On the app host
+  // too: there the router would map them onto /app/* and bounce to sign-in.
+  if (isFirstPartyHost(host)) {
     const discovery = await agentDiscoveryResponse(request);
     if (discovery) return discovery;
+  }
+
+  // The app host's front page for agents: its Markdown guide for / and
+  // /login (where signed-out visitors land) when Markdown is asked for, and
+  // at their .md twins. Public text only — the same for every visitor.
+  if (isAppHost(host) && (request.method === "GET" || request.method === "HEAD")) {
+    const twin = path === "/index.md" || path === "/login.md";
+    if (twin || ((path === "/" || path === "/login") && prefersMarkdown(request))) {
+      return appHostMarkdownResponse(request);
+    }
   }
 
   // Share-page markdown twin: /share/<id>.md → /md-share/<id> (per-video
@@ -256,23 +269,39 @@ async function withSecurityHeaders(
     headers.set("X-Frame-Options", "DENY");
     headers.set("Content-Security-Policy", "frame-ancestors 'none'");
   }
+  // Public text for agents — llms.txt and every Markdown twin — is readable
+  // cross-origin: the app host's sign-in page WebMCP tools fetch it from
+  // capturecat.so, and so may any browser agent. CORS * never carries
+  // cookies, so this exposes nothing an anonymous fetch can't already read.
+  const contentType = headers.get("Content-Type") ?? "";
+  if (
+    isFirstPartyHost(originalUrl.host) &&
+    (contentType.startsWith("text/markdown") || path === "/llms.txt" || path === "/llms-full.txt")
+  ) {
+    headers.set("Access-Control-Allow-Origin", "*");
+  }
   // Registry pages vary by Accept (HTML or Markdown twin) and advertise the
   // twin in a Link header, so caches keep them apart and agents can find it.
   // RFC 9727 §3: the home page links the API catalog.
-  if (isFirstPartyHost(originalUrl.host) && originalUrl.pathname === "/") {
-    headers.append("Link", API_CATALOG_LINK);
-  }
-  if (isFirstPartyHost(originalUrl.host) && findPageByPath(originalUrl.pathname)) {
+  if (isAppHost(originalUrl.host)) {
+    // The app host's / (signed out: the redirect to /login) and /login: the
+    // catalog plus the app's Markdown guide (agent-discovery appHostMarkdown).
+    if (originalUrl.pathname === "/" || originalUrl.pathname === "/login") {
+      headers.append("Vary", "Accept");
+      headers.append("Link", API_CATALOG_LINK);
+      headers.append(
+        "Link",
+        `<${originalUrl.pathname === "/" ? "/index.md" : "/login.md"}>; rel="alternate"; type="text/markdown"`
+      );
+    }
+  } else if (isFirstPartyHost(originalUrl.host) && findPageByPath(originalUrl.pathname)) {
+    if (originalUrl.pathname === "/") headers.append("Link", API_CATALOG_LINK);
     headers.append("Vary", "Accept");
     headers.append(
       "Link",
       `<${markdownHref(originalUrl.pathname)}>; rel="alternate"; type="text/markdown"`
     );
-  } else if (
-    isFirstPartyHost(originalUrl.host) &&
-    originalUrl.host !== "app.capturecat.so" &&
-    isChangelogPath(originalUrl.pathname)
-  ) {
+  } else if (isFirstPartyHost(originalUrl.host) && isChangelogPath(originalUrl.pathname)) {
     headers.append("Vary", "Accept");
     headers.append(
       "Link",
