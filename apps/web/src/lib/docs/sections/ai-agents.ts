@@ -144,6 +144,17 @@ export const AI_AGENTS: DocSection = {
           type: "p",
           text: "The browser editor also registers its editing tools through WebMCP, an emerging browser API, in browsers that support it. Browser agents get the same tool names and rules as the Mac server, minus recording, transcription and library search. See [WebMCP in the web editor](/docs/ai-agents/tools#webmcp-in-the-web-editor).",
         },
+        { type: "h2", text: "From a cloud agent" },
+        {
+          type: "p",
+          text: "Agents that don't run on your Mac (Claude.ai, Claude Code over HTTP, ChatGPT, a scheduled job) can use the remote MCP server at `https://mcp.capturecat.so/mcp` to work with your shared videos: list them, read transcripts, AI summaries, comments and analytics, reply to viewers, change share settings and add videos to playlists. It does not record or edit. Create a token in Settings, Agent access: pick its scopes and expiry, copy it once, and revoke it whenever you like. A token never gets more than your plan allows, and every call shows up in the activity list there.",
+        },
+        {
+          type: "code",
+          lang: "bash",
+          code: 'claude mcp add --transport http capturecat https://mcp.capturecat.so/mcp --header "Authorization: Bearer <token>"',
+          caption: "Other clients: a remote MCP server at that URL with the header `Authorization: Bearer <token>`. How tokens work: [auth.md](https://capturecat.so/auth.md).",
+        },
       ],
       faqs: [
         {

@@ -1,13 +1,9 @@
 import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import {
-  countCommentReplies,
-  countVideoComments,
   deleteVideoVersion,
-  getVideoComment,
   getSharedVideo,
   getVideoVersion,
-  insertVideoComment,
   listSharedVideos,
   listVideoComments,
   listVideoVersions,
@@ -15,7 +11,6 @@ import {
   setSharedVideoPrivacy,
   setThumbnailType,
   storageUsageBytes,
-  updateShareControls,
   viewCount,
 } from "../lib/db";
 import type { VideoMetadata } from "../types";
@@ -25,19 +20,31 @@ import { requireEntitlement, userRateLimit, fixedWindowAllow, planForUser } from
 import { headR2ObjectMeta } from "../lib/presign";
 import { customObjectUrl, deleteStoredObject, storeFor, StorageUnavailableError } from "../lib/storage";
 import { resolveDomain, domainIsLive } from "../lib/db";
-import { generateId } from "../lib/id";
 import { readValidatedImage } from "../lib/uploads";
 import { planForEntitlement } from "../lib/plans";
 import { shareBaseURL, webOrigins } from "../lib/origins";
 import {
   MAX_COMMENT_REQUEST_BYTES,
-  checkReplyParent,
   commentAuthorName,
-  isCommentId,
-  parseCommentAnnotation,
   sessionAvatar,
   toPublicComment,
 } from "../lib/comments";
+import {
+  COMMENT_RATE_LIMIT,
+  COMMENT_RATE_WINDOW_SEC,
+  MAX_COMMENTS_PER_VIDEO,
+  commentsOpen,
+  postComment,
+} from "../lib/comment-post";
+import {
+  applyShareControls,
+  canViewVideo,
+  passwordDigest,
+  shareControlsPatch,
+  toHex,
+  verifyPassword,
+  type ShareControlsBody,
+} from "../lib/video-share";
 
 export const videoRoutes = new Hono<{
   Bindings: Env;
@@ -248,18 +255,9 @@ async function isOwnerRequest(
       headers: c.req.raw.headers,
     });
     if (!session) return false;
-    if (session.user.id === doc.uid) return true;
-    // Team library: members of the video's org get owner-level VIEW access
-    // (mutations stay uploader-scoped in their own routes) — while the
-    // UPLOADER's plan still includes teams. Checked at view time, like
-    // shareGate does for public links: otherwise one month of a paid plan
-    // bought a permanent private team library on the free tier.
-    if (doc.orgId) {
-      const { isOrgMember } = await import("../lib/db");
-      if (!(await isOrgMember(c.env.DB, doc.orgId, session.user.id))) return false;
-      return (await planForUser(c.env, doc.uid)).features.teams;
-    }
-    return false;
+    // The uploader, or a team-library member while the uploader's plan
+    // includes teams (lib/video-share.ts — the MCP server's rule too).
+    return await canViewVideo(c.env, doc, session.user.id);
   } catch {
     return false;
   }
@@ -269,56 +267,8 @@ async function isOwnerRequest(
 // Share gates: password / expiry / view cap (migration 0012)
 // ---------------------------------------------------------------------------
 
-/** Legacy (pre-hardening) form: SHA-256("<videoId>:<password>") hex. Only
- *  used to VERIFY old rows, which are re-hashed on first successful unlock. */
-async function legacyPasswordDigest(videoId: string, password: string): Promise<string> {
-  const data = new TextEncoder().encode(`${videoId}:${password}`);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return toHex(new Uint8Array(hash));
-}
-
-function toHex(bytes: Uint8Array): string {
-  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-const PBKDF2_ITERATIONS = 210_000;
-
-async function pbkdf2(password: string, salt: Uint8Array): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]
-  );
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", hash: "SHA-256", salt, iterations: PBKDF2_ITERATIONS }, key, 256
-  );
-  return toHex(new Uint8Array(bits));
-}
-
-/** Stored form: `pbkdf2$<saltHex>$<hashHex>` — salted, 210k iterations, so a
- *  leaked table is not crackable at GPU speed the way a single SHA-256 was. */
-async function passwordDigest(_videoId: string, password: string): Promise<string> {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  return `pbkdf2$${toHex(salt)}$${await pbkdf2(password, salt)}`;
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
-/** Verify against either form; returns whether the stored hash is legacy so
- *  the caller can upgrade it. */
-async function verifyPassword(
-  videoId: string, password: string, stored: string
-): Promise<{ ok: boolean; legacy: boolean }> {
-  const parts = stored.split("$");
-  if (parts.length === 3 && parts[0] === "pbkdf2") {
-    const salt = new Uint8Array(parts[1].match(/.{2}/g)!.map((h) => parseInt(h, 16)));
-    return { ok: constantTimeEqual(await pbkdf2(password, salt), parts[2]), legacy: false };
-  }
-  return { ok: constantTimeEqual(await legacyPasswordDigest(videoId, password), stored), legacy: true };
-}
+// Password hashing (passwordDigest / verifyPassword) lives in
+// lib/video-share.ts, shared with the MCP update_share_settings tool.
 
 /** Unlock tokens: HMAC(secret, "unlock:<videoId>:<hourBucket>") hex. Valid for
  *  the current and previous hour, so a token lives 1–2 hours. Stateless — no
@@ -608,68 +558,18 @@ videoRoutes.patch("/video/:videoId/settings", requireAuth, requireEntitlement(),
   if (!doc) return c.json({ error: "Video not found" }, 404);
   if (doc.uid !== c.get("user").uid) return c.json({ error: "Forbidden" }, 403);
 
-  const body: {
-    allowDownload?: unknown;
-    password?: unknown;
-    expiresAt?: unknown;
-    maxViews?: unknown;
-    brandAccent?: unknown;
-    showVersionHistory?: unknown;
-    ctaLabel?: unknown;
-    ctaUrl?: unknown;
-    profileVisible?: unknown;
-  } = await c.req.json().catch(() => ({}));
-
-  const patch: Parameters<typeof updateShareControls>[2] = {};
-  if (typeof body.allowDownload === "boolean") patch.allowDownload = body.allowDownload;
-  if (body.password === null) patch.passwordHash = null;
-  else if (typeof body.password === "string" && body.password.length >= 1) {
-    patch.passwordHash = await passwordDigest(videoId, body.password.slice(0, 100));
-  }
-  if (body.expiresAt === null) patch.expiresAt = null;
-  else if (typeof body.expiresAt === "string" && !isNaN(Date.parse(body.expiresAt))) {
-    patch.expiresAt = new Date(body.expiresAt).toISOString();
-  }
-  if (body.maxViews === null) patch.maxViews = null;
-  else if (typeof body.maxViews === "number" && body.maxViews >= 0) {
-    patch.maxViews = Math.floor(Math.min(body.maxViews, 1_000_000));
-  }
-  if (body.brandAccent === null) patch.brandAccent = null;
-  else if (typeof body.brandAccent === "string" && /^#[0-9a-fA-F]{6}$/.test(body.brandAccent)) {
-    patch.brandAccent = body.brandAccent.toUpperCase();
-  }
-  if (typeof body.showVersionHistory === "boolean") {
-    patch.showVersionHistory = body.showVersionHistory;
-  }
-  if (typeof body.profileVisible === "boolean") {
-    patch.profileVisible = body.profileVisible;
-  }
-  // CTA button: label + https URL set together; null clears both. The URL is
-  // owner-supplied and rendered as a link on a public page — https only, and
-  // re-parsed here rather than trusted.
-  if (body.ctaLabel === null || body.ctaUrl === null) {
-    patch.ctaLabel = null;
-    patch.ctaUrl = null;
-  } else if (typeof body.ctaLabel === "string" && typeof body.ctaUrl === "string") {
-    const label = body.ctaLabel.trim().slice(0, 60);
-    const parsed = (() => {
-      try { return new URL(body.ctaUrl.trim()); } catch { return null; }
-    })();
-    if (label && parsed && parsed.protocol === "https:" && body.ctaUrl.length <= 300) {
-      patch.ctaLabel = label;
-      patch.ctaUrl = parsed.toString();
-    }
-  }
+  const body: ShareControlsBody = await c.req.json().catch(() => ({}));
+  // Validation lives in lib/video-share.ts — the MCP update_share_settings
+  // tool runs the same function, so neither can set what the other refuses.
+  const patch = await shareControlsPatch(videoId, body);
 
   if (Object.keys(patch).length === 0) {
     return c.json({ error: "No valid fields" }, 400);
   }
-  const changed = await updateShareControls(c.env.DB, videoId, patch);
+  // Writes and then does the same mandatory purge as the privacy toggle —
+  // the byte route's metadata cache would otherwise serve the OLD gates.
+  const changed = await applyShareControls(c.env, videoId, patch);
   if (!changed) return c.json({ error: "Video not found" }, 404);
-
-  // Same mandatory purge as the privacy toggle — the byte route's metadata
-  // cache would otherwise serve the OLD gates for up to five minutes.
-  await caches.default.delete(new Request(`https://meta.internal/video/${videoId}`));
 
   return c.json({ videoId, updated: Object.keys(patch) });
 });
@@ -699,11 +599,9 @@ async function commentableVideo(
   videoId: string
 ) {
   const doc = await getSharedVideo(c.env.DB, videoId);
-  if (!doc || doc.status !== "ready" || doc.isPrivate || !doc.commentsEnabled) {
-    return null;
-  }
-  const plan = await planForUser(c.env, doc.uid);
-  if (!plan.features.comments || !plan.features.cloudShare) return null;
+  // Ready, public, switched on, and the uploader's plan includes comments:
+  // lib/comment-post.ts, shared with the MCP post_comment tool.
+  if (!doc || !(await commentsOpen(c.env, doc))) return null;
   if ((await shareGate(c, doc, c.req.query("token"))).state !== "open") return null;
   return doc;
 }
@@ -777,13 +675,8 @@ videoRoutes.get("/video/:videoId/comments", async (c) => {
   });
 });
 
-/** Max comments a single video accepts — runaway-thread backstop. Replies
- *  count toward it; the list endpoint returns up to this many. */
-const MAX_COMMENTS_PER_VIDEO = 500;
-/** Replies one top-level comment accepts. */
-const MAX_REPLIES_PER_THREAD = 100;
-/** Posts allowed per IP per 10 minutes. */
-const COMMENT_RATE_LIMIT = 10;
+// MAX_COMMENTS_PER_VIDEO, MAX_REPLIES_PER_THREAD and COMMENT_RATE_LIMIT live
+// in lib/comment-post.ts with the validation they bound.
 
 /**
  * POST /video/:videoId/comments
@@ -816,12 +709,8 @@ videoRoutes.post("/video/:videoId/comments", async (c) => {
     })
   );
   // Global inner layer — see the unlock route.
-  if (!(await fixedWindowAllow(c.env.DB, `comment:${ip}`, COMMENT_RATE_LIMIT, 600))) {
+  if (!(await fixedWindowAllow(c.env.DB, `comment:${ip}`, COMMENT_RATE_LIMIT, COMMENT_RATE_WINDOW_SEC))) {
     return c.json({ error: "Slow down — try again in a few minutes" }, 429);
-  }
-
-  if ((await countVideoComments(c.env.DB, doc.videoId)) >= MAX_COMMENTS_PER_VIDEO) {
-    return c.json({ error: "This video is no longer accepting comments" }, 403);
   }
 
   // Bounded BEFORE parsing: an annotation is the one large field, and its
@@ -848,64 +737,17 @@ videoRoutes.post("/video/:videoId/comments", async (c) => {
     body = {};
   }
 
-  const text = typeof body.body === "string" ? body.body.trim() : "";
-  if (!text || text.length > 500) {
-    return c.json({ error: "Comment must be 1–500 characters" }, 400);
-  }
-
-  const annotation = parseCommentAnnotation(body.annotation);
-  if (!annotation.ok) return c.json({ error: `Invalid drawing: ${annotation.error}` }, 400);
-
-  let parentId: string | null = null;
-  let videoTime: number;
-  if (body.parentId !== undefined && body.parentId !== null) {
-    if (!isCommentId(body.parentId)) {
-      return c.json({ error: "The comment you are replying to no longer exists" }, 404);
-    }
-    const parent = await getVideoComment(c.env.DB, body.parentId);
-    const verdict = checkReplyParent(
-      parent ? { videoId: parent.videoId, parentId: parent.parentId ?? null } : null,
-      doc.videoId
-    );
-    if (!verdict.ok) return c.json({ error: verdict.error }, verdict.status);
-    if (annotation.annotation) {
-      return c.json({ error: "Replies can't carry a drawing — start a new comment" }, 400);
-    }
-    if ((await countCommentReplies(c.env.DB, body.parentId)) >= MAX_REPLIES_PER_THREAD) {
-      return c.json({ error: "This thread is full" }, 403);
-    }
-    parentId = body.parentId;
-    // A reply lives at its thread's moment.
-    videoTime = parent!.videoTime;
-  } else {
-    const rawTime =
-      typeof body.videoTime === "number" && isFinite(body.videoTime)
-        ? body.videoTime
-        : 0;
-    videoTime =
-      Math.round(
-        Math.min(Math.max(0, rawTime), Math.max(0, doc.durationSeconds)) * 1000
-      ) / 1000;
-  }
-
   // Identity comes from the session only — never from the body.
   const session = await commenterSession(c);
-
-  const comment = {
-    commentId: generateId(),
-    videoId: doc.videoId,
+  // Caps, body, drawing and threading rules: lib/comment-post.ts.
+  const result = await postComment(c.env, doc, body, {
     authorName: commentAuthorName(session?.name, body.authorName),
-    body: text,
-    videoTime,
-    createdAt: new Date().toISOString(),
-    parentId,
-    annotationJson: annotation.json,
     authorUid: session?.uid ?? null,
     authorImage: session ? sessionAvatar(session.image) : null,
-  };
-  await insertVideoComment(c.env.DB, comment);
+  });
+  if (!result.ok) return c.json({ error: result.error }, result.status);
 
-  return c.json({ comment: toPublicComment(comment, doc.uid) });
+  return c.json({ comment: result.comment });
 });
 
 // ---------------------------------------------------------------------------

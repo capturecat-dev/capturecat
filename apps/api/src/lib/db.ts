@@ -398,6 +398,47 @@ export async function listSharedVideos(
   return (results ?? []).map(rowToVideo);
 }
 
+/**
+ * One page of a user's ready videos, newest first, with each video's
+ * distinct-viewer count (the number `max_views` caps) and AI title. Backs
+ * the MCP list_videos tool; the same rows GET /api/videos lists, paged.
+ */
+export async function listSharedVideosPage(
+  db: D1Database,
+  uid: string,
+  limit: number,
+  offset: number
+): Promise<{
+  videos: Array<VideoMetadata & { views: number; aiTitle: string | null }>;
+  total: number;
+}> {
+  const [{ results }, total] = await Promise.all([
+    db
+      .prepare(
+        `SELECT sv.*,
+                (SELECT COUNT(*) FROM video_views vv WHERE vv.video_id = sv.video_id) AS view_count
+           FROM shared_videos sv
+          WHERE sv.uid = ? AND sv.status = 'ready'
+          ORDER BY sv.created_at DESC, sv.video_id
+          LIMIT ? OFFSET ?`
+      )
+      .bind(uid, limit, offset)
+      .all<SharedVideoRow & { view_count: number; ai_title: string | null }>(),
+    db
+      .prepare("SELECT COUNT(*) AS n FROM shared_videos WHERE uid = ? AND status = 'ready'")
+      .bind(uid)
+      .first<{ n: number }>(),
+  ]);
+  return {
+    videos: (results ?? []).map((row) => ({
+      ...rowToVideo(row),
+      views: row.view_count ?? 0,
+      aiTitle: row.ai_title ?? null,
+    })),
+    total: total?.n ?? 0,
+  };
+}
+
 /** Ready videos in an organization's team library, newest first. */
 export async function listOrgVideos(
   db: D1Database,
@@ -866,6 +907,23 @@ export async function getTranscript(
   } catch {
     return null;
   }
+}
+
+/** Query length bounds for library transcript search (GET
+ *  /transcripts/search and the MCP search_transcripts tool). */
+export const TRANSCRIPT_QUERY_MIN = 2;
+export const TRANSCRIPT_QUERY_MAX = 80;
+
+/** Search entry point for callers holding a raw query: trims, answers
+ *  nothing below the minimum, cuts at the maximum. */
+export async function searchLibraryTranscripts(
+  db: D1Database,
+  uid: string,
+  rawQuery: string
+): Promise<Array<{ videoId: string; segments: TranscriptSegment[] }>> {
+  const q = rawQuery.trim();
+  if (q.length < TRANSCRIPT_QUERY_MIN) return [];
+  return searchTranscripts(db, uid, q.slice(0, TRANSCRIPT_QUERY_MAX));
 }
 
 /** Library-wide transcript search: which of the user's videos mention `q`,

@@ -32,7 +32,7 @@ import {
   listReactions,
   reactionCount,
   resolveDomain,
-  searchTranscripts,
+  searchLibraryTranscripts,
   setAISummary,
   setDomainVerified,
 } from "../lib/db";
@@ -125,9 +125,9 @@ hubRoutes.get("/video/:videoId/transcript", async (c) => {
 
 /** Library-wide transcript search for the dashboard. */
 hubRoutes.get("/transcripts/search", requireAuth, async (c) => {
-  const q = (c.req.query("q") ?? "").trim();
-  if (q.length < 2) return c.json({ results: [] });
-  const results = await searchTranscripts(c.env.DB, c.get("user").uid, q.slice(0, 80));
+  // Length rules live with the query (lib/db.ts) — the MCP
+  // search_transcripts tool calls the same function.
+  const results = await searchLibraryTranscripts(c.env.DB, c.get("user").uid, c.req.query("q") ?? "");
   return c.json({ results });
 });
 

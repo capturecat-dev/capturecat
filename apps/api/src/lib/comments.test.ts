@@ -4,6 +4,7 @@ import {
   annotationFromStored,
   checkReplyParent,
   cleanLabel,
+  agentCommentAuthorName,
   commentAuthorName,
   isCommentId,
   parseCommentAnnotation,
@@ -229,5 +230,16 @@ describe("identity", () => {
       isOwner: false,
       annotation: null,
     });
+  });
+});
+
+describe("agentCommentAuthorName", () => {
+  it("suffixes the account name, and the suffix survives the 40-character rule", () => {
+    expect(agentCommentAuthorName("Olive Owner")).toBe("Olive Owner (via agent)");
+    const long = agentCommentAuthorName("x".repeat(80));
+    expect(long).toHaveLength(40);
+    expect(long.endsWith(" (via agent)")).toBe(true);
+    expect(agentCommentAuthorName(null)).toBe("Owner (via agent)");
+    expect(agentCommentAuthorName("‮evil\u0000")).toBe("evil (via agent)");
   });
 });

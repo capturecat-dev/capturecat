@@ -5,16 +5,21 @@
  *
  *   /.well-known/api-catalog            RFC 9727 Linkset (application/linkset+json)
  *   /.well-known/ai-catalog.json        ARD / ai-catalog manifest (CORS *)
+ *   /.well-known/mcp/server-card.json   MCP server card (SEP-2127) for the REMOTE
+ *                                       server at https://mcp.capturecat.so/mcp
+ *                                       (mcp.capturecat.so's own well-known path
+ *                                       redirects here)
  *   /.well-known/agent-skills/index.json   Agent Skills Discovery RFC v0.2.0
  *   /.well-known/agent-skills/<name>/SKILL.md
  *   /openapi.json                       OpenAPI 3.1 for api.capturecat.so
- *   /auth.md                            how agents authenticate (self-contained;
- *                                       there is no OAuth server for third parties)
+ *   /auth.md                            how agents authenticate (agent tokens for
+ *                                       the remote MCP server, access keys for the
+ *                                       Screenshot API; self-contained — there is
+ *                                       no OAuth server for third parties)
  *
  * Deliberately NOT published, because they would be false today:
- *   /.well-known/mcp/server-card.json   SEP-2127 cards describe REMOTE servers
- *                                       only; CaptureCat's MCP server is local stdio.
- *   /.well-known/oauth-*, openid-configuration   no third-party OAuth/OIDC issuer.
+ *   /.well-known/oauth-*, openid-configuration   no third-party OAuth/OIDC issuer;
+ *                                       the remote MCP server takes agent tokens.
  *
  * Also here: agent-friendly 404s. TanStack Start answers an unmatched path
  * with 500 "Only HTML requests are supported here" when the Accept header
@@ -22,6 +27,7 @@
  */
 import { AGENT_SKILLS, skillPath } from "@/lib/agent-skills";
 import { AUTH_MD } from "@/lib/auth-md";
+import { AGENT_SCOPES, MCP_ENDPOINT, MCP_TOOLS } from "@/lib/agent-access";
 import { OPENAPI_DOCUMENT } from "@/lib/openapi";
 import { SITE_URL } from "@/lib/site-url";
 
@@ -31,6 +37,7 @@ const HOST = new URL(SITE_URL).hostname;
 
 export const API_CATALOG_PROFILE = "https://www.rfc-editor.org/info/rfc9727";
 export const SKILLS_SCHEMA = "https://schemas.agentskills.io/discovery/0.2.0/schema.json";
+export const SERVER_CARD_PATH = "/.well-known/mcp/server-card.json";
 
 /** RFC 9727 §3: the api-catalog relation, sent on GET and HEAD. */
 export const API_CATALOG_LINK = `<${SITE_URL}/.well-known/api-catalog>; rel="api-catalog"`;
@@ -57,7 +64,7 @@ export function aiCatalog() {
         identifier: `urn:air:${HOST}:api:capturecat-api`,
         displayName: "CaptureCat API",
         description:
-          "Screenshot rendering for any URL, plus the public release feed and oEmbed for CaptureCat share links.",
+          "Screenshot rendering for any URL, agent-token management for the remote MCP server, plus the public release feed and oEmbed for CaptureCat share links.",
         type: "application/vnd.oai.openapi+json",
         url: `${SITE_URL}/openapi.json`,
         representativeQueries: [
@@ -65,6 +72,20 @@ export function aiCatalog() {
           "render a URL to a PNG or WebP image",
           "get the latest CaptureCat for Mac download",
           "embed a CaptureCat share video",
+        ],
+      },
+      {
+        identifier: `urn:air:${HOST}:mcp:capturecat-remote`,
+        displayName: "CaptureCat remote MCP server",
+        description:
+          `Streamable HTTP MCP server at ${MCP_ENDPOINT} for cloud agents: list shared videos, read transcripts, summaries, comments and analytics, post comments, change share settings, manage playlists and take screenshots. Authenticated with a scoped agent token (Authorization: Bearer cc_pat_…).`,
+        type: "application/json",
+        url: `${SITE_URL}${SERVER_CARD_PATH}`,
+        representativeQueries: [
+          "connect Claude to my CaptureCat videos",
+          "summarize the comments on my latest CaptureCat video",
+          "which of my screen recordings mention pricing",
+          "make my CaptureCat share link private",
         ],
       },
       {
@@ -84,7 +105,7 @@ export function aiCatalog() {
       {
         identifier: `urn:air:${HOST}:skills:index`,
         displayName: "CaptureCat agent skills",
-        description: "SKILL.md instructions for the CaptureCat MCP server and the Screenshot API.",
+        description: "SKILL.md instructions for the CaptureCat MCP servers (local and remote) and the Screenshot API.",
         type: "application/json",
         url: `${SITE_URL}/.well-known/agent-skills/index.json`,
         representativeQueries: [
@@ -105,6 +126,36 @@ export function aiCatalog() {
         ],
       },
     ],
+  };
+}
+
+/**
+ * MCP server card for the remote server (SEP-2127 shape). Tools are listed
+ * from lib/agent-access.ts, which a test keeps equal to the API's registry;
+ * full schemas come from tools/list once a client is authenticated.
+ */
+export function mcpServerCard() {
+  return {
+    $schema: "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
+    version: "1.0",
+    protocolVersions: ["2026-07-28", "2025-11-25", "2025-06-18"],
+    serverInfo: { name: "capturecat", title: "CaptureCat", version: "1.0.0" },
+    description:
+      "The CaptureCat account's shared screen-recording videos for cloud agents: list and inspect videos, read transcripts, AI summaries, comments and viewer analytics, post comments as the owner, change share-page settings, manage playlists, and render web-page screenshots. No delete or billing tools.",
+    iconUrl: `${SITE_URL}/icon.png`,
+    documentationUrl: `${SITE_URL}/agents`,
+    transport: { type: "streamable-http", url: MCP_ENDPOINT },
+    remotes: [{ type: "streamable-http", url: MCP_ENDPOINT }],
+    capabilities: { tools: {} },
+    authentication: {
+      required: true,
+      schemes: ["bearer"],
+      description:
+        "A CaptureCat agent token (cc_pat_…) in Authorization: Bearer. The account owner creates it in Settings → Agent access, picks its scopes and expiry, and can revoke it at any time.",
+      scopes: [...AGENT_SCOPES],
+      documentation: `${SITE_URL}/auth.md`,
+    },
+    tools: MCP_TOOLS.map((tool) => ({ name: tool.name, description: tool.summary, requiredScope: tool.scope })),
   };
 }
 
@@ -159,6 +210,8 @@ export async function agentDiscoveryResponse(request: Request): Promise<Response
     });
   } else if (path === "/.well-known/ai-catalog.json") {
     response = json(aiCatalog(), "application/json; charset=utf-8", CORS);
+  } else if (path === SERVER_CARD_PATH) {
+    response = json(mcpServerCard(), "application/json; charset=utf-8", CORS);
   } else if (path === "/.well-known/agent-skills/index.json") {
     response = json(await skillsIndex(), "application/json; charset=utf-8", CORS);
   } else if (path === "/openapi.json") {

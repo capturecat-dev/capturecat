@@ -9,8 +9,10 @@ import {
   agentNotFound,
   aiCatalog,
   htmlRenderable,
+  mcpServerCard,
   sha256Hex,
 } from "./agent-discovery";
+import { AGENT_SCOPES, MCP_ENDPOINT, MCP_TOOLS } from "@/lib/agent-access";
 
 const get = (path: string, init: RequestInit = {}) => new Request(`https://capturecat.so${path}`, init);
 
@@ -58,6 +60,39 @@ describe("ai-catalog (ARD)", () => {
   });
 });
 
+describe("remote MCP server", () => {
+  it("is in the ai-catalog, pointing at its server card", () => {
+    const entry = (aiCatalog().entries as Array<Record<string, unknown>>).find(
+      (e) => e.identifier === "urn:air:capturecat.so:mcp:capturecat-remote",
+    );
+    expect(entry).toMatchObject({ type: "application/json", url: "https://capturecat.so/.well-known/mcp/server-card.json" });
+    expect(String(entry!.description)).toContain("https://mcp.capturecat.so/mcp");
+  });
+
+  it("serves the server card: remote transport, bearer agent tokens, every tool with its scope", async () => {
+    const res = (await agentDiscoveryResponse(get("/.well-known/mcp/server-card.json")))!;
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toMatch(/^application\/json/);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    const card = (await res.json()) as ReturnType<typeof mcpServerCard>;
+    expect(card).toEqual(JSON.parse(JSON.stringify(mcpServerCard())));
+    expect(MCP_ENDPOINT).toBe("https://mcp.capturecat.so/mcp");
+    expect(card.transport).toEqual({ type: "streamable-http", url: MCP_ENDPOINT });
+    expect(card.remotes).toEqual([{ type: "streamable-http", url: MCP_ENDPOINT }]);
+    expect(card.authentication).toMatchObject({ required: true, schemes: ["bearer"], scopes: [...AGENT_SCOPES] });
+    expect(card.tools.map((t) => t.name)).toEqual(MCP_TOOLS.map((t) => t.name));
+    for (const tool of card.tools) expect(AGENT_SCOPES).toContain(tool.requiredScope);
+  });
+
+  it("names the MCP host in auth.md and the remote skill", async () => {
+    const auth = await (await agentDiscoveryResponse(get("/auth.md")))!.text();
+    expect(auth).toContain("https://mcp.capturecat.so/mcp");
+    expect(auth).toContain("Authorization: Bearer cc_pat_");
+    const skill = AGENT_SKILLS.find((s) => s.name === "capturecat-remote");
+    expect(skill?.markdown).toContain("claude mcp add --transport http capturecat https://mcp.capturecat.so/mcp");
+  });
+});
+
 describe("agent skills index (v0.2.0)", () => {
   it("lists every skill with a digest of the exact served bytes", async () => {
     const res = (await agentDiscoveryResponse(get("/.well-known/agent-skills/index.json")))!;
@@ -97,7 +132,6 @@ describe("openapi.json and auth.md", () => {
 
   it("falls through for everything else and for non-GET methods", async () => {
     expect(await agentDiscoveryResponse(get("/pricing"))).toBeNull();
-    expect(await agentDiscoveryResponse(get("/.well-known/mcp/server-card.json"))).toBeNull();
     expect(await agentDiscoveryResponse(get("/openapi.json", { method: "POST" }))).toBeNull();
   });
 });

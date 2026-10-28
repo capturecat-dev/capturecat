@@ -57,3 +57,13 @@ export async function consumeQuota(
   if (!row) return { allowed: false, used: cap, cap };
   return { allowed: true, used: row.count, cap };
 }
+
+/** Renders used so far this UTC month (0 when none) — read-only, for
+ *  reporting (the MCP get_account tool); consumeQuota is the meter. */
+export async function monthlyQuotaUsed(db: D1Database, userId: string, now: Date = new Date()): Promise<number> {
+  const row = await db
+    .prepare("SELECT count FROM screenshot_usage WHERE user_id = ?1 AND yyyymm = ?2")
+    .bind(userId, monthKey(now))
+    .first<{ count: number }>();
+  return row?.count ?? 0;
+}

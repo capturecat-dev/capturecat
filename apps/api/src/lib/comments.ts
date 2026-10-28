@@ -245,6 +245,17 @@ export function commentAuthorName(sessionName: unknown, typedName: unknown): str
   return "Anonymous";
 }
 
+export const AGENT_NAME_SUFFIX = " (via agent)";
+
+/** Display name for a comment an agent posts as the owner: the account's
+ *  name, cut so the " (via agent)" suffix always survives the 40-character
+ *  display rule — viewers can always tell a human reply from an agent's. */
+export function agentCommentAuthorName(accountName: unknown): string {
+  const name = typeof accountName === "string" ? cleanLabel(accountName) : "";
+  const base = name.slice(0, 40 - AGENT_NAME_SUFFIX.length).trim();
+  return `${base || "Owner"}${AGENT_NAME_SUFFIX}`;
+}
+
 export interface StoredComment {
   commentId: string;
   parentId?: string | null;
