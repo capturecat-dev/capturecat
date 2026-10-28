@@ -41,7 +41,8 @@ export const MAX_COMMENT_LENGTH = 500;
  * cap) — the owner posting through an agent is not a viewer and skips it.
  */
 export async function commentsOpen(env: { DB: D1Database }, doc: VideoMetadata): Promise<boolean> {
-  if (doc.status !== "ready" || doc.isPrivate || !doc.commentsEnabled) return false;
+  // A video an admin took down (lib/moderation.ts) takes no comments.
+  if (doc.status !== "ready" || doc.isPrivate || !doc.commentsEnabled || doc.removedAt) return false;
   const plan = await planForUser(env, doc.uid);
   return plan.features.comments && plan.features.cloudShare;
 }

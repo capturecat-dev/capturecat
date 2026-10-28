@@ -27,9 +27,28 @@ export const fetchShareMeta = createServerFn({ method: "GET" })
       const res = await fetch(`${API_URL}/api/video/${encodeURIComponent(videoId)}/meta`, {
         headers: host ? { "X-Share-Host": host } : {},
       });
-      if (!res.ok) return null;
+      // 410 = taken down by CaptureCat: its body ({ error: "removed",
+      // message }) is what the page renders, so pass it through.
+      if (!res.ok && res.status !== 410) return null;
       return await res.text();
     } catch {
       return null;
     }
   });
+
+/** A share's metadata as the pages read it: the video, a removal notice
+ *  (taken down by CaptureCat — apps/api lib/moderation.ts), or nothing. */
+export type ShareMetaResult<T> = { video: T } | { removed: string } | null;
+
+export function readShareMeta<T>(raw: string | null): ShareMetaResult<T> {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as T & { error?: unknown; message?: unknown };
+    if (parsed.error === "removed") {
+      return { removed: typeof parsed.message === "string" ? parsed.message : "This video was removed." };
+    }
+    return parsed.error ? null : { video: parsed };
+  } catch {
+    return null;
+  }
+}

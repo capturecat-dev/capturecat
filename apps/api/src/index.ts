@@ -38,6 +38,7 @@ import { webhookRoutes } from "./routes/webhooks";
 import { changelogRoutes } from "./routes/changelog";
 import { oauthRoutes } from "./routes/oauth";
 import { SITE_DOCUMENTS, frontDoorRoutes } from "./routes/front-door";
+import { videoReportRoutes } from "./routes/video-report";
 import { PROD_ISSUER } from "./lib/oauth/config";
 import { WEBHOOK_DELIVERY_RETENTION_DAYS, processWebhookOutbox } from "./lib/webhooks";
 
@@ -371,6 +372,8 @@ app.route("/api", videoRoutes);
 // Viewer analytics (ingest is public + rate limited, reads are owner-only).
 app.route("/api", analyticsRoutes);
 app.route("/api", deleteRoutes);
+// Viewers report a share from its page; reports land in admin → Videos.
+app.route("/api", videoReportRoutes);
 app.route("/api", playlistRoutes);
 app.route("/api", profileRoutes);
 app.route("/api", releaseRoutes);

@@ -18,6 +18,7 @@ import { Route as DashboardChangelogRouteImport } from './routes/_dashboard.chan
 import { Route as DashboardPlansRouteImport } from './routes/_dashboard.plans'
 import { Route as DashboardTeamsRouteImport } from './routes/_dashboard.teams'
 import { Route as DashboardUsersRouteImport } from './routes/_dashboard.users'
+import { Route as DashboardVideosRouteImport } from './routes/_dashboard.videos'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc.$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -64,6 +65,11 @@ const DashboardUsersRoute = DashboardUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardVideosRoute = DashboardVideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
   id: '/api/trpc/$',
   path: '/api/trpc/$',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/plans': typeof DashboardPlansRoute
   '/teams': typeof DashboardTeamsRoute
   '/users': typeof DashboardUsersRoute
+  '/videos': typeof DashboardVideosRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
 }
 export interface FileRoutesByTo {
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/plans': typeof DashboardPlansRoute
   '/teams': typeof DashboardTeamsRoute
   '/users': typeof DashboardUsersRoute
+  '/videos': typeof DashboardVideosRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
 }
 export interface FileRoutesById {
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/_dashboard/plans': typeof DashboardPlansRoute
   '/_dashboard/teams': typeof DashboardTeamsRoute
   '/_dashboard/users': typeof DashboardUsersRoute
+  '/_dashboard/videos': typeof DashboardVideosRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
 }
 export interface FileRouteTypes {
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/plans'
     | '/teams'
     | '/users'
+    | '/videos'
     | '/api/trpc/$'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/plans'
     | '/teams'
     | '/users'
+    | '/videos'
     | '/api/trpc/$'
   id:
     | '__root__'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/_dashboard/plans'
     | '/_dashboard/teams'
     | '/_dashboard/users'
+    | '/_dashboard/videos'
     | '/api/trpc/$'
   fileRoutesById: FileRoutesById
 }
@@ -214,6 +226,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardUsersRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/videos': {
+      id: '/_dashboard/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof DashboardVideosRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/api/trpc/$': {
       id: '/api/trpc/$'
       path: '/api/trpc/$'
@@ -231,6 +250,7 @@ interface DashboardRouteChildren {
   DashboardPlansRoute: typeof DashboardPlansRoute
   DashboardTeamsRoute: typeof DashboardTeamsRoute
   DashboardUsersRoute: typeof DashboardUsersRoute
+  DashboardVideosRoute: typeof DashboardVideosRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
@@ -240,6 +260,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardPlansRoute: DashboardPlansRoute,
   DashboardTeamsRoute: DashboardTeamsRoute,
   DashboardUsersRoute: DashboardUsersRoute,
+  DashboardVideosRoute: DashboardVideosRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(

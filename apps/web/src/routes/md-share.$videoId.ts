@@ -106,6 +106,14 @@ export const Route = createFileRoute("/md-share/$videoId")({
             `${API_URL}/api/video/${encodeURIComponent(videoId)}/meta`
           );
           if (res.ok) meta = (await res.json()) as ShareMeta;
+          // Taken down by CaptureCat (apps/api lib/moderation.ts).
+          if (res.status === 410) {
+            const body = (await res.json().catch(() => null)) as { message?: string } | null;
+            return new Response(`# Video removed\n\n${body?.message ?? "This video was removed."}\n`, {
+              status: 410,
+              headers: { "Content-Type": "text/markdown; charset=utf-8" },
+            });
+          }
         } catch {
           meta = null;
         }

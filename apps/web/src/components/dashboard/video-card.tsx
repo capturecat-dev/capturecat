@@ -171,13 +171,24 @@ export function VideoCard({
         )}
       </Link>
 
-      {/* Visibility — on the still, top-right; click to flip. */}
-      <VisibilityBadge
-        isPrivate={video.isPrivate}
-        className="absolute right-2 top-2 z-10 cursor-pointer select-none"
-        onClick={() => onTogglePrivacy(!video.isPrivate)}
-        title={video.isPrivate ? "Private — click to publish" : "Public — click to make private"}
-      />
+      {/* Visibility — on the still, top-right; click to flip. A video
+          CaptureCat took down says so instead (nothing to flip). */}
+      {video.removed ? (
+        <Badge
+          variant="destructive"
+          className="absolute right-2 top-2 z-10 select-none"
+          title={video.removed.reason ? `Removed by CaptureCat: ${video.removed.reason}` : "Removed by CaptureCat"}
+        >
+          Removed
+        </Badge>
+      ) : (
+        <VisibilityBadge
+          isPrivate={video.isPrivate}
+          className="absolute right-2 top-2 z-10 cursor-pointer select-none"
+          onClick={() => onTogglePrivacy(!video.isPrivate)}
+          title={video.isPrivate ? "Private — click to publish" : "Public — click to make private"}
+        />
+      )}
 
       {/* Selection checkbox — appears on hover or while a selection exists. */}
       <button

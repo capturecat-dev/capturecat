@@ -27,6 +27,9 @@ export interface DashboardVideo {
   thumbnailType: string | null;
   /** Absolute API URL of the custom thumbnail image, or null. */
   thumbnailUrl: string | null;
+  /** Taken down by CaptureCat (apps/api lib/moderation.ts): the share link
+   *  shows a removal notice to everyone; only CaptureCat can restore it. */
+  removed: { at: string; reason: string | null } | null;
 }
 
 export interface Playlist {

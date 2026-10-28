@@ -192,6 +192,7 @@ profileRoutes.get("/u/:username", async (c) => {
           AND status = 'ready'
           AND is_private = 0
           AND profile_visible = 1
+          AND removed_at IS NULL
           AND password_hash IS NULL
           AND max_views IS NULL
           AND (expires_at IS NULL OR expires_at > ?)
