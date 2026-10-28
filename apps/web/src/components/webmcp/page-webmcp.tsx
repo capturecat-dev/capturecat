@@ -18,13 +18,16 @@ const fetchText: SiteDeps["fetchText"] = async (url, signal) => {
  * Site-wide WebMCP: search/read/pricing/download/navigate on every public
  * page, plus `read_shared_video` on a share page. Registered on page load
  * (and re-registered when the share page changes); unregistered on leave.
+ * On app.capturecat.so only the sign-in page — where every signed-out
+ * visitor lands — gets them, and their navigation leaves for the marketing
+ * site (the app host's router would map a site path onto the dashboard).
  */
 export function SiteWebMcp() {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const onAppHost = typeof window !== "undefined" && window.location.host.startsWith("app.");
   const shareId = pathname.match(/^\/share\/([^/]+)$/)?.[1] ?? null;
-  const enabled = !onAppHost && !NO_SITE_TOOLS.test(pathname);
+  const enabled = onAppHost ? pathname === "/login" : !NO_SITE_TOOLS.test(pathname);
 
   useEffect(() => {
     if (!enabled) return;
@@ -32,10 +35,12 @@ export function SiteWebMcp() {
       siteUrl: SITE_URL,
       apiUrl: API_URL,
       fetchText,
-      navigate: (path) => void router.navigate({ to: path as never }),
+      navigate: onAppHost
+        ? (path) => window.location.assign(new URL(path, SITE_URL).toString())
+        : (path) => void router.navigate({ to: path as never }),
     };
     return registerPageTools([...siteTools(deps), ...(shareId ? shareTools(deps, shareId) : [])]);
-  }, [enabled, shareId, router]);
+  }, [enabled, onAppHost, shareId, router]);
 
   return null;
 }

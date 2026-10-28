@@ -1,59 +1,40 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { SITE_URL } from "@/lib/site-content";
+import { isAppHost } from "@/lib/app-host-rewrite";
+import { AI_AGENTS, robotsGroup } from "@/lib/robots-policy";
+import { appHostRobots } from "@/server/app-host-files";
 
 /**
  * robots.txt, emitting a `Content-Signal` line (contentsignals.org / AIPREF
- * draft) and explicit per-crawler groups for the major AI bots.
- *
- * Content policy, adjust to taste: search, agent-answering, and training are
- * all allowed. Change `CONTENT_SIGNAL` to flip any of them.
+ * draft) and explicit per-crawler groups for the major AI bots — policy in
+ * lib/robots-policy.ts. app.capturecat.so answers its own (sign-in pages only).
  */
-const CONTENT_SIGNAL = "search=yes, ai-input=yes, ai-train=yes";
 
 // Nothing under these should be indexed: the dashboard, sign-in, and the API.
 const DISALLOW = ["/app", "/login", "/api/"];
 
-// Explicit groups so each AI crawler sees a rule addressed to it by name.
-const AI_AGENTS = [
-  "GPTBot",
-  "OAI-SearchBot",
-  "ChatGPT-User",
-  "ClaudeBot",
-  "Claude-Web",
-  "anthropic-ai",
-  "Claude-SearchBot",
-  "Google-Extended",
-  "PerplexityBot",
-  "CCBot",
-  "Applebot-Extended",
-  "Meta-ExternalAgent",
-];
-
-function group(agent: string, includeSignal: boolean): string {
-  const lines = [`User-agent: ${agent}`];
-  if (includeSignal) lines.push(`Content-Signal: ${CONTENT_SIGNAL}`);
-  lines.push("Allow: /");
-  for (const path of DISALLOW) lines.push(`Disallow: ${path}`);
-  return lines.join("\n");
-}
+const RULES = ["Allow: /", ...DISALLOW.map((path) => `Disallow: ${path}`)];
 
 export const Route = createFileRoute("/robots.txt")({
   server: {
     handlers: {
-      GET: () => {
-        const body = [
-          "# CaptureCat, https://capturecat.so",
-          "# Content signals: https://contentsignals.org",
-          "",
-          group("*", true),
-          "",
-          ...AI_AGENTS.map((a) => group(a, true) + "\n"),
-          `Sitemap: ${SITE_URL}/sitemap.xml`,
-          // ARD spec §6.1: points agents at the capability manifest.
-          `Agentmap: ${SITE_URL}/.well-known/ai-catalog.json`,
-          "",
-        ].join("\n");
+      GET: ({ request }) => {
+        const url = new URL(request.url);
+        const body = isAppHost(url.host)
+          ? appHostRobots(url.origin)
+          : [
+              "# CaptureCat, https://capturecat.so",
+              "# Content signals: https://contentsignals.org",
+              "",
+              robotsGroup("*", RULES),
+              "",
+              ...AI_AGENTS.map((a) => robotsGroup(a, RULES) + "\n"),
+              `Sitemap: ${SITE_URL}/sitemap.xml`,
+              // ARD spec §6.1: points agents at the capability manifest.
+              `Agentmap: ${SITE_URL}/.well-known/ai-catalog.json`,
+              "",
+            ].join("\n");
 
         return new Response(body, {
           status: 200,

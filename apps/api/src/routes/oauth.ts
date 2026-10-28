@@ -30,6 +30,7 @@ import { parseJsonBody } from "../lib/validate";
 import { AGENT_SCOPES, writeAgentAudit } from "../lib/agent-tokens";
 import { agentPlanFor, featureUnavailableMessage } from "../lib/agent-features";
 import { consentPageUrl, mcpResource, oauthIssuer } from "../lib/oauth/config";
+import { shareBaseURL } from "../lib/origins";
 import { authenticateClient, registerClient, resolveClient, type OAuthClient } from "../lib/oauth/clients";
 import {
   AUTHORIZE_PARAM_NAMES,
@@ -72,8 +73,16 @@ export function protectedResourceMetadata(env: Env) {
 
 export function authorizationServerMetadata(env: Env) {
   const issuer = oauthIssuer(env);
+  const site = shareBaseURL(env);
   return {
     issuer,
+    // RFC 9728 §4: the resources this server issues tokens for. The site
+    // origin is listed too because the Personal Agent Protocol (Poppy,
+    // capturecat.so/.well-known/poppy.json) binds a domain to its issuer
+    // through this list; `poppy_domains` is the same binding as the
+    // isitagentready.com scanner reads it.
+    protected_resources: [mcpResource(env), site],
+    poppy_domains: [new URL(site).hostname],
     authorization_endpoint: `${issuer}/oauth/authorize`,
     token_endpoint: `${issuer}/oauth/token`,
     registration_endpoint: `${issuer}/oauth/register`,

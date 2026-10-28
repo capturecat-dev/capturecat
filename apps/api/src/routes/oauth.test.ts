@@ -149,8 +149,12 @@ describe("discovery", () => {
         scopes_supported: expect.arrayContaining(["videos:read", "comments:write", "webhooks:write"]),
       });
     }
-    // Still nothing else on the MCP host — the AS lives on the API host.
-    for (const path of ["/.well-known/oauth-authorization-server", "/oauth/token", "/oauth/authorize", "/api/oauth/apps"]) {
+    // The AS lives on the API host: its metadata path redirects there, and
+    // nothing else of the AS exists on the MCP host.
+    const as = await req("GET", `${MCP}/.well-known/oauth-authorization-server`);
+    expect(as.status).toBe(307);
+    expect(as.headers.get("Location")).toBe(`${API}/.well-known/oauth-authorization-server`);
+    for (const path of ["/oauth/token", "/oauth/authorize", "/api/oauth/apps"]) {
       expect((await req("GET", `${MCP}${path}`)).status, path).toBe(404);
     }
   });
@@ -168,6 +172,9 @@ describe("discovery", () => {
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
       scopes_supported: expect.arrayContaining(["account:read", "webhooks:write"]),
+      // Poppy's issuer binding for capturecat.so/.well-known/poppy.json.
+      protected_resources: [RESOURCE, "https://capturecat.so"],
+      poppy_domains: ["capturecat.so"],
     });
   });
 

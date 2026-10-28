@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { SITE_PAGES, SITE_URL, markdownHref } from "@/lib/site-content";
 import { MCP_ENDPOINT } from "@/lib/agent-access";
+import { isAppHost } from "@/lib/app-host-rewrite";
+import { appHostLlmsTxt } from "@/server/app-host-files";
 import {
   CHANGELOG_DESCRIPTION,
   CHANGELOG_FEED_PATH,
@@ -19,11 +21,19 @@ import {
  * same registry that drives robots.txt, the sitemap, and the /*.md routes, so it
  * can never list a page that no longer exists. The changelog (D1, not the
  * registry) is listed from the API: its twin, its feed and the latest entries.
+ * app.capturecat.so answers its own, about the dashboard (server/app-host-files.ts).
  */
 export const Route = createFileRoute("/llms.txt")({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
+        const self = new URL(request.url);
+        if (isAppHost(self.host)) {
+          return new Response(appHostLlmsTxt(self.origin), {
+            status: 200,
+            headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600, s-maxage=86400" },
+          });
+        }
         const home = SITE_PAGES.find((p) => p.path === "/");
 
         const lines: string[] = [

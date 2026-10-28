@@ -37,6 +37,8 @@ import { agentApprovalRoutes } from "./routes/agent-approvals";
 import { webhookRoutes } from "./routes/webhooks";
 import { changelogRoutes } from "./routes/changelog";
 import { oauthRoutes } from "./routes/oauth";
+import { SITE_DOCUMENTS, frontDoorRoutes } from "./routes/front-door";
+import { PROD_ISSUER } from "./lib/oauth/config";
 import { WEBHOOK_DELIVERY_RETENTION_DAYS, processWebhookOutbox } from "./lib/webhooks";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -52,9 +54,18 @@ const app = new Hono<{ Bindings: Env }>();
 // api.capturecat.so/mcp stays as an alias (and is what `wrangler dev` serves).
 // The two RFC 9728 paths are the protected-resource metadata an MCP client
 // reads to find the OAuth server (routes/oauth.ts); the authorization server
-// itself lives on api.capturecat.so.
+// itself lives on api.capturecat.so, so its RFC 8414 path here redirects
+// there instead of serving a document whose issuer names another host. The
+// root, robots.txt, sitemap.xml and api-catalog are the static front door
+// agents and scanners read first, and SITE_DOCUMENTS redirect to the
+// marketing site's copies (routes/front-door.ts).
 const MCP_HOST = "mcp.capturecat.so";
 const MCP_HOST_PATHS = new Set([
+  "/",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/.well-known/api-catalog",
+  ...SITE_DOCUMENTS,
   "/mcp",
   "/.well-known/mcp/server-card.json",
   "/.well-known/oauth-protected-resource",
@@ -62,6 +73,16 @@ const MCP_HOST_PATHS = new Set([
 ]);
 app.use("*", async (c, next) => {
   const url = new URL(c.req.url);
+  if (url.hostname === MCP_HOST && url.pathname === "/.well-known/oauth-authorization-server") {
+    return new Response(null, {
+      status: 307,
+      headers: {
+        Location: `${PROD_ISSUER}/.well-known/oauth-authorization-server`,
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=3600",
+      },
+    });
+  }
   if (url.hostname === MCP_HOST && !MCP_HOST_PATHS.has(url.pathname)) {
     return c.json({ error: "Not found" }, 404);
   }
@@ -388,6 +409,9 @@ app.route("/", oauthRoutes);
 // The remote MCP server (agent tokens): https://mcp.capturecat.so/mcp, and
 // /mcp on this host as an alias. See src/mcp/.
 app.route("/", mcpRoutes);
+// What the bare hosts answer: an index, robots.txt, sitemap.xml and the RFC
+// 9727 api-catalog, on api. and mcp. alike (routes/front-door.ts).
+app.route("/", frontDoorRoutes);
 
 // Catch-all — block everything else
 app.all("*", (c) => c.json({ error: "Not found" }, 404));

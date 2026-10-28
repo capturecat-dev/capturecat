@@ -15,12 +15,19 @@
  *   /auth.md                            how agents authenticate (OAuth "Sign in with
  *                                       CaptureCat" and agent tokens for the remote
  *                                       MCP server, access keys for the Screenshot API)
+ *   /.well-known/poppy.json             Personal Agent Protocol 0.1 discovery
+ *                                       (capturecat.so only: it names its domain)
  *
- * Deliberately NOT published on THIS origin: /.well-known/oauth-* and
- * openid-configuration. The OAuth documents belong to the hosts they
- * describe — RFC 9728 protected-resource metadata on mcp.capturecat.so, RFC
- * 8414 authorization-server metadata on api.capturecat.so (both served by
- * the API Worker, apps/api/src/routes/oauth.ts). There is no OIDC issuer.
+ * The OAuth documents are NOT served from this origin: they belong to the
+ * hosts they describe — RFC 9728 protected-resource metadata on
+ * mcp.capturecat.so, RFC 8414 authorization-server metadata on
+ * api.capturecat.so (both from the API Worker, apps/api/src/routes/oauth.ts).
+ * Their well-known paths here REDIRECT there, so an agent that starts from
+ * the brand domain finds them without this origin serving a document whose
+ * issuer or resource names another host. There is no OIDC issuer.
+ *
+ * Every file above is served on app.capturecat.so too (src/server.ts), except
+ * poppy.json; that host also gets its own Markdown guide (appHostMarkdown).
  *
  * Also here: agent-friendly 404s. TanStack Start answers an unmatched path
  * with 500 "Only HTML requests are supported here" when the Accept header
@@ -28,13 +35,20 @@
  */
 import { AGENT_SKILLS, skillPath } from "@/lib/agent-skills";
 import { AUTH_MD } from "@/lib/auth-md";
-import { AGENT_SCOPES, MCP_ENDPOINT, MCP_TOOLS } from "@/lib/agent-access";
+import { AGENT_SCOPES, MCP_ENDPOINT, MCP_TOOLS, SCOPE_INFO, type AgentScope } from "@/lib/agent-access";
 import { OPENAPI_DOCUMENT } from "@/lib/openapi";
 import { SITE_URL } from "@/lib/site-url";
 
 const API_ORIGIN = "https://api.capturecat.so";
+const MCP_ORIGIN = new URL(MCP_ENDPOINT).origin;
 // Hostname, not host: a port is not valid in a `did:web` or `urn:air` id.
 const HOST = new URL(SITE_URL).hostname;
+
+/** Where the OAuth well-known paths on this origin point (see the header). */
+export const OAUTH_POINTERS: Record<string, string> = {
+  "/.well-known/oauth-authorization-server": `${API_ORIGIN}/.well-known/oauth-authorization-server`,
+  "/.well-known/oauth-protected-resource": `${MCP_ORIGIN}/.well-known/oauth-protected-resource`,
+};
 
 export const API_CATALOG_PROFILE = "https://www.rfc-editor.org/info/rfc9727";
 export const SKILLS_SCHEMA = "https://schemas.agentskills.io/discovery/0.2.0/schema.json";
@@ -43,6 +57,8 @@ export const SERVER_CARD_PATH = "/.well-known/mcp/server-card.json";
 /** RFC 9727 §3: the api-catalog relation, sent on GET and HEAD. */
 export const API_CATALOG_LINK = `<${SITE_URL}/.well-known/api-catalog>; rel="api-catalog"`;
 
+/** The same two APIs the API Worker's own catalog lists on api. and mcp.
+ *  (apps/api src/routes/front-door.ts apiCatalog). */
 export function apiCatalog() {
   return {
     linkset: [
@@ -52,8 +68,107 @@ export function apiCatalog() {
         "service-doc": [{ href: `${SITE_URL}/docs/api`, type: "text/html" }],
         status: [{ href: `${API_ORIGIN}/api/health`, type: "application/json" }],
       },
+      {
+        anchor: MCP_ENDPOINT,
+        "service-desc": [{ href: `${SITE_URL}${SERVER_CARD_PATH}`, type: "application/json" }],
+        "service-doc": [
+          { href: `${SITE_URL}/agents`, type: "text/html" },
+          { href: `${SITE_URL}/auth.md`, type: "text/markdown" },
+        ],
+      },
     ],
   };
+}
+
+/** How much a scope can change, for Poppy's scope_hints (§3.1): reads
+ *  change nothing; every write is undoable by the owner (agents can't
+ *  delete, edits are versions, comments and webhooks can be removed). */
+const SCOPE_HINTS: Record<AgentScope, { changes: "none" | "reversible"; personal_data: boolean }> = {
+  "account:read": { changes: "none", personal_data: true },
+  "videos:read": { changes: "none", personal_data: true },
+  "videos:write": { changes: "reversible", personal_data: true },
+  "comments:read": { changes: "none", personal_data: true },
+  "comments:write": { changes: "reversible", personal_data: true },
+  "analytics:read": { changes: "none", personal_data: true },
+  "playlists:read": { changes: "none", personal_data: true },
+  "playlists:write": { changes: "reversible", personal_data: true },
+  screenshots: { changes: "none", personal_data: false },
+  "webhooks:write": { changes: "reversible", personal_data: true },
+  "projects:read": { changes: "none", personal_data: true },
+  "projects:write": { changes: "reversible", personal_data: true },
+};
+
+/**
+ * Personal Agent Protocol (Poppy) 0.1 discovery, §3.1. Declares only what is
+ * real: the remote MCP server (an `mcp` API: Streamable HTTP, 2025-06-18+,
+ * tokens bound to its own URL as resource) behind the OAuth issuer on
+ * api.capturecat.so, whose RFC 8414 metadata binds this domain back
+ * (`protected_resources` / `poppy_domains`, apps/api routes/oauth.ts). No
+ * Poppy conversation endpoint (`agent`) and no browser-session endpoint —
+ * `web: {}` means personal agents browse the site signed out.
+ */
+export function poppyManifest() {
+  return {
+    protocol_version: "0.1",
+    organization: { name: "CaptureCat", domain: HOST },
+    auth: {
+      issuer: API_ORIGIN,
+      scopes: Object.fromEntries(AGENT_SCOPES.map((scope) => [scope, SCOPE_INFO[scope].description])),
+      scope_hints: SCOPE_HINTS,
+    },
+    apis: [
+      {
+        type: "mcp",
+        url: MCP_ENDPOINT,
+        description:
+          "Your CaptureCat videos: transcripts, AI summaries, comments, analytics, share settings, playlists, cloud-project edits, webhooks and screenshots. Asks the owner before anything becomes visible to others; never deletes.",
+      },
+    ],
+    web: {},
+  };
+}
+
+/**
+ * app.capturecat.so as Markdown: what the signed-in dashboard is and how an
+ * agent should reach the same data without driving it. Served for /, /login
+ * and their .md twins on the app host (src/server.ts) — public text only,
+ * never anything from the visitor's account.
+ */
+export function appHostMarkdown(): string {
+  return [
+    "# CaptureCat web app",
+    "",
+    "> app.capturecat.so is the signed-in CaptureCat dashboard: your shared videos, comments, viewer analytics, playlists, cloud projects, team, billing and settings. Every page needs a CaptureCat account.",
+    "",
+    "## For AI agents",
+    "",
+    "Connect to CaptureCat directly instead of driving this dashboard in a browser:",
+    "",
+    `- **Remote MCP server:** ${MCP_ENDPOINT} (Streamable HTTP). Claude.ai, ChatGPT and other custom-connector clients sign in with OAuth 2.1 ("Sign in with CaptureCat"), discovered from the 401's \`resource_metadata\`. Other clients send a scoped agent token (\`Authorization: Bearer cc_pat_…\`) the account owner creates in Settings → Agent access.`,
+    `- **How authentication works:** ${SITE_URL}/auth.md`,
+    `- **Tools and the scopes they need:** ${SITE_URL}${SERVER_CARD_PATH}`,
+    `- **Agent skills:** ${SITE_URL}/.well-known/agent-skills/index.json`,
+    `- **Record and edit on a Mac** (the Mac app's local MCP server): ${SITE_URL}/agents.md`,
+    "",
+    "In a browser that supports WebMCP, the signed-in dashboard registers tools for the owner's videos, transcripts, analytics and account (`list_my_videos`, `search_my_transcripts`, `get_video_analytics`, `get_my_account`, `set_video_privacy`, `open_dashboard_page`).",
+    "",
+    "## What agents may do",
+    "",
+    "- Agents ask the owner first before anything becomes visible to others: posting a comment, making a video more visible, publishing a share. The owner approves or declines at app.capturecat.so/approvals/<id>.",
+    "- Agents can never delete anything, and can't touch billing.",
+    "",
+    "## Pages (sign-in required)",
+    "",
+    "- `/` — your videos",
+    "- `/approvals/<id>` — approve or decline a request from an agent",
+    "- `/oauth/authorize` — the consent page apps reach through \"Sign in with CaptureCat\"",
+    "- `/projects` — cloud projects for the web editor",
+    "- `/settings` — account, agent access and webhooks",
+    "- `/billing` — plan and invoices",
+    "",
+    `The public site, every page as Markdown: ${SITE_URL}/llms.txt`,
+    "",
+  ].join("\n");
 }
 
 export function aiCatalog() {
@@ -207,10 +322,21 @@ const CORS = { "Access-Control-Allow-Origin": "*" };
 /** A discovery document for this path, or null to fall through. GET/HEAD only. */
 export async function agentDiscoveryResponse(request: Request): Promise<Response | null> {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
-  const path = new URL(request.url).pathname;
+  const { pathname: path, hostname } = new URL(request.url);
   let response: Response | null = null;
 
-  if (path === "/.well-known/api-catalog") {
+  const pointer = OAUTH_POINTERS[path];
+  if (pointer) {
+    return new Response(null, {
+      status: 307,
+      headers: { Location: pointer, "Cache-Control": CACHE, ...CORS },
+    });
+  }
+
+  if (path === "/.well-known/poppy.json") {
+    // Its organization.domain must equal the host it is served from.
+    if (hostname === HOST) response = json(poppyManifest(), "application/json; charset=utf-8", CORS);
+  } else if (path === "/.well-known/api-catalog") {
     response = json(apiCatalog(), `application/linkset+json; profile="${API_CATALOG_PROFILE}"`, {
       ...CORS,
       Link: API_CATALOG_LINK,
@@ -233,6 +359,15 @@ export async function agentDiscoveryResponse(request: Request): Promise<Response
   if (response && request.method === "HEAD") {
     return new Response(null, { status: response.status, headers: response.headers });
   }
+  return response;
+}
+
+/** The app host's Markdown guide (appHostMarkdown) as a response. */
+export function appHostMarkdownResponse(request: Request): Response {
+  const response = markdown(appHostMarkdown());
+  response.headers.set("Vary", "Accept");
+  response.headers.set("Link", API_CATALOG_LINK);
+  if (request.method === "HEAD") return new Response(null, { status: 200, headers: response.headers });
   return response;
 }
 
