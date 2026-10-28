@@ -15,7 +15,7 @@ export interface SegmentRequest {
   maskUrl?: string;
   /** Only report whether the mask is fresh — never run the model (a member's editor). */
   checkOnly?: boolean;
-  /** DEV/diagnostics: pin the runtime (default: WebGPU, else WASM). */
+  /** DEV/diagnostics: pin the delegate (default: GPU, else CPU). */
   device?: MattingDevice;
 }
 
@@ -23,7 +23,7 @@ export interface SegmentProgress {
   type: "progress";
   jobId: number;
   stage: SegmentStage;
-  /** download: bytes so far / expected (transformers.js aggregate). */
+  /** download: model bytes so far / expected. */
   loaded?: number;
   total?: number;
   /** segment: camera frames done / total. */

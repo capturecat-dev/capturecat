@@ -6,7 +6,7 @@
  *    a project that already uses a look opens, but only if the project has no
  *    FRESH camera-mask.ccmask (same camera byte size, duration within 0.05 s —
  *    the worker checks the header first and stops there when it matches).
- *  - Runs on this device (segment/worker.ts: MODNet over every camera frame),
+ *  - Runs on this device (segment/worker.ts: MediaPipe selfie segmentation over every camera frame),
  *    hands the bytes to the engine at once (the look draws before the upload
  *    lands), then uploads them as the project's file through
  *    `ProjectMedia.addFile` — owner only. A team member's editor only checks:

@@ -268,7 +268,7 @@ mid-morph — at `resolve`'s `cameraRect`.
 
 ### Producer alpha conditioning (both producers, byte-identical)
 
-Raw mattes (Vision, MODNet) shimmer at the soft edge and flicker ±1–3 levels
+Raw mattes (Vision, and the web's segmenter) shimmer at the soft edge and flicker ±1–3 levels
 everywhere, so every frame encodes as a fresh key: measured on a real 15.6 s
 1080p webcam take with Vision `.balanced`, the raw track cost **12.2 MB per
 minute** at 512×288. Producers therefore condition every resampled frame
@@ -334,12 +334,22 @@ sticky (p99 17) for little gain.
   recording/exporting/sharing, one project at a time, atomic write), queued
   when a look is first applied to a project without a fresh mask, and after
   recording when the project already uses a look.
-- **Web:** transformers.js `background-removal` (`Xenova/modnet`) in a worker
-  beside the Whisper one, every decoded camera frame, written with
-  `encodeCameraMask` and uploaded as a cloud project file.
+- **Web:** MediaPipe's multiclass selfie segmenter (`selfie_multiclass_256x256`,
+  float32, `@mediapipe/tasks-vision` ImageSegmenter, GPU delegate else CPU)
+  in a worker beside the Whisper one, every decoded camera frame, written
+  with `encodeCameraMask` and uploaded as a cloud project file.
+  - Replaced MODNet (transformers.js `Xenova/modnet`) on 2026-10-28. On a
+    real take lit by one red lamp, MODNet took the plant and the wall for the
+    person (fp32) or kept almost nothing (its int8 build, what WASM ran), so
+    the cutout came out as scattered shapes. This model kept the head, hair
+    and shoulders cleanly, at ~11 ms a frame on the GPU delegate.
+  - Its person alpha is 1 − the background confidence, through a smoothstep
+    from 0.2 to 0.8 (`segment/model.ts personAlpha`) before the shared
+    conditioning: its background never reaches 0 (≈ 0.1 on that take, a 14 %
+    ghost of the room otherwise).
   - `apps/web/src/editor/segment/` (worker + client), `state/cameraMask.ts`
-    (the job). The frame is drawn at the model's working size (shortest edge
-    512), matted, area-resampled to the §2 resolution, conditioned (above)
+    (the job). The frame is drawn at shortest edge 360 (the model resizes to
+    256×256), segmented, area-resampled to the §2 resolution, conditioned (above)
     and appended to the streaming `CameraMaskEncoder` (keyframeInterval 30);
     frame time = the
     demuxed sample PTS; `sourceByteSize` = the camera file's size as read,
