@@ -139,9 +139,10 @@ enum RecordingMotion {
 /// between chip frames instead of being re-created per chip, which is what
 /// makes selection read as one object gliding.
 ///
-/// Pin it over the chips' superview; it never participates in hit testing.
-/// Colors reuse the panel's existing selected-chip styling (white wash +
-/// `EditorThemeKit.selectionOutline`) — motion only, no restyle.
+/// Pin it UNDER the chips (same superview, positioned below them); it never
+/// participates in hit testing. The selection is the 2026 floating chip — a
+/// raised CCMaterial face with a soft shadow — so it must sit beneath the
+/// glyphs it selects; the hover wash rides under them too.
 @MainActor
 final class SegmentPillOverlay: NSView {
     private let selectionLayer = CALayer()
@@ -152,6 +153,8 @@ final class SegmentPillOverlay: NSView {
     /// values with a layout pass.
     private var settleDeadline: CFTimeInterval = 0
     private var themeObservation: CCThemeObservation?
+    /// Corner radius for the selection and hover shapes; nil = the tab radius.
+    var selectionRadius: CGFloat?
 
     init() {
         super.init(frame: .zero)
@@ -159,9 +162,8 @@ final class SegmentPillOverlay: NSView {
         wantsLayer = true
 
         hoverLayer.opacity = 0
-        // Quiet selection: a subtle wash square behind the active tab —
-        // no accent outline, no capsule.
-        selectionLayer.borderWidth = 0
+        selectionLayer.cornerCurve = .continuous
+        hoverLayer.cornerCurve = .continuous
         selectionLayer.opacity = 0
         layer?.addSublayer(hoverLayer)
         layer?.addSublayer(selectionLayer)
@@ -171,8 +173,16 @@ final class SegmentPillOverlay: NSView {
     private func applyTheme() {
         let ink: NSColor = CCTheme.isDark ? .white : .black
         hoverLayer.backgroundColor = ink.withAlphaComponent(0.06).cgColor
-        selectionLayer.backgroundColor = ink.withAlphaComponent(0.12).cgColor
+        // One floating chip for every strip — on the bar and in a well alike.
+        CCMaterial.dress(selectionLayer, as: .raised(tint: RecordingPanelMetrics.chipFill),
+                         radius: selectionLayer.cornerRadius)
     }
+
+    /// Probe seams for the panel harness.
+    var debugSelectionPresentationFrame: CGRect {
+        (selectionLayer.presentation() ?? selectionLayer).frame
+    }
+    var debugSelectionHasShadow: Bool { selectionLayer.shadowOpacity > 0 }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
@@ -294,8 +304,14 @@ final class SegmentPillOverlay: NSView {
         target.frame = frame
         // Matches RecordingTabChip's rounded rect — the pill glides over the
         // near-square source tabs, not over capsules.
-        target.cornerRadius = min(RecordingPanelMetrics.tabRadius, frame.height / 2)
-        if target === selectionLayer { target.opacity = 1 }
+        target.cornerRadius = min(selectionRadius ?? RecordingPanelMetrics.tabRadius, frame.height / 2)
+        if target === selectionLayer {
+            target.opacity = 1
+            // Re-frame the material (face, hairline, shadow) for the new
+            // bounds; the segments in a strip share one size, so a glide only
+            // ever moves the position the material rides on.
+            CCMaterial.refit(target, radius: target.cornerRadius)
+        }
     }
 
     private func withDisabledActions(_ body: () -> Void) {

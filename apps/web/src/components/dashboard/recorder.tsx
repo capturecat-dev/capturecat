@@ -8,7 +8,6 @@
  */
 import { useEffect, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { CloudUploadIcon, DownloadIcon, Trash2Icon, TriangleAlertIcon, VideoIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { LiveDot, Meter, PageHeader, Section, Sections } from "@/components/dashboard/studio";
@@ -16,6 +15,7 @@ import { RecordArt } from "@/components/dashboard/empty-art";
 import { StreamVideo, useRecorderContext } from "@/components/dashboard/recorder-bar";
 import type { RecordedTake } from "@/editor/record/session";
 import { formatClock, type Recorder } from "@/editor/record/useRecorder";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 function bytes(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(1)} GB`;
@@ -70,19 +70,19 @@ function Stage({ rec }: { rec: Recorder }) {
     overlay = (
       <div className="absolute inset-0 grid place-items-center bg-black/75 backdrop-blur-sm">
         <div className="max-w-sm space-y-3 px-6 text-center">
-          <TriangleAlertIcon className="mx-auto size-6 text-amber-400" />
+          <CCIcon name="warning-fill" size={24} className="mx-auto text-[var(--cc-amber,#ff9f0a)]" />
           <div className="text-sm font-semibold">Couldn't save to the cloud</div>
           <p className="text-[13px] text-muted-foreground">{phase.message}</p>
           <p className="text-xs text-muted-foreground">The recording is kept on this device.</p>
           <div className="flex justify-center gap-2">
             <Button size="sm" variant="outline" onClick={() => download(phase.take.screen, "recording.mov")}>
-              <DownloadIcon /> Download
+              <CCIcon name="arrow-down-line" /> Download
             </Button>
             <Button size="sm" variant="ghost" onClick={rec.keepForLater}>
               Record Another
             </Button>
             <Button size="sm" onClick={() => void rec.publish(phase.take)}>
-              <CloudUploadIcon /> Try again
+              <CCIcon name="cloud-upload" /> Try again
             </Button>
           </div>
         </div>
@@ -127,7 +127,7 @@ function Stage({ rec }: { rec: Recorder }) {
       {live && phase.kind === "recording" && (
         <span data-rec-ui="badge" className="dsh-pop absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-white backdrop-blur">
           {rec.paused ? (
-            <span aria-hidden className="size-1.5 rounded-full bg-red-500/60" />
+            <span aria-hidden className="size-1.5 rounded-full bg-[var(--cc-amber,#ff9f0a)]" />
           ) : (
             <LiveDot tone="rec" className="size-1.5" />
           )}
@@ -143,11 +143,11 @@ function Leftovers({ rec }: { rec: Recorder }) {
   if (rec.phase.kind !== "setup" || rec.leftovers.length === 0) return null;
   return (
     <Sections>
-      <Section title="Not uploaded yet" description="Recordings kept on this device because the upload didn't finish." icon={<CloudUploadIcon />}>
+      <Section title="Not uploaded yet" description="Recordings kept on this device because the upload didn't finish." icon={<CCIcon name="cloud-upload" />}>
         <div className="divide-y divide-white/8">
           {rec.leftovers.map((t: RecordedTake) => (
             <div key={t.id} className="flex flex-wrap items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-              <VideoIcon className="size-4 text-muted-foreground" />
+              <CCIcon name="video-fill" size={16} className="text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{t.sourceLabel || "Recording"}</div>
                 <div className="text-xs text-muted-foreground">
@@ -155,13 +155,13 @@ function Leftovers({ rec }: { rec: Recorder }) {
                 </div>
               </div>
               <Button size="sm" variant="ghost" onClick={() => download(t.screen, "recording.mov")}>
-                <DownloadIcon /> Download
+                <CCIcon name="arrow-down-line" /> Download
               </Button>
               <Button size="sm" variant="ghost" onClick={() => void rec.deleteLeftover(t)}>
-                <Trash2Icon /> Delete
+                <CCIcon name="trash" /> Delete
               </Button>
               <Button size="sm" onClick={() => void rec.publish(t)}>
-                <CloudUploadIcon /> Upload
+                <CCIcon name="cloud-upload" /> Upload
               </Button>
             </div>
           ))}
@@ -204,7 +204,7 @@ export function Recorder() {
 
       {support && (!support.screen || !support.encode) ? (
         <section className="glass-panel hairline-top studio-panel dsh-rise p-8 text-center">
-          <TriangleAlertIcon className="mx-auto size-6 text-amber-400" />
+          <CCIcon name="warning-fill" size={24} className="mx-auto text-[var(--cc-amber,#ff9f0a)]" />
           <div className="mt-3 text-sm font-semibold">This browser can't record</div>
           <p className="mx-auto mt-1 max-w-md text-[13px] text-muted-foreground">
             Recording needs screen sharing and video encoding — use a current Chrome, Edge or Safari on a computer.

@@ -4,18 +4,35 @@
  * /app layout (RecorderProvider), so a take keeps going while you browse the
  * Library or Projects; the Record page adds the big live preview.
  *
- *   setup  [×] [Display|Window|Tab] | [Choose Display ▾] | [Mic · No Cam ▾] [Audio On] [⚙] [●]
- *   live   [● 0:42] [source] [❚❚] [↺] [■] [🗑]
+ *   setup  [×] [Display|Window|Tab] | [▢ Choose Display ▾] | [▢ Mic · No Cam ▾] [▢ Audio On] [⚙] [●]
+ *   live   [● 0:42] | [source] [❚❚] [↺] | [■] [🗑]
+ *
+ * Look: the 2026 recording-bar spec the Mac bar shares (RecordingPanelKit):
+ *   card       ONE floating card like the menus — popover tint + top light,
+ *              the 0.5px hairline, floatShadow at the bar's height, radius 20
+ *              (app-2026.css `.cc-recbar*`, the app's own tokens; light and
+ *              dark follow the app)
+ *   ghosts     every control is a ghost button (radius 9): no surface at
+ *              rest, ONE hover wash that glides between them, icons resting
+ *              at the secondary ink, primary on hover / when selected
+ *   chip       the selected source tab is a floating chip that GLIDES
+ *   tiles      inputs show their glyph in a 24px tile: accent + white glyph
+ *              when on, an ink-8% tile + muted glyph when off (it replaces
+ *              the Mac's old "on" dot); on/off crossfades
+ *   keys       Record / Stop are raised red keys; press scales to 0.96
+ *   timer      a recessed well: red dot breathing while live, amber and
+ *              steady while paused
+ * Icons are CaptureCat's own kit (CCIcon), never lucide.
  *
  * Motion is the Mac panel's RecordingMotion family (app.css `--rec-*`):
  *   hover      ONE wash that glides from key to key (CCGlideHighlight), fades
- *              in/out over 150 ms — keys never light up on their own
- *   selection  ONE pill that springs between the source tabs (response
+ *              in/out over 120 ms — keys never light up on their own
+ *   selection  ONE chip that springs between the source tabs (response
  *              0.35 s, a whisper of settle; its width never overshoots)
  *   morph      setup ↔ recording: the bar breathes to its new width over
  *              0.45 s on the resize curve while the rows crossfade — out over
  *              the first half, in over the second with a 0.98 → 1 settle
- *   press      the key tints in place; nothing moves, no ring
+ *   press      ghosts tint in place; the red keys scale to 0.96
  * Reduce-motion keeps the fades (120 ms) and drops the movement.
  *
  * With a camera on, the dock also floats the camera bubble (camera-bubble.tsx,
@@ -50,26 +67,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  AppWindowIcon,
-  ChevronDownIcon,
-  CircleDotIcon,
-  EyeOffIcon,
-  GlobeIcon,
-  MonitorIcon,
-  PauseIcon,
-  PictureInPicture2Icon,
-  PlayIcon,
-  RotateCcwIcon,
-  SettingsIcon,
-  SlidersHorizontalIcon,
-  SquareIcon,
-  Trash2Icon,
-  TriangleAlertIcon,
-  Volume2Icon,
-  VolumeXIcon,
-  XIcon,
-} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CameraBubble, CameraSquircle } from "@/components/dashboard/camera-bubble";
@@ -84,8 +81,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 import type { SurfaceKind } from "@/editor/record/capture";
 import { bubblePolicy } from "@/editor/record/cameraBubble";
 import { BEACON } from "@/editor/record/plate";
@@ -99,10 +96,11 @@ import {
   type Recorder,
 } from "@/editor/record/useRecorder";
 
-export const SURFACES: Array<{ kind: SurfaceKind; label: string; choose: string; icon: typeof MonitorIcon }> = [
-  { kind: "monitor", label: "Display", choose: "Choose Display", icon: MonitorIcon },
-  { kind: "window", label: "Window", choose: "Choose Window", icon: AppWindowIcon },
-  { kind: "browser", label: "Tab", choose: "Choose Tab", icon: GlobeIcon },
+/** The source tabs; `icon` is a kit name (CCIcon). */
+export const SURFACES: Array<{ kind: SurfaceKind; label: string; choose: string; icon: string }> = [
+  { kind: "monitor", label: "Display", choose: "Choose Display", icon: "display" },
+  { kind: "window", label: "Window", choose: "Choose Window", icon: "window" },
+  { kind: "browser", label: "Tab", choose: "Choose Tab", icon: "globe" },
 ];
 
 // ── provider (in the /app layout) ────────────────────────────────────────────
@@ -192,14 +190,15 @@ function LevelMeter({ level }: { level: number }) {
   return (
     <span aria-hidden className="flex h-3.5 items-end gap-[2px]">
       {[0.15, 0.35, 0.6, 0.85].map((t) => (
-        <span
-          key={t}
-          className={cn("w-[3px] rounded-full transition-colors duration-75", level > t ? "bg-emerald-400" : "bg-white/15")}
-          style={{ height: `${40 + t * 60}%` }}
-        />
+        <span key={t} data-lit={level > t} className="cc-recbar-meter" style={{ height: `${40 + t * 60}%` }} />
       ))}
     </span>
   );
+}
+
+/** CCSpinner stand-in: an ink arc (white on a red key). */
+function BarSpinner() {
+  return <span role="status" aria-label="Loading" className="cc-recbar-spin" />;
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -225,7 +224,8 @@ interface GlideRect {
 
 /**
  * CCGlideHighlight: ONE hover wash per bar that glides to whichever
- * `[data-glide]` key is under the pointer, and fades out when it leaves.
+ * `[data-glide]` key is under the pointer, and fades out when it leaves
+ * (or reaches a `[data-glide-off]` key — the red keys brighten instead).
  * Appearing from nothing it snaps into place (only the fade animates).
  */
 function useGlide() {
@@ -233,8 +233,14 @@ function useGlide() {
   const [visible, setVisible] = useState(false);
   const snapRef = useRef(true);
   const onPointerOver = useCallback((e: ReactPointerEvent<HTMLElement>) => {
-    const key = (e.target as HTMLElement).closest<HTMLElement>("[data-glide]");
+    const target = e.target as HTMLElement;
     const host = e.currentTarget;
+    if (target.closest("[data-glide-off]")) {
+      setVisible(false);
+      snapRef.current = true;
+      return;
+    }
+    const key = target.closest<HTMLElement>("[data-glide]");
     if (!key || !host.contains(key) || key.matches(":disabled")) return;
     const a = key.getBoundingClientRect();
     const b = host.getBoundingClientRect();
@@ -251,15 +257,16 @@ function useGlide() {
   const wash = rect ? (
     <span
       aria-hidden
-      className="pointer-events-none absolute left-0 top-0 rounded-lg bg-white/[0.08]"
+      className="dsh-glide-wash"
       style={{
         transform: `translate(${rect.x}px, ${rect.y}px)`,
         width: rect.w,
         height: rect.h,
+        borderRadius: 9,
         opacity: visible ? 1 : 0,
         transition: snapRef.current
-          ? "opacity var(--rec-fade) ease-out"
-          : "transform 300ms var(--rec-settle), width 300ms var(--rec-settle), height 300ms var(--rec-settle), opacity var(--rec-fade) ease-out",
+          ? "opacity 120ms var(--cc-ease-glide)"
+          : "transform 300ms var(--rec-settle), width 300ms var(--rec-settle), height 300ms var(--rec-settle), opacity 120ms var(--cc-ease-glide)",
       }}
     />
   ) : null;
@@ -271,7 +278,8 @@ function useGlide() {
  * absolutely placed) and fades out over the first half while the bar's
  * width eases to the incoming row's; the incoming row fades in over the
  * second half. Content-driven width changes (a longer source name) ride the
- * standalone resize clock.
+ * standalone resize clock. Clips sideways only, so the floating chip's and
+ * the keys' shadows still fall below the row.
  */
 function MorphShell({ phaseKey, children, className }: { phaseKey: string; children: ReactNode; className?: string }) {
   const reduce = usePrefersReducedMotion();
@@ -311,7 +319,7 @@ function MorphShell({ phaseKey, children, className }: { phaseKey: string; child
 
   return (
     <div
-      className={cn("relative overflow-hidden", className)}
+      className={cn("relative overflow-x-clip", className)}
       style={{
         width: width ?? undefined,
         transition: reduce
@@ -322,11 +330,11 @@ function MorphShell({ phaseKey, children, className }: { phaseKey: string; child
       }}
     >
       {outgoing && (
-        <div aria-hidden inert className="rec-row-out pointer-events-none absolute inset-y-0 left-0 flex items-center">
+        <div aria-hidden inert className="rec-row-out pointer-events-none absolute inset-y-0 left-0 flex items-center gap-1">
           {outgoing.node}
         </div>
       )}
-      <div key={phaseKey} ref={contentRef} className={cn("flex w-max items-center", outgoing && "rec-row-in")}>
+      <div key={phaseKey} ref={contentRef} className={cn("flex w-max items-center gap-1", outgoing && "rec-row-in")}>
         {children}
       </div>
     </div>
@@ -335,21 +343,23 @@ function MorphShell({ phaseKey, children, className }: { phaseKey: string; child
 
 // ── keys ─────────────────────────────────────────────────────────────────────
 
-/** A panel key: tints in place when pressed (no movement, no ring). Hover is the bar's glide. */
+/**
+ * A ghost key: no surface at rest; hover is the bar's glide wash, press tints
+ * in place (no movement, no ring). `size`: "label" fits its content, "icon"
+ * is 36×36, "small" is 28×28 (Close).
+ */
 function BarKey({
   children,
   className,
+  size = "label",
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { children: ReactNode }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { children: ReactNode; size?: "label" | "icon" | "small" }) {
   return (
     <button
       type="button"
       data-glide
       aria-label={rest.title}
-      className={cn(
-        "relative inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium text-white/85 outline-none transition-[background-color,opacity] duration-[80ms] focus-visible:bg-white/[0.08] active:bg-white/[0.12] disabled:pointer-events-none disabled:opacity-35 [&_svg]:size-4",
-        className,
-      )}
+      className={cn("cc-recbar-key", size === "icon" && "cc-recbar-key--icon", size === "small" && "cc-recbar-key--small", className)}
       {...rest}
     >
       {children}
@@ -357,21 +367,41 @@ function BarKey({
   );
 }
 
-function BarDivider() {
-  return <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-white/10" />;
+/** A kit glyph at the ghost keys' resting (secondary) ink; primary on hover. */
+function KeyIcon({ name, size = 16, className }: { name: string; size?: number; className?: string }) {
+  return <CCIcon name={name} size={size} className={cn("cc-recbar-ico", className)} />;
 }
 
-/** The source tabs with ONE selection pill that springs between them. */
+/**
+ * An input's icon tile (the 2026 menus' tile): accent with a white glyph when
+ * on, an ink-8% tile with a muted glyph when off. With `offIcon` the glyphs
+ * crossfade along with the fill (Audio On ⇄ Off).
+ */
+function Tile({ on, icon, offIcon }: { on: boolean; icon: string; offIcon?: string }) {
+  return (
+    <span aria-hidden data-on={on} className="cc-recbar-tile">
+      <CCIcon name={icon} size={14} data-glyph={offIcon ? "on" : undefined} />
+      {offIcon && <CCIcon name={offIcon} size={14} data-glyph="off" />}
+    </span>
+  );
+}
+
+function BarDivider() {
+  return <span aria-hidden className="cc-recbar-div" />;
+}
+
+/** The source tabs with ONE floating chip that glides between them. */
 function SourceTabs({ rec }: { rec: Recorder }) {
   const { prefs, setPrefs } = rec;
+  const reduce = usePrefersReducedMotion();
   const groupRef = useRef<HTMLDivElement>(null);
-  const [pill, setPill] = useState<GlideRect | null>(null);
+  const [chip, setChip] = useState<GlideRect | null>(null);
   const settled = useRef(false);
   useLayoutEffect(() => {
     const group = groupRef.current;
     const el = group?.querySelector<HTMLElement>(`[data-surface="${prefs.surface}"]`);
     if (!group || !el) return;
-    setPill({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight });
+    setChip({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight });
   }, [prefs.surface]);
   useEffect(() => {
     // First placement lands without motion; later moves spring.
@@ -380,17 +410,19 @@ function SourceTabs({ rec }: { rec: Recorder }) {
   }, []);
   return (
     <div ref={groupRef} role="radiogroup" aria-label="Source" className="relative flex items-center gap-0.5">
-      {pill && (
+      {chip && (
         <span
           aria-hidden
-          className="pointer-events-none absolute left-0 top-0 rounded-lg bg-white/[0.11] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+          data-recbar-chip
+          className="cc-float-chip cc-recbar-chip"
           style={{
-            transform: `translate(${pill.x}px, ${pill.y}px)`,
-            width: pill.w,
-            height: pill.h,
-            transition: settled.current
-              ? "transform 350ms var(--rec-settle), width 350ms cubic-bezier(0.25, 1, 0.5, 1)"
-              : "none",
+            transform: `translate(${chip.x}px, ${chip.y}px)`,
+            width: chip.w,
+            height: chip.h,
+            transition:
+              settled.current && !reduce
+                ? "transform 350ms var(--rec-settle), width 350ms cubic-bezier(0.25, 1, 0.5, 1)"
+                : "none",
           }}
         />
       )}
@@ -406,12 +438,9 @@ function SourceTabs({ rec }: { rec: Recorder }) {
             setPrefs({ surface: s.kind });
             rec.clearSource();
           }}
-          className={cn(
-            "relative inline-flex h-11 w-[58px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium text-white/55 outline-none transition-colors duration-150 active:bg-white/[0.06] [&_svg]:size-[18px]",
-            prefs.surface === s.kind && "text-white",
-          )}
+          className="cc-recbar-tab"
         >
-          <s.icon strokeWidth={1.6} />
+          <CCIcon name={s.icon} size={16} weight="medium" />
           {s.label}
         </button>
       ))}
@@ -425,32 +454,31 @@ function SetupRow({ rec }: { rec: Recorder }) {
   const { prefs, setPrefs, devices } = rec;
   const level = useInputLevel(rec.micStream);
   const current = SURFACES.find((s) => s.kind === prefs.surface) ?? SURFACES[0];
-  const SourceIcon = current.icon;
   const labelsHidden = devices.mics.length === 0 || devices.mics.every((d) => /^Microphone \d+$/.test(d.label));
   return (
     <>
       {rec.armed && (
-        <BarKey title="Close — release the camera, microphone and source" onClick={rec.disarm} className="px-2 text-white/60">
-          <XIcon />
+        <BarKey title="Close — release the camera, microphone and source" onClick={rec.disarm} size="small">
+          <KeyIcon name="close" size={14} />
         </BarKey>
       )}
       <SourceTabs rec={rec} />
       <BarDivider />
-      <BarKey title="Choose what to record" onClick={() => void rec.chooseSource()} className="max-w-[230px]">
-        <SourceIcon className="text-white/65" />
-        <span className="truncate">{rec.screen ? rec.sourceLabel : current.choose}</span>
-        <ChevronDownIcon className="!size-3.5 text-white/45" />
+      <BarKey title="Choose what to record" onClick={() => void rec.chooseSource()} className="max-w-[244px] pl-1.5">
+        <Tile on={false} icon={current.icon} />
+        <span className="max-w-[200px] truncate">{rec.screen ? rec.sourceLabel : current.choose}</span>
+        <KeyIcon name="chevron-down" size={12} className="cc-recbar-chev" />
       </BarKey>
       <BarDivider />
       <DropdownMenu onOpenChange={(open) => open && rec.arm()}>
         <DropdownMenuTrigger asChild>
-          <BarKey title="Microphone and camera">
-            <SlidersHorizontalIcon className="text-white/65" />
+          <BarKey title="Microphone and camera" className="pl-1.5">
+            <Tile on={prefs.micId !== null || prefs.camId !== null} icon="sliders" />
             {rec.armed && prefs.micId !== null && <LevelMeter level={level} />}
             <span>
               {prefs.micId === null ? "No Mic" : "Mic"} · {prefs.camId === null ? "No Cam" : "Cam"}
             </span>
-            <ChevronDownIcon className="!size-3.5 text-white/45" />
+            <KeyIcon name="chevron-down" size={12} className="cc-recbar-chev" />
           </BarKey>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" side="top" sideOffset={12} className="w-64">
@@ -486,27 +514,28 @@ function SetupRow({ rec }: { rec: Recorder }) {
         </DropdownMenuContent>
       </DropdownMenu>
       {rec.engine === "mediarecorder" ? (
-        <BarKey title="Safari can't record system audio — your microphone is recorded" disabled>
-          <VolumeXIcon className="text-white/65" />
+        <BarKey title="Safari can't record system audio — your microphone is recorded" disabled className="pl-1.5">
+          <Tile on={false} icon="speaker-off-fill" />
           No System Audio
         </BarKey>
       ) : (
         <BarKey
           title="Record system or tab audio"
           aria-pressed={prefs.systemAudio}
+          className="pl-1.5"
           onClick={() => {
             setPrefs({ systemAudio: !prefs.systemAudio });
             rec.clearSource(); // audio is chosen with the share — pick the source again
           }}
         >
-          {prefs.systemAudio ? <Volume2Icon className="text-white/65" /> : <VolumeXIcon className="text-white/65" />}
+          <Tile on={prefs.systemAudio} icon="speaker-fill" offIcon="speaker-off-fill" />
           {prefs.systemAudio ? "Audio On" : "Audio Off"}
         </BarKey>
       )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <BarKey title="Recording settings" className="px-2">
-            <SettingsIcon className="text-white/65" />
+          <BarKey title="Recording settings" size="icon">
+            <KeyIcon name="gear" />
           </BarKey>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" side="top" sideOffset={12} className="w-64">
@@ -539,19 +568,20 @@ function SetupRow({ rec }: { rec: Recorder }) {
       </DropdownMenu>
       <button
         type="button"
+        data-glide-off
         title={rec.screen ? "Start recording" : "Choose what to record first"}
         aria-label="Record"
         disabled={!rec.screen}
         onClick={() => void rec.record()}
-        className="ml-1 grid size-11 shrink-0 place-items-center rounded-xl bg-[#ff3b30] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_4px_12px_-2px_rgba(255,59,48,0.55)] outline-none transition-[filter,opacity,box-shadow] duration-150 hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:shadow-none"
+        className="cc-recbar-redkey ml-1"
       >
-        <CircleDotIcon className="size-[18px]" strokeWidth={2.2} />
+        <CCIcon name="record" size={18} weight="medium" />
       </button>
     </>
   );
 }
 
-/** During a take: ● timer · source · pause · restart · stop · delete (Mac order). */
+/** During a take: ● timer | source · pause · restart | stop · delete (Mac order). */
 function LiveRow({ rec, compact = false }: { rec: Recorder; compact?: boolean }) {
   const [confirm, setConfirm] = useState<null | "restart" | "delete">(null);
   if (confirm) {
@@ -564,7 +594,7 @@ function LiveRow({ rec, compact = false }: { rec: Recorder; compact?: boolean })
         </Button>
         <Button
           size="sm"
-          className="bg-red-500 text-white hover:bg-red-500/90"
+          className="bg-[var(--cc-destructive,#ff453a)] text-white hover:bg-[var(--cc-destructive,#ff453a)] hover:brightness-110"
           onClick={() => {
             setConfirm(null);
             void (restart ? rec.restart() : rec.remove());
@@ -577,27 +607,42 @@ function LiveRow({ rec, compact = false }: { rec: Recorder; compact?: boolean })
   }
   return (
     <>
-      <span className={cn("inline-flex h-9 min-w-[78px] items-center gap-2 px-2.5 text-[13px] font-semibold tabular-nums", rec.clockWarn && "text-red-400")}>
-        <span className={cn("size-2 rounded-full bg-red-500 transition-opacity duration-150", rec.paused ? "opacity-40" : "animate-pulse")} aria-hidden />
-        {rec.paused ? "Paused" : rec.clock}
+      <span
+        data-paused={rec.paused}
+        data-warn={rec.clockWarn}
+        className="cc-well cc-recbar-timer"
+      >
+        <span className="cc-recbar-dot" aria-hidden />
+        <span>{rec.clock}</span>
+        {rec.paused && <span className="cc-recbar-timer-state">Paused</span>}
       </span>
+      <BarDivider />
       {!compact && (
-        <BarKey title={rec.sourceLabel || "Source"} className="max-w-[200px] text-white/55">
-          <MonitorIcon />
-          <span className="truncate text-[12px] font-normal">{rec.sourceLabel}</span>
+        <BarKey title={rec.sourceLabel || "Source"} className="max-w-[200px] text-[var(--cc-muted)]">
+          <KeyIcon name="display" />
+          <span className="truncate font-normal">{rec.sourceLabel}</span>
         </BarKey>
       )}
-      <BarKey title={rec.paused ? "Resume" : "Pause"} disabled={rec.busy} onClick={rec.pauseResume} className="px-2">
-        {rec.paused ? <PlayIcon className="fill-current" /> : <PauseIcon className="fill-current" />}
+      <BarKey title={rec.paused ? "Resume" : "Pause"} disabled={rec.busy} onClick={rec.pauseResume} size="icon">
+        <KeyIcon name={rec.paused ? "play-fill" : "pause-fill"} />
       </BarKey>
-      <BarKey title="Restart" disabled={rec.busy} onClick={() => setConfirm("restart")} className="px-2">
-        <RotateCcwIcon />
+      <BarKey title="Restart" disabled={rec.busy} onClick={() => setConfirm("restart")} size="icon">
+        <KeyIcon name="rotate-ccw" />
       </BarKey>
-      <BarKey title="Stop" disabled={rec.busy} onClick={() => void rec.stop()} className="px-2 text-[#ff453a]">
-        {rec.busy ? <Spinner className="size-4" /> : <SquareIcon className="fill-current" />}
-      </BarKey>
-      <BarKey title="Delete" disabled={rec.busy} onClick={() => setConfirm("delete")} className="px-2 text-[#ff453a]">
-        <Trash2Icon />
+      <BarDivider />
+      <button
+        type="button"
+        data-glide-off
+        title="Stop"
+        aria-label="Stop"
+        disabled={rec.busy}
+        onClick={() => void rec.stop()}
+        className="cc-recbar-redkey cc-recbar-redkey--stop"
+      >
+        {rec.busy ? <BarSpinner /> : <CCIcon name="stop-fill" size={16} />}
+      </button>
+      <BarKey title="Delete" disabled={rec.busy} onClick={() => setConfirm("delete")} size="icon" className="cc-recbar-key--danger">
+        <CCIcon name="trash-fill" size={16} />
       </BarKey>
     </>
   );
@@ -613,16 +658,13 @@ function StatusRow({ rec }: { rec: Recorder }) {
         : "Upload failed — the recording is kept on this device";
   return (
     <span className="inline-flex h-9 items-center gap-2.5 px-3 text-[13px] font-medium tabular-nums">
-      {phase.kind === "failed" ? <TriangleAlertIcon className="size-4 text-amber-400" /> : <Spinner className="size-4" />}
+      {phase.kind === "failed" ? <CCIcon name="warning-fill" size={16} className="text-[var(--cc-amber,#ff9f0a)]" /> : <BarSpinner />}
       {label}
     </span>
   );
 }
 
 // ── the bar ──────────────────────────────────────────────────────────────────
-
-const SHELL =
-  "pointer-events-auto relative flex h-14 items-center rounded-2xl border border-white/10 bg-[#1b1b1e]/95 px-2 text-white shadow-[0_24px_60px_-16px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl";
 
 export function RecordingBar({ rec, compact = false }: { rec: Recorder; compact?: boolean }) {
   const glide = useGlide();
@@ -631,7 +673,7 @@ export function RecordingBar({ rec, compact = false }: { rec: Recorder; compact?
   return (
     <div
       data-rec-ui="bar"
-      className={SHELL}
+      className="cc-recbar pointer-events-auto relative flex h-14 items-center px-2"
       onPointerOver={glide.onPointerOver}
       onPointerLeave={glide.onPointerLeave}
       aria-label="Recording panel"
@@ -644,22 +686,29 @@ export function RecordingBar({ rec, compact = false }: { rec: Recorder; compact?
   );
 }
 
-/** A notice above the bar (the recorder's warnings, the bubble's note). */
+/** A notice above the bar (the recorder's warnings, the bubble's note) — a small floating card. */
 function DockNotice({ icon, children, onDismiss }: { icon: ReactNode; children: ReactNode; onDismiss?: () => void }) {
   return (
-    <div
-      data-rec-ui="notice"
-      className="pointer-events-auto flex max-w-lg items-start gap-2 rounded-xl border border-white/10 bg-[#1b1b1e]/95 px-3.5 py-2 text-[12.5px] shadow-lg backdrop-blur-xl"
-    >
+    <div data-rec-ui="notice" className="cc-recbar-notice pointer-events-auto flex max-w-lg items-start gap-2 px-3.5 py-2 text-[12.5px]">
       {icon}
       <span className="flex-1">{children}</span>
       {onDismiss && (
-        <button type="button" aria-label="Dismiss" onClick={onDismiss} className="text-white/50 hover:text-white">
-          <XIcon className="size-3.5" />
+        <button
+          type="button"
+          aria-label="Dismiss"
+          onClick={onDismiss}
+          className="mt-px text-[var(--cc-muted)] transition-colors duration-[120ms] hover:text-[var(--cc-foreground)]"
+        >
+          <CCIcon name="close" size={14} />
         </button>
       )}
     </div>
   );
+}
+
+/** A notice's leading glyph (kit icon at the secondary ink, or a tone). */
+function NoticeIcon({ name, className }: { name: string; className?: string }) {
+  return <CCIcon name={name} size={14} className={cn("mt-0.5 shrink-0 text-[var(--cc-muted)]", className)} />;
 }
 
 /**
@@ -694,6 +743,11 @@ function PlateBeacon() {
  * the controls float — or, without the floating window, stays up while you're
  * on the page (a window share) or comes back when you return (a display);
  * those moments are cut.
+ *
+ * `[data-recorder-dock]` is the bar's frame (the bubble keeps clear of it,
+ * useConceal's edge reveal sits above it) and scrolls the bar sideways in a
+ * narrow window — which clips everything outside it, so the bar's float
+ * shadow is cast by a sibling behind it (`.cc-recbar-cast`).
  */
 export function RecorderDock() {
   const rec = useRecorderContext();
@@ -717,42 +771,45 @@ export function RecorderDock() {
         className="rec-conceal pointer-events-none sticky bottom-5 z-40 mt-auto flex flex-col items-center gap-2 px-4 pb-1"
       >
         {rec.revealed && (
-          <DockNotice icon={<EyeOffIcon className="mt-0.5 size-3.5 shrink-0 text-white/60" />}>
+          <DockNotice icon={<NoticeIcon name="eye-off" />}>
             {rec.revealed === "focus"
               ? "Recording a window — the moments you spend on this page are cut, so this bar never reaches your video."
               : "Recording — the bar is hidden from your recording."}
           </DockNotice>
         )}
         {displayTip && (
-          <DockNotice
-            icon={<PictureInPicture2Icon className="mt-0.5 size-3.5 shrink-0 text-white/60" />}
-            onDismiss={() => setTipDismissed(true)}
-          >
+          <DockNotice icon={<NoticeIcon name="picture-in-picture" />} onDismiss={() => setTipDismissed(true)}>
             {displayTip === "plate"
               ? "The controls float above your screen while you record, and stay out of the video: the spot they cover shows your screen as it was when you pressed Record. Tip: park them over a quiet corner."
               : DISPLAY_FALLBACK.displays}
           </DockNotice>
         )}
         {hidesForTake && (
-          <DockNotice icon={<EyeOffIcon className="mt-0.5 size-3.5 shrink-0 text-white/60" />}>
+          <DockNotice icon={<NoticeIcon name="eye-off" />}>
             This bar hides while you record, so it stays out of your video
             {bubble.hiddenForScreen ? " — so does the camera bubble; your camera is still recorded" : ""}. Come back to
             this tab to stop, or press <kbd className="font-sans font-semibold">{rec.stopShortcut}</kbd> here.
           </DockNotice>
         )}
         {rec.notice && (
-          <DockNotice icon={<TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0 text-amber-400" />} onDismiss={() => rec.setNotice(null)}>
+          <DockNotice icon={<NoticeIcon name="warning-fill" className="text-[var(--cc-amber,#ff9f0a)]" />} onDismiss={() => rec.setNotice(null)}>
             {rec.notice}
           </DockNotice>
         )}
-        <div data-recorder-dock className="max-w-[calc(100%-1rem)] overflow-x-auto overflow-y-visible">
-          <RecordingBar rec={rec} />
+        <div className="relative max-w-[calc(100%-1rem)]">
+          <span aria-hidden className="cc-recbar-cast" />
+          <div data-recorder-dock className="relative overflow-x-auto overflow-y-visible">
+            <RecordingBar rec={rec} />
+          </div>
         </div>
       </div>
       <CameraBubble stream={rec.camStream} show={bubble.host === "page"} />
       {rec.floating &&
         createPortal(
-          <div className="dark relative flex size-full items-center justify-center bg-background p-3 text-foreground">
+          // data-cc-app: the floating window is its own document — this puts
+          // the app's 2026 tokens (app-2026.css) on its :root, so the bar
+          // there matches the dock in either appearance.
+          <div data-cc-app="" className="dark relative flex size-full items-center justify-center bg-background p-3 text-foreground">
             <PlateBeacon />
             <div className="flex flex-col items-center gap-2">
               {bubble.host === "floating" && (

@@ -20,16 +20,18 @@
  */
 
 /* ── Tokens: capDark ─────────────────────────────────────────────────────── */
-/* The recording dock (recorder-bar.tsx) is a dark HUD in both appearances —
-   its surfaces are drawn dark, so its subtree keeps the dark tokens even when
-   the window turns light (the light block below never targets it). */
+/* The recording dock (recorder-bar.tsx) follows the appearance like the Mac's
+   2026 bar (the popover card, light or dark) — see "Recording bar" below. */
 :root:has([data-cc-app]),
-:root:has([data-cc-app]) .dark,
-:root:has([data-cc-app]) [data-recorder-dock-root] {
+:root:has([data-cc-app]) .dark {
   --cc-background: #121215;
   --cc-card: #1c1c20;
   --cc-popover: #212126;
   --cc-elevated: #2a2a30;
+  /* Recording bar (twin of the Mac's RecordingPanelMetrics): wells sink
+     BELOW the popover face in dark; off icon tiles are ink at 8 %. */
+  --cc-recbar-well: #121215;
+  --cc-recbar-tile-off: 0.08;
   --cc-foreground: rgb(255 255 255 / 0.94);
   --cc-muted: rgb(255 255 255 / 0.58);
   --cc-faint: rgb(255 255 255 / 0.36);
@@ -123,6 +125,8 @@
     --cc-card: #ffffff;
     --cc-popover: #ffffff;
     --cc-elevated: #ececef;
+    --cc-recbar-well: #ececef;
+    --cc-recbar-tile-off: 0.06;
     --cc-foreground: #1d1d1f;
     --cc-muted: rgb(0 0 0 / 0.54);
     --cc-faint: rgb(0 0 0 / 0.32);
@@ -689,4 +693,314 @@
   [data-cc-app] .dsh-art .toast {
     box-shadow: 0 calc(6 * var(--u)) calc(16 * var(--u)) rgb(0 0 0 / 0.2);
   }
+}
+
+/* ── Recording bar (recorder-bar.tsx) — the 2026 recording-bar spec ───────
+   The Mac's RecordingPanelKit draws the same bar from the same spec, so the
+   two read as one product:
+     card    the menus' floating card: popover tint + top light, the 0.5px
+             hairline (an inset outline — it follows the corners), the
+             floatShadow of a 56px surface (--cc-shadow-row), radius 20
+     ghosts  radius 9, no surface at rest; hover is the bar's ONE gliding
+             wash (.dsh-glide-wash ≈ ink 6%, fading over 120ms), press adds
+             ink to ≈ 10%; icons rest at the secondary ink, primary on hover
+     chip    the selected source tab: .cc-float-chip gliding under the tabs
+     tiles   24px, radius 7: accent + white glyph when on, ink 8% + muted
+             glyph when off; fill and glyphs crossfade over 150ms
+     keys    Record 40px / Stop 36px, radius 12, record red dressed raised
+             (top light, a small red-tinted shadow); hover brightens, press
+             scales to .96
+     timer   a .cc-well pill (30px, radius 10): the red dot breathes while
+             live, amber and steady while paused
+   Tokens are the app's (`[data-cc-app]`, above — the floating PiP window
+   carries the attribute too); fallbacks keep the bar legible where a page
+   mounts it outside the app scope. The bar's own element keeps its whole
+   material in background / outline / box-shadow — no pseudo-elements — so
+   the recorder gates' `[data-rec-ui]` marker paints all of it. */
+@layer components {
+  .cc-recbar,
+  .cc-recbar-notice {
+    background:
+      linear-gradient(to bottom, rgb(255 255 255 / var(--cc-toplight, 3.5%)), transparent 28px),
+      var(--cc-popover, #212126);
+    outline: 0.5px solid var(--cc-hairline, rgb(255 255 255 / 0.09));
+    outline-offset: -0.5px;
+    box-shadow: var(--cc-shadow-row, 0 2px 11px 0 rgb(0 0 0 / 0.35));
+    color: var(--cc-foreground, rgb(255 255 255 / 0.94));
+  }
+  .cc-recbar {
+    border-radius: 20px;
+  }
+  .cc-recbar-notice {
+    border-radius: 14px;
+  }
+  /* The dock scrolls the bar sideways in a narrow window, which clips its
+     own shadow: this sibling, behind the scroller, casts it instead. */
+  .cc-recbar-cast {
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    box-shadow: var(--cc-shadow-row, 0 2px 11px 0 rgb(0 0 0 / 0.35));
+    pointer-events: none;
+  }
+
+  /* Ghost keys. */
+  .cc-recbar-key {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    white-space: nowrap;
+    color: var(--cc-foreground, rgb(255 255 255 / 0.94));
+    outline: none;
+    transition:
+      background-color 120ms var(--cc-ease-glide),
+      color 120ms var(--cc-ease-glide),
+      opacity 120ms var(--cc-ease-glide);
+  }
+  .cc-recbar-key--icon {
+    width: 36px;
+    padding: 0;
+  }
+  .cc-recbar-key--small {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+  }
+  /* Over the glide wash (≈ 6%) this lands the press at ≈ 10%. */
+  .cc-recbar-key:active:not(:disabled) {
+    background: rgb(var(--cc-ink-rgb, 255 255 255) / 0.045);
+  }
+  .cc-recbar-key:focus-visible {
+    background: var(--cc-hover, rgb(255 255 255 / 0.06));
+  }
+  .cc-recbar-key:disabled {
+    opacity: 0.38;
+    pointer-events: none;
+  }
+  .cc-recbar-key--danger {
+    color: var(--cc-destructive, #ff453a);
+  }
+  .cc-recbar-ico {
+    color: var(--cc-muted, rgb(255 255 255 / 0.58));
+    transition: color 120ms var(--cc-ease-glide);
+  }
+  .cc-recbar-key:hover .cc-recbar-ico,
+  .cc-recbar-key:focus-visible .cc-recbar-ico,
+  .cc-recbar-key[aria-expanded="true"] .cc-recbar-ico {
+    color: var(--cc-foreground, rgb(255 255 255 / 0.94));
+  }
+  .cc-recbar-key .cc-recbar-chev {
+    color: var(--cc-faint, rgb(255 255 255 / 0.36));
+  }
+  .cc-recbar-key:hover .cc-recbar-chev,
+  .cc-recbar-key[aria-expanded="true"] .cc-recbar-chev {
+    color: var(--cc-muted, rgb(255 255 255 / 0.58));
+  }
+
+  /* Group divider: ink 8%, 20px. */
+  .cc-recbar-div {
+    flex: none;
+    width: 1px;
+    height: 20px;
+    margin: 0 4px;
+    background: rgb(var(--cc-ink-rgb, 255 255 255) / 0.08);
+  }
+
+  /* Source tabs: 16px icon over a 10px label; the selected one rides the chip. */
+  .cc-recbar-tab {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 58px;
+    height: 44px;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 12px;
+    color: var(--cc-muted, rgb(255 255 255 / 0.58));
+    outline: none;
+    transition: color 160ms var(--cc-ease-glide);
+  }
+  .cc-recbar-tab:hover,
+  .cc-recbar-tab:focus-visible,
+  .cc-recbar-tab[aria-checked="true"] {
+    color: var(--cc-foreground, rgb(255 255 255 / 0.94));
+  }
+  .cc-recbar-chip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    border-radius: 9px;
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  /* Input tiles. */
+  .cc-recbar-tile {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    background: rgb(var(--cc-ink-rgb, 255 255 255) / var(--cc-recbar-tile-off, 0.08));
+    color: var(--cc-muted, rgb(255 255 255 / 0.58));
+    transition:
+      background-color 150ms var(--cc-ease-glide),
+      color 150ms var(--cc-ease-glide);
+  }
+  .cc-recbar-tile > svg {
+    grid-area: 1 / 1;
+    transition: opacity 150ms var(--cc-ease-glide);
+  }
+  .cc-recbar-tile[data-on="true"] {
+    background: var(--cc-primary, #007aff);
+    color: #ffffff;
+  }
+  .cc-recbar-tile[data-on="true"] > [data-glyph="off"],
+  .cc-recbar-tile[data-on="false"] > [data-glyph="on"] {
+    opacity: 0;
+  }
+
+  /* The devices key's input meter. */
+  .cc-recbar-meter {
+    width: 3px;
+    border-radius: 9999px;
+    background: rgb(var(--cc-ink-rgb, 255 255 255) / 0.15);
+    transition: background-color 75ms linear;
+  }
+  .cc-recbar-meter[data-lit="true"] {
+    background: var(--cc-green, #30d158);
+  }
+
+  /* Record / Stop: raised record-red keys. */
+  .cc-recbar-redkey {
+    --k-red: var(--cc-destructive, #ff453a);
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    color: #ffffff;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--k-red), #ffffff 7%), var(--k-red));
+    box-shadow:
+      inset 0 0 0 0.5px rgb(0 0 0 / 0.1),
+      0 1px 2px 0 rgb(0 0 0 / 0.18),
+      0 2px 8px -2px color-mix(in srgb, var(--k-red) 55%, transparent);
+    outline: none;
+    transition:
+      filter 120ms var(--cc-ease-glide),
+      opacity 160ms var(--cc-ease-glide),
+      box-shadow 160ms var(--cc-ease-glide),
+      transform 240ms var(--cc-ease-settle);
+  }
+  .cc-recbar-redkey--stop {
+    width: 36px;
+    height: 36px;
+  }
+  .cc-recbar-redkey:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  /* The house press: in fast on the glide, back out on the settle. */
+  .cc-recbar-redkey:active:not(:disabled) {
+    transform: scale(0.96);
+    transition:
+      filter 120ms var(--cc-ease-glide),
+      opacity 160ms var(--cc-ease-glide),
+      box-shadow 160ms var(--cc-ease-glide),
+      transform 80ms var(--cc-ease-glide);
+  }
+  .cc-recbar-redkey:focus-visible {
+    box-shadow:
+      inset 0 0 0 0.5px rgb(0 0 0 / 0.1),
+      0 1px 2px 0 rgb(0 0 0 / 0.18),
+      0 0 0 3px color-mix(in srgb, var(--k-red) 35%, transparent);
+  }
+  .cc-recbar-redkey:disabled {
+    opacity: 0.4;
+    box-shadow: none;
+  }
+
+  /* The live timer: a recessed well. */
+  .cc-recbar-timer {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    min-width: 78px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 10px;
+    background: var(--cc-recbar-well, var(--cc-elevated));
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 16px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    transition: color 150ms var(--cc-ease-glide);
+  }
+  .cc-recbar-timer[data-warn="true"] {
+    color: var(--cc-destructive, #ff453a);
+  }
+  .cc-recbar-timer-state {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--cc-muted, rgb(255 255 255 / 0.58));
+  }
+  .cc-recbar-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: var(--cc-destructive, #ff453a);
+    transition: background-color 150ms var(--cc-ease-glide);
+    animation: cc-recbar-breathe 900ms var(--cc-ease-glide) infinite alternate;
+  }
+  .cc-recbar-timer[data-paused="true"] .cc-recbar-dot {
+    background: var(--cc-amber, #ff9f0a);
+    animation: none;
+  }
+
+  /* CCSpinner stand-in (the editor's .cc-spin): an ink arc. */
+  .cc-recbar-spin {
+    display: block;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    border: 2px solid rgb(var(--cc-ink-rgb, 255 255 255) / 0.15);
+    border-top-color: var(--cc-muted, rgb(255 255 255 / 0.58));
+    animation: cc-recbar-spin 0.9s linear infinite;
+  }
+  .cc-recbar-redkey .cc-recbar-spin {
+    border-color: rgb(255 255 255 / 0.35);
+    border-top-color: #ffffff;
+  }
+}
+
+@keyframes cc-recbar-breathe {
+  from { opacity: 1; }
+  to { opacity: 0.35; }
+}
+@keyframes cc-recbar-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cc-recbar-dot { animation: none; }
+  .cc-recbar-redkey:active:not(:disabled) { transform: none; }
 }
