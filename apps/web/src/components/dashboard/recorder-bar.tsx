@@ -648,19 +648,67 @@ function LiveRow({ rec, compact = false }: { rec: Recorder; compact?: boolean })
   );
 }
 
+/** Saves a take's screen file to the user's Downloads (a failed upload's way out). */
+function downloadTake(file: Blob): void {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "recording.mov";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/**
+ * Countdown / saving / failed. The bar is on every dashboard page, so this row
+ * is never a dead end: saving can be cancelled, and a failed upload keeps its
+ * controls — try again, download, or record another (the take stays on this
+ * device as a leftover) — and says WHY it failed.
+ */
 function StatusRow({ rec }: { rec: Recorder }) {
   const { phase } = rec;
+  if (phase.kind === "failed") {
+    return (
+      <>
+        <span className="inline-flex h-9 min-w-0 items-center gap-2.5 pl-3 pr-1 text-[13px] font-medium" title={phase.message}>
+          <CCIcon name="warning-fill" size={16} className="shrink-0 text-[var(--cc-amber,#ff9f0a)]" />
+          <span className="min-w-0 max-w-[22rem] truncate">
+            Upload failed<span className="font-normal text-[var(--cc-muted)]"> — {phase.message}</span>
+          </span>
+        </span>
+        <BarDivider />
+        <BarKey title="Download the recording" onClick={() => downloadTake(phase.take.screen)}>
+          <KeyIcon name="arrow-down-line" />
+          Download
+        </BarKey>
+        <BarKey title="Keep this recording on this device and record another" onClick={rec.keepForLater}>
+          <KeyIcon name="record" />
+          Record another
+        </BarKey>
+        <BarKey title="Try the upload again" onClick={() => void rec.publish(phase.take)} className="cc-recbar-key--primary">
+          <CCIcon name="cloud-upload" size={16} />
+          Try again
+        </BarKey>
+      </>
+    );
+  }
   const label =
     phase.kind === "countdown"
       ? `Starting in ${phase.left}…`
       : phase.kind === "saving"
         ? `${phase.progress?.message ?? "Finishing…"}${phase.progress ? ` ${Math.round(phase.progress.fraction * 100)}%` : ""}`
-        : "Upload failed — the recording is kept on this device";
+        : "";
   return (
-    <span className="inline-flex h-9 items-center gap-2.5 px-3 text-[13px] font-medium tabular-nums">
-      {phase.kind === "failed" ? <CCIcon name="warning-fill" size={16} className="text-[var(--cc-amber,#ff9f0a)]" /> : <BarSpinner />}
-      {label}
-    </span>
+    <>
+      <span className="inline-flex h-9 items-center gap-2.5 px-3 text-[13px] font-medium tabular-nums">
+        <BarSpinner />
+        {label}
+      </span>
+      {phase.kind === "saving" && (
+        <BarKey title="Cancel the upload — the recording stays on this device" onClick={rec.cancelUpload}>
+          Cancel
+        </BarKey>
+      )}
+    </>
   );
 }
 

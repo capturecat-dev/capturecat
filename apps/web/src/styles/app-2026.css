@@ -789,6 +789,18 @@
   .cc-recbar-key--danger {
     color: var(--cc-destructive, #ff453a);
   }
+  /* The one accent action in a row (a failed upload's "Try again"). */
+  .cc-recbar-key--primary {
+    background: var(--cc-primary, #007aff);
+    color: #ffffff;
+  }
+  .cc-recbar-key--primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+  .cc-recbar-key--primary:active:not(:disabled) {
+    background: var(--cc-primary, #007aff);
+    transform: scale(0.96);
+  }
   .cc-recbar-ico {
     color: var(--cc-muted, rgb(255 255 255 / 0.58));
     transition: color 120ms var(--cc-ease-glide);
