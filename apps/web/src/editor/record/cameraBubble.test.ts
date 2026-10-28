@@ -290,6 +290,16 @@ describe("policy", () => {
     expect(bubblePolicy({ ...base, conceal: "none", phase: "recording", floatingOpen: true })).toEqual(floating);
   });
 
+  it("a display take: aside while the plate is taken, then in the floating window (painted out with it)", () => {
+    // Pressed: the page's UI and the bubble leave before the plate is grabbed ("reveal" until the window floats).
+    expect(bubblePolicy({ ...base, conceal: "reveal", starting: true })).toEqual({ host: "none", hiddenForScreen: true });
+    expect(bubblePolicy({ ...base, conceal: "plate", phase: "recording", floatingOpen: true })).toEqual({ host: "floating", hiddenForScreen: false });
+  });
+
+  it("a window share without the floating window: the bar comes and goes, the bubble stays aside", () => {
+    expect(bubblePolicy({ ...base, conceal: "shown", phase: "recording" })).toEqual({ host: "none", hiddenForScreen: true });
+  });
+
   it("is gone while the take uploads (the camera is released)", () => {
     expect(bubblePolicy({ ...base, conceal: "floating", phase: "saving" }).host).toBe("none");
     expect(bubblePolicy({ ...base, conceal: "reveal", phase: "failed" })).toEqual({ host: "none", hiddenForScreen: false });

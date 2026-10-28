@@ -1,6 +1,6 @@
 import AppKit
 
-/// Keynote/Final Cut-style inspector section: an uppercase tracked header
+/// Pro-app inspector section: an uppercase tracked header
 /// with rows sitting DIRECTLY on the pane surface — no fill, no border, no
 /// row separators. Sections separate with generous whitespace plus a single
 /// full-width hairline drawn above every section except the first (the pane
@@ -8,8 +8,8 @@ import AppKit
 /// below it, before the header).
 ///
 /// Two rounds of grouped-box treatments (filled slab, then hairline outline)
-/// both read as "grey boxes" against the near-black card — the correct Apple
-/// reference for a media editor is the Keynote inspector, not System
+/// both read as "grey boxes" against the near-black card — the correct
+/// reference for a media editor is a pro creative app's inspector, not System
 /// Settings. The class keeps its name and API so no pane call site moved.
 ///
 /// Rows are added with `addRow(_:)` on a 16pt rhythm. A caption or preview
@@ -41,14 +41,14 @@ final class InspectorSectionBox: NSView {
 
     init(_ title: String? = nil) {
         if let title {
-            // Apple grouped-list header voice: small, tracked, uppercase,
-            // muted — visually distinct from row labels so sections scan.
+            // 2026 header voice: sentence case, a size up, full ink — current
+            // macOS inspectors title their groups instead of shouting
+            // tracked uppercase (the 2026-10-27 restyle).
             let field = NSTextField(labelWithString: "")
             field.attributedStringValue = NSAttributedString(
-                string: title.uppercased(),
+                string: title,
                 attributes: [
-                    .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-                    .kern: 0.8,
+                    .font: NSFont.systemFont(ofSize: 12.5, weight: .semibold),
                 ]
             )
             headerField = field
@@ -101,7 +101,7 @@ final class InspectorSectionBox: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     private func applyTheme() {
-        headerField?.textColor = EditorThemeKit.textSecondary
+        headerField?.textColor = EditorThemeKit.textPrimary
         hairline.layer?.backgroundColor = EditorThemeKit.hairline.cgColor
     }
 
@@ -117,7 +117,7 @@ final class InspectorSectionBox: NSView {
 
     /// The first visible section on a pane starts flush under the pane top —
     /// the hairline (and its gap) only separates a section from content ABOVE
-    /// it, exactly like Keynote's inspector.
+    /// it, exactly like a pro-app inspector.
     private func updateHairlineVisibility() {
         guard let stack = superview as? NSStackView else { return }
         let isFirst = stack.arrangedSubviews.first(where: { !$0.isHidden }) === self

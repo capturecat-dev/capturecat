@@ -208,16 +208,17 @@ function VersionList({ history, store }: { history: HistoryController; store: Ed
 
   const openMenu = (v: ProjectVersion, at: { x: number; y: number }) => {
     const isHead = v.id === s.headVersionId;
+    const previewing = preview?.versionId === v.id;
     const entries: MenuEntry[] = [
-      { title: preview?.versionId === v.id ? "Back to Current" : "Preview", onSelect: () => (preview?.versionId === v.id ? history.backToCurrent() : void history.preview(v.id)) },
-      { title: v.label ? "Rename Version…" : "Name This Version…", onSelect: () => history.startNaming(v.id) },
+      { title: previewing ? "Back to Current" : "Preview", icon: previewing ? "undo" : "eye", onSelect: () => (previewing ? history.backToCurrent() : void history.preview(v.id)) },
+      { title: v.label ? "Rename Version…" : "Name This Version…", icon: "pencil", onSelect: () => history.startNaming(v.id) },
       "separator",
-      { title: "Compare with Current", onSelect: () => void history.compareWithCurrent(v.id) },
-      { title: "Compare with…", onSelect: () => history.armCompare(v.id) },
+      { title: "Compare with Current", icon: "split", onSelect: () => void history.compareWithCurrent(v.id) },
+      { title: "Compare with…", icon: "split", onSelect: () => history.armCompare(v.id) },
       "separator",
-      { title: "Restore", disabled: isHead, onSelect: () => void history.restore(v.id) },
+      { title: "Restore", icon: "history", disabled: isHead, onSelect: () => void history.restore(v.id) },
     ];
-    if (history.isOwner) entries.push({ title: "Delete", destructive: true, disabled: isHead, onSelect: () => void history.remove(v.id) });
+    if (history.isOwner) entries.push({ title: "Delete", icon: "trash", destructive: true, disabled: isHead, onSelect: () => void history.remove(v.id) });
     setMenu({ at, entries, id: v.id });
   };
 

@@ -591,7 +591,7 @@ final class TimelineViewController: NSViewController {
     }
 
     /// Set by the shell: opens the in-place label editor on a fresh
-    /// text/callout so it lands ready to overtype (the Keynote add flow).
+    /// text/callout so it lands ready to overtype (add, then type straight away).
     var onBeginInlineEdit: ((UUID) -> Void)?
 
     /// Set by the shell: arms the preview's drag-to-draw pass so the user can
@@ -610,7 +610,7 @@ final class TimelineViewController: NSViewController {
         // The ADD entry point. The floating pill is contextual-only (it
         // appears above the SELECTED annotation for editing) — a permanently
         // docked pill over the preview was removed on purpose.
-        let popover = TimelinePickerPopover.make(width: 220, rows: [
+        let popover = TimelinePickerPopover.make(rows: [
             .init(icon: "text.bubble", title: "Text Label", detail: "Add a text overlay") { [weak self] in self?.addForInlineEditing(.text) },
             .init(icon: "arrow.up.right", title: "Arrow", detail: "Draw a directional arrow") { [weak self] in self?.addAnnotation(type: .arrow) },
             .init(icon: "pencil.tip", title: "Callout", detail: "Line with labelled box") { [weak self] in self?.addForInlineEditing(.callout) },
@@ -622,6 +622,21 @@ final class TimelineViewController: NSViewController {
         present(popover, from: annotationButton)
     }
 
+    // MARK: - Harness seams (`--menu-shot`)
+
+    /// Opens the REAL Effects picker exactly as the toolbar button does and
+    /// hands back the presented popover.
+    func probeOpenEffectsMenu() -> CaptureCatPopover? {
+        showZoomMenu()
+        return openPopover
+    }
+
+    /// Opens the REAL annotation picker (the other rich-row menu).
+    func probeOpenAnnotationMenu() -> CaptureCatPopover? {
+        showAnnotationMenu()
+        return openPopover
+    }
+
     private func showZoomMenu() {
         // The one Effects menu: every effect starts here, drops at the
         // playhead pre-configured, and lands selected so the on-canvas focal
@@ -630,10 +645,11 @@ final class TimelineViewController: NSViewController {
             .init(icon: "wand.and.stars", title: "Motion",
                   detail: "Cinematic corner tour across the image") { [weak self] in self?.stillMotion() },
         ] : []
-        let popover = TimelinePickerPopover.make(width: 260, rows: motionRows + [
+        let zoomAndMotion = TimelinePickerPopover.Section(title: "Zoom & motion", rows: motionRows + [
             .init(icon: "sparkle.magnifyingglass", title: "Auto Zoom",
                   detail: "Generate zooms from cursor movement",
-                  isEnabled: hasCursorData) { [weak self] in self?.autoZoom() },
+                  isEnabled: hasCursorData,
+                  disabledDetail: "Needs cursor data from a CaptureCat recording") { [weak self] in self?.autoZoom() },
             .init(icon: "plus.magnifyingglass", title: "Zoom In",
                   detail: "Push in at the playhead — drag the target to aim") { [weak self] in self?.addZoomRegion() },
             .init(icon: "sparkles.rectangle.stack", title: "Showcase",
@@ -642,22 +658,38 @@ final class TimelineViewController: NSViewController {
                   detail: "Shrink the card for a beat, then back") { [weak self] in self?.addScaleDownBlock() },
             .init(icon: "rotate.3d", title: "Tilt",
                   detail: "Skew the screen in 3D for a span") { [weak self] in self?.addTiltRegion() },
+        ])
+        let transitions = TimelinePickerPopover.Section(title: "Transitions", rows: [
             .init(icon: "arrow.up.to.line", title: "Slide",
                   detail: "Card slides from an edge — place it anywhere") { [weak self] in self?.enableIntroSlide() },
-            .init(icon: NSImage(systemSymbolName: "book.pages", accessibilityDescription: nil) != nil
-                      ? "book.pages" : "rectangle.portrait.and.arrow.forward",
+            .init(icon: Self.symbol("book.pages", fallback: "rectangle.portrait.and.arrow.forward"),
                   title: "Curtain Unveil",
                   detail: "A curtain peels from a corner to reveal the screen") { [weak self] in self?.enableCurtainUnveil() },
-            .init(icon: "person.crop.rectangle", title: "Camera: Full Screen",
-                  detail: "Webcam fills the card for a span — talking head",
-                  isEnabled: hasRecordedCamera) { [weak self] in self?.addCameraLayoutRegion(mode: .cameraOnly) },
-            .init(icon: "rectangle.split.2x1", title: "Camera: Side by Side",
-                  detail: "Screen shrinks left, webcam fills the right",
-                  isEnabled: hasRecordedCamera) { [weak self] in self?.addCameraLayoutRegion(mode: .sideBySide) },
-            .init(icon: "person.crop.rectangle.badge.xmark", title: "Camera: Hide",
-                  detail: "No webcam for a span — screen only",
-                  isEnabled: hasRecordedCamera) { [weak self] in self?.addCameraLayoutRegion(mode: .screenOnly) },
         ])
+        // The header carries "Camera", so the rows drop the old prefix; when
+        // there is no camera track the whole group dims and ONE caption says
+        // why (instead of five unexplained dead rows).
+        let camera = hasRecordedCamera
+        let cameraSection = TimelinePickerPopover.Section(title: "Camera", rows: [
+            .init(icon: "person.crop.rectangle", title: "Full Screen",
+                  detail: "Webcam fills the card for a span — talking head",
+                  isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .cameraOnly) },
+            .init(icon: "rectangle.split.2x1", title: "Side by Side",
+                  detail: "Screen shrinks left, webcam fills the right",
+                  isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .sideBySide) },
+            .init(icon: Self.symbol("person.and.background.dotted", fallback: "person.fill"),
+                  title: CameraBubbleLook.cutout.displayName,
+                  detail: "Background removed — you, right over the screen",
+                  isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .bubble, look: .cutout) },
+            .init(icon: Self.symbol("person.crop.artframe", fallback: "person.crop.square"),
+                  title: CameraBubbleLook.popOut.displayName,
+                  detail: "You on a gradient card, head popping out the top",
+                  isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .bubble, look: .popOut) },
+            .init(icon: "person.crop.rectangle.badge.xmark", title: "Hide Camera",
+                  detail: "No webcam for a span — screen only",
+                  isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .screenOnly) },
+        ], disabledCaption: "Needs a camera recording")
+        let popover = TimelinePickerPopover.make(sections: [zoomAndMotion, transitions, cameraSection])
         present(popover, from: zoomMenuButton)
     }
 
@@ -750,7 +782,7 @@ final class TimelineViewController: NSViewController {
     }
 
     private func showFocusMenu() {
-        let popover = TimelinePickerPopover.make(width: 240, rows: [
+        let popover = TimelinePickerPopover.make(rows: [
             .init(icon: "eye.slash", title: "Add Blur",
                   detail: "Drag over an area to blur it") { [weak self] in
                 guard let self else { return }
@@ -1315,7 +1347,7 @@ final class TimelineViewController: NSViewController {
                     isHighlight: false,
                     startTime: map.outputTime(forSource: region.startTime),
                     endTime: map.outputTime(forSource: region.endTime),
-                    label: "Camera: \(region.mode.displayName)",
+                    label: "Camera: \(region.effectiveLook?.displayName ?? region.mode.displayName)",
                     isSelected: selectedCameraLayoutID == region.id
                 )
             }
@@ -1558,11 +1590,11 @@ final class TimelineViewController: NSViewController {
                 selection.introSelected = false
                 selection.curtainSelected = false
                 selectedAnnotationID = id
-                // Seek-if-not-visible (the Descript/CapCut overlay pattern):
+                // Seek-if-not-visible (the usual video-editor overlay pattern):
                 // when the playhead is outside the block's span, jump into it
                 // so the selected annotation is actually ON SCREEN — which is
                 // also what summons the contextual toolbar above it. Inside
-                // the span, the playhead stays put (FCP rule).
+                // the span, the playhead stays put (never yank the playhead needlessly).
                 if let a = project.annotations.first(where: { $0.id == id }),
                    currentTime < a.startTime || currentTime > a.endTime {
                     isPlaying = false
@@ -1796,7 +1828,7 @@ final class TimelineViewController: NSViewController {
         out += project.blurRegions.flatMap { [$0.startTime, $0.endTime] }
         out += project.highlightRegions.flatMap { [$0.startTime, $0.endTime] }
         out += project.speedRegions.flatMap { [$0.startTime, $0.endTime] }
-        out.append(currentTime) // playhead is a snap target, like CapCut
+        out.append(currentTime) // playhead is a snap target, as in most video editors
         return out
     }
 
@@ -1895,7 +1927,7 @@ final class TimelineViewController: NSViewController {
     }
 
     /// Keep the playhead in view while playing — page-jump when it leaves the
-    /// visible window, like CapCut/FCP.
+    /// visible window, as video editors do.
     private func followPlayheadIfNeeded() {
         guard isPlaying, visibleScrollRect.width > 0, outputDuration > 0 else { return }
         let width = scaledTrackWidth
@@ -1937,7 +1969,12 @@ final class TimelineViewController: NSViewController {
 
     // MARK: - Camera layout regions (FOCUS lane)
 
-    private func addCameraLayoutRegion(mode: CameraLayoutMode) {
+    /// An icon name the kit draws (CCIcon), else the fallback.
+    private static func symbol(_ name: String, fallback: String) -> String {
+        CCIcon.has(name) ? name : fallback
+    }
+
+    private func addCameraLayoutRegion(mode: CameraLayoutMode, look: CameraBubbleLook? = nil) {
         // Playhead near the start = "this is my intro": snap to 0 so the
         // video OPENS on the arrangement (CameraLayoutMath renders a block
         // at t=0 settled from frame one, no ease-in from the bubble).
@@ -1955,14 +1992,17 @@ final class TimelineViewController: NSViewController {
         )
         guard start < end else { NSSound.beep(); return } // lane full
 
-        let region = CameraLayoutRegion(startTime: start, endTime: end, mode: mode)
+        let region = CameraLayoutRegion(startTime: start, endTime: end, mode: mode, look: look)
         project.cameraLayoutRegions.append(region)
         selectedCameraLayoutID = region.id
+        // A look needs the person mask — start segmenting now rather than on
+        // the next preview render (CameraSegmentation is idempotent).
+        if look != nil { AppState.current?.cameraSegmentation.ensureMask(for: project) }
 
         undoManager?.registerUndo(withTarget: project) { project in
             project.cameraLayoutRegions.removeAll { $0.id == region.id }
         }
-        undoManager?.setActionName("Add Camera Layout")
+        undoManager?.setActionName(look.map { "Add \($0.displayName)" } ?? "Add Camera Layout")
     }
 
     private func deleteCameraLayoutRegion(id: UUID) {

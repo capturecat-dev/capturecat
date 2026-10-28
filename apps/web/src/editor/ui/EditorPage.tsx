@@ -23,12 +23,14 @@ import { useShareCenter } from "./export/useShareCenter";
 import type { LoadedInfo, TransportState as EngineTransport } from "../engine/protocol";
 import { refsOf } from "../engine/media/assets";
 import { saveCloudProject, webClientId } from "../state/cloud";
+import { MAC_DOWNLOAD_URL, continueOnMac } from "../state/continueOnMac";
 import { EditorController } from "../state/controller";
 import * as E from "../state/edits";
 import { loadInteractionInputs } from "../state/interactionInputs";
 import { loadEditorProject, type LoadedEditorProject } from "../state/projectSource";
 import { EditorStore, useEditorStore, type EditorState, type Persistence } from "../state/store";
 import { useSubtitleGeneration } from "../state/subtitleGeneration";
+import { useCameraMask } from "../state/cameraMask";
 import { timelineSnapshot } from "../state/timeline";
 import { buildEditorToolHandlers, registerEditorWebMCP } from "../state/webmcpHandlers";
 import { REPLACE_ZOOM_BLOCKS, editorPaneActions, useInspectorRevealKey, usePendingSeek, useRecordingFacts } from "./editorPageWiring";
@@ -252,7 +254,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
             const doc = store.documentJSON();
             const refs = refsOf(doc);
             const files: Record<string, string> = {};
-            for (const ref of [refs.cursor, refs.keystrokes, refs.camera, ...refs.images, ...refs.audio]) {
+            for (const ref of [refs.cursor, refs.keystrokes, refs.camera, refs.mask, ...refs.images, ...refs.audio]) {
               const url = ref ? loaded.mediaUrl(ref) : undefined;
               if (ref && url) files[ref] = url;
             }
@@ -355,10 +357,31 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
     return {
       ...base,
       onShowHistory: () => history.toggle(),
+      // Cloud projects only (History is cloud-only too): the Mac app opens
+      // exactly what the cloud holds, so save first.
+      onContinueOnMac: async () => {
+        const result = await continueOnMac(projectId, {
+          flush: () => store.flush(),
+          saved: () => !store.getState().dirty && !store.getState().conflict,
+        });
+        if (result === "save-failed") {
+          await alerts.present({
+            title: "Not saved yet",
+            message: "This project has changes the cloud doesn’t have yet, so the Mac would open an older version. Once it shows Saved, try again.",
+          });
+        } else if (result === "no-app") {
+          const choice = await alerts.present({
+            title: "Didn’t open?",
+            message: "CaptureCat for Mac opens this project with everything you recorded and edited here. Install it, then try again.",
+            buttons: [{ title: "Get CaptureCat for Mac", role: "primary" }, { title: "Close" }],
+          });
+          if (choice === 0) window.open(MAC_DOWNLOAD_URL, "_blank", "noopener");
+        }
+      },
       // "Needs review" opens Merge Review; the other states retry as before.
       onSyncRetry: () => (store.getState().sync === "review" ? history.open() : base.onSyncRetry?.()),
     };
-  }, [controller, history, store]);
+  }, [controller, history, store, alerts, projectId]);
   // Share links: the top-bar Share key and the sheet's share-after-export.
   const shareCenter = useShareCenter(store, controller, info ? { width: info.width, height: info.height } : null);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
@@ -366,6 +389,22 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
   const mediaActions = useMediaPickers(store, loaded);
   // Generate / Regenerate Subtitles: on-device Whisper (state/subtitleGeneration.ts).
   const subtitleActions = useSubtitleGeneration(store, loaded?.mediaUrl);
+  // Cutout / Pop-out card: on-device background removal (state/cameraMask.ts).
+  const cameraMask = useCameraMask(store, loaded?.media, () => controller.client);
+  useEffect(() => {
+    controller.hooks.cameraLookAdded = cameraMask.kick;
+    return () => {
+      controller.hooks.cameraLookAdded = undefined;
+    };
+  }, [controller, cameraMask.kick]);
+  const [maskDismissed, setMaskDismissed] = useState<string | null>(null);
+  const maskStatus = cameraMask.status;
+  const maskMessage = maskStatus.error ?? maskStatus.notice;
+  const cameraMaskChip = maskStatus.busy
+    ? { busy: true, fraction: maskStatus.fraction, text: maskStatus.progress, tone: "progress" as const, onCancel: cameraMask.cancel }
+    : maskMessage && maskMessage !== maskDismissed
+      ? { busy: false, fraction: null, text: maskMessage, tone: maskStatus.error ? ("error" as const) : ("notice" as const), onDismiss: () => setMaskDismissed(maskMessage) }
+      : null;
   const paneFacts = useRecordingFacts(project, loaded);
   const selectionRevealKey = useInspectorRevealKey(store);
   // Opening History re-shows a collapsed inspector column (it lives there).
@@ -442,6 +481,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
             stillTreatment: project?.stillTreatment,
             hasCursorData: project?.cursorDataURL != null,
             hasRecordedCamera: project?.cameraVideoURL != null,
+            cameraMask: cameraMaskChip,
             syncState: state.sync,
             historyOpen,
           }}

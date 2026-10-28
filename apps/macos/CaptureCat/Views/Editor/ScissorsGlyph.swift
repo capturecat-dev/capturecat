@@ -1,125 +1,65 @@
 import AppKit
 
-/// Skeuomorphic editing scissors — polished-steel blades pointing UP, silver
-/// finger loops below, like the classic Mac editing icon. Both halves are
-/// rigid blade+loop pieces rotated about the pivot, so one `open` parameter
-/// drives a physically believable close for the slice tool's snip animation.
+/// The slice tool's scissors — the icon kit's `scissors` glyph (CCIcon,
+/// 2026 flat look; it replaced a polished-steel skeuomorphic drawing). Blades
+/// point UP, finger loops below. Each half (one loop + its blade) is a rigid
+/// line through the pivot, rotated about it, so one `open` parameter drives a
+/// physically believable close for the snip animation.
+///
+/// Drawn over arbitrary video thumbnails, so it is a white glyph with a dark
+/// outline (the macOS-cursor recipe): legible on black, white and busy frames.
 enum ScissorsGlyph {
-    /// `open`: 1 = blades fully apart, 0 = closed.
+    /// The kit drawing this mirrors (24-unit grid, Y-down): loops r 2.75 at
+    /// (7, 17.25) and (17, 17.25), blades (8.75, 15.12)→(17.25, 4.75) and
+    /// (15.25, 15.12)→(6.75, 4.75), crossing at the pivot.
+    private static let pivot = CGPoint(x: 12, y: 11.155)
+    private static let loopRadius: CGFloat = 2.75
+    /// Each blade's lean off vertical in the kit drawing (fully open).
+    private static let kitHalfSpread = atan2(17.25 - 12, 11.155 - 4.75)
+
+    /// `open`: 1 = blades fully apart (the kit drawing), 0 = closed.
+    /// Orientation-correct in any context — draw it with
+    /// `respectFlipped: true` (the timeline canvas is a flipped view).
     static func image(height: CGFloat, open: CGFloat) -> NSImage {
         let width = height * 0.95
-        // flipped: true — the timeline canvas is a flipped view, and the
-        // harness snip-shots proved the y-up geometry below renders blades-
-        // DOWN there with flipped:false. Verify any change with
-        // `--videotrack-math-test --canvas --snip-shot`, not a standalone
-        // render (NSImage handler orientation differs between contexts).
-        return NSImage(size: NSSize(width: width, height: height), flipped: true) { _ in
+        return NSImage(size: NSSize(width: width, height: height), flipped: true) { rect in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
-            let spread = 0.08 + 0.34 * max(0, min(1, open))
-            let pivot = CGPoint(x: width / 2, y: height * 0.38)
-            let bladeLen = height * 0.60
-            let bladeBulge = height * 0.16
-            let loopRadius = height * 0.105
-            let loopStroke = max(1.4, height * 0.055)
+            // Kit units → points; 20 units of height leaves room for the
+            // outline at every opening.
+            let unit = rect.height / 20
+            let halfSpread = 0.08 + (kitHalfSpread - 0.08) * max(0, min(1, open))
+            let swing = kitHalfSpread - halfSpread
 
-            let space = CGColorSpaceCreateDeviceRGB()
-            let steel = CGGradient(
-                colorsSpace: space,
-                colors: [
-                    NSColor(white: 0.97, alpha: 1).cgColor,
-                    NSColor(white: 0.72, alpha: 1).cgColor,
-                    NSColor(white: 0.88, alpha: 1).cgColor,
-                ] as CFArray,
-                locations: [0, 0.55, 1])!
-            let edge = NSColor(white: 0.35, alpha: 0.9)
-
-            for side: CGFloat in [-1, 1] {
-                ctx.saveGState()
-                ctx.translateBy(x: pivot.x, y: pivot.y)
-                ctx.rotate(by: side * spread)
-
-                // Blade: slender lens from pivot to tip, bulge on the outside.
-                let blade = CGMutablePath()
-                blade.move(to: .zero)
-                blade.addQuadCurve(
-                    to: CGPoint(x: 0, y: bladeLen),
-                    control: CGPoint(x: side * bladeBulge, y: bladeLen * 0.38))
-                blade.addQuadCurve(
-                    to: .zero,
-                    control: CGPoint(x: -side * bladeBulge * 0.15, y: bladeLen * 0.5))
-                blade.closeSubpath()
-
-                // Steel fill: gradient across the blade's width, dark cutting
-                // edge, and a specular streak along the spine.
-                ctx.saveGState()
-                ctx.addPath(blade)
-                ctx.clip()
-                ctx.drawLinearGradient(
-                    steel,
-                    start: CGPoint(x: -side * bladeBulge, y: bladeLen * 0.4),
-                    end: CGPoint(x: side * bladeBulge, y: bladeLen * 0.4),
-                    options: [])
-                ctx.restoreGState()
-                ctx.addPath(blade)
-                ctx.setStrokeColor(edge.cgColor)
-                ctx.setLineWidth(max(0.6, height * 0.014))
-                ctx.strokePath()
-                let streak = CGMutablePath()
-                streak.move(to: CGPoint(x: 0, y: bladeLen * 0.06))
-                streak.addQuadCurve(
-                    to: CGPoint(x: 0, y: bladeLen * 0.96),
-                    control: CGPoint(x: side * bladeBulge * 0.45, y: bladeLen * 0.4))
-                ctx.addPath(streak)
-                ctx.setStrokeColor(NSColor(white: 1, alpha: 0.8).cgColor)
-                ctx.setLineWidth(max(0.6, height * 0.012))
-                ctx.strokePath()
-
-                // Finger loop: a silver ring below the pivot — gradient clipped
-                // to the stroked ellipse so the metal wraps around it.
-                let loopCenter = CGPoint(x: 0, y: -(pivot.y - loopRadius - loopStroke / 2))
-                let ring = CGPath(
-                    ellipseIn: CGRect(
-                        x: loopCenter.x - loopRadius, y: loopCenter.y - loopRadius,
-                        width: loopRadius * 2, height: loopRadius * 2),
-                    transform: nil)
-                    .copy(strokingWithWidth: loopStroke, lineCap: .round,
-                          lineJoin: .round, miterLimit: 10)
-                ctx.saveGState()
-                ctx.addPath(ring)
-                ctx.clip()
-                ctx.drawLinearGradient(
-                    steel,
-                    start: CGPoint(x: 0, y: loopCenter.y + loopRadius),
-                    end: CGPoint(x: 0, y: loopCenter.y - loopRadius),
-                    options: [])
-                ctx.restoreGState()
-                ctx.addPath(ring)
-                ctx.setStrokeColor(edge.withAlphaComponent(0.5).cgColor)
-                ctx.setLineWidth(max(0.5, height * 0.01))
-                ctx.strokePath()
-                ctx.restoreGState()
+            // One half = its loop + its blade, as a path in kit units about
+            // the pivot. side -1: left loop, blade leaning right.
+            func half(_ side: CGFloat) -> CGPath {
+                let path = CGMutablePath()
+                let loop = CGPoint(x: 12 + side * 5 - pivot.x, y: 17.25 - pivot.y)
+                path.addEllipse(in: CGRect(x: loop.x - loopRadius, y: loop.y - loopRadius,
+                                           width: loopRadius * 2, height: loopRadius * 2))
+                path.move(to: CGPoint(x: 12 + side * 3.25 - pivot.x, y: 15.12 - pivot.y))
+                path.addLine(to: CGPoint(x: 12 - side * 5.25 - pivot.x, y: 4.75 - pivot.y))
+                // Closing swings each half toward vertical: the left-loop
+                // half turns counter-clockwise on screen (Y-down: negative).
+                var turn = CGAffineTransform(rotationAngle: side * swing)
+                return path.copy(using: &turn) ?? path
             }
+            let halves = [half(-1), half(1)]
 
-            // Pivot rivet: small radial-shaded dome.
-            let r = height * 0.055
-            let rivet = CGGradient(
-                colorsSpace: space,
-                colors: [
-                    NSColor(white: 0.85, alpha: 1).cgColor,
-                    NSColor(white: 0.3, alpha: 1).cgColor,
-                ] as CFArray,
-                locations: [0, 1])!
-            ctx.saveGState()
-            ctx.addEllipse(in: CGRect(
-                x: pivot.x - r, y: pivot.y - r, width: r * 2, height: r * 2))
-            ctx.clip()
-            ctx.drawRadialGradient(
-                rivet,
-                startCenter: CGPoint(x: pivot.x - r * 0.35, y: pivot.y + r * 0.35),
-                startRadius: 0,
-                endCenter: pivot, endRadius: r * 1.4,
-                options: [])
-            ctx.restoreGState()
+            ctx.translateBy(x: rect.midX + (pivot.x - 12) * unit,
+                            y: rect.midY + (pivot.y - 12) * unit)
+            ctx.scaleBy(x: unit, y: unit)
+            ctx.setLineCap(.round)
+            ctx.setLineJoin(.round)
+            for (width, color) in [(1.75 + 1.8, NSColor.black.withAlphaComponent(0.55)),
+                                   (1.75, NSColor.white)] {
+                ctx.setLineWidth(width)
+                ctx.setStrokeColor(color.cgColor)
+                for path in halves {
+                    ctx.addPath(path)
+                    ctx.strokePath()
+                }
+            }
             return true
         }
     }

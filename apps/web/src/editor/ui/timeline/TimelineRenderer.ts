@@ -1262,7 +1262,7 @@ export class TimelineRenderer {
       const r = this.chipRect(chip);
       if (!c || !r || r.x > vx1 || r.x + r.w < vx0) continue;
       const hovered = this.hoverKey === `${chip}-chip`;
-      this.sprites.draw(ctx, r.x, r.y, r.w, r.h, t.laneEffectTop, t.laneEffectBottom, c.selected, hovered, this.dpr);
+      this.sprites.draw(ctx, r.x, r.y, r.w, r.h, t.laneEffectTop, t.laneEffectBottom, c.selected, hovered, this.dpr, t.dark);
       this.drawIconLabel(ctx, t, r, [c.icon], r.w > 52 ? `  ${c.label}` : "", "none");
       if (c.selected || hovered) this.drawGrips(ctx, r);
     }
@@ -1275,7 +1275,7 @@ export class TimelineRenderer {
       const hovered = this.hoverKey === item.key;
       ctx.save();
       if (display?.dimmed) ctx.globalAlpha = 0.8;
-      this.sprites.draw(ctx, r.x, r.y, r.w, r.h, t.laneEffectTop, t.laneEffectBottom, item.selected, hovered, this.dpr);
+      this.sprites.draw(ctx, r.x, r.y, r.w, r.h, t.laneEffectTop, t.laneEffectBottom, item.selected, hovered, this.dpr, t.dark);
       const icons: string[] = [];
       if (item.zoomId) icons.push("plus.magnifyingglass");
       if (item.tiltId) icons.push("rotate.3d");
@@ -1309,7 +1309,7 @@ export class TimelineRenderer {
       if (display?.dimmed) ctx.globalAlpha = 0.8;
       const top = item.isHighlight ? t.laneHighlightTop : t.laneBlurTop;
       const bottom = item.isHighlight ? t.laneHighlightBottom : t.laneBlurBottom;
-      this.sprites.draw(ctx, r.x, r.y, r.w, r.h, top, bottom, item.selected, hovered, this.dpr);
+      this.sprites.draw(ctx, r.x, r.y, r.w, r.h, top, bottom, item.selected, hovered, this.dpr, t.dark);
       const inner = r.w - 16;
       if (inner > 4) {
         ctx.font = font;
@@ -1337,7 +1337,7 @@ export class TimelineRenderer {
       const hovered = this.hoverKey === key;
       ctx.save();
       if (display?.dimmed) ctx.globalAlpha = 0.8;
-      this.sprites.draw(ctx, r.x, r.y, r.w, r.h, t.laneAnnotateTop, t.laneAnnotateBottom, item.selected, hovered, this.dpr);
+      this.sprites.draw(ctx, r.x, r.y, r.w, r.h, t.laneAnnotateTop, t.laneAnnotateBottom, item.selected, hovered, this.dpr, t.dark);
       if (r.h >= 14) this.drawIconLabel(ctx, t, r, [item.icon], r.w > 58 ? item.label : "", "en");
       if (r.h >= 16 && (item.selected || hovered)) this.drawGrips(ctx, r);
       ctx.restore();
@@ -1540,7 +1540,7 @@ export class TimelineRenderer {
     }
   }
 
-  /** Page-jump to keep the playhead in view while playing (CapCut/FCP feel). */
+  /** Page-jump to keep the playhead in view while playing (video-editor feel). */
   private followPlayhead() {
     const width = this.trackWidth;
     if (!(width > this.viewW + 1)) return;

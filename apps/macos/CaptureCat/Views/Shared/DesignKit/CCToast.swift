@@ -15,7 +15,7 @@ import AppKit
 ///     toaster.show(title: "Export failed", variant: .destructive, duration: 8)
 ///
 /// Variants: `.default` (no icon unless `symbol:`), `.success`, `.warning`,
-/// `.destructive` — each with a leading SF Symbol in its tone.
+/// `.destructive` — each with a leading kit icon (CCIcon) in its tone.
 @MainActor
 final class CCToast: NSView {
     enum Variant {
@@ -106,10 +106,7 @@ final class CCToast: NSView {
         card.addSubview(barHost)
 
         let symbolName = symbol ?? variant.symbol
-        icon.image = symbolName.flatMap {
-            NSImage(systemSymbolName: $0, accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
-        }
+        icon.image = symbolName.flatMap { CCIcon.image($0, pointSize: 14, weight: .medium) }
         icon.isHidden = icon.image == nil
         icon.imageScaling = .scaleProportionallyUpOrDown
         titleField.stringValue = title

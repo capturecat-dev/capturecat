@@ -46,7 +46,7 @@ final class CameraManager: NSObject {
     var recordingStartHostTimeSeconds: Double? { _recordingStartHostTimeSeconds }
 
     /// Webcams plus connected iPhones/iPads (muxed screen-capture devices) —
-    /// a phone can be used as the overlay "camera", Screen Studio-style.
+    /// a phone can be used as the overlay "camera" (phone-as-webcam).
     var availableDevices: [AVCaptureDevice] {
         AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInWideAngleCamera, .external],

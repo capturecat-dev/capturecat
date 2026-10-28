@@ -93,7 +93,7 @@ export function Chips({
           role="radio"
           aria-checked={index === selectedIndex}
           tabIndex={index === selectedIndex ? 0 : -1}
-          className="cc-chip cc-mat-raised cc-press"
+          className="cc-chip cc-press"
           onClick={() => {
             if (index !== selectedIndex) onSelect(index);
           }}

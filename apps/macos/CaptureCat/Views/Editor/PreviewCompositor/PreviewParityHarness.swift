@@ -59,6 +59,8 @@ enum PreviewParityHarness {
         var cameraPoster: NSImage?
         var videoPoster: NSImage?
         var cameraAspect: CGFloat = 4.0 / 3.0
+        /// Person mask for the camera-look probes (nil everywhere else).
+        var cameraMask: CameraMaskTrack?
         /// True for states that must render as PLAYBACK frames — the paused
         /// editor deliberately settles build effects (Chrome.rendersSettled),
         /// so mid-flight animation states pin isPlaying to stay mid-flight.
@@ -745,6 +747,18 @@ enum PreviewParityHarness {
 
             failures += styleFailures
         }
+
+        // 10c — camera LOOKS (docs/camera-cutout.md): structural, not
+        // fingerprinted — a settled cutout must be TRANSPARENT outside the
+        // silhouette and opaque inside (a mean diff would wave a whole
+        // unmasked camera through), the pop-out head must rise above its
+        // card, and a look cross-fade must be mid-flight between ticks. A
+        // self-test injects an unmasked look and requires the check to fail.
+        failures += await cameraLookChecks(
+            fixture: fixture, compositor: compositor, container: container,
+            t0: t0, artifacts: fixtureDir, reset: reset)
+        fixture.project.cameraLayoutRegions = []
+        fixture.cameraMask = nil
 
         // 12 — device take, flat (bezel + seam; pad-style for the 16:10 fixture)
         reset { s in
@@ -2278,7 +2292,7 @@ enum PreviewParityHarness {
         // ramp that STARTED at the cut, so the content swap played at full
         // opacity and popped, while the exporter straddled the boundary. Both
         // sides now evaluate `DeviceSegmentDip`; these assert the properties
-        // that make it read as Keynote-smooth, so re-forking one side fails.
+        // that make it read as smooth, so re-forking one side fails.
         do {
             let cut: TimeInterval = 4.0
             let bounds = [cut]
@@ -2402,7 +2416,7 @@ enum PreviewParityHarness {
         exit(failures == 0 ? 0 : 1)
     }
 
-    private static func compositorInput(_ f: Fixture) -> PreviewCompositorView.FrameInput {
+    static func compositorInput(_ f: Fixture) -> PreviewCompositorView.FrameInput {
         PreviewCompositorView.FrameInput(
             project: f.project,
             currentTime: f.currentTime,
@@ -2414,11 +2428,12 @@ enum PreviewParityHarness {
             cameraPlayer: nil,
             cameraPosterImage: f.project.settings.showCamera ? f.cameraPoster : nil,
             cameraVideoAspect: f.cameraAspect,
-            videoPosterImage: f.videoPoster
+            videoPosterImage: f.videoPoster,
+            cameraMask: f.cameraMask
         )
     }
 
-    private static func settle(_ seconds: TimeInterval) async {
+    static func settle(_ seconds: TimeInterval) async {
         // Run the main run loop so SwiftUI commits, implicit animations
         // finish, and the 60Hz video drivers pull frames.
         let until = Date(timeIntervalSinceNow: seconds)
@@ -2674,7 +2689,7 @@ enum PreviewParityHarness {
         return Pixels(bytes: bytes, width: w, height: h, bytesPerRow: bpr)
     }
 
-    private static func savePNG(_ image: CGImage, _ url: URL) {
+    static func savePNG(_ image: CGImage, _ url: URL) {
         let rep = NSBitmapImageRep(cgImage: image)
         try? rep.representation(using: .png, properties: [:])?.write(to: url)
     }

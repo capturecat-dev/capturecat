@@ -12,6 +12,8 @@ enum CCMenuHoverProbe {
         setbuf(stdout, nil)
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
+        // The user's real pointer must not fight the synthetic sweep.
+        CCMenu.probeIsolated = true
 
         let window = NSWindow(
             contentRect: NSRect(x: 200, y: 400, width: 400, height: 300),
@@ -35,30 +37,28 @@ enum CCMenuHoverProbe {
         CaptureCatMenuPresenter.show(menu, from: anchor, edge: .below, selectedItem: menu.items[0])
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            guard let panel = window.childWindows?.first(where: { $0.isVisible }),
-                  let content = panel.contentView else {
+            // Probe seams, never `sublayers.first`: the kit menu's rows and
+            // its glide wash, through the presenter that opened them.
+            guard let surface = CaptureCatMenuPresenter.probeRoot else {
                 print("MENU-HOVER FAIL no menu panel — childWindows=\(String(describing: window.childWindows?.map { ($0.className, $0.isVisible, $0.frame) })) appWindows=\(NSApp.windows.count)")
                 exit(1)
             }
-            var rows: [NSControl] = []
-            collectRows(in: content, into: &rows)
+            let list = surface.list
+            let rows = list.rows
             guard rows.count == titles.count else {
                 print("MENU-HOVER FAIL rows=\(rows.count)")
                 exit(1)
             }
-            guard let host = rows[0].superview?.superview,
-                  let highlight = host.layer?.sublayers?.first(where: { $0.cornerRadius > 0 && $0.frame.width > 20 }) else {
-                print("MENU-HOVER FAIL no highlight layer (host=\(String(describing: rows[0].superview?.superview)))")
-                exit(1)
-            }
+            let host: NSView = list
+            let highlight = list.wash.layer
 
             var failures = 0
-            // Sweep a synthetic mouse DOWN the menu through the container's
-            // hover dispatcher (real coordinates, real hit-testing) — the wash
-            // must land on every row, not just the first ones.
+            // Sweep a synthetic pointer DOWN the menu through the list's
+            // hover dispatcher (real window coordinates, real hit-testing) —
+            // the wash must land on every row, not just the first ones.
             for index in rows.indices {
                 let row = rows[index]
-                move(over: row, in: host)
+                move(over: row, in: list)
                 host.layoutSubtreeIfNeeded()
                 let expected = row.convert(row.bounds, to: host)
                 // Model frame (animations land here immediately).
@@ -76,11 +76,11 @@ enum CCMenuHoverProbe {
             // through a cleared state and the wash SNAPPED in place instead
             // of gliding, while all the landing asserts above still passed.
             // Hop row 0 → row 8 and catch the wash's PRESENTATION mid-flight.
-            move(over: rows[0], in: host)
+            move(over: rows[0], in: list)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 let fromY = rows[0].convert(rows[0].bounds, to: host).midY
                 let toY = rows[8].convert(rows[8].bounds, to: host).midY
-                move(over: rows[8], in: host)
+                move(over: rows[8], in: list)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
                     let presentedY = (highlight.presentation() ?? highlight).position.y
                     let low = min(fromY, toY) + 4, high = max(fromY, toY) - 4
@@ -97,20 +97,12 @@ enum CCMenuHoverProbe {
         exit(0)
     }
 
-    /// Synthesizes a mouseMoved at the row's center, delivered to the hover
-    /// DISPATCHER (the content view's single tracking area owner) with real
+    /// Routes a pointer at the row's center through the list's hover
+    /// DISPATCHER (the path the production hover poller drives) with real
     /// window coordinates — so hit-testing runs, not just state flipping.
-    private static func move(over row: NSControl, in host: NSView) {
-        let locationInWindow = row.convert(
-            NSPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil
-        )
-        guard let event = NSEvent.mouseEvent(
-            with: .mouseMoved, location: locationInWindow, modifierFlags: [],
-            timestamp: ProcessInfo.processInfo.systemUptime,
-            windowNumber: row.window?.windowNumber ?? 0, context: nil,
-            eventNumber: 0, clickCount: 0, pressure: 0
-        ) else { return }
-        host.mouseMoved(with: event)
+    private static func move(over row: NSView, in list: CCMenuList) {
+        let locationInWindow = row.convert(NSPoint(x: row.bounds.midX, y: row.bounds.midY), to: nil)
+        list.routeHover(windowPoint: locationInWindow)
     }
 
     /// `--menu-hover-live`: the REAL end-to-end check. Opens an on-screen
@@ -157,18 +149,18 @@ enum CCMenuHoverProbe {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            guard let panel = window.childWindows?.first(where: { $0.isVisible }),
-                  let content = panel.contentView else {
+            guard let surface = CaptureCatMenuPresenter.probeRoot else {
                 print("MENU-LIVE FAIL no menu panel")
                 exit(1)
             }
-            let overhang = panel.frame.minY < window.frame.minY
-            print("MENU-LIVE panel=\(panel.frame) window=\(window.frame) overhangsWindow=\(overhang)")
-            var rows: [NSControl] = []
-            collectRows(in: content, into: &rows)
-            guard rows.count == titles.count,
-                  let host = rows[0].superview?.superview,
-                  let highlight = host.layer?.sublayers?.first(where: { $0.cornerRadius > 0 && $0.frame.width > 20 }) else {
+            let panel = surface.panel
+            let surfaceRect = surface.stage.surfaceScreenRect ?? panel.frame
+            let overhang = surfaceRect.minY < window.frame.minY
+            print("MENU-LIVE panel=\(surfaceRect) window=\(window.frame) overhangsWindow=\(overhang)")
+            let rows = surface.list.rows
+            let host: NSView = surface.list
+            let highlight = surface.list.wash.layer
+            guard rows.count == titles.count else {
                 print("MENU-LIVE FAIL rows=\(rows.count)")
                 exit(1)
             }
@@ -205,12 +197,5 @@ enum CCMenuHoverProbe {
         }
         app.run()
         exit(0)
-    }
-
-    private static func collectRows(in root: NSView, into rows: inout [NSControl]) {
-        if String(describing: type(of: root)).contains("CaptureCatMenuRow"), let control = root as? NSControl {
-            rows.append(control)
-        }
-        for sub in root.subviews { collectRows(in: sub, into: &rows) }
     }
 }

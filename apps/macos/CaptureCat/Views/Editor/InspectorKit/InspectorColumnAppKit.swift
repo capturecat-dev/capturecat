@@ -62,7 +62,9 @@ final class InspectorColumnAppKit: NSView {
             .contains { $0.shortcut != nil } ?? false
         cameraPane = CameraSettingsPaneAppKit(
             settings: project.settings,
-            hasRecordedCamera: project.cameraVideoURL != nil
+            hasRecordedCamera: project.cameraVideoURL != nil,
+            project: project,
+            segmentation: AppState.current?.cameraSegmentation
         )
         audioPane = AudioSettingsPaneAppKit(settings: project.settings)
         feelPane = MotionFeelPaneAppKit(settings: project.settings)
@@ -269,12 +271,11 @@ final class InspectorColumnAppKit: NSView {
         }
 
         private func restyle() {
-            let config = NSImage.SymbolConfiguration(pointSize: 19, weight: .medium)
             let name = isSelected ? "\(iconName).fill" : iconName
-            // Not every symbol has a .fill variant — fall back to the base.
-            iconView.image = (NSImage(systemSymbolName: name, accessibilityDescription: nil)
-                ?? NSImage(systemSymbolName: iconName, accessibilityDescription: nil))?
-                .withSymbolConfiguration(config)
+            // The kit draws a .fill for every tab icon (incl. kit-only ones
+            // like cursorarrow.fill); fall back to the base if one is missing.
+            iconView.image = CCIcon.image(CCIcon.has(name) ? name : iconName,
+                                          pointSize: 19, weight: .medium)
             let color = isSelected ? EditorThemeKit.textPrimary : EditorThemeKit.textSecondary
             iconView.contentTintColor = color
             titleField.textColor = color

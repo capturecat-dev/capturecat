@@ -235,13 +235,25 @@ enum ExportFormatsHarness {
             resolved(CGRect(x: -0.4, y: -0.6, width: 1.5, height: 2.5), 0.12345, 0.9876, 1.23456, 12.25),
             resolved(CGRect(x: 1919.5, y: 0.5, width: 0.5, height: 1080.5), 0.0015, 0.0025, 0.00005, -0.05),
         ]
-        let layoutKeys = layouts.map { l -> [String: Any] in
+        // Camera-look weights ride the key (docs/camera-cutout.md §11): the
+        // first layouts keep none (key ends ",0.000,0.000"), the rest fade.
+        let lookWeights: [CameraLayoutMath.LookWeights] = [
+            .none, .none, .init(cutout: 0.12345, popOut: 0.0005), .init(cutout: 0, popOut: 0.99951),
+            .init(cutout: 1, popOut: 0), .init(cutout: 0.4995, popOut: 0.5005),
+        ]
+        let lookLayouts = layouts + [layouts[1], layouts[0]]
+        let layoutKeys = zip(lookLayouts, lookWeights).map { l, w -> [String: Any] in
             var rect: Any = NSNull()
             if let c = l.cameraRect { rect = ["x": Double(c.minX), "y": Double(c.minY), "width": Double(c.width), "height": Double(c.height)] }
             return ["cameraRect": rect, "cameraOpacity": l.cameraOpacity, "chromeOpacity": l.chromeOpacity,
                     "cardScale": Double(l.cardScale), "cardTranslationX": Double(l.cardTranslationX),
-                    "key": StaticSpanCollapse.cameraLayoutKey(l)]
+                    "cutout": w.cutout, "popOut": w.popOut,
+                    "key": StaticSpanCollapse.cameraLayoutKey(l, looks: w)]
         }
+        expect(layoutKeys.allSatisfy { ($0["key"] as? String)?.split(separator: ",").count == 10 },
+               "camera-layout key: 10 fields (two look weights appended)")
+        expect((layoutKeys[0]["key"] as? String)?.hasSuffix(",0.000,0.000") == true,
+               "camera-layout key without a look ends in ,0.000,0.000")
 
         // Hot spans of a synthetic project (the web parses spans-project.json).
         let spansProject = Project(

@@ -624,7 +624,7 @@ function drawTap(
   }
 }
 
-/** Keynote-style grab handle (chrome). Raw CG shadow: offset (0, 1) base
+/** Grab handle (chrome): white disc, hairline grey rim. Raw CG shadow: offset (0, 1) base
  * space, blur 3 device px, black 0.35. */
 function handle(ctx: RecordingContext, p: Point, diameter: number, alpha = 1): void {
   const rect = { x: p.x - diameter / 2, y: p.y - diameter / 2, width: diameter, height: diameter };

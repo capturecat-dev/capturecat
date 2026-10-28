@@ -6,8 +6,11 @@
  *
  *   apps/web/.env.production   VITE_WEBMCP_ORIGIN_TRIAL=<token>
  *
- * Only the editor pages carry it (the tools live there). Without a token the
- * meta tag is omitted and WebMCP stays off except behind Chrome's flag.
+ * Every page carries it: the editor, the dashboard and the public site all
+ * register tools (src/lib/webmcp.ts). A token only works on the origin it was
+ * registered for, so register it for https://capturecat.so with "match all
+ * subdomains" to cover app.capturecat.so too. Without a token the meta tag is
+ * omitted and WebMCP stays off except behind Chrome's flag.
  */
 export const WEBMCP_ORIGIN_TRIAL_TOKEN: string = (import.meta.env.VITE_WEBMCP_ORIGIN_TRIAL ?? "").trim();
 

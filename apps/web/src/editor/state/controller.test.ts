@@ -55,6 +55,24 @@ describe("EditorController (canvas callbacks)", () => {
     expect(store.getState().project!.settings.introSlideStyle).toBe("Bottom");
   });
 
+  it("Effects → Cutout / Pop-out card: a 4 s Bubble region with the look, and segmentation is kicked", () => {
+    const { store, controller } = setup();
+    let kicked = 0;
+    controller.hooks.cameraLookAdded = () => void kicked++;
+    void controller.effectsPick("cameraCutout");
+    const regions = store.getState().project!.cameraLayoutRegions;
+    expect(regions).toHaveLength(1);
+    expect(regions[0]).toMatchObject({ mode: "bubble", look: "cutout", startTime: 0, endTime: 4 });
+    expect(store.getState().selection.cameraLayoutId).toBe(regions[0]!.id);
+    void controller.effectsPick("cameraPopOut");
+    const second = store.getState().project!.cameraLayoutRegions[1]!;
+    expect(second).toMatchObject({ mode: "bubble", look: "popOut" });
+    expect(second.startTime).toBeGreaterThanOrEqual(4);
+    expect(kicked).toBe(2);
+    store.undo();
+    expect(store.getState().project!.cameraLayoutRegions).toHaveLength(1);
+  });
+
   it("⌘D duplicates the selected linked block into the next free slot", () => {
     const { store, controller } = setup();
     controller.seek(2); // source 4

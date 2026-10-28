@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
+import { recordSiteEvent } from "./site-analytics";
 
 export const releaseRoutes = new Hono<{ Bindings: Env }>();
 
@@ -83,6 +84,26 @@ releaseRoutes.get("/releases/download/:arch", async (c) => {
 
   if (!dmg) {
     return c.json({ error: "File not found" }, 404);
+  }
+
+  // Count the download (migration 0030). The site's download links carry the
+  // visit's attribution as query parameters; a link from anywhere else falls
+  // back to its Referer. A download manager's follow-up range requests are
+  // the same download, so only a request from byte 0 counts.
+  const range = c.req.header("Range");
+  if (!range || /^bytes=0-/.test(range)) {
+    const q = (k: string) => c.req.query(k);
+    c.executionCtx.waitUntil(
+      recordSiteEvent(c.env, c.req.raw, {
+        type: "download",
+        referrer: q("ref") ?? c.req.header("Referer"),
+        utmSource: q("utm_source"),
+        utmMedium: q("utm_medium"),
+        utmCampaign: q("utm_campaign"),
+        path: q("lp"),
+        detail: arch,
+      }).catch((err) => console.error("download event failed", err)),
+    );
   }
 
   return new Response(dmg.body, {

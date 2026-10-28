@@ -821,7 +821,8 @@ final class WallpaperGridControl: NSView {
             menu.addItem(remove)
         }
         menu.autoenablesItems = false
-        NSMenu.popUpContextMenu(menu, with: event, for: cell)
+        // The house menu surface, like every other context menu in the app.
+        CaptureCatMenuPresenter.showContextMenu(menu, with: event, for: cell)
     }
 
     @objc private func setAsDefaultAction(_ sender: NSMenuItem) {
@@ -1084,12 +1085,10 @@ final class WallpaperGridControl: NSView {
                 spinner.stopAnimation(nil)
                 badge.isHidden = !(needsDownload || isFailed)
                 if isFailed {
-                    badge.image = NSImage(systemSymbolName: "exclamationmark.circle.fill", accessibilityDescription: nil)?
-                        .withSymbolConfiguration(.init(pointSize: 12, weight: .regular))
+                    badge.image = CCIcon.image("exclamationmark.circle.fill", pointSize: 12, weight: .regular)
                     badge.contentTintColor = .systemOrange
                 } else if needsDownload {
-                    badge.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: nil)?
-                        .withSymbolConfiguration(.init(pointSize: 12, weight: .regular))
+                    badge.image = CCIcon.image("arrow.down.circle.fill", pointSize: 12, weight: .regular)
                     badge.contentTintColor = NSColor.white.withAlphaComponent(0.85)
                 }
             }

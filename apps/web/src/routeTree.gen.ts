@@ -11,9 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as UsernameRouteImport } from './routes/$username'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as BetaRouteImport } from './routes/beta'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as EditorLabRouteImport } from './routes/editor-lab'
 import { Route as FeaturesRouteImport } from './routes/features'
@@ -62,6 +64,11 @@ const UsernameRoute = UsernameRouteImport.update({
   path: '/$username',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AgentsRoute = AgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
@@ -75,6 +82,11 @@ const AppRouteRoute = AppRouteRouteImport.update({
 const BetaRoute = BetaRouteImport.update({
   id: '/beta',
   path: '/beta',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DownloadRoute = DownloadRouteImport.update({
@@ -269,8 +281,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
   '/$username': typeof UsernameRoute
+  '/about': typeof AboutRoute
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
+  '/contact': typeof ContactRoute
   '/download': typeof DownloadRoute
   '/editor-lab': typeof EditorLabRoute
   '/features': typeof FeaturesRoute
@@ -312,8 +326,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$username': typeof UsernameRoute
+  '/about': typeof AboutRoute
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
+  '/contact': typeof ContactRoute
   '/download': typeof DownloadRoute
   '/editor-lab': typeof EditorLabRoute
   '/features': typeof FeaturesRoute
@@ -357,8 +373,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
   '/$username': typeof UsernameRoute
+  '/about': typeof AboutRoute
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
+  '/contact': typeof ContactRoute
   '/download': typeof DownloadRoute
   '/editor-lab': typeof EditorLabRoute
   '/features': typeof FeaturesRoute
@@ -403,8 +421,10 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/$username'
+    | '/about'
     | '/agents'
     | '/beta'
+    | '/contact'
     | '/download'
     | '/editor-lab'
     | '/features'
@@ -446,8 +466,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/$username'
+    | '/about'
     | '/agents'
     | '/beta'
+    | '/contact'
     | '/download'
     | '/editor-lab'
     | '/features'
@@ -490,8 +512,10 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/$username'
+    | '/about'
     | '/agents'
     | '/beta'
+    | '/contact'
     | '/download'
     | '/editor-lab'
     | '/features'
@@ -535,8 +559,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRouteRoute: typeof AppRouteRouteWithChildren
   UsernameRoute: typeof UsernameRoute
+  AboutRoute: typeof AboutRoute
   AgentsRoute: typeof AgentsRoute
   BetaRoute: typeof BetaRoute
+  ContactRoute: typeof ContactRoute
   DownloadRoute: typeof DownloadRoute
   EditorLabRoute: typeof EditorLabRoute
   FeaturesRoute: typeof FeaturesRoute
@@ -583,6 +609,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UsernameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/agents': {
       id: '/agents'
       path: '/agents'
@@ -602,6 +635,13 @@ declare module '@tanstack/react-router' {
       path: '/beta'
       fullPath: '/beta'
       preLoaderRoute: typeof BetaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/download': {
@@ -908,8 +948,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
   UsernameRoute: UsernameRoute,
+  AboutRoute: AboutRoute,
   AgentsRoute: AgentsRoute,
   BetaRoute: BetaRoute,
+  ContactRoute: ContactRoute,
   DownloadRoute: DownloadRoute,
   EditorLabRoute: EditorLabRoute,
   FeaturesRoute: FeaturesRoute,

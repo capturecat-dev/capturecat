@@ -1,7 +1,7 @@
 /**
  * CCAlert (Views/Shared/DesignKit/CCAlert.swift) — the house replacement
  * for `window.confirm` / NSAlert: a scrim fades over the editor and a raised
- * matte card springs in (Keynote scale-in), title (15 semibold) + muted
+ * matte card springs in (house scale-in), title (15 semibold) + muted
  * message (12, ≤ 296 wide) + a trailing button row.
  *
  *   const alerts = new AlertPresenter();          // one per page

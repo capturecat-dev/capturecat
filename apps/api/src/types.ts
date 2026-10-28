@@ -199,6 +199,14 @@ export interface VideoComment {
   body: string;
   videoTime: number;
   createdAt: string;
+  /** Migration 0031. null = top-level; else the top-level comment replied to. */
+  parentId?: string | null;
+  /** Canonical annotation JSON (lib/comments.ts), or null. */
+  annotationJson?: string | null;
+  /** Signed-in commenter's user id — server-side only, never serialized. */
+  authorUid?: string | null;
+  /** Avatar URL copied from the commenter's session at post time. */
+  authorImage?: string | null;
 }
 
 export type Variables = {

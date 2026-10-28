@@ -49,6 +49,7 @@ export class CameraSource {
         return;
       }
       this.demux = demux;
+      this.fileFacts = await cameraFileFacts(demux);
       this.stream = new VideoStream(demux, {
         label: this.opts.label ?? "camera",
         lookahead: 6,
@@ -60,6 +61,15 @@ export class CameraSource {
       this.failed = e instanceof Error ? e : new Error(String(e));
       this.opts.onError?.(this.failed);
     }
+  }
+
+  /** Byte size + duration of the camera file (the mask staleness check, docs/camera-cutout.md §2). */
+  fileFacts: CameraFileFacts = { byteSize: null, duration: null };
+
+  /** Presentation timestamp (seconds) of sample `index` — the mask is looked up by the DRAWN frame's PTS. */
+  ptsOf(index: number): number | null {
+    const f = this.demux?.frames[index];
+    return f ? f.pts : null;
   }
 
   /** The camera track opened (Mac: `cameraReader != nil`). */
@@ -152,4 +162,31 @@ export class CameraSource {
     this.stream = null;
     this.demux = null;
   }
+}
+
+/** What the camera person mask records about the file it was made from (docs/camera-cutout.md §2). */
+export interface CameraFileFacts {
+  byteSize: number | null;
+  duration: number | null;
+}
+
+/**
+ * The camera file's byte size (the reader's own size, no extra request) and
+ * duration — the END of its last frame, the AVAsset duration of a recording
+ * that starts at 0. Web segmentation writes the same two numbers, so a mask
+ * made here always matches its camera; one from the Mac matches within the
+ * contract's 0.05 s.
+ */
+export async function cameraFileFacts(demux: DemuxedVideo): Promise<CameraFileFacts> {
+  let byteSize: number | null = null;
+  try {
+    byteSize = await demux.input.source.getSizeOrNull();
+  } catch {
+    byteSize = null;
+  }
+  const frames = demux.frames;
+  const last = frames[frames.length - 1];
+  const fallback = frames.length > 1 ? (last!.pts - frames[0]!.pts) / (frames.length - 1) : 1 / 30;
+  const duration = last ? last.pts + (last.duration > 0 ? last.duration : fallback) : null;
+  return { byteSize, duration };
 }

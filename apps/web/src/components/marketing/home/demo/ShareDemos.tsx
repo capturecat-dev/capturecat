@@ -49,7 +49,7 @@ export function SharePageDemo() {
               </div>
             </div>
             <div className="ccd-comments">
-              <h6>Comments · 3</h6>
+              <p className="ccd-comments-title">Comments · 3</p>
               {COMMENTS.map((c) => (
                 <div key={c.name} className="ccd-comment">
                   <span className="ccd-avatar" />

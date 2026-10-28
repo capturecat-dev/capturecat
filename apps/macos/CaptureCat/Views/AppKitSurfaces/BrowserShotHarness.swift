@@ -48,6 +48,12 @@ enum BrowserShotHarness {
 
         AppState.suppressAutoToolbar = true
         let appState = AppState()
+        // `--light`: the light theme (after AppState, which re-applies the
+        // persisted mode). The glass sidebar paints white in an offscreen
+        // capture, so dark-theme sidebar glyphs/labels only read in light.
+        if CommandLine.arguments.contains("--light") {
+            CCTheme.setMode(.light, persist: false)
+        }
         let browser = ProjectBrowserViewController(appState: appState)
 
         // Same chrome as the real editor window (transparent title bar,
@@ -65,6 +71,7 @@ enum BrowserShotHarness {
         await settle()
         checkPopupGeometry(in: window)
         checkGeometry(in: browser.view, label: "WIDE")
+        checkSidebarIcons(in: browser.view)
         shoot(window, to: outDir.appendingPathComponent("browser-wide.png"))
 
         // Minimum window size — the full-width row scales, nothing overlaps.
@@ -238,6 +245,44 @@ enum BrowserShotHarness {
     }
 
     // MARK: - Geometry checks
+
+    /// Sidebar rows carry kit icons (CCIcon, 2026 flat look — the engraved
+    /// leather chips are gone): template images the row tints, sized to the
+    /// 16pt icon slot, drawn by the kit (a custom rep, not an SF symbol rep
+    /// — an unknown name would silently fall back to SF).
+    private static func checkSidebarIcons(in root: NSView) {
+        func find(_ view: NSView) -> BrowserSidebarView? {
+            if let hit = view as? BrowserSidebarView { return hit }
+            for sub in view.subviews { if let hit = find(sub) { return hit } }
+            return nil
+        }
+        func images(_ view: NSView) -> [NSImageView] {
+            if let imageView = view as? NSImageView { return [imageView] }
+            return view.subviews.flatMap(images)
+        }
+        guard let sidebar = find(root) else {
+            expect(false, "SIDEBAR: BrowserSidebarView in the hierarchy")
+            return
+        }
+        // All Captures, Pinned, Shared (+ folders) and the New Folder action
+        // — every SidebarRowControl's icon, whatever its size.
+        let icons = images(sidebar).filter {
+            $0.superview.map { String(describing: type(of: $0)) } == "SidebarRowControl"
+        }
+        expect(icons.count >= 4, "SIDEBAR: ≥4 row icons (\(icons.count))")
+        for (i, view) in icons.enumerated() {
+            guard let image = view.image else {
+                expect(false, "SIDEBAR icon \(i): has an image")
+                continue
+            }
+            expect(image.size.width <= 16 && image.size.height <= 16,
+                   "SIDEBAR icon \(i): fits the 16pt slot (\(image.size))")
+            expect(image.isTemplate, "SIDEBAR icon \(i): template (tinted by its row)")
+            expect(image.representations.first is NSCustomImageRep,
+                   "SIDEBAR icon \(i): drawn by the kit, not an SF fallback")
+            expect(view.contentTintColor != nil, "SIDEBAR icon \(i): row tint applied")
+        }
+    }
 
     private static func checkPopupGeometry(in window: NSWindow) {
         guard let root = window.contentView else {

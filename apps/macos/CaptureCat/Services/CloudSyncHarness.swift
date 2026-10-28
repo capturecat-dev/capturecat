@@ -89,6 +89,7 @@ enum CloudSyncHarness {
         try Data(#"{"keys":[]}"#.utf8).write(to: dir.appendingPathComponent("keys.json"))
         try Data("poster".utf8).write(to: dir.appendingPathComponent("camera_poster.png"))
         try Data("thumb".utf8).write(to: dir.appendingPathComponent("thumbnail.jpg"))
+        try Data("CCMK-mask".utf8).write(to: dir.appendingPathComponent("camera-mask.ccmask"))
         let voiceName = "voiceover-\(UUID().uuidString).m4a"
         try Data("voice".utf8).write(to: dir.appendingPathComponent(voiceName))
         try Data("watermark".utf8).write(to: dir.appendingPathComponent("watermark-abcd1234.png"))
@@ -162,7 +163,7 @@ enum CloudSyncHarness {
         do {
             // ── 1. Path rules (mirror of the API's checkLogicalPath) ─────────
             print("paths")
-            for good in ["recording.mov", "cursor.json", "voiceover-\(UUID().uuidString).m4a", "external/0123456789ab.jpg", "camera_poster.png"] {
+            for good in ["recording.mov", "cursor.json", "voiceover-\(UUID().uuidString).m4a", "external/0123456789ab.jpg", "camera_poster.png", "camera-mask.ccmask"] {
                 expect(CloudPath.isValid(good), "valid: \(good)")
             }
             for bad in ["../x.json", "/abs.mov", ".hidden.json", "a/.b.json", "project.json", "a/b/c/d/e.json", "x.svg", "noext", "a\\b.json", ""] {
@@ -178,7 +179,7 @@ enum CloudSyncHarness {
             let expected: Set<String> = [
                 "recording.mov", "cursor.json", "keys.json", "camera.mov", voice,
                 "watermark-abcd1234.png", "curtain-logo-1a2b.png", "camera_poster.png", "thumbnail.jpg",
-                "external/\(externalSHA.prefix(12)).jpg",
+                "camera-mask.ccmask", "external/\(externalSHA.prefix(12)).jpg",
             ]
             expect(paths == expected, "manifest holds exactly the referenced files (\(paths.count))")
             expect(!paths.contains { $0.hasSuffix(".bak") || $0.hasPrefix(".") || $0 == "project.json" || $0 == "unreferenced.png" },
@@ -191,6 +192,8 @@ enum CloudSyncHarness {
             expect(recording?.bytes == Int64(movieData.count), "byte count matches the file")
             expect(recording?.contentType == "video/quicktime", ".mov → video/quicktime")
             expect(manifest.files.first { $0.path == "cursor.json" }?.contentType == "application/json", ".json → application/json")
+            expect(manifest.files.first { $0.path == "camera-mask.ccmask" }?.contentType == "application/octet-stream",
+                   ".ccmask → application/octet-stream (camera-look mask rides along)")
             let ext = manifest.files.first { $0.path.hasPrefix("external/") }
             expect(ext?.source == fixture.external.path, "external file carries its exact project.json reference as source")
             expect(manifest.files.filter { $0.path != ext?.path }.allSatisfy { $0.source == nil },
@@ -416,6 +419,7 @@ enum CloudSyncHarness {
 
             // ── 14. Media the web editor added: pull brings it, push keeps it
             try await webMediaChecks(checks, apiBase: apiBase)
+            try await cloneChecks(checks, apiBase: apiBase)
             try await secondMacChecks(checks, apiBase: apiBase)
             await httpDownloadChecks(checks)
 

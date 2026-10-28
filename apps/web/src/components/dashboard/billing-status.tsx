@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { Check, CreditCard, Gauge, HardDrive, Heart, Sparkles } from "lucide-react";
+import { CreditCard, Heart } from "lucide-react";
 import { API_URL } from "@/lib/api-url";
 import { toast } from "sonner";
 
@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc/client";
 import { Button } from "@/components/ui/button";
 import { BillingSkeleton } from "@/components/dashboard/page-skeletons";
 import { formatSize } from "@/components/dashboard/video-format";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 import { IconKey, LiveDot, Meter, Panel, PlanChip, Section, Sections } from "@/components/dashboard/studio";
 
 type PublicPlans = {
@@ -97,10 +98,10 @@ export function BillingStatus({ success }: { success: boolean }) {
   return (
     <div className="space-y-4">
       {success && (
-        <Panel className="dsh-pop max-w-3xl border-emerald-400/30! bg-emerald-400/[0.07]!" padding="px-5 py-4">
-          <p className="flex items-start gap-3 text-sm text-emerald-300">
-            <IconKey className="border-emerald-300/30 text-emerald-300">
-              <Check />
+        <Panel className="dsh-pop max-w-3xl border-cc-green/30! bg-cc-green/[0.07]!" padding="px-5 py-4">
+          <p className="flex items-start gap-3 text-sm text-cc-green-text">
+            <IconKey className="border-cc-green/30 text-cc-green-text">
+              <CCIcon name="check"  />
             </IconKey>
             <span className="pt-1">
               Payment successful — your account is on Pro. Thank you: $5 of your
@@ -112,13 +113,13 @@ export function BillingStatus({ success }: { success: boolean }) {
 
       <Sections className="max-w-3xl">
         <Section
-          icon={<Sparkles />}
+          icon={<CCIcon name="sparkles"  />}
           title="Current plan"
           badge={
             isPaid ? (
               <span className="inline-flex items-center gap-2">
                 <PlanChip plan="pro" />
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-300">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-cc-green-text">
                   <LiveDot tone="green" className="size-1.5" /> Active
                 </span>
               </span>
@@ -144,7 +145,7 @@ export function BillingStatus({ success }: { success: boolean }) {
               onClick={() => createCheckout.mutate({ annual: false })}
               disabled={createCheckout.isPending}
             >
-              <Sparkles data-icon="inline-start" />
+              <CCIcon name="sparkles" data-icon="inline-start" />
               {createCheckout.isPending
                 ? "Redirecting…"
                 : proPrice
@@ -158,7 +159,7 @@ export function BillingStatus({ success }: { success: boolean }) {
           )}
         </Section>
 
-        <Section icon={<HardDrive />} title="Cloud storage" description="Shared videos, every version counted.">
+        <Section icon={<CCIcon name="drive"  />} title="Cloud storage" description="Shared videos, every version counted.">
           {limit > 0 ? (
             <>
               <div className="flex items-baseline justify-between gap-3">
@@ -179,7 +180,7 @@ export function BillingStatus({ success }: { success: boolean }) {
         </Section>
 
         {!isPaid && pro?.limits && (
-          <Section icon={<Gauge />} title="What Pro includes">
+          <Section icon={<CCIcon name="gauge"  />} title="What Pro includes">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
               {[
                 ["Cloud storage", formatSize(pro.limits.maxTotalStorageBytes ?? 0)],

@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 
 /// Auto Zoom: turns recorded interaction data (60Hz cursor samples with
-/// pressed state + keystroke times) into a calm, Screen-Studio-grade camera
+/// pressed state + keystroke times) into a calm, polished camera
 /// plan of `ZoomRegion`s.
 ///
 /// Pipeline (all pure functions — the `--autozoom-test` harness drives them

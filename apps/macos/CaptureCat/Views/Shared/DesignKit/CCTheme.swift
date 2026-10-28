@@ -272,21 +272,22 @@ final class CCThemeObservation {
 }
 
 extension CCThemeSpec {
-    /// The CaptureCat flat dark palette — byte-identical to the shipped
-    /// EditorTheme values so adopting the kit changed nothing visually.
+    /// The 2026 dark palette (2026-10-27): deep neutral surfaces with a
+    /// faint cool cast, cards that lift clearly off the window, quieter
+    /// lines. Pairs with the floating material in CCMaterial.
     static let capDark = CCThemeSpec(
         colors: .init(
-            background: NSColor(srgbRed: 0x13 / 255, green: 0x13 / 255, blue: 0x15 / 255, alpha: 1),
-            card: NSColor(srgbRed: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1),
-            popover: NSColor(srgbRed: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1),
-            elevated: NSColor(srgbRed: 0x23 / 255, green: 0x23 / 255, blue: 0x27 / 255, alpha: 1),
-            foreground: NSColor.white.withAlphaComponent(0.92),
-            mutedForeground: NSColor.white.withAlphaComponent(0.55),
-            faintForeground: NSColor.white.withAlphaComponent(0.35),
+            background: NSColor(srgbRed: 0x12 / 255, green: 0x12 / 255, blue: 0x15 / 255, alpha: 1),
+            card: NSColor(srgbRed: 0x1C / 255, green: 0x1C / 255, blue: 0x20 / 255, alpha: 1),
+            popover: NSColor(srgbRed: 0x21 / 255, green: 0x21 / 255, blue: 0x26 / 255, alpha: 1),
+            elevated: NSColor(srgbRed: 0x2A / 255, green: 0x2A / 255, blue: 0x30 / 255, alpha: 1),
+            foreground: NSColor.white.withAlphaComponent(0.94),
+            mutedForeground: NSColor.white.withAlphaComponent(0.58),
+            faintForeground: NSColor.white.withAlphaComponent(0.36),
             primary: .controlAccentColor,
             primaryForeground: .white,
             destructive: .systemRed,
-            border: NSColor.white.withAlphaComponent(0.07),
+            border: NSColor.white.withAlphaComponent(0.08),
             // Ink ring, not accent-blue — Mike's call 2026-09-01: selection/
             // focus rings are WHITE on dark (blueish rings vetoed).
             ring: NSColor.white.withAlphaComponent(0.85),
@@ -294,7 +295,8 @@ extension CCThemeSpec {
             active: NSColor.white.withAlphaComponent(0.10),
             overlay: NSColor.black.withAlphaComponent(0.42)
         ),
-        radii: .init(sm: 4, md: 6, lg: 10, xl: 16),
+        // Softer, larger corners for the 2026 look (was 4/6/10/16).
+        radii: .init(sm: 6, md: 9, lg: 14, xl: 20),
         spacing: .init(xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 24),
         fonts: .init(
             label: .systemFont(ofSize: 12),
@@ -312,29 +314,29 @@ extension CCThemeSpec {
         disabledAlpha: 0.38
     )
 
-    /// Light counterpart — same geometry/typography, inverted surfaces. Every
-    /// token is the shadcn "zinc light" energy tuned to sit beside the dark
-    /// palette without changing contrast relationships.
+    /// The 2026 light palette (2026-10-27): an airy near-white window, pure
+    /// white floating cards, soft grey wells — the brightness of current
+    /// macOS apps, with the same geometry and typography as dark.
     static let capLight = CCThemeSpec(
         colors: .init(
-            background: NSColor(srgbRed: 0xF7 / 255, green: 0xF7 / 255, blue: 0xF8 / 255, alpha: 1),
+            background: NSColor(srgbRed: 0xF4 / 255, green: 0xF4 / 255, blue: 0xF6 / 255, alpha: 1),
             card: NSColor.white,
             popover: NSColor.white,
-            elevated: NSColor(srgbRed: 0xEF / 255, green: 0xEF / 255, blue: 0xF1 / 255, alpha: 1),
-            foreground: NSColor.black.withAlphaComponent(0.88),
-            mutedForeground: NSColor.black.withAlphaComponent(0.55),
-            faintForeground: NSColor.black.withAlphaComponent(0.34),
+            elevated: NSColor(srgbRed: 0xEC / 255, green: 0xEC / 255, blue: 0xEF / 255, alpha: 1),
+            foreground: NSColor(srgbRed: 0x1D / 255, green: 0x1D / 255, blue: 0x1F / 255, alpha: 1),
+            mutedForeground: NSColor.black.withAlphaComponent(0.54),
+            faintForeground: NSColor.black.withAlphaComponent(0.32),
             primary: .controlAccentColor,
             primaryForeground: .white,
             destructive: .systemRed,
-            border: NSColor.black.withAlphaComponent(0.09),
+            border: NSColor.black.withAlphaComponent(0.08),
             // The light theme's "white" ring is ink-black — a literal white
             // ring vanishes on light surfaces; the intent is a neutral
             // hard-contrast ring, never accent-blue.
             ring: NSColor.black.withAlphaComponent(0.55),
-            hover: NSColor.black.withAlphaComponent(0.05),
-            active: NSColor.black.withAlphaComponent(0.09),
-            overlay: NSColor.black.withAlphaComponent(0.28)
+            hover: NSColor.black.withAlphaComponent(0.045),
+            active: NSColor.black.withAlphaComponent(0.08),
+            overlay: NSColor.black.withAlphaComponent(0.25)
         ),
         radii: capDark.radii,
         spacing: capDark.spacing,

@@ -9,6 +9,7 @@
  *   ?shot=1                    hide the lab-only theme switch (capture parity)
  *   ?view=picker|editor        the auth-guarded production pages, unguarded
  *   ?notice=sourceSegments,…   the stage's unsupported-features callout for these ids
+ *   ?camera=1                  the project has a recorded camera (enables the picker's camera rows)
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -400,7 +401,7 @@ function LabShell({ perf, shot }: { perf: number | null; shot: boolean }) {
         aspectRatio: model.aspect,
         canvasAspect: aspect,
         hasCursorData: true,
-        hasRecordedCamera: false,
+        hasRecordedCamera: typeof window !== "undefined" && new URLSearchParams(window.location.search).get("camera") === "1",
         syncState: "saved",
       }}
       transport={transport}

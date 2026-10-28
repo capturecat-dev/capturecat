@@ -611,6 +611,11 @@ interface VideoCommentRow {
   body: string;
   video_time: number;
   created_at: string;
+  // Migration 0031 — NULL on every older row.
+  parent_id?: string | null;
+  annotation_json?: string | null;
+  author_uid?: string | null;
+  author_image?: string | null;
 }
 
 function rowToComment(row: VideoCommentRow): VideoComment {
@@ -621,10 +626,16 @@ function rowToComment(row: VideoCommentRow): VideoComment {
     body: row.body,
     videoTime: row.video_time,
     createdAt: row.created_at,
+    parentId: row.parent_id ?? null,
+    annotationJson: row.annotation_json ?? null,
+    authorUid: row.author_uid ?? null,
+    authorImage: row.author_image ?? null,
   };
 }
 
-/** A video's comments ordered by their anchor time in the video. */
+/** A video's comments ordered by their anchor time in the video. Replies
+ *  carry their parent's time, so each sorts beside its thread; within a
+ *  time, oldest first. */
 export async function listVideoComments(
   db: D1Database,
   videoId: string,
@@ -642,6 +653,18 @@ export async function listVideoComments(
   return (results ?? []).map(rowToComment);
 }
 
+/** One comment by id (any video) — the caller checks it belongs. */
+export async function getVideoComment(
+  db: D1Database,
+  commentId: string
+): Promise<VideoComment | null> {
+  const row = await db
+    .prepare("SELECT * FROM video_comments WHERE comment_id = ?")
+    .bind(commentId)
+    .first<VideoCommentRow>();
+  return row ? rowToComment(row) : null;
+}
+
 export async function insertVideoComment(
   db: D1Database,
   comment: VideoComment
@@ -649,8 +672,9 @@ export async function insertVideoComment(
   await db
     .prepare(
       `INSERT INTO video_comments (
-         comment_id, video_id, author_name, body, video_time, created_at
-       ) VALUES (?, ?, ?, ?, ?, ?)`
+         comment_id, video_id, author_name, body, video_time, created_at,
+         parent_id, annotation_json, author_uid, author_image
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       comment.commentId,
@@ -658,9 +682,25 @@ export async function insertVideoComment(
       comment.authorName,
       comment.body,
       comment.videoTime,
-      comment.createdAt
+      comment.createdAt,
+      comment.parentId ?? null,
+      comment.annotationJson ?? null,
+      comment.authorUid ?? null,
+      comment.authorImage ?? null
     )
     .run();
+}
+
+/** Replies under one top-level comment — the per-thread cap. */
+export async function countCommentReplies(
+  db: D1Database,
+  parentId: string
+): Promise<number> {
+  const row = await db
+    .prepare("SELECT COUNT(*) AS n FROM video_comments WHERE parent_id = ?")
+    .bind(parentId)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
 }
 
 /** Comment count guard — caps runaway threads on a public page. */

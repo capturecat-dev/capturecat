@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 import { Route as DashboardBetaRouteImport } from './routes/_dashboard.beta'
 import { Route as DashboardPlansRouteImport } from './routes/_dashboard.plans'
 import { Route as DashboardTeamsRouteImport } from './routes/_dashboard.teams'
@@ -31,6 +32,11 @@ const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardBetaRoute = DashboardBetaRouteImport.update({
   id: '/beta',
@@ -61,6 +67,7 @@ const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/analytics': typeof DashboardAnalyticsRoute
   '/beta': typeof DashboardBetaRoute
   '/plans': typeof DashboardPlansRoute
   '/teams': typeof DashboardTeamsRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/analytics': typeof DashboardAnalyticsRoute
   '/beta': typeof DashboardBetaRoute
   '/plans': typeof DashboardPlansRoute
   '/teams': typeof DashboardTeamsRoute
@@ -81,6 +89,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
+  '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/beta': typeof DashboardBetaRoute
   '/_dashboard/plans': typeof DashboardPlansRoute
   '/_dashboard/teams': typeof DashboardTeamsRoute
@@ -90,14 +99,30 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/beta' | '/plans' | '/teams' | '/users' | '/api/trpc/$'
+    | '/'
+    | '/login'
+    | '/analytics'
+    | '/beta'
+    | '/plans'
+    | '/teams'
+    | '/users'
+    | '/api/trpc/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/beta' | '/plans' | '/teams' | '/users' | '/api/trpc/$'
+  to:
+    | '/'
+    | '/login'
+    | '/analytics'
+    | '/beta'
+    | '/plans'
+    | '/teams'
+    | '/users'
+    | '/api/trpc/$'
   id:
     | '__root__'
     | '/'
     | '/_dashboard'
     | '/login'
+    | '/_dashboard/analytics'
     | '/_dashboard/beta'
     | '/_dashboard/plans'
     | '/_dashboard/teams'
@@ -134,6 +159,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_dashboard/analytics': {
+      id: '/_dashboard/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof DashboardAnalyticsRouteImport
+      parentRoute: typeof DashboardRoute
     }
     '/_dashboard/beta': {
       id: '/_dashboard/beta'
@@ -174,6 +206,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface DashboardRouteChildren {
+  DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardBetaRoute: typeof DashboardBetaRoute
   DashboardPlansRoute: typeof DashboardPlansRoute
   DashboardTeamsRoute: typeof DashboardTeamsRoute
@@ -181,6 +214,7 @@ interface DashboardRouteChildren {
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardBetaRoute: DashboardBetaRoute,
   DashboardPlansRoute: DashboardPlansRoute,
   DashboardTeamsRoute: DashboardTeamsRoute,

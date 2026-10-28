@@ -361,7 +361,7 @@ export function Pane({ children }: { children: ReactNode }) {
 }
 
 /**
- * InspectorSectionBox — uppercase tracked header, rows directly on the pane
+ * InspectorSectionBox — sentence-case 12.5 semibold header in full ink (2026), rows directly on the pane
  * (16pt rhythm), a full-width hairline above every section but the first.
  */
 export function Section({

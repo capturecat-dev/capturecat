@@ -77,8 +77,7 @@ final class CCCallout: NSView {
         surface.translatesAutoresizingMaskIntoConstraints = false
         addSubview(surface)
 
-        icon.image = NSImage(systemSymbolName: variant.symbol, accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
+        icon.image = CCIcon.image(variant.symbol, pointSize: 14, weight: .medium)
         titleField.stringValue = title
         titleField.lineBreakMode = .byTruncatingTail
         messageField.stringValue = message ?? ""

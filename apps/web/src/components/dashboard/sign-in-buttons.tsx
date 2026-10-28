@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { signInAttribution } from "@/lib/attribution";
 
 /**
  * Sign-in is a full-page redirect to api.capturecat.so, not a popup.
@@ -56,6 +57,9 @@ export function SignInButtons({ next }: { next?: string }) {
         // Must be an absolute, trusted origin — the API origin-checks it.
         callbackURL: `${site}${next && next.startsWith("/") ? next : "/app"}`,
         errorCallbackURL: `${site}/login?error=oauth`,
+        // Rides the OAuth state to the API's user.create hook, so a new
+        // account records where its first visit came from (no cookie).
+        additionalData: signInAttribution(),
       });
       if (error) {
         setPending(null);

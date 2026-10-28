@@ -14,7 +14,7 @@ struct TimelineThumbnail: Identifiable {
 }
 
 /// Generates a strip of small frames for the timeline's video track — the
-/// CapCut/FCP filmstrip look. Frames are decoded off the main actor and kept
+/// classic video-editor filmstrip look. Frames are decoded off the main actor and kept
 /// small (96 px tall) so a full strip costs a few MB at most.
 enum TimelineThumbnailer {
     static func generate(

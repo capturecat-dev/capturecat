@@ -52,11 +52,12 @@ final class InspectorSliderControl: NSControl {
         let ink: NSColor = CCTheme.isDark ? .white : .black
         rail.backgroundColor = ink.withAlphaComponent(0.12).cgColor
         fill.backgroundColor = ink.withAlphaComponent(0.85).cgColor
-        knob.backgroundColor = ink.cgColor
+        knob.backgroundColor = NSColor.white.cgColor
         knob.shadowColor = NSColor.black.withAlphaComponent(0.3).cgColor
-        // Skeuo: the knob is a small glossy ball (the 3px rail stays clean —
+        // 2026 look: a white floating knob with a soft shadow, in both
+        // themes, like current macOS sliders (the 3px rail stays clean —
         // material on a hairline is noise).
-        CCMaterial.dress(knob, as: .raised(tint: ink), radius: knobIdle / 2)
+        CCMaterial.dress(knob, as: .raised(tint: .white), radius: knobIdle / 2)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -76,7 +77,7 @@ final class InspectorSliderControl: NSControl {
         let midY = bounds.midY
 
         CATransaction.begin()
-        // Tight tracking while dragging; a soft Keynote settle when the value
+        // Tight tracking while dragging; a soft settle when the value
         // arrives from the model or the knob grows on hover.
         CATransaction.setAnimationDuration(isDraggingKnob ? 0.08 : 0.28)
         CATransaction.setAnimationTimingFunction(CCMotion.settle)
@@ -138,7 +139,7 @@ final class InspectorSliderControl: NSControl {
 }
 
 /// Standard slider row — now one CCSlider pill carrying its own label,
-/// ticks and value (the Weather-style control). The old label-above/rail-below
+/// ticks and value (a label-inside pill slider). The old label-above/rail-below
 /// layout is gone; the API is unchanged so panes didn't move.
 final class InspectorSliderRow: NSView {
     let slider = CCSlider()
@@ -220,9 +221,7 @@ final class InspectorMenuControl: NSControl {
         title.font = EditorThemeKit.label()
         title.lineBreakMode = .byTruncatingTail
 
-        let config = NSImage.SymbolConfiguration(pointSize: 9, weight: .semibold)
-        chevron.image = NSImage(systemSymbolName: "chevron.up.chevron.down", accessibilityDescription: nil)?
-            .withSymbolConfiguration(config)
+        chevron.image = CCIcon.image("chevron.up.chevron.down", pointSize: 9, weight: .semibold)
 
         iconChip.wantsLayer = true
         iconChip.layer?.cornerRadius = 3
@@ -512,15 +511,12 @@ final class InspectorChipsControl: NSView {
             let fill = isSelected ? EditorThemeKit.activeFill : EditorThemeKit.panelElevated
             layer?.backgroundColor = fill.cgColor
             layer?.borderWidth = 0
-            // Skeuo: raised glass chip with a real downward shadow — the
-            // switcher chips read as buttons sitting ON the panel.
+            // 2026 look: unselected chips are flat wells; the selected one
+            // FLOATS (soft shadow from the material) — the segmented look of
+            // current macOS apps, without raised keys.
             if let layer {
-                CCMaterial.dress(layer, as: .raised(tint: fill),
-                                 radius: CCRadius.full.resolved(for: max(bounds.height, 30)))
-                layer.shadowColor = NSColor.black.cgColor
-                layer.shadowOpacity = CCTheme.isDark ? 0.35 : 0.15
-                layer.shadowRadius = 2
-                layer.shadowOffset = CGSize(width: 0, height: -1)
+                let radius = CCRadius.full.resolved(for: max(bounds.height, 30))
+                CCMaterial.dress(layer, as: isSelected ? .raised(tint: fill) : .recessed(tint: fill), radius: radius)
             }
         }
 

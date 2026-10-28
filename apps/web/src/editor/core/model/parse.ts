@@ -23,6 +23,7 @@ import {
   BlurStyle,
   CameraFilterStyle,
   CameraLayoutMode,
+  CameraLook,
   CameraOrientation,
   CameraPosition,
   CameraShape,
@@ -138,7 +139,7 @@ const eResolution = e(ExportResolution);
 const eZoomStyle = e(ZoomAnimationStyle);
 const eBlurStyle = e(BlurStyle);
 const eFocusStyle = e(FocusRegionStyle);
-const eCameraLayoutMode = e(CameraLayoutMode);
+const eCameraLook = e(CameraLook);
 const eAnnotationType = e(AnnotationType);
 const eAnnotationEffect = e(AnnotationEffect);
 const eSourceKind = e(RecordingSourceKind);
@@ -430,19 +431,35 @@ export const decodeFocusRegion: Decode<FocusRegion> = (v, path) => {
   );
 };
 
+const CAMERA_LAYOUT_MODES: readonly string[] = enumValues(CameraLayoutMode);
+
+/**
+ * `mode` (docs/camera-cutout.md §1): the raw STRING is decoded
+ * (`decodeIfPresent(String.self)` — a non-string still throws, as before);
+ * missing / null → "cameraOnly" (unchanged); an unknown raw value → "bubble",
+ * so a mode added by a newer build can never drop the whole project again.
+ */
+function decodeLayoutMode(c: Keyed): CameraLayoutMode {
+  const raw = c.decodeIfPresent("mode", dString);
+  if (raw === undefined) return "cameraOnly";
+  return CAMERA_LAYOUT_MODES.includes(raw) ? (raw as CameraLayoutMode) : "bubble";
+}
+
 /** Models/CameraLayoutRegion.swift — every field optional; a missing id gets
- * a FRESH random UUID (as Swift's `?? UUID()` does). */
+ * a FRESH random UUID (as Swift's `?? UUID()` does). `look` is lenient
+ * (`try?` — missing, null, unknown or mistyped → absent) and stays absent
+ * unless set, so untouched projects re-encode byte-identically. */
 export const decodeCameraLayoutRegion: Decode<CameraLayoutRegion> = (v, path) => {
   const c = new Keyed(v, path, CAMERA_LAYOUT_REGION_KEYS);
-  return withExtra(
-    {
-      id: c.decodeIfPresent("id", dUUID) ?? newUUID(),
-      startTime: c.decodeIfPresent("startTime", dDouble) ?? 0,
-      endTime: c.decodeIfPresent("endTime", dDouble) ?? 0,
-      mode: c.decodeIfPresent("mode", eCameraLayoutMode) ?? "cameraOnly",
-    },
-    c.extra(),
-  );
+  const region: CameraLayoutRegion = {
+    id: c.decodeIfPresent("id", dUUID) ?? newUUID(),
+    startTime: c.decodeIfPresent("startTime", dDouble) ?? 0,
+    endTime: c.decodeIfPresent("endTime", dDouble) ?? 0,
+    mode: decodeLayoutMode(c),
+  };
+  const look = c.tryDecodeIfPresent("look", eCameraLook);
+  if (look !== undefined) region.look = look;
+  return withExtra(region, c.extra());
 };
 
 /** Models/Annotation.swift `init(from:)` (custom decoder). */

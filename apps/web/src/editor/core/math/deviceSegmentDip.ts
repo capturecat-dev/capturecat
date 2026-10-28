@@ -1,5 +1,5 @@
 /**
- * Port of apps/macos/CaptureCat/Services/DeviceSegmentDip.swift (the Keynote
+ * Port of apps/macos/CaptureCat/Services/DeviceSegmentDip.swift (the segment
  * dip across a device-segment cut: a Gaussian in TIMELINE seconds, centred on
  * each boundary) PLUS the exporter's device-segment rules for stitched
  * multi-source takes (VideoExporter.export, commit da569841: deviceFrameActive

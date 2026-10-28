@@ -13,6 +13,11 @@
  * web | mac | ×4-diff PNGs to --out (first frame per fixture; every frame
  * with --all-sides). Exit 1 if any frame exceeds the
  * thresholds (mean ≤ 1.5/255, p99 ≤ 12/255 — AA/text slack).
+ *
+ * Camera looks: a fixture whose project carries a `look` (or whose manifest
+ * lists `media.mask`) gets its camera-mask.ccmask in the files map, the blob
+ * guard, and a check that the engine found the mask FRESH for the fixture's
+ * camera file (a stale one silently draws the bubble).
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -38,12 +43,24 @@ const manifest = JSON.parse(readFileSync(join(FIX, "manifest.json"), "utf8"));
 // lines never count) exceeds the limit (px). Injected-defect proof for device
 // segments: dropping the segment's Dynamic Island still scored mean 1.42 /
 // p99 9 (a pass on those two alone).
+//
+// Camera looks (docs/camera-cutout.md §8, fixture `14-camera-looks`): a look
+// drawn as the plain bubble (mask missing / stale / not looked up by the
+// drawn frame) leaves a solid wrong region where the background should have
+// been removed — the same blob guard catches it, keyed by any feature naming
+// a look (`cameraLook.*`, `camera.look*`) or the fixture name.
 const BLOB_DIFF = 32;
 const STRUCTURAL = { sourceSegments: 200 };
+const LOOK_BLOB_LIMIT = 200;
+const isLookFeature = (f) => /^(cameraLook|camera\.look)/.test(f);
 const structuralLimit = (fx) => {
-  const limits = (fx.features ?? []).map((f) => STRUCTURAL[f]).filter((v) => v != null);
+  const limits = (fx.features ?? []).map((f) => STRUCTURAL[f] ?? (isLookFeature(f) ? LOOK_BLOB_LIMIT : null)).filter((v) => v != null);
+  if (/camera-looks/.test(fx.name)) limits.push(LOOK_BLOB_LIMIT);
   return limits.length ? Math.min(...limits) : null;
 };
+/** The person mask the looks draw through (camera-mask.ccmask, §2) — the manifest's name for it, else the fixed file name. */
+const maskFile = (fx) => fx.media?.mask ?? fx.media?.cameraMask ?? "camera-mask.ccmask";
+const usesLook = (project) => (project.cameraLayoutRegions ?? []).some((r) => r && (r.look === "cutout" || r.look === "popOut"));
 const browser = await chromium.launch({
   channel: "chrome",
   headless: true,
@@ -59,14 +76,18 @@ let failed = 0;
 for (const fx of manifest.fixtures) {
   if (ONLY && !ONLY.has(fx.name)) continue;
   const base = `/.fixtures/parity/${fx.dir}`;
+  const lookProject = JSON.parse(readFileSync(join(FIX, fx.dir, fx.project), "utf8"));
+  const mask = usesLook(lookProject) || fx.media?.mask || fx.media?.cameraMask ? maskFile(fx) : null;
   const result = await page.evaluate(
-    async ({ base, fx, allSides, blobLimit, blobDiff }) => {
+    async ({ base, fx, allSides, blobLimit, blobDiff, mask }) => {
       window.__paritySides = [];
       const client = window.__lab.client();
       const project = await (await fetch(`${base}/${fx.project}`)).json();
       const files = {};
       if (fx.media.cursor && project.cursorDataURL) files[project.cursorDataURL] = `${base}/${fx.media.cursor}`;
       if (fx.media.camera && project.cameraVideoURL) files[project.cameraVideoURL] = `${base}/${fx.media.camera}`;
+      // The camera person mask (folder-relative, like the Mac's camera_poster.png).
+      if (mask && project.cameraVideoURL) files["camera-mask.ccmask"] = `${base}/${mask}`;
       for (const k of ["keystrokeDataURL"]) if (project[k]) files[project[k]] = `${base}/${project[k].split("/").pop()}`;
       const s = project.settings ?? {};
       for (const ref of [s.backgroundImagePath, s.watermarkFileName, s.curtainLogoFileName]) {
@@ -178,8 +199,23 @@ for (const fx of manifest.fixtures) {
       }
       return rows;
     },
-    { base, fx, allSides: ALL_SIDES, blobLimit: structuralLimit(fx), blobDiff: BLOB_DIFF },
+    { base, fx, allSides: ALL_SIDES, blobLimit: structuralLimit(fx), blobDiff: BLOB_DIFF, mask },
   );
+  if (mask) {
+    // A look must actually draw through the mask: the camera feature reports a
+    // fresh mask (same camera byte size / duration — §2) or the gate is moot.
+    // The camera feature lives in the engine WORKER (its DEV global), not the page.
+    const camera = [];
+    for (const w of page.workers()) {
+      const states = await w.evaluate(() => (globalThis.__cameraFeatures ?? []).map((f) => f.debugState())).catch(() => []);
+      camera.push(...states);
+    }
+    const fresh = camera.some((c) => c.maskFresh === true);
+    if (!fresh) {
+      failed++;
+      console.log(`FAIL ${fx.name} camera mask not usable (missing or stale vs the fixture camera file): ${JSON.stringify(camera.map((c) => ({ maskFresh: c.maskFresh, error: c.error })))}`);
+    }
+  }
   const sides = await page.evaluate(() => window.__paritySides ?? []);
   for (const side of sides) {
     const suffix = ALL_SIDES ? `-t${side.t.toFixed(3)}` : "";

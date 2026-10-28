@@ -268,6 +268,18 @@ export const CameraLayoutMode = {
 } as const;
 export type CameraLayoutMode = ValueOf<typeof CameraLayoutMode>;
 
+/**
+ * CameraLayoutRegion.look (docs/camera-cutout.md §1): an optional camera look
+ * on a `bubble` region — the webcam with its background removed. Raw values
+ * are persistence identity. Decoded leniently: missing / unknown → undefined
+ * (the plain bubble); ignored (but kept) on any other mode.
+ */
+export const CameraLook = {
+  cutout: "cutout",
+  popOut: "popOut",
+} as const;
+export type CameraLook = ValueOf<typeof CameraLook>;
+
 // ── Services-declared persisted enums ───────────────────────────────────────
 /** Services/ClickSoundPlayer.swift */
 export const ClickSoundStyle = {

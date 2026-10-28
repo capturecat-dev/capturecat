@@ -47,6 +47,12 @@ const CAMERA_LAYOUT_NAMES: Record<string, string> = {
   screenOnly: "Screen Only",
 };
 
+/** CameraLook display names (docs/camera-cutout.md §9). */
+const CAMERA_LOOK_LABELS: Record<string, string> = {
+  cutout: "Cutout",
+  popOut: "Pop-out card",
+};
+
 /** EffectBlockItem.linkEpsilon */
 const LINK_EPSILON = 0.02;
 
@@ -280,7 +286,8 @@ export function timelineSnapshot({ project: p, selection: sel, sliceArmed, hasAu
       isHighlight: false,
       start: map.outputTime(r.startTime),
       end: map.outputTime(r.endTime),
-      label: `Camera: ${CAMERA_LAYOUT_NAMES[r.mode] ?? r.mode}`,
+      // A look on a Bubble region is named by the look (docs/camera-cutout.md §9).
+      label: `Camera: ${r.mode === "bubble" && r.look ? CAMERA_LOOK_LABELS[r.look] : (CAMERA_LAYOUT_NAMES[r.mode] ?? r.mode)}`,
       selected: sel.cameraLayoutId === r.id,
     })),
     ...p.highlightRegions.map((r) => ({ id: r.id, isHighlight: true, start: map.outputTime(r.startTime), end: map.outputTime(r.endTime), label: r.label, selected: sel.highlightId === r.id })),

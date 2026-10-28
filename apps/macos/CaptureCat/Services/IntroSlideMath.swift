@@ -23,7 +23,7 @@ enum IntroSlideStyle: String, CaseIterable, Codable, Sendable {
 }
 
 /// The card slides in from an edge with an eased overshoot and a slight
-/// scale-up — the CapCut-style entrance. Deterministic from OUTPUT time
+/// scale-up — a punchy slide-in entrance. Deterministic from OUTPUT time
 /// (t = 0 is the trim start), like `TiltMath.introAmount`, so scrubbing,
 /// playback and export all agree. SHARED by the preview compositor and the
 /// exporter; the state rides each side's existing card transform, never a

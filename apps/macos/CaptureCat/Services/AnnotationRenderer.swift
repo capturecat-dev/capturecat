@@ -53,8 +53,8 @@ enum AnnotationRenderer {
         func rendersSettled(_ a: Annotation) -> Bool { !isPlaying }
 
         /// The annotation whose label is open in the in-place editor. It is
-        /// NOT drawn — the editor field replaces it pixel-on-pixel (Keynote
-        /// behaviour), instead of stacking a second translucent copy on top.
+        /// NOT drawn — the editor field replaces it pixel-on-pixel (as in a
+        /// presentation app), instead of stacking a second translucent copy on top.
         var editingID: UUID? = nil
     }
 
@@ -75,7 +75,7 @@ enum AnnotationRenderer {
         )
     }
 
-    // MARK: - Selection chrome (editor-only, Keynote-style)
+    // MARK: - Selection chrome (editor-only, presentation-app style)
 
     /// macOS selection blue — fixed sRGB (0,122,255); the CG renderer has no
     /// dynamic NSColor plumbing and chrome never ships in an export.
@@ -238,7 +238,7 @@ enum AnnotationRenderer {
         chrome: Chrome?
     ) {
         // While its label is open in the in-place editor the annotation is
-        // NOT drawn — the field replaces it exactly (Keynote), rather than
+        // NOT drawn — the field replaces it exactly, rather than
         // stacking a translucent twin underneath.
         if chrome?.editingID == a.id { return }
 
@@ -304,7 +304,7 @@ enum AnnotationRenderer {
         line.draw(in: ctx, center: center, color: SRGBA(a.color), snapToPixels: unscaled)
 
         if let chrome, chrome.showsHandles, chrome.isSelected(a) {
-            // Accent ring floated just off the pill, Keynote-style.
+            // Accent ring floated just off the pill (presentation-app selection).
             let outset = 3 * scale
             selectionRing(ctx, path: ContinuousRoundedRect.path(
                 rect: pill.insetBy(dx: -outset, dy: -outset),
@@ -602,7 +602,7 @@ enum AnnotationRenderer {
                 y: videoRect.minY + ny * videoRect.height)
     }
 
-    /// Keynote-style grab handle: small white disc, hairline grey rim, soft
+    /// Grab handle: small white disc, hairline grey rim, soft
     /// drop shadow. `alpha` dims the handles of unselected annotations.
     private static func handle(_ ctx: CGContext, at p: CGPoint, diameter: CGFloat, alpha: CGFloat = 1) {
         let rect = CGRect(x: p.x - diameter / 2, y: p.y - diameter / 2,

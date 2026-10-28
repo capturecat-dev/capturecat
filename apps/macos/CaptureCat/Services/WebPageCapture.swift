@@ -126,7 +126,7 @@ nonisolated enum WebHeightMode: String, CaseIterable {
     }
 }
 
-/// The screenshotone-style options a URL capture honors, applied inside
+/// The URL-to-image API options a URL capture honors, applied inside
 /// `WebPageCapture` before the snapshot. Persisted by AppState.
 nonisolated struct WebCaptureOptions: Equatable {
     var heightMode: WebHeightMode = .viewport

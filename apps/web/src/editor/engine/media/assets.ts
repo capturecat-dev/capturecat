@@ -10,10 +10,14 @@
  *   images      every referenced image as an ImageBitmap, keyed by the
  *               project.json reference string (backgroundImagePath, the
  *               watermark / curtain-logo file names, …)
+ *   cameraMask  camera-mask.ccmask (the person mask the camera looks draw
+ *               through — docs/camera-cutout.md §2), parsed; only fetched
+ *               while a camera-layout region carries a `look`
  *
  * Media keys are the reference strings exactly as project.json spells them
  * (see `RenderMedia.files`); `refsOf` lists the ones the engine asks for.
  */
+import { CAMERA_MASK_FILE, parseCameraMask, type CameraMaskTrack } from "../../core/mask/cameraMaskCodec";
 import type { SubtitleWeight } from "../../core/model/enums";
 import type { RenderMedia } from "../contract";
 import { loadCursorArt, type CursorArt } from "../passes/cursor/cursorArt";
@@ -38,14 +42,25 @@ export interface SceneAssets {
   images: Map<string, ImageBitmap>;
   /** The Swift-rasterized cursor sprites (public/editor/cursors), shared by every project. */
   cursorArt?: CursorArt | null;
+  /** camera-mask.ccmask, parsed (null: none / not needed / unreadable). */
+  cameraMask?: CameraMaskTrack | null;
 }
 
-export const EMPTY_ASSETS: SceneAssets = { cursor: null, keystrokes: null, images: new Map(), cursorArt: null };
+export const EMPTY_ASSETS: SceneAssets = { cursor: null, keystrokes: null, images: new Map(), cursorArt: null, cameraMask: null };
+
+/** Does any camera-layout region of a raw project.json carry a look? */
+export function usesCameraLook(doc: Json): boolean {
+  const regions = Array.isArray(doc.cameraLayoutRegions) ? (doc.cameraLayoutRegions as unknown[]) : [];
+  return regions.some((r) => {
+    const look = r && typeof r === "object" ? (r as Json).look : undefined;
+    return look === "cutout" || look === "popOut";
+  });
+}
 
 type Json = Record<string, unknown>;
 
 /** Every file reference a project.json carries (besides the recording). */
-export function refsOf(doc: Json): { cursor?: string; keystrokes?: string; camera?: string; images: string[]; audio: string[] } {
+export function refsOf(doc: Json): { cursor?: string; keystrokes?: string; camera?: string; mask?: string; images: string[]; audio: string[] } {
   const s = (doc.settings ?? {}) as Json;
   const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
   const images = [
@@ -63,6 +78,9 @@ export function refsOf(doc: Json): { cursor?: string; keystrokes?: string; camer
     cursor: str(doc.cursorDataURL),
     keystrokes: str(doc.keystrokeDataURL),
     camera: str(doc.cameraVideoURL),
+    // The camera person mask (docs/camera-cutout.md §7) — folder-relative,
+    // like the poster; only while a look needs it.
+    mask: s.showCamera === true && str(doc.cameraVideoURL) && usesCameraLook(doc) ? CAMERA_MASK_FILE : undefined,
     images,
     audio,
   };
@@ -78,7 +96,21 @@ export function missingSceneAssets(doc: Json, assets: SceneAssets, files: Record
   const fresh = (ref: string) => Boolean(files[ref]) && !previous[ref];
   if (refs.cursor && assets.cursor == null && fresh(refs.cursor)) return true;
   if (refs.keystrokes && assets.keystrokes == null && fresh(refs.keystrokes)) return true;
+  if (refs.mask && assets.cameraMask == null && fresh(refs.mask)) return true;
   return refs.images.some((ref) => !assets.images.has(ref) && fresh(ref));
+}
+
+/** camera-mask.ccmask → a parsed track (null when absent or unreadable — the looks then draw the plain bubble). */
+export async function fetchCameraMask(url: string | undefined): Promise<CameraMaskTrack | null> {
+  if (!url) return null;
+  try {
+    const res = await liveFetch(url);
+    if (!res.ok) return null;
+    return parseCameraMask(new Uint8Array(await res.arrayBuffer()));
+  } catch (error) {
+    console.warn(`[camera] the person mask could not be read: ${String(error)}`);
+    return null;
+  }
 }
 
 async function fetchJson(url: string | undefined): Promise<unknown | null> {
@@ -105,10 +137,11 @@ async function fetchBitmap(url: string): Promise<ImageBitmap | null> {
 export async function loadSceneAssets(doc: Json, media: RenderMedia): Promise<SceneAssets> {
   const refs = refsOf(doc);
   const files = media.files ?? {};
-  const [cursorArt, cursor, keystrokes, ...bitmaps] = await Promise.all([
+  const [cursorArt, cursor, keystrokes, cameraMask, ...bitmaps] = await Promise.all([
     loadCursorArt(),
     fetchJson(refs.cursor && files[refs.cursor]),
     fetchJson(refs.keystrokes && files[refs.keystrokes]),
+    fetchCameraMask(refs.mask && files[refs.mask]),
     ...refs.images.map((ref) => (files[ref] ? fetchBitmap(files[ref]) : Promise.resolve(null))),
     // Annotation typefaces (local PostScript faces) — ready before the first frame / export.
     ensureFaces(annotationFonts(doc)).then(() => null),
@@ -139,7 +172,7 @@ export async function loadSceneAssets(doc: Json, media: RenderMedia): Promise<Sc
       // keep the full-size decode
     }
   }
-  return { cursor, keystrokes, images, cursorArt: cursorArt as CursorArt | null };
+  return { cursor, keystrokes, images, cursorArt: cursorArt as CursorArt | null, cameraMask: cameraMask as CameraMaskTrack | null };
 }
 
 /** `BackgroundLook.maxImageEdge` (core backgroundLook.maxImageEdge). */

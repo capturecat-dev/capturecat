@@ -20,13 +20,14 @@
 
 import { betterAuth } from "better-auth";
 import { admin, bearer, oneTimeToken, organization } from "better-auth/plugins";
-import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { createAuthMiddleware, getOAuthState, getSessionFromCtx } from "better-auth/api";
 import { sso } from "@better-auth/sso";
 import { APIError } from "better-auth/api";
 import { importPKCS8, SignJWT } from "jose";
 // All Stripe configuration (client, plans, webhook secret, lifecycle hooks)
 // lives in ./stripe — do not inline it here.
 import { buildStripePlugin, createStripeClient, stripeCustomerIsGone } from "./stripe";
+import { recordSignupAttribution, signupAttributionFrom } from "./signup-attribution";
 import type { Env } from "../types";
 import { webOrigins } from "./origins";
 
@@ -230,6 +231,30 @@ export function buildAuth(env: Env) {
           });
         }
       }),
+    },
+
+    // Sign-up attribution (migration 0030): country, web vs Mac app, and the
+    // landing source a web sign-in carried through the OAuth state. Plain
+    // columns written after the fact, not additionalFields, so they never
+    // ride along in a session payload. Best-effort: a failure here must never
+    // fail the sign-up itself.
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user, ctx) => {
+            try {
+              const state = await getOAuthState().catch(() => null);
+              await recordSignupAttribution(
+                env.DB,
+                user.id,
+                signupAttributionFrom(ctx?.request, state as Record<string, unknown> | null),
+              );
+            } catch (err) {
+              console.error("signup attribution failed", err);
+            }
+          },
+        },
+      },
     },
 
     trustedOrigins: [

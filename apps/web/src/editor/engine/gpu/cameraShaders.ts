@@ -237,13 +237,19 @@ struct CamU {
   adj1: vec4f,     // preset cube on, colour controls on, hue on, identity
   mInv0: vec4f, mInv1: vec4f, mInv2: vec4f, // output px → mask asset px
   mTex: vec4f,     // mask texel (0,0) top-left (asset px)
-  mCrop: vec4f,    // mask crop (asset px)
-  mode: vec4f,     // mask kind (0 baked shape mask, 1 CIRoundedRectangleGenerator), generator radius, mask footprint (x, y)
+  mCrop: vec4f,    // mask crop (asset px); clip kind 3: the generator rect (output px, Y-down)
+  mode: vec4f,     // clip kind (0 baked shape mask, 1 CIRoundedRectangleGenerator, 2 none — the cutout,
+                   // 3 generator with only the BOTTOM corners rounded — the pop-out person), radius, mask footprint (x, y)
+  look: vec4f,     // person mask on, crop count (2: crop + masked crop; 1: the cutout's single crop), 0, 0
 };
 @group(0) @binding(0) var<uniform> u: CamU;
 @group(0) @binding(1) var samp: sampler;
 @group(0) @binding(2) var maskTex: texture_2d<f32>;
 @group(0) @binding(4) var lut: texture_3d<f32>;
+// camera-mask.ccmask (docs/camera-cutout.md §2/§5): r8unorm person alpha, row 0
+// = the TOP of the decoded camera image, sampled bilinearly at the SAME
+// camera point as the camera (so it follows the fill and the mirror).
+@group(0) @binding(5) var personMask: texture_2d<f32>;
 ${adjustments}
 
 // CoreImage clear-outside weight of a clamped bilinear sample at source point s.
@@ -261,6 +267,15 @@ fn edgeFactor(s: vec2f, dims: vec2f) -> f32 {
 }
 
 fn maskAt(p: vec2f) -> f32 {
+  if (u.mode.x > 2.5) {
+    // Pop-out person clip (VideoExporter.popOutCardStack): the rounded-rect
+    // generator over personClipMaskRect (B extended UP by r; mCrop here,
+    // Y-down) .cropped(to: that rect) .cropped(to: B) — the top corners fall
+    // outside B, so only the bottom two are rounded (the head rises above the card).
+    let ext = u.mCrop;
+    return clamp(0.5 - sdRoundRect(p, ext, u.mode.y), 0.0, 1.0) * boxCov(p, vec2f(1.0), ext) * boxCov(p, vec2f(1.0), u.rect);
+  }
+  if (u.mode.x > 1.5) { return 1.0; }   // cutout: no shape mask
   if (u.mode.x > 0.5) {
     // CIRoundedRectangleGenerator(rect, radius) — AA coverage — .cropped(to: rect).
     return clamp(0.5 - sdRoundRect(p, u.rect, u.mode.y), 0.0, 1.0) * boxCov(p, vec2f(1.0), u.rect);
@@ -271,10 +286,18 @@ fn maskAt(p: vec2f) -> f32 {
 }
 
 // compositeCamera: scaledCamera.cropped(to: rect) and the CIBlendWithMask
-// output .cropped(to: rect) — two area-coverage crops.
+// output .cropped(to: rect) — two area-coverage crops (the cutout has no
+// shape mask, so only the first).
 fn rectCrops(p: vec2f) -> f32 {
   let c = boxCov(p, vec2f(1.0), u.rect);
+  if (u.look.y < 1.5) { return c; }
   return c * c;
+}
+
+// × the person alpha (1 when the camera draws without a look).
+fn personAt(s: vec2f) -> f32 {
+  if (u.look.x < 0.5) { return 1.0; }
+  return textureSampleLevel(personMask, samp, s / u.src.xy, 0.0).r;
 }
 
 fn camPoint(p: vec2f) -> vec2f {
@@ -296,7 +319,7 @@ ${cameraCommon}
   if (crops <= 0.0) { return vec4f(0.0); }
   let s = camPoint(p);
   let c = adjust(textureSampleBaseClampToEdge(cam, samp, s / u.src.xy), u.adj0, u.adj1) * edgeFactor(s, u.src.xy);
-  return c * maskAt(p) * crops;
+  return c * personAt(s) * maskAt(p) * crops;
 }
 `;
 
@@ -311,7 +334,55 @@ ${cameraCommon}
   if (crops <= 0.0) { return vec4f(0.0); }
   let s = camPoint(p);
   let c = adjust(textureSampleLevel(cam, samp, s / u.src.xy, 0.0), u.adj0, u.adj1) * edgeFactor(s, u.src.xy);
-  return c * maskAt(p) * crops;
+  return c * personAt(s) * maskAt(p) * crops;
+}
+`;
+
+/**
+ * A cross-fading look stack (docs/camera-cutout.md §5): the stack, composed
+ * over transparent in the scratch target, lands in the group SCALED by its
+ * weight — premultiplied RGBA × w (CIColorMatrix on the A vector only) — with
+ * an ADDITIVE blend (CIAdditionCompositing), so the weighted stacks sum to a
+ * true cross-dissolve. Same pixel grid as the group: a plain texel load.
+ */
+export const cameraStackWGSL = /* wgsl */ `
+${common}
+struct StackU { p: vec4f };   // weight, 0, 0, 0
+@group(0) @binding(0) var<uniform> u: StackU;
+@group(0) @binding(1) var stack: texture_2d<f32>;
+
+@fragment fn fs_main(in: VSOut) -> @location(0) vec4f {
+  return textureLoad(stack, vec2i(floor(in.pos.xy)), 0) * u.p.x;
+}
+`;
+
+/**
+ * The pop-out card (docs/camera-cutout.md §3/§5): CILinearGradient (top colour
+ * at the card's top edge → bottom colour at its bottom edge, interpolated in
+ * the working space as stored) .cropped(to: card) through CIBlendWithMask
+ * with CIRoundedRectangleGenerator(card, radius).cropped(to: card), the
+ * result .cropped(to: card) — generator AA coverage × three area-coverage
+ * crops (nested CI crops multiply). Opaque, premultiplied.
+ */
+export const cameraCardWGSL = /* wgsl */ `
+${common}
+${croppedBilinear}
+struct CardU {
+  rect: vec4f,     // card, Y-down px
+  p: vec4f,        // radius, 0, 0, 0
+  top: vec4f,      // working-space colour at the top edge (rgb, 1)
+  bottom: vec4f,   // … at the bottom edge
+};
+@group(0) @binding(0) var<uniform> u: CardU;
+
+@fragment fn fs_main(in: VSOut) -> @location(0) vec4f {
+  let p = in.pos.xy;
+  let c = boxCov(p, vec2f(1.0), u.rect);
+  let cov = clamp(0.5 - sdRoundRect(p, u.rect, u.p.x), 0.0, 1.0) * c * c * c;
+  if (cov <= 0.0) { return vec4f(0.0); }
+  let t = clamp((p.y - u.rect.y) / max(u.rect.w, 1e-6), 0.0, 1.0);
+  let rgb = mix(u.top.rgb, u.bottom.rgb, t);
+  return vec4f(rgb * cov, cov);
 }
 `;
 

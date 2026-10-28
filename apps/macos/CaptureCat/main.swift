@@ -98,6 +98,14 @@ if CommandLine.arguments.contains("--capkit-extras-shot") {
     MainActor.assumeIsolated { CCKitExtrasHarness.run() }
 }
 
+// Icon-kit gate: every glyph parses to its end and stays on the grid, every
+// SF alias draws its kit icon (never the SF fallback), renders unclipped at
+// 16/24 pt, ink grows with weight, parser unit cases, and structural
+// ring/knockout/orientation probes. Never reached in a normal launch.
+if CommandLine.arguments.contains("--iconkit-test") {
+    MainActor.assumeIsolated { CCIconKitHarness.run() }
+}
+
 // MCP catalog export for the web editor's WebMCP layer (same tools, schemas
 // and playbook as the desktop MCP server). Never reached in a normal launch.
 if CommandLine.arguments.contains("--mcp-catalog-json") {
@@ -131,6 +139,15 @@ if CommandLine.arguments.contains("--settings-shot") {
 // is the exact shipping path). Briefly moves the mouse; restores it after.
 if CommandLine.arguments.contains("--menu-hover-live") {
     MainActor.assumeIsolated { CCMenuHoverProbe.runLive() }
+}
+
+// Menu gate: the REAL custom menus (effects picker with/without camera, a
+// context menu with shortcuts + submenu, a combobox popup) in the real editor
+// topology, dark + light: no truncated label, disabled-group caption, open
+// motion mid-flight + settle, row stagger, hover glide mid-flight, close fade.
+// Never reached in a normal launch.
+if CommandLine.arguments.contains("--menu-shot") {
+    MainActor.assumeIsolated { MenuShotHarness.run() }
 }
 
 // Menu hover probe: the gliding highlight must land on every hovered row.
@@ -489,48 +506,67 @@ if CommandLine.arguments.contains("--notes-test") {
     expect(OnboardingViewController.keyboardSettingsURL != nil,
            "onboarding keyboard-settings deep link parses")
 
-    // SF Symbol existence audit. `NSImage(systemSymbolName:)` returns nil
-    // SILENTLY for an unknown name → blank icon in shipping UI, so every
-    // symbol name used anywhere in the app is asserted here on this Mac.
-    // Compatibility floor: deployment target is macOS 14.0 = SF Symbols 5.
-    // Audited 2026-08 against Apple's SF Symbols release notes — the newest
-    // symbols in use are `book.pages` and `pencil.and.scribble`, both
-    // introduced in SF Symbols 5 (macOS 14), so no runtime fallbacks are
-    // needed. Any NEW symbol added to the app must be appended here, and if
-    // it is newer than SF Symbols 5 it must ship with an explicit `??`
-    // fallback at the call site (see InspectorColumnAppKit for the pattern).
-    let usedSymbols = [
-        "arrow.clockwise", "arrow.counterclockwise", "arrow.down.circle.fill",
-        "arrow.down.right.and.arrow.up.left", "arrow.down.to.line",
-        "arrow.left.to.line", "arrow.right.circle.fill", "arrow.right.to.line",
-        "arrow.triangle.2.circlepath", "arrow.up.right", "arrow.up.to.line",
-        "arrow.uturn.backward", "arrow.uturn.forward", "backward.end.fill",
-        "battery.100", "bell.badge", "bell.fill", "book.pages", "bubble.left",
-        "camera.fill", "captions.bubble", "checkmark", "checkmark.circle.fill",
-        "checkmark.seal", "checkmark.shield.fill", "chevron.down",
-        "chevron.left", "chevron.right", "chevron.up.chevron.down",
-        "circle.fill", "circle.lefthalf.filled", "cursorarrow.rays",
-        "doc.on.clipboard", "exclamationmark.circle.fill",
-        "exclamationmark.triangle.fill", "eye.slash", "eye.slash.fill",
-        "figure.walk.motion", "film", "film.stack", "forward.end.fill",
-        "gauge.with.needle", "gearshape", "hand.tap", "iphone", "keyboard",
-        "mic.fill", "mic.slash", "minus.magnifyingglass", "note.text",
-        "pause.fill", "pencil.and.scribble", "pencil.tip",
-        "person.crop.circle", "person.crop.circle.badge.checkmark",
-        "photo.badge.plus", "pin.fill", "play.fill", "plus",
-        "plus.magnifyingglass", "record.circle", "rectangle.dashed",
-        "rectangle.inset.filled.badge.record",
-        "rectangle.portrait.and.arrow.forward", "rectangle.split.2x1",
-        "rotate.3d", "seal.fill", "shield.checkerboard", "sidebar.left",
-        "sidebar.right", "slider.horizontal.3", "sparkle.magnifyingglass",
-        "sparkles.rectangle.stack", "speaker.slash", "speaker.slash.fill",
-        "speaker.wave.2", "speaker.wave.2.fill", "square.fill.on.square",
-        "square.grid.2x2", "square.grid.2x2.fill", "stop.fill", "text.bubble",
-        "trash.fill", "wand.and.stars", "waveform.and.mic",
+    // Icon audits. A missing icon fails SILENTLY in shipping UI —
+    // `NSImage(systemSymbolName:)` returns nil (blank), and a name the kit
+    // does not draw quietly falls back to its SF Symbol (off-style) — so
+    // every name the app asks for is asserted here.
+    //
+    // 1. SF Symbols are CONTENT only since the 2026-10-27 icon kit: the fake
+    //    menu bar's status icons (MenuBarRenderer — drawn into exports and
+    //    measured by the web parity oracle) and the selection pill's slider
+    //    glyphs (SelectionChromeKit — frozen in --raster-golden). Deployment
+    //    floor is macOS 14 = SF Symbols 5; all of these predate it.
+    let sfContentSymbols = [
+        "battery.100", "wifi", "eye", "eye.slash.fill", "circle.dashed", "camera.aperture",
+        "circle.lefthalf.filled", "circle.fill",
     ]
-    for name in usedSymbols {
+    for name in sfContentSymbols {
         expect(NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil,
                "SF symbol exists: \(name)")
+    }
+    // 2. Every CHROME icon name a call site passes to CCIcon must be drawn by
+    //    the kit (apps/macos/IconKit/icons.json). Append new call-site names
+    //    here; `--iconkit-test` checks the kit itself.
+    let chromeIcons = [
+        "accessibility", "arrow.clockwise", "arrow.counterclockwise", "arrow.down.circle.fill",
+        "arrow.down.right.and.arrow.up.left", "arrow.down.to.line", "arrow.left.to.line",
+        "arrow.right.circle.fill", "arrow.right.to.line", "arrow.triangle.2.circlepath",
+        "arrow.triangle.merge", "arrow.up.right", "arrow.up.to.line", "arrow.uturn.backward",
+        "arrow.uturn.forward", "backward.end.fill", "bell", "bell.badge", "bell.badge.fill",
+        "bell.fill", "book.pages", "bubble.left", "camera", "camera.aperture", "camera.fill",
+        "captions.bubble", "checkmark", "checkmark.circle.fill", "checkmark.seal",
+        "chevron.down", "chevron.left", "chevron.left.forwardslash.chevron.right",
+        "chevron.right", "chevron.up.chevron.down", "circle", "clock.arrow.circlepath", "cursorarrow",
+        "cursorarrow.motionlines", "cursorarrow.rays", "desktopcomputer", "diamond", "display",
+        "doc.on.clipboard", "exclamationmark.circle.fill", "exclamationmark.octagon.fill",
+        "exclamationmark.triangle.fill", "externaldrive", "externaldrive.fill", "eye.slash", "figure.walk.motion", "film", "film.stack", "folder",
+        "forward.end.fill", "gauge.with.needle", "gearshape", "gearshape.fill", "globe",
+        "hand.raised.fill", "hand.tap", "highlighter", "icloud.and.arrow.up",
+        "info.circle.fill", "ipad.landscape", "iphone", "laptopcomputer", "link", "macwindow",
+        "magnifyingglass", "mic", "mic.fill", "mic.slash", "minus", "minus.magnifyingglass",
+        "note.text", "oval", "paintbrush.fill", "paintpalette", "pause.fill",
+        "pencil.and.scribble", "pencil.tip", "person.and.background.dotted",
+        "person.crop.artframe", "person.crop.circle", "person.crop.circle.fill",
+        "person.crop.rectangle", "person.crop.rectangle.badge.xmark", "person.crop.square",
+        "person.fill", "photo", "photo.badge.plus", "pin", "pin.fill", "play.fill", "plus",
+        "plus.magnifyingglass", "record.circle", "record.circle.fill", "rectangle",
+        "rectangle.dashed", "rectangle.inset.filled.badge.record",
+        "rectangle.portrait.and.arrow.forward", "rectangle.split.2x1", "rotate.3d", "scissors",
+        "scope", "scribble", "seal.fill", "sidebar.left", "sidebar.right",
+        "slider.horizontal.3", "sparkle.magnifyingglass", "sparkles",
+        "sparkles.rectangle.stack", "speaker.slash", "speaker.slash.fill", "speaker.wave.2",
+        "speaker.wave.2.fill", "square.and.arrow.up", "square.fill.on.square",
+        "square.grid.2x2", "squareshape.split.3x3", "stop.fill", "terminal", "text.bubble",
+        "textformat", "timer", "trash", "trash.fill", "video.fill", "wand.and.stars",
+        "waveform.and.mic", "xmark", "xmark.octagon.fill",
+    ]
+    for name in chromeIcons {
+        expect(CCIcon.has(name), "kit draws chrome icon: \(name)")
+    }
+    // The inspector rail asks for "\(icon).fill" when a tab is selected.
+    for tab in InspectorTab.allCases {
+        expect(CCIcon.has(tab.icon) && CCIcon.has("\(tab.icon).fill"),
+               "kit draws inspector tab icon + .fill: \(tab.icon)")
     }
 
     print(failures == 0 ? "NOTES-TEST OK" : "NOTES-TEST FAILED (\(failures))")
@@ -705,6 +741,13 @@ if CommandLine.arguments.contains("--autozoom-test") {
 // launch.
 if CommandLine.arguments.contains("--cameralayout-test") {
     CameraLayoutHarness.run()
+}
+
+// Camera-look mask cost: the real Vision segmentation job on a COPY of a
+// camera file (temp dir only) → frames, bytes/frame and MB/min at
+// keyframeInterval 15 and 30. Never reached in a normal launch.
+if CommandLine.arguments.contains("--camera-mask-bench") {
+    CameraMaskBenchHarness.run()
 }
 
 // Preview↔export CURSOR gate: the arrow the editor shows vs the arrow the

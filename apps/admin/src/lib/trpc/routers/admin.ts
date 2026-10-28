@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { apiFetch } from "@/lib/session";
 import { adminProcedure, createTRPCRouter } from "@/lib/trpc/init";
 import type { AdminPlan } from "@/lib/plan-fields";
+import type { Analytics, SignupSource, UserActivity, UserUsage } from "@/lib/analytics-types";
 
 /**
  * Admin directory + entitlement writes, proxied to api.capturecat.so.
@@ -108,9 +109,29 @@ export const adminRouter = createTRPCRouter({
         role: string;
         paid: boolean;
         tier: "free" | "tester" | "paid" | "blocked";
+        providers: string[];
+        signup: SignupSource;
+        /** null = the user has never stored or done anything server-side. */
+        usage: UserUsage | null;
       }>;
     };
   }),
+
+  analytics: adminProcedure
+    .input(z.object({ days: z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365)]) }))
+    .query(async ({ input }) => {
+      const res = await apiFetch(`/api/admin/analytics?days=${input.days}`);
+      if (!res.ok) throw new TRPCError({ code: "FORBIDDEN", message: "Could not load analytics" });
+      return (await res.json()) as Analytics;
+    }),
+
+  userActivity: adminProcedure
+    .input(z.object({ userId: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const res = await apiFetch(`/api/admin/users/${encodeURIComponent(input.userId)}/activity`);
+      if (!res.ok) throw new TRPCError({ code: "NOT_FOUND", message: "Could not load that user" });
+      return (await res.json()) as UserActivity;
+    }),
 
   listOrgs: adminProcedure.query(async () => {
     const res = await apiFetch("/api/admin/orgs");

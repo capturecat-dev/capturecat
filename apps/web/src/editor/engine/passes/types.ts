@@ -117,7 +117,7 @@ export interface FrameState {
    */
   deviceSegment?: boolean;
   /**
-   * Opacity of the finished card layer (the keynote dip's `fadeImage`),
+   * Opacity of the finished card layer (the segment dip's `fadeImage`),
    * applied where the layer is resampled through `camera`. Absent = 1.
    * Resolved by the FrameGraph together with the dip's scale in `camera`.
    */
