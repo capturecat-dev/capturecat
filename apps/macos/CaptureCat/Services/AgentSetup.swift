@@ -168,7 +168,7 @@ enum AgentSetup {
             "display_name": "CaptureCat",
             "icon": "icon.png",
             "version": version,
-            "description": "Drive CaptureCat: record the screen, edit recordings (zooms, speed-ups, trims, annotations, privacy blur, styles) in undoable batches, transcribe on-device, see rendered frames, and export — the app's real engine, not a wrapper.",
+            "description": "Drive CaptureCat: record the screen, edit recordings (zooms, speed-ups, trims, annotations, privacy blur, styles) in undoable batches, transcribe on-device, see rendered frames, export, and publish share links once you approve each one — the app's real engine, not a wrapper.",
             "author": ["name": "CaptureCat"],
             // Shown on the client's install screen; read from the server's
             // own catalog so the list can't drift from tools/list.

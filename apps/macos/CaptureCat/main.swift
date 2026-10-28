@@ -106,6 +106,15 @@ if CommandLine.arguments.contains("--iconkit-test") {
     MainActor.assumeIsolated { CCIconKitHarness.run() }
 }
 
+// MCP share_project gate: the real MCP-side request/wait/status code against
+// the real AgentShareBroker (temp folders, faked app seams, no network), plus
+// the CCKit consent card — entrance + stagger mid-flight, Allow armed late,
+// Return never approves (with a control card proving the posted key lands),
+// Escape declines, a click approves. Never reached in a normal launch.
+if CommandLine.arguments.contains("--share-consent-test") {
+    MainActor.assumeIsolated { AgentShareHarness.run() }
+}
+
 // MCP catalog export for the web editor's WebMCP layer (same tools, schemas
 // and playbook as the desktop MCP server). Never reached in a normal launch.
 if CommandLine.arguments.contains("--mcp-catalog-json") {

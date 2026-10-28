@@ -21,11 +21,24 @@ import ScreenCaptureKit
 enum MCPServer {
     static let isMCP = CommandLine.arguments.contains("--mcp")
 
-    static let serverVersion = "0.3.0"
-    private static let supportedProtocolVersions: Set<String> = [
-        "2024-11-05", "2025-03-26", "2025-06-18",
+    static let serverVersion = "0.4.0"
+    /// Newest first; `initialize` echoes the client's version when it is one
+    /// of these, else answers with the newest. Over stdio every revision is
+    /// the same newline-delimited JSON-RPC, and this server uses nothing a
+    /// revision removed: tools/prompts, progress notifications, titles,
+    /// annotations, outputSchema + structuredContent (2025-06-18+; extra keys
+    /// an older client ignores). No tasks, elicitation or sampling.
+    static let supportedProtocolVersions = [
+        "2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05",
     ]
-    private static let latestProtocolVersion = "2025-06-18"
+    static var latestProtocolVersion: String { supportedProtocolVersions[0] }
+
+    static func negotiateProtocolVersion(_ requested: Any?) -> String {
+        if let requested = requested as? String, supportedProtocolVersions.contains(requested) {
+            return requested
+        }
+        return latestProtocolVersion
+    }
 
     private static let stdoutLock = NSLock()
 
@@ -145,16 +158,19 @@ enum MCPServer {
 
         switch method {
         case "initialize":
-            let requested = params["protocolVersion"] as? String
-            let version = (requested.map { supportedProtocolVersions.contains($0) } ?? false)
-                ? requested! : latestProtocolVersion
+            // Who's asking — shown (as the client's own claim) on share
+            // consent cards.
+            recordClientInfo(params["clientInfo"])
             reply(id: requestID, result: [
-                "protocolVersion": version,
+                "protocolVersion": negotiateProtocolVersion(params["protocolVersion"]),
                 "capabilities": [
                     "tools": ["listChanged": false],
                     "prompts": ["listChanged": false],
                 ],
-                "serverInfo": ["name": "capturecat", "title": "CaptureCat", "version": serverVersion],
+                "serverInfo": [
+                    "name": "capturecat", "title": "CaptureCat", "version": serverVersion,
+                    "websiteUrl": "https://capturecat.so/agents",
+                ],
                 "instructions": serverInstructions,
             ])
         case "ping":
@@ -213,6 +229,12 @@ enum MCPServer {
             case "list_capture_targets": result = try listCaptureTargets()
             case "start_recording": result = try startRecording(arguments)
             case "stop_recording": result = try stopRecording(arguments)
+            case "share_project":
+                // Waits for the user's answer on its own thread and replies
+                // from there — the stdin loop keeps serving meanwhile.
+                shareProjectAsync(arguments, requestID: requestID, progress: progress)
+                return
+            case "share_status": result = try shareStatus(arguments)
             default:
                 guard let core = editOps[name] else {
                     replyError(id: requestID, code: -32602, message: "unknown tool: \(name)")
@@ -220,18 +242,38 @@ enum MCPServer {
                 }
                 result = try runSingleEdit(name: name, core: core, arguments: arguments)
             }
-            let text = resultJSON(result)
-            reply(id: requestID, result: [
-                "content": [["type": "text", "text": text]],
-                "isError": false,
-            ])
+            replyToolResult(id: requestID, name: name, result: result)
         } catch {
-            reply(id: requestID, result: [
-                "content": [["type": "text", "text": "ERROR: \(error.localizedDescription)"]],
-                "isError": true,
-            ])
+            replyToolError(id: requestID, message: error.localizedDescription)
         }
     }
+
+    /// A successful tool result: the compact JSON as text (what every client
+    /// reads) and, for tools that declare an outputSchema, the same object as
+    /// `structuredContent` (MCP 2025-06-18+: the text stays for older clients).
+    static func replyToolResult(id: Any, name: String, result: [String: Any]) {
+        var payload: [String: Any] = [
+            "content": [["type": "text", "text": resultJSON(result)]],
+            "isError": false,
+        ]
+        if structuredOutputTools.contains(name) {
+            payload["structuredContent"] = jsonSafe(result)
+        }
+        reply(id: id, result: payload)
+    }
+
+    /// The ERROR contract every tool shares: an actionable line, isError.
+    static func replyToolError(id: Any, message: String) {
+        reply(id: id, result: [
+            "content": [["type": "text", "text": "ERROR: \(message)"]],
+            "isError": true,
+        ])
+    }
+
+    /// Tools whose definition carries an outputSchema.
+    static let structuredOutputTools: Set<String> = Set(
+        toolDefinitions.compactMap { $0["outputSchema"] == nil ? nil : $0["name"] as? String }
+    )
 
     /// Tool results as compact, key-sorted JSON — models read it as well as
     /// pretty-printed JSON at a fraction of the tokens.
@@ -264,8 +306,12 @@ enum MCPServer {
 
     // MARK: - Project IO (direct Codable, atomic writes, media never touched)
 
+    /// Harness seam (--share-consent-test): a temp library. Never set in a
+    /// normal launch.
+    nonisolated(unsafe) static var projectsRootOverride: URL?
+
     static var projectsRoot: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        projectsRootOverride ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("CaptureCat/Projects", isDirectory: true)
     }
 

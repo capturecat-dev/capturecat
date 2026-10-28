@@ -13,9 +13,11 @@
  *    is used only as a fallback);
  *  - keeps the tools that make sense in a page (recording, on-device
  *    transcription and local-library tools stay desktop-only);
- *  - makes `id` optional — in the editor it defaults to the open project;
+ *  - makes `id` / `project_id` optional — in the editor they default to the
+ *    open project;
  *  - maps MCP annotations onto WebMCP's (`readOnlyHint`, and
- *    `consequentialHint` for anything destructive);
+ *    `consequentialHint` for a write that reaches outside the page or is
+ *    destructive — share_project; edits are undoable and stay in the tab);
  *  - exposes the desktop server's `instructions` playbook as a read-only
  *    `get_editing_playbook` tool (WebMCP has no instructions channel).
  *
@@ -32,7 +34,7 @@ interface CatalogTool {
   name: string;
   title?: string;
   description: string;
-  inputSchema: { type: "object"; properties?: Record<string, unknown>; required?: string[] };
+  inputSchema: { type: "object"; properties?: Record<string, unknown>; required?: string[]; additionalProperties?: boolean };
   annotations?: {
     readOnlyHint?: boolean;
     destructiveHint?: boolean;
@@ -65,6 +67,9 @@ export const WEB_TOOLS = [
   "set_style",
   "undo",
   "export_project",
+  // Asks first (house AlertDialog), then the editor's own Share — webmcp/share.ts.
+  "share_project",
+  "share_status",
 ] as const;
 export type WebToolName = (typeof WEB_TOOLS)[number] | "get_editing_playbook";
 
@@ -121,12 +126,13 @@ export function adaptTool(tool: CatalogTool): CatalogTool {
   const schema = structuredClone(tool.inputSchema);
   const properties = { ...(schema.properties ?? {}) } as Record<string, Record<string, unknown>>;
   let required = [...(schema.required ?? [])];
-  if (properties.id) {
-    properties.id = {
-      ...properties.id,
+  for (const key of ["id", "project_id"]) {
+    if (!properties[key]) continue;
+    properties[key] = {
+      ...properties[key],
       description: "Project id. Optional in the web editor — defaults to the project open in this tab.",
     };
-    required = required.filter((key) => key !== "id");
+    required = required.filter((k) => k !== key);
   }
   let description = tool.description;
   if (tool.name === "export_project") {
@@ -136,7 +142,19 @@ export function adaptTool(tool: CatalogTool): CatalogTool {
       "Export the open project to an mp4 in the browser (same renderer as the preview) and hand it to the " +
       "user as a download. Blocks until finished.";
   }
-  return { ...tool, description, inputSchema: { type: "object", properties, required } };
+  if (tool.name === "share_project") {
+    description =
+      "Publish the project open in this tab as a CaptureCat share link — ONLY with the user's approval: the editor " +
+      "shows them a confirmation naming the project, that an AI agent is asking, and who will be able to watch; " +
+      "they click Allow or Don't Allow. Every call asks again (it can't be pre-approved). On Allow the editor " +
+      "exports and uploads exactly like its Share button (a project shared before keeps its link and gets the new " +
+      "version) and this returns a jobId; poll share_status until state is done, then give the user shareUrl. " +
+      'privacy: "unlisted" (default: anyone with the link), "public" (anyone with the link, and listed on the ' +
+      'user\'s public profile page), "private" (only the user). Needs the user signed in to CaptureCat.';
+  }
+  const inputSchema: CatalogTool["inputSchema"] = { type: "object", properties, required };
+  if (schema.additionalProperties === false) inputSchema.additionalProperties = false;
+  return { ...tool, description, inputSchema };
 }
 
 export function webCatalog(): CatalogTool[] {
@@ -178,7 +196,11 @@ export function registerEditorTools(
         inputSchema: tool.inputSchema,
         annotations: {
           readOnlyHint: annotations.readOnlyHint === true,
-          consequentialHint: annotations.readOnlyHint !== true && annotations.destructiveHint === true,
+          // destructiveHint is false on every tool now (nothing deletes;
+          // edits are undoable); what reaches past the page — publishing a
+          // share link — is the consequential kind.
+          consequentialHint:
+            annotations.readOnlyHint !== true && (annotations.destructiveHint === true || annotations.openWorldHint === true),
         },
         execute: async (input, { signal }) => {
           try {

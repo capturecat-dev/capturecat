@@ -19,10 +19,15 @@ export const DEFAULT_BINARY =
   "/Users/mike/Library/Developer/Xcode/DerivedData/CaptureCat-disivhtfsylsyoccbprgxlcxjghz/" +
   "Build/Products/Debug/CaptureCat.app/Contents/MacOS/CaptureCat";
 
-export const PROJECTS_ROOT = path.join(
-  os.homedir(),
-  "Library/Containers/so.capturecat.CaptureCat/Data/Library/Application Support/CaptureCat/Projects",
-);
+// CAPTURECAT_PROJECTS_ROOT: the Projects folder the binary really uses — an
+// ad-hoc re-signed (unsandboxed) harness copy reads
+// ~/Library/Application Support/CaptureCat/Projects, not the container.
+export const PROJECTS_ROOT =
+  process.env.CAPTURECAT_PROJECTS_ROOT ??
+  path.join(
+    os.homedir(),
+    "Library/Containers/so.capturecat.CaptureCat/Data/Library/Application Support/CaptureCat/Projects",
+  );
 
 export class MacServer {
   constructor(binary = DEFAULT_BINARY) {

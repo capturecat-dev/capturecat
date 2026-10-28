@@ -33,6 +33,7 @@ import { useSubtitleGeneration } from "../state/subtitleGeneration";
 import { useCameraMask } from "../state/cameraMask";
 import { timelineSnapshot } from "../state/timeline";
 import { buildEditorToolHandlers, registerEditorWebMCP } from "../state/webmcpHandlers";
+import type { ShareToolHost } from "../webmcp/share";
 import { REPLACE_ZOOM_BLOCKS, editorPaneActions, useInspectorRevealKey, usePendingSeek, useRecordingFacts } from "./editorPageWiring";
 import { AlertHost, AlertPresenter, Button, SFIcon, ThemeRoot } from "./kit";
 import { useInspectorPanes } from "./panes";
@@ -207,9 +208,12 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
   const project = state.project;
 
   // WebMCP: the same tools as the desktop MCP server, over the open project.
+  // share_project reaches the AlertDialog + share center through this ref
+  // (the share center is created further down).
+  const shareTool = useRef<ShareToolHost | null>(null);
   useEffect(() => {
     if (!loaded) return;
-    const ctx = { store, controller, loaded, projectId };
+    const ctx = { store, controller, loaded, projectId, share: shareTool };
     if (import.meta.env.DEV) {
       // DEV-only: the same handlers for the lab's MCP parity harness.
       const w = window as unknown as { __editor?: Record<string, unknown> };
@@ -384,6 +388,20 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
   }, [controller, history, store, alerts, projectId]);
   // Share links: the top-bar Share key and the sheet's share-after-export.
   const shareCenter = useShareCenter(store, controller, info ? { width: info.width, height: info.height } : null);
+  // …and WebMCP share_project: ask in the house AlertDialog, then that Share.
+  useEffect(() => {
+    shareTool.current = {
+      confirm: (spec) => alerts.present(spec),
+      project: () => {
+        const p = store.getState().project;
+        return p ? { id: p.id, name: p.name } : null;
+      },
+      center: shareCenter,
+    };
+    return () => {
+      shareTool.current = null;
+    };
+  }, [alerts, store, shareCenter]);
   const intents = useMemo(() => controller.timelineIntents(), [controller]);
   const paneActions = useMemo(() => editorPaneActions(controller), [controller]);
   const mediaActions = useMediaPickers(store, loaded);
