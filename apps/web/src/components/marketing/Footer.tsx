@@ -15,6 +15,7 @@ const COLUMNS: Array<{
       { label: "Agents and MCP", to: "/agents" },
       { label: "Docs", to: "/docs" },
       { label: "Guides", to: "/guides" },
+      { label: "Changelog", to: "/changelog" },
     ],
   },
   {

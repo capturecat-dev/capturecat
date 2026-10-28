@@ -420,7 +420,7 @@ function SyncResultsDialog({ results, onClose }: { results: SyncAllResult[]; onC
   );
 }
 
-function Field({ label, hint, children, htmlFor }: { label: string; hint?: ReactNode; children: ReactNode; htmlFor?: string }) {
+export function Field({ label, hint, children, htmlFor }: { label: string; hint?: ReactNode; children: ReactNode; htmlFor?: string }) {
   return (
     <div className="space-y-1.5">
       <label htmlFor={htmlFor} className="text-xs font-medium text-muted-foreground">
@@ -432,7 +432,7 @@ function Field({ label, hint, children, htmlFor }: { label: string; hint?: React
   );
 }
 
-function Section({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
+export function Section({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
   return (
     <section className="space-y-3 border-t pt-5 first:border-t-0 first:pt-0">
       <div>

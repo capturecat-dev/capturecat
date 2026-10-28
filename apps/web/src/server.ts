@@ -14,6 +14,7 @@ import {
 import { createServerEntry } from "@tanstack/react-start/server-entry";
 
 import { findPageByPath, markdownHref } from "@/lib/site-content";
+import { changelogMarkdownHref, isChangelogPath } from "@/lib/changelog/site";
 import {
   API_CATALOG_LINK,
   acceptQ,
@@ -135,6 +136,16 @@ async function rewrite(request: Request): Promise<Request | Response> {
     return new Request(url.toString(), request);
   }
 
+  // Changelog Markdown twins: /changelog.md → /md-changelog and
+  // /changelog/<slug>.md → /md-changelog/<slug>. The changelog lives in D1,
+  // not in the static registry the /md/$ route serves, so it has its own
+  // route (routes/md-changelog.$.ts). Before the generic rewrite below.
+  const changelogMd = path.match(/^\/changelog(?:\/([a-z0-9-]{1,80}))?\.md$/);
+  if (changelogMd && isFirstPartyHost(host) && host !== "app.capturecat.so") {
+    url.pathname = changelogMd[1] ? `/md-changelog/${changelogMd[1]}` : "/md-changelog";
+    return new Request(url.toString(), request);
+  }
+
   // Markdown twins: /pricing.md → /md/pricing, /index.md → /md (same rewrite
   // the Next app did in next.config). The /md/$ route serves from the
   // site-content registry.
@@ -150,11 +161,16 @@ async function rewrite(request: Request): Promise<Request | Response> {
     (request.method === "GET" || request.method === "HEAD") &&
     host !== "app.capturecat.so" &&
     isFirstPartyHost(host) &&
-    prefersMarkdown(request) &&
-    findPageByPath(path)
+    prefersMarkdown(request)
   ) {
-    url.pathname = path === "/" ? "/md" : `/md${path}`;
-    return new Request(url.toString(), request);
+    if (findPageByPath(path)) {
+      url.pathname = path === "/" ? "/md" : `/md${path}`;
+      return new Request(url.toString(), request);
+    }
+    if (isChangelogPath(path)) {
+      url.pathname = `/md-changelog${path.slice("/changelog".length)}`;
+      return new Request(url.toString(), request);
+    }
   }
 
   // Marketing-domain only: on app.capturecat.so these clean paths ARE the
@@ -251,6 +267,16 @@ async function withSecurityHeaders(
     headers.append(
       "Link",
       `<${markdownHref(originalUrl.pathname)}>; rel="alternate"; type="text/markdown"`
+    );
+  } else if (
+    isFirstPartyHost(originalUrl.host) &&
+    originalUrl.host !== "app.capturecat.so" &&
+    isChangelogPath(originalUrl.pathname)
+  ) {
+    headers.append("Vary", "Accept");
+    headers.append(
+      "Link",
+      `<${changelogMarkdownHref(originalUrl.pathname)}>; rel="alternate"; type="text/markdown"`
     );
   }
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });

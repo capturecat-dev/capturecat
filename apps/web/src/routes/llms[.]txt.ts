@@ -2,6 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { SITE_PAGES, SITE_URL, markdownHref } from "@/lib/site-content";
 import { MCP_ENDPOINT } from "@/lib/agent-access";
+import {
+  CHANGELOG_DESCRIPTION,
+  CHANGELOG_FEED_PATH,
+  CHANGELOG_PATH,
+  changelogEntryPath,
+  changelogMarkdownHref,
+  fetchChangelog,
+} from "@/lib/changelog/site";
 
 /**
  * /llms.txt — the llmstxt.org discovery file.
@@ -9,12 +17,13 @@ import { MCP_ENDPOINT } from "@/lib/agent-access";
  * A single H1, a blockquote summary, then a list of the site's pages linking to
  * their Markdown renderings (the spec prefers Markdown URLs). Generated from the
  * same registry that drives robots.txt, the sitemap, and the /*.md routes, so it
- * can never list a page that no longer exists.
+ * can never list a page that no longer exists. The changelog (D1, not the
+ * registry) is listed from the API: its twin, its feed and the latest entries.
  */
 export const Route = createFileRoute("/llms.txt")({
   server: {
     handlers: {
-      GET: () => {
+      GET: async () => {
         const home = SITE_PAGES.find((p) => p.path === "/");
 
         const lines: string[] = [
@@ -72,6 +81,16 @@ export const Route = createFileRoute("/llms.txt")({
           lines.push("", `## ${heading}`);
           for (const page of SITE_PAGES.filter((p) => match(p.path))) lines.push(entry(page));
         }
+
+        const latest = (await fetchChangelog({ limit: 10 }))?.entries ?? [];
+        lines.push(
+          "",
+          "## Changelog",
+          `- [Changelog](${SITE_URL}${changelogMarkdownHref(CHANGELOG_PATH)}): ${CHANGELOG_DESCRIPTION} Newest first; RSS at ${SITE_URL}${CHANGELOG_FEED_PATH}.`,
+          ...latest.map(
+            (e) => `- [${e.title}](${SITE_URL}${changelogMarkdownHref(changelogEntryPath(e.slug))}): ${e.summary} (${e.publishedAt.slice(0, 10)})`
+          )
+        );
 
         lines.push(
           "",

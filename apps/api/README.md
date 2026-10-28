@@ -417,3 +417,16 @@ metadata URLs to paste into the IdP) and
 `POST /api/sso/providers/:id/verify` (TXT check over DNS-over-HTTPS). Sign-in
 is refused until the domain is verified. The desktop sign-in chooser offers
 "Use single sign-on" once any verified provider exists.
+
+## Changelog
+
+`routes/changelog.ts` + migration 0037 (`changelog_entries`). The owner writes
+entries in the admin console (admin.capturecat.so → **Changelog**: draft,
+publish now / on a date / scheduled, unpublish, delete) through
+`/api/admin/changelog*` behind the admin guard; the public reads are
+`GET /api/changelog?limit&cursor` (published only, newest first, keyset-paged)
+and `GET /api/changelog/:slug`. capturecat.so renders them at `/changelog`,
+`/changelog/<slug>`, `/changelog.md` and `/changelog.xml` with one escaped
+Markdown renderer (`apps/web/src/lib/changelog/markdown.tsx`) that the admin
+preview also uses. Bodies are stored as written: safety lives in that renderer
+(no raw HTML, http(s) links only), not in the API.

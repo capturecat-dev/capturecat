@@ -15,6 +15,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as BetaRouteImport } from './routes/beta'
+import { Route as ChangelogDotxmlRouteImport } from './routes/changelog[.]xml'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as EditorLabRouteImport } from './routes/editor-lab'
@@ -39,6 +40,8 @@ import { Route as AppTeamRouteImport } from './routes/app/team'
 import { Route as AppEditorRouteImport } from './routes/app_.editor'
 import { Route as BestIndexRouteImport } from './routes/best.index'
 import { Route as BestSlugRouteImport } from './routes/best.$slug'
+import { Route as ChangelogIndexRouteImport } from './routes/changelog.index'
+import { Route as ChangelogSlugRouteImport } from './routes/changelog.$slug'
 import { Route as CompareIndexRouteImport } from './routes/compare.index'
 import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
 import { Route as DocsIndexRouteImport } from './routes/docs.index'
@@ -46,6 +49,7 @@ import { Route as DocsSplatRouteImport } from './routes/docs.$'
 import { Route as EmbedVideoIdRouteImport } from './routes/embed.$videoId'
 import { Route as GuidesIndexRouteImport } from './routes/guides.index'
 import { Route as GuidesSlugRouteImport } from './routes/guides.$slug'
+import { Route as MdChangelogSplatRouteImport } from './routes/md-changelog.$'
 import { Route as MdShareVideoIdRouteImport } from './routes/md-share.$videoId'
 import { Route as MdSplatRouteImport } from './routes/md.$'
 import { Route as OauthAuthorizeRouteImport } from './routes/oauth.authorize'
@@ -84,6 +88,11 @@ const AppRouteRoute = AppRouteRouteImport.update({
 const BetaRoute = BetaRouteImport.update({
   id: '/beta',
   path: '/beta',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogDotxmlRoute = ChangelogDotxmlRouteImport.update({
+  id: '/changelog.xml',
+  path: '/changelog.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -207,6 +216,16 @@ const BestSlugRoute = BestSlugRouteImport.update({
   path: '/best/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChangelogIndexRoute = ChangelogIndexRouteImport.update({
+  id: '/changelog/',
+  path: '/changelog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogSlugRoute = ChangelogSlugRouteImport.update({
+  id: '/changelog/$slug',
+  path: '/changelog/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CompareIndexRoute = CompareIndexRouteImport.update({
   id: '/compare/',
   path: '/compare/',
@@ -240,6 +259,11 @@ const GuidesIndexRoute = GuidesIndexRouteImport.update({
 const GuidesSlugRoute = GuidesSlugRouteImport.update({
   id: '/guides/$slug',
   path: '/guides/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MdChangelogSplatRoute = MdChangelogSplatRouteImport.update({
+  id: '/md-changelog/$',
+  path: '/md-changelog/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MdShareVideoIdRoute = MdShareVideoIdRouteImport.update({
@@ -296,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
+  '/changelog.xml': typeof ChangelogDotxmlRoute
   '/contact': typeof ContactRoute
   '/download': typeof DownloadRoute
   '/editor-lab': typeof EditorLabRoute
@@ -318,16 +343,19 @@ export interface FileRoutesByFullPath {
   '/app/team': typeof AppTeamRoute
   '/app/editor': typeof AppEditorRouteWithChildren
   '/best/$slug': typeof BestSlugRoute
+  '/changelog/$slug': typeof ChangelogSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/docs/$': typeof DocsSplatRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/guides/$slug': typeof GuidesSlugRoute
+  '/md-changelog/$': typeof MdChangelogSplatRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
   '/md/$': typeof MdSplatRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app/': typeof AppIndexRoute
   '/best/': typeof BestIndexRoute
+  '/changelog/': typeof ChangelogIndexRoute
   '/compare/': typeof CompareIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/guides/': typeof GuidesIndexRoute
@@ -343,6 +371,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
+  '/changelog.xml': typeof ChangelogDotxmlRoute
   '/contact': typeof ContactRoute
   '/download': typeof DownloadRoute
   '/editor-lab': typeof EditorLabRoute
@@ -365,16 +394,19 @@ export interface FileRoutesByTo {
   '/app/team': typeof AppTeamRoute
   '/app/editor': typeof AppEditorRouteWithChildren
   '/best/$slug': typeof BestSlugRoute
+  '/changelog/$slug': typeof ChangelogSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/docs/$': typeof DocsSplatRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/guides/$slug': typeof GuidesSlugRoute
+  '/md-changelog/$': typeof MdChangelogSplatRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
   '/md/$': typeof MdSplatRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app': typeof AppIndexRoute
   '/best': typeof BestIndexRoute
+  '/changelog': typeof ChangelogIndexRoute
   '/compare': typeof CompareIndexRoute
   '/docs': typeof DocsIndexRoute
   '/guides': typeof GuidesIndexRoute
@@ -392,6 +424,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/agents': typeof AgentsRoute
   '/beta': typeof BetaRoute
+  '/changelog.xml': typeof ChangelogDotxmlRoute
   '/contact': typeof ContactRoute
   '/download': typeof DownloadRoute
   '/editor-lab': typeof EditorLabRoute
@@ -414,16 +447,19 @@ export interface FileRoutesById {
   '/app/team': typeof AppTeamRoute
   '/app_/editor': typeof AppEditorRouteWithChildren
   '/best/$slug': typeof BestSlugRoute
+  '/changelog/$slug': typeof ChangelogSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
   '/docs/$': typeof DocsSplatRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/guides/$slug': typeof GuidesSlugRoute
+  '/md-changelog/$': typeof MdChangelogSplatRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
   '/md/$': typeof MdSplatRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app/': typeof AppIndexRoute
   '/best/': typeof BestIndexRoute
+  '/changelog/': typeof ChangelogIndexRoute
   '/compare/': typeof CompareIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/guides/': typeof GuidesIndexRoute
@@ -442,6 +478,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/agents'
     | '/beta'
+    | '/changelog.xml'
     | '/contact'
     | '/download'
     | '/editor-lab'
@@ -464,16 +501,19 @@ export interface FileRouteTypes {
     | '/app/team'
     | '/app/editor'
     | '/best/$slug'
+    | '/changelog/$slug'
     | '/compare/$slug'
     | '/docs/$'
     | '/embed/$videoId'
     | '/guides/$slug'
+    | '/md-changelog/$'
     | '/md-share/$videoId'
     | '/md/$'
     | '/oauth/authorize'
     | '/share/$videoId'
     | '/app/'
     | '/best/'
+    | '/changelog/'
     | '/compare/'
     | '/docs/'
     | '/guides/'
@@ -489,6 +529,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/agents'
     | '/beta'
+    | '/changelog.xml'
     | '/contact'
     | '/download'
     | '/editor-lab'
@@ -511,16 +552,19 @@ export interface FileRouteTypes {
     | '/app/team'
     | '/app/editor'
     | '/best/$slug'
+    | '/changelog/$slug'
     | '/compare/$slug'
     | '/docs/$'
     | '/embed/$videoId'
     | '/guides/$slug'
+    | '/md-changelog/$'
     | '/md-share/$videoId'
     | '/md/$'
     | '/oauth/authorize'
     | '/share/$videoId'
     | '/app'
     | '/best'
+    | '/changelog'
     | '/compare'
     | '/docs'
     | '/guides'
@@ -537,6 +581,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/agents'
     | '/beta'
+    | '/changelog.xml'
     | '/contact'
     | '/download'
     | '/editor-lab'
@@ -559,16 +604,19 @@ export interface FileRouteTypes {
     | '/app/team'
     | '/app_/editor'
     | '/best/$slug'
+    | '/changelog/$slug'
     | '/compare/$slug'
     | '/docs/$'
     | '/embed/$videoId'
     | '/guides/$slug'
+    | '/md-changelog/$'
     | '/md-share/$videoId'
     | '/md/$'
     | '/oauth/authorize'
     | '/share/$videoId'
     | '/app/'
     | '/best/'
+    | '/changelog/'
     | '/compare/'
     | '/docs/'
     | '/guides/'
@@ -586,6 +634,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AgentsRoute: typeof AgentsRoute
   BetaRoute: typeof BetaRoute
+  ChangelogDotxmlRoute: typeof ChangelogDotxmlRoute
   ContactRoute: typeof ContactRoute
   DownloadRoute: typeof DownloadRoute
   EditorLabRoute: typeof EditorLabRoute
@@ -603,15 +652,18 @@ export interface RootRouteChildren {
   ApiOembedRoute: typeof ApiOembedRoute
   AppEditorRoute: typeof AppEditorRouteWithChildren
   BestSlugRoute: typeof BestSlugRoute
+  ChangelogSlugRoute: typeof ChangelogSlugRoute
   CompareSlugRoute: typeof CompareSlugRoute
   DocsSplatRoute: typeof DocsSplatRoute
   EmbedVideoIdRoute: typeof EmbedVideoIdRoute
   GuidesSlugRoute: typeof GuidesSlugRoute
+  MdChangelogSplatRoute: typeof MdChangelogSplatRoute
   MdShareVideoIdRoute: typeof MdShareVideoIdRoute
   MdSplatRoute: typeof MdSplatRoute
   OauthAuthorizeRoute: typeof OauthAuthorizeRoute
   ShareVideoIdRoute: typeof ShareVideoIdRoute
   BestIndexRoute: typeof BestIndexRoute
+  ChangelogIndexRoute: typeof ChangelogIndexRoute
   CompareIndexRoute: typeof CompareIndexRoute
   DocsIndexRoute: typeof DocsIndexRoute
   GuidesIndexRoute: typeof GuidesIndexRoute
@@ -660,6 +712,13 @@ declare module '@tanstack/react-router' {
       path: '/beta'
       fullPath: '/beta'
       preLoaderRoute: typeof BetaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changelog.xml': {
+      id: '/changelog.xml'
+      path: '/changelog.xml'
+      fullPath: '/changelog.xml'
+      preLoaderRoute: typeof ChangelogDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -830,6 +889,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BestSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/changelog/': {
+      id: '/changelog/'
+      path: '/changelog'
+      fullPath: '/changelog/'
+      preLoaderRoute: typeof ChangelogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changelog/$slug': {
+      id: '/changelog/$slug'
+      path: '/changelog/$slug'
+      fullPath: '/changelog/$slug'
+      preLoaderRoute: typeof ChangelogSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/compare/': {
       id: '/compare/'
       path: '/compare'
@@ -877,6 +950,13 @@ declare module '@tanstack/react-router' {
       path: '/guides/$slug'
       fullPath: '/guides/$slug'
       preLoaderRoute: typeof GuidesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/md-changelog/$': {
+      id: '/md-changelog/$'
+      path: '/md-changelog/$'
+      fullPath: '/md-changelog/$'
+      preLoaderRoute: typeof MdChangelogSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/md-share/$videoId': {
@@ -992,6 +1072,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AgentsRoute: AgentsRoute,
   BetaRoute: BetaRoute,
+  ChangelogDotxmlRoute: ChangelogDotxmlRoute,
   ContactRoute: ContactRoute,
   DownloadRoute: DownloadRoute,
   EditorLabRoute: EditorLabRoute,
@@ -1009,15 +1090,18 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOembedRoute: ApiOembedRoute,
   AppEditorRoute: AppEditorRouteWithChildren,
   BestSlugRoute: BestSlugRoute,
+  ChangelogSlugRoute: ChangelogSlugRoute,
   CompareSlugRoute: CompareSlugRoute,
   DocsSplatRoute: DocsSplatRoute,
   EmbedVideoIdRoute: EmbedVideoIdRoute,
   GuidesSlugRoute: GuidesSlugRoute,
+  MdChangelogSplatRoute: MdChangelogSplatRoute,
   MdShareVideoIdRoute: MdShareVideoIdRoute,
   MdSplatRoute: MdSplatRoute,
   OauthAuthorizeRoute: OauthAuthorizeRoute,
   ShareVideoIdRoute: ShareVideoIdRoute,
   BestIndexRoute: BestIndexRoute,
+  ChangelogIndexRoute: ChangelogIndexRoute,
   CompareIndexRoute: CompareIndexRoute,
   DocsIndexRoute: DocsIndexRoute,
   GuidesIndexRoute: GuidesIndexRoute,

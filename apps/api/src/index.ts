@@ -35,6 +35,7 @@ import { mcpRoutes } from "./mcp/routes";
 import { AGENT_AUDIT_RETENTION_DAYS } from "./lib/agent-tokens";
 import { agentApprovalRoutes } from "./routes/agent-approvals";
 import { webhookRoutes } from "./routes/webhooks";
+import { changelogRoutes } from "./routes/changelog";
 import { oauthRoutes } from "./routes/oauth";
 import { WEBHOOK_DELIVERY_RETENTION_DAYS, processWebhookOutbox } from "./lib/webhooks";
 
@@ -352,6 +353,9 @@ app.route("/api", deleteRoutes);
 app.route("/api", playlistRoutes);
 app.route("/api", profileRoutes);
 app.route("/api", releaseRoutes);
+// The public changelog (published entries only; the site renders it at
+// capturecat.so/changelog). Written from the admin console via adminRoutes.
+app.route("/api", changelogRoutes);
 app.route("/api", attestRoutes);
 app.route("/api", aiRoutes);
 // Public beta waitlist ingest (honeypot + Turnstile + email dedupe inside).

@@ -14,6 +14,7 @@ import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 import { Route as DashboardBetaRouteImport } from './routes/_dashboard.beta'
+import { Route as DashboardChangelogRouteImport } from './routes/_dashboard.changelog'
 import { Route as DashboardPlansRouteImport } from './routes/_dashboard.plans'
 import { Route as DashboardTeamsRouteImport } from './routes/_dashboard.teams'
 import { Route as DashboardUsersRouteImport } from './routes/_dashboard.users'
@@ -43,6 +44,11 @@ const DashboardBetaRoute = DashboardBetaRouteImport.update({
   path: '/beta',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardChangelogRoute = DashboardChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardPlansRoute = DashboardPlansRouteImport.update({
   id: '/plans',
   path: '/plans',
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/beta': typeof DashboardBetaRoute
+  '/changelog': typeof DashboardChangelogRoute
   '/plans': typeof DashboardPlansRoute
   '/teams': typeof DashboardTeamsRoute
   '/users': typeof DashboardUsersRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/beta': typeof DashboardBetaRoute
+  '/changelog': typeof DashboardChangelogRoute
   '/plans': typeof DashboardPlansRoute
   '/teams': typeof DashboardTeamsRoute
   '/users': typeof DashboardUsersRoute
@@ -91,6 +99,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/beta': typeof DashboardBetaRoute
+  '/_dashboard/changelog': typeof DashboardChangelogRoute
   '/_dashboard/plans': typeof DashboardPlansRoute
   '/_dashboard/teams': typeof DashboardTeamsRoute
   '/_dashboard/users': typeof DashboardUsersRoute
@@ -103,6 +112,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/analytics'
     | '/beta'
+    | '/changelog'
     | '/plans'
     | '/teams'
     | '/users'
@@ -113,6 +123,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/analytics'
     | '/beta'
+    | '/changelog'
     | '/plans'
     | '/teams'
     | '/users'
@@ -124,6 +135,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_dashboard/analytics'
     | '/_dashboard/beta'
+    | '/_dashboard/changelog'
     | '/_dashboard/plans'
     | '/_dashboard/teams'
     | '/_dashboard/users'
@@ -174,6 +186,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardBetaRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/changelog': {
+      id: '/_dashboard/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof DashboardChangelogRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/plans': {
       id: '/_dashboard/plans'
       path: '/plans'
@@ -208,6 +227,7 @@ declare module '@tanstack/react-router' {
 interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardBetaRoute: typeof DashboardBetaRoute
+  DashboardChangelogRoute: typeof DashboardChangelogRoute
   DashboardPlansRoute: typeof DashboardPlansRoute
   DashboardTeamsRoute: typeof DashboardTeamsRoute
   DashboardUsersRoute: typeof DashboardUsersRoute
@@ -216,6 +236,7 @@ interface DashboardRouteChildren {
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardBetaRoute: DashboardBetaRoute,
+  DashboardChangelogRoute: DashboardChangelogRoute,
   DashboardPlansRoute: DashboardPlansRoute,
   DashboardTeamsRoute: DashboardTeamsRoute,
   DashboardUsersRoute: DashboardUsersRoute,
