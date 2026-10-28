@@ -32,6 +32,7 @@
  */
 
 import { API_URL } from "@/lib/api-url";
+import { mediaRefIndex, resolveMediaRef as resolveRef } from "./mediaRef";
 
 // ---------------------------------------------------------------------------
 // Wire types (mirror the API's JSON)
@@ -156,13 +157,7 @@ async function expectOk<T>(res: Response): Promise<T> {
 }
 
 function toMediaUrls(files: CloudMediaFile[], urlsExpireAt: string): MediaUrls {
-  const media: Record<string, CloudMediaFile> = {};
-  const sources: Record<string, string> = {};
-  for (const f of files) {
-    media[f.path] = f;
-    if (f.source) sources[f.source] = f.path;
-  }
-  return { media, sources, urlsExpireAt: Date.parse(urlsExpireAt) };
+  return { ...mediaRefIndex(files), urlsExpireAt: Date.parse(urlsExpireAt) };
 }
 
 // ---------------------------------------------------------------------------
@@ -764,45 +759,10 @@ export function mediaUrlsNeedRefresh(
 }
 
 /**
- * Resolve a reference as project.json spells it — a `file://` URL
- * (videoURL/cursorDataURL/keystrokeDataURL/cameraVideoURL), an absolute path
- * (backgroundImagePath), or a bare file name relative to the project folder
- * (voice-over `fileName`, watermark/curtain logo names) — to its media file.
- *
- * Order: the exact `source` the Mac recorded → the logical path itself → the
- * project-relative tail of a Mac path (`…/Projects/<id>/<name>`) → the last
- * path component. Never guesses beyond that; undefined means not uploaded.
+ * Resolve a reference as project.json spells it to its media file — the
+ * shared pure resolver (state/mediaRef.ts, also run by the API's remote MCP
+ * editing tools). Undefined means not uploaded.
  */
 export function resolveMediaRef(urls: Pick<MediaUrls, "media" | "sources">, ref: string | null | undefined): CloudMediaFile | undefined {
-  if (!ref) return undefined;
-  const bySource = urls.sources[ref];
-  if (bySource) return urls.media[bySource];
-  if (urls.media[ref]) return urls.media[ref];
-
-  let path = ref;
-  if (path.startsWith("file://")) {
-    try {
-      path = decodeURIComponent(new URL(path).pathname);
-    } catch {
-      return undefined;
-    }
-  }
-  const decodedSource = urls.sources[path];
-  if (decodedSource) return urls.media[decodedSource];
-
-  const marker = "/CaptureCat/Projects/";
-  const at = path.indexOf(marker);
-  if (at >= 0) {
-    // …/Projects/<UUID>/<relative path>
-    const rest = path.slice(at + marker.length).split("/").slice(1).join("/");
-    // `sources` first: an image the Mac CONVERTED for browsers (HEIC → PNG)
-    // uploads as `<name>.png` and records its original relative path there.
-    const restViaSource = rest ? urls.sources[rest] : undefined;
-    if (restViaSource) return urls.media[restViaSource];
-    if (rest && urls.media[rest]) return urls.media[rest];
-  }
-  const last = path.split("/").pop();
-  if (!last) return undefined;
-  const lastViaSource = urls.sources[last];
-  return lastViaSource ? urls.media[lastViaSource] : urls.media[last];
+  return resolveRef(urls, ref);
 }

@@ -43,6 +43,12 @@ import type { EntitlementTier } from "../types";
  *   teams           Team library: share videos into an organization.
  *   sso             Enterprise SSO (OIDC/SAML) — register an identity provider.
  *   customStorage   Share videos stored in the user's own S3-compatible bucket.
+ *   agentAccess     Agent tokens, OAuth connectors and the remote MCP server
+ *                   (mcp.capturecat.so). Checked on token creation, on OAuth
+ *                   consent/token issue and on EVERY /mcp request.
+ *   agentWebhooks   Signed webhooks to the user's own endpoints (lib/webhooks.ts).
+ *   agentEditing    Cloud-project editing tools on the remote MCP server
+ *                   (each tool calls requireAgentEditing in src/mcp/gates.ts).
  */
 export const FEATURE_KEYS = [
   "webCapture",
@@ -56,6 +62,9 @@ export const FEATURE_KEYS = [
   "teams",
   "sso",
   "customStorage",
+  "agentAccess",
+  "agentWebhooks",
+  "agentEditing",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 

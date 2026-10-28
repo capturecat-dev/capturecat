@@ -3,9 +3,10 @@
  * cursor.json + keys.json fetched through the project's media URLs, and the
  * video's AVAssetTrack.naturalSize (engine LoadedInfo.naturalSize). Same
  * decode rules as AutoZoomApplier: an unreadable cursor file = no cursor data;
- * keys only when the project references a keystroke file.
+ * keys only when the project references a keystroke file. The assembly from
+ * parsed JSON is pure and shared (core/edit/interactionInputs.ts).
  */
-import { tryParseCursorFile, tryParseKeystrokeFile, type AutoZoomInputs } from "../core/edit/autoZoom";
+import { interactionInputsFrom, type InteractionInputs } from "../core/edit/interactionInputs";
 import type { Project } from "../core/model";
 
 export interface InteractionSources {
@@ -23,16 +24,7 @@ async function fetchJSON(url: string | undefined): Promise<unknown | null> {
   }
 }
 
-export interface InteractionInputs extends AutoZoomInputs {
-  /** cursor.json `coordinateWidth/Height` (describe_project screen size); null for the legacy bare array. */
-  cursorCoordinateSize: { width: number; height: number } | null;
-}
-
-function coordinateSize(json: unknown): { width: number; height: number } | null {
-  if (!json || typeof json !== "object" || Array.isArray(json)) return null;
-  const o = json as { coordinateWidth?: unknown; coordinateHeight?: unknown };
-  return typeof o.coordinateWidth === "number" && typeof o.coordinateHeight === "number" ? { width: o.coordinateWidth, height: o.coordinateHeight } : null;
-}
+export { interactionInputsFrom, type InteractionInputs };
 
 const cache = new Map<string, Promise<InteractionInputs>>();
 
@@ -44,12 +36,7 @@ export function loadInteractionInputs(project: Project, sources: InteractionSour
     hit = (async () => {
       const cursorJSON = project.cursorDataURL ? await fetchJSON(sources.mediaUrl(project.cursorDataURL)) : null;
       const keysJSON = project.keystrokeDataURL ? await fetchJSON(sources.mediaUrl(project.keystrokeDataURL)) : null;
-      return {
-        cursor: cursorJSON == null ? null : tryParseCursorFile(cursorJSON),
-        keystrokes: keysJSON == null ? [] : tryParseKeystrokeFile(keysJSON),
-        videoNaturalSize: sources.naturalSize,
-        cursorCoordinateSize: coordinateSize(cursorJSON),
-      };
+      return interactionInputsFrom(cursorJSON, keysJSON, sources.naturalSize);
     })();
     cache.set(key, hit);
   }

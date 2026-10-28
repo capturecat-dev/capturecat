@@ -9,7 +9,6 @@ import { checkUploadAllowance, storageDeniedBody } from "../lib/upload-policy";
 import { parseJsonBody } from "../lib/validate";
 import { MAX_SIGNABLE_UPLOAD_BYTES } from "../lib/upload-schemas";
 import { isOrgMember, storageUsageBytes } from "../lib/db";
-import { generateId } from "../lib/id";
 import {
   FINALIZE_VERIFY_BUDGET_BYTES,
   GET_URL_TTL_SECONDS,
@@ -20,12 +19,10 @@ import {
   checkManifest,
   checkProjectDocument,
   distinctObjects,
-  documentKey,
   inconsistentSizes,
   normalizeProjectId,
   objectKey,
   parseIfMatchRevision,
-  sha256Hex,
   sha256OfStream,
   type ManifestBody,
 } from "../lib/cloud-projects";
@@ -35,7 +32,6 @@ import {
   deleteCloudObjectRow,
   deleteCloudProjectRows,
   deleteObjectIfUnreferenced,
-  ensureCurrentManifest,
   getCloudProject,
   insertPendingObjects,
   listCloudFiles,
@@ -49,24 +45,14 @@ import {
   type CloudFileRow,
   type CloudProjectRow,
 } from "../lib/cloud-projects-db";
-import {
-  PRUNE_PER_SAVE,
-  checkpointHonoured,
-  newVersionKind,
-  parseSaveHeaders,
-  shouldExtend,
-  versionChangeJSON,
-} from "../lib/project-history";
-import {
-  deleteDocumentIfUnreferenced,
-  deleteOrphanManifests,
-  getVersion,
-  pruneProjectHistory,
-  putDocumentSnapshot,
-  readStoredDocument,
-  releaseUnpinnedMedia,
-  saveVersioned,
-} from "../lib/project-history-db";
+import { parseSaveHeaders } from "../lib/project-history";
+import { deleteOrphanManifests } from "../lib/project-history-db";
+import { readDocument, saveProjectDocument } from "../lib/cloud-project-save";
+import { backgroundOf, projectSavedData, queueWebhookEvent } from "../lib/webhooks";
+
+// Moved to lib/cloud-project-save.ts (shared with the MCP editing tools);
+// re-exported for the routes that import them from here.
+export { historyHousekeeping, legacyBackfill, readDocument } from "../lib/cloud-project-save";
 
 /**
  * Cloud projects for the web editor (app.capturecat.so/editor).
@@ -111,7 +97,8 @@ import {
  * History (migration 0027, docs/project-history.md): every save also extends
  * or opens a VERSION (gzipped snapshot + the media manifest it was saved
  * against) in the same D1 batch as the revision CAS — see
- * lib/project-history{,-db}.ts and routes/cloud-project-history.ts. Versions
+ * lib/project-history{,-db}.ts, lib/cloud-project-save.ts and
+ * routes/cloud-project-history.ts. Versions
  * pin their media: an object a version names is never garbage-collected and
  * never counted as credit for a replacement, and pinned media still counts
  * against the owner's storage (owner decision 3). Version documents do not
@@ -138,7 +125,10 @@ const nowIso = () => new Date().toISOString();
 // finalize, save); the web's autosave is debounced, so 120 saves/min is
 // headroom rather than a target.
 export const syncLimit = userRateLimit({ limit: 30, windowSec: 60, scope: "cloud-sync" });
-export const saveLimit = userRateLimit({ limit: 120, windowSec: 60, scope: "cloud-save" });
+/** The save window, shared with the MCP editing tools (same D1 key, so an
+ *  agent and the editor draw on one budget per user). */
+export const SAVE_RATE_LIMIT = { limit: 120, windowSec: 60, scope: "cloud-save" } as const;
+export const saveLimit = userRateLimit(SAVE_RATE_LIMIT);
 
 /** Resolve :id and the row, enforcing read access. */
 export async function loadForRead(c: Ctx): Promise<
@@ -245,23 +235,6 @@ function projectSummary(p: CloudProjectRow, uid: string) {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
   };
-}
-
-/** The current document text, tolerating the few-millisecond window where a
- *  concurrent save swapped the row and deleted the object we were about to
- *  read (one re-read of the row). Snapshots written since 0027 are gzipped
- *  (`customMetadata.enc`); older objects are read raw. */
-export async function readDocument(env: Env, project: CloudProjectRow): Promise<{ project: CloudProjectRow; text: string | null }> {
-  let current = project;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    if (!current.docR2Key || current.revision === 0) return { project: current, text: null };
-    const text = await readStoredDocument(env.R2, current.docR2Key);
-    if (text !== null) return { project: current, text };
-    const fresh = await getCloudProject(env.DB, current.id);
-    if (!fresh) return { project: current, text: null };
-    current = fresh;
-  }
-  throw new Error(`cloud project ${project.id}: document object missing for revision ${current.revision}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -645,8 +618,6 @@ cloudProjectRoutes.put("/cloud-projects/:id/project", requireAuth, requireEntitl
   const loaded = await loadForSave(c);
   if (!loaded.ok) return loaded.res;
   const project = loaded.project;
-  // Storage is the OWNER's even when a team member saves.
-  const uid = project.ownerUid;
 
   const baseRevision = parseIfMatchRevision(c.req.header("If-Match"));
   if (baseRevision === null) {
@@ -674,103 +645,34 @@ cloudProjectRoutes.put("/cloud-projects/:id/project", requireAuth, requireEntitl
 
   if (baseRevision !== project.revision) return revisionConflict(c, project);
 
-  // A document that GROWS is new storage: plan gate + quota (decided again
-  // atomically in the swap). One that shrinks or holds size is always
-  // accepted, so an over-quota or downgraded account can still save edits.
-  // The owner's plan governs the owner's storage — a member's own plan is
-  // irrelevant to how much the owner may store.
-  const plan = await ownerPlan(c, project, loaded.access);
-  const growth = bytes.byteLength - project.docBytes;
-  if (growth > 0) {
-    const used = await storageUsageBytes(c.env.DB, uid);
-    const verdict = checkUploadAllowance(plan, { fileSizeBytes: growth, usedBytes: used });
-    if (!verdict.ok) return c.json(verdict.body, verdict.status);
-  }
-
-  // History: extend the head version or open a new one (coalescing rules in
-  // lib/project-history.ts). The X-CC-* headers are optional — an old client
-  // sends none and its saves still version (per actor, no client id).
-  const actorUid = c.get("user").uid;
-  const headers = parseSaveHeaders((name) => c.req.header(name));
-  const nowMs = Date.now();
-  const now = new Date(nowMs).toISOString();
-  // A project whose media was committed before 0027 has no manifest yet:
-  // record it so this save's version (and a backfilled one) pins that media.
-  const manifestSha = await ensureCurrentManifest(c.env.DB, project, now);
-  const head = project.headVersionId ? await getVersion(c.env.DB, project.id, project.headVersionId) : null;
-  const forceNew = checkpointHonoured(headers, project.lastCheckpointAt, nowMs);
-  const extend =
-    head !== null &&
-    head.revision === project.revision &&
-    shouldExtend(head, { actorUid, clientId: headers.clientId, source: headers.source }, nowMs, forceNew);
-
-  const newRevision = project.revision + 1;
-  const key = documentKey(uid, project.id, newRevision, generateId(12));
-  const sha = await sha256Hex(bytes);
-  // Write the new revision's object FIRST (gzipped — it is also the
-  // version's snapshot), then swap the row. A lost race or refusal leaves
-  // only an orphan object (deleted below), never a row pointing at a torn
-  // document — and, the version statements being guarded on the swap, never
-  // a version row either.
-  const storedBytes = await putDocumentSnapshot(c.env.R2, key, bytes);
-  const result = await saveVersioned(c.env.DB, {
-    swap: {
-      uid,
-      actorUid,
-      projectId: project.id,
-      expectedRevision: project.revision,
-      newRevision,
-      r2Key: key,
-      bytes: bytes.byteLength,
-      sha256: sha,
-      name: check.name,
-      growthBytes: growth,
-      limitBytes: plan.limits.maxTotalStorageBytes,
-      now,
-    },
-    storedBytes,
-    version: {
-      newId: generateId(16),
-      extendId: extend ? head.id : null,
-      kind: newVersionKind(project.revision, headers),
-      clientKind: headers.clientKind,
-      clientId: headers.clientId,
-      source: headers.source,
-      extendedChangeJSON: extend ? versionChangeJSON(head.changeJSON, headers.change, true) : null,
-      ownChangeJSON: versionChangeJSON(null, headers.change, false),
-      restoredFrom: null,
-      mergedFromRevision: headers.mergedFrom,
-      checkpointHonoured: forceNew,
-    },
-    backfill: legacyBackfill(project),
+  // The write itself — quota, CAS, history — is lib/cloud-project-save.ts,
+  // shared with the remote MCP editing tools.
+  const saved = await saveProjectDocument(c.env, {
+    project,
+    plan: await ownerPlan(c, project, loaded.access),
+    actorUid: c.get("user").uid,
+    bytes,
+    name: check.name,
+    headers: parseSaveHeaders((name) => c.req.header(name)),
   });
-  if (!result.swapped) {
-    // Our key is unique to this attempt, so nothing else can point at it.
-    await c.env.R2.delete(key);
-    const fresh = await getCloudProject(c.env.DB, project.id);
-    if (fresh && fresh.revision !== project.revision) return revisionConflict(c, fresh);
-    const used = await storageUsageBytes(c.env.DB, uid);
-    return c.json(storageDeniedBody(plan, used), 413);
+  if (!saved.ok) {
+    return saved.reason === "conflict" ? revisionConflict(c, saved.current) : c.json(saved.body, saved.status);
   }
-
-  // The previous document stays as its version's snapshot — unless this save
-  // extended that version, which then names the new object instead.
-  if (project.docR2Key && project.docR2Key !== key) {
-    await deleteDocumentIfUnreferenced(c.env, project.id, project.docR2Key);
-  }
-  await historyHousekeeping(c.env, project.id, plan, nowMs, {
-    opened: result.version !== null && !result.version.extended,
-    manifestMoved: extend && head.manifestSha !== manifestSha,
-  });
-
-  const saved = await getCloudProject(c.env.DB, project.id);
-  c.header("ETag", `"${newRevision}"`);
+  // Webhook to the OWNER's endpoints (lib/webhooks.ts), off the response path.
+  queueWebhookEvent(
+    backgroundOf(c),
+    c.env,
+    project.ownerUid,
+    "project.saved",
+    projectSavedData(c.env, { projectId: project.id, name: check.name, revision: saved.revision, savedAt: saved.updatedAt, by: "user" }),
+  );
+  c.header("ETag", `"${saved.revision}"`);
   return c.json({
     projectId: project.id,
-    revision: newRevision,
-    documentSha256: sha,
-    updatedAt: saved?.updatedAt ?? now,
-    version: result.version,
+    revision: saved.revision,
+    documentSha256: saved.documentSha256,
+    updatedAt: saved.updatedAt,
+    version: saved.version,
   });
 });
 
@@ -790,45 +692,6 @@ export async function revisionConflict(c: Ctx, current: CloudProjectRow) {
     },
     409,
   );
-}
-
-/** A project saved before 0027 has no version for its current document; the
- *  next save records it (its `upload` version) in the same batch. */
-export function legacyBackfill(project: CloudProjectRow) {
-  if (project.headVersionId || project.revision === 0 || !project.docR2Key || !project.docSha256) return null;
-  return {
-    id: generateId(16),
-    revision: project.revision,
-    r2Key: project.docR2Key,
-    bytes: project.docBytes,
-    sha256: project.docSha256,
-    at: project.updatedAt,
-    actorUid: project.updatedBy,
-  };
-}
-
-/**
- * After a save that landed: a NEW version may push the project past its
- * retention (the owner's plan; at most PRUNE_PER_SAVE here, the hourly sweep
- * does the rest); an EXTENDED version that moved to a new manifest may have
- * orphaned the old one and the media only it pinned. Never fails the save.
- */
-export async function historyHousekeeping(
-  env: Env,
-  projectId: string,
-  plan: PlanRecord,
-  nowMs: number,
-  what: { opened: boolean; manifestMoved: boolean },
-): Promise<void> {
-  try {
-    if (what.opened) await pruneProjectHistory(env, projectId, plan.limits, nowMs, PRUNE_PER_SAVE);
-    if (what.manifestMoved) {
-      await deleteOrphanManifests(env.DB, projectId);
-      await releaseUnpinnedMedia(env, projectId);
-    }
-  } catch (err) {
-    console.error(`cloud project ${projectId}: history housekeeping failed`, err);
-  }
 }
 
 // ---------------------------------------------------------------------------

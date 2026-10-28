@@ -66,11 +66,12 @@ export const AI_AGENTS: DocSection = {
             ["Edit", "Zooms and tilts, auto zoom, annotations, privacy blur, speed regions, trim, cuts and every style setting, one at a time or as one batch.", "`apply_edits` and 16 single-edit tools"],
             ["Check", "Render frames of the final video, or a labelled contact sheet of up to 16 frames in one image, so the agent can see its own edits.", "`render_frames`"],
             ["Export", "Render the finished MP4 with the real export engine.", "`export_project`"],
+            ["Share", "Publish a project as a share link and follow its upload. CaptureCat asks you first: a card appears on your screen and nothing is uploaded until you click Allow.", "`share_project`, `share_status`"],
           ],
         },
         {
           type: "p",
-          text: "That is 28 tools in all. The [MCP tools reference](/docs/ai-agents/tools) lists each one.",
+          text: "That is 30 tools in all. The [MCP tools reference](/docs/ai-agents/tools) lists each one.",
         },
         { type: "h2", text: "Set it up" },
         {
@@ -147,7 +148,11 @@ export const AI_AGENTS: DocSection = {
         { type: "h2", text: "From a cloud agent" },
         {
           type: "p",
-          text: "Agents that don't run on your Mac (Claude.ai, Claude Code over HTTP, ChatGPT, a scheduled job) can use the remote MCP server at `https://mcp.capturecat.so/mcp` to work with your shared videos: list them, read transcripts, AI summaries, comments and analytics, reply to viewers, change share settings and add videos to playlists. It does not record or edit. Create a token in Settings, Agent access: pick its scopes and expiry, copy it once, and revoke it whenever you like. A token never gets more than your plan allows, and every call shows up in the activity list there.",
+          text: "Agents that don't run on your Mac (Claude.ai, Claude Code over HTTP, ChatGPT, a scheduled job) can use the remote MCP server at `https://mcp.capturecat.so/mcp` to work with your shared videos: list them, read transcripts, AI summaries, comments and analytics, reply to viewers, change share settings and add videos to playlists. It does not record. In Claude.ai or ChatGPT, add a custom connector with that URL and sign in with CaptureCat: you choose what it may do, and it shows up under Connected apps in Settings, Agent access, where you can disconnect it. Other clients use a token from the same place: pick its scopes and expiry, copy it once, and revoke it whenever you like. Neither ever gets more than your plan allows, and every call shows up in the activity list there.",
+        },
+        {
+          type: "p",
+          text: "Agents ask you first before they post a comment or make a video viewable to more people (public, no password, no expiry or view cap, listed on your profile): they show you a link, you approve or deny it signed in, and an approval runs that one action once. Making a video more private never asks. Webhooks (Settings, Webhooks) can tell an agent when a video is ready, someone comments or views a share, a project is saved or an upload fails.",
         },
         {
           type: "code",
@@ -293,7 +298,7 @@ export const AI_AGENTS: DocSection = {
       description:
         "Every tool in CaptureCat's MCP server: recording, capture search, transcripts, zooms, annotations, blur, speed, trim, style, rendered frames and export.",
       summary:
-        "CaptureCat's MCP server has 28 tools. Read-only tools never change anything; editing tools rewrite a project's edit list and can be undone with `undo`.",
+        "CaptureCat's MCP server has 30 tools. Read-only tools never change anything; editing tools rewrite a project's edit list and can be undone with `undo`.",
       platforms: ["mac"],
       blocks: [
         { type: "h2", text: "Two clocks" },

@@ -19,6 +19,7 @@ import { getSharedVideo, listVideoComments } from "../lib/db";
 import { requireAuth } from "../middleware/auth";
 import { generateId } from "../lib/id";
 import { videoAnalytics } from "../lib/video-analytics";
+import { backgroundOf, queueWebhookEvent, videoEventData } from "../lib/webhooks";
 
 export const analyticsRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -92,13 +93,20 @@ analyticsRoutes.post("/video/:videoId/analytics", async (c) => {
     "SELECT COUNT(*) AS n FROM video_views WHERE video_id = ?"
   ).bind(doc.videoId).first<{ n: number }>();
   if ((viewRows?.n ?? 0) >= MAX_VIEW_ROWS) return c.json({ ok: true }, 202);
-  await c.env.DB.prepare(
+  const inserted = await c.env.DB.prepare(
     `INSERT OR IGNORE INTO video_views
        (view_id, video_id, session_id, referrer, country, device, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(generateId(), doc.videoId, sessionId, referrer, cf?.country ?? null, device, now)
     .run();
+  // A NEW viewer → share.viewed to the owner's webhooks, at most once per
+  // video per 10 minutes, and with nothing about the viewer in it.
+  if ((inserted.meta?.changes ?? 0) > 0) {
+    queueWebhookEvent(backgroundOf(c), c.env, doc.uid, "share.viewed", videoEventData(c.env, doc), {
+      debounceKey: doc.videoId,
+    });
+  }
 
   const rawEvents = Array.isArray(body.events)
     ? (body.events as IncomingEvent[]).slice(0, MAX_EVENTS_PER_BATCH)

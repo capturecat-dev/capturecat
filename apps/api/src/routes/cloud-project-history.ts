@@ -5,32 +5,17 @@ import { requireAuth } from "../middleware/auth";
 import { planForUser, requireEntitlement } from "../lib/entitlement";
 import { parseJsonBody } from "../lib/validate";
 import { generateId } from "../lib/id";
-import {
-  GET_URL_TTL_SECONDS,
-  checkProjectDocument,
-  documentKey,
-  parseIfMatchRevision,
-  sha256Hex,
-} from "../lib/cloud-projects";
-import {
-  ensureCurrentManifest,
-  getCloudProject,
-  listCloudFiles,
-  listCloudObjects,
-  manifestOf,
-  type CloudProjectRow,
-} from "../lib/cloud-projects-db";
+import { GET_URL_TTL_SECONDS, parseIfMatchRevision } from "../lib/cloud-projects";
+import { getCloudProject, listCloudObjects, type CloudProjectRow } from "../lib/cloud-projects-db";
 import {
   VERSIONS_PAGE_DEFAULT,
   VERSIONS_PAGE_MAX,
   isVersionId,
   normalizeLabel,
   parseSaveHeaders,
-  restoredFileSet,
   type Json,
 } from "../lib/project-history";
 import {
-  deleteDocumentIfUnreferenced,
   deleteVersions,
   ensureHistory,
   freeUpCandidates,
@@ -40,16 +25,10 @@ import {
   historyMediaStats,
   listVersionPage,
   namedVersionCount,
-  putDocumentSnapshot,
   readStoredDocumentBytes,
-  releaseUnpinnedMedia,
-  restoreFileSetStatements,
-  saveVersioned,
   type VersionRow,
 } from "../lib/project-history-db";
 import {
-  historyHousekeeping,
-  legacyBackfill,
   loadForRead,
   loadForSave,
   loadForWrite,
@@ -60,6 +39,8 @@ import {
   syncLimit,
   type Ctx,
 } from "./cloud-projects";
+import { restoreProjectVersion } from "../lib/cloud-project-save";
+import { backgroundOf, projectSavedData, queueWebhookEvent } from "../lib/webhooks";
 
 /**
  * Cloud-project history (docs/project-history.md §6; design 2026-09-30).
@@ -348,116 +329,35 @@ cloudProjectHistoryRoutes.post(
     }
     if (baseRevision !== project.revision) return revisionConflict(c, project);
 
-    const bytes = await readStoredDocumentBytes(c.env.R2, source.docR2Key);
-    if (bytes === null) {
-      return c.json({ error: "This version's document is no longer stored", code: "version_document_missing" }, 410);
-    }
-    const text = new TextDecoder().decode(bytes);
-    const check = checkProjectDocument(text, bytes.byteLength, project.id);
-    if (!check.ok) return c.json(check.body, check.status);
-
-    const nowMs = Date.now();
-    const now = new Date(nowMs).toISOString();
-
-    // The version's media back into the committed set: its paths win, the
-    // current ones stay (union). Pinned objects are still stored, so this
-    // adds no bytes — which is why members may restore.
-    const currentManifest = await ensureCurrentManifest(c.env.DB, project, now);
-    const versionEntries = (await getManifestEntries(c.env.DB, project.id, source.manifestSha)) ?? [];
-    const objects = new Map(
-      (await listCloudObjects(c.env.DB, project.id)).filter((o) => o.status === "ready").map((o) => [o.sha256, o]),
-    );
-    const missing = versionEntries.filter((e) => !objects.has(e.sha256)).map((e) => e.path);
-    if (missing.length > 0) {
-      return c.json(
-        { error: "Some of this version's media is no longer stored", code: "version_media_missing", missing },
-        409,
-      );
-    }
-    const current = await listCloudFiles(c.env.DB, project.id);
-    const files = restoredFileSet(current, versionEntries);
-    const manifest = await manifestOf(files);
-    const filesChange = files.length > 0 && manifest.sha !== currentManifest;
-
-    const uid = project.ownerUid;
-    const newRevision = project.revision + 1;
-    const key = documentKey(uid, project.id, newRevision, generateId(12));
-    const sha = await sha256Hex(bytes);
-    // A fresh snapshot object: versions never share one, so deleting either
-    // version later cannot take the other's document with it.
-    const storedBytes = await putDocumentSnapshot(c.env.R2, key, bytes);
-    const headers = parseSaveHeaders((name) => c.req.header(name));
-    const plan = await ownerPlan(c, project, loaded.access);
-    const result = await saveVersioned(c.env.DB, {
-      swap: {
-        uid,
-        actorUid: c.get("user").uid,
-        projectId: project.id,
-        expectedRevision: project.revision,
-        newRevision,
-        r2Key: key,
-        bytes: bytes.byteLength,
-        sha256: sha,
-        name: check.name,
-        growthBytes: 0, // restore adds no bytes: no quota effect (owner decision)
-        limitBytes: plan.limits.maxTotalStorageBytes,
-        now,
-        // A /finalize commit since we read the file set → refuse, not clobber.
-        expectedManifestSha: currentManifest,
-      },
-      storedBytes,
-      version: {
-        newId: generateId(16),
-        extendId: null, // a restore always opens a new version
-        kind: "restore",
-        clientKind: headers.clientKind,
-        clientId: headers.clientId,
-        source: headers.source,
-        extendedChangeJSON: null,
-        ownChangeJSON: null,
-        restoredFrom: source.id,
-        mergedFromRevision: null,
-        checkpointHonoured: false,
-      },
-      backfill: legacyBackfill(project),
-      between: !filesChange
-        ? []
-        : restoreFileSetStatements(c.env.DB, {
-              projectId: project.id,
-              newRevision,
-              r2Key: key,
-              files: files.map((f) => ({ ...f, r2Key: objects.get(f.sha256)!.r2Key })),
-              manifest,
-              now,
-            }),
+    // The restore itself is lib/cloud-project-save.ts, shared with the MCP
+    // restore_version tool.
+    const restored = await restoreProjectVersion(c.env, {
+      project,
+      source,
+      plan: await ownerPlan(c, project, loaded.access),
+      actorUid: c.get("user").uid,
+      headers: parseSaveHeaders((name) => c.req.header(name)),
     });
-    if (!result.swapped) {
-      await c.env.R2.delete(key);
-      const fresh = (await getCloudProject(c.env.DB, project.id)) ?? project;
-      if (fresh.revision !== project.revision) return revisionConflict(c, fresh);
-      return c.json(
-        { error: "The project's media changed while restoring — try again", code: "files_changed" },
-        409,
-      );
+    if (!restored.ok) {
+      return restored.reason === "conflict" ? revisionConflict(c, restored.current) : c.json(restored.body, restored.status);
     }
-
-    if (project.docR2Key && project.docR2Key !== key) {
-      await deleteDocumentIfUnreferenced(c.env, project.id, project.docR2Key);
-    }
-    // Paths the version overrode may have orphaned unpinned objects.
-    if (filesChange) await releaseUnpinnedMedia(c.env, project.id);
-    await historyHousekeeping(c.env, project.id, plan, nowMs, { opened: true, manifestMoved: false });
-
-    const saved = await getCloudProject(c.env.DB, project.id);
-    c.header("ETag", `"${newRevision}"`);
+    // A restore is a new saved revision: the owner's project.saved webhook, as for a save.
+    queueWebhookEvent(
+      backgroundOf(c),
+      c.env,
+      project.ownerUid,
+      "project.saved",
+      projectSavedData(c.env, { projectId: project.id, name: project.name, revision: restored.revision, savedAt: restored.updatedAt, by: "user" }),
+    );
+    c.header("ETag", `"${restored.revision}"`);
     return c.json({
       projectId: project.id,
-      revision: newRevision,
-      documentSha256: sha,
-      updatedAt: saved?.updatedAt ?? now,
-      restoredFrom: source.id,
-      version: result.version,
-      fileCount: files.length,
+      revision: restored.revision,
+      documentSha256: restored.documentSha256,
+      updatedAt: restored.updatedAt,
+      restoredFrom: restored.restoredFrom,
+      version: restored.version,
+      fileCount: restored.fileCount,
     });
   },
 );

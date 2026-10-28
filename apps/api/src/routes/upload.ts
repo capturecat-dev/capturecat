@@ -16,6 +16,7 @@ import {
 import { planForEntitlement } from "../lib/plans";
 import { checkUploadAllowance, storageDeniedBody } from "../lib/upload-policy";
 import { parseJsonBody } from "../lib/validate";
+import { backgroundOf, queueWebhookEvent, videoEventData } from "../lib/webhooks";
 import {
   UploadVideoBodySchema,
   ReplaceVideoBodySchema,
@@ -339,6 +340,12 @@ uploadRoutes.post(
       // Denied after the bytes landed: delete the object so it never counts.
       await discardObject(c.env, store, r2Key);
       await deleteSharedVideo(c.env.DB, videoId);
+      queueWebhookEvent(backgroundOf(c), c.env, user.uid, "upload.failed", {
+        videoId,
+        fileName: doc.fileName,
+        reason: verdict.ok ? "storage_quota" : "plan_limit",
+        error: verdict.ok ? "The upload would exceed the plan's storage." : "The upload is over a plan limit.",
+      });
       return c.json(
         verdict.ok ? storageDeniedBody(plan, currentUsageBytes) : verdict.body,
         verdict.ok ? 413 : verdict.status,
@@ -355,6 +362,14 @@ uploadRoutes.post(
     await c.env.DB.prepare("UPDATE shared_videos SET etag = ? WHERE video_id = ?")
       .bind(head.etag, videoId)
       .run();
+
+    queueWebhookEvent(
+      backgroundOf(c),
+      c.env,
+      user.uid,
+      "video.ready",
+      videoEventData(c.env, doc, { version: doc.currentVersion ?? 1, durationSeconds: doc.durationSeconds }),
+    );
 
     return c.json({
       videoId,
@@ -521,6 +536,13 @@ uploadRoutes.post(
     if (!verdict.ok || accepted !== "ready") {
       await discardObject(c.env, store, version.r2Key);
       await deleteVideoVersion(c.env.DB, videoId, versionNumber);
+      queueWebhookEvent(backgroundOf(c), c.env, user.uid, "upload.failed", {
+        videoId,
+        fileName: doc.fileName,
+        version: versionNumber,
+        reason: verdict.ok ? "storage_quota" : "plan_limit",
+        error: verdict.ok ? "The new version would exceed the plan's storage." : "The new version is over a plan limit.",
+      });
       return c.json(
         verdict.ok ? storageDeniedBody(plan, currentUsageBytes) : verdict.body,
         verdict.ok ? 413 : verdict.status,
@@ -559,6 +581,14 @@ uploadRoutes.post(
     // The byte route gates on a 5-minute metadata cache — purge it so the
     // link plays the new version now, not in five minutes.
     await caches.default.delete(new Request(`https://meta.internal/video/${videoId}`));
+
+    queueWebhookEvent(
+      backgroundOf(c),
+      c.env,
+      user.uid,
+      "video.ready",
+      videoEventData(c.env, doc, { version: versionNumber, durationSeconds: version.durationSeconds ?? doc.durationSeconds }),
+    );
 
     return c.json({
       videoId,

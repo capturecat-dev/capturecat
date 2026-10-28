@@ -120,6 +120,9 @@ class_name = "ShareJobsDO"
 tag = "v1-share-jobs"
 new_sqlite_classes = ["ShareJobsDO"]
 
-# Hourly sweep of abandoned pending uploads + stale rate-limit rows (index.ts scheduled handler).
+# Two triggers, routed by event.cron in index.ts's scheduled handler:
+#   "17 * * * *"   hourly sweep of abandoned pending uploads, stale rate-limit
+#                  rows, expired OAuth codes/tokens, old approvals/deliveries
+#   "*/5 * * * *"  webhook outbox: retries with exponential backoff (lib/webhooks.ts)
 [triggers]
-crons = ["17 * * * *"]
+crons = ["17 * * * *", "*/5 * * * *"]

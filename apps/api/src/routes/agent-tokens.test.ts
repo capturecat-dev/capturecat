@@ -196,6 +196,10 @@ describe("resolveAgentToken", () => {
       tokenName: "Claude",
       scopes: ["videos:read", "account:read"],
       claims: { tester: false, blocked: false },
+      kind: "personal",
+      oauthClientId: null,
+      oauthGrantId: null,
+      resource: null,
     });
     const lastUsed = () => db.query<{ last_used_at: string }>("SELECT last_used_at FROM agent_tokens")[0].last_used_at;
     expect(lastUsed()).toBe(t0.toISOString());

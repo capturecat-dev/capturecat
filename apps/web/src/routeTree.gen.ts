@@ -48,8 +48,10 @@ import { Route as GuidesIndexRouteImport } from './routes/guides.index'
 import { Route as GuidesSlugRouteImport } from './routes/guides.$slug'
 import { Route as MdShareVideoIdRouteImport } from './routes/md-share.$videoId'
 import { Route as MdSplatRouteImport } from './routes/md.$'
+import { Route as OauthAuthorizeRouteImport } from './routes/oauth.authorize'
 import { Route as ShareVideoIdRouteImport } from './routes/share.$videoId'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc.$'
+import { Route as AppApprovalsIdRouteImport } from './routes/app/approvals.$id'
 import { Route as AppEditorProjectIdRouteImport } from './routes/app_.editor.$projectId'
 import { Route as AppVideosVideoIdIndexRouteImport } from './routes/app/videos.$videoId.index'
 import { Route as AppVideosVideoIdAnalyticsRouteImport } from './routes/app/videos.$videoId.analytics'
@@ -250,6 +252,11 @@ const MdSplatRoute = MdSplatRouteImport.update({
   path: '/md/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OauthAuthorizeRoute = OauthAuthorizeRouteImport.update({
+  id: '/oauth/authorize',
+  path: '/oauth/authorize',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShareVideoIdRoute = ShareVideoIdRouteImport.update({
   id: '/share/$videoId',
   path: '/share/$videoId',
@@ -259,6 +266,11 @@ const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
   id: '/api/trpc/$',
   path: '/api/trpc/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppApprovalsIdRoute = AppApprovalsIdRouteImport.update({
+  id: '/approvals/$id',
+  path: '/approvals/$id',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppEditorProjectIdRoute = AppEditorProjectIdRouteImport.update({
   id: '/$projectId',
@@ -312,6 +324,7 @@ export interface FileRoutesByFullPath {
   '/guides/$slug': typeof GuidesSlugRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
   '/md/$': typeof MdSplatRoute
+  '/oauth/authorize': typeof OauthAuthorizeRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app/': typeof AppIndexRoute
   '/best/': typeof BestIndexRoute
@@ -319,6 +332,7 @@ export interface FileRoutesByFullPath {
   '/docs/': typeof DocsIndexRoute
   '/guides/': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/app/approvals/$id': typeof AppApprovalsIdRoute
   '/app/editor/$projectId': typeof AppEditorProjectIdRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
   '/app/videos/$videoId/': typeof AppVideosVideoIdIndexRoute
@@ -357,6 +371,7 @@ export interface FileRoutesByTo {
   '/guides/$slug': typeof GuidesSlugRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
   '/md/$': typeof MdSplatRoute
+  '/oauth/authorize': typeof OauthAuthorizeRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app': typeof AppIndexRoute
   '/best': typeof BestIndexRoute
@@ -364,6 +379,7 @@ export interface FileRoutesByTo {
   '/docs': typeof DocsIndexRoute
   '/guides': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/app/approvals/$id': typeof AppApprovalsIdRoute
   '/app/editor/$projectId': typeof AppEditorProjectIdRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
   '/app/videos/$videoId': typeof AppVideosVideoIdIndexRoute
@@ -404,6 +420,7 @@ export interface FileRoutesById {
   '/guides/$slug': typeof GuidesSlugRoute
   '/md-share/$videoId': typeof MdShareVideoIdRoute
   '/md/$': typeof MdSplatRoute
+  '/oauth/authorize': typeof OauthAuthorizeRoute
   '/share/$videoId': typeof ShareVideoIdRoute
   '/app/': typeof AppIndexRoute
   '/best/': typeof BestIndexRoute
@@ -411,6 +428,7 @@ export interface FileRoutesById {
   '/docs/': typeof DocsIndexRoute
   '/guides/': typeof GuidesIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/app/approvals/$id': typeof AppApprovalsIdRoute
   '/app_/editor/$projectId': typeof AppEditorProjectIdRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
   '/app/videos/$videoId/': typeof AppVideosVideoIdIndexRoute
@@ -452,6 +470,7 @@ export interface FileRouteTypes {
     | '/guides/$slug'
     | '/md-share/$videoId'
     | '/md/$'
+    | '/oauth/authorize'
     | '/share/$videoId'
     | '/app/'
     | '/best/'
@@ -459,6 +478,7 @@ export interface FileRouteTypes {
     | '/docs/'
     | '/guides/'
     | '/api/trpc/$'
+    | '/app/approvals/$id'
     | '/app/editor/$projectId'
     | '/app/videos/$videoId/analytics'
     | '/app/videos/$videoId/'
@@ -497,6 +517,7 @@ export interface FileRouteTypes {
     | '/guides/$slug'
     | '/md-share/$videoId'
     | '/md/$'
+    | '/oauth/authorize'
     | '/share/$videoId'
     | '/app'
     | '/best'
@@ -504,6 +525,7 @@ export interface FileRouteTypes {
     | '/docs'
     | '/guides'
     | '/api/trpc/$'
+    | '/app/approvals/$id'
     | '/app/editor/$projectId'
     | '/app/videos/$videoId/analytics'
     | '/app/videos/$videoId'
@@ -543,6 +565,7 @@ export interface FileRouteTypes {
     | '/guides/$slug'
     | '/md-share/$videoId'
     | '/md/$'
+    | '/oauth/authorize'
     | '/share/$videoId'
     | '/app/'
     | '/best/'
@@ -550,6 +573,7 @@ export interface FileRouteTypes {
     | '/docs/'
     | '/guides/'
     | '/api/trpc/$'
+    | '/app/approvals/$id'
     | '/app_/editor/$projectId'
     | '/app/videos/$videoId/analytics'
     | '/app/videos/$videoId/'
@@ -585,6 +609,7 @@ export interface RootRouteChildren {
   GuidesSlugRoute: typeof GuidesSlugRoute
   MdShareVideoIdRoute: typeof MdShareVideoIdRoute
   MdSplatRoute: typeof MdSplatRoute
+  OauthAuthorizeRoute: typeof OauthAuthorizeRoute
   ShareVideoIdRoute: typeof ShareVideoIdRoute
   BestIndexRoute: typeof BestIndexRoute
   CompareIndexRoute: typeof CompareIndexRoute
@@ -868,6 +893,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MdSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/oauth/authorize': {
+      id: '/oauth/authorize'
+      path: '/oauth/authorize'
+      fullPath: '/oauth/authorize'
+      preLoaderRoute: typeof OauthAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/share/$videoId': {
       id: '/share/$videoId'
       path: '/share/$videoId'
@@ -881,6 +913,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/trpc/$'
       preLoaderRoute: typeof ApiTrpcSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/app/approvals/$id': {
+      id: '/app/approvals/$id'
+      path: '/approvals/$id'
+      fullPath: '/app/approvals/$id'
+      preLoaderRoute: typeof AppApprovalsIdRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/app_/editor/$projectId': {
       id: '/app_/editor/$projectId'
@@ -913,6 +952,7 @@ interface AppRouteRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppApprovalsIdRoute: typeof AppApprovalsIdRoute
   AppVideosVideoIdAnalyticsRoute: typeof AppVideosVideoIdAnalyticsRoute
   AppVideosVideoIdIndexRoute: typeof AppVideosVideoIdIndexRoute
 }
@@ -924,6 +964,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
+  AppApprovalsIdRoute: AppApprovalsIdRoute,
   AppVideosVideoIdAnalyticsRoute: AppVideosVideoIdAnalyticsRoute,
   AppVideosVideoIdIndexRoute: AppVideosVideoIdIndexRoute,
 }
@@ -974,6 +1015,7 @@ const rootRouteChildren: RootRouteChildren = {
   GuidesSlugRoute: GuidesSlugRoute,
   MdShareVideoIdRoute: MdShareVideoIdRoute,
   MdSplatRoute: MdSplatRoute,
+  OauthAuthorizeRoute: OauthAuthorizeRoute,
   ShareVideoIdRoute: ShareVideoIdRoute,
   BestIndexRoute: BestIndexRoute,
   CompareIndexRoute: CompareIndexRoute,

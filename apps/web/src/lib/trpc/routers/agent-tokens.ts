@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 
 import { apiFetch } from "@/lib/session";
 import { authedProcedure, createTRPCRouter } from "@/lib/trpc/init";
-import { AGENT_SCOPES, type AgentTokenSummary } from "@/lib/agent-access";
+import { AGENT_SCOPES, type AgentFeatures, type AgentTokenSummary } from "@/lib/agent-access";
 
 /**
  * Agent tokens for the remote MCP server — api.capturecat.so
@@ -25,7 +25,9 @@ export type AgentAuditEntry = {
   at: string;
 };
 
-async function fail(res: Response, fallback: string): Promise<never> {
+/** An API error as a tRPC error, keeping the API's message. Shared by the
+ *  agent routers (approvals, OAuth consent, webhooks). */
+export async function fail(res: Response, fallback: string): Promise<never> {
   const body = (await res.json().catch(() => ({}))) as { error?: string };
   throw new TRPCError({
     code:
@@ -48,7 +50,14 @@ export const agentTokensRouter = createTRPCRouter({
   list: authedProcedure.query(async () => {
     const res = await apiFetch("/api/agent-tokens");
     if (!res.ok) return fail(res, "Could not load agent tokens");
-    return (await res.json()) as { tokens: AgentTokenSummary[]; scopes: string[]; maxActive: number };
+    return (await res.json()) as {
+      tokens: AgentTokenSummary[];
+      scopes: string[];
+      maxActive: number;
+      /** The plan's agent gates — Settings shows an upgrade state when off. */
+      features: AgentFeatures;
+      plan: { name: string; displayName: string } | null;
+    };
   }),
 
   create: authedProcedure

@@ -45,6 +45,7 @@ import {
   verifyPassword,
   type ShareControlsBody,
 } from "../lib/video-share";
+import { backgroundOf } from "../lib/webhooks";
 
 export const videoRoutes = new Hono<{
   Bindings: Env;
@@ -740,11 +741,17 @@ videoRoutes.post("/video/:videoId/comments", async (c) => {
   // Identity comes from the session only — never from the body.
   const session = await commenterSession(c);
   // Caps, body, drawing and threading rules: lib/comment-post.ts.
-  const result = await postComment(c.env, doc, body, {
-    authorName: commentAuthorName(session?.name, body.authorName),
-    authorUid: session?.uid ?? null,
-    authorImage: session ? sessionAvatar(session.image) : null,
-  });
+  const result = await postComment(
+    c.env,
+    doc,
+    body,
+    {
+      authorName: commentAuthorName(session?.name, body.authorName),
+      authorUid: session?.uid ?? null,
+      authorImage: session ? sessionAvatar(session.image) : null,
+    },
+    { env: c.env, waitUntil: backgroundOf(c) },
+  );
   if (!result.ok) return c.json({ error: result.error }, result.status);
 
   return c.json({ comment: result.comment });

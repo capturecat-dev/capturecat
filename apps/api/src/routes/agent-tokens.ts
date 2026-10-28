@@ -21,6 +21,7 @@ import type { Env, Variables } from "../types";
 import { requireAuth } from "../middleware/auth";
 import { userRateLimit } from "../lib/entitlement";
 import { parseJsonBody } from "../lib/validate";
+import { agentFeatureFlags, agentPlanFor, upgradeRequiredBody } from "../lib/agent-features";
 import {
   AGENT_SCOPES,
   MAX_ACTIVE_AGENT_TOKENS,
@@ -64,10 +65,19 @@ const CreateAgentTokenSchema = z.object({
 });
 
 agentTokenRoutes.get("/agent-tokens", async (c) => {
+  const user = c.get("user");
+  const resolved = await agentPlanFor(c.env.DB, user.uid, user.claims);
   return c.json({
-    tokens: await listAgentTokens(c.env.DB, c.get("user").uid),
+    tokens: await listAgentTokens(c.env.DB, user.uid),
     scopes: AGENT_SCOPES,
     maxActive: MAX_ACTIVE_AGENT_TOKENS,
+    // The plan's agent gates, so Settings can show an upgrade state instead
+    // of a form the API would refuse.
+    features:
+      resolved === "blocked"
+        ? { agentAccess: false, agentWebhooks: false, agentEditing: false }
+        : agentFeatureFlags(resolved.plan),
+    plan: resolved === "blocked" ? null : { name: resolved.plan.name, displayName: resolved.plan.displayName },
   });
 });
 
@@ -76,6 +86,11 @@ agentTokenRoutes.post(
   userRateLimit({ limit: 10, windowSec: 60, scope: "agent-tokens" }),
   async (c) => {
     const uid = c.get("user").uid;
+    // Plan gate: agent access is a plan feature (lib/agent-features.ts).
+    const resolved = await agentPlanFor(c.env.DB, uid, c.get("user").claims);
+    if (resolved === "blocked") return c.json({ error: "Account blocked" }, 403);
+    if (!resolved.plan.features.agentAccess) return c.json(upgradeRequiredBody("agentAccess", resolved.plan), 403);
+
     const parsed = await parseJsonBody(c.req, CreateAgentTokenSchema);
     if (!parsed.ok) return c.json({ error: parsed.error }, 400);
 

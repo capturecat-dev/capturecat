@@ -47,6 +47,29 @@ export interface ToolContext {
   /** The caller's tier and plan, resolved on first use through the same
    *  entitlement code the session routes use. Throws ToolError if blocked. */
   entitlement(): Promise<{ tier: EntitlementTier; plan: PlanRecord }>;
+  /** Work that may finish after the response (webhook deliveries):
+   *  ctx.waitUntil on the Worker, a detached promise elsewhere. */
+  waitUntil(promise: Promise<unknown>): void;
+}
+
+/** What /mcp hands every tool call of one request. */
+export interface RequestScope {
+  /** The tier and plan /mcp already resolved (its agentAccess gate), so tools
+   *  don't resolve them a second time. */
+  plan?: { tier: EntitlementTier; plan: PlanRecord };
+  waitUntil?: (promise: Promise<unknown>) => void;
+}
+
+/** What the account owner must approve before a gated call runs
+ *  (src/mcp/approval-gate.ts). */
+export interface ApprovalNeed {
+  /** One line: "Post a comment on “Demo” (vid1) at 0:30". */
+  summary: string;
+  /** The exact changes, one per line, for the approval page. */
+  details: string[];
+  videoId: string | null;
+  /** Top-level string arguments stored only as SHA-256 (a new password). */
+  secretKeys?: readonly string[];
 }
 
 export interface ToolDefinition<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.ZodType> {
@@ -54,9 +77,17 @@ export interface ToolDefinition<I extends z.ZodType = z.ZodType, O extends z.Zod
   title: string;
   description: string;
   scope: AgentScope;
+  /** Optional: the token needs ANY of these instead of `scope` alone
+   *  (get_approval: whichever write scope asked). `scope` stays the one
+   *  advertised in _meta. */
+  anyScope?: readonly AgentScope[];
   input: I;
   output: O;
   annotations: ToolAnnotations;
+  /** "Ask me first": null = this call may run now; otherwise what the account
+   *  owner must approve (making a video more visible, posting where viewers
+   *  see it). Runs after argument validation, before `run`. */
+  approval?(args: z.output<I>, ctx: ToolContext): Promise<ApprovalNeed | null>;
   run(args: z.output<I>, ctx: ToolContext): Promise<ToolOutput<z.input<O>>>;
 }
 
@@ -78,14 +109,23 @@ export class ToolError extends Error {
  *  some clients' validators refuse inside a tool definition. */
 export function jsonSchemaFor(schema: z.ZodType, io: "input" | "output"): Record<string, unknown> {
   const { $schema: _ignored, ...rest } = z.toJSONSchema(schema, { io }) as Record<string, unknown>;
+  // A union of objects (an output `withApproval`) has no top-level type; MCP
+  // requires `"type": "object"` there, and it is true of every branch.
+  if (rest.type === undefined && (Array.isArray(rest.anyOf) || Array.isArray(rest.oneOf))) {
+    return { type: "object", ...rest };
+  }
   return rest;
 }
 
-export function makeContext(env: Env, principal: AgentPrincipal): ToolContext {
-  let cached: Promise<{ tier: EntitlementTier; plan: PlanRecord }> | null = null;
+export function makeContext(env: Env, principal: AgentPrincipal, scope: RequestScope = {}): ToolContext {
+  let cached: Promise<{ tier: EntitlementTier; plan: PlanRecord }> | null = scope.plan ? Promise.resolve(scope.plan) : null;
   return {
     env,
     principal,
+    waitUntil(promise) {
+      const settled = promise.catch((err: unknown) => console.error("mcp: background work failed", err));
+      if (scope.waitUntil) scope.waitUntil(settled);
+    },
     entitlement() {
       cached ??= (async () => {
         const ent = await resolveEntitlement(env.DB, principal.uid, principal.claims);

@@ -33,6 +33,10 @@ import { rateLimit } from "./middleware/rate-limit";
 import { agentTokenRoutes } from "./routes/agent-tokens";
 import { mcpRoutes } from "./mcp/routes";
 import { AGENT_AUDIT_RETENTION_DAYS } from "./lib/agent-tokens";
+import { agentApprovalRoutes } from "./routes/agent-approvals";
+import { webhookRoutes } from "./routes/webhooks";
+import { oauthRoutes } from "./routes/oauth";
+import { WEBHOOK_DELIVERY_RETENTION_DAYS, processWebhookOutbox } from "./lib/webhooks";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -45,8 +49,16 @@ const app = new Hono<{ Bindings: Env }>();
 // admin are a JSON 404 there. Registered FIRST so no route or middleware
 // below — /api/auth/* included — ever sees a request for that host.
 // api.capturecat.so/mcp stays as an alias (and is what `wrangler dev` serves).
+// The two RFC 9728 paths are the protected-resource metadata an MCP client
+// reads to find the OAuth server (routes/oauth.ts); the authorization server
+// itself lives on api.capturecat.so.
 const MCP_HOST = "mcp.capturecat.so";
-const MCP_HOST_PATHS = new Set(["/mcp", "/.well-known/mcp/server-card.json"]);
+const MCP_HOST_PATHS = new Set([
+  "/mcp",
+  "/.well-known/mcp/server-card.json",
+  "/.well-known/oauth-protected-resource",
+  "/.well-known/oauth-protected-resource/mcp",
+]);
 app.use("*", async (c, next) => {
   const url = new URL(c.req.url);
   if (url.hostname === MCP_HOST && !MCP_HOST_PATHS.has(url.pathname)) {
@@ -124,6 +136,25 @@ app.use(
     credentials: false,
     maxAge: 86400,
   })
+);
+
+// OAuth for the MCP server (routes/oauth.ts): the discovery documents and
+// the token, registration and revocation endpoints are called by MCP clients
+// — browser-based ones included — with no cookies, so any origin may.
+// /oauth/authorize is a top-level navigation and needs no CORS.
+app.use(
+  "/.well-known/oauth-*",
+  cors({ origin: "*", allowMethods: ["GET", "OPTIONS"], credentials: false, maxAge: 86400 }),
+);
+app.use(
+  "/oauth/*",
+  cors({
+    origin: "*",
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowHeaders: ["Authorization", "Content-Type", "Mcp-Protocol-Version"],
+    credentials: false,
+    maxAge: 86400,
+  }),
 );
 
 // ---------------------------------------------------------------------------
@@ -255,6 +286,19 @@ app.use("/api/cloud-projects/*", rateLimit({ limit: 300, windowSec: 60, prefix: 
 // per-user limit in the router. /mcp itself is limited per TOKEN, not per
 // IP — see src/mcp/routes.ts for why.
 app.use("/api/agent-tokens/*", rateLimit({ limit: 60, windowSec: 60, prefix: "agenttokens" }));
+// Approvals, webhooks and the OAuth consent API (session only): cheap D1 work.
+app.use("/api/agent-approvals/*", rateLimit({ limit: 60, windowSec: 60, prefix: "agentapprovals" }));
+app.use("/api/webhooks/*", rateLimit({ limit: 60, windowSec: 60, prefix: "webhooks" }));
+app.use("/api/oauth/*", rateLimit({ limit: 60, windowSec: 60, prefix: "oauthapi" }));
+// OAuth: only the consent redirect is limited per IP — it is a browser
+// navigation from the user's own address. /oauth/token, /oauth/revoke and
+// /oauth/register are called server-to-server by Claude.ai, ChatGPT & co.
+// from a few SHARED egress IPs, so a per-IP limit there would throttle every
+// user of a platform together (the Stripe-webhook lesson above). Token and
+// revoke requests are authenticated by high-entropy secrets and cheap to
+// refuse; registration has its own generous per-IP D1 cap (routes/oauth.ts)
+// and unused registrations are swept after 30 days.
+app.use("/oauth/authorize", rateLimit({ limit: 60, windowSec: 60, prefix: "oauth" }));
 // Public beta waitlist sign-up: 5 per minute per IP. This is the outer bound on
 // sign-up spam; the route itself adds a honeypot + Turnstile + email dedupe.
 app.use("/api/beta", rateLimit({ limit: 5, windowSec: 60, prefix: "beta" }));
@@ -329,6 +373,14 @@ app.route("/api", cloudProjectRoutes);
 app.route("/api", cloudProjectHistoryRoutes);
 // Scoped tokens for cloud agents (session-only management + audit log).
 app.route("/api", agentTokenRoutes);
+// "Ask me first": the owner approves or denies an agent's request to make a
+// video more visible or to post a comment (session only).
+app.route("/api", agentApprovalRoutes);
+// Webhook endpoints (session only; agents use the MCP tools).
+app.route("/api", webhookRoutes);
+// OAuth 2.1 for the MCP server: discovery, /oauth/*, and the consent page's
+// session API under /api/oauth/*.
+app.route("/", oauthRoutes);
 // The remote MCP server (agent tokens): https://mcp.capturecat.so/mcp, and
 // /mcp on this host as an alias. See src/mcp/.
 app.route("/", mcpRoutes);
@@ -345,6 +397,9 @@ app.all("*", (c) => c.json({ error: "Not found" }, 404));
  *  - rate_limits rows whose window ended over a day ago;
  *  - site_events older than 13 months (0030);
  *  - agent_audit_log rows older than 90 days (0033);
+ *  - decided/expired approvals after 90 days (0034); spent or expired OAuth
+ *    codes, dead refresh tokens and expired OAuth access tokens (0035);
+ *    webhook deliveries after 30 days (0036);
  *  - cloud-project history retention + orphaned manifests (0027).
  */
 async function sweep(env: Env): Promise<void> {
@@ -390,6 +445,7 @@ async function sweep(env: Env): Promise<void> {
   // agent do last month", and the table is written on every tool call.
   await env.DB.prepare("DELETE FROM agent_audit_log WHERE at < ?")
     .bind(new Date(Date.now() - AGENT_AUDIT_RETENTION_DAYS * 86_400_000).toISOString()).run();
+  await sweepAgentPhase2(env).catch((err) => console.error("agent sweep failed", err));
   await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
     .bind(Math.floor(Date.now() / 1000) - 86_400).run();
   // Site acquisition events (0030) are kept 13 months: a year-on-year view,
@@ -404,9 +460,54 @@ async function sweep(env: Env): Promise<void> {
   );
 }
 
+/** Housekeeping for approvals, OAuth and webhooks (migrations 0034–0036). */
+async function sweepAgentPhase2(env: Env): Promise<void> {
+  const now = Date.now();
+  const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
+  const DAY = 86_400_000;
+  // Approvals: kept 90 days for the record (the audit log names them too).
+  await env.DB.prepare("DELETE FROM agent_approvals WHERE created_at < ?").bind(iso(AGENT_AUDIT_RETENTION_DAYS * DAY)).run();
+  // Codes live 10 minutes; a day later nothing can still need one.
+  await env.DB.prepare("DELETE FROM oauth_codes WHERE expires_at < ?").bind(iso(DAY)).run();
+  // Refresh tokens: expired, rotated or revoked for over a day.
+  await env.DB.prepare(
+    "DELETE FROM oauth_refresh_tokens WHERE expires_at < ?1 OR (used_at IS NOT NULL AND used_at < ?1) OR (revoked_at IS NOT NULL AND revoked_at < ?1)",
+  ).bind(iso(DAY)).run();
+  // OAuth access tokens (1 h) are agent_tokens rows; keep them as long as
+  // the audit rows that name them, then drop them.
+  await env.DB.prepare("DELETE FROM agent_tokens WHERE oauth_client_id IS NOT NULL AND expires_at < ?")
+    .bind(iso(AGENT_AUDIT_RETENTION_DAYS * DAY)).run();
+  // Revoked grants with nothing left under them.
+  await env.DB.prepare(
+    `DELETE FROM oauth_grants WHERE revoked_at IS NOT NULL AND revoked_at < ?
+       AND NOT EXISTS (SELECT 1 FROM agent_tokens t WHERE t.oauth_grant_id = oauth_grants.id)`,
+  ).bind(iso(DAY)).run();
+  // Registered clients nobody ever finished signing in with.
+  await env.DB.prepare(
+    `DELETE FROM oauth_clients WHERE kind = 'dcr' AND last_used_at IS NULL AND created_at < ?
+       AND NOT EXISTS (SELECT 1 FROM oauth_grants g WHERE g.client_id = oauth_clients.client_id)`,
+  ).bind(iso(30 * DAY)).run();
+  await env.DB.prepare("DELETE FROM webhook_deliveries WHERE created_at < ? AND status != 'pending'")
+    .bind(iso(WEBHOOK_DELIVERY_RETENTION_DAYS * DAY)).run();
+}
+
+// Two cron triggers (wrangler.toml): the five-minute one drives the webhook
+// outbox's retries; the hourly one ("17 * * * *") runs the sweep. Not
+// exported: a Worker entry module's named exports are its entrypoints.
+const WEBHOOK_CRON = "*/5 * * * *";
+
 export default {
   fetch: app.fetch,
-  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext) {
+  async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
+    if (event.cron === WEBHOOK_CRON) {
+      ctx.waitUntil(
+        processWebhookOutbox(env).then(
+          (r) => r.attempted > 0 && console.log(`webhooks: ${r.delivered}/${r.attempted} delivered`),
+          (err) => console.error("webhook outbox failed", err),
+        ),
+      );
+      return;
+    }
     ctx.waitUntil(sweep(env));
   },
 };

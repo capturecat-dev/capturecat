@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { jsonLd } from "@/lib/json-ld";
-import { MCP_ENDPOINT, MCP_TOOLS, claudeMcpAddCommand, mcpJsonConfig } from "@/lib/agent-access";
+import { MCP_ENDPOINT, MCP_TOOLS, claudeMcpAddCommand } from "@/lib/agent-access";
 import { pageHead } from "@/lib/site-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
@@ -208,7 +208,7 @@ function AgentsPage() {
       <section className="relative isolate py-16">
         <Container>
           <SectionTitle muted="Every tool is validated by the same rules the editor uses.">
-            28 tools
+            30 tools
           </SectionTitle>
           <div className="mt-10 space-y-8">
             {TOOL_GROUPS.map((group) => (
@@ -327,8 +327,11 @@ function AgentsPage() {
             CaptureCat also runs a remote MCP server at{" "}
             <code className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[13px]">{MCP_ENDPOINT}</code>. Claude.ai,
             Claude Code, ChatGPT or a scheduled agent can list your shared videos, read transcripts, comments and
-            analytics, reply to viewers and change share settings. Create a token in Settings, Agent access: it gets
-            only the scopes you pick, never more than your plan, and you can revoke it at any time.
+            analytics, reply to viewers, change share settings, and edit your cloud projects (zooms, cuts, speed,
+            blur, annotations, style) without the editor open. Claude.ai and ChatGPT need only the URL: add a custom
+            connector and sign in with CaptureCat. Other clients use a token from Settings, Agent access. Either way
+            the agent gets only the permissions you allow, never more than your plan, and you can revoke it at any
+            time.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <GlassCard padding="p-6">
@@ -351,13 +354,19 @@ function AgentsPage() {
                   <OpenAILogo className="h-5 w-5" />
                 </span>
                 <div>
-                  <h4 className="font-medium tracking-[-0.01em]">Any MCP client</h4>
-                  <p className="text-xs text-muted-foreground">A remote server with a bearer header.</p>
+                  <h4 className="font-medium tracking-[-0.01em]">Claude.ai or ChatGPT</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Add a custom connector with this URL, then sign in with CaptureCat. No token to paste.
+                  </p>
                 </div>
               </div>
               <pre className="mt-4 overflow-x-auto rounded-2xl border border-white/8 bg-black/40 p-4 text-[12.5px] leading-relaxed text-muted-foreground">
-                <code>{mcpJsonConfig("<token>")}</code>
+                <code>{MCP_ENDPOINT}</code>
               </pre>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Any other MCP client: the same URL, signing in with OAuth or sending a token as{" "}
+                <code className="text-[11px]">Authorization: Bearer &lt;token&gt;</code>.
+              </p>
             </GlassCard>
           </div>
           <div className="mt-6 flex max-w-3xl flex-wrap gap-1.5">
@@ -372,10 +381,13 @@ function AgentsPage() {
             ))}
           </div>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            No delete or billing tools. Comments an agent posts show your name followed by "(via agent)", every call
-            lands in your activity log, and text written by viewers comes back marked as untrusted.{" "}
+            No delete or billing tools. Comments an agent posts show your name followed by "(via agent)", every
+            project edit is a version in History you can restore, every call lands in your activity log, and text
+            written by viewers comes back marked as untrusted. Before an agent posts a comment or makes a video
+            viewable to more people, it asks you first with a link to approve. Webhooks can tell your agent when a
+            video is ready or a viewer comments.{" "}
             <a href="/auth.md" className="text-foreground underline underline-offset-4">
-              How tokens work
+              How sign-in, tokens and webhooks work
             </a>
             .
           </p>

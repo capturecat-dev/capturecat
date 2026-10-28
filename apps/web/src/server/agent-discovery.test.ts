@@ -79,7 +79,15 @@ describe("remote MCP server", () => {
     expect(MCP_ENDPOINT).toBe("https://mcp.capturecat.so/mcp");
     expect(card.transport).toEqual({ type: "streamable-http", url: MCP_ENDPOINT });
     expect(card.remotes).toEqual([{ type: "streamable-http", url: MCP_ENDPOINT }]);
-    expect(card.authentication).toMatchObject({ required: true, schemes: ["bearer"], scopes: [...AGENT_SCOPES] });
+    expect(card.authentication).toMatchObject({
+      required: true,
+      schemes: ["oauth2", "bearer"],
+      scopes: [...AGENT_SCOPES],
+      oauth2: {
+        protectedResourceMetadata: "https://mcp.capturecat.so/.well-known/oauth-protected-resource",
+        authorizationServer: "https://api.capturecat.so",
+      },
+    });
     expect(card.tools.map((t) => t.name)).toEqual(MCP_TOOLS.map((t) => t.name));
     for (const tool of card.tools) expect(AGENT_SCOPES).toContain(tool.requiredScope);
   });
@@ -88,6 +96,13 @@ describe("remote MCP server", () => {
     const auth = await (await agentDiscoveryResponse(get("/auth.md")))!.text();
     expect(auth).toContain("https://mcp.capturecat.so/mcp");
     expect(auth).toContain("Authorization: Bearer cc_pat_");
+    // OAuth for Claude.ai / ChatGPT connectors, and where to discover it.
+    expect(auth).toContain("Claude.ai and ChatGPT custom connectors work with no token");
+    expect(auth).toContain("https://mcp.capturecat.so/.well-known/oauth-protected-resource");
+    expect(auth).toContain("https://api.capturecat.so/.well-known/oauth-authorization-server");
+    expect(auth).toContain("code_challenge_method=S256");
+    expect(auth).toContain("approval_required");
+    expect(auth).toContain("webhook-signature");
     const skill = AGENT_SKILLS.find((s) => s.name === "capturecat-remote");
     expect(skill?.markdown).toContain("claude mcp add --transport http capturecat https://mcp.capturecat.so/mcp");
   });

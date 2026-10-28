@@ -23,12 +23,15 @@ import { sha256Hex, timingSafeEqual } from "./screenshot/keys";
 import { generateId } from "./id";
 
 export const AGENT_TOKEN_PREFIX = "cc_pat_";
+/** OAuth access tokens (lib/oauth/, migration 0035) are agent_tokens rows
+ *  too, with this prefix: one resolver, one audit trail, one revoke. */
+export const OAUTH_ACCESS_TOKEN_PREFIX = "cc_oat_";
 /** Random characters after `cc_pat_`: 40 × log2(62) ≈ 238 bits. */
 const TOKEN_RANDOM_LENGTH = 40;
 /** Random characters of the public half (`cc_pat_` + these 8). */
 const PREFIX_RANDOM_LENGTH = 8;
 const BASE62 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-const TOKEN_RE = /^cc_pat_[A-Za-z0-9]{40}$/;
+const TOKEN_RE = /^cc_(?:pat|oat)_[A-Za-z0-9]{40}$/;
 
 /**
  * Every scope a token can hold. Deliberately NO billing, admin or delete
@@ -45,6 +48,9 @@ export const AGENT_SCOPES = [
   "playlists:write",
   "screenshots",
   "account:read",
+  "webhooks:write",
+  "projects:read",
+  "projects:write",
 ] as const;
 export type AgentScope = (typeof AGENT_SCOPES)[number];
 
@@ -58,7 +64,7 @@ export const MAX_ACTIVE_AGENT_TOKENS = 20;
 const LAST_USED_THROTTLE_MS = 60_000;
 
 /** Uniform base62 via rejection sampling (248 = 62 × 4): no modulo bias. */
-function randomBase62(length: number): string {
+export function randomBase62(length: number): string {
   let out = "";
   while (out.length < length) {
     const bytes = new Uint8Array(length * 2);
@@ -80,12 +86,13 @@ export interface MintedAgentToken {
   hash: string;
 }
 
-export async function mintAgentToken(): Promise<MintedAgentToken> {
-  const token = AGENT_TOKEN_PREFIX + randomBase62(TOKEN_RANDOM_LENGTH);
+export async function mintAgentToken(prefix: string = AGENT_TOKEN_PREFIX): Promise<MintedAgentToken> {
+  const token = prefix + randomBase62(TOKEN_RANDOM_LENGTH);
   return { token, prefix: agentTokenPrefix(token), hash: await sha256Hex(token) };
 }
 
-/** True when the string is shaped like an agent token (no D1 needed). */
+/** True when the string is shaped like an agent token — personal (cc_pat_)
+ *  or OAuth access (cc_oat_) — no D1 needed. */
 export function isAgentTokenShape(token: string): boolean {
   return TOKEN_RE.test(token);
 }
@@ -119,6 +126,15 @@ export interface AgentPrincipal {
   tokenName: string;
   scopes: AgentScope[];
   claims: { tester: boolean; blocked: boolean };
+  /** "personal" = a cc_pat_ the user created; "oauth" = a cc_oat_ access
+   *  token issued to an OAuth client (lib/oauth/). Optional so code that
+   *  builds a principal by hand keeps compiling; absent = personal. */
+  kind?: "personal" | "oauth";
+  /** OAuth only: the client and grant (consent) it was issued under. */
+  oauthClientId?: string | null;
+  oauthGrantId?: string | null;
+  /** OAuth only: the audience (RFC 8707 resource) it was issued for. */
+  resource?: string | null;
 }
 
 interface TokenRow {
@@ -132,6 +148,9 @@ interface TokenRow {
   revoked_at: string | null;
   tester: number | null;
   blocked: number | null;
+  oauth_client_id: string | null;
+  oauth_grant_id: string | null;
+  resource: string | null;
 }
 
 /**
@@ -152,7 +171,8 @@ export async function resolveAgentToken(
     row = await db
       .prepare(
         `SELECT t.id, t.user_id, t.name, t.token_hash, t.scopes, t.expires_at,
-                t.last_used_at, t.revoked_at, u.tester, u.blocked
+                t.last_used_at, t.revoked_at, u.tester, u.blocked,
+                t.oauth_client_id, t.oauth_grant_id, t.resource
            FROM agent_tokens t JOIN "user" u ON u.id = t.user_id
           WHERE t.token_prefix = ?1`,
       )
@@ -189,6 +209,10 @@ export async function resolveAgentToken(
     tokenName: row.name,
     scopes: parseStoredScopes(row.scopes),
     claims: { tester: row.tester === 1, blocked: row.blocked === 1 },
+    kind: row.oauth_client_id ? "oauth" : "personal",
+    oauthClientId: row.oauth_client_id,
+    oauthGrantId: row.oauth_grant_id,
+    resource: row.resource,
   };
 }
 
@@ -251,12 +275,14 @@ export async function createAgentToken(
   }
 }
 
-/** Active = not revoked and not expired. */
+/** Active = not revoked and not expired. Personal tokens only: OAuth access
+ *  tokens are listed per connected app (lib/oauth/grants.ts). */
 export async function countActiveAgentTokens(db: D1Database, uid: string, now: Date = new Date()): Promise<number> {
   const row = await db
     .prepare(
       `SELECT COUNT(*) AS n FROM agent_tokens
-        WHERE user_id = ?1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?2)`,
+        WHERE user_id = ?1 AND oauth_client_id IS NULL
+          AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?2)`,
     )
     .bind(uid, now.toISOString())
     .first<{ n: number }>();
@@ -267,7 +293,7 @@ export async function listAgentTokens(db: D1Database, uid: string): Promise<Agen
   const { results } = await db
     .prepare(
       `SELECT id, name, token_prefix, scopes, created_at, expires_at, last_used_at, revoked_at
-         FROM agent_tokens WHERE user_id = ?1 ORDER BY created_at DESC`,
+         FROM agent_tokens WHERE user_id = ?1 AND oauth_client_id IS NULL ORDER BY created_at DESC`,
     )
     .bind(uid)
     .all<{
@@ -292,11 +318,15 @@ export async function listAgentTokens(db: D1Database, uid: string): Promise<Agen
   }));
 }
 
-/** Revoke one of the user's tokens. False when it is not theirs or is
- *  already revoked — the route answers both like a missing token. */
+/** Revoke one of the user's personal tokens. False when it is not theirs, is
+ *  already revoked, or is an OAuth access token (those are revoked per
+ *  connected app) — the route answers all of them like a missing token. */
 export async function revokeAgentToken(db: D1Database, uid: string, id: string, now: Date = new Date()): Promise<boolean> {
   const result = await db
-    .prepare(`UPDATE agent_tokens SET revoked_at = ?1 WHERE id = ?2 AND user_id = ?3 AND revoked_at IS NULL`)
+    .prepare(
+      `UPDATE agent_tokens SET revoked_at = ?1
+        WHERE id = ?2 AND user_id = ?3 AND revoked_at IS NULL AND oauth_client_id IS NULL`,
+    )
     .bind(now.toISOString(), id, uid)
     .run();
   return (result.meta?.changes ?? 0) > 0;

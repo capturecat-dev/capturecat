@@ -24,6 +24,9 @@ export const FEATURE_FIELDS: ReadonlyArray<{ key: string; label: string; hint: s
   { key: "teams", label: "Teams", hint: "Share videos into a team library" },
   { key: "sso", label: "Enterprise SSO", hint: "Register an OIDC/SAML identity provider" },
   { key: "customStorage", label: "Custom storage", hint: "Share videos in the customer's own S3 bucket" },
+  { key: "agentAccess", label: "Agent access", hint: "Agent tokens, OAuth connectors and the remote MCP server" },
+  { key: "agentWebhooks", label: "Agent webhooks", hint: "Signed webhooks to the customer's own endpoints" },
+  { key: "agentEditing", label: "Agent editing", hint: "Cloud-project editing tools on the remote MCP server" },
 ];
 
 export const LIMIT_FIELDS: ReadonlyArray<{ key: string; label: string; unit: string }> = [
