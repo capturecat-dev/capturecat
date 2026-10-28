@@ -2288,7 +2288,9 @@ final class PreviewCompositorView: NSView {
         // Camera looks — weights only when a FRESH mask is at hand; without
         // one every look draws as the plain bubble (contract §2).
         let weights = input.cameraMask == nil ? CameraLayoutMath.LookWeights.none
-            : CameraLayoutMath.lookWeights(at: input.currentTime, regions: input.project.cameraLayoutRegions)
+            : CameraLayoutMath.lookWeights(
+                at: input.currentTime, regions: input.project.cameraLayoutRegions,
+                defaultLook: input.project.settings.cameraLook)
         lastLookWeights = weights
 
         if !camLayout.isPlainBubble, let overrideRect = camLayout.cameraRect {

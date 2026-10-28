@@ -730,7 +730,7 @@ final class VideoExporter {
         // look renders as the plain bubble (lookWeights stay .none below).
         var cameraMaskTrack: CameraMaskTrack?
         if cameraReader != nil, let cameraURL = project.cameraVideoURL,
-           project.cameraLayoutRegions.contains(where: { $0.effectiveLook != nil }) {
+           project.usesCameraLook {
             let maskURL = CameraMaskTrack.url(besideCamera: cameraURL)
             let cameraBytes = ((try? FileManager.default.attributesOfItem(atPath: cameraURL.path))?[.size] as? NSNumber)?.int64Value ?? -1
             do {
@@ -1389,7 +1389,9 @@ final class VideoExporter {
             // (CameraLayoutMath.lookWeights — the preview calls the same).
             let lookWeights: CameraLayoutMath.LookWeights =
                 cameraMaskDecoder != nil && cameraStaticAssets != nil
-                    ? CameraLayoutMath.lookWeights(at: currentTime, regions: project.cameraLayoutRegions)
+                    ? CameraLayoutMath.lookWeights(
+                        at: currentTime, regions: project.cameraLayoutRegions,
+                        defaultLook: settings.cameraLook)
                     : .none
             /// The look stack's camera: the already mirrored + adjusted
             /// source × the mask frame for the camera sample actually drawn

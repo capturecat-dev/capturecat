@@ -519,7 +519,7 @@ export class ProjectMedia {
         s.curtainLogoFileName,
         ...project.voiceOverClips.map((c) => c.fileName),
         // A look just added: the engine needs the camera person mask's URL.
-        project.cameraLayoutRegions.some((r) => r.look) ? CAMERA_MASK_FILE : null,
+        s.cameraLook || project.cameraLayoutRegions.some((r) => r.look) ? CAMERA_MASK_FILE : null,
       ];
       if (refs.some((r) => typeof r === "string" && r && !this.sent.has(r) && this.mediaUrl(r))) push();
     });

@@ -704,6 +704,15 @@ enum InspectorKitViews {
         return field
     }
 
+    /// A row label on its own line — for a control group (chips) that sits
+    /// under it full width instead of beside it.
+    static func label(_ text: String) -> NSTextField {
+        let field = NSTextField(labelWithString: text)
+        field.font = EditorThemeKit.label()
+        bindTheme(field) { [weak field] in field?.textColor = EditorThemeKit.textPrimary }
+        return field
+    }
+
     /// Muted explainer line under a control group.
     static func caption(_ text: String) -> NSTextField {
         let field = NSTextField(wrappingLabelWithString: text)

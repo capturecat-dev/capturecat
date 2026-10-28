@@ -491,7 +491,7 @@ export class CameraFeature {
     this.exact = { outputTime: frame.outputTime, frame: f };
     // The person mask joins the exact-frame wait: decoded before this frame renders.
     this.exactMask = null;
-    const w = lookWeights(frame.sourceTime, p.cameraLayoutRegions);
+    const w = lookWeights(frame.sourceTime, p.cameraLayoutRegions, p.settings.cameraLook);
     const feed = this.ensureMaskFeed(scene);
     if ((w.cutout > 0 || w.popOut > 0) && this.maskUsable(feed, this.source)) {
       const index = this.maskIndexFor(feed, this.source, f);

@@ -298,7 +298,10 @@ extension WebVectors {
     }
 
     private static func cameraSettingsWV(_ s: ProjectSettings) -> WV {
-        tagSettingsWV(s)
+        let base = tagSettingsWV(s)
+        // Only when set, as project.json writes it — cases without a look
+        // keep their exact inputs.
+        return (s.cameraLook.map { base.setting("cameraLook", .str($0.rawValue)) } ?? base)
             .setting("cameraSize", s.cameraSize.wv)
             .setting("cameraShape", .str(s.cameraShape.rawValue))
             .setting("cameraOrientation", .str(s.cameraOrientation.rawValue))
@@ -357,6 +360,9 @@ extension WebVectors {
             var maskRng = WVRandom(seed: "exportCameraFrame-mask-\(caseIndex)")
             let maskAvailable = maskRng.bool(0.75)
             let s = randomCameraSettings(&rng)
+            // The Camera panel's whole-video look, from the same side stream
+            // (after maskAvailable, so that draw is unchanged too).
+            s.cameraLook = maskRng.pick([nil, nil, CameraBubbleLook.cutout, .popOut])
             let output = rng.pick(Array(cameraOutputSizes.dropLast()))
             let preview: CGSize = rng.bool(0.6) ? .zero : rng.size(200, 2000)
             let natural = rng.pick([CGSize(width: 1280, height: 720), CGSize(width: 640, height: 480), CGSize.zero])
@@ -400,7 +406,7 @@ extension WebVectors {
                 let source: String = (cameraTargetTime >= 0 && decoded) ? "live" : (poster ? "poster" : "none")
                 // VERBATIM look gate: a fresh mask AND the camera statics.
                 let lookWeights: CameraLayoutMath.LookWeights = maskAvailable && o.baseRect != nil
-                    ? CameraLayoutMath.lookWeights(at: t, regions: regions) : .none
+                    ? CameraLayoutMath.lookWeights(at: t, regions: regions, defaultLook: s.cameraLook) : .none
                 var looks: WV = .null
                 func looksWV(rect: CGRect, baseRect: CGRect) -> WV {
                     guard lookWeights.isActive else { return .null }

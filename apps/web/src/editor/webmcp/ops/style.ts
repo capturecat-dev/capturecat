@@ -10,6 +10,7 @@ import {
   AspectRatio,
   BackgroundType,
   CameraFilterStyle,
+  CameraLook,
   CameraOrientation,
   CameraPosition,
   CameraShape,
@@ -109,6 +110,9 @@ export interface StyleKey {
   note?: string;
   /** Optional in the model (reads as null when unset). */
   optional?: boolean;
+  /** An optional enum whose first value "none" means unset (Swift
+   *  `optionalEnumKey`): reads "none" when unset, writing "none" clears it. */
+  noneIsUnset?: boolean;
   /** Post-write side effect (`then:` in Swift). */
   then?: (settings: ProjectSettings) => void;
 }
@@ -134,6 +138,13 @@ const en = (key: string, group: string, values: readonly string[], note?: string
   kind: { type: "enum", values },
   note,
   then,
+});
+const optEn = (key: string, group: string, values: readonly string[], note?: string): StyleKey => ({
+  key,
+  group,
+  kind: { type: "enum", values: ["none", ...values] },
+  note,
+  noneIsUnset: true,
 });
 const num = (key: string, group: string, min: number, max: number, note?: string, optional = false): StyleKey => ({
   key,
@@ -240,6 +251,12 @@ export const STYLE_KEYS: readonly StyleKey[] = [
   en("cameraOrientation", "camera", enumValues(CameraOrientation)),
   num("cameraSize", "camera", 60, 240),
   bool("cameraMirrored", "camera"),
+  optEn(
+    "cameraLook",
+    "camera",
+    enumValues(CameraLook),
+    "background removal for the whole video: cutout = you over the screen, popOut = you on a gradient card. The app finds the person when the project is next open in the editor; until then it renders as the plain bubble",
+  ),
   num("cameraBrightness", "camera", -1, 1),
   num("cameraContrast", "camera", 0.5, 1.5),
   num("cameraSaturation", "camera", 0, 2),
@@ -363,7 +380,7 @@ function write(entry: StyleKey, settings: ProjectSettings, value: unknown): void
             " — exact, case-sensitive)",
         );
       }
-      s[key] = raw;
+      s[key] = entry.noneIsUnset && raw === "none" ? undefined : raw;
       break;
     }
     case "number":
@@ -387,6 +404,7 @@ function write(entry: StyleKey, settings: ProjectSettings, value: unknown): void
 
 function read(entry: StyleKey, settings: ProjectSettings): unknown {
   const v = (settings as Settings)[entry.key];
+  if (entry.noneIsUnset) return v ?? "none";
   if (entry.optional && (v === undefined || v === null)) return null;
   switch (entry.kind.type) {
     case "number":

@@ -40,6 +40,8 @@ export const MEMBER_NOTICE =
 /** The slices this needs (EditorStore, ProjectMedia, the engine client). */
 export interface CameraMaskStore {
   getState(): { project: Project | null };
+  /** The editor store's change feed (absent in some tests). */
+  subscribe?(listener: () => void): () => void;
 }
 export interface CameraMaskMedia {
   mediaUrl(ref: string | null | undefined): string | undefined;
@@ -75,9 +77,15 @@ export function segmentProgressText(p: SegmentProgress): string {
   }
 }
 
-/** Does the project use a camera look anywhere (a region's `look`)? */
+/** Does the project use a camera look anywhere — the whole-video
+ *  `settings.cameraLook` or a region's `look`? */
 export function projectUsesLook(project: Project | null): boolean {
-  return !!project?.cameraVideoURL && project.cameraLayoutRegions.some((r) => r.look === "cutout" || r.look === "popOut");
+  return (
+    !!project?.cameraVideoURL &&
+    (project.settings.cameraLook === "cutout" ||
+      project.settings.cameraLook === "popOut" ||
+      project.cameraLayoutRegions.some((r) => r.look === "cutout" || r.look === "popOut"))
+  );
 }
 
 export class CameraMaskJob {
@@ -226,6 +234,19 @@ export function useCameraMask(
   useEffect(() => {
     if (!hasMedia) return;
     if (projectUsesLook(store.getState().project)) void job.ensure();
+  }, [hasMedia, job, store]);
+  // …and whenever a look turns on later: the Camera pane's whole-video
+  // Background, an undo, an agent edit (the timeline's look rows also kick
+  // through controller.hooks.cameraLookAdded; ensure() is idempotent).
+  useEffect(() => {
+    if (!hasMedia) return;
+    if (!store.subscribe) return;
+    let uses = projectUsesLook(store.getState().project);
+    return store.subscribe(() => {
+      const now = projectUsesLook(store.getState().project);
+      if (now && !uses) void job.ensure();
+      uses = now;
+    });
   }, [hasMedia, job, store]);
   const status = useSyncExternalStore(job.subscribe, job.getStatus, job.getStatus);
   return useMemo(() => ({ status, kick: () => void job.ensure(), cancel: () => job.cancel(), job }), [status, job]);

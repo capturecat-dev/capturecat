@@ -36,10 +36,24 @@ describe("CodableColor(hex:) / hexString", () => {
   });
 });
 
+describe("cameraLook (Swift optionalEnumKey)", () => {
+  it("lists none first, sets a look, and none clears it back to the plain bubble", () => {
+    const entry = STYLE_KEYS.find((k) => k.key === "cameraLook")!;
+    expect(entry.group).toBe("camera");
+    expect(entry.kind).toEqual({ type: "enum", values: ["none", "cutout", "popOut"] });
+    const s = defaultProjectSettings();
+    applyStyle("cameraLook", "cutout", s);
+    expect(s.cameraLook).toBe("cutout");
+    applyStyle("cameraLook", "none", s);
+    expect(s.cameraLook).toBeUndefined();
+    expect(() => applyStyle("cameraLook", "Cutout", s)).toThrow(ToolError);
+  });
+});
+
 describe("set_style table", () => {
-  it("has the Mac's 120 keys in 11 groups", () => {
-    expect(STYLE_KEYS).toHaveLength(120);
-    expect(new Set(STYLE_KEYS.map((k) => k.key)).size).toBe(120);
+  it("has the Mac's 121 keys in 11 groups", () => {
+    expect(STYLE_KEYS).toHaveLength(121);
+    expect(new Set(STYLE_KEYS.map((k) => k.key)).size).toBe(121);
     expect(new Set(STYLE_KEYS.map((k) => k.group))).toEqual(new Set(STYLE_GROUPS));
     expect(styleKeySummary()).toContain("canvas: aspectRatio, backgroundPadding, videoPlacement, frameShape, cornerRadius… (+4)");
   });
@@ -101,7 +115,7 @@ describe("style_options", () => {
   it("lists every group with types, ranges and (with a project) current values", () => {
     const project = newProject({ id: "00000000-0000-4000-8000-000000000001", duration: 3 });
     const all = styleOptions(project);
-    expect(all.keyCount).toBe(120);
+    expect(all.keyCount).toBe(121);
     const canvas = (all.groups as Record<string, Record<string, Record<string, unknown>>>).canvas;
     expect(canvas.backgroundPadding).toEqual({
       type: "number",

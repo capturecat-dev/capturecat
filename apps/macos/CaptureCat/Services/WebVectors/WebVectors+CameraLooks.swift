@@ -3,7 +3,7 @@ import CryptoKit
 import Foundation
 
 // Golden-vector units for the camera LOOKS (docs/camera-cutout.md §10):
-//   cameraLookWeights    — CameraLayoutMath.lookWeights(at:regions:)
+//   cameraLookWeights    — CameraLayoutMath.lookWeights(at:regions:defaultLook:)
 //   cameraCutoutGeometry — CameraCutoutMath.geometry(look:bubbleRect:cameraAspect:) (Y-down)
 //   cameraMaskCodec      — a `.ccmask` written by THIS app's encoder
 //                          (CameraMaskTrack.Encoder), which the TS codec must
@@ -14,7 +14,7 @@ extension WebVectors {
         [
             WebVectorUnit(
                 name: "cameraLookWeights",
-                notes: "Services/CameraLayoutMath.swift — lookWeights(at:regions:) (look(at:) via region(at:) + CameraLayoutRegion.effectiveLook; ease; transitionDuration; edges ≤ 0.05 s never morph). Regions as project.json (look optional, also on non-bubble modes where it is ignored); queries cluster on edges, mid-fade and settled",
+                notes: "Services/CameraLayoutMath.swift — lookWeights(at:regions:defaultLook:) (look(at:): outside every region the defaultLook; inside, a bubble region's look or else the defaultLook, nothing on other modes; ease; transitionDuration; edges ≤ 0.05 s never morph). Regions as project.json (look optional, also on non-bubble modes where it is ignored); defaultLook = settings.cameraLook, absent = null; queries cluster on edges, mid-fade and settled",
                 build: cameraLookWeightsCases),
             WebVectorUnit(
                 name: "cameraCutoutGeometry",
@@ -60,10 +60,16 @@ extension WebVectors {
                 queries.append(e + rng.pick([0.1, 0.225, 0.3, 0.449999, 0.45, 0.4500001, 1.2]))
             }
             for _ in 0..<4 { queries.append(rng.edgy(-1, 22, edges: [0, 0.05, 0.0501, 0.04])) }
+            // The whole-video look (Camera panel), from its own stream so
+            // every region and query above is unchanged.
+            var lookRng = WVRandom(seed: "cameraLookWeights-default-\(i)")
+            let defaultLook = lookRng.pick([nil, CameraBubbleLook.cutout, .popOut])
+            var input: WV = ["regions": .arr(regions.map(styleRegionWV)), "queries": queries.wv]
+            if let defaultLook { input = input.setting("defaultLook", .str(defaultLook.rawValue)) }
             cases.append(vcase(
-                ["regions": .arr(regions.map(styleRegionWV)), "queries": queries.wv],
+                input,
                 ["results": .arr(queries.map { t in
-                    let w = CameraLayoutMath.lookWeights(at: t, regions: regions)
+                    let w = CameraLayoutMath.lookWeights(at: t, regions: regions, defaultLook: defaultLook)
                     return ["cutout": w.cutout.wv, "popOut": w.popOut.wv]
                 })]
             ))

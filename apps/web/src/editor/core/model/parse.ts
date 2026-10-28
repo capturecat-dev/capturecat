@@ -259,6 +259,8 @@ export const decodeProjectSettings: Decode<ProjectSettings> = (v, path) => {
     cameraShape: c.decode("cameraShape", eCameraShape),
     cameraOrientation: c.tryDecodeIfPresent("cameraOrientation", eCameraOrientation) ?? "Auto",
     cameraMirrored: c.decodeIfPresent("cameraMirrored", dBool) ?? false,
+    // Lenient like a region's look: missing, null, unknown or mistyped → absent.
+    cameraLook: c.tryDecodeIfPresent("cameraLook", eCameraLook),
     cameraBrightness: c.decodeIfPresent("cameraBrightness", dDouble) ?? 0,
     cameraContrast: c.decodeIfPresent("cameraContrast", dDouble) ?? 1,
     cameraSaturation: c.decodeIfPresent("cameraSaturation", dDouble) ?? 1,

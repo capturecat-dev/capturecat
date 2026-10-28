@@ -48,8 +48,11 @@ export interface SceneAssets {
 
 export const EMPTY_ASSETS: SceneAssets = { cursor: null, keystrokes: null, images: new Map(), cursorArt: null, cameraMask: null };
 
-/** Does any camera-layout region of a raw project.json carry a look? */
+/** Does a raw project.json use a camera look — the whole-video
+ *  `settings.cameraLook` or any camera-layout region's `look`? */
 export function usesCameraLook(doc: Json): boolean {
+  const settings = doc.settings && typeof doc.settings === "object" ? (doc.settings as Json) : {};
+  if (settings.cameraLook === "cutout" || settings.cameraLook === "popOut") return true;
   const regions = Array.isArray(doc.cameraLayoutRegions) ? (doc.cameraLayoutRegions as unknown[]) : [];
   return regions.some((r) => {
     const look = r && typeof r === "object" ? (r as Json).look : undefined;

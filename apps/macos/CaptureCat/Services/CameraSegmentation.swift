@@ -6,9 +6,12 @@ extension Project {
     /// folder (docs/camera-cutout.md §2). Nil without a camera.
     var cameraMaskURL: URL? { cameraVideoURL.map { CameraMaskTrack.url(besideCamera: $0) } }
 
-    /// Whether any region draws a camera look (a look on a non-Bubble block
-    /// is kept but ignored, so it does not count).
-    var usesCameraLook: Bool { cameraLayoutRegions.contains { $0.effectiveLook != nil } }
+    /// Whether the project draws a camera look anywhere: the Camera panel's
+    /// whole-video Background, or a Bubble block's look (a look on a
+    /// non-Bubble block is kept but ignored, so it does not count).
+    var usesCameraLook: Bool {
+        settings.cameraLook != nil || cameraLayoutRegions.contains { $0.effectiveLook != nil }
+    }
 }
 
 /// Background person segmentation for the camera LOOKS — produces

@@ -48,44 +48,83 @@ describe("CameraLayoutRegion.look — model (§1)", () => {
     expect(back.cameraLayoutRegions[0]!.$extra).toBeUndefined();
     expect(serializeProject(back)).toEqual(json);
   });
+
+  it("settings.cameraLook: written only when set, after cameraMirrored, lenient on read", () => {
+    const p = newProject({ id: "8A0C2F5E-1B7D-4E6A-9C3F-2D4B6A8C0E1F", name: "whole", videoURL: "file:///x/recording.mov", duration: 20 });
+    const plain = serializeProject(p) as { settings: Record<string, unknown> };
+    expect("cameraLook" in plain.settings).toBe(false);
+    p.settings.cameraLook = "popOut";
+    const json = serializeProject(p) as { settings: Record<string, unknown> };
+    expect(json.settings.cameraLook).toBe("popOut");
+    const keys = Object.keys(json.settings);
+    expect(keys.indexOf("cameraLook")).toBe(keys.indexOf("cameraMirrored") + 1);
+    expect(parseProject(json).settings.cameraLook).toBe("popOut");
+    for (const bad of ["hologram", 3, null]) {
+      const back = parseProject({ ...json, settings: { ...json.settings, cameraLook: bad } });
+      expect(back.settings.cameraLook).toBeUndefined();
+      expect(back.settings.$extra).toBeUndefined();
+    }
+  });
+});
+
+describe("whole-video look (settings.cameraLook, §1a)", () => {
+  it("no regions → settled from frame one, no intro morph", () => {
+    for (const t of [0, 0.01, 3, 99]) {
+      expect(lookWeights(t, [], "cutout")).toEqual({ cutout: 1, popOut: 0 });
+      expect(lookWeights(t, [], "popOut")).toEqual({ cutout: 0, popOut: 1 });
+    }
+  });
+
+  it("blocks still override it for their span, and it eases out of and back into them", () => {
+    const regions = [R(2, 6, "bubble", "popOut"), R(8, 10, "cameraOnly"), R(12, 14, "bubble")];
+    expect(lookWeights(1, regions, "cutout")).toEqual({ cutout: 1, popOut: 0 });
+    expect(lookWeights(2 + transitionDuration + 0.01, regions, "cutout")).toEqual({ cutout: 0, popOut: 1 });
+    expect(lookWeights(9, regions, "cutout")).toEqual({ cutout: 0, popOut: 0 });
+    expect(lookWeights(13, regions, "cutout")).toEqual({ cutout: 1, popOut: 0 }); // a bubble block with no look inherits it
+    const out = lookWeights(8 + transitionDuration / 2, regions, "cutout").cutout;
+    const back = lookWeights(10 + transitionDuration / 2, regions, "cutout").cutout;
+    expect(out).toBeGreaterThan(0.01);
+    expect(out).toBeLessThan(0.99);
+    expect(back).toBeCloseTo(1 - out, 12);
+  });
 });
 
 describe("lookWeights (§4)", () => {
   it("no regions / outside every region / non-bubble mode → no look", () => {
-    expect(lookWeights(3, [])).toEqual({ cutout: 0, popOut: 0 });
+    expect(lookWeights(3, [], null)).toEqual({ cutout: 0, popOut: 0 });
     const regions = [R(2, 4, "sideBySide", "cutout")];
-    expect(lookWeights(3, regions)).toEqual({ cutout: 0, popOut: 0 });
-    expect(lookWeights(10, regions)).toEqual({ cutout: 0, popOut: 0 });
+    expect(lookWeights(3, regions, null)).toEqual({ cutout: 0, popOut: 0 });
+    expect(lookWeights(10, regions, null)).toEqual({ cutout: 0, popOut: 0 });
   });
 
   it("settles on the containing bubble region's look", () => {
     const regions = [R(2, 6, "bubble", "popOut")];
-    expect(lookWeights(2 + transitionDuration + 0.01, regions)).toEqual({ cutout: 0, popOut: 1 });
+    expect(lookWeights(2 + transitionDuration + 0.01, regions, null)).toEqual({ cutout: 0, popOut: 1 });
   });
 
   it("eases in at the start edge with smootherstep over 0.45 s", () => {
     const regions = [R(2, 6, "bubble", "cutout")];
     for (const dt of [0, 0.1, 0.2, 0.3, 0.44]) {
-      const w = lookWeights(2 + dt, regions);
+      const w = lookWeights(2 + dt, regions, null);
       expect(w.cutout).toBeCloseTo(ease(dt / transitionDuration), 12);
       expect(w.popOut).toBe(0);
     }
-    const mid = lookWeights(2.225, regions).cutout;
+    const mid = lookWeights(2.225, regions, null).cutout;
     expect(mid).toBeGreaterThan(0);
     expect(mid).toBeLessThan(1);
   });
 
   it("eases out after the end edge", () => {
     const regions = [R(2, 6, "bubble", "cutout")];
-    expect(lookWeights(6, regions).cutout).toBe(1); // closed interval: still inside
-    const w = lookWeights(6.1, regions);
+    expect(lookWeights(6, regions, null).cutout).toBe(1); // closed interval: still inside
+    const w = lookWeights(6.1, regions, null);
     expect(w.cutout).toBeCloseTo(1 - ease(0.1 / transitionDuration), 12);
-    expect(lookWeights(6 + transitionDuration, regions).cutout).toBe(0);
+    expect(lookWeights(6 + transitionDuration, regions, null).cutout).toBe(0);
   });
 
   it("look → look cross-fades, summing to 1", () => {
     const regions = [R(2, 4, "bubble", "cutout"), R(4, 8, "bubble", "popOut")];
-    const w = lookWeights(4.2, regions);
+    const w = lookWeights(4.2, regions, null);
     const p = ease(0.2 / transitionDuration);
     expect(w.cutout).toBeCloseTo(1 - p, 12);
     expect(w.popOut).toBeCloseTo(p, 12);
@@ -95,7 +134,7 @@ describe("lookWeights (§4)", () => {
 
   it("a look fades out across a mode morph that resolve also morphs", () => {
     const regions = [R(2, 4, "bubble", "cutout"), R(4, 8, "cameraOnly")];
-    const w = lookWeights(4.2, regions);
+    const w = lookWeights(4.2, regions, null);
     expect(w.cutout).toBeCloseTo(1 - ease(0.2 / transitionDuration), 12);
     const r = resolve(4.2, regions, { x: 0, y: 0, width: 100, height: 60 }, { x: 70, y: 40, width: 20, height: 20 }, 10, 4, true);
     expect(r.isPlainBubble).toBe(false);
@@ -103,15 +142,15 @@ describe("lookWeights (§4)", () => {
 
   it("no morph at edges ≤ 0.05 s (no intro morph at t = 0)", () => {
     const regions = [R(0, 4, "bubble", "popOut")];
-    expect(lookWeights(0, regions)).toEqual({ cutout: 0, popOut: 1 });
-    expect(lookWeights(0.1, regions)).toEqual({ cutout: 0, popOut: 1 });
+    expect(lookWeights(0, regions, null)).toEqual({ cutout: 0, popOut: 1 });
+    expect(lookWeights(0.1, regions, null)).toEqual({ cutout: 0, popOut: 1 });
     const near = [R(0.05, 4, "bubble", "popOut")];
-    expect(lookWeights(0.1, near)).toEqual({ cutout: 0, popOut: 1 });
+    expect(lookWeights(0.1, near, null)).toEqual({ cutout: 0, popOut: 1 });
   });
 
   it("a non-bubble region's look is ignored, and so is its edge", () => {
     const regions = [R(2, 4, "bubble"), R(4, 6, "screenOnly", "cutout")];
-    expect(lookWeights(4.1, regions)).toEqual({ cutout: 0, popOut: 0 });
+    expect(lookWeights(4.1, regions, null)).toEqual({ cutout: 0, popOut: 0 });
   });
 });
 
