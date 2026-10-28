@@ -37,6 +37,7 @@ import { parseJsonBody } from "../lib/validate";
 import { registerPlanAdminRoutes } from "./admin-plans";
 import { registerAnalyticsAdminRoutes, signupSource, usageByUser } from "./admin-analytics";
 import { purgePlanCache } from "../lib/entitlement";
+import { registerUserPlanAdminRoutes } from "./admin-user-plan";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -94,12 +95,19 @@ adminRoutes.get("/admin/users", async (c) => {
               SELECT 1 FROM subscription s
                WHERE s.referenceId = u.id
                  AND s.status IN (${placeholders})
-            ) AS paid
+            ) AS paid,
+            (SELECT s.plan FROM subscription s
+              WHERE s.referenceId = u.id
+                AND s.status IN (${placeholders})
+                AND (s.periodEnd IS NULL OR s.periodEnd > ?)
+              ORDER BY CASE s.status WHEN 'active' THEN 0 WHEN 'trialing' THEN 1 ELSE 2 END, s.periodEnd DESC
+              LIMIT 1) AS plan,
+            EXISTS (SELECT 1 FROM plan_grants g WHERE g.user_id = u.id AND g.revoked_at IS NULL) AS granted
        FROM user u
       ORDER BY u.createdAt DESC
       LIMIT 500`
   )
-    .bind(...PAID_SUBSCRIPTION_STATUSES)
+    .bind(...PAID_SUBSCRIPTION_STATUSES, ...PAID_SUBSCRIPTION_STATUSES, new Date().toISOString())
     .all<{
       id: string;
       email: string;
@@ -115,6 +123,8 @@ adminRoutes.get("/admin/users", async (c) => {
       signupLanding: string | null;
       providers: string | null;
       paid: number;
+      plan: string | null;
+      granted: number;
     }>();
   const usage = await usageByUser(c.env.DB);
 
@@ -131,6 +141,9 @@ adminRoutes.get("/admin/users", async (c) => {
       // Derived exactly as resolveTier() does, so the panel cannot disagree
       // with what the API actually serves.
       tier: r.blocked === 1 ? "blocked" : r.paid === 1 ? "paid" : r.tester === 1 ? "tester" : "free",
+      // The live paid plan (null = free) and whether an admin assigned it.
+      plan: r.plan,
+      planGranted: r.granted === 1,
       providers: r.providers ? [...new Set(r.providers.split(","))] : [],
       signup: signupSource(r),
       usage: usage.get(r.id) ?? null,
@@ -245,4 +258,6 @@ adminRoutes.delete("/admin/beta/:id", async (c) => {
 
 // Plans: the editor, Stripe sync on save, hide/publish, "Most popular".
 registerPlanAdminRoutes(adminRoutes);
+// Assign a plan to a user (a complimentary Stripe subscription; see the file).
+registerUserPlanAdminRoutes(adminRoutes);
 registerAnalyticsAdminRoutes(adminRoutes);

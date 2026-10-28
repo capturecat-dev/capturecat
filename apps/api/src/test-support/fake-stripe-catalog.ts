@@ -76,19 +76,55 @@ export interface FakeCoupon {
   livemode: false;
 }
 
+export interface FakeCustomer {
+  id: string;
+  object: "customer";
+  email: string | null;
+  name: string | null;
+  metadata: Record<string, string>;
+  deleted?: true;
+}
+
+export interface FakeSubscription {
+  id: string;
+  object: "subscription";
+  customer: string;
+  status: "active" | "canceled" | "incomplete";
+  cancel_at: number | null;
+  canceled_at: number | null;
+  discounts: string[];
+  metadata: Record<string, string>;
+  items: { object: "list"; data: Array<{ id: string; object: "subscription_item"; price: FakePrice; quantity: 1; current_period_start: number; current_period_end: number }> };
+}
+
 export class FakeStripeCatalog {
   products = new Map<string, FakeProduct>();
   prices = new Map<string, FakePrice>();
-  coupons = new Map<string, FakeCoupon>();
+  coupons = new Map<string, FakeCoupon & { percent_off?: number | null }>();
+  customers = new Map<string, FakeCustomer>();
+  subscriptions = new Map<string, FakeSubscription>();
   /** Ids of coupons deleted (Stripe forgets them; tests want to know). */
   deletedCoupons: string[] = [];
+  /** Status a newly created subscription gets (tests flip it to "incomplete"). */
+  nextSubscriptionStatus: FakeSubscription["status"] = "active";
+  /** Customers + subscriptions are OPT-IN: suites with their own billing
+   *  fakes (lib/stripe.test.ts) ask the catalog first and must keep getting
+   *  `null` for those paths. */
+  private readonly billing: boolean;
   private seq = 0;
+
+  constructor(options: { billing?: boolean } = {}) {
+    this.billing = options.billing ?? false;
+  }
 
   reset(): void {
     this.products.clear();
     this.prices.clear();
     this.coupons.clear();
+    this.customers.clear();
+    this.subscriptions.clear();
     this.deletedCoupons.length = 0;
+    this.nextSubscriptionStatus = "active";
     this.seq = 0;
   }
 
@@ -235,8 +271,12 @@ export class FakeStripeCatalog {
     // ---- coupons ----------------------------------------------------------
     if (p === "/v1/coupons" && method === "POST") {
       const appliesTo = form.applies_to as { products?: Record<string, string> } | undefined;
-      const coupon: FakeCoupon = {
-        id: `coupon_fake${++this.seq}`,
+      if (typeof form.id === "string" && this.coupons.has(form.id)) {
+        return json({ error: { type: "invalid_request_error", code: "resource_already_exists", message: "Coupon already exists." } }, 400);
+      }
+      const coupon: FakeCoupon & { percent_off?: number | null } = {
+        id: typeof form.id === "string" ? form.id : `coupon_fake${++this.seq}`,
+        percent_off: form.percent_off ? Number(form.percent_off) : null,
         object: "coupon",
         name: typeof form.name === "string" ? form.name : null,
         amount_off: form.amount_off ? Number(form.amount_off) : null,
@@ -262,6 +302,63 @@ export class FakeStripeCatalog {
       }
       if (method === "POST" && typeof form.name === "string") coupon.name = form.name;
       return json(coupon);
+    }
+
+    if (!this.billing) return null;
+
+    // ---- customers (opt-in) -----------------------------------------------
+    if (p === "/v1/customers" && method === "POST") {
+      const customer: FakeCustomer = {
+        id: `cus_fake${++this.seq}`,
+        object: "customer",
+        email: typeof form.email === "string" ? form.email : null,
+        name: typeof form.name === "string" ? form.name : null,
+        metadata: (form.metadata as Record<string, string>) ?? {},
+      };
+      this.customers.set(customer.id, customer);
+      return json(customer);
+    }
+    if ((m = /^\/v1\/customers\/([^/]+)$/.exec(p))) {
+      const customer = this.customers.get(m[1]);
+      if (!customer) return missing(m[1]);
+      return json(customer.deleted ? { id: customer.id, object: "customer", deleted: true } : customer);
+    }
+
+    // ---- subscriptions (opt-in) -------------------------------------------
+    if (p === "/v1/subscriptions" && method === "POST") {
+      const customer = this.customers.get(String(form.customer));
+      if (!customer || customer.deleted) return missing(String(form.customer));
+      const items = Object.values((form.items as Record<string, { price: string }>) ?? {});
+      const price = this.prices.get(items[0]?.price ?? "");
+      if (!price) return missing(items[0]?.price ?? "price");
+      const discounts = Object.values((form.discounts as Record<string, { coupon: string }>) ?? {}).map((d) => d.coupon);
+      for (const id of discounts) if (!this.coupons.has(id)) return missing(id);
+      const start = Math.floor(Date.now() / 1000);
+      const sub: FakeSubscription = {
+        id: `sub_fake${++this.seq}`,
+        object: "subscription",
+        customer: customer.id,
+        status: this.nextSubscriptionStatus,
+        cancel_at: form.cancel_at ? Number(form.cancel_at) : null,
+        canceled_at: null,
+        discounts,
+        metadata: (form.metadata as Record<string, string>) ?? {},
+        items: {
+          object: "list",
+          data: [{ id: `si_fake${this.seq}`, object: "subscription_item", price, quantity: 1, current_period_start: start, current_period_end: start + 30 * 86_400 }],
+        },
+      };
+      this.subscriptions.set(sub.id, sub);
+      return json(sub);
+    }
+    if ((m = /^\/v1\/subscriptions\/([^/]+)$/.exec(p))) {
+      const sub = this.subscriptions.get(m[1]);
+      if (!sub) return missing(m[1]);
+      if (method === "DELETE") {
+        sub.status = "canceled";
+        sub.canceled_at = Math.floor(Date.now() / 1000);
+      }
+      return json(sub);
     }
     return null;
   }
