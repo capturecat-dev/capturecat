@@ -16,6 +16,7 @@ PRODUCT_NAME="${PRODUCT_NAME:-CaptureCat}"
 CONFIGURATION="${CONFIGURATION:-Release}"
 BUILD_ROOT="${BUILD_ROOT:-$PWD/build/release}"
 SIGNING_IDENTITY="Developer ID Application: Michael Garland (E52HU87CX9)"
+RELEASE_ENTITLEMENTS="$(cd "$(dirname "$0")" && pwd)/release.entitlements"
 NOTARY_PROFILE="${NOTARY_PROFILE:-CaptureCat}"  # override if your stored profile has another name
 
 build_dmg_for_arch() {
@@ -53,14 +54,29 @@ build_dmg_for_arch() {
 
   # ── Code sign with Developer ID ──────────────────────────────────────────
   echo "    Code signing with Developer ID..."
+  # Nested code first (Sparkle's helpers, frameworks), deep, no entitlements...
   codesign --deep --force --options runtime \
     --sign "$SIGNING_IDENTITY" \
     --timestamp \
     "$app_path"
+  # ...then the app itself again WITH its release entitlements. --force on
+  # its own discards the entitlements, which shipped builds without camera,
+  # microphone or Apple Events access under the hardened runtime.
+  codesign --force --options runtime \
+    --entitlements "$RELEASE_ENTITLEMENTS" \
+    --sign "$SIGNING_IDENTITY" \
+    --timestamp \
+    "$app_path"
 
-  # Verify signing
-  codesign --verify --verbose "$app_path" 2>&1 | tail -1
-  echo "    Code signing verified."
+  # Verify signing, and that the entitlements actually landed.
+  codesign --verify --deep --strict --verbose "$app_path" 2>&1 | tail -1
+  for key in com.apple.security.device.camera com.apple.security.device.audio-input; do
+    if ! codesign -d --entitlements - "$app_path" 2>/dev/null | grep -q "$key"; then
+      echo "ERROR: signed app is missing $key"
+      exit 1
+    fi
+  done
+  echo "    Code signing verified (entitlements present)."
 
   # ── Create DMG ──────────────────────────────────────────────────────────
   echo "    Creating DMG..."

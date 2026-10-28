@@ -66,5 +66,9 @@
 	<string>https://api.capturecat.so/api/releases/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>xHcblnNRVe7ngCqNhRt3P8UhqSz9NW+ZZlulApyBJqM=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
 </dict>
 </plist>
