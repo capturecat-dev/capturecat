@@ -5,6 +5,8 @@ import { apiFetch } from "@/lib/session";
 import { adminProcedure, createTRPCRouter } from "@/lib/trpc/init";
 import type { AdminPlan } from "@/lib/plan-fields";
 import type { Analytics, SignupSource, UserActivity, UserUsage } from "@/lib/analytics-types";
+import type { AdminChangelogEntry } from "@/lib/changelog-form";
+import { CHANGELOG_CATEGORIES, CHANGELOG_PLATFORMS } from "@/lib/changelog-form";
 
 /**
  * Admin directory + entitlement writes, proxied to api.capturecat.so.
@@ -83,6 +85,19 @@ const planInput = z.object({
   saleStartsAt: z.string().nullable(),
   saleEndsAt: z.string().nullable(),
   saleDurationMonths: z.number().int().min(1).nullable(),
+});
+
+/** The editor's body for POST/PUT /api/admin/changelog. Loose on purpose:
+ *  the API validates strictly and its messages ("title is required") are the
+ *  ones worth showing, not a tRPC zod dump. */
+const changelogInput = z.object({
+  slug: z.string().max(200),
+  title: z.string().max(1_000),
+  summary: z.string().max(2_000),
+  body: z.string().max(100_000),
+  category: z.enum(CHANGELOG_CATEGORIES),
+  platforms: z.array(z.enum(CHANGELOG_PLATFORMS)).max(8),
+  version: z.string().max(200).nullable(),
 });
 
 async function apiJson<T>(path: string, init: RequestInit | undefined, fallback: string): Promise<T> {
@@ -269,6 +284,60 @@ export const adminRouter = createTRPCRouter({
       }
       return (await res.json()) as { id: string; tester: boolean; blocked: boolean };
     }),
+
+  /** Every changelog entry, drafts included (newest drafts first). */
+  listChangelog: adminProcedure.query(() =>
+    apiJson<{ entries: AdminChangelogEntry[] }>("/api/admin/changelog", { method: "GET" }, "Could not load the changelog"),
+  ),
+
+  /** A new entry is always a draft; publishing is its own step. */
+  createChangelogEntry: adminProcedure
+    .input(changelogInput)
+    .mutation(({ input }) =>
+      apiJson<{ entry: AdminChangelogEntry }>("/api/admin/changelog", jsonBody("POST", input), "Could not create the entry"),
+    ),
+
+  updateChangelogEntry: adminProcedure
+    .input(changelogInput.partial().extend({ id: z.string().min(1) }))
+    .mutation(({ input }) => {
+      const { id, ...body } = input;
+      return apiJson<{ entry: AdminChangelogEntry }>(
+        `/api/admin/changelog/${encodeURIComponent(id)}`,
+        jsonBody("PUT", body),
+        "Could not save the entry",
+      );
+    }),
+
+  /** `publishedAt` null = now (or the date it already has); a future date schedules it. */
+  publishChangelogEntry: adminProcedure
+    .input(z.object({ id: z.string().min(1), publishedAt: z.string().max(40).nullable() }))
+    .mutation(({ input }) =>
+      apiJson<{ entry: AdminChangelogEntry }>(
+        `/api/admin/changelog/${encodeURIComponent(input.id)}/publish`,
+        jsonBody("POST", input.publishedAt ? { publishedAt: input.publishedAt } : {}),
+        "Could not publish the entry",
+      ),
+    ),
+
+  unpublishChangelogEntry: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(({ input }) =>
+      apiJson<{ entry: AdminChangelogEntry }>(
+        `/api/admin/changelog/${encodeURIComponent(input.id)}/unpublish`,
+        jsonBody("POST", {}),
+        "Could not unpublish the entry",
+      ),
+    ),
+
+  deleteChangelogEntry: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(({ input }) =>
+      apiJson<{ id: string }>(
+        `/api/admin/changelog/${encodeURIComponent(input.id)}`,
+        { method: "DELETE" },
+        "Could not delete the entry",
+      ),
+    ),
 
   listBetaSignups: adminProcedure.query(async () => {
     const res = await apiFetch("/api/admin/beta");

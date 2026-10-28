@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { BarChart3, Building2, CreditCard, LogOut, Mail, ShieldCheck, Users } from "lucide-react";
+import { BarChart3, Building2, CreditCard, LogOut, Mail, Newspaper, ShieldCheck, Users } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 
 import {
@@ -23,6 +23,7 @@ const navItems = [
   { title: "Teams", href: "/teams", icon: Building2 },
   { title: "Beta", href: "/beta", icon: Mail },
   { title: "Plans", href: "/plans", icon: CreditCard },
+  { title: "Changelog", href: "/changelog", icon: Newspaper },
 ] as const;
 
 export function AdminSidebar() {

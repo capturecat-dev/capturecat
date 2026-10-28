@@ -38,6 +38,7 @@ import { registerPlanAdminRoutes } from "./admin-plans";
 import { registerAnalyticsAdminRoutes, signupSource, usageByUser } from "./admin-analytics";
 import { purgePlanCache } from "../lib/entitlement";
 import { registerUserPlanAdminRoutes } from "./admin-user-plan";
+import { registerChangelogAdminRoutes } from "./changelog";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -261,3 +262,6 @@ registerPlanAdminRoutes(adminRoutes);
 // Assign a plan to a user (a complimentary Stripe subscription; see the file).
 registerUserPlanAdminRoutes(adminRoutes);
 registerAnalyticsAdminRoutes(adminRoutes);
+// The changelog: drafts, publish/unpublish, delete (the public reads are in
+// routes/changelog.ts too, mounted on their own in src/index.ts).
+registerChangelogAdminRoutes(adminRoutes);

@@ -25,6 +25,7 @@
  *                                                 not here: see the `mcpOAuth` scheme)
  *   apps/api/src/routes/webhooks.ts               /api/webhooks/*
  *   apps/api/src/routes/releases.ts               /api/releases/*
+ *   apps/api/src/routes/changelog.ts              /api/changelog* (the public reads; admin writes are not public API)
  *   apps/macos/scripts/publish_release.sh         the release JSON those routes pass through
  *   apps/web/src/routes/api/oembed.ts             https://capturecat.so/api/oembed (web Worker)
  *
@@ -262,12 +263,13 @@ export const OPENAPI_DOCUMENT = {
       "- **Render screenshots of public web pages** (`/api/screenshot/take`, a paid Screenshot API with conventional snake_case parameter names), and manage its access keys and stored screenshots.\n" +
       `- **Manage agent tokens** (\`/api/agent-tokens\`): scoped \`cc_pat_…\` tokens for cloud agents using CaptureCat's remote MCP server at ${MCP_ENDPOINT} (Streamable HTTP, JSON-RPC; listed under \`x-mcp-servers\`, not as a REST path).\n` +
       "- **Find and download CaptureCat for Mac** (`/api/releases/*`).\n" +
+      "- **Read the changelog** (`/api/changelog`): what's new across the Mac app, the web app, the API and agents, as https://capturecat.so/changelog shows it.\n" +
       "- **Check service health** (`/api/health`).\n" +
       "- **Embed a CaptureCat share link** via oEmbed (`/api/oembed`, served from https://capturecat.so).\n\n" +
       "Documentation: https://capturecat.so/docs — machine-readable index for LLMs: https://capturecat.so/llms.txt\n\n" +
-      "**Authentication.** Screenshot renders take an access key (`cc_live_…`) in the `X-Access-Key` header or the `access_key` query parameter. Keys are minted, listed and revoked with a signed-in CaptureCat session (Better Auth, `Authorization: Bearer <session token>` as the Mac app sends it); an access key can never manage keys. Agent tokens (`cc_pat_…`) authenticate ONLY the remote MCP server, as `Authorization: Bearer`; they are minted, listed and revoked with a session and can never manage tokens themselves. Release, health and oEmbed endpoints are public.\n\n" +
-      "**Errors.** Screenshot endpoints answer `{ \"error\": { \"code\": \"…\", \"message\": \"…\" } }`; branch on `code`. Release and oEmbed endpoints, the per-IP rate limiter (429) and unknown routes (404) answer `{ \"error\": \"<message>\" }`.\n\n" +
-      "**Rate limits** (per client IP, fixed 60-second windows): `/api/screenshot/take` and `/api/screenshot/stored*` share 10 requests; `/api/screenshot/keys*` allows 30; `/api/agent-tokens*` allows 60 (and creating a token 10 per user per minute). Release, health and oEmbed endpoints have no application-level rate limit.",
+      "**Authentication.** Screenshot renders take an access key (`cc_live_…`) in the `X-Access-Key` header or the `access_key` query parameter. Keys are minted, listed and revoked with a signed-in CaptureCat session (Better Auth, `Authorization: Bearer <session token>` as the Mac app sends it); an access key can never manage keys. Agent tokens (`cc_pat_…`) authenticate ONLY the remote MCP server, as `Authorization: Bearer`; they are minted, listed and revoked with a session and can never manage tokens themselves. Release, changelog, health and oEmbed endpoints are public.\n\n" +
+      "**Errors.** Screenshot endpoints answer `{ \"error\": { \"code\": \"…\", \"message\": \"…\" } }`; branch on `code`. Release, changelog and oEmbed endpoints, the per-IP rate limiter (429) and unknown routes (404) answer `{ \"error\": \"<message>\" }`.\n\n" +
+      "**Rate limits** (per client IP, fixed 60-second windows): `/api/screenshot/take` and `/api/screenshot/stored*` share 10 requests; `/api/screenshot/keys*` allows 30; `/api/agent-tokens*` allows 60 (and creating a token 10 per user per minute). Release, changelog, health and oEmbed endpoints have no application-level rate limit.",
     contact: {
       name: "CaptureCat",
       email: "contact@capturecat.so",
@@ -324,6 +326,7 @@ export const OPENAPI_DOCUMENT = {
         "Endpoints CaptureCat POSTs signed events to (Standard Webhooks). Plan-gated (`agentWebhooks`). Session authentication only; agents use the MCP tools list_webhooks / create_webhook.",
     },
     { name: "Releases", description: "CaptureCat for Mac release metadata and DMG downloads. Public." },
+    { name: "Changelog", description: "Published changelog entries (new features, improvements, fixes, security notes), newest first. Public." },
     { name: "Health", description: "Liveness check. Public." },
     {
       name: "oEmbed",
@@ -827,6 +830,67 @@ export const OPENAPI_DOCUMENT = {
         },
       },
     },
+    "/api/changelog": {
+      get: {
+        operationId: "listChangelog",
+        summary: "List published changelog entries",
+        description:
+          "Use this to find out what changed in CaptureCat recently: published entries, newest first, each with its category, platforms, version, date and Markdown body. Page with `cursor` (keyset paging: a new entry never shifts a page). Drafts and entries scheduled for a future date are never returned. Cached for 60 seconds. The same entries are at https://capturecat.so/changelog, as Markdown at https://capturecat.so/changelog.md and as RSS at https://capturecat.so/changelog.xml.",
+        tags: ["Changelog"],
+        security: [],
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            description: "Entries per page, 1 to 50.",
+            schema: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+          },
+          {
+            name: "cursor",
+            in: "query",
+            required: false,
+            description: "The `nextCursor` of the previous page. Opaque; omit for the newest entries.",
+            schema: { type: "string", maxLength: 200 },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "A page of entries, newest first.",
+            headers: { "Cache-Control": { $ref: "#/components/headers/CacheControlOneMinute" } },
+            content: json("ChangelogPage"),
+          },
+          "400": { description: "`{\"error\":\"limit: …\"}` or `{\"error\":\"cursor: Invalid cursor\"}`.", content: json("SimpleError") },
+        },
+      },
+    },
+    "/api/changelog/{slug}": {
+      get: {
+        operationId: "getChangelogEntry",
+        summary: "Get one published changelog entry",
+        description:
+          "Use this to read a single changelog entry by its slug (the last segment of https://capturecat.so/changelog/<slug>). A draft, a scheduled entry and an unknown slug are all the same 404. Cached for 60 seconds.",
+        tags: ["Changelog"],
+        security: [],
+        parameters: [
+          {
+            name: "slug",
+            in: "path",
+            required: true,
+            description: "The entry's slug: lowercase letters, digits and single hyphens, at most 80 characters.",
+            schema: { type: "string", pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", maxLength: 80 },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The entry.",
+            headers: { "Cache-Control": { $ref: "#/components/headers/CacheControlOneMinute" } },
+            content: json("ChangelogEntryResponse"),
+          },
+          "404": { description: "`{\"error\":\"Not found\"}`: no published entry has this slug.", content: json("SimpleError") },
+        },
+      },
+    },
     "/api/releases/latest": {
       get: {
         operationId: "getLatestRelease",
@@ -1134,6 +1198,10 @@ export const OPENAPI_DOCUMENT = {
       },
       CacheControlFiveMinutes: {
         description: "`public, max-age=300`.",
+        schema: { type: "string" },
+      },
+      CacheControlOneMinute: {
+        description: "`public, max-age=60`.",
         schema: { type: "string" },
       },
     },
@@ -1621,6 +1689,38 @@ export const OPENAPI_DOCUMENT = {
             },
           },
         ],
+      },
+      ChangelogEntry: {
+        type: "object",
+        required: ["slug", "title", "summary", "body", "category", "platforms", "version", "publishedAt", "updatedAt"],
+        properties: {
+          slug: { type: "string", description: "URL slug: https://capturecat.so/changelog/<slug>." },
+          title: { type: "string", maxLength: 140 },
+          summary: { type: "string", maxLength: 280, description: "One line." },
+          body: { type: "string", maxLength: 50000, description: "Markdown. May be empty." },
+          category: { type: "string", enum: ["new", "improved", "fixed", "security"] },
+          platforms: {
+            type: "array",
+            items: { type: "string", enum: ["mac", "web", "api", "agents"] },
+            description: "What the change applies to, in this order; may be empty.",
+          },
+          version: { type: ["string", "null"], description: "The release it shipped in, e.g. `1.3.1`; null when not tied to one." },
+          publishedAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      ChangelogPage: {
+        type: "object",
+        required: ["entries", "nextCursor"],
+        properties: {
+          entries: { type: "array", items: ref("ChangelogEntry"), description: "Newest first." },
+          nextCursor: { type: ["string", "null"], description: "Pass as `cursor` for the next (older) page; null on the last page." },
+        },
+      },
+      ChangelogEntryResponse: {
+        type: "object",
+        required: ["entry"],
+        properties: { entry: ref("ChangelogEntry") },
       },
       ReleaseList: {
         type: "object",
