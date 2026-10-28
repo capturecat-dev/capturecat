@@ -168,7 +168,8 @@ export const WEB_APP: DocSection = {
           items: [
             "When a camera is selected, a mirrored squircle bubble shows your camera on the page. Drag it anywhere; right-click it for **Small**, **Medium** or **Large**. Its size and position are remembered.",
             "Your camera is recorded as its own track, not burned into the screen video. In the editor you can restyle, move or hide it like a camera recorded on the Mac. See [Camera](/docs/recording/camera).",
-            "When the bubble would appear in your own recording (a display share, or a share of this tab), it hides during the take; your camera is still recorded.",
+            "While you record, your camera stays on screen but out of the video, like the Mac app's: with **Floating controls** (Chrome, Edge) it rides in the floating window; otherwise, for a window or tab, it floats in the browser's own picture-in-picture window, which a window or tab recording never contains.",
+            "Recording a whole display without the floating controls (Safari, Firefox), the bubble would end up in your video, so it hides during the take; your camera is still recorded.",
           ],
         },
         { type: "h2", text: "Browser support" },

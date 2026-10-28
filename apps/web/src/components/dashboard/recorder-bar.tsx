@@ -825,6 +825,7 @@ export function RecorderDock() {
     conceal: rec.concealMode,
     starting: rec.starting,
     floatingOpen: rec.floating !== null,
+    cameraPipOpen: rec.cameraPip,
   });
   if (!rec.support?.screen || !rec.support.encode) return null;
   const hidesForTake = rec.concealMode === "reveal" && rec.phase.kind === "countdown";

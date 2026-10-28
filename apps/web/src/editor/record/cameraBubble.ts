@@ -277,11 +277,15 @@ export interface BubblePolicyInput {
   starting: boolean;
   /** The floating controls window (Document Picture-in-Picture) is open. */
   floatingOpen: boolean;
+  /** The camera floats in the browser's own picture-in-picture window
+   *  (cameraPip.ts — opened only for window and tab shares). */
+  cameraPipOpen: boolean;
 }
 
 export interface BubblePolicy {
-  /** page: floating over the dashboard · floating: inside the floating controls window · none. */
-  host: "page" | "floating" | "none";
+  /** page: floating over the dashboard · floating: inside the floating controls window ·
+   *  pip: the browser's own picture-in-picture window (cameraPip.ts) · none. */
+  host: "page" | "floating" | "pip" | "none";
   /** Hidden only because the take could record it (the dock says so). */
   hiddenForScreen: boolean;
 }
@@ -297,13 +301,17 @@ export interface BubblePolicy {
  * a window or tab capture doesn't contain that window, and a display take
  * paints it out with the clean plate ("plate", plate.ts). In "shown" mode
  * (a window share without the floating window) the bar comes and goes with
- * your focus, but the bubble stays aside — a camera preview isn't worth the
- * cut. After Stop the camera is released for the upload: nothing to show.
+ * your focus, and the camera floats in the browser's own picture-in-picture
+ * window instead (cameraPip.ts) — a window of its own, so a window or tab
+ * capture never contains it, like the Mac's float; without that window it
+ * stays aside — a camera preview isn't worth the cut. After Stop the camera
+ * is released for the upload: nothing to show.
  */
 export function bubblePolicy(s: BubblePolicyInput): BubblePolicy {
   if (!s.cameraOn || s.phase === "saving" || s.phase === "failed") return { host: "none", hiddenForScreen: false };
   const takeLive = s.starting || s.phase === "countdown" || s.phase === "recording";
   if (takeLive && s.floatingOpen && s.conceal !== "reveal") return { host: "floating", hiddenForScreen: false };
+  if (takeLive && s.cameraPipOpen) return { host: "pip", hiddenForScreen: false };
   if (takeLive && s.conceal !== "none") return { host: "none", hiddenForScreen: true };
   return { host: "page", hiddenForScreen: false };
 }
