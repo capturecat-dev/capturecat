@@ -7,6 +7,7 @@ import type { AdminPlan } from "@/lib/plan-fields";
 import type { Analytics, SignupSource, UserActivity, UserUsage } from "@/lib/analytics-types";
 import type { AdminChangelogEntry } from "@/lib/changelog-form";
 import { CHANGELOG_CATEGORIES, CHANGELOG_PLATFORMS } from "@/lib/changelog-form";
+import type { AdminVideoDetail, AdminVideoPage } from "@/lib/moderation-types";
 
 /**
  * Admin directory + entitlement writes, proxied to api.capturecat.so.
@@ -284,6 +285,72 @@ export const adminRouter = createTRPCRouter({
       }
       return (await res.json()) as { id: string; tester: boolean; blocked: boolean };
     }),
+
+  /** Videos page: every upload (or the Reported / Removed queues), searchable. */
+  listVideos: adminProcedure
+    .input(
+      z.object({
+        filter: z.enum(["all", "reported", "removed"]),
+        q: z.string().max(200).optional(),
+        cursor: z.string().max(400).nullish(),
+      }),
+    )
+    .query(({ input }) => {
+      const params = new URLSearchParams({ filter: input.filter });
+      if (input.q?.trim()) params.set("q", input.q.trim());
+      if (input.cursor) params.set("cursor", input.cursor);
+      return apiJson<AdminVideoPage>(`/api/admin/videos?${params}`, { method: "GET" }, "Could not load videos");
+    }),
+
+  /** One video with its reports and moderation history. */
+  videoDetail: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(({ input }) =>
+      apiJson<AdminVideoDetail>(`/api/admin/videos/${encodeURIComponent(input.id)}`, { method: "GET" }, "Could not load the video"),
+    ),
+
+  /** Take down: hidden everywhere public, file kept, owner told why. */
+  removeVideo: adminProcedure
+    .input(z.object({ id: z.string().min(1), reason: z.string().trim().min(1).max(500) }))
+    .mutation(({ input }) =>
+      apiJson<{ removed: true }>(
+        `/api/admin/videos/${encodeURIComponent(input.id)}/remove`,
+        jsonBody("POST", { reason: input.reason }),
+        "Could not take the video down",
+      ),
+    ),
+
+  restoreVideo: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(({ input }) =>
+      apiJson<{ restored: true }>(
+        `/api/admin/videos/${encodeURIComponent(input.id)}/restore`,
+        jsonBody("POST", {}),
+        "Could not restore the video",
+      ),
+    ),
+
+  /** Close the open reports without acting on the video. */
+  dismissVideoReports: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(({ input }) =>
+      apiJson<{ dismissed: number }>(
+        `/api/admin/videos/${encodeURIComponent(input.id)}/dismiss`,
+        jsonBody("POST", {}),
+        "Could not dismiss the reports",
+      ),
+    ),
+
+  /** Delete for good: file, versions, the share. Can't be undone. */
+  deleteVideo: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(({ input }) =>
+      apiJson<{ deleted: true; leftInBucket?: string[] }>(
+        `/api/admin/videos/${encodeURIComponent(input.id)}`,
+        { method: "DELETE" },
+        "Could not delete the video",
+      ),
+    ),
 
   /** Every changelog entry, drafts included (newest drafts first). */
   listChangelog: adminProcedure.query(() =>

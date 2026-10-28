@@ -51,7 +51,8 @@ export const hubRoutes = new Hono<{
 /** Same visibility gate the share page's public endpoints apply. */
 async function publicVideo(db: D1Database, videoId: string) {
   const doc = await getSharedVideo(db, videoId);
-  if (!doc || doc.status !== "ready" || doc.isPrivate) return null;
+  // A video an admin took down (lib/moderation.ts) is not public anywhere.
+  if (!doc || doc.status !== "ready" || doc.isPrivate || doc.removedAt) return null;
   return doc;
 }
 

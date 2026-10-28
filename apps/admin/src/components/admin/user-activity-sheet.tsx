@@ -188,7 +188,7 @@ export function SignupFacts({ signup, providers }: { signup: SignupSource; provi
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="py-4">
       <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</h3>
@@ -197,7 +197,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Facts({ rows }: { rows: Array<[string, string]> }) {
+export function Facts({ rows }: { rows: Array<[string, string]> }) {
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
       {rows.map(([k, v]) => (

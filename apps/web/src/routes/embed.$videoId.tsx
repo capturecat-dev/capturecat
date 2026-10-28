@@ -1,7 +1,8 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { API_URL } from "@/lib/api-url";
-import { fetchShareMeta } from "@/lib/share-meta";
+import { fetchShareMeta, readShareMeta } from "@/lib/share-meta";
+import { RemovedNotice } from "@/components/share/removed-notice";
 import SharePlayer, {
   type AnnotationMarker,
 } from "@/components/share/share-player";
@@ -26,15 +27,16 @@ interface VideoMeta {
 
 export const Route = createFileRoute("/embed/$videoId")({
   loader: async ({ params }) => {
-    let video: VideoMeta | null = null;
+    let result: ReturnType<typeof readShareMeta<VideoMeta>> = null;
     try {
-      const raw = await fetchShareMeta({ data: params.videoId });
-      video = raw ? (JSON.parse(raw) as VideoMeta) : null;
+      result = readShareMeta<VideoMeta>(await fetchShareMeta({ data: params.videoId }));
     } catch {
-      video = null;
+      result = null;
     }
-    if (!video) throw notFound();
-    return { video };
+    if (!result) throw notFound();
+    // Taken down by CaptureCat: the embed shows the notice in the player's place.
+    if ("removed" in result) return { video: null, removed: result.removed };
+    return { video: result.video, removed: null };
   },
   head: () => ({
     meta: [{ name: "robots", content: "noindex" }],
@@ -43,7 +45,14 @@ export const Route = createFileRoute("/embed/$videoId")({
 });
 
 function EmbedPage() {
-  const { video } = Route.useLoaderData();
+  const { video, removed } = Route.useLoaderData();
+  if (!video) {
+    return (
+      <main className="min-h-screen bg-black p-2">
+        <RemovedNotice message={removed ?? ""} compact />
+      </main>
+    );
+  }
 
   const gated = video.gate && video.gate !== "open";
 

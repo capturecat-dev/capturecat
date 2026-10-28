@@ -1,7 +1,9 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { API_URL } from "@/lib/api-url";
-import { fetchShareMeta } from "@/lib/share-meta";
+import { fetchShareMeta, readShareMeta, type ShareMetaResult } from "@/lib/share-meta";
+import { RemovedNotice } from "@/components/share/removed-notice";
+import { ReportVideo } from "@/components/share/report-video";
 import { jsonLd } from "@/lib/json-ld";
 import SharePlayer, {
   type AnnotationMarker,
@@ -56,10 +58,9 @@ function isoDuration(seconds: number): string {
   return `PT${h > 0 ? `${h}H` : ""}${m % 60 > 0 || h > 0 ? `${m % 60}M` : ""}${s % 60}S`;
 }
 
-async function getVideo(videoId: string): Promise<VideoMeta | null> {
+async function getVideo(videoId: string): Promise<ShareMetaResult<VideoMeta>> {
   try {
-    const raw = await fetchShareMeta({ data: videoId });
-    return raw ? (JSON.parse(raw) as VideoMeta) : null;
+    return readShareMeta<VideoMeta>(await fetchShareMeta({ data: videoId }));
   } catch {
     return null;
   }
@@ -71,11 +72,16 @@ export const Route = createFileRoute("/share/$videoId")({
     v: typeof search.v === "string" || typeof search.v === "number" ? String(search.v) : undefined,
   }),
   loader: async ({ params }) => {
-    const video = await getVideo(params.videoId);
-    if (!video) throw notFound();
-    return { video };
+    const result = await getVideo(params.videoId);
+    if (!result) throw notFound();
+    // Taken down by CaptureCat: the page renders the notice, nothing else.
+    if ("removed" in result) return { video: null, removed: result.removed };
+    return { video: result.video, removed: null };
   },
   head: ({ loaderData }) => {
+    if (loaderData?.removed) {
+      return { meta: [{ title: "Video removed | CaptureCat" }, { name: "robots", content: "noindex" }] };
+    }
     const video = loaderData?.video;
     if (!video) return { meta: [{ title: "Video not found | CaptureCat" }] };
 
@@ -178,7 +184,32 @@ function prettyFileName(fileName: string): string {
 }
 
 function SharePage() {
-  const { video } = Route.useLoaderData();
+  const { video, removed } = Route.useLoaderData();
+  if (!video) return <RemovedSharePage message={removed ?? ""} />;
+  return <LiveSharePage video={video} />;
+}
+
+/** The share page's frame around the removal notice. */
+function RemovedSharePage({ message }: { message: string }) {
+  return (
+    <main className="relative isolate min-h-screen overflow-x-clip bg-[#08090d] text-white">
+      <header className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+        <a
+          href="https://capturecat.so"
+          className="flex items-center gap-2.5 text-[15px] font-semibold tracking-[-0.01em] text-white/90 transition-opacity hover:opacity-80"
+        >
+          <CaptureCatMark size={26} />
+          CaptureCat
+        </a>
+      </header>
+      <div className="mx-auto w-full max-w-[960px] px-3 pb-14 pt-6 sm:px-6">
+        <RemovedNotice message={message} />
+      </div>
+    </main>
+  );
+}
+
+function LiveSharePage({ video }: { video: VideoMeta }) {
   const { t, v } = Route.useSearch();
   const startAt = t && isFinite(Number(t)) ? Math.max(0, Number(t)) : null;
 
@@ -270,13 +301,19 @@ function SharePage() {
         )}
         {/* Title, summary, and version history render inside SharePlayer's
             watch-page shell now — the page keeps only the quiet footer. */}
-        <footer className="mt-12 border-t border-white/[0.06] pt-6 text-center">
+        <footer className="mt-12 flex items-center justify-center gap-3 border-t border-white/[0.06] pt-6 text-center">
           <a
             href="https://capturecat.so"
             className="text-xs text-white/35 transition-colors hover:text-white/70"
           >
             Made with CaptureCat
           </a>
+          {!gated && (
+            <>
+              <span aria-hidden className="text-xs text-white/20">·</span>
+              <ReportVideo videoId={video.videoId} apiUrl={API_URL} />
+            </>
+          )}
         </footer>
       </div>
     </main>

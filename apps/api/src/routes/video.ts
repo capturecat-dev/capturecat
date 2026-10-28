@@ -46,6 +46,7 @@ import {
   type ShareControlsBody,
 } from "../lib/video-share";
 import { backgroundOf } from "../lib/webhooks";
+import { isRemoved, removedResponse } from "../lib/moderation";
 
 export const videoRoutes = new Hono<{
   Bindings: Env;
@@ -86,6 +87,11 @@ videoRoutes.get("/video/:videoId", async (c) => {
 
   if (!doc || doc.status !== "ready") {
     return c.json({ error: "Video not found" }, 404);
+  }
+
+  // Taken down by an admin (lib/moderation.ts): gone for everyone but its owner.
+  if (isRemoved(doc) && !(await isOwnerRequest(c, doc))) {
+    return removedResponse(c);
   }
 
   // Metadata cached before the 0017 deploy predates these fields.
@@ -237,9 +243,9 @@ videoRoutes.get("/video/:videoId", async (c) => {
   return response;
 });
 
-/** No privacy flag and no password/expiry/view-cap gate. */
+/** No privacy flag, no takedown, and no password/expiry/view-cap gate. */
 function isPublicShare(doc: VideoMetadata): boolean {
-  return !doc.isPrivate && !doc.passwordHash && !doc.maxViews && !doc.expiresAt;
+  return !doc.isPrivate && !isRemoved(doc) && !doc.passwordHash && !doc.maxViews && !doc.expiresAt;
 }
 
 /** Whether the request carries a Bearer session belonging to the video's
@@ -353,6 +359,7 @@ videoRoutes.post("/video/:videoId/unlock", async (c) => {
   if (!doc || doc.status !== "ready" || doc.isPrivate) {
     return c.json({ error: "Video not found" }, 404);
   }
+  if (isRemoved(doc)) return removedResponse(c);
   if (!doc.passwordHash) return c.json({ error: "Not password protected" }, 400);
 
   // Small fixed per-IP budget — password guessing is the whole threat model.
@@ -445,6 +452,8 @@ videoRoutes.get("/video/:videoId/meta", async (c) => {
       return c.json({ error: "Video not found" }, 404);
     }
   }
+  // The share page renders the removal notice from this body.
+  if (isRemoved(doc)) return removedResponse(c);
   const gate = await shareGate(c, doc, c.req.query("token"));
   if (gate.state !== "open") {
     // The page needs to know WHICH wall it hit to render the right state,
@@ -514,6 +523,7 @@ videoRoutes.get("/video/:videoId/download", async (c) => {
   if (!doc || doc.status !== "ready" || doc.isPrivate || !doc.allowDownload) {
     return c.json({ error: "Download unavailable" }, 404);
   }
+  if (isRemoved(doc)) return removedResponse(c);
   const gate = await shareGate(c, doc, c.req.query("token"));
   if (gate.state !== "open") return c.json({ error: "Download unavailable" }, 403);
 
@@ -963,7 +973,8 @@ videoRoutes.get("/video/:videoId/thumbnail", async (c) => {
     return c.json({ error: "Thumbnail not found" }, 404);
   }
 
-  if (doc.isPrivate) {
+  // A removed video's poster is owner-only too (its dashboard still lists it).
+  if (doc.isPrivate || isRemoved(doc)) {
     // Owner-only. Unlike isOwnerRequest (Bearer-gated for the byte route),
     // the dashboard loads this via <img>, which carries the session cookie —
     // so resolve the session from whatever credentials the request has.
@@ -980,7 +991,7 @@ videoRoutes.get("/video/:videoId/thumbnail", async (c) => {
   }
 
   // Gated or private thumbnails must not land in the shared edge cache.
-  const isPublic = !doc.isPrivate && !doc.passwordHash && !doc.maxViews && !doc.expiresAt;
+  const isPublic = !doc.isPrivate && !isRemoved(doc) && !doc.passwordHash && !doc.maxViews && !doc.expiresAt;
   const cache = caches.default;
   if (isPublic) {
     const cached = await cache.match(c.req.raw);
@@ -1135,6 +1146,9 @@ videoRoutes.get("/videos", requireAuth, requireEntitlement(), async (c) => {
       thumbnailUrl: v.thumbnailType
         ? `${new URL(c.env.BETTER_AUTH_URL).origin}/api/video/${v.videoId}/thumbnail`
         : null,
+      // Taken down by CaptureCat (lib/moderation.ts): the dashboard says so
+      // and why; the share link shows the removal notice to everyone else.
+      removed: v.removedAt ? { at: v.removedAt, reason: v.removedReason ?? null } : null,
     })),
     storageUsedBytes: used,
     storageLimitBytes: plan.limits.maxTotalStorageBytes,

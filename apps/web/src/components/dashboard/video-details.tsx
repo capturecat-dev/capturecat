@@ -150,19 +150,36 @@ export function VideoDetails({ videoId }: { videoId: string }) {
         }
       />
 
+      {video.removed && (
+        <div role="alert" className="cc-app-panel border-destructive/40 px-4 py-3 text-sm">
+          <p className="font-medium text-destructive">Removed by CaptureCat</p>
+          <p className="mt-1 text-muted-foreground">
+            This video broke our rules{video.removed.reason ? `: ${video.removed.reason}` : ""}. Its share link now
+            shows a removal notice to everyone. If you think this is a mistake,{" "}
+            <a href="https://capturecat.so/contact" className="underline underline-offset-4">contact us</a>.
+          </p>
+        </div>
+      )}
+
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         {/* Preview + link — the media itself, in the site's glass bezel.
             First on phones; beside the settings (and pinned) on wide screens. */}
         <aside className="dsh-pop min-w-0 max-w-3xl xl:sticky xl:top-20 xl:order-2 xl:max-w-none">
           <div className="cc-app-panel relative p-1.5">
             <div className="overflow-hidden rounded-[14px] bg-black">
-              <video
-                key={previewUrl}
-                src={previewUrl}
-                controls
-                playsInline
-                className="aspect-video w-full"
-              />
+              {video.removed ? (
+                <div className="grid aspect-video w-full place-items-center px-6 text-center text-sm text-white/55">
+                  Removed by CaptureCat — no longer playable from its share link.
+                </div>
+              ) : (
+                <video
+                  key={previewUrl}
+                  src={previewUrl}
+                  controls
+                  playsInline
+                  className="aspect-video w-full"
+                />
+              )}
             </div>
             <div className="px-2.5 pb-2 pt-3.5">
               <div className="flex items-center justify-between gap-2">

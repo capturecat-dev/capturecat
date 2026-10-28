@@ -43,6 +43,8 @@ interface SharedVideoRow {
   etag?: string | null;
   org_id?: string | null;
   storage_id?: string | null;
+  removed_at?: string | null;
+  removed_reason?: string | null;
 }
 
 function rowToVideo(row: SharedVideoRow): VideoMetadata {
@@ -75,6 +77,8 @@ function rowToVideo(row: SharedVideoRow): VideoMetadata {
     orgId: row.org_id ?? null,
     thumbnailType: row.thumbnail_type ?? null,
     storageId: row.storage_id ?? null,
+    removedAt: row.removed_at ?? null,
+    removedReason: row.removed_reason ?? null,
   };
 }
 

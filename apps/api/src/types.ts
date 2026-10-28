@@ -166,6 +166,11 @@ export interface VideoMetadata {
    *  CaptureCat R2, else a storage_buckets id. Mirrors the version row the
    *  way r2Key does. Absent in metadata cached before 0029 (= null). */
   storageId?: string | null;
+  /** Taken down by an admin (migration 0038): every public surface answers
+   *  "removed" (lib/moderation.ts). Absent in metadata cached before 0038. */
+  removedAt?: string | null;
+  /** Why, shown to the owner. */
+  removedReason?: string | null;
 }
 
 /** One historical file of a shared video (migration 0017). */

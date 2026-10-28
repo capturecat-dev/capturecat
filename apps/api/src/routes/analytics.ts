@@ -39,8 +39,8 @@ interface IncomingEvent {
 analyticsRoutes.post("/video/:videoId/analytics", async (c) => {
   const doc = await getSharedVideo(c.env.DB, c.req.param("videoId"));
   // Same visibility gate as the byte route: analytics only exist for videos a
-  // viewer could actually watch.
-  if (!doc || doc.status !== "ready" || doc.isPrivate) {
+  // viewer could actually watch (a removed one included — lib/moderation.ts).
+  if (!doc || doc.status !== "ready" || doc.isPrivate || doc.removedAt) {
     return c.json({ error: "Video not found" }, 404);
   }
   // Password-gated videos only count viewers who actually unlocked — otherwise

@@ -54,6 +54,7 @@ export const videosRouter = createTRPCRouter({
         profileVisible: boolean;
         thumbnailType: string | null;
         thumbnailUrl: string | null;
+        removed: { at: string; reason: string | null } | null;
       }>;
       // Reported by the API from PRO_PLAN_LIMITS so the dashboard stops
       // hardcoding a limit that could drift from the one uploads enforce.
