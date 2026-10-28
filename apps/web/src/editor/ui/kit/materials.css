@@ -1,23 +1,26 @@
 /*
- * CCMaterial for the web — the skeuomorphic dressing every surface shares.
- * Port of `Views/Shared/DesignKit/CCMaterial.swift`; everything derives from
- * the element's `--m-tint` with color-mix, so ANY tint works (no assets).
+ * CCMaterial for the web — the dressing every surface shares. Port of
+ * `Views/Shared/DesignKit/CCMaterial.swift` in its 2026 look (Mike,
+ * 2026-10-27: "a more 2026 style like macOS apps"), which replaced the
+ * 2026-09-01 skeuomorphic keys: soft, airy, floating.
  *
- *   .cc-mat-raised     lit, touchable key — buttons, chips, thumbs
- *                      3-stop top-lit gradient (lift 0 / tint .55 / sink 1),
- *                      soft top light (inner, ≤6px), a darker UNDER edge
- *                      peeking 2px below that follows the radius (the key's
- *                      "side"), and a soft drop shadow.
- *   .cc-mat-matte      raised without the cast shadow (cards, dialogs)
- *   .cc-mat-recessed   a well — fields, slider pills, tracks
- *                      top-shaded gradient (shade 0 / tint .45 / light 1),
- *                      quiet inner shadow off the top lip, 1px bevels that
- *                      auto-hide on pill-ish surfaces (`.cc-mat-pill`).
+ *   .cc-mat-raised     a FLOATING surface — buttons, selected chips, knobs:
+ *                      the tint with a whisper of top light, a 0.5px hairline
+ *                      that follows the corners, and a soft shadow scaled to
+ *                      the surface's height (`--m-h`, unitless px): tight
+ *                      under chips, airy under cards (CCMaterial.floatShadow).
+ *   .cc-mat-matte      floating without the cast shadow (raisedMatte)
+ *   .cc-mat-recessed   a flat WELL — fields, slider pills, tracks: the tint
+ *                      and a quieter hairline, no inner shadow.
  *
- * NO glass sheen, ever (vetoed on sight). No hard 1px lines on raised
- * surfaces. Translucent washes are pre-composited over `elevated`
- * (`--cc-hover-solid`, `--cc-active-solid`) before they reach a material;
- * fully clear fills are simply not dressed.
+ * No extruded side, no inner light, no bevels, no gloss — and never system
+ * Liquid Glass. Everything derives from the element's `--m-tint` with
+ * color-mix, so ANY tint works (no assets).
+ *
+ * The hairline is an inset OUTLINE (outline-offset −0.5px): it follows the
+ * corner radius, never changes layout, and sits on the outer edge whether or
+ * not the element keeps a (transparent) 1px border for geometry. The
+ * `.cc-theme` prefix lifts it over the kit's `:focus { outline: none }`.
  *
  * Press = the surface TINTS in place (`.cc-press` ink wash, 80ms glide) —
  * never movement, never a scale, never a ring.
@@ -26,75 +29,51 @@
 .cc-mat-raised,
 .cc-mat-matte {
   --m-tint: var(--cc-elevated);
-  --m-extrude: 2px;
-  background:
-    linear-gradient(
-      to bottom,
-      rgb(255 255 255 / var(--cc-mat-toplight)) 0,
-      rgb(255 255 255 / 0) min(6px, 40%)
-    ),
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--m-tint), #ffffff var(--cc-mat-lift)) 0%,
-      var(--m-tint) 55%,
-      color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-sink)) 100%
-    );
-  box-shadow:
-    0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
-    0 2px 6px 0 rgb(0 0 0 / var(--cc-mat-shadow));
-  transition: --m-tint calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
-}
-
-/* Short surfaces: the top light turns to noise under 10px (Mac guard). */
-.cc-mat-raised.cc-mat-short,
-.cc-mat-matte.cc-mat-short {
+  --m-h: 30;
+  --m-t: clamp(0, calc((var(--m-h) - 20) / 140), 1);
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--m-tint), #ffffff var(--cc-mat-lift)) 0%,
-    var(--m-tint) 55%,
-    color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-sink)) 100%
+    color-mix(in srgb, var(--m-tint), #ffffff var(--cc-mat-toplight)) 0%,
+    var(--m-tint) 100%
   );
+  box-shadow: 0 calc(1px + 4px * var(--m-t)) calc(5px + 23px * var(--m-t)) 0
+    rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) * var(--m-t)));
+  transition:
+    --m-tint calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide),
+    box-shadow calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
+}
+.cc-theme .cc-mat-raised,
+.cc-theme .cc-mat-matte {
+  outline: 0.5px solid var(--cc-hairline);
+  outline-offset: -0.5px;
+}
+
+/* Tiny surfaces: the top light turns to noise; under 10px the hairline
+   would read as an outline (CCMaterial.refit drops it). */
+.cc-mat-raised.cc-mat-short,
+.cc-mat-matte.cc-mat-short {
+  background: var(--m-tint);
 }
 
 .cc-mat-matte,
 .cc-mat-raised.cc-mat-noshadow {
-  /* Dense bars / translucent hosts: stand on the under edge alone. */
-  box-shadow: 0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under));
+  box-shadow: none;
 }
 
 .cc-mat-recessed {
   --m-tint: var(--cc-elevated);
-  --m-bevel-inset: calc(var(--m-radius, 6px) * 0.6);
-  background:
-    /* bevel top: a 1px shade line inset from the corners */
-    linear-gradient(rgb(0 0 0 / var(--cc-well-bevel-top)), rgb(0 0 0 / var(--cc-well-bevel-top)))
-      center top / calc(100% - 2 * var(--m-bevel-inset)) 1px no-repeat,
-    /* bevel bottom: a sliver of light on the lower lip */
-    linear-gradient(rgb(255 255 255 / var(--cc-well-bevel-bottom)), rgb(255 255 255 / var(--cc-well-bevel-bottom)))
-      center bottom / calc(100% - 2 * var(--m-bevel-inset)) 1px no-repeat,
-    /* soft inner shadow falling from the top lip */
-    linear-gradient(to bottom, rgb(0 0 0 / var(--cc-well-inner)) 0, rgb(0 0 0 / 0) min(6px, 40%)),
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--m-tint), #000000 var(--cc-well-top)) 0%,
-      var(--m-tint) 45%,
-      color-mix(in srgb, var(--m-tint), #ffffff var(--cc-well-bottom)) 100%
-    );
+  background: var(--m-tint);
   box-shadow: none;
   transition: --m-tint calc(var(--cc-dur-quick) / var(--cc-pace)) var(--cc-ease-glide);
 }
-
-/* Pill-ish (radius > 35% of height) or narrow wells: straight bevel lines read
-   as floating dashes — suppress them (Mac `pillish` guard). */
+.cc-theme .cc-mat-recessed {
+  outline: 0.5px solid var(--cc-hairline-well);
+  outline-offset: -0.5px;
+}
+/* Kept for call sites from the skeuomorphic era (bevels auto-hid on pills);
+   the flat well has nothing to hide. */
 .cc-mat-recessed.cc-mat-pill {
-  background:
-    linear-gradient(to bottom, rgb(0 0 0 / var(--cc-well-inner)) 0, rgb(0 0 0 / 0) min(6px, 40%)),
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--m-tint), #000000 var(--cc-well-top)) 0%,
-      var(--m-tint) 45%,
-      color-mix(in srgb, var(--m-tint), #ffffff var(--cc-well-bottom)) 100%
-    );
+  background: var(--m-tint);
 }
 
 /* ── Press: ink wash fading in over the material, under the content ── */

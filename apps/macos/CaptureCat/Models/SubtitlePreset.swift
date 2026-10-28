@@ -1,6 +1,6 @@
 import AppKit
 
-/// A named bundle of subtitle style settings, CapCut-style. Applying one sets
+/// A named bundle of subtitle style settings (a one-click caption look). Applying one sets
 /// the whole look at once; the preset cards render with the REAL style pipeline
 /// (same font/weight/shadow rules as the canvas overlay).
 ///

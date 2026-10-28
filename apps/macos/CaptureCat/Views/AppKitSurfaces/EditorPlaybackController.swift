@@ -121,6 +121,10 @@ final class EditorPlaybackController {
     var cameraPosterImage: NSImage?
     var cameraDuration: TimeInterval = 0
     var effectiveCameraOffset: TimeInterval = 0
+    /// Leading gap the normalized camera asset trimmed off: raw camera PTS =
+    /// camera player item time + this (the camera looks' mask is keyed by
+    /// raw PTS — docs/camera-cutout.md §2).
+    var cameraSourceLeadIn: TimeInterval = 0
     var cameraHasDecodedFrame = false
     @ObservationIgnored private let voiceOverRecorder = VoiceOverRecorder()
     var isRecordingVoiceOver = false
@@ -220,7 +224,7 @@ final class EditorPlaybackController {
         // Shared-origin recordings start with a PTS gap (capture spins up after
         // the origin is taken), so t=0 has no frame — the editor would open on
         // an empty background until playback reaches the first sample. Trim the
-        // project to the first real frame, Screen Studio-style.
+        // project to the first real frame so the editor never opens on a blank card.
         if project.trimStart <= 0.001 {
             let firstSample = await firstVideoSampleTime(for: asset)
             if firstSample > (1.0 / 30.0), firstSample < max(0, project.duration - 0.5) {
@@ -584,6 +588,7 @@ final class EditorPlaybackController {
                 // off the camera asset — shift the offset by the same amount so
                 // preview timing matches the raw-PTS math the exporter uses.
                 self.effectiveCameraOffset = self.resolvedCameraOffset(for: project) + trimmedLeadIn
+                self.cameraSourceLeadIn = trimmedLeadIn
                 self.persistCameraPosterImage(posterImage, for: project)
                 self.syncCameraPlayer(for: project)
             }

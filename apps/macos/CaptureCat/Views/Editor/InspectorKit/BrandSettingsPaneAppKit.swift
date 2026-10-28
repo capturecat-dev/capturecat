@@ -80,9 +80,7 @@ final class BrandSettingsPaneAppKit: NSView {
         thumbBox.layer?.cornerCurve = .continuous
         thumbBox.layer?.borderWidth = 1
         thumbImage.imageScaling = .scaleProportionallyDown
-        thumbPlaceholder.image = NSImage(
-            systemSymbolName: "photo.badge.plus", accessibilityDescription: nil
-        )?.withSymbolConfiguration(.init(pointSize: 14, weight: .regular))
+        thumbPlaceholder.image = CCIcon.image("photo.badge.plus", pointSize: 14, weight: .regular)
         for v in [thumbImage, thumbPlaceholder] {
             v.translatesAutoresizingMaskIntoConstraints = false
             thumbBox.addSubview(v)
@@ -237,8 +235,7 @@ final class WatermarkPositionPadControl: NSView {
         layer?.addSublayer(markLayer)
 
         // seal.fill placeholder when no logo yet
-        let symbol = NSImage(systemSymbolName: "seal.fill", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 12, weight: .regular))
+        let symbol = CCIcon.image("seal.fill", pointSize: 12, weight: .regular)
         fallbackLayer.contents = symbol
         fallbackLayer.contentsGravity = .resizeAspect
         fallbackLayer.opacity = 0.7

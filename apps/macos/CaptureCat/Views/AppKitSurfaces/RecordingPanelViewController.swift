@@ -102,7 +102,7 @@ final class RecordingPanelViewController: NSViewController {
     private let devicesChip = RecordingMenuFieldChip(symbol: "slider.horizontal.3", title: "Mic · No Cam", width: 152)
     private let audioChip = RecordingLabelChip(title: "Audio On", symbol: "speaker.wave.2.fill", minWidth: 100)
     // One gear menu holds the recording-behaviour options (countdown,
-    // duration limit, shortcut capture) — Screen Studio's toolbar pattern.
+    // duration limit, shortcut capture) — one gear instead of a chip per option.
     private let settingsChip = RecordingIconMenuChip(symbol: "gearshape")
     private var limitPopover: CaptureCatPopover?
     private let spinnerChip = RecordingSpinnerChip()
@@ -121,7 +121,7 @@ final class RecordingPanelViewController: NSViewController {
     private let stopChip = RecordingIconChip(symbol: "stop.fill", color: .systemRed)
     private let deleteChip = RecordingIconChip(symbol: "trash.fill", color: .systemRed)
 
-    // Quiet close sits far left INSIDE the bar (Screen Studio layout).
+    // Quiet close sits far left INSIDE the bar.
     private var setupViews: [NSView] { [closeChip, modeSwitch, modeSeparator, tabsStack, urlChip, webDeviceChip, webOptionsChip, displayChip, windowChip, areaStack, deviceChip, separator, devicesChip, audioChip, settingsChip, spinnerChip, warningChip, recordChip, shotChip] }
     private var recordingViews: [NSView] { [timerChip, sourceChip, pauseChip, switchChip, restartChip, stopChip, deleteChip] }
 
@@ -152,7 +152,7 @@ final class RecordingPanelViewController: NSViewController {
 
     private func buildShell() {
         shell.translatesAutoresizingMaskIntoConstraints = false
-        // Flat near-opaque bar (Screen Studio style): solid theme panel color
+        // Flat near-opaque bar: solid theme panel color
         // with a 1pt hairline, no material.
         //
         // Re-read from RecordingPanelMetrics on every theme flip. GlassCompatView's
@@ -777,7 +777,7 @@ final class RecordingPanelViewController: NSViewController {
         return menu
     }
 
-    /// Screen Studio-style gear menu: every recording-behaviour option in one
+    /// Gear menu: every recording-behaviour option in one
     /// place — toggles up top, stateful pickers as submenus, Settings… last.
     private func recordingSettingsMenu() -> NSMenu {
         let menu = newMenu()
@@ -1958,7 +1958,7 @@ final class RecordingPanelViewController: NSViewController {
 
     // MARK: - Camera bubble
 
-    /// Free-floating squircle preview (Screen Studio style): draggable
+    /// Free-floating squircle preview: draggable
     /// anywhere, position persisted, shares the recorder's capture session so
     /// the live feed continues seamlessly into the recording.
     private func showCameraPreview() {

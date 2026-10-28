@@ -42,7 +42,7 @@ export function RowStack({ rows, gap = 16, attachedGap = 6 }: { rows: readonly (
 }
 
 /** InspectorSectionBox: hairline (not on the first visible box) + 18pt, the
- *  uppercase tracked header + 10pt, then the rows. */
+ *  sentence-case header (12.5 semibold, full ink) + 10pt, then the rows. */
 export function Box({ title, first, rows }: { title?: string; first?: boolean; rows: readonly (StackRow | false | null | undefined)[] }) {
   return (
     <section className="cc-section" data-first={first || undefined}>

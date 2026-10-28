@@ -8,6 +8,25 @@ import {
 } from "react";
 
 import { API_URL } from "@/lib/api-url";
+import { serializeAnnotation, type AnnotationShape } from "@/lib/share/annotation";
+import {
+  buildThreads,
+  readComment,
+  type CommentViewer,
+  type ShareComment,
+} from "@/lib/share/comments";
+import {
+  AnnotationSurface,
+  AnnotationToolbar,
+  PenIcon,
+  isEditableTarget,
+  useAnnotationEditor,
+  useEditorShortcuts,
+} from "./annotation-editor";
+import { AnnotationLayer, type MediaSize } from "./annotation-layer";
+import { CommentAvatar } from "./comment-avatar";
+import { CommentMarkers } from "./comment-markers";
+import { CommentsPanel } from "./comments-panel";
 import { useViewerAnalytics } from "./use-viewer-analytics";
 
 /** Annotation marker in output-time seconds (validated server-side). */
@@ -17,14 +36,6 @@ export interface AnnotationMarker {
   label?: string;
   autoPause?: boolean;
   pauseDuration?: number;
-}
-
-interface Comment {
-  commentId: string;
-  authorName: string;
-  body: string;
-  videoTime: number;
-  createdAt: string;
 }
 
 interface SharePlayerProps {
@@ -48,14 +59,22 @@ interface SharePlayerProps {
   /** Owner call-to-action rendered over the player; clicks are tracked. */
   ctaLabel?: string | null;
   ctaUrl?: string | null;
-  /** Watch-page header (YouTube-style shell): title + optional summary/date. */
+  /** Watch-page header: title + optional summary/date under the player. */
   title?: string;
   summary?: string | null;
   createdAt?: string | null;
   /** Published version history (owner opt-in) + the version being played. */
   versions?: { version: number; createdAt: string; current: boolean }[];
   playVersion?: number;
+  /** Unlock token of a password-protected share — the comment endpoints sit
+   *  behind the same gate as the stream. */
+  shareToken?: string | null;
 }
+
+type PanelTab = "summary" | "transcript" | "comments";
+
+/** How close (s) the playhead must be to a drawing's moment to show it. */
+const DRAWING_SNAP_S = 0.35;
 
 function formatTime(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
@@ -88,6 +107,7 @@ export default function SharePlayer({
   createdAt = null,
   versions = [],
   playVersion,
+  shareToken = null,
 }: SharePlayerProps) {
   const accent = brandAccent ?? "#FBBF24";
   // Stable per-browser id so "one reaction per user" survives reloads.
@@ -103,7 +123,7 @@ export default function SharePlayer({
   }
   const [myEmoji, setMyEmoji] = useState<string | null>(null);
   const [reactions, setReactions] = useState<{ emoji: string; videoTime: number }[]>([]);
-  /** IG/TikTok-style floaters currently animating over the video. Each gets
+  /** Reaction floaters (emoji that drift up over the video) currently animating. Each gets
    *  randomized drift/duration via CSS vars; removal on animation end. */
   const [floaters, setFloaters] = useState<
     { id: number; emoji: string; x: number; dx1: number; dx2: number; dur: number; size: number }[]
@@ -138,12 +158,21 @@ export default function SharePlayer({
     []
   );
   const [transcript, setTranscript] = useState<{ start: number; end: number; text: string }[]>([]);
-  // Open by default: the transcript lives in the watch-page rail now, and an
-  // empty collapsed rail card reads as a broken feature.
-  const [transcriptOpen, setTranscriptOpen] = useState(true);
+  const [transcriptLoaded, setTranscriptLoaded] = useState(false);
   const [transcriptFilter, setTranscriptFilter] = useState("");
+  // Side panel: Comments first when the owner opened them (that is what the
+  // link is for), else the summary, else the transcript.
+  const hasSummaryTab =
+    !!summary ||
+    versions.length > 1 ||
+    aiChapters.length > 1 ||
+    (aiChapters.length === 1 && aiChapters[0].start >= 1) ||
+    annotations.some((m) => (m.label && m.label.trim().length > 0) || m.start >= 1);
+  const [tab, setTab] = useState<PanelTab>(
+    commentsEnabled ? "comments" : hasSummaryTab ? "summary" : "transcript"
+  );
   const [linkCopied, setLinkCopied] = useState(false);
-  /** Long AI summaries collapse to a few lines, YouTube-description style. */
+  /** Long AI summaries collapse to a few lines with a "more" toggle. */
   const [descExpanded, setDescExpanded] = useState(false);
   const startAtDone = useRef(false);
 
@@ -178,15 +207,17 @@ export default function SharePlayer({
       .catch(() => {});
   }, [apiUrl, videoId]);
 
+  // Lazy: the transcript is fetched the first time its tab opens.
   useEffect(() => {
-    if (!hasTranscript || !transcriptOpen || !apiUrl || transcript.length > 0) return;
+    if (!hasTranscript || tab !== "transcript" || !apiUrl || transcriptLoaded) return;
+    setTranscriptLoaded(true);
     void fetch(`${apiUrl}/api/video/${videoId}/transcript`)
       .then((r) => (r.ok ? r.json() : { segments: [] }))
       .then((d: { segments?: { start: number; end: number; text: string }[] }) =>
         setTranscript(d.segments ?? [])
       )
       .catch(() => {});
-  }, [hasTranscript, transcriptOpen, apiUrl, videoId, transcript.length]);
+  }, [hasTranscript, tab, apiUrl, videoId, transcriptLoaded]);
 
   const sendReaction = (emoji: string) => {
     const v = videoRef.current;
@@ -232,13 +263,42 @@ export default function SharePlayer({
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draggingRef = useRef(false);
 
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<ShareComment[]>([]);
+  const [viewer, setViewer] = useState<CommentViewer | null>(null);
   const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [authorName, setAuthorName] = useState("");
   const [draft, setDraft] = useState("");
   const [draftTime, setDraftTime] = useState<number | null>(null);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
+  const threads = useMemo(() => buildThreads(comments), [comments]);
+
+  // ---- On-frame drawings --------------------------------------------------
+
+  /** Intrinsic video size — drawings are normalized to the picture, not the
+   *  letterboxed box. Null until metadata (or if the video fails). */
+  const [media, setMedia] = useState<MediaSize | null>(null);
+  /** The composer's committed drawing (not yet posted). */
+  const [draftShapes, setDraftShapes] = useState<AnnotationShape[]>([]);
+  const editor = useAnnotationEditor(accent.toLowerCase());
+  const drawing = editor.state.open;
+  const drawingRef = useRef(false);
+  drawingRef.current = drawing;
+  /** A posted comment whose drawing is on the player right now. */
+  const [shown, setShown] = useState<ShareComment | null>(null);
+  const shownRef = useRef<ShareComment | null>(null);
+  shownRef.current = shown;
+  /** Comment hovered in the list — lights its scrubber marker. */
+  const [hoverCommentId, setHoverCommentId] = useState<string | null>(null);
+  /** Briefly highlighted after a jump from the scrubber. */
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [trackWidth, setTrackWidth] = useState(0);
+
+  const commentsUrl = `${API_URL}/api/video/${encodeURIComponent(videoId)}/comments${
+    shareToken ? `?token=${encodeURIComponent(shareToken)}` : ""
+  }`;
 
   // ---- Transport state ----------------------------------------------------
 
@@ -331,6 +391,11 @@ export default function SharePlayer({
     if (!video) return;
     lastTimeRef.current = video.currentTime;
     setCurrentTime(video.currentTime);
+    // A drawing belongs to its frame: seeking away takes it off the player.
+    const visible = shownRef.current;
+    if (visible && Math.abs(video.currentTime - visible.videoTime) > DRAWING_SNAP_S) {
+      setShown(null);
+    }
     // Re-arm every marker at or after the new position.
     const rearmed = new Set<number>();
     for (const [index, marker] of annotations.entries()) {
@@ -349,6 +414,7 @@ export default function SharePlayer({
     return () => {
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
     };
   }, []);
 
@@ -506,12 +572,15 @@ export default function SharePlayer({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(
-          `${API_URL}/api/video/${encodeURIComponent(videoId)}/comments`
-        );
+        // Credentialed: a signed-in viewer is told who they are commenting
+        // as (and the owner gets the Owner tag). Anonymous works the same.
+        const res = await fetch(commentsUrl, { credentials: "include" });
         if (!res.ok) return;
-        const data = (await res.json()) as { comments: Comment[] };
-        if (!cancelled) setComments(data.comments);
+        const data = (await res.json()) as { comments?: unknown[]; viewer?: CommentViewer | null };
+        if (cancelled) return;
+        setComments((data.comments ?? []).map(readComment).filter((c): c is ShareComment => c !== null));
+        const v = data.viewer;
+        setViewer(v && typeof v.name === "string" ? { name: v.name, image: v.image ?? null, isOwner: v.isOwner === true } : null);
       } catch {
         // Comments are progressive enhancement; the player must never break.
       } finally {
@@ -521,7 +590,18 @@ export default function SharePlayer({
     return () => {
       cancelled = true;
     };
-  }, [commentsEnabled, videoId]);
+  }, [commentsEnabled, commentsUrl]);
+
+  // Track width drives scrubber-avatar grouping.
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const measure = () => setTrackWidth(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const seekToComment = useCallback(
     (time: number) => {
@@ -531,53 +611,175 @@ export default function SharePlayer({
     [seekTo]
   );
 
+  /** Put a posted comment's drawing on the player: its exact frame, paused. */
+  const showComment = useCallback(
+    (comment: ShareComment) => {
+      if (drawingRef.current || !comment.annotation) return;
+      videoRef.current?.pause();
+      seekTo(comment.videoTime, { snap: false });
+      setShown(comment);
+      setControlsVisible(true);
+    },
+    [seekTo]
+  );
+
+  const flash = useCallback((commentId: string) => {
+    setFlashId(commentId);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlashId(null), 1800);
+  }, []);
+
+  /** Scrubber avatar click: jump to the moment and find it in the list. */
+  const jumpToComment = useCallback(
+    (comment: ShareComment) => {
+      if (drawingRef.current) return;
+      if (comment.annotation) showComment(comment);
+      else seekTo(comment.videoTime, { snap: false });
+      setTab("comments");
+      flash(comment.commentId);
+    },
+    [flash, seekTo, showComment]
+  );
+
+  // Bring a flashed comment into view INSIDE the list — never scroll the
+  // page, so the player the viewer just clicked stays where it is.
+  useEffect(() => {
+    if (!flashId) return;
+    const list = listRef.current;
+    const el = list?.querySelector<HTMLElement>(`[data-comment-id="${CSS.escape(flashId)}"]`);
+    if (!list || !el) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    list.scrollTo({
+      top: Math.max(0, el.offsetTop - list.clientHeight / 3),
+      behavior: reduce ? "auto" : "smooth",
+    });
+  }, [flashId, tab]);
+
   const startDraft = useCallback(() => {
     if (draftTime === null) {
       setDraftTime(videoRef.current?.currentTime ?? 0);
     }
   }, [draftTime]);
 
+  // ---- Drawing mode ---------------------------------------------------------
+
+  const startDrawing = useCallback(() => {
+    if (!commentsEnabled || drawingRef.current) return;
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    const video = videoRef.current;
+    video?.pause();
+    setShown(null);
+    setTab("comments");
+    if (draftShapes.length > 0 && draftTime !== null) {
+      // Editing an existing drawing: back to ITS frame.
+      seekTo(draftTime, { snap: false });
+    } else {
+      // A new drawing anchors the comment to the frame being drawn on.
+      setDraftTime(video?.currentTime ?? 0);
+    }
+    // Let go of the composer field so tool shortcuts reach the editor.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    editor.open(draftShapes);
+  }, [commentsEnabled, draftShapes, draftTime, editor, seekTo]);
+
+  const finishDrawing = useCallback(() => {
+    setDraftShapes(editor.finish());
+  }, [editor]);
+
+  const cancelDrawing = useCallback(() => {
+    // Esc: the drawing goes back to what it was before this session.
+    editor.close();
+  }, [editor]);
+
+  useEditorShortcuts(editor, { onDone: finishDrawing, onCancel: cancelDrawing });
+
+  // D anywhere on the page (outside a text field) starts drawing.
+  useEffect(() => {
+    if (!commentsEnabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (drawingRef.current) return;
+      if (e.key.toLowerCase() !== "d" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isEditableTarget(e.target)) return;
+      e.preventDefault();
+      startDrawing();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [commentsEnabled, startDrawing]);
+
+  // ---- Posting --------------------------------------------------------------
+
+  const postJson = useCallback(
+    async (payload: Record<string, unknown>): Promise<{ comment?: ShareComment; error?: string }> => {
+      try {
+        const res = await fetch(commentsUrl, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = (await res.json().catch(() => null)) as { comment?: unknown; error?: string } | null;
+        if (!res.ok) return { error: data?.error ?? "Could not post comment" };
+        const comment = readComment(data?.comment);
+        return comment ? { comment } : { error: "Could not post comment" };
+      } catch {
+        return { error: "Could not post comment" };
+      }
+    },
+    [commentsUrl]
+  );
+
   const submit = useCallback(async () => {
     const text = draft.trim();
     if (!text || posting) return;
+    // Posting mid-drawing keeps what is on the frame.
+    const shapes = drawingRef.current ? editor.finish() : draftShapes;
+    const serialized = serializeAnnotation(shapes);
+    if (serialized.tooLarge) {
+      setDraftShapes(shapes);
+      setPostError("That drawing is too detailed to post — undo a few marks.");
+      return;
+    }
     setPosting(true);
     setPostError(null);
-    try {
-      const res = await fetch(
-        `${API_URL}/api/video/${encodeURIComponent(videoId)}/comments`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            authorName: authorName.trim() || undefined,
-            body: text,
-            videoTime: draftTime ?? 0,
-          }),
-        }
-      );
-      if (!res.ok) {
-        const err = (await res.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        setPostError(err?.error ?? "Could not post comment");
-        return;
-      }
-      const data = (await res.json()) as { comment: Comment };
-      setComments((prev) =>
-        [...prev, data.comment].sort((a, b) => a.videoTime - b.videoTime)
-      );
-      setDraft("");
-      setDraftTime(null);
-    } catch {
-      setPostError("Could not post comment");
-    } finally {
-      setPosting(false);
+    const { comment, error } = await postJson({
+      authorName: authorName.trim() || undefined,
+      body: text,
+      videoTime: draftTime ?? videoRef.current?.currentTime ?? 0,
+      ...(serialized.annotation ? { annotation: serialized.annotation } : {}),
+    });
+    setPosting(false);
+    if (!comment) {
+      setDraftShapes(shapes);
+      setPostError(error ?? "Could not post comment");
+      return;
     }
-  }, [authorName, draft, draftTime, posting, videoId]);
+    setComments((prev) => [...prev, comment]);
+    setDraft("");
+    setDraftTime(null);
+    setDraftShapes([]);
+    flash(comment.commentId);
+    // The drawing stays up, now as the posted comment's.
+    if (comment.annotation) setShown(comment);
+  }, [authorName, draft, draftShapes, draftTime, editor, flash, postJson, posting]);
+
+  const reply = useCallback(
+    async (parentId: string, body: string): Promise<string | null> => {
+      const { comment, error } = await postJson({
+        parentId,
+        body,
+        authorName: authorName.trim() || undefined,
+      });
+      if (!comment) return error ?? "Could not post reply";
+      setComments((prev) => [...prev, comment]);
+      return null;
+    },
+    [authorName, postJson]
+  );
 
   // ---- Render -------------------------------------------------------------
 
-  const showChrome = controlsVisible || paused || scrubbing;
+  const showChrome = (controlsVisible || paused || scrubbing) && !drawing;
   // A lone chapter at 0:00 says nothing the scrubber doesn't; hide the strip.
   // Same for unlabeled annotations pinned at the very start.
   const trivialChapters =
@@ -587,11 +789,89 @@ export default function SharePlayer({
   );
   const showChapterPills = !trivialChapters || pillAnnotations.length > 0;
 
-  // YouTube-style watch shell, single column: glass-framed player, then
-  // title + byline/actions, description box with chapter pills, transcript,
-  // comments. Same liquid-glass dark language as the rest of the site —
-  // only the layout is borrowed.
+  // The side panel exists when there is something to read beside the video;
+  // embeds (no comments, transcript or summary) keep the old single column.
+  const hasPanel = commentsEnabled || hasTranscript || !!summary;
+  const tabs: { id: PanelTab; label: string; count?: number }[] = [
+    ...(hasSummaryTab ? [{ id: "summary" as const, label: summary ? "Summary" : "Chapters" }] : []),
+    ...(hasTranscript ? [{ id: "transcript" as const, label: "Transcript" }] : []),
+    ...(commentsEnabled
+      ? [{ id: "comments" as const, label: "Comments", count: commentsLoaded ? comments.length : undefined }]
+      : []),
+  ];
+  const activeTab = tabs.some((t) => t.id === tab) ? tab : tabs[0]?.id;
+
+  // What is drawn over the frame right now: the editor while drawing; a
+  // posted comment's drawing; or the composer's unposted drawing while the
+  // player sits paused on its frame.
+  const draftOnFrame =
+    !drawing &&
+    !shown &&
+    draftShapes.length > 0 &&
+    paused &&
+    draftTime !== null &&
+    Math.abs(currentTime - draftTime) <= DRAWING_SNAP_S;
+  const overlayShapes = drawing
+    ? null
+    : shown?.annotation
+      ? shown.annotation.shapes
+      : draftOnFrame
+        ? draftShapes
+        : null;
+  const markerActiveId = shown?.commentId ?? hoverCommentId;
+
+  const tabButton = (t: { id: PanelTab; label: string; count?: number }, index: number) => {
+    const selected = activeTab === t.id;
+    return (
+      <button
+        key={t.id}
+        id={`share-tab-${t.id}`}
+        role="tab"
+        type="button"
+        aria-selected={selected}
+        aria-controls={`share-panel-${t.id}`}
+        tabIndex={selected ? 0 : -1}
+        onClick={() => setTab(t.id)}
+        onKeyDown={(e) => {
+          if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+          e.preventDefault();
+          const next = tabs[(index + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+          setTab(next.id);
+          document.getElementById(`share-tab-${next.id}`)?.focus();
+        }}
+        className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-150 ${
+          selected ? "bg-white/[0.09] text-white" : "text-white/50 hover:bg-white/[0.04] hover:text-white/80"
+        }`}
+      >
+        {t.label}
+        {t.count !== undefined && t.count > 0 && (
+          <span className={`text-[11px] tabular-nums ${selected ? "text-white/55" : "text-white/35"}`}>{t.count}</span>
+        )}
+      </button>
+    );
+  };
+
+  // Chapter rows for the Summary tab; the active one follows playback.
+  const chapterRows = [
+    ...(trivialChapters ? [] : aiChapters.map((c) => ({ start: c.start, label: c.label, kind: "chapter" as const }))),
+    ...pillAnnotations.map((m) => ({ start: m.start, label: m.label ?? "", kind: "marker" as const, marker: m })),
+  ].sort((a, b) => a.start - b.start);
+  const activeChapter = trivialChapters
+    ? -1
+    : aiChapters.reduce((found, c, i) => (currentTime >= c.start ? i : found), -1);
+
+  // Watch shell: glass-framed player with title + byline/actions
+  // beneath, and on wide screens a tabbed side panel (Summary / Transcript /
+  // Comments) beside it — below it on narrow. Same liquid-glass dark language
+  // as the rest of the site; only the layout is borrowed.
   return (
+    <div
+      className={
+        hasPanel
+          ? "min-w-0 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(320px,388px)] lg:items-start lg:gap-5"
+          : "min-w-0"
+      }
+    >
     <div className="min-w-0">
       <div className="glass-panel hairline-top overflow-hidden rounded-2xl p-1.5 shadow-2xl sm:p-2">
       <div
@@ -604,7 +884,7 @@ export default function SharePlayer({
       >
         {/* Owner CTA — always visible, tinted with the brand accent. The
             click is flushed to analytics before the browser navigates. */}
-        {ctaLabel && ctaUrl && (
+        {ctaLabel && ctaUrl && !drawing && (
           <a
             href={ctaUrl}
             target="_blank"
@@ -631,6 +911,7 @@ export default function SharePlayer({
             const d = v.duration;
             if (Number.isFinite(d) && d > 0) setDuration(d);
             setMuted(v.muted);
+            if (v.videoWidth > 0 && v.videoHeight > 0) setMedia({ w: v.videoWidth, h: v.videoHeight });
             // ?t= deep link: seek once, after the duration is known.
             if (startAt != null && !startAtDone.current) {
               startAtDone.current = true;
@@ -641,8 +922,14 @@ export default function SharePlayer({
             const d = e.currentTarget.duration;
             if (Number.isFinite(d) && d > 0) setDuration(d);
           }}
-          onPlay={() => {
+          onPlay={(e) => {
+            // Drawing holds the frame still; nothing may start it underneath.
+            if (drawingRef.current) {
+              e.currentTarget.pause();
+              return;
+            }
             setPaused(false);
+            setShown(null);
             wake();
           }}
           onPause={() => {
@@ -660,7 +947,7 @@ export default function SharePlayer({
           className="block h-full w-full cursor-pointer object-contain"
         />
 
-        {/* IG/TikTok-style reaction floaters. */}
+        {/* Reaction floaters: emoji drifting up over the video. */}
         {floaters.length > 0 && (
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             {floaters.map((f) => (
@@ -710,29 +997,100 @@ export default function SharePlayer({
                   opacity: 0;
                 }
               }
+              @media (prefers-reduced-motion: reduce) {
+                .cc-floater { animation-duration: 0.01ms !important; }
+              }
             `}</style>
           </div>
         )}
 
-        {/* Center affordance while paused. */}
-        {paused && (
+        {/* A comment's drawing over its frame (or the composer's own,
+            unposted one while paused on it). Same renderer as the editor. */}
+        {overlayShapes && (
+          <div
+            data-testid="drawing-overlay"
+            className="pointer-events-none absolute inset-0 z-[15] motion-safe:animate-[cc-overlay-in_200ms_ease-out]"
+          >
+            <AnnotationLayer shapes={overlayShapes} media={media} className="absolute inset-0" />
+            <style>{`@keyframes cc-overlay-in { from { opacity: 0; } to { opacity: 1; } }`}</style>
+          </div>
+        )}
+
+        {/* Center affordance while paused (the glyph steps aside for a drawing). */}
+        {paused && !drawing && (
           <button
             onClick={togglePlay}
             aria-label="Play"
             className="absolute inset-0 grid place-items-center"
           >
-            <span className="grid h-16 w-16 place-items-center rounded-full bg-black/55 text-white ring-1 ring-white/20 backdrop-blur-sm transition-transform duration-200 hover:scale-105">
-              <PlayIcon className="ml-0.5 h-7 w-7" />
-            </span>
+            {!overlayShapes && (
+              <span className="grid h-16 w-16 place-items-center rounded-full bg-black/55 text-white ring-1 ring-white/20 backdrop-blur-sm transition-transform duration-200 hover:scale-105">
+                <PlayIcon className="ml-0.5 h-7 w-7" />
+              </span>
+            )}
           </button>
+        )}
+
+        {/* Whose drawing this is, with a way to put it away. */}
+        {overlayShapes && (
+          <div className="absolute left-3 top-3 z-20 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-full bg-black/65 py-1 pl-1 pr-1 text-xs text-white/85 ring-1 ring-white/15 backdrop-blur-sm motion-safe:animate-[cc-overlay-in_200ms_ease-out]">
+            {shown ? (
+              <>
+                <CommentAvatar name={shown.authorName} image={shown.authorImage} size={22} />
+                <span className="truncate">
+                  <span className="font-medium text-white">{shown.authorName}</span>
+                  <span className="text-white/55"> drew at {formatTime(shown.videoTime)}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShown(null)}
+                  aria-label="Hide drawing"
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-white/60 transition-colors hover:bg-white/15 hover:text-white"
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="pl-2 text-white/70">Your drawing · not posted yet</span>
+                <button
+                  type="button"
+                  onClick={startDrawing}
+                  className="rounded-full bg-white/10 px-2.5 py-0.5 font-medium text-white transition-colors hover:bg-white/20"
+                >
+                  Edit
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {drawing && (
+          <AnnotationSurface editor={editor} media={media} accent={accent} time={draftTime ?? currentTime} />
         )}
 
         {/* Control bar. */}
         <div
-          className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-3 pb-2 pt-10 transition-opacity duration-200 ${
-            showChrome ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
+          className={`absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-3 pb-2 transition-opacity duration-200 ${
+            threads.length > 0 ? "pt-14 sm:pt-16" : "pt-10"
+          } ${showChrome ? "opacity-100" : "pointer-events-none opacity-0"}`}
         >
+          <div className="relative">
+          {/* Commenter avatars along the scrubber — above the seek target, so
+              they never fight its hover tooltip. */}
+          {commentsEnabled && (
+            <CommentMarkers
+              threads={threads}
+              total={total}
+              trackWidth={trackWidth}
+              media={media}
+              accent={accent}
+              activeId={markerActiveId}
+              onJump={jumpToComment}
+            />
+          )}
           {/* Scrubber. Generous hit area, thin visual track. */}
           <div
             ref={barRef}
@@ -756,7 +1114,7 @@ export default function SharePlayer({
             {/* Tooltip: timecode, plus the annotation label when over a range. */}
             {hoverRatio !== null && (
               <div
-                className="pointer-events-none absolute bottom-full z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[11px] font-medium tabular-nums text-white ring-1 ring-white/15"
+                className="pointer-events-none absolute bottom-full z-30 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-black/90 px-2 py-1 text-[11px] font-medium tabular-nums text-white ring-1 ring-white/15"
                 style={{ left: `${clamp(hoverRatio * 100, 4, 96)}%` }}
               >
                 {hoveredMarker >= 0 && (
@@ -822,6 +1180,7 @@ export default function SharePlayer({
               style={{ left: `${playedPct}%` }}
             />
           </div>
+          </div>
 
           <div className="flex items-center gap-3 pt-0.5 text-white">
             <button
@@ -857,6 +1216,16 @@ export default function SharePlayer({
 
             <div className="ml-auto" />
 
+            {commentsEnabled && (
+              <button
+                onClick={startDrawing}
+                aria-label="Draw on this frame (D)"
+                title="Draw on this frame (D)"
+                className="rounded p-1 transition-colors hover:bg-white/15"
+              >
+                <PenIcon className="h-5 w-5" />
+              </button>
+            )}
             {downloadUrl && (
               <a
                 href={downloadUrl}
@@ -881,9 +1250,14 @@ export default function SharePlayer({
         </div>
       </div>
 
+      {/* The annotation toolbar docks under the frame while drawing — close
+          to the marks, never covering them, and it wraps on a phone. */}
+      {drawing && (
+        <AnnotationToolbar editor={editor} accent={accent} onDone={finishDrawing} onCancel={cancelDrawing} />
+      )}
       </div>
 
-      {/* Watch-page header: title, then byline + action pills (YouTube shell). */}
+      {/* Watch-page header: title, then byline + action pills. */}
       {title && (
         <h1 className="mt-4 line-clamp-2 text-lg font-semibold leading-snug tracking-[-0.01em] text-white sm:text-xl">
           {title}
@@ -964,138 +1338,182 @@ export default function SharePlayer({
         </div>
       </div>
 
-      {/* Description box: AI summary + chapters + version history — YouTube's
-          grey box, in glass. */}
-      {(summary || versions.length > 1 || showChapterPills) && (
+      {/* No side panel (embeds): chapters + versions keep their old glass
+          description box under the player. */}
+      {!hasPanel && (versions.length > 1 || showChapterPills) && (
         <section className="glass-panel hairline-top mt-4 rounded-2xl p-4">
-          {summary && (
-            <>
-              <p
-                className={`whitespace-pre-line text-sm leading-relaxed text-white/70 ${
-                  descExpanded ? "" : "line-clamp-3"
-                }`}
-              >
-                {summary}
-              </p>
-              {summary.length > 200 && (
-                <button
-                  onClick={() => setDescExpanded((e) => !e)}
-                  className="mt-1.5 text-xs font-medium text-white/50 transition-colors hover:text-white"
-                >
-                  {descExpanded ? "Show less" : "Show more"}
-                </button>
-              )}
-            </>
-          )}
-
-          {/* Chapters: horizontal seekable pill strip. Hidden when the only
-              chapter is a trivial 0:00 marker. */}
           {showChapterPills && (
-            <div className={summary ? "mt-3.5" : ""}>
-              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
-                {aiChapters.map((chapter, i) => (
-                  <button
-                    key={`ai-${i}`}
-                    onClick={() => {
-                      const v = videoRef.current;
-                      if (v) v.currentTime = chapter.start;
-                    }}
-                    onPointerEnter={() =>
-                      setHoverRatio(total > 0 ? chapter.start / total : null)
-                    }
-                    onPointerLeave={() => setHoverRatio(null)}
-                    title={chapter.label}
-                    className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/20 hover:bg-white/[0.1] hover:text-white"
-                  >
-                    <span className="tabular-nums text-white/40">
-                      {formatTime(chapter.start)}
-                    </span>
-                    <span className="max-w-[18rem] truncate">{chapter.label}</span>
-                  </button>
-                ))}
-                {pillAnnotations.map((marker, i) => (
-                  <button
-                    key={`ann-${i}`}
-                    onClick={() => jumpToMarker(marker)}
-                    onPointerEnter={() =>
-                      setHoverRatio(total > 0 ? marker.start / total : null)
-                    }
-                    onPointerLeave={() => setHoverRatio(null)}
-                    title={marker.label ?? "Annotation"}
-                    className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/20 hover:bg-white/[0.1] hover:text-white"
-                  >
-                    <span
-                      className="h-1.5 w-1.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: accent }}
-                    />
-                    <span className="tabular-nums text-white/40">
-                      {formatTime(marker.start)}
-                    </span>
-                    {marker.label && (
-                      <span className="max-w-[18rem] truncate">{marker.label}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+              {aiChapters.map((chapter, i) => (
+                <button
+                  key={`ai-${i}`}
+                  onClick={() => {
+                    const v = videoRef.current;
+                    if (v) v.currentTime = chapter.start;
+                  }}
+                  onPointerEnter={() =>
+                    setHoverRatio(total > 0 ? chapter.start / total : null)
+                  }
+                  onPointerLeave={() => setHoverRatio(null)}
+                  title={chapter.label}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/20 hover:bg-white/[0.1] hover:text-white"
+                >
+                  <span className="tabular-nums text-white/40">
+                    {formatTime(chapter.start)}
+                  </span>
+                  <span className="max-w-[18rem] truncate">{chapter.label}</span>
+                </button>
+              ))}
+              {pillAnnotations.map((marker, i) => (
+                <button
+                  key={`ann-${i}`}
+                  onClick={() => jumpToMarker(marker)}
+                  onPointerEnter={() =>
+                    setHoverRatio(total > 0 ? marker.start / total : null)
+                  }
+                  onPointerLeave={() => setHoverRatio(null)}
+                  title={marker.label ?? "Annotation"}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-white/70 transition-colors hover:border-white/20 hover:bg-white/[0.1] hover:text-white"
+                >
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: accent }}
+                  />
+                  <span className="tabular-nums text-white/40">
+                    {formatTime(marker.start)}
+                  </span>
+                  {marker.label && (
+                    <span className="max-w-[18rem] truncate">{marker.label}</span>
+                  )}
+                </button>
+              ))}
             </div>
           )}
           {versions.length > 1 && (
-            <div className={`flex flex-wrap items-center gap-2 ${summary || showChapterPills ? "mt-3.5" : ""}`}>
-              <span className="text-xs uppercase tracking-wide text-white/40">
-                Version history
-              </span>
-              {versions.map((ver) => {
-                const active = ver.version === playVersion;
-                return (
-                  <a
-                    key={ver.version}
-                    href={`/share/${videoId}?v=${ver.version}`}
-                    className={
-                      active
-                        ? "rounded-full bg-white/15 px-3 py-1 text-xs text-white"
-                        : "rounded-full bg-white/5 px-3 py-1 text-xs text-white/50 transition-colors hover:bg-white/10 hover:text-white/80"
-                    }
-                  >
-                    v{ver.version}
-                    {ver.current ? " · latest" : ""}
-                    <span className="ml-1 text-white/40">
-                      {new Date(ver.createdAt).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </span>
-                  </a>
-                );
-              })}
-            </div>
+            <VersionPills videoId={videoId} versions={versions} playVersion={playVersion} className={showChapterPills ? "mt-3.5" : ""} />
           )}
         </section>
       )}
+    </div>
 
-      {/* Transcript: collapsible glass panel, YouTube's "Show transcript". */}
-      {hasTranscript && (
-        <section className="glass-panel hairline-top mt-4 rounded-2xl p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-white/80">Transcript</h2>
-            <button
-              onClick={() => setTranscriptOpen((o) => !o)}
-              className="text-xs font-medium text-white/50 transition-colors hover:text-white"
+      {/* Side panel: Summary / Transcript / Comments. Beside the player on
+          wide screens (sticky, fixed height, the comment composer pinned at
+          its foot); below it on narrow ones. */}
+      {hasPanel && activeTab && (
+        <aside
+          aria-label="Video details"
+          className="glass-panel hairline-top mt-5 flex min-h-0 flex-col overflow-hidden rounded-2xl lg:sticky lg:top-4 lg:mt-0 lg:h-[min(760px,calc(100vh-2rem))]"
+        >
+          {tabs.length > 1 ? (
+            <div role="tablist" aria-label="Video details" className="flex shrink-0 gap-1 border-b border-white/[0.06] p-1.5">
+              {tabs.map(tabButton)}
+            </div>
+          ) : (
+            // One section only: a heading, not a lone tab.
+            <h2
+              id={`share-tab-${tabs[0].id}`}
+              className="flex shrink-0 items-baseline gap-2 border-b border-white/[0.06] px-4 py-3 text-sm font-medium text-white/85"
             >
-              {transcriptOpen ? "Hide" : "Show"}
-            </button>
-          </div>
-          {transcriptOpen && (
-            <div className="mt-3">
-              <input
-                value={transcriptFilter}
-                onChange={(e) => setTranscriptFilter(e.target.value)}
-                placeholder="Search transcript…"
-                className="mb-2 w-full rounded-lg bg-white/[0.05] px-3 py-1.5 text-sm text-white placeholder-white/35 outline-none ring-1 ring-white/10 focus:ring-white/30"
-              />
-              {transcript.length === 0 && (
-                <p className="px-1 py-2 text-sm text-white/40">Loading transcript…</p>
+              {tabs[0].label}
+              {tabs[0].count !== undefined && tabs[0].count > 0 && (
+                <span className="text-xs tabular-nums text-white/40">{tabs[0].count}</span>
               )}
-              <div className="max-h-[45vh] space-y-0.5 overflow-y-auto">
+            </h2>
+          )}
+
+          {activeTab === "summary" && (
+            <div
+              id="share-panel-summary"
+              role="tabpanel"
+              aria-labelledby="share-tab-summary"
+              className="min-h-0 flex-1 overflow-y-auto p-4 [scrollbar-width:thin]"
+            >
+              {summary && (
+                <>
+                  <p
+                    className={`whitespace-pre-line text-sm leading-relaxed text-white/75 ${
+                      descExpanded ? "" : "line-clamp-[10]"
+                    }`}
+                  >
+                    {summary}
+                  </p>
+                  {summary.length > 600 && (
+                    <button
+                      onClick={() => setDescExpanded((e) => !e)}
+                      className="mt-1.5 text-xs font-medium text-white/50 transition-colors hover:text-white"
+                    >
+                      {descExpanded ? "Show less" : "Show more"}
+                    </button>
+                  )}
+                </>
+              )}
+              {chapterRows.length > 0 && (
+                <div className={summary ? "mt-5" : ""}>
+                  <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-white/40">
+                    Chapters
+                  </h3>
+                  <ol className="space-y-0.5">
+                    {chapterRows.map((row, i) => {
+                      const isActive =
+                        row.kind === "chapter" && activeChapter >= 0 && aiChapters[activeChapter]?.start === row.start;
+                      return (
+                        <li key={`${row.kind}-${i}`}>
+                          <button
+                            onClick={() => {
+                              if (row.kind === "marker") jumpToMarker(row.marker);
+                              else seekTo(row.start, { snap: false });
+                            }}
+                            onPointerEnter={() => setHoverRatio(total > 0 ? row.start / total : null)}
+                            onPointerLeave={() => setHoverRatio(null)}
+                            className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
+                              isActive ? "bg-white/[0.08] text-white" : "text-white/70 hover:bg-white/[0.06] hover:text-white"
+                            }`}
+                          >
+                            <span className="w-10 shrink-0 text-[11px] tabular-nums text-white/40">
+                              {formatTime(row.start)}
+                            </span>
+                            {row.kind === "marker" && (
+                              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+                            )}
+                            <span className="min-w-0 truncate">{row.label || "Highlight"}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              )}
+              {versions.length > 1 && (
+                <VersionPills
+                  videoId={videoId}
+                  versions={versions}
+                  playVersion={playVersion}
+                  className={summary || chapterRows.length > 0 ? "mt-5" : ""}
+                />
+              )}
+            </div>
+          )}
+
+          {activeTab === "transcript" && (
+            <div
+              id="share-panel-transcript"
+              role="tabpanel"
+              aria-labelledby="share-tab-transcript"
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="shrink-0 p-3 pb-2">
+                <input
+                  value={transcriptFilter}
+                  onChange={(e) => setTranscriptFilter(e.target.value)}
+                  placeholder="Search transcript…"
+                  aria-label="Search transcript"
+                  className="w-full rounded-lg bg-white/[0.05] px-3 py-1.5 text-sm text-white placeholder-white/35 outline-none ring-1 ring-white/10 focus:ring-white/30"
+                />
+              </div>
+              <div className="max-h-[50vh] min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 pb-3 [scrollbar-width:thin] lg:max-h-none">
+                {transcript.length === 0 && (
+                  <p className="px-1 py-2 text-sm text-white/40">Loading transcript…</p>
+                )}
                 {transcript
                   .filter(
                     (seg) =>
@@ -1124,89 +1542,94 @@ export default function SharePlayer({
               </div>
             </div>
           )}
-        </section>
-      )}
 
-      {commentsEnabled && (
-        <section className="glass-panel hairline-top mt-4 rounded-2xl p-4 sm:p-5">
-          <h2 className="text-sm font-medium text-white/80">
-            {commentsLoaded
-              ? `${comments.length} comment${comments.length === 1 ? "" : "s"}`
-              : "Comments"}
-          </h2>
-
-          <div className="mt-4 space-y-4">
-            {comments.map((comment) => {
-              const name = comment.authorName?.trim() || "Anonymous";
-              return (
-                <div key={comment.commentId} className="flex items-start gap-3">
-                  <span
-                    aria-hidden
-                    className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[0.08] text-xs font-semibold text-white/70 ring-1 ring-white/10"
-                  >
-                    {name.charAt(0).toUpperCase()}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="flex items-baseline gap-2 text-xs text-white/50">
-                      <span className="font-medium text-white/75">{name}</span>
-                      <button
-                        onClick={() => seekToComment(comment.videoTime)}
-                        className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] tabular-nums text-white/55 transition-colors hover:bg-white/[0.14] hover:text-white"
-                        title="Jump to this moment"
-                      >
-                        {formatTime(comment.videoTime)}
-                      </button>
-                    </p>
-                    <p className="mt-0.5 break-words text-sm text-white/90">
-                      {comment.body}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-            {commentsLoaded && comments.length === 0 && (
-              <p className="text-sm text-white/40">
-                No comments yet — be the first.
-              </p>
-            )}
-          </div>
-
-          <div className="mt-5 space-y-2 border-t border-white/[0.06] pt-4">
-            <div className="flex gap-2">
-              <input
-                value={authorName}
-                onChange={(e) => setAuthorName(e.target.value)}
-                placeholder="Name (optional)"
-                maxLength={40}
-                className="w-40 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-white placeholder-white/30 focus:border-white/30 focus:outline-none"
-              />
-              <span className="self-center text-xs tabular-nums text-white/40">
-                at {formatTime(draftTime ?? 0)}
-              </span>
-            </div>
-            <textarea
-              value={draft}
-              onFocus={startDraft}
-              onChange={(e) => {
-                startDraft();
-                setDraft(e.target.value);
-              }}
-              placeholder="Comment at the current moment in the video…"
-              maxLength={500}
-              rows={2}
-              className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-white placeholder-white/30 focus:border-white/30 focus:outline-none"
-            />
-            {postError && <p className="text-xs text-red-400">{postError}</p>}
-            <button
-              onClick={() => void submit()}
-              disabled={!draft.trim() || posting}
-              className="rounded-full border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/[0.16] disabled:cursor-not-allowed disabled:opacity-40"
+          {activeTab === "comments" && (
+            <div
+              id="share-panel-comments"
+              role="tabpanel"
+              aria-labelledby="share-tab-comments"
+              className="flex min-h-0 flex-1 flex-col"
             >
-              {posting ? "Posting…" : "Post comment"}
-            </button>
-          </div>
-        </section>
+              <CommentsPanel
+                threads={threads}
+                total={total}
+                loaded={commentsLoaded}
+                accent={accent}
+                media={media}
+                activeId={shown?.commentId ?? null}
+                flashId={flashId}
+                listRef={listRef}
+                onSeek={seekToComment}
+                onShow={showComment}
+                onHover={setHoverCommentId}
+                onReply={reply}
+                composer={{
+                  viewer,
+                  authorName,
+                  onAuthorName: setAuthorName,
+                  draft,
+                  onDraft: setDraft,
+                  onStartDraft: startDraft,
+                  draftTime,
+                  anchorTime: currentTime,
+                  onSeekDraftTime: () => {
+                    if (draftTime !== null) seekTo(draftTime, { snap: false });
+                  },
+                  drawing,
+                  drawingShapes: drawing ? editor.state.shapes : draftShapes,
+                  onToggleDraw: () => (drawing ? finishDrawing() : startDrawing()),
+                  onRemoveDrawing: () => setDraftShapes([]),
+                  posting,
+                  postError,
+                  onSubmit: () => void submit(),
+                }}
+              />
+            </div>
+          )}
+        </aside>
       )}
+    </div>
+  );
+}
+
+/** Published version history pills (owner opt-in). */
+function VersionPills({
+  videoId,
+  versions,
+  playVersion,
+  className = "",
+}: {
+  videoId: string;
+  versions: { version: number; createdAt: string; current: boolean }[];
+  playVersion?: number;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+      <span className="text-xs uppercase tracking-wide text-white/40">Version history</span>
+      {versions.map((ver) => {
+        const active = ver.version === playVersion;
+        return (
+          <a
+            key={ver.version}
+            href={`/share/${videoId}?v=${ver.version}`}
+            className={
+              active
+                ? "rounded-full bg-white/15 px-3 py-1 text-xs text-white"
+                : "rounded-full bg-white/5 px-3 py-1 text-xs text-white/50 transition-colors hover:bg-white/10 hover:text-white/80"
+            }
+          >
+            v{ver.version}
+            {ver.current ? " · latest" : ""}
+            <span className="ml-1 text-white/40">
+              {new Date(ver.createdAt).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+              })}
+            </span>
+          </a>
+        );
+      })}
     </div>
   );
 }

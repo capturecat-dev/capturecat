@@ -45,15 +45,31 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let tagTextColorWell = InspectorColorWellControl()
     private let tagBackgroundColorWell = InspectorColorWellControl()
 
+    // Camera looks — background-removal status (docs/camera-cutout.md §9).
+    private let project: Project?
+    private let segmentation: CameraSegmentation?
+    private let lookStatusRow = NSStackView()
+    private let lookStatusLabel = InspectorKitViews.captionLine("")
+    private let lookStatusBar = CCProgressBar()
+    private var lookStatusShown = false
+    private var lastLookStatus: CameraSegmentation.Status?
+
     private var detailViews: [NSView] = []
     private var cornerRadiusRow: NSView { cornerRadiusSlider }
     private var isObserving = false
 
     override var isFlipped: Bool { true }
 
-    init(settings: ProjectSettings, hasRecordedCamera: Bool) {
+    init(
+        settings: ProjectSettings,
+        hasRecordedCamera: Bool,
+        project: Project? = nil,
+        segmentation: CameraSegmentation? = nil
+    ) {
         self.settings = settings
         self.hasRecordedCamera = hasRecordedCamera
+        self.project = project
+        self.segmentation = segmentation
         self.pad = CameraPreviewPadControl(settings: settings)
         // Shown as % of canvas width — the stored value stays nominal-canvas
         // points (persistence identity; 1456pt nominal width = 100%). 8% floor:
@@ -113,6 +129,19 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         cameraBox.addRow(orientationChips, attached: true)
         cameraBox.addRow(mirrorToggle)
         cameraBox.addRow(sizeSlider)
+        // Background removal for the Cutout / Pop-out card looks: a caption
+        // over the house progress bar (springs to each value; sweeps while
+        // queued). Shown only while the project uses a look.
+        lookStatusRow.orientation = .vertical
+        lookStatusRow.alignment = .leading
+        lookStatusRow.spacing = 6
+        lookStatusRow.addArrangedSubview(lookStatusLabel)
+        lookStatusRow.addArrangedSubview(lookStatusBar)
+        lookStatusBar.widthAnchor.constraint(equalTo: lookStatusRow.widthAnchor).isActive = true
+        lookStatusLabel.widthAnchor.constraint(equalTo: lookStatusRow.widthAnchor).isActive = true
+        lookStatusRow.wantsLayer = true
+        lookStatusRow.isHidden = true
+        cameraBox.addRow(lookStatusRow)
         fullWidth(cameraBox)
 
         let adjustBox = InspectorSectionBox("Adjust")
@@ -295,6 +324,78 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         tagTextColorWell.refresh()
         tagBackgroundColorWell.refresh()
         pad.refresh()
+        applyLookStatus(showDetails: showDetails)
+    }
+
+    /// "Removing background… 42%" while the mask job runs for this project.
+    /// Reads the @Observable CameraSegmentation (and the project's regions)
+    /// inside the observation loop, so progress ticks re-apply.
+    private func applyLookStatus(showDetails: Bool) {
+        let status: CameraSegmentation.Status = {
+            guard let project, let segmentation else { return .notNeeded }
+            _ = segmentation.revision
+            return segmentation.status(for: project)
+        }()
+        let show = showDetails && status != .notNeeded
+        if show != lookStatusShown {
+            lookStatusShown = show
+            lookStatusRow.isHidden = !show
+            if show {
+                // Arrival: the row lands on the house bounce, then fades in.
+                CCMotion.expand(self)
+                CCMotion.fadeAlpha(lookStatusRow, to: 1, from: 0)
+            }
+        }
+        guard show, status != lastLookStatus else { return }
+        let previous = lastLookStatus
+        lastLookStatus = status
+        let text: String
+        switch status {
+        case .notNeeded:
+            return
+        case .ready:
+            text = "Background removed — Cutout and Pop-out card are live."
+            lookStatusBar.isIndeterminate = false
+            lookStatusBar.doubleValue = 1
+        case .queued:
+            text = "Removing background — waiting to start…"
+            lookStatusBar.isIndeterminate = true
+        case .running(let p):
+            text = "Removing background… \(Int((p * 100).rounded()))%"
+            lookStatusBar.isIndeterminate = false
+            lookStatusBar.doubleValue = p
+        case .paused(let p):
+            text = "Paused while recording or exporting — \(Int((p * 100).rounded()))%"
+            lookStatusBar.isIndeterminate = false
+            lookStatusBar.doubleValue = p
+        case .failed(let message):
+            text = "Couldn't remove the background: \(message)"
+            lookStatusBar.isIndeterminate = false
+            lookStatusBar.doubleValue = 0
+        }
+        let barHidden: Bool = {
+            if case .ready = status { return true }
+            if case .failed = status { return true }
+            return false
+        }()
+        lookStatusBar.isHidden = barHidden
+        lookStatusLabel.toolTip = text
+        // Phase changes crossfade; percent ticks just update in place.
+        if let previous, Self.phase(previous) != Self.phase(status) {
+            CCMotion.fadeContentSwap(lookStatusLabel)
+        }
+        lookStatusLabel.stringValue = text
+    }
+
+    private static func phase(_ status: CameraSegmentation.Status) -> Int {
+        switch status {
+        case .notNeeded: return 0
+        case .ready: return 1
+        case .queued: return 2
+        case .running: return 3
+        case .paused: return 4
+        case .failed: return 5
+        }
     }
 }
 

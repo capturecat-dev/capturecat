@@ -181,10 +181,14 @@ final class CCSegmented: NSControl {
         for (index, label) in labels.enumerated() {
             let rect = segmentRect(index)
             let size = label.intrinsicContentSize
+            // Whole points plus a hair of slack: an exact fractional width at
+            // a fractional x clipped the last glyph of short labels ("All"
+            // drew as "Al" in the browser's filter).
+            let width = ceil(size.width) + 2
             label.frame = CGRect(
-                x: rect.midX - size.width / 2,
-                y: rect.midY - size.height / 2,
-                width: size.width, height: size.height
+                x: (rect.midX - width / 2).rounded(),
+                y: (rect.midY - size.height / 2).rounded(),
+                width: width, height: ceil(size.height)
             )
         }
         CATransaction.begin()

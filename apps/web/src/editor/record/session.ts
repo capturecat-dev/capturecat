@@ -16,6 +16,11 @@
  * B-frames, a keyframe every 2 s so the editor seeks fast; a window resized
  * mid-take is letterboxed into the first size ("contain"), never re-sized.
  *
+ * A whole-display take with floating controls encodes `streams.screenVideo`
+ * instead of the share's own track: the same frames with the clean plate
+ * painted over the controls window (platePipeline.ts) — same size, same
+ * timestamps, so nothing below changes.
+ *
  * Timing: each output zeroes at its first media chunk (mediabunny
  * "synced-zero"), so `cameraTimeOffset` = camera zero − screen zero on the
  * shared performance clock — the Mac's `cameraStart − screenStart`. Pause
@@ -37,13 +42,20 @@ import {
   type VideoCodec,
 } from "mediabunny";
 
-import { TakeTimeline, type TakeClock } from "./barHidden";
+import { TakeTimeline, type RevealSource, type TakeClock } from "./barHidden";
 import { stopStream, surfaceLabel, surfaceOf, type SurfaceKind } from "./capture";
 
 export interface SessionStreams {
+  /** The share: its settings, label, audio and "ended" are the take's source facts. */
   screen: MediaStream;
   camera: MediaStream | null;
   mic: MediaStream | null;
+  /**
+   * The picture to encode instead of the share's own video track — the clean
+   * plate's output (platePipeline.ts), the same size and clock. WebCodecs
+   * engine only.
+   */
+  screenVideo?: MediaStreamTrack | null;
 }
 
 export interface RecordedTake {
@@ -373,7 +385,7 @@ export class RecordingSession {
     // ── recording.mov: screen video, then system audio (track 0), then mic.
     const screen = await sinkFor(this.folderHandle, "recording.mov");
     const video = new MediaStreamVideoTrackSource(
-      screenTrack as MediaStreamVideoTrack,
+      (this.streams.screenVideo ?? screenTrack) as MediaStreamVideoTrack,
       {
         codec: videoCodec,
         bitrate: screenBitrate(width, height),
@@ -439,10 +451,10 @@ export class RecordingSession {
     this.state = "recording";
   }
 
-  /** The page's recorder UI came on screen (true) or left it (false) at `at` (performance.now ms). */
-  markUi(visible: boolean, at = performance.now()): void {
-    if (visible) this.timeline.reveals.reveal(at);
-    else this.timeline.reveals.conceal(at);
+  /** Recorder UI came on screen (true) or left it (false) at `at` (performance.now ms). */
+  markUi(visible: boolean, at = performance.now(), source: RevealSource = "page"): void {
+    if (visible) this.timeline.reveals.reveal(at, source);
+    else this.timeline.reveals.conceal(at, source);
   }
 
   /** The take's media clock so far (null before the first frame). */
@@ -526,6 +538,7 @@ export class RecordingSession {
 
   /** Release every capture track (the share, camera and mic indicators go away). */
   releaseStreams(): void {
+    this.streams.screenVideo?.stop();
     stopStream(this.streams.screen);
     stopStream(this.streams.camera);
     stopStream(this.streams.mic);

@@ -207,6 +207,8 @@ enum CameraLayoutHarness {
             expect(false, "codable threw: \(error)")
         }
 
+        cameraLookChecks(expect: expect)
+
         print(failures == 0 ? "CAMERALAYOUT-TEST OK" : "CAMERALAYOUT-TEST FAILED (\(failures))")
         exit(failures == 0 ? 0 : 1)
     }

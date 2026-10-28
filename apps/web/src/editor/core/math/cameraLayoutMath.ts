@@ -8,11 +8,14 @@
  * Functions: `ease`, `bubbleApproxCornerRadius`, `region(at:regions:)`,
  * `mode(at:regions:)`, `columns(in:)`, `resolve(...)` (incl. the private
  * `target(mode:...)` and `lerp` helpers, exercised through `resolve`),
- * `cardTransform(_:videoRect:)`, `boundaries(_:duration:)`; constants
- * `transitionDuration`, `sideBySideScreenFraction`, `sideBySideGapFraction`.
+ * `cardTransform(_:videoRect:)`, `boundaries(_:duration:)`,
+ * `look(at:regions:)`, `lookWeights(at:regions:)` (docs/camera-cutout.md §4);
+ * constants `transitionDuration`, `sideBySideScreenFraction`,
+ * `sideBySideGapFraction`.
  *
  * Locked by the golden-vector units `cameraLayoutMathBasics`,
- * `cameraLayoutResolve`, `cameraLayoutBoundaries` and `styleConstants`.
+ * `cameraLayoutResolve`, `cameraLayoutBoundaries`, `cameraLookWeights` and
+ * `styleConstants`.
  *
  * Space: the card squeeze is a UNIFORM scale plus an X-ONLY translation about
  * the card centre, so the same numbers are valid in Y-down (preview/web) and
@@ -26,7 +29,7 @@
  *   accessors), so a negative-size rect is normalized by the morph.
  */
 import type { CameraLayoutRegion, Rect, Size } from "../model/types";
-import type { CameraLayoutMode, CameraShape } from "../model/enums";
+import type { CameraLayoutMode, CameraLook, CameraShape } from "../model/enums";
 import {
   type AffineTransform,
   identityTransform,
@@ -250,4 +253,58 @@ export function boundaries(regions: readonly CameraLayoutRegion[], duration: num
     .flatMap((r) => [r.startTime, r.endTime])
     .filter((e) => e > 0.05 && e < duration - 0.05)
     .sort((a, b) => a - b);
+}
+
+// ── Camera looks (docs/camera-cutout.md §4) ─────────────────────────────────
+
+/** `look(at:regions:)` — the containing region's `look` while its mode is
+ *  `bubble`; null outside every region, on any other mode, or with no look. */
+export function look(t: number, regions: readonly CameraLayoutRegion[]): CameraLook | null {
+  const r = region(t, regions);
+  return r && r.mode === "bubble" ? (r.look ?? null) : null;
+}
+
+/** `LookWeights` — each 0…1, summing to ≤ 1. */
+export interface CameraLookWeights {
+  cutout: number;
+  popOut: number;
+}
+
+function lookTarget(l: CameraLook | null): CameraLookWeights {
+  return { cutout: l === "cutout" ? 1 : 0, popOut: l === "popOut" ? 1 : 0 };
+}
+
+/**
+ * `lookWeights(at:regions:)` — how much of each look draws at t, eased across
+ * region edges exactly like `resolve` morphs modes: the last edge ≤ t, no
+ * morph when that edge is ≤ 0.05 s (no intro morph at t = 0) or more than
+ * `transitionDuration` ago; otherwise smootherstep from the look just before
+ * the edge (`look(at: edge − 0.001)`) to the look at t.
+ */
+export function lookWeights(t: number, regions: readonly CameraLayoutRegion[]): CameraLookWeights {
+  if (regions.length === 0) return lookTarget(null);
+  const current = look(t, regions);
+  const settled = lookTarget(current);
+
+  const edges = regions.flatMap((r) => [r.startTime, r.endTime]).sort((a, b) => a - b);
+  let boundary: number | undefined;
+  for (let i = edges.length - 1; i >= 0; i--) {
+    if (edges[i] <= t) {
+      boundary = edges[i];
+      break;
+    }
+  }
+  if (boundary === undefined || !(boundary > 0.05) || !(t - boundary < transitionDuration)) {
+    return settled;
+  }
+
+  const previous = look(boundary - 0.001, regions);
+  if (previous === current) return settled;
+
+  const from = lookTarget(previous);
+  const p = ease((t - boundary) / transitionDuration);
+  return {
+    cutout: lerp(from.cutout, settled.cutout, p),
+    popOut: lerp(from.popOut, settled.popOut, p),
+  };
 }

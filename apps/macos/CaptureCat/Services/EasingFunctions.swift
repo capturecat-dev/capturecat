@@ -50,7 +50,7 @@ enum Easing {
         return min(smootherStep(inT), smootherStep(outT))
     }
 
-    /// Screen Studio-style zoom envelope for a single region.
+    /// Zoom envelope for a single region: snappy in, lingering out.
     ///
     /// - **Zoom in**: `easeOutQuart` — snappy pull-in that decelerates smoothly
     ///   into the hold.
@@ -70,7 +70,7 @@ enum Easing {
         guard time >= startTime && time <= endTime else { return 0 }
 
         let regionDuration = max(0, endTime - startTime)
-        // Asymmetric: snappy in, lingering out (Screen Studio style)
+        // Asymmetric: snappy in, lingering out
         let effIn  = max(0.08, min(transitionDuration * 0.55, regionDuration * 0.28))
         let effOut = max(0.12, min(transitionDuration, regionDuration * 0.48))
 

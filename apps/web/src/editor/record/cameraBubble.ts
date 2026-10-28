@@ -31,7 +31,7 @@ export const BUBBLE_SIZES = [
   { label: "Large", diameter: 270 },
 ] as const;
 
-/** `savedDiameter`'s fallback — ~200 pt like Screen Studio's. */
+/** `savedDiameter`'s fallback — ~200 pt. */
 export const DEFAULT_DIAMETER = 200;
 /** Slack around the content for the drop shadow (`shadowPadding`). */
 export const SHADOW_PADDING = 24;
@@ -292,10 +292,13 @@ export interface BubblePolicy {
  * never contains this page, so the bubble stays. A share that could — a
  * display, a window, this tab — would record it (on top of camera.mov, which
  * the editor composites anyway), so it steps aside from Record until the
- * take ends. While the floating controls window is up (window/tab takes) the
- * bubble rides in it, above everything like the Mac's panel — one camera
- * preview at a time, and that window isn't part of a window or tab capture.
- * After Stop the camera is released for the upload: nothing to show.
+ * take ends. While the floating controls window is up the bubble rides in
+ * it, above everything like the Mac's panel — one camera preview at a time:
+ * a window or tab capture doesn't contain that window, and a display take
+ * paints it out with the clean plate ("plate", plate.ts). In "shown" mode
+ * (a window share without the floating window) the bar comes and goes with
+ * your focus, but the bubble stays aside — a camera preview isn't worth the
+ * cut. After Stop the camera is released for the upload: nothing to show.
  */
 export function bubblePolicy(s: BubblePolicyInput): BubblePolicy {
   if (!s.cameraOn || s.phase === "saving" || s.phase === "failed") return { host: "none", hiddenForScreen: false };

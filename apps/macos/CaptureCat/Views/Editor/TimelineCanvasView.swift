@@ -156,7 +156,7 @@ enum TimelineCanvasMetrics {
     static let maxEffectsRows = 3
 
     static let blockInset: CGFloat = 3      // TimelineBlockSurface.inset
-    static let blockCornerRadius: CGFloat = 9
+    static let blockCornerRadius: CGFloat = 10
     static let handleWidth: CGFloat = 8
     static let minBlockWidth: CGFloat = 20
     static let minDuration: TimeInterval = 0.5
@@ -1371,7 +1371,8 @@ final class TimelineCanvasView: NSView {
         image.draw(
             in: CGRect(x: anim.x - image.size.width / 2, y: y,
                        width: image.size.width, height: glyphHeight),
-            from: .zero, operation: .sourceOver, fraction: state.alpha)
+            from: .zero, operation: .sourceOver, fraction: state.alpha,
+            respectFlipped: true, hints: nil)
     }
 
     private func drawSliceIndicator(in context: CGContext) {
@@ -1388,7 +1389,9 @@ final class TimelineCanvasView: NSView {
                        width: glyph.size.width, height: 24),
             from: .zero,
             operation: .sourceOver,
-            fraction: 1
+            fraction: 1,
+            respectFlipped: true,
+            hints: nil
         )
     }
 
@@ -2099,8 +2102,8 @@ final class TimelineCanvasView: NSView {
     private func drawAnnotateLabel(for item: TimelineAnnotateItem, in rect: CGRect) {
         // Slim sub-row bars (deep overlap stacks) draw as clean color bars —
         // an icon+label crammed into a ~12pt bar is what made a busy
-        // ANNOTATE lane read as chaos. FCP's connected-clip bars and
-        // CapCut's overlay strips make the same call. Hover/selection still
+        // ANNOTATE lane read as chaos. Established video editors draw
+        // connected-clip and overlay bars the same way. Hover/selection still
         // identifies a bar, and it regains its label when the stack thins.
         guard rect.height >= 14 else { return }
         let contentColor = EditorThemeKit.blockContent
@@ -2138,11 +2141,11 @@ final class TimelineCanvasView: NSView {
         isHovering: Bool
     ) {
         let brightness: CGFloat = isSelected ? 0.06 : (isHovering ? 0.03 : 0)
-        // Skeuo depth even when a lane's top/bottom tokens are near-equal:
-        // widen the pair around their midpoint (matches CCMaterial's raised
-        // lift/sink) so every block reads as a lit slab, not a flat sticker.
-        let topColor = Self.brightened(top, by: brightness + 0.07)
-        let bottomColor = Self.brightened(bottom, by: brightness - 0.07)
+        // 2026 look (matches CCMaterial's floating surface): a soft,
+        // nearly flat colour with only a whisper of top light — a clean
+        // rounded bar, not a lit slab.
+        let topColor = Self.brightened(top, by: brightness + 0.025)
+        let bottomColor = Self.brightened(bottom, by: brightness - 0.015)
         let path = CGPath(
             roundedRect: rect,
             cornerWidth: min(M.blockCornerRadius, rect.width / 2),
@@ -2152,12 +2155,12 @@ final class TimelineCanvasView: NSView {
 
         context.saveGState()
 
-        // Drop shadow (offset is in unflipped base space: -1 renders below).
+        // Soft contact shadow (offset is in unflipped base space: -1 renders below).
         context.saveGState()
         context.setShadow(
             offset: CGSize(width: 0, height: -1),
-            blur: 3,
-            color: NSColor.black.withAlphaComponent(0.35).cgColor
+            blur: 4,
+            color: NSColor.black.withAlphaComponent(CCTheme.isDark ? 0.28 : 0.10).cgColor
         )
         context.addPath(path)
         context.setFillColor(bottomColor.cgColor)
@@ -2180,14 +2183,12 @@ final class TimelineCanvasView: NSView {
                 options: []
             )
         }
-        // 1px top-edge highlight only — NO glass sheen (Mike's veto).
-        context.setFillColor(NSColor.white.withAlphaComponent(0.25).cgColor)
-        context.fill(CGRect(
-            x: rect.minX + M.blockCornerRadius * 0.75,
-            y: rect.minY + 1,
-            width: max(0, rect.width - M.blockCornerRadius * 1.5),
-            height: 1
-        ))
+        // Hairline edge that follows the corners (CCMaterial.hairline's
+        // twin) — no 1px top highlight line in the 2026 look.
+        context.addPath(path)
+        context.setStrokeColor(NSColor.black.withAlphaComponent(CCTheme.isDark ? 0.18 : 0.08).cgColor)
+        context.setLineWidth(1)
+        context.strokePath()
         context.restoreGState()
 
         if isSelected {
@@ -2326,15 +2327,9 @@ final class TimelineCanvasView: NSView {
     ) -> NSImage? {
         let key = "\(name)-\(pointSize)-\(weight.rawValue)-\(color.description)"
         if let cached = symbolCache[key] { return cached }
-        let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .init(rawValue: weight.rawValue))
-        guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
-            .withSymbolConfiguration(config) else { return nil }
-        let tinted = NSImage(size: symbol.size, flipped: false) { rect in
-            symbol.draw(in: rect)
-            color.set()
-            rect.fill(using: .sourceAtop)
-            return true
-        }
+        // Kit icon painted in `color` (CCIcon) — timeline chrome, never content.
+        guard let tinted = CCIcon.image(name, pointSize: pointSize, weight: weight, color: color)
+        else { return nil }
         symbolCache[key] = tinted
         return tinted
     }

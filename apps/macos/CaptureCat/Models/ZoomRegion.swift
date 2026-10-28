@@ -7,7 +7,7 @@ import Foundation
 /// is the zeta (below 1 overshoots, at/above 1 glides without bounce). The
 /// same numbers drive the preview model and the exporter's camera path.
 enum ZoomAnimationStyle: String, CaseIterable, Codable, Sendable {
-    /// A near-cut: the zoom lands in ~0.2s — Screen Studio's "Instant Zoom".
+    /// A near-cut: the zoom lands in ~0.2s — an "instant" zoom, no visible ramp.
     case instant = "Instant"
     case snappy = "Snappy"
     case smooth = "Smooth"

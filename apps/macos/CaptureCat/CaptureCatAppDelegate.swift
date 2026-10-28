@@ -93,6 +93,9 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
         // captures starts after a launch-settle delay, one project at a time
         // at utility QoS (and never while recording/exporting).
         appState.captureTextIndex.start(appState: appState)
+        // Camera-look masks: segmentation runs on demand (a look applied in
+        // the editor, or a recording into a project that uses one).
+        appState.cameraSegmentation.start(appState: appState)
         if appState.needsOnboarding || OnboardingViewController.isForcedPreview {
             openWindow(id: "onboarding")
         }
@@ -236,7 +239,8 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
             cat.size = NSSize(width: 18 * (728.0 / 834.0), height: 18)
             item.button?.image = cat
         } else {
-            item.button?.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "CaptureCat")
+            item.button?.image = CCIcon.image("record.circle", pointSize: 13, weight: .regular,
+                                              accessibilityDescription: "CaptureCat")
         }
         let menu = NSMenu()
         menu.delegate = self

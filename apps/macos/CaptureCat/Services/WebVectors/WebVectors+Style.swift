@@ -41,7 +41,7 @@ extension WebVectors {
                 name: "cameraLayoutBoundaries",
                 notes: "Services/CameraLayoutMath.swift — boundaries(_:duration:)",
                 build: cameraLayoutBoundariesCases),
-        ] + styleCameraUnits + styleBackgroundUnits + styleGeometryUnits + styleExportUnits
+        ] + styleCameraUnits + styleBackgroundUnits + styleGeometryUnits + styleExportUnits + cameraLookUnits
     }
 
     // MARK: - Shared helpers
@@ -56,7 +56,20 @@ extension WebVectors {
     /// e.g. 0.003630753602538505 came back as 0.0036307536025385044 — so a
     /// query sitting exactly on an edge flipped sides in the TS port.)
     static func styleRegionWV(_ r: CameraLayoutRegion) -> WV {
-        ["id": .str(r.id.uuidString), "startTime": r.startTime.wv, "endTime": r.endTime.wv, "mode": .str(r.mode.rawValue)]
+        let base: WV = ["id": .str(r.id.uuidString), "startTime": r.startTime.wv, "endTime": r.endTime.wv, "mode": .str(r.mode.rawValue)]
+        // `look` only when set — exactly as project.json stores it.
+        return r.look.map { base.setting("look", .str($0.rawValue)) } ?? base
+    }
+
+    /// A camera look for a generated region, drawn from a stream seeded by the
+    /// region's id — NOT the unit's main stream — so adding looks to the
+    /// generators left every other input of the existing units unchanged.
+    /// About half the regions carry one, on any mode (a look on a non-Bubble
+    /// mode is kept but ignored, which the vectors must exercise too).
+    static func randomLook(for id: UUID) -> CameraBubbleLook? {
+        var lookRng = WVRandom(seed: "look-\(id.uuidString)")
+        let roll = lookRng.unit()
+        return roll < 0.5 ? nil : (roll < 0.75 ? .cutout : .popOut)
     }
 
     static func randomLayoutRegions(_ rng: inout WVRandom, duration: Double) -> [CameraLayoutRegion] {
@@ -74,7 +87,9 @@ extension WebVectors {
             let len = rng.edgy(0, 6, edges: [0, 0.2, 0.45, 0.449, 0.9, 0.001])
             let inverted = rng.bool(0.03)
             let end = inverted ? start - len : start + len
-            regions.append(CameraLayoutRegion(id: rng.uuid(), startTime: start, endTime: end, mode: rng.pick(styleLayoutModes)))
+            let id = rng.uuid()
+            regions.append(CameraLayoutRegion(id: id, startTime: start, endTime: end, mode: rng.pick(styleLayoutModes),
+                                              look: randomLook(for: id)))
             cursor = max(cursor, end)
         }
         _ = duration

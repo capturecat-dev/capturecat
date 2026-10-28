@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-/// The Keynote dip across a device-segment cut — shared by the preview
+/// The segment dip across a device-segment cut — shared by the preview
 /// compositor and the exporter.
 ///
 /// The framing switches INSTANTLY at the boundary (morphing the mask would

@@ -13,7 +13,8 @@ struct CodablePoint: Codable, Sendable, Hashable {
     init(x: Double, y: Double) { self.x = x; self.y = y }
 }
 
-/// Keynote-style build effects. Raw values are persistence identity.
+/// Presentation-style build effects (animated entrances and exits). Raw values
+/// are persistence identity.
 enum AnnotationEffect: String, CaseIterable, Codable, Sendable {
     case none = "None"
     case fade = "Fade"
@@ -159,7 +160,7 @@ struct Annotation: Identifiable, Codable, Sendable {
     var animatesIn: Bool
     /// Soft drop shadow behind text/shapes.
     var showShadow: Bool
-    /// Keynote-style build effects.
+    /// Build-in / build-out effects (animated entrance and exit).
     var enterEffect: AnnotationEffect
     var exitEffect: AnnotationEffect
     /// Blackout everything around the annotation (spotlight). 0 = off; the

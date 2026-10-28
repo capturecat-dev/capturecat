@@ -36,8 +36,7 @@ final class CCEmptyState: NSView {
         tile.wantsLayer = true
         tile.layer?.cornerCurve = .continuous
         tile.layer?.borderWidth = 1
-        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 20, weight: .regular))
+        icon.image = CCIcon.image(symbol, pointSize: 20, weight: .regular)
         icon.translatesAutoresizingMaskIntoConstraints = false
         tile.addSubview(icon)
         NSLayoutConstraint.activate([

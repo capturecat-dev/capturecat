@@ -24,7 +24,7 @@ const SECTIONS = [
   { id: "s11-contact", label: "11. Contact" },
 ];
 
-const EFFECTIVE = "5 August 2026";
+const EFFECTIVE = "27 October 2026";
 
 function PrivacyPage() {
   return (
@@ -64,7 +64,12 @@ function PrivacyPage() {
         <p>
           When you sign in with Google or Apple, we receive your name, email
           address, and profile picture. We never receive your Google or Apple
-          password.
+          password. When you create your account we also record your
+          approximate country (from your IP address, which we do not store for
+          this), whether you signed up in the Mac app or a browser, and, for a
+          browser sign-up, how you arrived at our site: the referring
+          website&apos;s domain, any campaign tags in the link, and the first
+          page you visited.
         </p>
         <h3>Billing data</h3>
         <p>
@@ -88,6 +93,15 @@ function PrivacyPage() {
           approximate country, referring page, and device type. Viewers are
           identified by a random, per-tab identifier held only in memory, not a
           persistent tracking cookie.
+        </p>
+        <h3>Site analytics</h3>
+        <p>
+          When you visit capturecat.so or download the Mac app, we record an
+          anonymous event: the referring website&apos;s domain, any campaign
+          tags in the link, the page you landed on, your approximate country,
+          and your device type (for example, Mac or Windows). These events use
+          no cookie or stored identifier and cannot be linked to each other or
+          to you.
         </p>
         <h3>Technical data</h3>
         <p>
@@ -114,6 +128,14 @@ function PrivacyPage() {
             <span className="text-foreground">To keep the service secure</span>{" "}
             (rate limiting, fraud and abuse prevention, logging). Lawful basis:
             our legitimate interests in protecting the service and its users.
+          </li>
+          <li>
+            <span className="text-foreground">
+              To understand how people find and use CaptureCat
+            </span>{" "}
+            (site analytics, sign-up source and country, and aggregate usage
+            such as how much storage accounts use). Lawful basis: our
+            legitimate interests in improving and growing the service.
           </li>
           <li>
             <span className="text-foreground">To meet legal obligations</span>{" "}
@@ -168,7 +190,8 @@ function PrivacyPage() {
           a video it is removed from storage; if you close your account we
           delete your personal data within 30 days, except where we must retain
           limited records for legal reasons (for example, tax records, which are
-          kept for six years). Aggregate analytics that no longer identify an
+          kept for six years). Anonymous site analytics events are deleted
+          after 13 months. Aggregate analytics that no longer identify an
           individual may be retained.
         </p>
       </section>
@@ -201,7 +224,9 @@ function PrivacyPage() {
         <p>
           We use a single essential cookie to keep you signed in. We do not use
           advertising or third-party tracking cookies. Viewer analytics on
-          shared videos rely on a random per-tab identifier, not a cookie.
+          shared videos rely on a random per-tab identifier, not a cookie, and
+          site analytics use no identifier at all: where you came from is kept
+          only in the open page&apos;s memory until you leave it.
         </p>
       </section>
 

@@ -145,7 +145,7 @@ enum CursorSpringMath {
 }
 
 
-/// End-of-clip cursor behaviors — Screen Studio's loop-to-start and
+/// End-of-clip cursor behaviors — loop-to-start and
 /// stop-at-end, applied to the event stream AFTER smoothing + fluid movement
 /// so preview and export share the identical chain.
 enum CursorEndBehaviorMath {

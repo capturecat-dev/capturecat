@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import {
+  countCommentReplies,
   countVideoComments,
   deleteVideoVersion,
+  getVideoComment,
   getSharedVideo,
   getVideoVersion,
   insertVideoComment,
@@ -26,7 +28,16 @@ import { resolveDomain, domainIsLive } from "../lib/db";
 import { generateId } from "../lib/id";
 import { readValidatedImage } from "../lib/uploads";
 import { planForEntitlement } from "../lib/plans";
-import { shareBaseURL } from "../lib/origins";
+import { shareBaseURL, webOrigins } from "../lib/origins";
+import {
+  MAX_COMMENT_REQUEST_BYTES,
+  checkReplyParent,
+  commentAuthorName,
+  isCommentId,
+  parseCommentAnnotation,
+  sessionAvatar,
+  toPublicComment,
+} from "../lib/comments";
 
 export const videoRoutes = new Hono<{
   Bindings: Env;
@@ -677,17 +688,55 @@ function parseMarkers(json: string | null): unknown[] {
 // Viewer comments — public read/write, gated on the uploader's opt-in
 // ---------------------------------------------------------------------------
 
-/** Same visibility gate as /meta: ready, public, comments switched on, AND
- *  the uploader's plan still includes comments. `commentsEnabled` is a
- *  client-sent flag; the plan flag is the entitlement. */
-async function commentableVideo(env: Env, videoId: string) {
-  const doc = await getSharedVideo(env.DB, videoId);
+/** Same visibility gate as /meta and the byte route: ready, public, comments
+ *  switched on, the uploader's plan still includes comments, AND the share
+ *  gate is open (password → the unlock token rides as ?token=, expiry, view
+ *  cap, paused). `commentsEnabled` is a client-sent flag; the plan flag is
+ *  the entitlement. Before 0031 the comment routes skipped the share gate, so
+ *  a password-protected video's comments were readable without the password. */
+async function commentableVideo(
+  c: { env: Env; req: { query(name: string): string | undefined } },
+  videoId: string
+) {
+  const doc = await getSharedVideo(c.env.DB, videoId);
   if (!doc || doc.status !== "ready" || doc.isPrivate || !doc.commentsEnabled) {
     return null;
   }
-  const plan = await planForUser(env, doc.uid);
+  const plan = await planForUser(c.env, doc.uid);
   if (!plan.features.comments || !plan.features.cloudShare) return null;
+  if ((await shareGate(c, doc, c.req.query("token"))).state !== "open") return null;
   return doc;
+}
+
+/**
+ * Who is commenting, when they are signed in. Comments stay public-write —
+ * this only ATTACHES an identity (name, session avatar, owner badge); a
+ * request without one is simply anonymous.
+ *
+ * Cookie sessions are honoured on a write only from a trusted web origin
+ * (the same list requireAuth's CSRF gate uses): otherwise any site could make
+ * a signed-in owner "post" an owner-badged reply with a cross-site form.
+ * Bearer callers are exempt for the same reason requireAuth exempts them.
+ */
+async function commenterSession(
+  c: { env: Env; req: { method: string; header(name: string): string | undefined; raw: Request } }
+): Promise<{ uid: string; name: string | null; image: string | null } | null> {
+  const bearer = c.req.header("Authorization")?.startsWith("Bearer ") === true;
+  if (!bearer && !c.req.header("Cookie")) return null;
+  if (!bearer && c.req.method !== "GET" && c.req.method !== "HEAD") {
+    const origin = c.req.header("Origin");
+    if (!origin || !webOrigins(c.env).includes(origin)) return null;
+  }
+  const { getAuth } = await import("../lib/auth");
+  try {
+    const session = await getAuth(c.env).api.getSession({ headers: c.req.raw.headers });
+    if (!session) return null;
+    const user = session.user as { id: string; name?: string | null; image?: string | null; blocked?: boolean | null };
+    if (user.blocked === true) return null;
+    return { uid: user.id, name: user.name ?? null, image: user.image ?? null };
+  } catch {
+    return null;
+  }
 }
 
 /** Hosts that serve share pages first-party. Anything else is a customer's
@@ -702,28 +751,50 @@ function isFirstPartyShareHost(host: string): boolean {
   );
 }
 
+/**
+ * GET /video/:videoId/comments → { comments: PublicComment[], viewer }
+ *
+ * Flat list, top-level comments and replies together (replies carry
+ * `parentId`); the page builds the threads. `viewer` describes the signed-in
+ * caller (null when anonymous) so the composer can say who is posting.
+ */
 videoRoutes.get("/video/:videoId/comments", async (c) => {
-  const doc = await commentableVideo(c.env, c.req.param("videoId"));
+  const doc = await commentableVideo(c, c.req.param("videoId"));
   if (!doc) return c.json({ error: "Comments unavailable" }, 404);
-  const comments = await listVideoComments(c.env.DB, doc.videoId);
+  const [comments, viewer] = await Promise.all([
+    listVideoComments(c.env.DB, doc.videoId, MAX_COMMENTS_PER_VIDEO),
+    commenterSession(c),
+  ]);
   return c.json({
-    comments: comments.map((cm) => ({
-      commentId: cm.commentId,
-      authorName: cm.authorName,
-      body: cm.body,
-      videoTime: cm.videoTime,
-      createdAt: cm.createdAt,
-    })),
+    comments: comments.map((cm) => toPublicComment(cm, doc.uid)),
+    viewer: viewer
+      ? {
+          name: commentAuthorName(viewer.name, null),
+          image: sessionAvatar(viewer.image),
+          isOwner: viewer.uid === doc.uid,
+        }
+      : null,
   });
 });
 
-/** Max comments a single video accepts — runaway-thread backstop. */
+/** Max comments a single video accepts — runaway-thread backstop. Replies
+ *  count toward it; the list endpoint returns up to this many. */
 const MAX_COMMENTS_PER_VIDEO = 500;
+/** Replies one top-level comment accepts. */
+const MAX_REPLIES_PER_THREAD = 100;
 /** Posts allowed per IP per 10 minutes. */
 const COMMENT_RATE_LIMIT = 10;
 
+/**
+ * POST /video/:videoId/comments
+ *   { body, authorName?, videoTime?, parentId?, annotation? } → { comment }
+ *
+ * `parentId` makes it a reply (one level deep, same video; it inherits the
+ * parent's time and cannot carry a drawing). `annotation` is the v1 shape
+ * list from lib/comments.ts, validated strictly and stored canonical.
+ */
 videoRoutes.post("/video/:videoId/comments", async (c) => {
-  const doc = await commentableVideo(c.env, c.req.param("videoId"));
+  const doc = await commentableVideo(c, c.req.param("videoId"));
   if (!doc) return c.json({ error: "Comments unavailable" }, 404);
 
   // Per-IP window via the edge cache, mirroring the daily-upload counter.
@@ -753,47 +824,88 @@ videoRoutes.post("/video/:videoId/comments", async (c) => {
     return c.json({ error: "This video is no longer accepting comments" }, 403);
   }
 
-  const body: { authorName?: unknown; body?: unknown; videoTime?: unknown } =
-    await c.req
-      .json<{ authorName?: unknown; body?: unknown; videoTime?: unknown }>()
-      .catch(() => ({}));
+  // Bounded BEFORE parsing: an annotation is the one large field, and its
+  // validator caps the stored form, not what a client may send.
+  const declared = Number(c.req.header("Content-Length") ?? "0");
+  if (declared > MAX_COMMENT_REQUEST_BYTES) {
+    return c.json({ error: "Comment is too large" }, 413);
+  }
+  const rawBody = await c.req.text().catch(() => "");
+  if (rawBody.length > MAX_COMMENT_REQUEST_BYTES) {
+    return c.json({ error: "Comment is too large" }, 413);
+  }
+  let body: {
+    authorName?: unknown;
+    body?: unknown;
+    videoTime?: unknown;
+    parentId?: unknown;
+    annotation?: unknown;
+  } = {};
+  try {
+    const parsed: unknown = JSON.parse(rawBody);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed;
+  } catch {
+    body = {};
+  }
 
   const text = typeof body.body === "string" ? body.body.trim() : "";
   if (!text || text.length > 500) {
     return c.json({ error: "Comment must be 1–500 characters" }, 400);
   }
-  const author =
-    typeof body.authorName === "string" && body.authorName.trim()
-      ? body.authorName.trim().slice(0, 40)
-      : "Anonymous";
-  const rawTime =
-    typeof body.videoTime === "number" && isFinite(body.videoTime)
-      ? body.videoTime
-      : 0;
-  const videoTime =
-    Math.round(
-      Math.min(Math.max(0, rawTime), Math.max(0, doc.durationSeconds)) * 1000
-    ) / 1000;
+
+  const annotation = parseCommentAnnotation(body.annotation);
+  if (!annotation.ok) return c.json({ error: `Invalid drawing: ${annotation.error}` }, 400);
+
+  let parentId: string | null = null;
+  let videoTime: number;
+  if (body.parentId !== undefined && body.parentId !== null) {
+    if (!isCommentId(body.parentId)) {
+      return c.json({ error: "The comment you are replying to no longer exists" }, 404);
+    }
+    const parent = await getVideoComment(c.env.DB, body.parentId);
+    const verdict = checkReplyParent(
+      parent ? { videoId: parent.videoId, parentId: parent.parentId ?? null } : null,
+      doc.videoId
+    );
+    if (!verdict.ok) return c.json({ error: verdict.error }, verdict.status);
+    if (annotation.annotation) {
+      return c.json({ error: "Replies can't carry a drawing — start a new comment" }, 400);
+    }
+    if ((await countCommentReplies(c.env.DB, body.parentId)) >= MAX_REPLIES_PER_THREAD) {
+      return c.json({ error: "This thread is full" }, 403);
+    }
+    parentId = body.parentId;
+    // A reply lives at its thread's moment.
+    videoTime = parent!.videoTime;
+  } else {
+    const rawTime =
+      typeof body.videoTime === "number" && isFinite(body.videoTime)
+        ? body.videoTime
+        : 0;
+    videoTime =
+      Math.round(
+        Math.min(Math.max(0, rawTime), Math.max(0, doc.durationSeconds)) * 1000
+      ) / 1000;
+  }
+
+  // Identity comes from the session only — never from the body.
+  const session = await commenterSession(c);
 
   const comment = {
     commentId: generateId(),
     videoId: doc.videoId,
-    authorName: author,
+    authorName: commentAuthorName(session?.name, body.authorName),
     body: text,
     videoTime,
     createdAt: new Date().toISOString(),
+    parentId,
+    annotationJson: annotation.json,
+    authorUid: session?.uid ?? null,
+    authorImage: session ? sessionAvatar(session.image) : null,
   };
   await insertVideoComment(c.env.DB, comment);
 
-  return c.json({
-    comment: {
-      commentId: comment.commentId,
-      authorName: comment.authorName,
-      body: comment.body,
-      videoTime: comment.videoTime,
-      createdAt: comment.createdAt,
-    },
-  });
+  return c.json({ comment: toPublicComment(comment, doc.uid) });
 });
 
 // ---------------------------------------------------------------------------

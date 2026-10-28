@@ -19,6 +19,7 @@ import type {
   AnnotationType,
   BlurStyle,
   CameraLayoutMode,
+  CameraLook,
   CodableColor,
   Project,
   Rect,
@@ -242,8 +243,9 @@ export const enableCurtainUnveil: Edit = (p, sel) => {
   };
 };
 
-/** addCameraLayoutRegion(mode:) — near-start snaps to 0; 4 s; FOCUS lane slot. */
-export function addCameraLayoutRegion(mode: CameraLayoutMode): Edit {
+/** addCameraLayoutRegion(mode:look:) — near-start snaps to 0; 4 s; FOCUS lane slot.
+ *  A look (Cutout / Pop-out card, docs/camera-cutout.md §9) is a Bubble region carrying it. */
+export function addCameraLayoutRegion(mode: CameraLayoutMode, look?: CameraLook): Edit {
   return (p, sel, env) => {
     let desiredStart = smax(0, smin(env.playheadSource, p.duration));
     if (desiredStart < 0.75) desiredStart = 0;
@@ -251,11 +253,15 @@ export function addCameraLayoutRegion(mode: CameraLayoutMode): Edit {
     const [start, end] = findNonOverlappingSlot([desiredStart, desiredEnd], focusLaneSpans(p), p.duration);
     if (!(start < end)) return null; // lane full (beep)
     const region = newCameraLayoutRegion(start, end);
-    region.mode = mode;
+    region.mode = look ? "bubble" : mode;
+    if (look) region.look = look;
     p.cameraLayoutRegions.push(region);
-    return { label: "Add Camera Layout", selection: assign(sel, "cameraLayout", region.id) };
+    return { label: look ? `Add ${CAMERA_LOOK_NAMES[look]}` : "Add Camera Layout", selection: assign(sel, "cameraLayout", region.id) };
   };
 }
+
+/** The looks' display names (docs/camera-cutout.md §9). */
+export const CAMERA_LOOK_NAMES: Record<CameraLook, string> = { cutout: "Cutout", popOut: "Pop-out card" };
 
 /** autoZoom() — AutoZoomApplier (only earlier AUTO regions are replaced);
  *  nothing zoom-worthy → no change. */

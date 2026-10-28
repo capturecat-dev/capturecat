@@ -1,32 +1,46 @@
 /**
  * Keeping the recorder's own UI out of a web take — the web half of the
- * owner's rule "output video must always hide the recording bar".
+ * owner's rules "output video must always hide the recording bar" and "keep
+ * it visible at all times — it's the video that hides it".
  *
  * The Mac never records itself: its panels set `sharingType = .none`. A page
  * can't do that. getDisplayMedia records every visible pixel of a display,
  * and neither a DOM element nor a Picture-in-Picture window can opt out. So
- * the web keeps its UI out of the OUTPUT by construction, per shared surface:
+ * the controls stay on screen for the person, and the OUTPUT leaves them out,
+ * per shared surface:
  *
  *   tab      another tab (`selfBrowserSurface: "exclude"`, and the capture
  *            handle proves it isn't THIS one) → nothing of ours is in the
- *            frames; the dock stays
- *   window   it may be this browser's window → the in-page UI (bar, notices,
- *            bubble) hides for the take and the controls float in the
- *            Document Picture-in-Picture window, a separate OS window a
- *            window capture doesn't contain. No PiP → as a display.
- *   display  (also: this tab captured, a window without PiP) → the in-page
- *            UI hides BEFORE the first frame is encoded. When it has to come
- *            back — you return to the tab, or rest the pointer on the bottom
- *            edge — every moment it is on screen is logged on the TAKE's
- *            media clock (first-frame zero, pauses collapsed), and the new
- *            project cuts those moments out, padded: `trimStart`/`trimEnd` at
- *            the ends, clip segments in the middle — exactly what a manual
- *            cut in the editor makes. recording.mov keeps every frame, so
- *            un-cutting in the editor restores them.
+ *            frames; the dock stays (and floats in Picture-in-Picture too)
+ *   window   the controls float in the Document Picture-in-Picture window
+ *            (pip.ts), a separate OS window a window capture doesn't contain;
+ *            the in-page UI hides (the window may be this browser's).
+ *            No PiP (Safari, Firefox, floating off) → the in-page bar STAYS
+ *            on screen while you're on the page — and since the shared
+ *            window may be this browser's, every moment it's shown is logged
+ *            and cut ("shown")
+ *   display  the controls float in Picture-in-Picture over every app, and
+ *            each recorded frame gets a clean plate painted over that window
+ *            (plate.ts: a frame of the display grabbed before the window
+ *            appeared, composited by plateWorker.ts between the share and
+ *            the encoder; anywhere the window can't be vouched for is cut).
+ *            The in-page UI hides — this tab may be on that display.
+ *            Where that can't run — Safari (MediaRecorder: no frame access),
+ *            no PiP, several displays (which one is shared is unknowable),
+ *            the window not found where it's reported — the in-page UI hides
+ *            BEFORE the first frame, and every moment it has to come back is
+ *            logged on the take's media clock (first-frame zero, pauses
+ *            collapsed) and CUT from the new project ("reveal")
+ *   this tab (a browser that ignored the exclusion) → PiP when it can
+ *            ("floating", the PiP isn't in a tab capture), else "reveal"
+ *
+ * A cut is exactly what a manual cut in the editor makes: `trimStart` /
+ * `trimEnd` at the ends, clip segments in the middle. recording.mov keeps
+ * every frame, so un-cutting in the editor restores them.
  *
  * Pure: the policy, the clock mapping and the cut plan. The events live in
- * useRecorder; the engines (session.ts, mediaRecorderSession.ts) own a
- * TakeTimeline each.
+ * useRecorder / useConceal / platePipeline; the engines (session.ts,
+ * mediaRecorderSession.ts) own a TakeTimeline each.
  */
 import { newUUID, type Project } from "../core/model";
 import type { SurfaceKind } from "./capture";
@@ -34,12 +48,21 @@ import type { SurfaceKind } from "./capture";
 // ── policy ──────────────────────────────────────────────────────────────────
 
 /**
- * none      the in-page UI can't be in the frames: leave it alone
- * floating  the in-page UI hides for the whole take; the controls are in the
- *           floating (PiP) window
- * reveal    the in-page UI hides; when it must come back it is logged and cut
+ * How a take keeps the page's recorder UI out of its output:
+ *
+ * none      the share can't contain this page: leave the UI alone
+ * floating  the controls are in the floating (PiP) window, which the share
+ *           can't contain (a window, this tab); the in-page UI hides for the
+ *           take (a dialog that must show is logged and cut)
+ * plate     a display: the controls are in the floating window and the share
+ *           DOES contain it — every frame is painted over it with the clean
+ *           plate (plate.ts); the in-page UI hides as for "floating"
+ * shown     a window, no floating window: the in-page UI stays on screen while
+ *           you're on the page, and each such moment is logged and cut
+ * reveal    a display (or this tab) without floating controls: the in-page UI
+ *           hides; whenever it must come back it is logged and cut
  */
-export type ConcealMode = "none" | "floating" | "reveal";
+export type ConcealMode = "none" | "floating" | "plate" | "shown" | "reveal";
 
 export interface ConcealInput {
   /** The live share's surface (null = nothing chosen). */
@@ -48,14 +71,24 @@ export interface ConcealInput {
   capturesThisTab: boolean;
   /** The floating controls window is open. */
   floatingOpen: boolean;
+  /**
+   * The clean plate paints the floating window out of every frame (a display
+   * take on the WebCodecs engine whose window was found where it's reported).
+   */
+  plateLive: boolean;
 }
 
 export function concealModeFor(s: ConcealInput): ConcealMode {
   if (!s.surface) return "none";
   if (s.surface === "browser" && !s.capturesThisTab) return "none";
-  // A window (or this tab) never contains the separate PiP window; a display does.
-  if (s.surface !== "monitor" && s.floatingOpen) return "floating";
-  return "reveal";
+  if (s.surface === "monitor") {
+    // A display contains the floating window: it may only float with the
+    // plate painting it out (useRecorder never opens it otherwise).
+    return s.floatingOpen && s.plateLive ? "plate" : "reveal";
+  }
+  // A window (or this tab) never contains the separate PiP window.
+  if (s.floatingOpen) return "floating";
+  return s.surface === "window" ? "shown" : "reveal";
 }
 
 // ── timing ──────────────────────────────────────────────────────────────────
@@ -125,28 +158,48 @@ export function wallToMedia(clock: TakeClock, a: number, b: number): [number, nu
   return [mediaTimeAt(clock, a), mediaTimeAt(clock, b)];
 }
 
-/** When the in-page UI was on screen during a take (wall ms). */
+/**
+ * Who logged a span: "page" = the in-page recorder UI (useConceal), "plate" =
+ * frames the clean plate couldn't vouch for (platePipeline). Each source's
+ * spans are sequential; spans of different sources may overlap (the cut
+ * merges them).
+ */
+export type RevealSource = "page" | "plate";
+
+/** When recorder UI was (or may have been) in the frames during a take (wall ms). */
 export class RevealLog {
-  private readonly spans: WallSpan[] = [];
+  private readonly spans: Array<WallSpan & { source: RevealSource }> = [];
+
+  /** A span of `source` is open. */
+  isOpen(source: RevealSource = "page"): boolean {
+    return this.lastOf(source)?.end === null;
+  }
 
   get open(): boolean {
-    return this.spans.at(-1)?.end === null;
+    return this.isOpen("page");
   }
 
   /** The UI is (about to be) on screen from `at`. */
-  reveal(at: number): void {
-    if (!this.open) this.spans.push({ start: at, end: null });
+  reveal(at: number, source: RevealSource = "page"): void {
+    if (!this.isOpen(source)) this.spans.push({ start: at, end: null, source });
   }
 
   /** The UI is off the screen — and out of every frame captured — from `at`. */
-  conceal(at: number): void {
-    const last = this.spans.at(-1);
+  conceal(at: number, source: RevealSource = "page"): void {
+    const last = this.lastOf(source);
     if (last && last.end === null) last.end = Math.max(at, last.start);
   }
 
-  /** Every span, an open one closed at `endAt`. */
+  /** Every span (any source) in start order, an open one closed at `endAt`. */
   spansUntil(endAt: number): Array<[number, number]> {
-    return this.spans.map((s) => [s.start, s.end ?? Math.max(endAt, s.start)]);
+    return this.spans
+      .map((s): [number, number] => [s.start, s.end ?? Math.max(endAt, s.start)])
+      .sort((a, b) => a[0] - b[0]);
+  }
+
+  private lastOf(source: RevealSource) {
+    for (let i = this.spans.length - 1; i >= 0; i--) if (this.spans[i].source === source) return this.spans[i];
+    return undefined;
   }
 }
 

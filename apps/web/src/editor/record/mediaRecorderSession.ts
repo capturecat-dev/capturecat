@@ -33,7 +33,7 @@ import {
   type InputVideoTrack,
 } from "mediabunny";
 
-import { TakeTimeline, type TakeClock } from "./barHidden";
+import { TakeTimeline, type RevealSource, type TakeClock } from "./barHidden";
 import { stopStream, surfaceLabel, surfaceOf, type SurfaceKind } from "./capture";
 import {
   AUDIO_BITRATE,
@@ -248,10 +248,10 @@ export class MediaRecorderSession {
     this.state = "recording";
   }
 
-  /** The page's recorder UI came on screen (true) or left it (false) at `at` (performance.now ms). */
-  markUi(visible: boolean, at = performance.now()): void {
-    if (visible) this.timeline.reveals.reveal(at);
-    else this.timeline.reveals.conceal(at);
+  /** Recorder UI came on screen (true) or left it (false) at `at` (performance.now ms). */
+  markUi(visible: boolean, at = performance.now(), source: RevealSource = "page"): void {
+    if (visible) this.timeline.reveals.reveal(at, source);
+    else this.timeline.reveals.conceal(at, source);
   }
 
   clock(now = performance.now()): TakeClock | null {

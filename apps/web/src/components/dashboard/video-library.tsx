@@ -1,18 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import {
-  ArrowUpDown,
-  CircleIcon,
-  Download,
-  HardDrive,
-  LayoutGrid,
-  ListVideo,
-  Plus,
-  Rows3,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Rows3 } from "lucide-react";
 import { toast } from "sonner";
 
 import { SITE_URL } from "@/lib/api-url";
@@ -36,6 +24,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -48,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 type SortKey = "newest" | "oldest" | "name" | "size" | "duration";
 const SORT_LABELS: Record<SortKey, string> = {
@@ -91,8 +83,8 @@ function StorageMeter({
   if (!limitBytes) return null;
   const ratio = Math.min(1, usedBytes / limitBytes);
   return (
-    <div className="flex items-center gap-3 rounded-full border border-white/8 bg-white/[0.03] py-1.5 pl-3 pr-3.5 text-xs text-muted-foreground">
-      <HardDrive className="size-3.5 shrink-0" />
+    <div className="cc-float-chip flex items-center gap-3 rounded-full py-1.5 pl-3 pr-3.5 text-xs text-muted-foreground">
+      <CCIcon name="drive" className="size-3.5 shrink-0" />
       <Meter value={Math.max(0.01, ratio)} className="w-28" />
       <span className="tabular-nums">
         {formatSize(usedBytes)} / {formatSize(limitBytes)}
@@ -254,12 +246,12 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
               <>
                 <Button size="sm" className="bg-red-500 text-white hover:bg-red-500/90" asChild>
                   <Link to="/app/record">
-                    <CircleIcon className="fill-current" /> Record in the browser
+                    <CCIcon name="ellipse" className="fill-current" /> Record in the browser
                   </Link>
                 </Button>
                 <Button size="sm" variant="outline" asChild>
                   <a href={`${SITE_URL}/download`}>
-                    <Download /> Get the Mac app
+                    <CCIcon name="arrow-down-line"  /> Get the Mac app
                   </a>
                 </Button>
               </>
@@ -303,7 +295,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
               {items.length} video{items.length === 1 ? "" : "s"}
             </span>
             {activeUploads.length > 0 && (
-              <span className="inline-flex items-center gap-1.5 text-cyan-200/90">
+              <span className="inline-flex items-center gap-1.5 text-primary/90">
                 <LiveDot /> {activeUploads.length} uploading
               </span>
             )}
@@ -320,12 +312,12 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
       {/* Toolbar */}
       <div className="dsh-rise flex flex-wrap items-center gap-2" style={{ "--i": 3 } as CSSProperties}>
         <div className="relative min-w-52 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <CCIcon name="search" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchQ}
             onChange={(e) => setSearchQ(e.target.value)}
             placeholder="Search titles and transcripts…"
-            className="rounded-full border-white/10 bg-white/[0.04] pl-9 backdrop-blur-xl transition-colors hover:border-white/16 focus-visible:border-cyan-300/40"
+            className="rounded-full pl-9"
           />
           {searchQ && (
             <button
@@ -333,32 +325,34 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
               onClick={() => setSearchQ("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
-              <X className="size-4" />
+              <CCIcon name="close" className="size-4" />
             </button>
           )}
         </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="rounded-full border-white/10 bg-white/[0.04]">
-              <ArrowUpDown className="mr-1.5 size-3.5" />
+            <Button variant="outline" size="sm" className="rounded-full">
+              <CCIcon name="chevron-up-down" className="mr-1.5 size-3.5" />
               {SORT_LABELS[sort]}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
-              <DropdownMenuItem key={k} onClick={() => setSort(k)}>
-                {SORT_LABELS[k]}
-                {sort === k && <span className="ml-auto">✓</span>}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                <DropdownMenuRadioItem key={k} value={k}>
+                  {SORT_LABELS[k]}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
 
         {/* Grid / list: ONE pill that springs between the two keys. */}
         <div
           ref={viewPill.hostRef}
-          className="relative flex rounded-full border border-white/10 bg-white/[0.04] p-0.5"
+          className="cc-well relative flex rounded-full p-0.5"
         >
           {viewPill.pillStyle && <span aria-hidden className="dsh-pill" style={viewPill.pillStyle} />}
           <button
@@ -370,7 +364,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
               view === "grid" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <LayoutGrid className="size-4" />
+            <CCIcon name="grid" className="size-4" />
           </button>
           <button
             aria-label="List view"
@@ -391,10 +385,10 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
         <button
           onClick={() => void navigate({ to: "/app", search: {} })}
           className={cn(
-            "rounded-full border px-3 py-1 text-sm transition-colors duration-200",
+            "rounded-full border px-3 py-1 text-sm transition-[color,background-color,box-shadow] duration-200",
             !selectedPlaylist
-              ? "border-transparent bg-primary text-primary-foreground"
-              : "border-white/8 bg-white/[0.04] text-muted-foreground hover:border-white/14 hover:text-foreground"
+              ? "cc-chip-on border-transparent"
+              : "cc-well border-transparent text-muted-foreground hover:text-foreground"
           )}
         >
           All videos
@@ -410,10 +404,10 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
               })
             }
             className={cn(
-              "rounded-full border px-3 py-1 text-sm transition-colors duration-200",
+              "rounded-full border px-3 py-1 text-sm transition-[color,background-color,box-shadow] duration-200",
               playlistFilter === p.playlistId
-                ? "border-transparent bg-primary text-primary-foreground"
-                : "border-white/8 bg-white/[0.04] text-muted-foreground hover:border-white/14 hover:text-foreground"
+                ? "cc-chip-on border-transparent"
+                : "cc-well border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
             {p.emoji ? `${p.emoji} ` : ""}
@@ -446,9 +440,9 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
         ) : (
           <button
             onClick={() => setCreatingPlaylist(true)}
-            className="inline-flex items-center gap-1 rounded-full border border-dashed border-white/12 px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-white/25 hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-cc-ink/15 px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-cc-ink/30 hover:text-foreground"
           >
-            <Plus className="size-3.5" /> New playlist
+            <CCIcon name="plus" className="size-3.5" /> New playlist
           </button>
         )}
         {selectedPlaylist && (
@@ -461,7 +455,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
               deletePlaylist.mutate({ playlistId: selectedPlaylist.playlistId })
             }
           >
-            <Trash2 className="mr-1 size-3.5" /> Delete playlist
+            <CCIcon name="trash" className="mr-1 size-3.5" /> Delete playlist
           </Button>
         )}
       </div>
@@ -491,7 +485,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
                           href={`/share/${r.videoId}?t=${Math.floor(seg.start)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="block rounded px-2 py-1 text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground"
+                          className="block rounded px-2 py-1 text-muted-foreground transition-colors hover:bg-cc-ink/[0.06] hover:text-foreground"
                         >
                           <span className="mr-2 font-mono text-xs tabular-nums">
                             {`${Math.floor(seg.start / 60)}:${String(Math.floor(seg.start % 60)).padStart(2, "0")}`}
@@ -540,16 +534,16 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
 
       {/* Bulk-selection bar — above the recording bar docked on every page. */}
       {selectedIds.size > 0 && (
-        <div className="dsh-dock-in fixed inset-x-0 bottom-[6.5rem] z-50 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-3 rounded-full border border-white/12 bg-[#1b1b1e]/90 px-4 py-2 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl">
+        <div className="dsh-dock-in fixed inset-x-0 bottom-[6.5rem] z-50 mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-3 rounded-full bg-popover px-4 py-2 shadow-[0_0_0_0.5px_var(--cc-hairline),var(--cc-shadow-pop)]">
           <span className="inline-flex items-center gap-2 text-sm tabular-nums">
-            <span aria-hidden className="size-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(103,232,249,0.8)]" />
+            <span aria-hidden className="size-1.5 rounded-full bg-primary" />
             {selectedIds.size} selected
           </span>
           {playlists.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="rounded-full">
-                  <ListVideo className="mr-1.5 size-3.5" /> Add to playlist
+                  <CCIcon name="film" className="mr-1.5 size-3.5" /> Add to playlist
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" side="top">
@@ -565,7 +559,9 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
                       setSelectedIds(new Set());
                     }}
                   >
-                    <span className="mr-2 w-4 text-center">{p.emoji ?? ""}</span>
+                    <span className="cc-dd-glyph" aria-hidden>
+                      {p.emoji ?? ""}
+                    </span>
                     {p.name}
                   </DropdownMenuItem>
                 ))}
@@ -578,7 +574,7 @@ export function VideoLibrary({ playlistFilter }: { playlistFilter?: string }) {
             className="rounded-full"
             onClick={() => setDeleteTargets([...selectedIds])}
           >
-            <Trash2 className="mr-1.5 size-3.5" /> Delete
+            <CCIcon name="trash" className="mr-1.5 size-3.5" /> Delete
           </Button>
           <Button
             variant="ghost"

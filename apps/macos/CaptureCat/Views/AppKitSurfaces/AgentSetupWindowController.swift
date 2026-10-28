@@ -132,8 +132,8 @@ final class AgentSetupViewController: NSViewController {
         icon.wantsLayer = true
         icon.translatesAutoresizingMaskIntoConstraints = false
         let image = NSImageView()
-        image.image = NSImage(systemSymbolName: client.symbol, accessibilityDescription: client.name)?
-            .withSymbolConfiguration(.init(pointSize: 13, weight: .medium))
+        image.image = CCIcon.image(client.symbol, pointSize: 13, weight: .medium,
+                                   accessibilityDescription: client.name)
         image.translatesAutoresizingMaskIntoConstraints = false
         icon.addSubview(image)
         NSLayoutConstraint.activate([

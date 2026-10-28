@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { toast } from "sonner";
-import {
-  BadgeCheck,
-  Copy,
-  KeyRound,
-  PlayIcon,
-  ShieldCheck,
-  Trash2,
-  UserPlus,
-  Users,
-  Video,
-} from "lucide-react";
+import { KeyRound, UserPlus } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 import { API_URL, SITE_URL } from "@/lib/api-url";
@@ -45,6 +35,7 @@ import {
 } from "@/components/dashboard/studio";
 import { LibraryArt, SsoArt, TeamArt } from "@/components/dashboard/empty-art";
 import { cn } from "@/lib/utils";
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 /** A teammate: initials on a hue derived from their name (TeamAvatar's
  *  recipe), round where the team's mark is square. */
@@ -81,8 +72,8 @@ function MemberRowsSkeleton() {
 }
 
 const ROLE_BADGE: Record<string, string> = {
-  owner: "border-cyan-300/30 bg-cyan-400/10 text-cyan-200",
-  admin: "border-violet-300/25 bg-violet-400/10 text-violet-200",
+  owner: "border-primary/30 bg-primary/10 text-primary",
+  admin: "border-cc-violet/25 bg-cc-violet/10 text-cc-violet-text",
 };
 
 /**
@@ -142,7 +133,7 @@ function CreateTeamCard() {
   return (
     <Panel
       className="max-w-3xl"
-      icon={<Users />}
+      icon={<CCIcon name="person-circle"  />}
       title="Create your team"
       description="A shared library for your company’s recordings — invite teammates, collect every share in one place, and (on Business) bring your own single sign-on."
     >
@@ -288,7 +279,7 @@ function MembersCard({
             <div className="flex items-center gap-2">
               <Badge
                 variant="outline"
-                className={cn("text-[10px] capitalize", ROLE_BADGE[m.role] ?? "border-white/12 bg-white/[0.04] text-muted-foreground")}
+                className={cn("text-[10px] capitalize", ROLE_BADGE[m.role] ?? "border-cc-ink/12 bg-cc-ink/[0.04] text-muted-foreground")}
               >
                 {m.role}
               </Badge>
@@ -306,7 +297,7 @@ function MembersCard({
                     else await refresh();
                   }}
                 >
-                  <Trash2 />
+                  <CCIcon name="trash"  />
                 </Button>
               )}
             </div>
@@ -316,11 +307,11 @@ function MembersCard({
         {pending.map((i) => (
           <Row key={i.id} dashed className="dsh-rise">
             <div className="flex min-w-0 items-center gap-3">
-              <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full border border-dashed border-white/25 text-muted-foreground">
+              <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full border border-dashed border-cc-ink/25 text-muted-foreground">
                 <UserPlus className="size-3.5" />
               </span>
               <span className="truncate text-sm">{i.email}</span>
-              <Badge variant="outline" className="gap-1.5 border-amber-400/25 bg-amber-400/10 text-[10px] text-amber-200">
+              <Badge variant="outline" className="gap-1.5 border-cc-amber/25 bg-cc-amber/10 text-[10px] text-cc-amber-text">
                 <LiveDot tone="amber" className="size-1.5" />
                 invited
               </Badge>
@@ -328,7 +319,7 @@ function MembersCard({
             {canManage && (
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="xs" onClick={() => copyInviteLink(i.id)}>
-                  <Copy data-icon="inline-start" /> Copy link
+                  <CCIcon name="clipboard" data-icon="inline-start" /> Copy link
                 </Button>
                 <Button
                   variant="ghost"
@@ -339,7 +330,7 @@ function MembersCard({
                     await refresh();
                   }}
                 >
-                  <Trash2 />
+                  <CCIcon name="trash"  />
                 </Button>
               </div>
             )}
@@ -460,7 +451,7 @@ function useTeamLibrary(orgId: string) {
 function TeamLibraryCard({ videos, loaded }: { videos: TeamVideo[]; loaded: boolean }) {
   return (
     <Section
-      icon={<Video />}
+      icon={<CCIcon name="film"  />}
       title="Team library"
       badge={<PlanChip plan="pro" />}
       description="Videos teammates shared to the team. Add yours from a video’s share settings."
@@ -487,9 +478,9 @@ function TeamLibraryCard({ videos, loaded }: { videos: TeamVideo[]; loaded: bool
             <span className="flex min-w-0 items-center gap-3">
               <span
                 aria-hidden
-                className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05] text-white/70 transition-colors group-hover:text-white"
+                className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-cc-ink/10 bg-cc-ink/[0.05] text-cc-ink/70 transition-colors group-hover:text-foreground"
               >
-                <PlayIcon className="size-3 fill-current" />
+                <CCIcon name="play-fill" className="size-3 fill-current" />
               </span>
               <span className="truncate text-sm">{v.fileName}</span>
             </span>
@@ -524,7 +515,7 @@ function CopyValue({ label, value, mono = true }: { label: string; value: string
             toast.success(`${label} copied`);
           }}
         >
-          <Copy />
+          <CCIcon name="clipboard"  />
         </Button>
       </div>
     </div>
@@ -565,11 +556,11 @@ function ProviderRow({
   });
 
   return (
-    <div className="dsh-rise rounded-[0.875rem] border border-white/8 bg-white/[0.025]">
+    <div className="dsh-rise rounded-[0.875rem] border border-cc-ink/8 bg-cc-ink/[0.025]">
       <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           {provider.domainVerified ? (
-            <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
+            <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-cc-green" />
           ) : (
             <LiveDot tone="amber" className="size-1.5" />
           )}
@@ -578,11 +569,11 @@ function ProviderRow({
             {provider.type}
           </Badge>
           {provider.domainVerified ? (
-            <Badge variant="outline" className="gap-1 border-emerald-400/25 bg-emerald-400/10 text-[10px] text-emerald-300">
-              <BadgeCheck /> verified
+            <Badge variant="outline" className="gap-1 border-cc-green/25 bg-cc-green/10 text-[10px] text-cc-green-text">
+              <CCIcon name="seal-check"  /> verified
             </Badge>
           ) : (
-            <Badge variant="outline" className="border-amber-400/25 bg-amber-400/10 text-[10px] text-amber-200">
+            <Badge variant="outline" className="border-cc-amber/25 bg-cc-amber/10 text-[10px] text-cc-amber-text">
               pending DNS
             </Badge>
           )}
@@ -601,7 +592,7 @@ function ProviderRow({
                   aria-label={`Remove ${provider.providerId}`}
                   disabled={remove.isPending}
                 >
-                  <Trash2 />
+                  <CCIcon name="trash"  />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -625,7 +616,7 @@ function ProviderRow({
       </div>
 
       {open && (
-        <div className="space-y-4 border-t border-white/8 px-3.5 py-3.5">
+        <div className="space-y-4 border-t border-cc-ink/8 px-3.5 py-3.5">
           {!provider.domainVerified && provider.dnsRecord && (
             <div className="space-y-3">
               <p className="text-[13px] text-muted-foreground">
@@ -643,7 +634,7 @@ function ProviderRow({
                   disabled={verify.isPending}
                   onClick={() => verify.mutate({ organizationId: orgId, providerId: provider.providerId })}
                 >
-                  <ShieldCheck data-icon="inline-start" />
+                  <CCIcon name="seal-check" data-icon="inline-start" />
                   {verify.isPending ? "Checking DNS…" : "Verify domain"}
                 </Button>
               )}
@@ -775,13 +766,13 @@ function SsoCard({ orgId }: { orgId: string }) {
 
           {adding && data?.enabled && (
             <form
-              className="dsh-rise space-y-4 rounded-[0.875rem] border border-white/8 bg-white/[0.025] p-4"
+              className="dsh-rise space-y-4 rounded-[0.875rem] border border-cc-ink/8 bg-cc-ink/[0.025] p-4"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (canSubmit && !busy) submit();
               }}
             >
-              <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-0.5 text-xs">
+              <div className="flex items-center gap-1 rounded-full border border-cc-ink/10 bg-cc-ink/[0.04] p-0.5 text-xs">
                 {(["oidc", "saml"] as const).map((k) => (
                   <button
                     key={k}

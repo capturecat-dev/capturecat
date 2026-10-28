@@ -99,9 +99,11 @@ nonisolated enum CloudDocumentReferences {
 
 nonisolated enum CloudProjectMedia {
     /// Files the Mac regenerates for itself (library thumbnail, camera
-    /// poster). Fetched when missing, never replaced: this Mac's copy is at
-    /// least as current as the cloud's.
-    static let derivedFiles = ["camera_poster.png", "thumbnail.jpg"]
+    /// poster, camera-look person mask). Fetched when missing, never
+    /// replaced: this Mac's copy is at least as current as the cloud's (a
+    /// mask that no longer fits its camera is stale by its own header and
+    /// is simply re-segmented).
+    static let derivedFiles = ["camera_poster.png", "thumbnail.jpg", "camera-mask.ccmask"]
 
     /// Prefix of in-flight downloads in the project folder: hidden, so never
     /// part of a manifest, and on the project's volume, so the final rename

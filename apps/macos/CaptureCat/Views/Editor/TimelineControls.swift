@@ -1,9 +1,8 @@
 import AppKit
 
-// AppKit twins of the timeline's SwiftUI chrome. Both are ports of controls
-// that had no equivalent in InspectorKit: `InspectorButton` is a text button
-// with the wrong idle fill, and `NSMenu` cannot render the picker rows' two-line
-// icon + title + description layout without custom item views anyway.
+// The timeline toolbar's icon button and its rich picker menus. The pickers
+// render on the shared CCKit menu surface (DesignKit/CCMenu.swift) — the same
+// one every context menu and combobox uses.
 
 // MARK: - Toolbar icon button
 
@@ -77,33 +76,26 @@ final class TimelineToolbarButton: NSControl {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     private func refreshImage() {
-        let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .semibold)
-        let image = NSImage(systemSymbolName: icon, accessibilityDescription: nil)?
-            .withSymbolConfiguration(config)
-        image?.isTemplate = true
-        imageView.image = image
+        imageView.image = CCIcon.image(icon, pointSize: pointSize, weight: .semibold)
         imageView.contentTintColor = tint ?? EditorThemeKit.textPrimary
     }
 
-    /// Every toolbar icon is a raised CCMaterial key (kit-wide skeuomorphism,
-    /// 2026-09-01) — rest on the elevated panel tint, hover lifts the tint
-    /// toward the ink, active takes the selection fill. The press is
-    /// CCMaterial.press (tint in place), never a re-dress.
+    /// 2026 look (replaces the 2026-09-01 raised keys): toolbar icons are
+    /// GHOST buttons — no surface at rest, a flat soft wash on hover, and a
+    /// floating chip when active. The press is CCMaterial.press (tint in
+    /// place), never a re-dress.
     private func refreshFill() {
         guard let layer else { return }
         let ink: NSColor = CCTheme.isDark ? .white : .black
-        let tint: NSColor
         if isActive {
-            tint = EditorThemeKit.activeFill
+            CCMaterial.dress(layer, as: .raised(tint: EditorThemeKit.activeFill), radius: EditorThemeKit.controlRadius)
         } else if isHovering && isEnabled {
-            tint = EditorThemeKit.panelElevated.blended(withFraction: 0.08, of: ink) ?? EditorThemeKit.panelElevated
+            let wash = EditorThemeKit.panelElevated.blended(withFraction: 0.06, of: ink) ?? EditorThemeKit.panelElevated
+            CCMaterial.dress(layer, as: .recessed(tint: wash), radius: EditorThemeKit.controlRadius)
         } else {
-            tint = EditorThemeKit.panelElevated
+            CCMaterial.strip(layer)
+            layer.backgroundColor = NSColor.clear.cgColor
         }
-        CCMaterial.dress(layer, as: .raised(tint: tint), radius: EditorThemeKit.controlRadius)
-        // Packed bar: fifteen keys 4pt apart — cast shadows would smear
-        // into one another, so the keys stand on their under-edge alone.
-        CCMaterial.suppressShadow(layer)
     }
 
     override func layout() {
@@ -144,173 +136,14 @@ final class TimelineToolbarButton: NSControl {
     }
 }
 
-// MARK: - Picker popover row
-
-/// Port of the SwiftUI `AnnotationPickerItem`: a 28×28 icon chip, a bold title
-/// and a description line, with the icon chip and the whole row taking separate
-/// hover washes.
-final class TimelinePickerRow: NSControl {
-    private let iconView = NSImageView()
-    private let iconChip = NSView()
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let detailLabel = NSTextField(labelWithString: "")
-    private let onClick: () -> Void
-    private var themeObservation: CCThemeObservation?
-    /// Reports hover intent to the container's gliding wash.
-    var onHighlight: ((TimelinePickerRow, Bool) -> Void)?
-
-    private var isHovering = false {
-        didSet { refresh() }
-    }
-
-    override var isFlipped: Bool { true }
-
-    init(icon: String, title: String, detail: String, action: @escaping () -> Void) {
-        self.onClick = action
-        super.init(frame: .zero)
-        wantsLayer = true
-        layer?.cornerRadius = EditorThemeKit.controlRadius
-        layer?.cornerCurve = .continuous
-
-        iconChip.wantsLayer = true
-        iconChip.layer?.cornerRadius = EditorThemeKit.controlRadius
-        iconChip.layer?.cornerCurve = .continuous
-        let config = NSImage.SymbolConfiguration(pointSize: 15, weight: .semibold)
-        let image = NSImage(systemSymbolName: icon, accessibilityDescription: nil)?
-            .withSymbolConfiguration(config)
-        image?.isTemplate = true
-        iconView.image = image
-        iconView.imageScaling = .scaleProportionallyDown
-
-        titleLabel.stringValue = title
-        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        detailLabel.stringValue = detail
-        detailLabel.font = .systemFont(ofSize: 11)
-
-        for v in [iconChip, iconView, titleLabel, detailLabel] {
-            v.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(v)
-        }
-        NSLayoutConstraint.activate([
-            iconChip.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            iconChip.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconChip.widthAnchor.constraint(equalToConstant: 28),
-            iconChip.heightAnchor.constraint(equalToConstant: 28),
-            iconView.centerXAnchor.constraint(equalTo: iconChip.centerXAnchor),
-            iconView.centerYAnchor.constraint(equalTo: iconChip.centerYAnchor),
-
-            titleLabel.leadingAnchor.constraint(equalTo: iconChip.trailingAnchor, constant: 10),
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 7),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
-            detailLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            detailLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 1),
-            detailLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
-            detailLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -7),
-        ])
-        // Covers the initial refresh() too — fires once immediately.
-        themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    override var isEnabled: Bool {
-        didSet {
-            alphaValue = isEnabled ? 1 : 0.4
-            if !isEnabled { isHovering = false }
-        }
-    }
-
-    private func applyTheme() {
-        titleLabel.textColor = EditorThemeKit.textPrimary
-        detailLabel.textColor = EditorThemeKit.textSecondary
-        refresh()
-    }
-
-    private func refresh() {
-        let on = isHovering && isEnabled
-        // The row wash itself glides via the container's CCGlideHighlight.
-        onHighlight?(self, on)
-        iconChip.layer?.backgroundColor = (on ? EditorThemeKit.activeFill : .clear).cgColor
-        iconView.contentTintColor = on ? EditorThemeKit.textPrimary : EditorThemeKit.textSecondary
-    }
-
-    /// Hover is DISPATCHED by the popover's PickerHoverContainer — rows own
-    /// no tracking areas. (Their old .activeInKeyWindow areas never fired at
-    /// all: CaptureCatPopover's panel is non-activating and never becomes key.)
-    func setHovered(_ hovered: Bool) {
-        isHovering = hovered && isEnabled
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        guard isEnabled, bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
-        onClick()
-    }
-}
-
-/// Hover dispatcher for the picker popover — ONE .activeAlways tracking area
-/// on the container, hit-testing rows per mouse move. Per-row areas proved
-/// unreliable in borderless child panels (and .activeInKeyWindow never fires
-/// in a non-activating panel at all); this mirrors CaptureCatMenuContentView.
-@MainActor
-private final class PickerHoverContainer: NSView, CaptureCatHoverRoutable {
-    var rowsProvider: () -> [TimelinePickerRow] = { [] }
-
-    private var hoverArea: NSTrackingArea?
-    private weak var hoveredRow: TimelinePickerRow?
-    private var themeObservation: CCThemeObservation?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        themeObservation = CCThemeObservation { [weak self] in
-            self?.layer?.backgroundColor = EditorThemeKit.panel.cgColor
-        }
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let hoverArea { removeTrackingArea(hoverArea) }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect],
-            owner: self
-        )
-        addTrackingArea(area)
-        hoverArea = area
-    }
-
-    func routeHover(windowPoint: NSPoint) {
-        let point = convert(windowPoint, from: nil)
-        // Gap-tolerant: rows claim half the inter-row spacing so the wash
-        // glides across gaps instead of clearing and re-appearing.
-        let target = rowsProvider().first {
-            !$0.frame.isEmpty && convert($0.bounds, from: $0).insetBy(dx: 0, dy: -1).contains(point)
-        }
-        guard target !== hoveredRow else { return }
-        hoveredRow?.setHovered(false)
-        hoveredRow = target
-        target?.setHovered(true)
-    }
-
-    func clearHover() {
-        hoveredRow?.setHovered(false)
-        hoveredRow = nil
-    }
-
-    override func mouseEntered(with event: NSEvent) { routeHover(windowPoint: event.locationInWindow) }
-    override func mouseMoved(with event: NSEvent) { routeHover(windowPoint: event.locationInWindow) }
-    override func mouseExited(with event: NSEvent) {
-        hoveredRow?.setHovered(false)
-        hoveredRow = nil
-    }
-}
-
 // MARK: - Picker popover
 
-/// The three toolbar popovers (annotation / zoom / focus) share this container:
-/// a fixed-width stack of `TimelinePickerRow`s on the panel colour, 6pt inset.
+/// The timeline's rich pickers (annotation / effects / focus): the house menu
+/// surface (CCMenuStage + CCMenuList, see DesignKit/CCMenu.swift) with RICH
+/// rows — an icon tile, a title and a description that wraps (never
+/// truncates) — grouped into sections. A section whose rows are ALL
+/// unavailable says why in one caption under its header instead of showing
+/// a stack of dead rows.
 @MainActor
 enum TimelinePickerPopover {
     struct Row {
@@ -318,56 +151,55 @@ enum TimelinePickerPopover {
         let title: String
         let detail: String
         var isEnabled = true
+        /// Replaces `detail` while the row is disabled — the reason it is.
+        var disabledDetail: String? = nil
         let action: () -> Void
     }
 
-    static func make(width: CGFloat, rows: [Row]) -> CaptureCatPopover {
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 2
-        stack.edgeInsets = NSEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
-        stack.translatesAutoresizingMaskIntoConstraints = false
+    struct Section {
+        /// Sentence-case header; nil for an unheaded group.
+        var title: String?
+        var rows: [Row]
+        /// Shown under the header when EVERY row in the section is disabled.
+        var disabledCaption: String? = nil
+    }
 
+    static func make(rows: [Row]) -> CaptureCatPopover {
+        make(sections: [Section(title: nil, rows: rows)])
+    }
+
+    static func make(sections: [Section]) -> CaptureCatPopover {
         let popover = CaptureCatPopover()
-        for row in rows {
-            let control = TimelinePickerRow(
-                icon: row.icon, title: row.title, detail: row.detail,
-                action: { [weak popover] in
-                    row.action()
-                    popover?.close()
-                }
-            )
-            control.isEnabled = row.isEnabled
-            control.translatesAutoresizingMaskIntoConstraints = false
-            stack.addArrangedSubview(control)
-            control.widthAnchor.constraint(equalToConstant: width - 12).isActive = true
+        let list = CCMenuList()
+        var actions: [ObjectIdentifier: () -> Void] = [:]
+        for (index, section) in sections.enumerated() where !section.rows.isEmpty {
+            if index > 0 { list.addSeparator() }
+            let allDisabled = section.rows.allSatisfy { !$0.isEnabled }
+            if let title = section.title {
+                list.addHeader(title, caption: allDisabled ? section.disabledCaption : nil)
+            }
+            for row in section.rows {
+                let detail = row.isEnabled ? row.detail : (row.disabledDetail ?? row.detail)
+                let view = CCMenuRow(.init(style: .rich, icon: .named(row.icon), title: row.title,
+                                           detail: detail, isEnabled: row.isEnabled))
+                list.add(view)
+                actions[ObjectIdentifier(view)] = row.action
+            }
+        }
+        list.onActivate = { [weak popover] row in
+            guard let action = actions[ObjectIdentifier(row)] else { return }
+            popover?.commit(row, action: action)
         }
 
-        let container = PickerHoverContainer()
-        // Background is themed by the container's own CCThemeObservation.
-        // Same gliding hover wash as the menus — one design language.
-        let glide = CCGlideHighlight(host: container)
-        for case let row as TimelinePickerRow in stack.arrangedSubviews {
-            row.onHighlight = { row, active in glide.update(row: row, active: active) }
-        }
-        container.rowsProvider = { [weak stack] in
-            (stack?.arrangedSubviews ?? []).compactMap { $0 as? TimelinePickerRow }
-        }
-        container.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: container.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ])
-
+        let width = list.fittingWidth()
+        list.layoutEntries(width: width)
+        // Full height here; CaptureCatPopover caps it to the screen (and
+        // turns the scroller on) at show time.
+        let scroll = list.embedInScrollView(visibleHeight: list.frame.height)
         let controller = NSViewController()
-        controller.view = container
-        container.layoutSubtreeIfNeeded()
-        let height = stack.fittingSize.height
+        controller.view = scroll
         popover.contentViewController = controller
-        popover.contentSize = NSSize(width: width, height: height)
+        popover.contentSize = list.frame.size
         return popover
     }
 }

@@ -34,6 +34,8 @@ export interface ControllerHooks {
   exportVideo?(): void;
   /** Top-bar Share: export an MP4 + upload a share link (ui/export/useShareCenter). */
   share?(): void;
+  /** A camera look was applied: make sure the camera has a fresh person mask (state/cameraMask.ts). */
+  cameraLookAdded?(): void;
 }
 
 export class EditorController {
@@ -294,6 +296,12 @@ export class EditorController {
         return;
       case "cameraHide":
         this.apply(E.addCameraLayoutRegion("screenOnly"));
+        return;
+      case "cameraCutout":
+      case "cameraPopOut":
+        // A 4 s Bubble region with the look (docs/camera-cutout.md §9); the
+        // look draws once the camera has a fresh person mask.
+        if (this.apply(E.addCameraLayoutRegion("bubble", pick === "cameraCutout" ? "cutout" : "popOut"))) this.hooks.cameraLookAdded?.();
         return;
     }
   }

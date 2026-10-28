@@ -234,8 +234,7 @@ final class CaptureCatButton: NSControl {
     private func refreshSymbol() {
         imageView.isHidden = symbol == nil
         if let symbol {
-            imageView.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: 12, weight: .semibold))
+            imageView.image = CCIcon.image(symbol, pointSize: 12, weight: .semibold)
         } else {
             imageView.image = nil
         }
@@ -401,7 +400,7 @@ final class CaptureCatToggle: NSControl {
             : EditorThemeKit.panelElevated
         let fill = fillColor.cgColor
         let border = (isOn ? NSColor.clear : EditorThemeKit.hairline).cgColor
-        // Skeuo: recessed track, glossy raised thumb (matches CCToggle).
+        // 2026 look: a flat well track and a floating white thumb (matches CCToggle).
         if let layer {
             CCMaterial.dress(layer, as: .recessed(tint: fillColor),
                              radius: CCRadius.full.resolved(for: 18))
@@ -450,16 +449,22 @@ final class CaptureCatToggle: NSControl {
 
 // MARK: - Shared floating panel
 
+/// The kit menu body receives the presenters' polled hover.
+extension CCMenuList: CaptureCatHoverRoutable {}
+
 /// Borderless replacement for `NSPopover`. The caller supplies custom content;
-/// this class supplies the same Captures-style elevated surface and transient
-/// dismissal used by dropdowns, without an Aqua arrow or material bezel.
+/// this class supplies the house floating surface (CCMenuStage: `popover`
+/// token, .lg radius, hairline, soft wide shadow), its open/close motion and
+/// transient dismissal — the same surface every menu uses. Content that is a
+/// CCMenuList (TimelinePickerPopover) also gets ↑/↓/↩/type-select, the row
+/// stagger and the pick blink.
 @MainActor
 final class CaptureCatPopover: NSObject {
     static let didCloseNotification = Notification.Name("CaptureCatPopoverDidClose")
 
     var contentViewController: NSViewController?
     var contentSize: NSSize = .zero
-    var isShown: Bool { panel.isVisible }
+    var isShown: Bool { panel.isVisible && !(stage?.isClosing ?? true) }
 
     private weak var hoverTarget: CaptureCatHoverRoutable?
     private var hoverPoller: CaptureCatHoverPoller?
@@ -470,23 +475,24 @@ final class CaptureCatPopover: NSObject {
         backing: .buffered,
         defer: false
     )
+    private var stage: CCMenuStage?
+    private weak var menuList: CCMenuList?
     private weak var parentWindow: NSWindow?
     private var localMonitor: Any?
     private var globalMonitor: Any?
+    private var isCommitting = false
 
     override init() {
         super.init()
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = .popUpMenu
-        panel.collectionBehavior = [.transient, .ignoresCycle]
-        panel.acceptsMouseMovedEvents = true
+        CCMenuStage.configure(panel)
     }
 
     func show(relativeTo positioningRect: NSRect, of positioningView: NSView, preferredEdge: NSRectEdge) {
-        guard let window = positioningView.window, let controller = contentViewController else { return }
+        guard let window = positioningView.window, let controller = contentViewController,
+              let anchor = CaptureCatPopupGeometry.screenRect(of: positioningRect, in: positioningView)
+        else { return }
         close()
+        isCommitting = false
         parentWindow = window
 
         let content = controller.view
@@ -494,34 +500,43 @@ final class CaptureCatPopover: NSObject {
         var size = contentSize
         if size.width <= 0 || size.height <= 0 { size = controller.preferredContentSize }
         if size.width <= 0 || size.height <= 0 { size = content.fittingSize }
-        size.width = max(1, size.width)
-        size.height = max(1, size.height)
+        let list = Self.findMenuList(in: content)
+        menuList = list
+        // Menus own their padding; custom content keeps a 1 pt inset so the
+        // hairline edge stays visible around its own background.
+        let inset: CGFloat = list == nil ? 1 : 0
+        var surface = NSSize(width: max(1, size.width) + inset * 2, height: max(1, size.height) + inset * 2)
+        if let list {
+            // Height grows to fit; a menu scrolls only past the screen.
+            surface.height = min(surface.height, CCMenuStage.maxSurfaceHeight(for: anchor))
+            if let scroll = list.enclosingScrollView {
+                let scrolls = list.frame.height > surface.height + 0.5
+                scroll.hasVerticalScroller = scrolls
+                scroll.verticalScrollElasticity = scrolls ? .allowed : .none
+            }
+        }
 
-        let chrome = CaptureCatPopoverChromeView()
-        content.translatesAutoresizingMaskIntoConstraints = false
-        chrome.addSubview(content)
-        NSLayoutConstraint.activate([
-            content.leadingAnchor.constraint(equalTo: chrome.leadingAnchor, constant: 1),
-            content.trailingAnchor.constraint(equalTo: chrome.trailingAnchor, constant: -1),
-            content.topAnchor.constraint(equalTo: chrome.topAnchor, constant: 1),
-            content.bottomAnchor.constraint(equalTo: chrome.bottomAnchor, constant: -1),
-        ])
-        panel.contentView = chrome
-        panel.setContentSize(NSSize(width: size.width + 2, height: size.height + 2))
+        let stage = CCMenuStage()
+        stage.setContent(content, inset: inset)
+        stage.resize(surfaceSize: surface)
+        self.stage = stage
+        panel.contentView = stage
 
-        guard let anchor = CaptureCatPopupGeometry.screenRect(of: positioningRect, in: positioningView) else { return }
         let origin = CaptureCatPopupGeometry.origin(
             anchor: anchor,
-            popupSize: panel.frame.size,
+            popupSize: stage.surfaceSize,
             prefersAbove: preferredEdge == .maxY,
             horizontalAlignment: .center
         )
-        panel.setFrameOrigin(origin)
+        panel.setFrame(stage.panelFrame(surfaceOrigin: origin), display: false)
 
         window.addChildWindow(panel, ordered: .above)
-        panel.alphaValue = 0
+        stage.prepareForOpen()
         panel.orderFront(nil)
-        CaptureCatPopupAnimator.present(panel, content: chrome, fromAbove: preferredEdge != .maxY)
+        // Pivot on the edge that faces the trigger.
+        let edge: CCMenuStage.Edge = origin.y >= anchor.maxY - 0.5 ? .bottom : .top
+        stage.playOpen(from: edge, anchor: NSPoint(x: anchor.midX, y: anchor.midY), list: list)
+
         // Polled hover, same rationale as CaptureCatMenuSession: tracking areas
         // AND moved-event routing drop out over panel overhang; polling the
         // window-server cursor position cannot.
@@ -531,21 +546,55 @@ final class CaptureCatPopover: NSObject {
         }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { [weak self] event in
             guard let self else { return event }
-            if event.type == .keyDown, event.keyCode == 53 {
+            if event.type == .keyDown { return self.handleKey(event) ? nil : event }
+            if event.window !== self.panel
+                || !(self.stage?.surfaceContains(windowPoint: event.locationInWindow) ?? false) {
                 self.close()
-                return nil
             }
-            if event.type != .keyDown, event.window !== self.panel { self.close() }
             return event
         }
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            guard !CCMenu.probeIsolated else { return }
             self?.close()
         }
     }
 
+    /// ⎋ closes any popover; menu-list content also takes ↑/↓/↩ and
+    /// type-select (the panel never becomes key, so keys arrive here).
+    private func handleKey(_ event: NSEvent) -> Bool {
+        if event.keyCode == 53 {
+            close()
+            return true
+        }
+        guard let list = menuList else { return false }
+        if isCommitting { return true }
+        switch event.keyCode {
+        case 125: list.moveHighlight(1); return true
+        case 126: list.moveHighlight(-1); return true
+        case 36, 76: return list.activateHighlighted()
+        default:
+            guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  let chars = event.charactersIgnoringModifiers, chars.count == 1,
+                  chars.rangeOfCharacter(from: .alphanumerics) != nil else { return false }
+            return list.typeSelect(chars)
+        }
+    }
+
+    /// A pick in a menu-list popover: the row's wash blinks once, then the
+    /// popover closes and `action` runs (macOS order).
+    func commit(_ row: CCMenuRow, action: @escaping () -> Void) {
+        guard !isCommitting, let list = menuList else { return }
+        isCommitting = true
+        stopTracking()
+        list.pulse(row) { [weak self] in
+            self?.close()
+            action()
+        }
+    }
+
     private func routeHover(screenPoint: NSPoint) {
-        guard let hoverTarget else { return }
-        if panel.isVisible, panel.frame.contains(screenPoint) {
+        guard let hoverTarget, !isCommitting else { return }
+        if panel.isVisible, let surface = stage?.surfaceScreenRect, surface.contains(screenPoint) {
             hoverTarget.routeHover(windowPoint: panel.convertPoint(fromScreen: screenPoint))
         } else {
             hoverTarget.clearHover()
@@ -560,82 +609,51 @@ final class CaptureCatPopover: NSObject {
         return nil
     }
 
-    func close() {
-        let wasVisible = panel.isVisible
+    private static func findMenuList(in root: NSView) -> CCMenuList? {
+        if let match = root as? CCMenuList { return match }
+        if let scroll = root as? NSScrollView, let list = scroll.documentView as? CCMenuList { return list }
+        for sub in root.subviews {
+            if let found = findMenuList(in: sub) { return found }
+        }
+        return nil
+    }
+
+    private func stopTracking() {
         if let localMonitor { NSEvent.removeMonitor(localMonitor) }
         if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
         localMonitor = nil
         globalMonitor = nil
         hoverPoller?.stop()
         hoverPoller = nil
-        hoverTarget?.clearHover()
-        parentWindow?.removeChildWindow(panel)
-        panel.orderOut(nil)
-        if wasVisible { NotificationCenter.default.post(name: Self.didCloseNotification, object: self) }
-    }
-}
-
-@MainActor
-private final class CaptureCatPopoverChromeView: NSView {
-    private var themeObservation: CCThemeObservation?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        layer?.cornerRadius = CCTheme.radius(.lg)
-        layer?.cornerCurve = .continuous
-        layer?.borderWidth = 1
-        layer?.shadowOpacity = 0.46
-        layer?.shadowRadius = 18
-        layer?.shadowOffset = CGSize(width: 0, height: -6)
-        themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
     }
 
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    private func applyTheme() {
-        layer?.backgroundColor = EditorThemeKit.panel.cgColor
-        layer?.borderColor = EditorThemeKit.hairline.cgColor
-        layer?.shadowColor = NSColor.black.cgColor
-    }
-}
-
-// MARK: - Popup presentation animation
-
-/// One entrance/exit animation for every floating surface (menus, popovers,
-/// dropdowns): fade plus a small Keynote-style scale settle from the anchored
-/// edge. Exit is a quick fade so dismissal never feels laggy.
-@MainActor
-enum CaptureCatPopupAnimator {
-    static func present(_ panel: NSWindow, content: NSView, fromAbove: Bool) {
-        content.wantsLayer = true
-        if let layer = content.layer {
-            let frame = layer.frame
-            layer.anchorPoint = CGPoint(x: 0.5, y: fromAbove ? 1 : 0)
-            layer.position = CGPoint(
-                x: frame.midX,
-                y: fromAbove ? frame.maxY : frame.minY
-            )
-            layer.transform = CATransform3DMakeScale(0.96, 0.96, 1)
-            CCMotion.spring(layer, keyPath: "transform.scale", to: 1.0, .smooth)
+    func close() {
+        let wasShown = isShown
+        stopTracking()
+        guard let closing = stage, panel.isVisible, !closing.isClosing else { return }
+        let panel = self.panel
+        let parent = parentWindow
+        closing.playClose { [weak self] in
+            // Re-shown during the fade: the panel now carries a new stage.
+            if let self, self.stage !== closing { return }
+            parent?.removeChildWindow(panel)
+            panel.orderOut(nil)
         }
-        CCMotion.run(duration: 0.18, curve: CCMotion.glide) {
-            panel.animator().alphaValue = 1
-        }
+        if wasShown { NotificationCenter.default.post(name: Self.didCloseNotification, object: self) }
     }
 
-    static func dismiss(_ panel: NSWindow, completion: @escaping () -> Void) {
-        CCMotion.run(duration: 0.12, curve: CCMotion.glide, {
-            panel.animator().alphaValue = 0
-        }, completion: completion)
-    }
+    // MARK: - Harness seams
+
+    var probePanel: NSWindow { panel }
+    var probeStage: CCMenuStage? { stage }
+    var probeList: CCMenuList? { menuList }
 }
 
 // MARK: - Captures-style menu surface
 
-/// Presents an `NSMenu` model using the same flat floating surface as the
-/// Captures command-K results. Existing menu construction code stays intact;
-/// only its rendering is replaced, which keeps actions and validation DRY.
+/// Presents an `NSMenu` model on the house menu surface (CCMenuStage +
+/// CCMenuList). Existing menu construction code stays intact; only its
+/// rendering is replaced, which keeps actions and validation DRY.
 @MainActor
 enum CaptureCatMenuPresenter {
     enum Edge { case above, below }
@@ -654,7 +672,7 @@ enum CaptureCatMenuPresenter {
         dismiss()
         let session = CaptureCatMenuSession(menu: menu, parentWindow: window)
         active = session
-        session.onDismiss = { active = nil }
+        session.onDismiss = { if active === session { active = nil } }
         session.show(relativeTo: sourceOnScreen, edge: edge, selectedItem: selectedItem)
     }
 
@@ -665,7 +683,7 @@ enum CaptureCatMenuPresenter {
         dismiss()
         let session = CaptureCatMenuSession(menu: menu, parentWindow: window)
         active = session
-        session.onDismiss = { active = nil }
+        session.onDismiss = { if active === session { active = nil } }
         session.show(at: pointOnScreen)
     }
 
@@ -673,30 +691,47 @@ enum CaptureCatMenuPresenter {
         active?.dismiss()
         active = nil
     }
+
+    // MARK: Harness seams
+
+    struct ProbeSurface {
+        let panel: NSWindow
+        let stage: CCMenuStage
+        let list: CCMenuList
+    }
+
+    /// The open root menu (nil when none).
+    static var probeRoot: ProbeSurface? {
+        active.map { ProbeSurface(panel: $0.panel, stage: $0.stage, list: $0.list) }
+    }
+
+    /// The root menu's open flyout (nil when none).
+    static var probeFlyout: ProbeSurface? {
+        active?.childSession.map { ProbeSurface(panel: $0.panel, stage: $0.stage, list: $0.list) }
+    }
 }
 
 @MainActor
 private final class CaptureCatMenuSession: NSObject {
     var onDismiss: (() -> Void)?
 
-    private let panel: NSPanel
+    fileprivate let panel: NSPanel
+    fileprivate let stage = CCMenuStage()
+    fileprivate private(set) var list = CCMenuList()
     private weak var parentWindow: NSWindow?
     private let menu: NSMenu
-    private var selectedRow = -1
-    private var rows: [CaptureCatMenuRow] = []
-    private weak var menuContent: CaptureCatMenuContentView?
     private var localMonitor: Any?
     private var globalMonitor: Any?
     private var hoverPoller: CaptureCatHoverPoller?
-    private var anchorRect = NSRect.zero
-    private var edge: CaptureCatMenuPresenter.Edge = .below
-    private var fixedPoint: NSPoint?
+    private var isDismissed = false
+    /// A row was picked: the menu is inert while its wash blinks.
+    private var isCommitting = false
 
     // Flyout chain: submenus open as sibling sessions to the side, macOS-style.
     private weak var parentSession: CaptureCatMenuSession?
-    private var childSession: CaptureCatMenuSession?
+    fileprivate private(set) var childSession: CaptureCatMenuSession?
     /// The row whose submenu is currently flown out (kept highlighted).
-    private weak var flyoutRow: CaptureCatMenuRow?
+    private weak var flyoutRow: CCMenuRow?
     private var hoverTimer: Timer?
 
     init(menu: NSMenu, parentWindow: NSWindow) {
@@ -709,42 +744,48 @@ private final class CaptureCatMenuSession: NSObject {
             defer: false
         )
         super.init()
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = .popUpMenu
-        panel.collectionBehavior = [.transient, .ignoresCycle]
-        panel.hidesOnDeactivate = false
-        panel.acceptsMouseMovedEvents = true
+        CCMenuStage.configure(panel)
     }
 
     func show(relativeTo rect: NSRect, edge: CaptureCatMenuPresenter.Edge, selectedItem: NSMenuItem?) {
-        anchorRect = rect
-        self.edge = edge
-        rebuild(selectedItem: selectedItem)
-        installAndOrder()
+        rebuild(selectedItem: selectedItem, anchor: rect)
+        let origin = CaptureCatPopupGeometry.origin(
+            anchor: rect,
+            popupSize: stage.surfaceSize,
+            prefersAbove: edge == .above,
+            horizontalAlignment: .leading,
+            gap: 5
+        )
+        place(origin)
+        installAndOrder(edge: origin.y >= rect.maxY - 0.5 ? .bottom : .top,
+                        anchor: NSPoint(x: rect.midX, y: rect.midY), scales: true)
     }
 
     func show(at point: NSPoint) {
-        fixedPoint = point
-        rebuild(selectedItem: nil)
-        installAndOrder()
+        let anchor = NSRect(origin: point, size: .zero)
+        rebuild(selectedItem: nil, anchor: anchor)
+        let origin = CaptureCatPopupGeometry.origin(
+            anchor: anchor,
+            popupSize: stage.surfaceSize,
+            prefersAbove: false,
+            horizontalAlignment: .leading,
+            gap: 2
+        )
+        place(origin)
+        installAndOrder(edge: origin.y >= point.y - 0.5 ? .bottom : .top, anchor: point, scales: true)
     }
 
     func dismiss() {
+        guard !isDismissed else { return }
+        isDismissed = true
         hoverTimer?.invalidate()
         hoverTimer = nil
         closeChild()
-        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
-        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
-        localMonitor = nil
-        globalMonitor = nil
-        hoverPoller?.stop()
-        hoverPoller = nil
+        stopTracking()
         // Sessions are one-shot, so the fade-out can safely outlive `self`.
         let panel = self.panel
         let parent = parentWindow
-        CaptureCatPopupAnimator.dismiss(panel) {
+        stage.playClose {
             parent?.removeChildWindow(panel)
             panel.orderOut(nil)
         }
@@ -752,39 +793,57 @@ private final class CaptureCatMenuSession: NSObject {
         onDismiss = nil
     }
 
+    private func stopTracking() {
+        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
+        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
+        localMonitor = nil
+        globalMonitor = nil
+        hoverPoller?.stop()
+        hoverPoller = nil
+    }
+
+    private func place(_ surfaceOrigin: NSPoint) {
+        panel.setFrame(stage.panelFrame(surfaceOrigin: surfaceOrigin), display: false)
+    }
+
     // MARK: - Flyout chain plumbing
 
     private func rootSession() -> CaptureCatMenuSession { parentSession?.rootSession() ?? self }
     private func deepestSession() -> CaptureCatMenuSession { childSession?.deepestSession() ?? self }
-    private func chainPanels() -> [NSPanel] { [panel] + (childSession?.chainPanels() ?? []) }
+    private func chainSessions() -> [CaptureCatMenuSession] { [self] + (childSession?.chainSessions() ?? []) }
 
     private func closeChild() {
-        flyoutRow?.isFlyoutOpen = false
+        // The flyout row keeps the highlight for keyboard continuity (← / ⎋
+        // step back onto it); hover moves it on as usual.
+        list.pinnedRow = nil
         flyoutRow = nil
         childSession?.dismiss()
         childSession = nil
     }
 
     /// Fly the row's submenu out beside it (or focus the existing flyout).
-    private func openSubmenu(for row: CaptureCatMenuRow) {
-        guard let submenu = row.item.submenu, let parentWindow else { return }
+    private func openSubmenu(for row: CCMenuRow) {
+        guard let submenu = (row.representedObject as? NSMenuItem)?.submenu, let parentWindow else { return }
         if flyoutRow === row { return }
         closeChild()
         let child = CaptureCatMenuSession(menu: submenu, parentWindow: parentWindow)
         child.parentSession = self
         childSession = child
         flyoutRow = row
-        row.isFlyoutOpen = true
+        list.pinnedRow = row
+        list.setHighlighted(row)
         let rowOnScreen = CaptureCatPopupGeometry.screenRect(of: row.bounds, in: row) ?? .zero
         child.show(flyoutFrom: rowOnScreen, selectedItem: submenu.items.first(where: { $0.state == .on }))
     }
 
-    /// Hover intent from a row: submenu rows pop their flyout after a short
-    /// dwell; plain rows retire an open flyout after a slightly longer one
-    /// (so a diagonal move into the flyout doesn't slam it shut).
-    fileprivate func rowHovered(_ row: CaptureCatMenuRow) {
+    /// Hover intent from the list: submenu rows pop their flyout after a short
+    /// dwell (140 ms); plain rows retire an open flyout after a slightly longer
+    /// one (300 ms grace — a diagonal move into the flyout doesn't slam it shut).
+    fileprivate func rowHovered(_ row: CCMenuRow?) {
         hoverTimer?.invalidate()
-        if row.item.submenu != nil, row.item.isEnabled {
+        hoverTimer = nil
+        guard let row, !rootSession().isCommitting else { return }
+        if (row.representedObject as? NSMenuItem)?.submenu != nil, row.isEnabled {
             hoverTimer = Timer.scheduledTimer(withTimeInterval: 0.14, repeats: false) { [weak self, weak row] _ in
                 MainActor.assumeIsolated {
                     guard let self, let row else { return }
@@ -798,29 +857,32 @@ private final class CaptureCatMenuSession: NSObject {
         }
     }
 
-    /// Present as a flyout: anchored beside the parent row, flipping to the
-    /// left edge when the screen runs out.
+    /// Present as a flyout: anchored beside the parent row (its first row
+    /// level with it), flipping to the left edge when the screen runs out.
     private func show(flyoutFrom rowRect: NSRect, selectedItem: NSMenuItem?) {
-        rebuild(selectedItem: selectedItem)
-        let size = panel.frame.size
-        let visible = (NSScreen.screens.first(where: { NSMouseInRect(NSPoint(x: rowRect.midX, y: rowRect.midY), $0.frame, false) })?.visibleFrame
-            ?? NSScreen.main?.visibleFrame ?? rowRect).insetBy(dx: 8, dy: 8)
-        var x = rowRect.maxX + 4
-        if x + size.width > visible.maxX { x = rowRect.minX - size.width - 4 }
-        // Top-align the flyout with its row (menu coordinates are Y-up).
-        var y = rowRect.maxY + 6 - size.height
+        rebuild(selectedItem: selectedItem, anchor: rowRect)
+        let size = stage.surfaceSize
+        let visible = CCMenuStage.visibleFrame(for: rowRect).insetBy(dx: 8, dy: 8)
+        // The parent surface's edge sits one padding beyond the row.
+        var x = rowRect.maxX + CCMenu.padding + 2
+        var flyEdge: CCMenuStage.Edge = .left
+        if x + size.width > visible.maxX {
+            x = rowRect.minX - CCMenu.padding - 2 - size.width
+            flyEdge = .right
+        }
+        // Top-align the flyout's first row with its row (menu coordinates are Y-up).
+        var y = rowRect.maxY + CCMenu.padding - size.height
         y = min(max(y, visible.minY), visible.maxY - size.height)
-        panel.setFrameOrigin(NSPoint(x: max(visible.minX, x), y: y))
-        installAndOrder()
+        place(NSPoint(x: max(visible.minX, x), y: y))
+        installAndOrder(edge: flyEdge, anchor: NSPoint(x: rowRect.midX, y: rowRect.midY), scales: false)
     }
 
-    private func installAndOrder() {
+    private func installAndOrder(edge: CCMenuStage.Edge, anchor: NSPoint, scales: Bool) {
         parentWindow?.addChildWindow(panel, ordered: .above)
-        panel.alphaValue = 0
+        stage.prepareForOpen()
         panel.orderFront(nil)
-        if let content = panel.contentView {
-            CaptureCatPopupAnimator.present(panel, content: content, fromAbove: edge == .below)
-        }
+        // Flyouts slide + fade only; root menus also scale and stagger rows.
+        stage.playOpen(from: edge, anchor: anchor, list: parentSession == nil ? list : nil, scales: scales)
 
         // Only the root session watches events; children live and die with it.
         guard parentSession == nil else { return }
@@ -832,138 +894,117 @@ private final class CaptureCatMenuSession: NSObject {
         }
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { [weak self] event in
             guard let self else { return event }
-            if event.type == .keyDown { return self.deepestSession().handleKey(event) ? nil : event }
-            if let window = event.window, self.chainPanels().contains(where: { $0 === window }) {
+            if event.type == .keyDown {
+                if self.isCommitting { return nil }
+                return self.deepestSession().handleKey(event) ? nil : event
+            }
+            if let window = event.window,
+               let session = self.chainSessions().first(where: { $0.panel === window }),
+               session.stage.surfaceContains(windowPoint: event.locationInWindow) {
                 return event
             }
             self.dismiss()
             return event
         }
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            guard !CCMenu.probeIsolated else { return }
             self?.dismiss()
         }
     }
 
     /// Root-session hover routing: find the chain panel under the pointer and
-    /// hand its content the hover; every other session in the chain clears
-    /// (the flyout row's own highlight persists via `isFlyoutOpen`, not hover).
-    private func chainSessions() -> [CaptureCatMenuSession] { [self] + (childSession?.chainSessions() ?? []) }
-
-    private var debugTickCount = 0
-
+    /// hand its list the hover; every other session in the chain clears (the
+    /// flyout row's own highlight persists via the list's `pinnedRow`).
     private func routeHoverAcrossChain(screenPoint: NSPoint) {
-        debugTickCount += 1
+        guard !isCommitting else { return }
         for session in chainSessions() {
-            let inside = session.panel.isVisible && session.panel.frame.contains(screenPoint)
-            if CCHoverPoller.debug, debugTickCount % 30 == 0 {
-                NSLog("CCMenu chain tick mouse=%@ panel=%@ inside=%d content=%d",
-                      NSStringFromPoint(screenPoint), NSStringFromRect(session.panel.frame),
-                      inside ? 1 : 0, session.menuContent != nil ? 1 : 0)
-            }
+            let inside = session.panel.isVisible
+                && (session.stage.surfaceScreenRect?.contains(screenPoint) ?? false)
             if inside {
-                let windowPoint = session.panel.convertPoint(fromScreen: screenPoint)
-                session.menuContent?.routeHover(windowPoint: windowPoint)
+                session.list.routeHover(windowPoint: session.panel.convertPoint(fromScreen: screenPoint))
             } else {
-                session.menuContent?.clearHover()
+                session.list.clearHover()
             }
         }
     }
 
-    private func rebuild(selectedItem: NSMenuItem?) {
-        let content = CaptureCatMenuContentView()
-        menuContent = content
-        rows = []
-
+    private func rebuild(selectedItem: NSMenuItem?, anchor: NSRect) {
+        let list = CCMenuList()
         for item in menu.items where !item.isHidden {
             if item.isSeparatorItem {
-                content.addSeparator()
+                list.addSeparator()
                 continue
             }
-            let row = CaptureCatMenuRow(item: item) { [weak self] row in
-                self?.activate(row)
+            if item.isSectionHeader {
+                list.addHeader(item.title)
+                continue
             }
-            row.onHover = { [weak self] row in
-                self?.rowHovered(row)
-            }
-            rows.append(row)
-            content.add(row)
+            let row = CCMenuRow(Self.model(for: item))
+            row.representedObject = item
+            list.add(row)
         }
+        list.onActivate = { [weak self] row in self?.activate(row) }
+        list.onHover = { [weak self] row in self?.rowHovered(row) }
+        self.list = list
 
-        let width = content.preferredWidth
-        let height = min(content.preferredHeight, 430)
-        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: width, height: height))
-        scroll.drawsBackground = false
-        scroll.hasVerticalScroller = content.preferredHeight > height
-        scroll.autohidesScrollers = true
-        scroll.documentView = content
-        content.frame = NSRect(x: 0, y: 0, width: width, height: content.preferredHeight)
+        let width = list.fittingWidth()
+        list.layoutEntries(width: width)
+        let height = min(list.frame.height, CCMenuStage.maxSurfaceHeight(for: anchor))
+        let scroll = list.embedInScrollView(visibleHeight: height)
+        stage.setContent(scroll, inset: 0)
+        stage.resize(surfaceSize: NSSize(width: width, height: height))
+        panel.contentView = stage
 
-        let chrome = CaptureCatMenuChromeView(frame: scroll.frame)
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        chrome.addSubview(scroll)
-        NSLayoutConstraint.activate([
-            scroll.leadingAnchor.constraint(equalTo: chrome.leadingAnchor, constant: 1),
-            scroll.trailingAnchor.constraint(equalTo: chrome.trailingAnchor, constant: -1),
-            scroll.topAnchor.constraint(equalTo: chrome.topAnchor, constant: 1),
-            scroll.bottomAnchor.constraint(equalTo: chrome.bottomAnchor, constant: -1),
-        ])
-        panel.contentView = chrome
-        panel.setContentSize(NSSize(width: width + 2, height: height + 2))
-        reposition()
-
-        if let selectedItem, let index = rows.firstIndex(where: { $0.item === selectedItem }) {
-            select(index)
-        } else {
-            selectedRow = -1
+        if let selectedItem, let row = list.rows.first(where: { $0.representedObject === selectedItem }) {
+            list.setHighlighted(row, animated: false)
+            row.scrollToVisible(row.bounds)
         }
     }
 
-    private func reposition() {
-        let anchor = fixedPoint.map { NSRect(origin: $0, size: .zero) } ?? anchorRect
-        let origin = CaptureCatPopupGeometry.origin(
-            anchor: anchor,
-            popupSize: panel.frame.size,
-            prefersAbove: fixedPoint == nil && edge == .above,
-            horizontalAlignment: .leading,
-            gap: fixedPoint == nil ? 5 : 2
+    private static func model(for item: NSMenuItem) -> CCMenuRow.Model {
+        var color: NSColor?
+        if let attributed = item.attributedTitle, attributed.length > 0 {
+            color = attributed.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        }
+        let accessory: CCMenuRow.Accessory = item.submenu != nil ? .submenu
+            : item.state == .on ? .check
+            : item.state == .mixed ? .mixed
+            : .none
+        let shortcut = shortcut(for: item)
+        return CCMenuRow.Model(
+            style: .simple,
+            icon: item.image.map { .image($0) },
+            title: item.title,
+            titleColor: color,
+            shortcut: shortcut.isEmpty ? nil : shortcut,
+            accessory: accessory,
+            isEnabled: item.isEnabled
         )
-        panel.setFrameOrigin(origin)
     }
 
-    private func activate(_ row: CaptureCatMenuRow) {
-        let item = row.item
-        guard item.isEnabled else { return }
+    private func activate(_ row: CCMenuRow) {
+        guard let item = row.representedObject as? NSMenuItem, item.isEnabled else { return }
+        let root = rootSession()
+        guard !root.isCommitting else { return }
         if item.submenu != nil {
             openSubmenu(for: row)
             childSession?.selectFirst()
             return
         }
-        rootSession().dismiss()
-        guard let action = item.action else { return }
-        NSApp.sendAction(action, to: item.target, from: item)
+        // The pick: the menu goes inert, the row's wash blinks once, then the
+        // whole chain closes and the action runs — macOS order.
+        root.isCommitting = true
+        root.stopTracking()
+        for session in root.chainSessions() { session.hoverTimer?.invalidate() }
+        list.pulse(row) {
+            root.dismiss()
+            guard let action = item.action else { return }
+            NSApp.sendAction(action, to: item.target, from: item)
+        }
     }
 
     private func selectFirst() {
-        if let first = selectableRows().first { select(first) }
-    }
-
-    private func selectableRows() -> [Int] {
-        rows.indices.filter { rows[$0].item.isEnabled }
-    }
-
-    private func select(_ index: Int) {
-        selectedRow = index
-        for (rowIndex, row) in rows.enumerated() { row.isKeyboardSelected = rowIndex == index }
-    }
-
-    private func move(_ delta: Int) {
-        let candidates = selectableRows()
-        guard !candidates.isEmpty else { return }
-        guard let current = candidates.firstIndex(of: selectedRow) else {
-            select(delta > 0 ? candidates[0] : candidates[candidates.count - 1])
-            return
-        }
-        select(candidates[(current + delta + candidates.count) % candidates.count])
+        list.highlightFirst()
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
@@ -971,350 +1012,50 @@ private final class CaptureCatMenuSession: NSObject {
         case 53: // escape — retire the deepest flyout first, then the menu
             if let parentSession { parentSession.closeChild() } else { dismiss() }
             return true
-        case 125: move(1); return true
-        case 126: move(-1); return true
+        case 125: list.moveHighlight(1); return true
+        case 126: list.moveHighlight(-1); return true
         case 36, 76:
-            if rows.indices.contains(selectedRow) { activate(rows[selectedRow]) }
+            list.activateHighlighted()
             return true
         case 123: // left arrow — step back out of a flyout
             guard let parentSession else { return false }
             parentSession.closeChild()
             return true
-        case 124: // right arrow — fly the selected submenu out
-            if rows.indices.contains(selectedRow), rows[selectedRow].item.submenu != nil {
-                activate(rows[selectedRow])
+        case 124: // right arrow — fly the highlighted submenu out
+            if let row = list.highlightedRow, (row.representedObject as? NSMenuItem)?.submenu != nil {
+                activate(row)
                 return true
             }
             return false
-        default: return false
-        }
-    }
-}
-
-@MainActor
-private final class CaptureCatMenuChromeView: NSView {
-    private var themeObservation: CCThemeObservation?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        layer?.cornerRadius = CCTheme.radius(.lg)
-        layer?.cornerCurve = .continuous
-        layer?.borderWidth = 1
-        layer?.shadowOpacity = 0.48
-        layer?.shadowRadius = 18
-        layer?.shadowOffset = CGSize(width: 0, height: -6)
-        themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    private func applyTheme() {
-        layer?.backgroundColor = EditorThemeKit.panelElevated.cgColor
-        layer?.borderColor = EditorThemeKit.hairline.cgColor
-        layer?.shadowColor = NSColor.black.cgColor
-    }
-}
-
-@MainActor
-private final class CaptureCatMenuContentView: NSView, CaptureCatHoverRoutable {
-    private let stack = NSStackView()
-    /// One shared hover/selection wash that GLIDES between rows on a spring —
-    /// the macOS Sonoma menu feel — instead of each row flashing its own.
-    private let highlight = CALayer()
-    private weak var highlightedRow: CaptureCatMenuRow?
-    private var separatorLines: [NSView] = []
-    private var themeObservation: CCThemeObservation?
-    private(set) var preferredWidth: CGFloat = 190
-    // fittingSize already includes the stack's edge insets — adding more here
-    // is what made the menu's bottom gutter visibly deeper than the top.
-    var preferredHeight: CGFloat { stack.fittingSize.height }
-
-    override var isFlipped: Bool { true }
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        highlight.cornerRadius = CCTheme.radius(.md)
-        highlight.cornerCurve = .continuous
-        highlight.opacity = 0
-        layer?.insertSublayer(highlight, at: 0)
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 4
-        stack.edgeInsets = NSEdgeInsets(top: 5, left: 5, bottom: 5, right: 5)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor),
-        ])
-        themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    private func applyTheme() {
-        highlight.backgroundColor = EditorThemeKit.activeFill.cgColor
-        for line in separatorLines {
-            line.layer?.backgroundColor = EditorThemeKit.hairline.cgColor
+        default:
+            // Type-select, macOS-menu style.
+            guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  let chars = event.charactersIgnoringModifiers, chars.count == 1,
+                  chars.rangeOfCharacter(from: .alphanumerics) != nil else { return false }
+            return list.typeSelect(chars)
         }
     }
 
-    func add(_ row: CaptureCatMenuRow) {
-        stack.addArrangedSubview(row)
-        preferredWidth = max(preferredWidth, min(360, row.fittingSize.width + 10))
-        row.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -10).isActive = true
-        row.onHighlight = { [weak self] row, active in
-            self?.setHighlight(row: row, active: active)
-        }
-    }
-
-    // MARK: - Hover dispatch (one tracking area, not one per row)
-    //
-    // Rows used to each install their own NSTrackingArea. Inside this menu's
-    // stack-in-scroll-in-borderless-child-panel topology, per-row enter/exit
-    // delivery proved unreliable with a real mouse (hover died after the
-    // first rows) while synthesized probe events sailed through — the classic
-    // "wrong topology" gate blind spot. Native menus track the same way this
-    // now does: ONE area on the container, hit-testing rows per mouse move.
-
-    private var hoverArea: NSTrackingArea?
-    private weak var hoveredRow: CaptureCatMenuRow?
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let hoverArea { removeTrackingArea(hoverArea) }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect],
-            owner: self
-        )
-        addTrackingArea(area)
-        hoverArea = area
-    }
-
-    private func row(at point: NSPoint) -> CaptureCatMenuRow? {
-        for case let row as CaptureCatMenuRow in stack.arrangedSubviews {
-            if row.frame.isEmpty { continue }
-            // Gap-tolerant: rows claim half the 4pt inter-row spacing, so the
-            // wash never clears (and re-appears) while crossing between rows.
-            if convert(row.frame, from: stack).insetBy(dx: 0, dy: -2).contains(point) { return row }
-        }
-        return nil
-    }
-
-    func routeHover(windowPoint: NSPoint) {
-        let target = row(at: convert(windowPoint, from: nil))
-        guard target !== hoveredRow else { return }
-        if CCHoverPoller.debug {
-            NSLog("CCMenu hover -> %@", target?.item.title ?? "(none)")
-        }
-        hoveredRow?.setHovered(false)
-        hoveredRow = target
-        target?.setHovered(true)
-    }
-
-    func clearHover() {
-        hoveredRow?.setHovered(false)
-        hoveredRow = nil
-    }
-
-    override func mouseEntered(with event: NSEvent) { routeHover(windowPoint: event.locationInWindow) }
-    override func mouseMoved(with event: NSEvent) { routeHover(windowPoint: event.locationInWindow) }
-    override func mouseExited(with event: NSEvent) {
-        hoveredRow?.setHovered(false)
-        hoveredRow = nil
-    }
-
-    private func setHighlight(row: CaptureCatMenuRow, active: Bool) {
-        if active {
-            layoutSubtreeIfNeeded()
-            let target = row.convert(row.bounds, to: self)
-            // Keep a prior row's geometry as the next glide origin even after
-            // its exit fade has fully completed. Opacity is not a state
-            // boundary: using it here made slow row-to-row moves snap in
-            // place whenever the pointer spent more than 0.16s in a gap.
-            let appearing = highlightedRow == nil
-            highlightedRow = row
-            if appearing {
-                // First landing: appear in place, no cross-menu flight.
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                highlight.frame = target
-                CATransaction.commit()
-            } else {
-                CCMotion.spring(highlight, keyPath: "position",
-                                 to: NSValue(point: CGPoint(x: target.midX, y: target.midY)), .snappy)
-                CCMotion.spring(highlight, keyPath: "bounds",
-                                 to: NSValue(rect: CGRect(origin: .zero, size: target.size)), .snappy)
-            }
-            CCMotion.fade(highlight, keyPath: "opacity", to: 1, duration: 0.1)
-        } else if highlightedRow === row {
-            // Fade but keep the reference — the next activation glides from
-            // here rather than reading as a fresh landing.
-            CCMotion.fade(highlight, keyPath: "opacity", to: 0, duration: 0.16)
-        }
-    }
-
-    func addSeparator() {
-        let holder = NSView()
-        let line = NSView()
-        line.wantsLayer = true
-        line.layer?.backgroundColor = EditorThemeKit.hairline.cgColor
-        separatorLines.append(line)
-        line.translatesAutoresizingMaskIntoConstraints = false
-        holder.addSubview(line)
-        NSLayoutConstraint.activate([
-            holder.heightAnchor.constraint(equalToConstant: 9),
-            line.leadingAnchor.constraint(equalTo: holder.leadingAnchor, constant: 8),
-            line.trailingAnchor.constraint(equalTo: holder.trailingAnchor, constant: -8),
-            line.centerYAnchor.constraint(equalTo: holder.centerYAnchor),
-            line.heightAnchor.constraint(equalToConstant: 1),
-        ])
-        stack.addArrangedSubview(holder)
-        holder.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -10).isActive = true
-    }
-}
-
-@MainActor
-private final class CaptureCatMenuRow: NSControl {
-    let item: NSMenuItem
-    var isKeyboardSelected = false { didSet { refresh() } }
-    /// Row stays highlighted while its submenu is flown out beside it.
-    var isFlyoutOpen = false { didSet { refresh() } }
-    var onHover: ((CaptureCatMenuRow) -> Void)?
-    /// Reports highlight intent to the content view's gliding wash.
-    var onHighlight: ((CaptureCatMenuRow, Bool) -> Void)?
-
-    private let icon = NSImageView()
-    private let titleField = NSTextField(labelWithString: "")
-    private let shortcutField = NSTextField(labelWithString: "")
-    private let trailingIcon = NSImageView()
-    private let onPick: (CaptureCatMenuRow) -> Void
-    private var isHovering = false { didSet { refresh() } }
-    private let isHeader: Bool
-    private var themeObservation: CCThemeObservation?
-
-    override var isFlipped: Bool { true }
-    override var intrinsicContentSize: NSSize {
-        let width = 50 + titleField.intrinsicContentSize.width + shortcutField.intrinsicContentSize.width
-        return NSSize(width: width, height: item.isEnabled ? 30 : 24)
-    }
-
-    init(item: NSMenuItem, onPick: @escaping (CaptureCatMenuRow) -> Void) {
-        self.item = item
-        self.onPick = onPick
-        self.isHeader = !item.isEnabled && item.action == nil && item.submenu == nil
-        super.init(frame: .zero)
-        wantsLayer = true
-        // Concentric with the .lg menu chrome across its 5pt gutter.
-        layer?.cornerRadius = CCTheme.radius(.md)
-        layer?.cornerCurve = .continuous
-
-        titleField.stringValue = item.title
-        titleField.font = isHeader
-            ? .systemFont(ofSize: 10, weight: .semibold)
-            : .systemFont(ofSize: 12, weight: .medium)
-        titleField.lineBreakMode = .byTruncatingTail
-
-        icon.imageScaling = .scaleProportionallyDown
-        if let image = item.image {
-            icon.image = image
-        }
-
-        shortcutField.stringValue = Self.shortcut(for: item)
-        shortcutField.font = .systemFont(ofSize: 10.5, weight: .medium)
-        shortcutField.alignment = .right
-
-        // Selection state and submenu indicators live at the FAR RIGHT edge —
-        // never leading (house rule: check/selection marks trail).
-        if item.submenu != nil {
-            trailingIcon.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: 9, weight: .semibold))
-        } else if item.state == .on {
-            trailingIcon.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?
-                .withSymbolConfiguration(.init(pointSize: 10, weight: .bold))
-        }
-
-        for view in [icon, titleField, shortcutField, trailingIcon] {
-            view.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(view)
-        }
-        NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: item.isEnabled ? 30 : 24),
-            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 9),
-            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 15),
-            icon.heightAnchor.constraint(equalToConstant: 15),
-            titleField.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 7),
-            titleField.centerYAnchor.constraint(equalTo: centerYAnchor),
-            shortcutField.leadingAnchor.constraint(greaterThanOrEqualTo: titleField.trailingAnchor, constant: 14),
-            shortcutField.centerYAnchor.constraint(equalTo: centerYAnchor),
-            trailingIcon.leadingAnchor.constraint(equalTo: shortcutField.trailingAnchor, constant: 7),
-            trailingIcon.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -9),
-            trailingIcon.centerYAnchor.constraint(equalTo: centerYAnchor),
-            trailingIcon.widthAnchor.constraint(equalToConstant: 12),
-        ])
-        refresh()
-        // Rows are short-lived, but a menu can be open across a theme flip.
-        themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    private func applyTheme() {
-        titleField.textColor = titleColor(isHeader: isHeader)
-        if icon.image != nil {
-            icon.contentTintColor = item.isEnabled ? EditorThemeKit.textSecondary : EditorThemeKit.textTertiary
-        }
-        shortcutField.textColor = EditorThemeKit.textTertiary
-        if item.submenu != nil {
-            trailingIcon.contentTintColor = EditorThemeKit.textTertiary
-        } else if item.state == .on {
-            trailingIcon.contentTintColor = NSColor.controlAccentColor
-        }
-    }
-
-    private func titleColor(isHeader: Bool) -> NSColor {
-        if isHeader { return EditorThemeKit.textTertiary }
-        guard item.isEnabled else { return EditorThemeKit.textTertiary }
-        if let attributedTitle = item.attributedTitle,
-           attributedTitle.length > 0,
-           let color = attributedTitle.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor {
-            return color
-        }
-        return EditorThemeKit.textPrimary
-    }
-
+    /// The shortcut as macOS writes it: ⌃⌥⇧⌘ then the key glyph.
     private static func shortcut(for item: NSMenuItem) -> String {
-        guard !item.keyEquivalent.isEmpty else { return "" }
+        let key = item.keyEquivalent
+        guard !key.isEmpty else { return "" }
         var value = ""
-        let modifiers = item.keyEquivalentModifierMask
+        var modifiers = item.keyEquivalentModifierMask
+        // An uppercase key equivalent implies Shift.
+        if key.count == 1, key.uppercased() == key, key.lowercased() != key { modifiers.insert(.shift) }
         if modifiers.contains(.control) { value += "⌃" }
         if modifiers.contains(.option) { value += "⌥" }
         if modifiers.contains(.shift) { value += "⇧" }
         if modifiers.contains(.command) { value += "⌘" }
-        return value + item.keyEquivalent.uppercased()
-    }
-
-    private func refresh() {
-        onHighlight?(self, (isHovering || isKeyboardSelected || isFlyoutOpen) && item.isEnabled)
-    }
-
-    /// Hover is DISPATCHED by CaptureCatMenuContentView's single tracking area
-    /// (see its hover-dispatch note) — rows own no tracking areas.
-    func setHovered(_ hovered: Bool) {
-        if hovered {
-            isHovering = item.isEnabled
-            onHover?(self)
-        } else {
-            isHovering = false
-        }
-    }
-    override func mouseUp(with event: NSEvent) {
-        guard item.isEnabled, bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
-        onPick(self)
+        let glyphs: [String: String] = [
+            "\u{8}": "⌫", "\u{7f}": "⌫", "\r": "↩", "\u{3}": "⌤", "\u{1b}": "⎋", "\t": "⇥", " ": "Space",
+            String(UnicodeScalar(NSDeleteFunctionKey)!): "⌦",
+            String(UnicodeScalar(NSUpArrowFunctionKey)!): "↑",
+            String(UnicodeScalar(NSDownArrowFunctionKey)!): "↓",
+            String(UnicodeScalar(NSLeftArrowFunctionKey)!): "←",
+            String(UnicodeScalar(NSRightArrowFunctionKey)!): "→",
+        ]
+        return value + (glyphs[key] ?? key.uppercased())
     }
 }

@@ -252,6 +252,12 @@ export class VideoStream {
       if (i > this.outputMax && !this.cache.has(i) && this.media.frames[i].decodeIndex >= this.runStart) need++;
     }
     if (need === 0) return false;
+    // End of stream: a reordering decoder (B-frames) holds its last frames
+    // until flush(), and the flush only runs once the reader reports done —
+    // so when every remaining packet fits in the window, feed them all (else
+    // the in-flight cap stops short of EOF and the last frames never arrive:
+    // a seek to a recording's final frames hung on a stale frame).
+    if (this.media.frames.length - this.feedPos <= need + REORDER_SLACK) return true;
     return this.inflight < need + REORDER_SLACK;
   }
 

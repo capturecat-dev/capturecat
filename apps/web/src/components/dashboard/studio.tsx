@@ -1,18 +1,20 @@
 import type { CSSProperties, ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+
+import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 import { cn } from "@/lib/utils";
 
 /**
  * The dashboard's shared vocabulary — "studio" because every page is laid
- * out the same way an editing suite is: a compact title bar with a
- * section eyebrow on top, glass panels below, one control shape throughout.
+ * out the same way an editing suite is: a compact title bar with a quiet
+ * label on top, floating panels below, one control shape throughout.
  *
- * Nothing here invents a new surface: `glass-panel` / `hairline-top` are the
- * site's existing liquid-glass utilities and the pill controls are the
- * shadcn Input shape (`.studio-input` for raw elements). Motion is the
- * recording bar's family (app.css `--rec-*`, dashboard.css): headers and
+ * The LOOK is the Mac app's 2026 style (styles/app-2026.css under
+ * [data-cc-app]): `glass-panel` here renders as a floating card (card tint,
+ * 0.5px hairline, wide soft shadow), rows and fields are flat wells, chips
+ * float when selected, icons are CaptureCat's own kit (CCIcon). Motion is
+ * the recording bar's family (app.css `--rec-*`, dashboard.css): headers and
  * sections rise in on the settle curve, meters grow and land on the bounce.
  */
 
@@ -53,9 +55,9 @@ export function PageHeader({
             {back && (
               <Link
                 to={back.to}
-                className="inline-flex h-6 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] pl-2 pr-2.5 text-[12px] text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground"
+                className="cc-float-chip inline-flex h-6 items-center gap-1 rounded-full pl-1.5 pr-2.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
               >
-                <ArrowLeft className="size-3.5" /> {back.label}
+                <CCIcon name="chevron-left" size={14} weight="medium" /> {back.label}
               </Link>
             )}
             {eyebrow && <span className="studio-pill-eyebrow">{eyebrow}</span>}
@@ -89,7 +91,7 @@ export function PageHeader({
   );
 }
 
-/** A section icon, set in a raised glass key. */
+/** A section icon, set in a small floating key. */
 export function IconKey({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span aria-hidden className={cn("studio-key", className)}>
@@ -142,7 +144,7 @@ export function Sections({ children, className }: { children: ReactNode; classNa
   return (
     <section
       className={cn(
-        "glass-panel hairline-top studio-sections divide-y divide-white/8 overflow-hidden",
+        "glass-panel hairline-top studio-sections divide-y divide-border overflow-hidden",
         className,
       )}
     >
@@ -291,7 +293,7 @@ export function Field({
 /** The plan a feature belongs to. One look everywhere. */
 export function PlanChip({ plan }: { plan: "pro" | "business" }) {
   return (
-    <span className="inline-flex h-5 items-center rounded-full border border-white/12 bg-white/[0.06] px-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-foreground/80">
+    <span className="cc-well inline-flex h-5 items-center rounded-full px-2 text-[11px] font-semibold text-foreground/80">
       {plan === "pro" ? "Pro" : "Business"}
     </span>
   );
@@ -302,7 +304,7 @@ export function EmptyNote({ children, className }: { children: ReactNode; classN
   return (
     <div
       className={cn(
-        "flex min-h-24 items-center justify-center rounded-xl border border-dashed border-white/12 px-4 py-6 text-center text-sm text-muted-foreground",
+        "flex min-h-24 items-center justify-center rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground",
         className,
       )}
     >
@@ -443,7 +445,7 @@ export function StatStrip({
         <div
           key={i}
           className={cn(
-            "dsh-rise min-w-0 border-white/8 px-5 py-4",
+            "dsh-rise min-w-0 border-border px-5 py-4",
             i % 2 === 1 && "border-l",
             i >= 2 && "border-t lg:border-t-0",
             i === 2 && "lg:border-l",
@@ -455,7 +457,7 @@ export function StatStrip({
               <span
                 aria-hidden
                 className="size-1.5 shrink-0 rounded-full"
-                style={{ background: s.accent, boxShadow: `0 0 8px ${s.accent}` }}
+                style={{ background: s.accent }}
               />
             )}
             <Eyebrow className="truncate">{s.label}</Eyebrow>

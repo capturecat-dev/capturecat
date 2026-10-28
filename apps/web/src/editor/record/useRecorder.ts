@@ -14,10 +14,15 @@
  * A share ended from outside (the browser's "Stop sharing") stops and saves
  * the take, like the Mac when its source disappears.
  *
- * The recorder's own UI never reaches the output (barHidden.ts): for a share
- * that could contain this page it is hidden before the first frame, and any
- * moment it has to come back is logged and cut from the new project. ⌘⇧S
- * (the Mac's Stop Recording) or Esc stops a take while the page has focus.
+ * The controls stay on screen for the whole take, and the recorder's own UI
+ * never reaches the output (barHidden.ts): where the browser has Document
+ * Picture-in-Picture the controls float above every app — for a whole
+ * display too, painted out of every frame with a clean plate (plate.ts) —
+ * and the page's own UI steps aside for any share that could contain it;
+ * without it the page's bar stays (a window share: its moments on screen are
+ * cut) or, for a display, hides and comes back when you return (cut too).
+ * ⌘⇧S (the Mac's Stop Recording) or Esc stops a take while the page or the
+ * floating window has focus.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -44,6 +49,7 @@ import {
 } from "./capture";
 import { BUBBLE_EXIT_MS } from "./cameraBubble";
 import { closeControlsWindow, openControlsWindow, pipSupported } from "./pip";
+import { PlatePipeline, displayForShare, grabPlate, plateSupported } from "./platePipeline";
 import { publishTake, type PublishProgress } from "./publish";
 import { discardTakeFiles, leftoverTakes, warmRecorder, type RecordedTake } from "./session";
 import { createTakeRecorder, recorderEngine, type TakeRecorder } from "./takeRecorder";
@@ -62,7 +68,7 @@ export interface RecorderPrefs {
   systemAudio: boolean;
   countdown: number;
   limit: number;
-  /** Float the live controls above other windows (window/tab shares). */
+  /** Float the live controls above other windows (every share, where the browser can). */
   floatControls: boolean;
 }
 
@@ -129,6 +135,14 @@ function escapeIsFree(e: KeyboardEvent): boolean {
   if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return false;
   return !doc.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]');
 }
+
+/** Why a whole-display take hides the bar instead of floating the controls (shown before Record and during the countdown). */
+export const DISPLAY_FALLBACK = {
+  displays:
+    "With more than one display, CaptureCat can't tell where the floating controls sit on the screen you're sharing — so this bar hides while you record, and comes back when you return to this tab.",
+  notFound:
+    "Couldn't find the floating controls on the screen you're sharing — so this bar hides while you record, and comes back when you return to this tab.",
+} as const;
 
 export type RecorderPhase =
   | { kind: "setup" }
@@ -197,6 +211,12 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
   const [notice, setNotice] = useState<string | null>(null);
   const [leftovers, setLeftovers] = useState<RecordedTake[]>([]);
   const [floating, setFloating] = useState<{ win: Window; mount: HTMLElement } | null>(null);
+  /** A whole-display take's clean plate (plate.ts) — between the share and the encoder. */
+  const plateRef = useRef<PlatePipeline | null>(null);
+  /** …painting the floating window out of every frame (it was found where it's reported). */
+  const [plateLive, setPlateLive] = useState(false);
+  /** This browser floats the controls over a whole display (PiP + frame processing on the WebCodecs engine). */
+  const [plateCapable, setPlateCapable] = useState(false);
   const [name, setName] = useState("");
   /**
    * Devices open only once the recorder is ARMED — the bar is on every
@@ -213,11 +233,12 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     surface: screen ? surfaceOf(screen) : null,
     capturesThisTab: ownTab,
     floatingOpen: floating !== null,
+    plateLive,
   });
   const concealModeRef = useRef(concealMode);
   concealModeRef.current = concealMode;
   const conceal = useConceal({ mode: concealMode, sessionRef });
-  const { hideForTake, release: releaseUi } = conceal;
+  const { hideForTake, release: releaseUi, attach: attachUi } = conceal;
 
   useEffect(() => claimCaptureHandle(), []);
   useEffect(() => {
@@ -247,6 +268,7 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     void leftoverTakes().then(setLeftovers);
     // Safari records with MediaRecorder — never poke its WebCodecs encoders.
     void warmRecorder({ encoders: recorderEngine() === "webcodecs" });
+    setPlateCapable(pipSupported() && plateSupported() && recorderEngine() === "webcodecs");
     return () => navigator.mediaDevices?.removeEventListener?.("devicechange", refreshDevices);
   }, [refreshDevices]);
 
@@ -406,12 +428,20 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
 
   // ── recording ─────────────────────────────────────────────────────────────
 
+  const disposePlate = useCallback(() => {
+    plateRef.current?.dispose();
+    plateRef.current = null;
+    setPlateLive(false);
+  }, []);
+  useEffect(() => () => plateRef.current?.dispose(), []);
+
   const closeFloating = useCallback(() => {
     setFloating((cur) => {
       closeControlsWindow(cur?.win ?? null);
       return null;
     });
-  }, []);
+    disposePlate();
+  }, [disposePlate]);
 
   const publish = useCallback(
     async (take: RecordedTake) => {
@@ -459,8 +489,11 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     setBusy(true);
     try {
       // The UI stays as it is until the files are final: no frame is
-      // captured after this resolves.
+      // captured after this resolves. The plate's last checks land first.
+      await plateRef.current?.settle(150);
       const take = await session.stop();
+      plateRef.current?.attach(null);
+      disposePlate(); // before the share's tracks stop under it
       recorderProbe("take", {
         id: take.id,
         engine: recorderEngine(),
@@ -476,20 +509,28 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
       await publish(take);
     } catch (error) {
       releaseUi();
+      closeFloating();
       setNotice(error instanceof Error ? error.message : String(error));
       setPhase({ kind: "setup" });
     } finally {
       setBusy(false);
     }
-  }, [busy, publish, releaseUi]);
+  }, [busy, publish, releaseUi, disposePlate, closeFloating]);
   const stopRef = useRef(stop);
   stopRef.current = stop;
 
   const begin = useCallback(async () => {
     if (!screen) return;
-    const session = createTakeRecorder({ screen, camera: camStream, mic: micStream }, RECORD_FPS, newUUID());
+    const plate = plateRef.current;
+    const session = createTakeRecorder(
+      { screen, camera: camStream, mic: micStream, screenVideo: plate?.track ?? null },
+      RECORD_FPS,
+      newUUID(),
+    );
     session.onSourceEnded = () => void stopRef.current();
     sessionRef.current = session;
+    attachUi();
+    plate?.attach(session);
     try {
       await session.start();
       recorderProbe("start", { engine: recorderEngine(), clock: session.clock(), mode: concealModeRef.current });
@@ -504,11 +545,76 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
       setNotice(error instanceof Error ? error.message : String(error));
       setPhase({ kind: "setup" });
     }
-  }, [screen, camStream, micStream, closeFloating, releaseUi]);
+  }, [screen, camStream, micStream, closeFloating, releaseUi, attachUi]);
 
   useEffect(() => {
     if (phase.kind === "recording" && prefs.limit > 0 && elapsed >= prefs.limit) void stop();
   }, [phase.kind, elapsed, prefs.limit, stop]);
+
+  /**
+   * The display a whole-screen share can float the controls over, or null
+   * (and why not) — the clean plate needs one display, PiP and the WebCodecs
+   * engine (plate.ts).
+   */
+  const displayFloat = useCallback(
+    (stream: MediaStream) => {
+      if (!prefs.floatControls || !pipSupported() || !plateSupported() || recorderEngine() !== "webcodecs") return { display: null, why: null };
+      const display = displayForShare(stream);
+      return { display, why: display ? null : ("displays" as const) };
+    },
+    [prefs.floatControls],
+  );
+
+  /**
+   * A whole-display take: hide the page's recorder UI, grab the plate, THEN
+   * open the floating window (still inside the Record click's activation)
+   * and wait until the frames show it where it's reported. Resolves with the
+   * window, or null — the take then hides the bar and cuts instead.
+   */
+  const floatOverDisplay = useCallback(
+    async (stream: MediaStream, display: NonNullable<ReturnType<typeof displayForShare>>, size: { width: number; height: number }, extraMs: number) => {
+      const track = stream.getVideoTracks()[0];
+      // 1. Off the screen and out of the capture: the plate must not contain it.
+      const { ready } = await hideForTake("plate", extraMs);
+      // 2. The display as it is now.
+      const grabbed = await grabPlate(track);
+      recorderProbe("plate", { ok: grabbed !== null, at: grabbed?.at ?? null, ready });
+      if (!grabbed) return null;
+      // 3. The floating window.
+      const opened = await openControlsWindow(size, () => setFloating(null));
+      recorderProbe("pip", { open: opened !== null, at: performance.now() });
+      if (!opened) {
+        grabbed.bitmap.close();
+        return null;
+      }
+      const plate = new PlatePipeline(track, grabbed.bitmap, display);
+      plate.onError = (message) => {
+        // No frame of the controls reaches the file after this (the worker
+        // passes none on); stop and keep what was recorded — or, before the
+        // take, start it without floating controls.
+        if (sessionRef.current) {
+          setNotice(`Recording stopped — the floating controls couldn't be kept out of it (${message}).`);
+          void stopRef.current();
+        } else {
+          closeFloating();
+          setNotice(DISPLAY_FALLBACK.notFound);
+        }
+      };
+      plateRef.current = plate;
+      setFloating(opened);
+      // 4. Found on the shared screen where it's reported: the mapping holds.
+      if (await plate.watch(opened.win)) {
+        setPlateLive(true);
+        return opened.win;
+      }
+      closeControlsWindow(opened.win);
+      setFloating(null);
+      disposePlate();
+      setNotice(DISPLAY_FALLBACK.notFound);
+      return null;
+    },
+    [hideForTake, disposePlate, closeFloating],
+  );
 
   /** The red Record button. Must run inside the click (floating controls need its activation). */
   const record = useCallback(async () => {
@@ -517,12 +623,24 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     setStarting(true);
     const pressed = performance.now();
     const surface = surfaceOf(screen);
+    const bubbleExit = () => (prefs.camId ? BUBBLE_EXIT_MS - (performance.now() - pressed) : 0);
+    const size = { width: 440, height: prefs.camId ? 280 : 72 };
     try {
-      // The controls float above everything for a share that can't contain
-      // that window (never a display: it would record it).
+      // The controls float above everything wherever the browser can: a
+      // window or tab capture never contains that window; a display paints
+      // it out of every frame (or, where it can't, the bar hides and cuts).
       let floatWin: Window | null = null;
-      if (prefs.floatControls && pipSupported() && surface !== "monitor") {
-        const opened = await openControlsWindow({ width: 440, height: prefs.camId ? 280 : 72 }, () => setFloating(null));
+      if (surface === "monitor") {
+        const { display, why } = displayFloat(screen);
+        if (display) {
+          floatWin = await floatOverDisplay(screen, display, size, bubbleExit());
+          // Not floating after all: back to the page's bar for the countdown.
+          if (!floatWin) releaseUi();
+        } else if (why) {
+          setNotice(DISPLAY_FALLBACK[why]);
+        }
+      } else if (prefs.floatControls && pipSupported()) {
+        const opened = await openControlsWindow(size, () => setFloating(null));
         if (opened) {
           setFloating(opened);
           floatWin = opened.win;
@@ -534,18 +652,20 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
       }
       // Before the first frame: the recorder UI (countdown included) leaves
       // any share that could contain this page — and the camera bubble,
-      // which stepped aside at the press, has finished its exit.
+      // which stepped aside at the press, has finished its exit. ("plate"
+      // hid it before the plate was taken; "shown" keeps it up and logs it.)
       const mode = concealModeFor({
         surface,
         capturesThisTab: capturesThisTab(screen),
         floatingOpen: floatWin !== null && !floatWin.closed,
+        plateLive: plateRef.current !== null,
       });
-      await hideForTake(mode, prefs.camId ? BUBBLE_EXIT_MS - (performance.now() - pressed) : 0);
+      if (mode !== "plate") await hideForTake(mode, bubbleExit());
       await begin();
     } finally {
       setStarting(false);
     }
-  }, [screen, phase.kind, prefs.floatControls, prefs.countdown, prefs.camId, begin, hideForTake]);
+  }, [screen, phase.kind, prefs.floatControls, prefs.countdown, prefs.camId, begin, hideForTake, releaseUi, displayFloat, floatOverDisplay]);
 
   const pauseResume = useCallback(() => {
     const s = sessionRef.current;
@@ -560,6 +680,7 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     if (!s) return;
     setBusy(true);
     sessionRef.current = null;
+    plateRef.current?.attach(null);
     await s.discard();
     setBusy(false);
     // Pressed in a revealed bar: it leaves the screen again before the new take's first frame.
@@ -572,6 +693,7 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     if (!s) return;
     setBusy(true);
     sessionRef.current = null;
+    plateRef.current?.attach(null);
     await s.discard();
     setBusy(false);
     releaseUi();
@@ -661,6 +783,17 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     deleteLeftover,
     floating,
     pipSupported: pipSupported(),
+    /** The floating window is painted out of a whole-display take (barHidden.ts "plate"). */
+    plateLive,
+    /**
+     * What a whole-display share will do with the controls, for the setup
+     * notice: "plate" = float, painted out (park them over a quiet corner);
+     * "displays" = several displays, the bar hides instead; null = n/a.
+     */
+    displayTip: ((): "plate" | "displays" | null => {
+      if (!screen || surfaceOf(screen) !== "monitor" || !plateCapable || !prefs.floatControls) return null;
+      return displayForShare(screen) ? "plate" : "displays";
+    })(),
     /** How this share keeps the page's recorder UI out of the take (barHidden.ts). */
     concealMode,
     /** The page's recorder UI (dock, notices, bubble, the Record page's live chrome) must be off screen now. */

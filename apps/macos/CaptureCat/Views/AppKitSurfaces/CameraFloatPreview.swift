@@ -2,7 +2,7 @@ import AppKit
 import AVFoundation
 import CoreMedia
 
-// Free-floating live camera preview (Screen Studio style).
+// Free-floating live camera preview (a draggable bubble over the desktop).
 //
 // A borderless always-on-top panel showing the selected camera through an
 // `AVCaptureVideoPreviewLayer` on the SAME `AVCaptureSession` the recorder
@@ -20,7 +20,7 @@ enum CameraFloatMetrics {
     static let diameterKey = "capturecat.cameraFloatDiameter"
     static let originKey = "capturecat.cameraFloatOrigin"
 
-    /// Default bubble size — ~200pt like Screen Studio's.
+    /// Default bubble size — ~200pt.
     static var savedDiameter: CGFloat {
         let stored = UserDefaults.standard.double(forKey: diameterKey)
         return stored > 0 ? CGFloat(stored) : 200
@@ -143,10 +143,8 @@ final class CameraFloatSquircleView: NSView {
                 preview.bottomAnchor.constraint(equalTo: clip.bottomAnchor),
             ])
         } else {
-            placeholder.image = NSImage(
-                systemSymbolName: isScreenDevice ? "iphone" : "camera.fill",
-                accessibilityDescription: nil
-            )?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 24, weight: .regular))
+            placeholder.image = CCIcon.image(
+                isScreenDevice ? "iphone" : "camera.fill", pointSize: 24, weight: .regular)
             placeholder.translatesAutoresizingMaskIntoConstraints = false
             clip.addSubview(placeholder)
             NSLayoutConstraint.activate([

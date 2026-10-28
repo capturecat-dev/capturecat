@@ -129,10 +129,8 @@ final class CameraBubbleNSView: NSView {
             ])
             preview = view
         } else {
-            placeholder.image = NSImage(
-                systemSymbolName: isScreenDevice ? "iphone" : "camera.fill",
-                accessibilityDescription: nil
-            )?.withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 22, weight: .regular))
+            placeholder.image = CCIcon.image(
+                isScreenDevice ? "iphone" : "camera.fill", pointSize: 22, weight: .regular)
             placeholder.translatesAutoresizingMaskIntoConstraints = false
             clip.addSubview(placeholder)
             NSLayoutConstraint.activate([

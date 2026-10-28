@@ -312,10 +312,10 @@ ChromeOS. See [CaptureCat for Mac and in your browser](${SITE_URL}/#anywhere).
     title: "Privacy Policy",
     description:
       "How CaptureCat handles your data: recordings stay on your Mac unless you share them, captions run on device, and we collect only what billing and sharing need.",
-    lastModified: "2026-08-05",
+    lastModified: "2026-10-27",
     markdown: `# Privacy Policy
 
-_Last updated: 5 August 2026._ This policy complies with UK GDPR and the Data
+_Last updated: 27 October 2026._ This policy complies with UK GDPR and the Data
 Protection Act 2018.
 
 **Who we are.** CaptureCat is operated by a UK-based sole trader trading as
@@ -325,18 +325,25 @@ contact@capturecat.so.
 **Data we collect.**
 
 - **Account:** name, email, and avatar from Google or Apple sign-in (never your
-  password).
+  password). At sign-up we also record your approximate country (from your IP,
+  not stored for this), whether you signed up in the Mac app or a browser, and,
+  for a browser sign-up, the referring site's domain, campaign tags, and the
+  first page you visited.
 - **Billing:** handled by Stripe. We receive subscription status and limited
   metadata, never full card numbers.
 - **Content you upload:** recordings and images you choose to share. Recordings
   you do not upload never leave your Mac.
 - **Viewer analytics:** aggregate view counts, watch drop-off, and player
   interactions for a video's owner, keyed to a random per-tab id, not a cookie.
+- **Site analytics:** an anonymous event when you visit capturecat.so or
+  download the app: referring domain, campaign tags, landing page, approximate
+  country, and device type. No cookie or identifier; events cannot be linked to
+  each other or to you, and are deleted after 13 months.
 - **Technical:** IP and request metadata for security and rate limiting.
 
 **Lawful bases.** Contract (providing the service and taking payment),
-legitimate interests (security and abuse prevention), and legal obligation (tax
-records).
+legitimate interests (security and abuse prevention; understanding how people
+find and use CaptureCat), and legal obligation (tax records).
 
 **Sharing.** We do not sell your data. Processors: Cloudflare (hosting, storage,
 database), Stripe (payments), Google and Apple (sign-in). International transfers
@@ -351,8 +358,80 @@ portability, and withdrawing consent. Email contact@capturecat.so. You may also
 complain to the ICO (ico.org.uk).
 
 **Cookies.** One essential sign-in cookie. No advertising or tracking cookies.
+Site analytics use no identifier at all.
 
 Questions? Email contact@capturecat.so.
+`,
+  },
+  {
+    path: "/about",
+    title: "About CaptureCat",
+    seoTitle: "About CaptureCat: the open-source Mac screen recorder",
+    description:
+      "Who makes CaptureCat, the open-source Mac screen recorder that edits itself: what it is for, how it is built, and how to reach us.",
+    lastModified: "2026-10-27",
+    markdown: `# About CaptureCat
+
+CaptureCat is a screen recorder for Mac that edits itself. It records a display,
+a window, an area, an iPhone or iPad, or a web page by URL, and captures your
+clicks, cursor and keystrokes as data. Then it does the editing a screen video
+usually needs: zooms where you worked, a smoothed cursor with click ripples,
+on-device captions, blur for anything private, and a framed, styled export.
+The preview and the exported file are rendered from the same frame, so what you
+see is what you get. It also runs in the browser on Windows, Linux and ChromeOS.
+
+**Free and open source.** Recording, the editor, every effect, and export are
+free with no time limit and no resolution cap. Pro adds share links with
+comments and viewer analytics. Every line is on GitHub
+under the AGPL-3.0: https://github.com/capturecat-dev/capturecat. The Mac app is
+native Swift, with no Electron.
+
+**Private by default.** Recordings are ordinary project folders on your Mac and
+never leave it unless you choose to share them. Captions are transcribed on
+device.
+
+**Built for agents too.** The app ships a Model Context Protocol server, so
+Claude, Codex, Cursor, Copilot and Windsurf can record, edit and export for you
+(${SITE_URL}/agents). Developers can use the API (${SITE_URL}/docs/api).
+
+**Who we are.** CaptureCat is operated by a sole trader based in the United
+Kingdom, trading as "CaptureCat". Our full legal name and trading address are
+available to customers on request.
+
+**Contact.** contact@capturecat.so, or see ${SITE_URL}/contact.
+`,
+  },
+  {
+    path: "/contact",
+    title: "Contact CaptureCat",
+    seoTitle: "Contact CaptureCat",
+    description:
+      "How to reach CaptureCat: email for support, billing and privacy requests, GitHub for bugs and source, and docs for developers and agents.",
+    lastModified: "2026-10-27",
+    markdown: `# Contact CaptureCat
+
+**Email: contact@capturecat.so.** One inbox for everything: help with the app,
+billing and subscriptions, account and data questions, and press. A person
+reads it.
+
+**Privacy and data requests.** To access, correct, export or delete your data,
+email contact@capturecat.so from the address on your account. The privacy policy
+explains your rights: ${SITE_URL}/privacy. You can also complain to the UK
+Information Commissioner's Office (ico.org.uk).
+
+**Bugs and feature requests.** Open an issue on GitHub:
+https://github.com/capturecat-dev/capturecat/issues. The source is there too.
+
+**Billing.** Manage or cancel a Pro subscription from your billing page
+(https://app.capturecat.so/billing). For anything it cannot do, email us.
+
+**Developers and agents.** Documentation: ${SITE_URL}/docs. API: ${SITE_URL}/docs/api
+and ${SITE_URL}/openapi.json. How agents authenticate: ${SITE_URL}/auth.md.
+MCP server: ${SITE_URL}/agents.
+
+**Business details.** CaptureCat is operated by a sole trader based in the United
+Kingdom, trading as "CaptureCat". Our full legal name and trading address are
+available to customers on request at the email above.
 `,
   },
   {

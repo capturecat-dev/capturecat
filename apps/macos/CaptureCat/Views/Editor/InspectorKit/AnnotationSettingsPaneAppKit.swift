@@ -10,7 +10,7 @@ struct AnnotatePaneContext {
 
 /// The Annotate tab as a native AppKit pane — faithful port of the redesigned
 /// AnnotationSettingsView: type header with destructive delete (undoable),
-/// per-type Text/Tap/Style sections, Effects (opacity + Keynote Build In/Out
+/// per-type Text/Tap/Style sections, Effects (opacity + Build In/Out
 /// + shadow), Drawing strokes management, and Timing.
 @MainActor
 final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
@@ -412,9 +412,7 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         let type = annotation.type
 
         // Header
-        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
-        typeIcon.image = NSImage(systemSymbolName: icon(for: type), accessibilityDescription: nil)?
-            .withSymbolConfiguration(config)
+        typeIcon.image = CCIcon.image(icon(for: type), pointSize: 13, weight: .semibold)
         typeLabel.stringValue = name(for: type)
 
         // Section visibility

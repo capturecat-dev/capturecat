@@ -256,11 +256,13 @@ final class CloudSyncController {
         appState: AppState,
         window: NSWindow?,
         force: Bool = false,
-        thenOpenWeb: Bool = false
+        thenOpenWeb: Bool = false,
+        quiet: Bool = false
     ) {
         guard task == nil, let window = window ?? appState.authPresentationWindow() else { return }
         guard ensureSignedIn(appState: appState, window: window, then: { [weak self] in
-            self?.pullWebEdits(project: project, appState: appState, window: window, force: force, thenOpenWeb: thenOpenWeb)
+            self?.pullWebEdits(project: project, appState: appState, window: window, force: force,
+                               thenOpenWeb: thenOpenWeb, quiet: quiet)
         }) else { return }
         // Save first: the pull compares the file on disk with the last sync,
         // and the GUI only reloads a CLEAN project from an external write.
@@ -309,12 +311,16 @@ final class CloudSyncController {
                     self.finish {
                         if thenOpenWeb {
                             NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: projectID))
-                        } else {
+                        } else if !quiet {
                             let alert = CCAlert(title: "Already up to date",
                                                 message: "This Mac has the web editor’s latest version of “\(project.name)”.")
                             alert.beginSheet(for: window)
                         }
                     }
+                case .noCloudCopy where quiet:
+                    // Continue on Mac for a project the web never had: the
+                    // copy here is the only one, and it is already open.
+                    self.finish {}
                 case .noCloudCopy:
                     self.finish {
                         let alert = CCAlert(title: "Not in the web editor yet",
@@ -353,13 +359,96 @@ final class CloudSyncController {
                         alert.beginSheet(for: window) { [weak self] choice in
                             if choice == 0 {
                                 self?.pullWebEdits(project: project, appState: appState, window: window,
-                                                   force: true, thenOpenWeb: thenOpenWeb)
+                                                   force: true, thenOpenWeb: thenOpenWeb, quiet: quiet)
                             }
                         }
                     }
                 }
             } catch {
                 self?.fail(error, title: "Couldn’t pull web edits", window: window)
+            }
+        }
+    }
+
+    // MARK: - Continue on Mac
+
+    /// The web app's "Continue on Mac" (`capturecat://open-project?id=…&from=web`)
+    /// for a project this Mac already has: open it, then bring in whatever
+    /// the web changed since (the same pull as Pull Web Edits, merge and
+    /// conflict handling included). Quiet when there is nothing new.
+    func continueFromWeb(project: Project, appState: AppState, seek: Double? = nil) {
+        if let seek { appState.pendingSeekOutputTime = seek }
+        appState.openEditor(with: project)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard task == nil else { return }
+        pullWebEdits(project: project, appState: appState, window: nil, quiet: true)
+    }
+
+    /// `capturecat://open-project?id=…` for a project this Mac does not have —
+    /// one recorded or built in the web app. Signs in if needed, downloads
+    /// it with everything the cloud holds into a new project folder
+    /// (`CloudProjectSync.clone`), lists it, and opens the editor.
+    func openFromCloud(projectID: UUID, appState: AppState, seek: Double? = nil) {
+        guard task == nil else { return }
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        // A deep link can arrive with no window open (menu bar app): the
+        // project browser hosts the sign-in prompt and the progress dialog.
+        if appState.authPresentationWindow() == nil { appState.openProjectBrowser() }
+        guard let window = appState.authPresentationWindow() else { return }
+        guard ensureSignedIn(
+            appState: appState, window: window,
+            title: "Sign in to open this project",
+            message: "It was made in the CaptureCat web app. Sign in with the same account to bring it to this Mac.",
+            then: { [weak self] in self?.openFromCloud(projectID: projectID, appState: appState, seek: seek) }
+        ) else { return }
+
+        let dialog = CloudSyncProgressDialog(title: "Opening from the Web", subtitle: "Bringing your project to this Mac")
+        dialog.onCancel = { [weak self] in self?.task?.cancel() }
+        dialog.present(over: window)
+        progress = dialog
+
+        let sync = CloudProjectSync(transport: HTTPCloudProjectTransport())
+        let directory = Project.directory(for: projectID)
+        task = Task { [weak self] in
+            do {
+                let outcome = try await sync.clone(projectID: projectID, into: directory) { step in
+                    dialog.update(step, weights: Self.pullWeights)
+                }
+                guard let self else { return }
+                switch outcome {
+                case .cloned:
+                    dialog.finish(message: "Ready")
+                    try? await Task.sleep(for: .milliseconds(350))
+                    self.finish {
+                        guard let project = appState.projectStore.adopt(projectAt: directory) else {
+                            let alert = CCAlert(title: "Couldn’t open the project",
+                                                message: "It downloaded, but this version of CaptureCat could not read it.")
+                            alert.beginSheet(for: window)
+                            return
+                        }
+                        if let seek { appState.pendingSeekOutputTime = seek }
+                        appState.openEditor(with: project)
+                        self.announce(projectID)
+                    }
+                case .noCloudCopy:
+                    self.finish {
+                        let alert = CCAlert(
+                            title: "Project not found",
+                            message: "This Mac is signed in to a CaptureCat account that doesn’t have this project. "
+                                + "If you made it in the web app, sign in here with that same account and open it again."
+                        )
+                        alert.beginSheet(for: window)
+                    }
+                }
+            } catch CloudSyncError.alreadyOnThisMac {
+                // Raced a local copy into existence (a second click): open that.
+                self?.finish {
+                    if let project = appState.projectStore.adopt(projectAt: directory) {
+                        appState.openEditor(with: project)
+                    }
+                }
+            } catch {
+                self?.fail(error, title: "Couldn’t open the project", window: window)
             }
         }
     }
@@ -377,12 +466,15 @@ final class CloudSyncController {
     ]
 
     /// Signed in → true. Otherwise offers sign-in and re-runs `then` on success.
-    private func ensureSignedIn(appState: AppState, window: NSWindow, then: @escaping () -> Void) -> Bool {
+    private func ensureSignedIn(
+        appState: AppState,
+        window: NSWindow,
+        title: String = "Sign in to use the web editor",
+        message: String = "The web editor opens your project from your CaptureCat account’s cloud storage.",
+        then: @escaping () -> Void
+    ) -> Bool {
         if AuthKeychain.currentToken() != nil { return true }
-        let alert = CCAlert(
-            title: "Sign in to use the web editor",
-            message: "The web editor opens your project from your CaptureCat account’s cloud storage."
-        )
+        let alert = CCAlert(title: title, message: message)
         alert.addButton("Sign In", role: .primary)
         alert.addButton("Cancel")
         alert.beginSheet(for: window) { choice in

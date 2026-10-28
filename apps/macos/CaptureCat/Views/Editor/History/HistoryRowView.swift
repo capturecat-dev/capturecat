@@ -155,8 +155,7 @@ final class HistoryLocalRowView: NSView {
     init(summary: String) {
         super.init(frame: .zero)
         wantsLayer = true
-        icon.image = NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 13, weight: .medium))
+        icon.image = CCIcon.image("laptopcomputer", pointSize: 13, weight: .medium)
         summaryField.stringValue = summary
         summaryField.lineBreakMode = .byTruncatingTail
         summaryField.toolTip = summary

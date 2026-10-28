@@ -215,7 +215,9 @@ extension WebVectors {
         })
         p["cameraLayoutRegions"] = encodedArray((0..<rng.int(0, 2)).map { _ -> CameraLayoutRegion in
             let s = t()
-            return CameraLayoutRegion(id: rng.uuid(), startTime: s, endTime: s + 2, mode: rng.pick(CameraLayoutMode.allCases))
+            let id = rng.uuid()
+            return CameraLayoutRegion(id: id, startTime: s, endTime: s + 2, mode: rng.pick(CameraLayoutMode.allCases),
+                                      look: WebVectors.randomLook(for: id))
         })
         p["annotations"] = encodedArray((0..<rng.int(0, 4)).map { _ -> Annotation in
             let s = t()

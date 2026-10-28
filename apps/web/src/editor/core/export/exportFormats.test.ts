@@ -139,16 +139,29 @@ describe("StaticSpanCollapse (golden)", () => {
 
   it("camera-layout key string (String(format:), nil rect → nan)", () => {
     for (const l of c.cameraLayoutKeys) {
-      expect(
-        cameraLayoutKey({
+      const hasLook = typeof l.cutout === "number" && typeof l.popOut === "number";
+      const key = cameraLayoutKey(
+        {
           cameraRect: (l.cameraRect as { x: number; y: number; width: number; height: number } | null) ?? null,
           cameraOpacity: l.cameraOpacity as number,
           chromeOpacity: l.chromeOpacity as number,
           cardScale: l.cardScale as number,
           cardTranslationX: l.cardTranslationX as number,
-        }),
-      ).toBe(l.key);
+        },
+        hasLook ? { cutout: l.cutout as number, popOut: l.popOut as number } : undefined,
+      );
+      // A golden written before the looks (docs/camera-cutout.md §11) records
+      // eight fields; the look-less key is that key plus ",0.000,0.000".
+      // Regenerating the golden from the Mac binary replaces this branch's input.
+      expect(key).toBe(hasLook || l.key.split(",").length === 10 ? l.key : `${l.key},0.000,0.000`);
     }
+  });
+
+  it("camera-layout key: look weights append %.3f twice (docs/camera-cutout.md §11)", () => {
+    const base = { cameraRect: { x: 12.5, y: 30.49, width: 240.5, height: 179.5 }, cameraOpacity: 1, chromeOpacity: 1, cardScale: 1, cardTranslationX: 0 };
+    expect(cameraLayoutKey(base)).toBe("12,30,240,180,1.000,1.000,1.0000,0.0,0.000,0.000");
+    expect(cameraLayoutKey(base, { cutout: 0.12345, popOut: 0.8766 })).toBe("12,30,240,180,1.000,1.000,1.0000,0.0,0.123,0.877");
+    expect(cameraLayoutKey(base, { cutout: 0.0004, popOut: 1 })).toBe("12,30,240,180,1.000,1.000,1.0000,0.0,0.000,1.000");
   });
 
   it("hot spans of a synthetic project", () => {

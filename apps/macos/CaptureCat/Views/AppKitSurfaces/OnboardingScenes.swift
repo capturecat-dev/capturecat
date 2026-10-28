@@ -7,7 +7,7 @@ import QuartzCore
 
 // MARK: - Caption chip
 
-/// A raised kit pill (the house key material) carrying an SF Symbol + a
+/// A raised kit pill (the house floating material) carrying a kit icon + a
 /// short caption. Used for the welcome captions and the finish orbit.
 @MainActor
 final class StageChip {
@@ -45,10 +45,7 @@ final class StageChip {
     func applyTheme() {
         let colors = CCTheme.color
         label.foregroundColor = colors.foreground.cgColor
-        let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [colors.primary]))
-        glyph.contents = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
-            .withSymbolConfiguration(config)
+        glyph.contents = CCIcon.image(symbolName, pointSize: 12, weight: .semibold, color: colors.primary)
         layer.backgroundColor = colors.elevated.cgColor
         CCMaterial.dress(layer, as: .raised(tint: colors.elevated), radius: Self.height / 2)
     }
@@ -574,14 +571,22 @@ final class AccountScene: OnboardingScene {
     private let progressTrack = CALayer()
     private let progressFill = CALayer()
     private let copied = CALayer()
-    /// Two-tone: a single palette colour paints the check AND the disc the
-    /// same green, leaving a flat blob — white check on a green disc.
+    /// Two-tone: white check on a green disc. The kit's filled glyph KNOCKS
+    /// the check out of the disc, so a white disc sits underneath to show
+    /// through the cut (one colour alone would read as a flat blob).
     private let copiedGlyph: CALayer = {
         let layer = CALayer()
-        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [.white, .systemGreen]))
-        if let image = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: nil)?
-            .withSymbolConfiguration(config) {
+        if let disc = CCIcon.image("checkmark.circle.fill", pointSize: 13, weight: .semibold,
+                                   color: .systemGreen) {
+            let image = NSImage(size: disc.size, flipped: true) { rect in
+                NSColor.white.setFill()
+                // The kit disc is r 9 on a 24 grid; stay inside its edge.
+                let r = rect.width * 8 / 24
+                NSBezierPath(ovalIn: CGRect(x: rect.midX - r, y: rect.midY - r,
+                                            width: 2 * r, height: 2 * r)).fill()
+                disc.draw(in: rect)
+                return true
+            }
             layer.contents = image
             layer.bounds = CGRect(origin: .zero, size: image.size)
         }
@@ -673,10 +678,7 @@ final class AccountScene: OnboardingScene {
         check.borderColor = NSColor.white.cgColor
         pill.backgroundColor = colors.elevated.cgColor
         CCMaterial.dress(pill, as: .raised(tint: colors.elevated), radius: 20)
-        let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [colors.primary]))
-        linkGlyph.contents = NSImage(systemSymbolName: "link", accessibilityDescription: nil)?
-            .withSymbolConfiguration(config)
+        linkGlyph.contents = CCIcon.image("link", pointSize: 12, weight: .semibold, color: colors.primary)
         linkText.foregroundColor = colors.foreground.cgColor
         copiedText.foregroundColor = colors.foreground.cgColor
         progressTrack.backgroundColor = (CCTheme.isDark ? NSColor.white : .black).withAlphaComponent(0.12).cgColor

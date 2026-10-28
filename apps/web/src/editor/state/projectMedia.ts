@@ -32,6 +32,7 @@
  *                   references a file the engine was not told about; and
  *                   answers the engine's "a URL expired" with a refresh.
  */
+import { CAMERA_MASK_FILE } from "../core/mask/cameraMaskCodec";
 import type { Project } from "../core/model";
 import { refsOf } from "../engine/media/assets";
 import { commitCloudFiles } from "../record/publish";
@@ -136,7 +137,7 @@ export interface ProjectMediaOptions {
 }
 
 /** Files every project folder may hold that an added image must not shadow. */
-const RESERVED_LOCAL_NAMES = ["thumbnail.jpg", "camera_poster.png", "project.json"];
+const RESERVED_LOCAL_NAMES = ["thumbnail.jpg", "camera_poster.png", CAMERA_MASK_FILE, "project.json"];
 
 export class ProjectMedia {
   readonly projectId: string;
@@ -486,7 +487,7 @@ export class ProjectMedia {
   /** The engine's media map for `doc` — every reference ever sent stays in it (undo can bring one back). */
   engineMedia(doc: Record<string, unknown>): EngineMediaMap {
     const refs = refsOf(doc);
-    for (const ref of [refs.cursor, refs.keystrokes, refs.camera, ...refs.images, ...refs.audio]) if (ref) this.sent.add(ref);
+    for (const ref of [refs.cursor, refs.keystrokes, refs.camera, refs.mask, ...refs.images, ...refs.audio]) if (ref) this.sent.add(ref);
     for (const ref of this.session.keys()) this.sent.add(ref);
     const files: Record<string, string> = {};
     for (const ref of this.sent) {
@@ -512,7 +513,14 @@ export class ProjectMedia {
       if (!project || project === last) return;
       last = project;
       const s = project.settings;
-      const refs = [s.backgroundImagePath, s.watermarkFileName, s.curtainLogoFileName, ...project.voiceOverClips.map((c) => c.fileName)];
+      const refs = [
+        s.backgroundImagePath,
+        s.watermarkFileName,
+        s.curtainLogoFileName,
+        ...project.voiceOverClips.map((c) => c.fileName),
+        // A look just added: the engine needs the camera person mask's URL.
+        project.cameraLayoutRegions.some((r) => r.look) ? CAMERA_MASK_FILE : null,
+      ];
       if (refs.some((r) => typeof r === "string" && r && !this.sent.has(r) && this.mediaUrl(r))) push();
     });
     // Tell the engine the URLs' expiry now (it learned the URLs at load).

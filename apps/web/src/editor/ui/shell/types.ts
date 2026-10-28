@@ -75,6 +75,20 @@ export interface ShellProjectInfo {
   syncState?: SyncState;
   /** The History pane is showing (the top-bar History key reads pressed). */
   historyOpen?: boolean;
+  /** Camera background removal for the looks (state/cameraMask.ts) — shown beside the Effects key. */
+  cameraMask?: CameraMaskChip | null;
+}
+
+/** The segmentation chip: progress while busy, else an error / notice to read. */
+export interface CameraMaskChip {
+  busy: boolean;
+  /** 0…1 while frames are processed; null = indeterminate. */
+  fraction: number | null;
+  /** One line ("Removing background... 42%", an error, a notice). */
+  text: string;
+  tone: "progress" | "error" | "notice";
+  onCancel?: () => void;
+  onDismiss?: () => void;
 }
 
 /** Transport/tool state the toolbar reflects (re-render on change — NOT per frame). */
@@ -165,7 +179,9 @@ export type EffectsPick =
   | "curtain"
   | "cameraFull"
   | "cameraSideBySide"
-  | "cameraHide";
+  | "cameraHide"
+  | "cameraCutout"
+  | "cameraPopOut";
 export type FocusPick = "blur" | "pixelate" | "highlight" | "depthFocus";
 export type AnnotationPick = "text" | "arrow" | "callout" | "drawing" | "rectangle" | "ellipse" | "tap";
 
@@ -180,6 +196,9 @@ export interface EditorShellCallbacks {
   onSyncRetry?(): void;
   /** Top-bar History key (cloud projects): swap the inspector column to the History pane. */
   onShowHistory?(): void;
+  /** Top-bar "Continue on Mac" (cloud projects): save, then open the project
+   *  in the Mac app with everything recorded and edited here (state/continueOnMac.ts). */
+  onContinueOnMac?(): void;
   onRename?(name: string): void;
   onAspectChange?(aspectId: string): void;
   onStillTreatmentChange?(treatment: "image" | "video"): void;

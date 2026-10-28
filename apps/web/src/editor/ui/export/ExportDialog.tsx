@@ -24,7 +24,7 @@
  * the upload (the top-bar Share key keeps showing it, like the Mac card).
  *
  * and the exporting state ("Exporting…", a 280-wide CCProgressBar whose fill
- * springs, "NN%"). Motion is the Mac's: the card enters with the Keynote
+ * springs, "NN%"). Motion is the Mac's: the card enters with the house
  * scale-in (0.96 → 1, smooth spring) over a fading scrim, and every content
  * change (the Size row, form ⇄ progress) grows the card from its pinned top
  * edge on the house bounce — the bottom is the pushed edge.
@@ -158,7 +158,7 @@ function ExportSheet({
   // Share links carry video only: no share rows for a PNG or a GIF.
   const canShare = !!onShareAfterExport && !isImage && settings.format !== "GIF";
 
-  // ── Presentation: scrim fade + Keynote scale-in; top edge pinned after.
+  // ── Presentation: scrim fade + house scale-in; top edge pinned after.
   useLayoutEffect(() => {
     const card = cardRef.current;
     const holder = holderRef.current;

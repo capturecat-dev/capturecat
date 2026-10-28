@@ -27,13 +27,10 @@ final class CCSlider: NSControl {
         set { titleField.stringValue = newValue; needsLayout = true }
     }
 
-    /// Optional SF Symbol shown after the title (e.g. a speaker icon).
+    /// Optional icon (a CCIcon kit / SF alias name) shown after the title.
     var symbol: String? {
         didSet {
-            symbolView.image = symbol.flatMap {
-                NSImage(systemSymbolName: $0, accessibilityDescription: nil)?
-                    .withSymbolConfiguration(.init(pointSize: 11, weight: .regular))
-            }
+            symbolView.image = symbol.flatMap { CCIcon.image($0, pointSize: 11, weight: .regular) }
             symbolView.isHidden = symbol == nil
             needsLayout = true
         }

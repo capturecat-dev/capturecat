@@ -287,7 +287,7 @@ extension WebParityFixtures {
                 }),
             Fixture(
                 name: "14-source-segments-dip",
-                description: "Stitched take screen → iPhone → screen: the device segment is cropped to its content rect and bezel-framed (screen mask, bezel with its own shadow, island; the card shadow dropped), a Keynote dip straddles each cut, and a tilt region spans the second cut (side slab + dip under the warp). Frames on, beside and around both cuts.",
+                description: "Stitched take screen → iPhone → screen: the device segment is cropped to its content rect and bezel-framed (screen mask, bezel with its own shadow, island; the card shadow dropped), a segment dip straddles each cut, and a tilt region spans the second cut (side slab + dip under the warp). Frames on, beside and around both cuts.",
                 features: ["sourceSegments", "sourceSegments.deviceFraming", "deviceSegmentDip", "tilt.region", "deviceSide"],
                 duration: 5, sourceSize: screen, withCursor: false, withCamera: false,
                 frames: [0, 40, 45, 47, 48, 49, 52, 60, 80, 99, 101, 102, 103, 106, 125, 149],
@@ -330,6 +330,42 @@ extension WebParityFixtures {
                         stitchedSegment(start: 1.507, duration: 1.493, kind: .display, natural: screen),
                     ]
                 }),
+            {
+                // Camera LOOKS (docs/camera-cutout.md §8): bubble → cutout →
+                // pop-out → bubble → pop-out → cameraOnly, every edge a fade.
+                // Frames sit SETTLED and MID cross-fade (bubble→cutout,
+                // cutout→popOut, popOut→bubble, bubble→popOut, and popOut→
+                // cameraOnly on the override path) so the summed-dissolve
+                // compositing is gated, not only settled looks. The mask is
+                // written against this fixture's own camera.mp4.
+                var f = Fixture(
+                    name: "16-camera-looks",
+                    description: "Camera looks: Cutout and Pop-out card regions on a mirrored rounded-rect bubble, through the synthetic person mask (camera-mask.ccmask, written by the Mac encoder against camera.mp4). Settled looks plus mid cross-fades bubble→cutout, cutout→popOut, popOut→bubble, bubble→popOut and popOut→cameraOnly (override path).",
+                    features: ["camera.bubble", "camera.mirrored", "camera.border", "cameraLook.cutout", "cameraLook.popOut",
+                               "cameraLook.crossfade", "cameraLayout.cameraOnly"],
+                    duration: 6, sourceSize: screen, withCursor: false, withCamera: true,
+                    frames: [0, 30, 37, 45, 60, 72, 79, 90, 102, 109, 117, 127, 140, 154, 170, 179],
+                    configure: { p in
+                        let s = p.settings
+                        s.showCamera = true
+                        s.cameraShape = .roundedRect
+                        s.cameraCornerRadius = 18
+                        s.cameraSize = 300
+                        s.cameraMirrored = true
+                        s.cameraBorderWidth = 3
+                        s.cameraBorderColor = CodableColor(red: 1, green: 1, blue: 1, opacity: 0.8)
+                        s.cameraPosition = .bottomRight
+                        p.cameraLayoutRegions = [
+                            CameraLayoutRegion(id: id(1601), startTime: 1.0, endTime: 2.4, mode: .bubble, look: .cutout),
+                            CameraLayoutRegion(id: id(1602), startTime: 2.4, endTime: 3.4, mode: .bubble, look: .popOut),
+                            CameraLayoutRegion(id: id(1603), startTime: 4.0, endTime: 4.9, mode: .bubble, look: .popOut),
+                            CameraLayoutRegion(id: id(1604), startTime: 4.9, endTime: 6.0, mode: .cameraOnly),
+                        ]
+                    })
+                f.cameraMask = true
+                f.lookCheck = (settledCutout: 45, plainBubble: 0)
+                return f
+            }(),
         ]
     }
 

@@ -22,19 +22,19 @@
 }
 
 .cc-theme {
-  /* ── capDark ─────────────────────────────────────────────── */
-  --cc-background: #131315;
-  --cc-card: #1c1c1e;
-  --cc-popover: #1c1c1e;
-  --cc-elevated: #232327;
-  --cc-foreground: rgb(255 255 255 / 0.92);
-  --cc-muted: rgb(255 255 255 / 0.55);
-  --cc-faint: rgb(255 255 255 / 0.35);
+  /* ── capDark (2026-10-27): deep neutral surfaces, faint cool cast ── */
+  --cc-background: #121215;
+  --cc-card: #1c1c20;
+  --cc-popover: #212126;
+  --cc-elevated: #2a2a30;
+  --cc-foreground: rgb(255 255 255 / 0.94);
+  --cc-muted: rgb(255 255 255 / 0.58);
+  --cc-faint: rgb(255 255 255 / 0.36);
   /* NSColor.controlAccentColor as the reference captures resolve it. */
   --cc-primary: #007aff;
   --cc-primary-foreground: #ffffff;
   --cc-destructive: #ff453a;
-  --cc-border: rgb(255 255 255 / 0.07);
+  --cc-border: rgb(255 255 255 / 0.08);
   /* Ink ring — white on dark (blue rings vetoed 2026-09-01). */
   --cc-ring: rgb(255 255 255 / 0.85);
   --cc-hover: rgb(255 255 255 / 0.06);
@@ -49,6 +49,8 @@
   --cc-active-pct: 10%;
   --cc-hover-solid: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) var(--cc-hover-pct));
   --cc-active-solid: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) var(--cc-active-pct));
+  /* EditorThemeKit.activeFill (translucent `active`) as it lands on a card. */
+  --cc-active-on-card: color-mix(in srgb, var(--cc-card), var(--cc-ink) var(--cc-active-pct));
   /* NSSplitView .thin divider as captured (black on dark, #DFDFE0 on light). */
   --cc-split-divider: #000000;
   --cc-disabled-alpha: 0.38;
@@ -59,25 +61,33 @@
   --cc-system-yellow: #ffd60a;
   --cc-system-cyan: #3cd3fe;
 
-  /* ── CCMaterial constants (dark) ─────────────────────────── */
-  --cc-mat-lift: 10%;
-  --cc-mat-sink: 14%;
-  --cc-mat-under: 45%;
-  --cc-mat-toplight: 0.08;
-  --cc-mat-shadow: 0.45;
-  --cc-mat-chip-shadow: 0.35;
-  --cc-well-top: 14%;
-  --cc-well-bottom: 3%;
-  --cc-well-inner: 0.26;
-  --cc-well-bevel-top: 0.5;
-  --cc-well-bevel-bottom: 0.1;
+  /* ── CCMaterial, the 2026 floating look (dark) ───────────────
+     Floating surface: the tint + a whisper of top light, a 0.5px hairline
+     that follows the corners, and a soft shadow scaled to the surface's
+     height h (CCMaterial.floatShadow): t = clamp((h−20)/140, 0, 1),
+     CALayer radius 2.5+11.5t (CSS blur = 2× that), y 1+4t,
+     opacity op + gain·t. Wells: flat tint + a quieter hairline. */
+  --cc-mat-toplight: 3.5%;
+  --cc-hairline: rgb(255 255 255 / 0.09);
+  --cc-hairline-well: rgb(255 255 255 / 0.06);
+  --cc-float-op: 0.32;
+  --cc-float-gain: 0.1;
+  /* The selected option chip floats on the active wash (InspectorChips);
+     light swaps in the white card so it reads on the pale wells. */
+  --cc-chip-selected: var(--cc-active-on-card);
   --cc-press-wash: 0.1;
 
-  /* ── Geometry (CCRadius / CCSpace) ───────────────────────── */
-  --cc-radius-sm: 4px;
-  --cc-radius-md: 6px;
-  --cc-radius-lg: 10px;
-  --cc-radius-xl: 16px;
+  /* ── Menus (the 2026 menu spec): the wide soft shadow's opacity, the row
+     wash that glides between rows, and its pick pulse. ── */
+  --cc-menu-shadow-op: 0.45;
+  --cc-menu-wash: rgb(255 255 255 / 0.08);
+  --cc-menu-pulse: rgb(255 255 255 / 0.16);
+
+  /* ── Geometry (CCRadius / CCSpace) — softer 2026 corners ─── */
+  --cc-radius-sm: 6px;
+  --cc-radius-md: 9px;
+  --cc-radius-lg: 14px;
+  --cc-radius-xl: 20px;
   --cc-space-xxs: 2px;
   --cc-space-xs: 4px;
   --cc-space-sm: 8px;
@@ -121,85 +131,82 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── capLight ─────────────────────────────────────────────── */
+/* ── capLight (2026-10-27): airy near-white window, white floating cards,
+   soft grey wells ── */
 .cc-theme[data-cc-theme="light"] {
-  --cc-background: #f7f7f8;
+  --cc-background: #f4f4f6;
   --cc-card: #ffffff;
   --cc-popover: #ffffff;
-  --cc-elevated: #efeff1;
-  --cc-foreground: rgb(0 0 0 / 0.88);
-  --cc-muted: rgb(0 0 0 / 0.55);
-  --cc-faint: rgb(0 0 0 / 0.34);
+  --cc-elevated: #ececef;
+  --cc-foreground: #1d1d1f;
+  --cc-muted: rgb(0 0 0 / 0.54);
+  --cc-faint: rgb(0 0 0 / 0.32);
   --cc-primary: #007aff;
   --cc-primary-foreground: #ffffff;
   --cc-destructive: #ff3b30;
-  --cc-border: rgb(0 0 0 / 0.09);
+  --cc-border: rgb(0 0 0 / 0.08);
   --cc-ring: rgb(0 0 0 / 0.55);
-  --cc-hover: rgb(0 0 0 / 0.05);
-  --cc-active: rgb(0 0 0 / 0.09);
-  --cc-overlay: rgb(0 0 0 / 0.28);
+  --cc-hover: rgb(0 0 0 / 0.045);
+  --cc-active: rgb(0 0 0 / 0.08);
+  --cc-overlay: rgb(0 0 0 / 0.25);
   --cc-ink: #000000;
   --cc-ink-rgb: 0 0 0;
-  --cc-hover-pct: 5%;
-  --cc-active-pct: 9%;
+  --cc-hover-pct: 4.5%;
+  --cc-active-pct: 8%;
   --cc-split-divider: #dfdfe0;
   --cc-system-red: #ff3b30;
   --cc-system-orange: #ff9500;
   --cc-system-yellow: #ffcc00;
   --cc-system-cyan: #00c0e8;
-  --cc-mat-lift: 14%;
-  --cc-mat-sink: 8%;
-  --cc-mat-under: 30%;
-  --cc-mat-toplight: 0.25;
-  --cc-mat-shadow: 0.2;
-  --cc-mat-chip-shadow: 0.15;
-  --cc-well-top: 8%;
-  --cc-well-bottom: 5%;
-  --cc-well-inner: 0.14;
-  --cc-well-bevel-top: 0.22;
-  --cc-well-bevel-bottom: 0.5;
-  --cc-press-wash: 0.08;
+  --cc-mat-toplight: 2%;
+  --cc-hairline: rgb(0 0 0 / 0.07);
+  --cc-hairline-well: rgb(0 0 0 / 0.05);
+  --cc-float-op: 0.07;
+  --cc-float-gain: 0.03;
+  --cc-chip-selected: var(--cc-card);
+  --cc-press-wash: 0.06;
+  --cc-menu-shadow-op: 0.16;
+  --cc-menu-wash: rgb(0 0 0 / 0.055);
+  --cc-menu-pulse: rgb(0 0 0 / 0.12);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: light) {
   .cc-theme[data-cc-theme="system"] {
-    --cc-background: #f7f7f8;
+    --cc-background: #f4f4f6;
     --cc-card: #ffffff;
     --cc-popover: #ffffff;
-    --cc-elevated: #efeff1;
-    --cc-foreground: rgb(0 0 0 / 0.88);
-    --cc-muted: rgb(0 0 0 / 0.55);
-    --cc-faint: rgb(0 0 0 / 0.34);
+    --cc-elevated: #ececef;
+    --cc-foreground: #1d1d1f;
+    --cc-muted: rgb(0 0 0 / 0.54);
+    --cc-faint: rgb(0 0 0 / 0.32);
     --cc-primary: #007aff;
     --cc-primary-foreground: #ffffff;
     --cc-destructive: #ff3b30;
-    --cc-border: rgb(0 0 0 / 0.09);
+    --cc-border: rgb(0 0 0 / 0.08);
     --cc-ring: rgb(0 0 0 / 0.55);
-    --cc-hover: rgb(0 0 0 / 0.05);
-    --cc-active: rgb(0 0 0 / 0.09);
-    --cc-overlay: rgb(0 0 0 / 0.28);
+    --cc-hover: rgb(0 0 0 / 0.045);
+    --cc-active: rgb(0 0 0 / 0.08);
+    --cc-overlay: rgb(0 0 0 / 0.25);
     --cc-ink: #000000;
     --cc-ink-rgb: 0 0 0;
-    --cc-hover-pct: 5%;
-    --cc-active-pct: 9%;
+    --cc-hover-pct: 4.5%;
+    --cc-active-pct: 8%;
     --cc-split-divider: #dfdfe0;
     --cc-system-red: #ff3b30;
     --cc-system-orange: #ff9500;
     --cc-system-yellow: #ffcc00;
     --cc-system-cyan: #00c0e8;
-    --cc-mat-lift: 14%;
-    --cc-mat-sink: 8%;
-    --cc-mat-under: 30%;
-    --cc-mat-toplight: 0.25;
-    --cc-mat-shadow: 0.2;
-    --cc-mat-chip-shadow: 0.15;
-    --cc-well-top: 8%;
-    --cc-well-bottom: 5%;
-    --cc-well-inner: 0.14;
-    --cc-well-bevel-top: 0.22;
-    --cc-well-bevel-bottom: 0.5;
-    --cc-press-wash: 0.08;
+    --cc-mat-toplight: 2%;
+    --cc-hairline: rgb(0 0 0 / 0.07);
+    --cc-hairline-well: rgb(0 0 0 / 0.05);
+    --cc-float-op: 0.07;
+    --cc-float-gain: 0.03;
+    --cc-chip-selected: var(--cc-card);
+    --cc-press-wash: 0.06;
+    --cc-menu-shadow-op: 0.16;
+    --cc-menu-wash: rgb(0 0 0 / 0.055);
+    --cc-menu-pulse: rgb(0 0 0 / 0.12);
     color-scheme: light;
   }
 }

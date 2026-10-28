@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { API_URL } from "@/lib/api-url";
+import { tagDownload } from "@/lib/attribution";
 
 function AppleLogo({ className }: { className?: string }) {
   return (
@@ -111,11 +112,11 @@ export function DownloadButtons({ release: _release }: { release: Release | null
         </a>
         <p className="text-sm text-muted-foreground">
           The Mac app needs a Mac. Downloading for one?{" "}
-          <a href={url.arm64} className={linkCls}>
+          <a href={url.arm64} onClick={tagDownload} className={linkCls}>
             Apple silicon
           </a>{" "}
           ·{" "}
-          <a href={url.x86_64} className={linkCls}>
+          <a href={url.x86_64} onClick={tagDownload} className={linkCls}>
             Intel
           </a>
         </p>
@@ -131,25 +132,25 @@ export function DownloadButtons({ release: _release }: { release: Release | null
     <div className="flex flex-col items-center gap-4 pt-4">
       {detected === null ? (
         <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <a href={url.arm64} className={primaryCls}>
+          <a href={url.arm64} onClick={tagDownload} className={primaryCls}>
             <AppleLogo className="h-4 w-4" />
             Download for Apple silicon
           </a>
-          <a href={url.x86_64} className={secondaryCls}>
+          <a href={url.x86_64} onClick={tagDownload} className={secondaryCls}>
             <AppleLogo className="h-4 w-4" />
             Download for Intel
           </a>
         </div>
       ) : (
         <>
-          <a href={url[arch]} className={primaryCls} data-arch={arch}>
+          <a href={url[arch]} onClick={tagDownload} className={primaryCls} data-arch={arch}>
             <AppleLogo className="h-4 w-4" />
             Download for Mac
             <span className="font-normal text-black/55">· {ARCH_LABEL[arch]}</span>
           </a>
           <p className="text-sm text-muted-foreground">
             {detected?.kind === "mac" && !detected.confident ? "Have an Intel Mac? " : "Need the other build? "}
-            <a href={url[other]} className={linkCls}>
+            <a href={url[other]} onClick={tagDownload} className={linkCls}>
               Download for {ARCH_LABEL[other]}
             </a>
           </p>

@@ -1,0 +1,692 @@
+/*
+ * The signed-in app (app.capturecat.so: dashboard + editor) in the Mac's 2026
+ * look (Mike, 2026-10-27: "make sure app. matches new style"). The marketing
+ * site keeps its liquid-glass design — everything here is scoped to pages
+ * that carry `[data-cc-app]` (DashboardShell's root, the editor's ThemeRoot),
+ * so marketing, share and docs pages never see it.
+ *
+ * Source of truth: apps/macos/…/DesignKit/CCTheme.swift (capDark / capLight)
+ * and CCMaterial.swift (the floating surface + flat well, `hairline`,
+ * `floatShadow`). The web editor's kit (editor/ui/kit/tokens.css) mirrors
+ * the same values under `.cc-theme`.
+ *
+ * Tokens live on :root while an app page is mounted (`:has`), so Radix
+ * portals (dialogs, menus, toasts) — which render on <body>, outside the
+ * shell — get them too. <html> keeps its permanent `.dark` class (the root
+ * layout's), so `.dark` elements inside the app are re-pointed as well.
+ *
+ * Themes follow the system appearance (the Mac's CCThemeMode.system): dark
+ * by default, light under `prefers-color-scheme: light`.
+ */
+
+/* ── Tokens: capDark ─────────────────────────────────────────────────────── */
+/* The recording dock (recorder-bar.tsx) is a dark HUD in both appearances —
+   its surfaces are drawn dark, so its subtree keeps the dark tokens even when
+   the window turns light (the light block below never targets it). */
+:root:has([data-cc-app]),
+:root:has([data-cc-app]) .dark,
+:root:has([data-cc-app]) [data-recorder-dock-root] {
+  --cc-background: #121215;
+  --cc-card: #1c1c20;
+  --cc-popover: #212126;
+  --cc-elevated: #2a2a30;
+  --cc-foreground: rgb(255 255 255 / 0.94);
+  --cc-muted: rgb(255 255 255 / 0.58);
+  --cc-faint: rgb(255 255 255 / 0.36);
+  --cc-primary: #007aff;
+  --cc-destructive: #ff453a;
+  --cc-border: rgb(255 255 255 / 0.08);
+  --cc-hover: rgb(255 255 255 / 0.06);
+  --cc-active: rgb(255 255 255 / 0.1);
+  --cc-overlay: rgb(0 0 0 / 0.42);
+  --cc-ink: #ffffff;
+  --cc-ink-rgb: 255 255 255;
+  /* CCMaterial.hairline / floatShadow */
+  --cc-hairline: rgb(255 255 255 / 0.09);
+  --cc-hairline-well: rgb(255 255 255 / 0.06);
+  --cc-float-op: 0.32;
+  --cc-float-gain: 0.1;
+  --cc-toplight: 3.5%;
+  /* Menus (the 2026 menu spec, = editor kit tokens.css): the wide soft
+     shadow's opacity, the gliding row wash and its pick pulse. */
+  --cc-menu-shadow-op: 0.45;
+  --cc-menu-wash: rgb(255 255 255 / 0.08);
+  --cc-menu-pulse: rgb(255 255 255 / 0.16);
+  /* Status hues (system colours, dark appearance): dots/fills and the text
+     shade that stays readable on the theme's surfaces. */
+  --cc-green: #30d158;
+  --cc-green-text: #4fdc78;
+  --cc-amber: #ff9f0a;
+  --cc-amber-text: #ffc861;
+  --cc-violet: #bf5af2;
+  --cc-violet-text: #d6a4f7;
+  /* A floating control's face (buttons, the selected chip): lifts off a card. */
+  --cc-face: #2f2f35;
+  --cc-face-hover: #36363c;
+  /* The selected chip / segment floating out of its well. */
+  --cc-chip-on: #3b3b42;
+  --cc-radius-sm: 6px;
+  --cc-radius-md: 9px;
+  --cc-radius-lg: 14px;
+  --cc-radius-xl: 20px;
+  --cc-ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --cc-ease-glide: cubic-bezier(0.4, 0, 0.2, 1);
+  --cc-ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* floatShadow at the three heights the dashboard uses: a 30pt control
+     (t ≈ .07), a 56pt row (t ≈ .26) and a card/panel (t = 1). CSS blur is
+     twice the CALayer shadowRadius. */
+  --cc-shadow-control: 0 1.3px 6.6px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) * 0.07));
+  --cc-shadow-row: 0 2px 11px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) * 0.26));
+  --cc-shadow-card: 0 5px 28px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain)));
+  --cc-shadow-pop:
+    0 1px 2px 0 rgb(0 0 0 / calc(var(--cc-float-op) * 0.6)),
+    0 10px 36px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain)));
+
+  /* shadcn's names, re-pointed at the Mac palette. */
+  --radius: 0.75rem;
+  --background: var(--cc-background);
+  --foreground: var(--cc-foreground);
+  --card: var(--cc-card);
+  --card-foreground: var(--cc-foreground);
+  --popover: var(--cc-popover);
+  --popover-foreground: var(--cc-foreground);
+  --primary: var(--cc-primary);
+  --primary-foreground: #ffffff;
+  --secondary: var(--cc-elevated);
+  --secondary-foreground: var(--cc-foreground);
+  --muted: var(--cc-elevated);
+  --muted-foreground: var(--cc-muted);
+  --accent: var(--cc-hover);
+  --accent-foreground: var(--cc-foreground);
+  --destructive: var(--cc-destructive);
+  --border: var(--cc-border);
+  --input: var(--cc-border);
+  --ring: rgb(255 255 255 / 0.6);
+  --sidebar: var(--cc-background);
+  --sidebar-foreground: var(--cc-foreground);
+  --sidebar-primary: var(--cc-primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--cc-hover);
+  --sidebar-accent-foreground: var(--cc-foreground);
+  --sidebar-border: var(--cc-border);
+  --sidebar-ring: rgb(255 255 255 / 0.6);
+  color-scheme: dark;
+}
+
+/* ── Tokens: capLight — an airy near-white window, white floating cards,
+   soft grey wells ── */
+@media (prefers-color-scheme: light) {
+  :root:has([data-cc-app]),
+  :root:has([data-cc-app]) .dark {
+    --cc-background: #f4f4f6;
+    --cc-card: #ffffff;
+    --cc-popover: #ffffff;
+    --cc-elevated: #ececef;
+    --cc-foreground: #1d1d1f;
+    --cc-muted: rgb(0 0 0 / 0.54);
+    --cc-faint: rgb(0 0 0 / 0.32);
+    --cc-destructive: #ff3b30;
+    --cc-border: rgb(0 0 0 / 0.08);
+    --cc-hover: rgb(0 0 0 / 0.045);
+    --cc-active: rgb(0 0 0 / 0.08);
+    --cc-overlay: rgb(0 0 0 / 0.25);
+    --cc-ink: #000000;
+    --cc-ink-rgb: 0 0 0;
+    --cc-hairline: rgb(0 0 0 / 0.07);
+    --cc-hairline-well: rgb(0 0 0 / 0.05);
+    --cc-float-op: 0.07;
+    --cc-float-gain: 0.03;
+    --cc-toplight: 2%;
+    --cc-menu-shadow-op: 0.16;
+    --cc-menu-wash: rgb(0 0 0 / 0.055);
+    --cc-menu-pulse: rgb(0 0 0 / 0.12);
+    --cc-face: #ffffff;
+    --cc-face-hover: #f7f7f9;
+    --cc-chip-on: #ffffff;
+    --cc-green: #34c759;
+    --cc-green-text: #1c7a35;
+    --cc-amber: #ff9500;
+    --cc-amber-text: #9a5300;
+    --cc-violet: #af52de;
+    --cc-violet-text: #7a2ca6;
+    --ring: rgb(0 0 0 / 0.45);
+    --sidebar-ring: rgb(0 0 0 / 0.45);
+    color-scheme: light;
+  }
+}
+
+/* The dock's text inherits a computed colour from <body>, so re-point it too. */
+:root:has([data-cc-app]) [data-recorder-dock-root] {
+  color: var(--cc-foreground);
+}
+
+/* ── The page ───────────────────────────────────────────────────────────── */
+:root:has([data-cc-app]) body {
+  background: var(--cc-background);
+  color: var(--cc-foreground);
+}
+
+/* ── Floating surfaces: panels, cards ──────────────────────────────────── */
+/* The dashboard's panels (studio.tsx Panel/Sections/StatStrip and any
+   leftover glass-panel inside the app) are FLOATING cards: card tint, a
+   0.5px hairline that follows the corners, the airy end of floatShadow. */
+[data-cc-app] .glass-panel,
+.cc-app-panel {
+  background: var(--cc-card);
+  border: 0;
+  outline: 0.5px solid var(--cc-hairline);
+  outline-offset: -0.5px;
+  box-shadow: var(--cc-shadow-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: var(--cc-radius-xl);
+}
+[data-cc-app] .hairline-top::before {
+  display: none;
+}
+
+/* ── shadcn controls, dressed in the floating material ─────────────────── */
+:root:has([data-cc-app]) [data-slot="button"] {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-duration: 160ms;
+  transition-timing-function: var(--cc-ease-glide);
+}
+/* A call site that paints its own fill (`bg-*` in its className, e.g. a red
+   confirm) keeps it — only the stock variants are re-dressed below. */
+/* Press tints in place — never moves (CCMaterial.press). */
+:root:has([data-cc-app]) [data-slot="button"]:active {
+  translate: none;
+}
+:root:has([data-cc-app]) [data-slot="button"][data-variant="default"]:not([class*="bg-"]) {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--cc-primary), #fff 6%), var(--cc-primary));
+  box-shadow:
+    inset 0 0 0 0.5px rgb(0 0 0 / 0.08),
+    0 1px 2px 0 rgb(0 64 160 / 0.25),
+    0 2px 8px -2px rgb(0 64 160 / 0.3);
+}
+:root:has([data-cc-app]) [data-slot="button"][data-variant="default"]:not([class*="bg-"]):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cc-primary), var(--cc-ink) 8%);
+}
+:root:has([data-cc-app]) [data-slot="button"][data-variant="outline"],
+:root:has([data-cc-app]) [data-slot="button"][data-variant="secondary"] {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--cc-face), #fff var(--cc-toplight)), var(--cc-face));
+  border-color: transparent;
+  color: var(--cc-foreground);
+  box-shadow: inset 0 0 0 0.5px var(--cc-hairline), var(--cc-shadow-control);
+}
+:root:has([data-cc-app]) [data-slot="button"][data-variant="outline"]:hover:not(:disabled),
+:root:has([data-cc-app]) [data-slot="button"][data-variant="secondary"]:hover:not(:disabled),
+:root:has([data-cc-app]) [data-slot="button"][data-variant="outline"][aria-expanded="true"],
+:root:has([data-cc-app]) [data-slot="button"][data-variant="secondary"][aria-expanded="true"] {
+  background: var(--cc-face-hover);
+}
+:root:has([data-cc-app]) [data-slot="button"][data-variant="ghost"]:hover:not(:disabled),
+:root:has([data-cc-app]) [data-slot="button"][data-variant="ghost"][aria-expanded="true"] {
+  background: var(--cc-hover);
+}
+:root:has([data-cc-app]) [data-slot="button"][data-variant="destructive"] {
+  background: color-mix(in srgb, var(--cc-destructive) 12%, transparent);
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--cc-destructive) 22%, transparent);
+}
+:root:has([data-cc-app]) [data-slot="button"][data-variant="destructive"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cc-destructive) 18%, transparent);
+}
+
+/* Fields are flat WELLS: the elevated tint and a quiet hairline. */
+:root:has([data-cc-app]) [data-slot="input"],
+:root:has([data-cc-app]) .studio-input {
+  background: var(--cc-elevated);
+  border-color: var(--cc-hairline-well);
+}
+:root:has([data-cc-app]) [data-slot="input"]:hover,
+:root:has([data-cc-app]) .studio-input:hover {
+  background: color-mix(in srgb, var(--cc-elevated), var(--cc-ink) 3%);
+}
+:root:has([data-cc-app]) [data-slot="input"]:focus-visible,
+:root:has([data-cc-app]) .studio-input:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cc-ink) 8%, transparent);
+}
+
+/* Switch: a flat well track (primary when on), a white floating thumb. */
+:root:has([data-cc-app]) [data-slot="switch"][data-state="unchecked"] {
+  background: var(--cc-active);
+}
+:root:has([data-cc-app]) [data-slot="switch-thumb"] {
+  background: #ffffff;
+  box-shadow:
+    0 0 0 0.5px rgb(0 0 0 / 0.06),
+    0 1px 3px 0 rgb(0 0 0 / 0.28);
+}
+
+/* Cards and the floating panels Radix portals render. */
+:root:has([data-cc-app]) [data-slot="card"] {
+  background: var(--cc-card);
+  box-shadow: inset 0 0 0 0.5px var(--cc-hairline), var(--cc-shadow-card);
+  --tw-ring-color: transparent;
+}
+:root:has([data-cc-app]) [data-slot="dialog-content"],
+:root:has([data-cc-app]) [data-slot="alert-dialog-content"],
+:root:has([data-cc-app]) [data-slot="sheet-content"] {
+  background: var(--cc-popover);
+  border-radius: var(--cc-radius-xl);
+  --tw-ring-color: var(--cc-hairline);
+  box-shadow:
+    0 0 0 0.5px var(--cc-hairline),
+    0 1px 3px 0 rgb(0 0 0 / calc(var(--cc-float-op) * 0.6)),
+    0 16px 48px 0 rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) + 0.08));
+}
+:root:has([data-cc-app]) [data-slot="sheet-content"] { border-radius: 0; }
+:root:has([data-cc-app]) [data-slot="dialog-overlay"],
+:root:has([data-cc-app]) [data-slot="alert-dialog-overlay"],
+:root:has([data-cc-app]) [data-slot="sheet-overlay"] {
+  background: var(--cc-overlay);
+}
+:root:has([data-cc-app]) [data-slot="popover-content"] {
+  background: var(--cc-popover);
+  border-radius: var(--cc-radius-lg);
+  --tw-ring-color: transparent;
+  box-shadow: 0 0 0 0.5px var(--cc-hairline), var(--cc-shadow-pop);
+}
+:root:has([data-cc-app]) [data-slot="skeleton"] {
+  background: var(--cc-elevated);
+}
+:root:has([data-cc-app]) [data-slot="tooltip-content"] {
+  border-radius: var(--cc-radius-md);
+}
+
+/* ── Menus: the 2026 menu spec (dropdown-menu.tsx / context-menu.tsx) ────
+   The Mac's CCMenu and the web editor's kit MenuList share this spec: a
+   floating popover surface — radius 14, a 0.5px hairline, a soft WIDE
+   shadow (blur 48, y 10; .45 dark / .16 light), 6px padding — whose width
+   fits its content between 220 and 380 (titles never truncate). 30px rows:
+   a muted 16px kit icon, 13px title, a faint key-cap shortcut, the check
+   far right. ONE wash glides between rows (menu-wash.tsx). Motion: pop in
+   from the trigger's side (fade 120ms + scale .96→1 on the house bounce +
+   a 6px slide), rows stagger in (18ms apart), a pick pulses the wash then
+   fades (100ms, scale .98); submenus slide 6px + fade. Reduced motion:
+   fades only. In @layer components so a call site's utilities still win. */
+@layer components {
+  .cc-dd {
+    --dd-dx: 0px;
+    --dd-dy: 0px;
+    position: relative;
+    isolation: isolate;
+    z-index: 50;
+    box-sizing: border-box;
+    /* Fits its content — a call site's fixed `w-*` can't clamp a title
+       (min-width utilities still raise the floor). */
+    width: max-content !important;
+    min-width: 220px;
+    max-width: min(380px, calc(100vw - 16px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px;
+    border-radius: 14px;
+    background:
+      linear-gradient(to bottom, rgb(255 255 255 / var(--cc-toplight, 0%)), transparent 28px),
+      var(--cc-popover, var(--popover));
+    color: var(--cc-foreground, var(--popover-foreground));
+    box-shadow:
+      0 0 0 0.5px var(--cc-hairline, rgb(127 127 127 / 0.2)),
+      0 1px 2px 0 rgb(0 0 0 / calc(var(--cc-menu-shadow-op, 0.3) * 0.35)),
+      0 10px 48px 0 rgb(0 0 0 / var(--cc-menu-shadow-op, 0.3));
+    font-size: 13px;
+    line-height: 16px;
+    outline: none;
+  }
+  [data-slot="dropdown-menu-content"].cc-dd,
+  [data-slot="dropdown-menu-sub-content"].cc-dd {
+    max-height: var(--radix-dropdown-menu-content-available-height);
+    transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+  }
+  [data-slot="context-menu-content"].cc-dd,
+  [data-slot="context-menu-sub-content"].cc-dd {
+    max-height: var(--radix-context-menu-content-available-height);
+    transform-origin: var(--radix-context-menu-content-transform-origin);
+  }
+  /* The 6px slide starts nearer the trigger. */
+  .cc-dd[data-side="bottom"] { --dd-dy: -6px; }
+  .cc-dd[data-side="top"] { --dd-dy: 6px; }
+  .cc-dd[data-side="right"] { --dd-dx: -6px; }
+  .cc-dd[data-side="left"] { --dd-dx: 6px; }
+
+  .cc-dd[data-state="open"] {
+    animation:
+      cc-dd-fade-in 120ms var(--cc-ease-glide) both,
+      cc-dd-pop-in 280ms var(--cc-ease-bounce) both;
+  }
+  .cc-dd--sub[data-state="open"] {
+    animation:
+      cc-dd-fade-in 140ms var(--cc-ease-glide) both,
+      cc-dd-slide-in 220ms var(--cc-ease-settle) both;
+  }
+  .cc-dd[data-state="closed"] {
+    pointer-events: none;
+    animation: cc-dd-out 100ms var(--cc-ease-glide) both;
+  }
+  /* A pick: the wash pulses once on the chosen row (120ms), then the fade. */
+  .cc-dd[data-state="closed"][data-picked],
+  .cc-dd[data-state="closed"][data-picked-parent] {
+    animation: cc-dd-pick-out 220ms linear both;
+  }
+  .cc-dd[data-state="closed"][data-picked] > [data-slot="menu-wash"] {
+    animation: cc-dd-wash-pulse 120ms var(--cc-ease-glide) both;
+  }
+
+  /* Rows stagger in: fade + 6px rise, 18ms apart for the first 8. No `to`
+     frame, so a dimmed row keeps its own resting look. (The wash is the
+     surface's first child.) */
+  .cc-dd[data-state="open"] > :not([data-slot="menu-wash"]) {
+    animation: cc-dd-row-in 220ms var(--cc-ease-settle) calc(var(--dd-i, 8) * 18ms + 16ms) both;
+  }
+  .cc-dd > :nth-child(2) { --dd-i: 0; }
+  .cc-dd > :nth-child(3) { --dd-i: 1; }
+  .cc-dd > :nth-child(4) { --dd-i: 2; }
+  .cc-dd > :nth-child(5) { --dd-i: 3; }
+  .cc-dd > :nth-child(6) { --dd-i: 4; }
+  .cc-dd > :nth-child(7) { --dd-i: 5; }
+  .cc-dd > :nth-child(8) { --dd-i: 6; }
+  .cc-dd > :nth-child(9) { --dd-i: 7; }
+
+  /* The ONE wash per surface. */
+  .cc-dd > [data-slot="menu-wash"] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    border-radius: 9px;
+    background: var(--cc-menu-wash, rgb(127 127 127 / 0.12));
+    pointer-events: none;
+    opacity: 0;
+    will-change: transform;
+    transition:
+      transform 260ms var(--cc-ease-settle),
+      width 260ms var(--cc-ease-settle),
+      height 260ms var(--cc-ease-settle),
+      opacity 100ms var(--cc-ease-glide);
+  }
+  .cc-dd > [data-slot="menu-wash"][data-instant="true"] {
+    transition: opacity 100ms var(--cc-ease-glide);
+  }
+  .cc-dd > [data-slot="menu-wash"][data-tone="destructive"] {
+    background: color-mix(in srgb, var(--cc-destructive, #ff453a) 14%, transparent);
+  }
+
+  /* Simple rows. */
+  .cc-dd-item {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 30px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    border-radius: 9px;
+    font-size: 13px;
+    line-height: 16px;
+    /* Max-content sizing widens the menu to the longest title; text only
+       wraps past the 380 cap (never clips). */
+    white-space: normal;
+    text-wrap: pretty;
+    padding-block: 7px;
+    color: inherit;
+    cursor: default;
+    user-select: none;
+    outline: none;
+    text-decoration: none;
+  }
+  .cc-dd-item svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--cc-muted, var(--muted-foreground));
+    pointer-events: none;
+  }
+  /* A leading emoji / glyph slot the width of an icon. */
+  .cc-dd-glyph {
+    width: 16px;
+    flex: none;
+    text-align: center;
+    font-size: 13px;
+  }
+  .cc-dd-item[data-inset] { padding-left: 36px; }
+  .cc-dd-item[data-variant="destructive"],
+  .cc-dd-item[data-variant="destructive"] svg { color: var(--cc-destructive, var(--destructive)); }
+  .cc-dd-item[data-disabled] { color: var(--cc-faint, var(--muted-foreground)); }
+  .cc-dd-item[data-disabled] svg { opacity: 0.6; }
+  .cc-dd-item--check { padding-right: 34px; }
+  .cc-dd-check {
+    position: absolute;
+    right: 10px;
+    display: inline-flex;
+    pointer-events: none;
+  }
+  .cc-dd-check svg { width: 14px; height: 14px; color: var(--cc-primary, var(--primary)); }
+  .cc-dd-subtrigger { padding-right: 8px; }
+  .cc-dd-subtrigger > .cc-dd-chevron {
+    width: 12px;
+    height: 12px;
+    margin-left: auto;
+    color: var(--cc-faint, var(--muted-foreground));
+  }
+  /* Key equivalent: a faint key cap, right-aligned. */
+  .cc-dd-kbd {
+    flex: none;
+    margin-left: auto;
+    padding: 0 5px;
+    min-width: 18px;
+    height: 18px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    background: rgb(var(--cc-ink-rgb, 127 127 127) / 0.05);
+    box-shadow: inset 0 0 0 0.5px var(--cc-hairline, rgb(127 127 127 / 0.2));
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: var(--cc-faint, var(--muted-foreground));
+  }
+  /* Section header: sentence case, 11px semibold, muted. */
+  .cc-dd-label {
+    padding: 6px 10px 4px;
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    color: var(--cc-muted, var(--muted-foreground));
+    white-space: nowrap;
+  }
+  .cc-dd-item[data-inset] ~ .cc-dd-label,
+  .cc-dd-label[data-inset] { padding-left: 36px; }
+  /* Hairline between groups. */
+  .cc-dd-sep {
+    height: 1px;
+    margin: 6px 4px;
+    background: var(--cc-border, var(--border));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cc-dd[data-state="open"],
+    .cc-dd--sub[data-state="open"] {
+      animation: cc-dd-fade-in 120ms var(--cc-ease-glide) both;
+    }
+    .cc-dd[data-state="closed"],
+    .cc-dd[data-state="closed"][data-picked],
+    .cc-dd[data-state="closed"][data-picked-parent] {
+      animation: cc-dd-fade-out 100ms var(--cc-ease-glide) both;
+    }
+    .cc-dd[data-state] > *,
+    .cc-dd[data-state="open"] > :not([data-slot="menu-wash"]),
+    .cc-dd[data-state="closed"][data-picked] > [data-slot="menu-wash"] {
+      animation: none;
+    }
+    .cc-dd > [data-slot="menu-wash"] {
+      transition: opacity 100ms var(--cc-ease-glide);
+    }
+  }
+}
+
+@keyframes cc-dd-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cc-dd-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes cc-dd-pop-in {
+  from { transform: translate(var(--dd-dx), var(--dd-dy)) scale(0.96); }
+  to { transform: translate(0, 0) scale(1); }
+}
+@keyframes cc-dd-slide-in {
+  from { transform: translate(var(--dd-dx), var(--dd-dy)); }
+  to { transform: translate(0, 0); }
+}
+@keyframes cc-dd-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.98); }
+}
+@keyframes cc-dd-pick-out {
+  0%, 54.5% { opacity: 1; transform: scale(1); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  100% { opacity: 0; transform: scale(0.98); }
+}
+@keyframes cc-dd-wash-pulse {
+  0% { background-color: var(--cc-menu-wash); }
+  45% { background-color: var(--cc-menu-pulse); }
+  100% { background-color: var(--cc-menu-wash); }
+}
+@keyframes cc-dd-row-in { from { opacity: 0; transform: translateY(6px); } }
+
+/* Toasts (sonner reads --popover/--border): a floating card. */
+:root:has([data-cc-app]) [data-sonner-toast] {
+  box-shadow: 0 0 0 0.5px var(--cc-hairline), var(--cc-shadow-pop) !important;
+  border-color: transparent !important;
+}
+
+/* ── Sidebar: on the window, no glass ──────────────────────────────────── */
+[data-cc-app] [data-slot="sidebar-inner"] {
+  background: var(--cc-background);
+}
+[data-cc-app] [data-slot="sidebar-container"] {
+  border-color: transparent;
+}
+
+/* ── Studio kit pieces (dashboard.css), in the 2026 material ───────────── */
+@layer components {
+  /* A small floating chip: the face tint, hairline, a control's contact
+     shadow (back links, plan chips, segmented selections). */
+  .cc-float-chip {
+    background: var(--cc-face);
+    box-shadow: inset 0 0 0 0.5px var(--cc-hairline), var(--cc-shadow-control);
+  }
+  /* The selected chip: floats out of the wells around it. */
+  .cc-chip-on {
+    background: var(--cc-chip-on);
+    box-shadow: inset 0 0 0 0.5px var(--cc-hairline), var(--cc-shadow-control);
+    color: var(--cc-foreground);
+  }
+  /* A flat well: elevated tint + quiet hairline (segmented tracks, chips at
+     rest, search fields). */
+  .cc-well {
+    background: var(--cc-elevated);
+    box-shadow: inset 0 0 0 0.5px var(--cc-hairline-well);
+  }
+
+  /* Section icon: a small floating key (was a raised glass key). */
+  [data-cc-app] .studio-key,
+  :root:has([data-cc-app]) .studio-key {
+    border: 0;
+    border-radius: var(--cc-radius-md);
+    background: var(--cc-face);
+    box-shadow: inset 0 0 0 0.5px var(--cc-hairline), var(--cc-shadow-control);
+    color: var(--cc-muted);
+  }
+
+  /* Page eyebrow: a quiet sentence-case label — no glowing pill. */
+  [data-cc-app] .studio-pill-eyebrow {
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--cc-muted);
+  }
+  [data-cc-app] .studio-pill-eyebrow::before {
+    display: none;
+  }
+
+  /* Status dot: the system accent (cyan glow retired). */
+  [data-cc-app] .dsh-live {
+    --dsh-live: var(--cc-primary);
+  }
+  [data-cc-app] .dsh-live--rec { --dsh-live: #ff453a; }
+  [data-cc-app] .dsh-live--amber { --dsh-live: #ff9f0a; }
+  [data-cc-app] .dsh-live--green { --dsh-live: #30d158; }
+
+  /* Meter: a flat well track, an accent fill — no glow. */
+  [data-cc-app] .dsh-meter {
+    background: var(--cc-elevated);
+    box-shadow: inset 0 0 0 0.5px var(--cc-hairline-well);
+  }
+  [data-cc-app] .dsh-meter > i {
+    background: var(--cc-primary);
+    box-shadow: none;
+  }
+  [data-cc-app] .dsh-meter[data-tone="warn"] > i { background: #ff9f0a; box-shadow: none; }
+  [data-cc-app] .dsh-meter[data-tone="full"] > i { background: var(--cc-destructive); box-shadow: none; }
+  [data-cc-app] .dsh-meter[data-tone="plain"] > i { background: rgb(var(--cc-ink-rgb) / 0.3); }
+
+  [data-cc-app] .dsh-sweep::before {
+    background: linear-gradient(90deg, transparent, rgb(var(--cc-ink-rgb) / 0.06), transparent);
+  }
+
+  /* Hover wash + selection pill: one of each per group. The pill is the
+     selected chip FLOATING out of its well (the Mac's segmented look). */
+  [data-cc-app] .dsh-glide-wash {
+    background: var(--cc-hover);
+  }
+  [data-cc-app] .dsh-pill {
+    background: var(--cc-chip-on);
+    box-shadow: inset 0 0 0 0.5px var(--cc-hairline), var(--cc-shadow-control);
+  }
+  [data-cc-app] .dsh-nav-pill {
+    border-radius: var(--cc-radius-md);
+    background: var(--cc-card);
+    box-shadow: inset 0 0 0 0.5px var(--cc-hairline), var(--cc-shadow-control);
+  }
+  [data-cc-app] .dsh-nav-pill::before {
+    display: none;
+  }
+
+  /* Media cards lift on hover into a wider, softer shadow. */
+  [data-cc-app] .dsh-card:hover {
+    box-shadow:
+      0 0 0 0.5px var(--cc-hairline),
+      0 14px 36px -8px rgb(0 0 0 / calc(var(--cc-float-op) + var(--cc-float-gain) + 0.06));
+  }
+}
+
+/* The one surface (Sections / Panel / StatStrip): dashboard.css paints the
+   glass whisper unlayered; the floating card wins here (same specificity,
+   later in the cascade). */
+[data-cc-app] .glass-panel.studio-sections,
+[data-cc-app] .glass-panel.studio-panel {
+  background: var(--cc-card);
+  box-shadow: var(--cc-shadow-card);
+}
+
+/* Empty-state recreations picture the (dark) app window; on the light
+   window their cast shadow softens to the card's. */
+@media (prefers-color-scheme: light) {
+  [data-cc-app] .dsh-art .win {
+    box-shadow:
+      0 0 0 0.5px rgb(0 0 0 / 0.08),
+      0 calc(10 * var(--u)) calc(28 * var(--u)) rgb(0 0 0 / 0.16);
+  }
+  [data-cc-app] .dsh-art .toast {
+    box-shadow: 0 calc(6 * var(--u)) calc(16 * var(--u)) rgb(0 0 0 / 0.2);
+  }
+}

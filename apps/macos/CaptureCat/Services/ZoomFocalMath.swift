@@ -226,7 +226,7 @@ enum ZoomFocalMath {
     }
 
     static func cursorFollowBlend(for zoom: Double) -> CGFloat {
-        // Ramp cursor-follow in gradually — Screen Studio keeps region focal
+        // Ramp cursor-follow in gradually — keep the region focal
         // dominant at low zoom levels and only fully tracks cursor at higher zoom.
         let start: Double = 1.0
         let full: Double = 1.5

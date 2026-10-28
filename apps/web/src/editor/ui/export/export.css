@@ -15,8 +15,8 @@
   background: var(--cc-overlay);
 }
 
-/* The card: raised matte material on `elevated`, xl radius, 1px border,
-   28pt blur / 10pt drop shadow (0.5 dark, 0.25 light). */
+/* The card: a floating panel (CCMaterial 2026) — popover tint, xl radius,
+   0.5px hairline, the airy end of the float shadow. */
 .cc-dialog {
   position: absolute;
   left: 50%;
@@ -26,17 +26,19 @@
   flex-direction: column;
   padding: var(--cc-space-lg);
   border-radius: var(--cc-radius-xl);
-  border: 1px solid var(--cc-border);
-  --m-tint: var(--cc-elevated);
+  --m-tint: var(--cc-popover);
+  background: var(--m-tint);
   color: var(--cc-foreground);
+  outline: 0.5px solid var(--cc-hairline);
+  outline-offset: -0.5px;
   box-shadow:
-    0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
-    0 10px 28px 0 rgb(0 0 0 / 0.5);
+    0 1px 3px 0 rgb(0 0 0 / 0.2),
+    0 12px 40px 0 rgb(0 0 0 / 0.5);
 }
 .cc-theme[data-cc-resolved="light"] .cc-dialog {
   box-shadow:
-    0 var(--m-extrude) 0 0 color-mix(in srgb, var(--m-tint), #000000 var(--cc-mat-under)),
-    0 10px 28px 0 rgb(0 0 0 / 0.25);
+    0 1px 3px 0 rgb(0 0 0 / 0.05),
+    0 12px 40px 0 rgb(0 0 0 / 0.14);
 }
 
 .cc-dialog__header {
@@ -116,8 +118,9 @@
   color: var(--cc-faint);
 }
 
-/* CCProgressBar: 5pt recessed groove (active tint); the raised primary fill
-   stays track-sized inside a clip whose width springs (smooth). */
+/* CCProgressBar: 5pt flat groove (active tint); the primary fill stays
+   track-sized inside a clip whose width springs (smooth). Under 10pt the
+   material drops its hairline and the fill casts no shadow. */
 .cc-progress {
   position: relative;
   width: 280px;
@@ -135,12 +138,14 @@
   border-radius: 999px;
   transition: width var(--cc-spring-smooth-dur, 420ms) var(--cc-spring-smooth, cubic-bezier(0.22, 1, 0.36, 1));
 }
+.cc-theme .cc-progress,
+.cc-theme .cc-progress__fill { outline: none; }
 .cc-progress__fill {
+  box-shadow: none;
   width: 280px;
   height: 100%;
   border-radius: 999px;
   --m-tint: var(--cc-primary);
-  --m-extrude: 1px;
 }
 
 @media (prefers-reduced-motion: reduce) {

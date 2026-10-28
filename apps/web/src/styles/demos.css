@@ -1804,7 +1804,9 @@
   color: rgb(255 255 255 / 0.9);
   font-size: calc(11.5 * var(--u));
 }
-.ccd-insp h5 {
+/* Mock-UI labels, not document headings: real headings here skipped
+   H2 → H5 in the page outline that agents and screen readers read. */
+.ccd-insp .ccd-insp-label {
   margin: 0 0 calc(8 * var(--u));
   font-size: calc(9.5 * var(--u));
   font-weight: 600;
@@ -1974,7 +1976,7 @@
   color: rgb(255 255 255 / 0.92);
   font-size: calc(12 * var(--u));
 }
-.ccd-sheet h5 {
+.ccd-sheet .ccd-sheet-title {
   margin: 0 0 calc(12 * var(--u));
   font-size: calc(14 * var(--u));
   font-weight: 650;
@@ -2603,7 +2605,7 @@
   flex-direction: column;
   gap: calc(10 * var(--u));
 }
-.ccd-comments h6 {
+.ccd-comments .ccd-comments-title {
   margin: 0;
   font-size: calc(12 * var(--u));
   font-weight: 600;

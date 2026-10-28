@@ -288,6 +288,12 @@ export class EngineClient {
     this.post({ type: "editingAnnotation", id });
   }
 
+  /** A camera person mask produced on this device (the looks draw through it at once). */
+  setCameraMask(bytes: Uint8Array): void {
+    const copy = bytes.slice().buffer;
+    this.post({ type: "setCameraMask", bytes: copy }, [copy]);
+  }
+
   /** Playhead extrapolated from the last transport message — for UI, not rendering. */
   currentTime(): number {
     return this.transport ? this.extrapolate(this.transport, wallNow()) : 0;

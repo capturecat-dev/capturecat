@@ -347,7 +347,7 @@ export function newFocusRegion(startTime: number, endTime: number, id = newUUID(
   };
 }
 
-/** `CameraLayoutRegion(startTime:endTime:)` */
+/** `CameraLayoutRegion(startTime:endTime:)` — no `look` (the plain bubble when its mode is bubble). */
 export function newCameraLayoutRegion(startTime: number, endTime: number, id = newUUID()): CameraLayoutRegion {
   return { id, startTime, endTime, mode: "cameraOnly" };
 }
