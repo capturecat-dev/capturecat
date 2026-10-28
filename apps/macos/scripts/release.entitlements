@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for the Developer ID release build (create_release_dmg.sh).
+
+  The release re-signs the archived app with `codesign deep force`, which
+  drops the entitlements Xcode signed in. Before 1.3.0 that shipped builds
+  with NONE, so the hardened runtime had no camera, microphone or Apple
+  Events entitlements.
+
+  These are the hardened-runtime resource entitlements only. The release is
+  deliberately NOT sandboxed: every shipped build so far ran outside the
+  sandbox, so its data lives in ~/Library rather than a container, and
+  Sparkle installs updates without the sandbox installer service. Turning
+  the sandbox on for releases needs a data migration first. App Attest
+  (com.apple.developer.*) needs a Developer ID provisioning profile, so it
+  is not here either.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.device.camera</key>
+	<true/>
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+</dict>
+</plist>
