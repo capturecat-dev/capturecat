@@ -73,8 +73,8 @@ export default function Footer() {
             </div>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               A screen recorder for Mac that does the editing for you. Native
-              Swift, no web view, free to record and export. Open source under
-              the AGPL, so you can read every line of it.
+              Swift, no web view, free for personal use. Open source under the
+              AGPL, so you can read every line of it.
             </p>
             <a
               href={GITHUB_URL}

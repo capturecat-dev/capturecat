@@ -20,7 +20,7 @@ const SECTIONS = [
 
 function AboutPage() {
   return (
-    <LegalLayout title="About CaptureCat" updated="27 October 2026" sections={SECTIONS} eyebrow="Company">
+    <LegalLayout title="About CaptureCat" updated="29 October 2026" sections={SECTIONS} eyebrow="Company">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd({ "@context": "https://schema.org", ...ORGANIZATION_JSON_LD }) }}
@@ -42,8 +42,9 @@ function AboutPage() {
       <section className="space-y-3">
         <h2 id="open-source">Free and open source</h2>
         <p>
-          Recording, the editor, every effect, and export are free with no time limit and no resolution cap. Pro adds
-          share links with comments and viewer analytics. Every line is on{" "}
+          Recording, the editor, every effect, and export up to 4K are free for personal use, with no watermark and
+          recordings up to 5 minutes. Pro covers commercial use and recordings of any length, and adds share links
+          with comments and viewer analytics. Every line is on{" "}
           <a href="https://github.com/capturecat-dev/capturecat" rel="noopener" target="_blank">
             GitHub
           </a>{" "}

@@ -49,6 +49,9 @@ export interface Guide {
 }
 
 const CHECKED = "2026-10-06";
+/** Guides whose CaptureCat plan wording changed on 2026-10-29 (Free became
+ *  personal use with 5-minute recordings; commercial use needs Pro). */
+const UPDATED = "2026-10-29";
 
 export const GUIDES: Guide[] = [
   {
@@ -56,9 +59,9 @@ export const GUIDES: Guide[] = [
     label: "Zoom in where you click",
     question: "How do I make a screen recording zoom in where I click on a Mac?",
     description:
-      "Make a Mac screen recording zoom in automatically on your clicks and typing, with smooth cinematic motion, no keyframing. Free with CaptureCat.",
+      "Make a Mac screen recording zoom in automatically on your clicks and typing, with smooth cinematic motion and no keyframing, using CaptureCat.",
     answer:
-      "Record with a screen recorder that captures your clicks as data, then let it place the zooms. CaptureCat does this for free on macOS: when you stop recording, it puts a zoom block wherever you clicked or typed, pushes in deeper on tight clusters of clicks, and holds longer while you type. Every zoom is an ordinary block on the timeline you can move, resize, or delete.",
+      "Record with a screen recorder that captures your clicks as data, then let it place the zooms. CaptureCat does this on macOS, free for personal use: when you stop recording, it puts a zoom block wherever you clicked or typed, pushes in deeper on tight clusters of clicks, and holds longer while you type. Every zoom is an ordinary block on the timeline you can move, resize, or delete.",
     without: {
       title: "Doing it by hand",
       text: "In a general video editor (iMovie, Final Cut Pro, Premiere, DaVinci Resolve) you scrub to each click, add a scale and position keyframe going in, another coming out, and ease them yourself. It works, but it takes several minutes per zoom and the zoom follows wherever you set the keyframe, not the actual cursor.",
@@ -94,7 +97,7 @@ export const GUIDES: Guide[] = [
       {
         question: "Is automatic zoom free in CaptureCat?",
         answer:
-          "Yes. Recording, Auto Zoom, the editor, and full quality export are free with no watermark and no time limit.",
+          "For personal use, yes. Recording, Auto Zoom, the editor, and export up to 4K are free with no watermark, and each recording stops at 5 minutes. Commercial use and longer recordings need Pro.",
       },
       {
         question: "Can I add zooms to a video I already recorded with QuickTime?",
@@ -112,7 +115,7 @@ export const GUIDES: Guide[] = [
       "smooth-cursor-in-a-screen-recording",
       "make-a-product-demo-video-on-mac",
     ],
-    lastModified: CHECKED,
+    lastModified: UPDATED,
   },
   {
     slug: "make-a-product-demo-video-on-mac",
@@ -121,7 +124,7 @@ export const GUIDES: Guide[] = [
     description:
       "A practical way to make a polished SaaS or app demo on macOS: plan the flow, record once, let zooms and captions apply themselves, then export or share.",
     answer:
-      "Plan the flow, record it in one take with a recorder that captures clicks, and let the software do the editing that usually takes hours. With CaptureCat (free on macOS) the zooms, smoothed cursor, and captions are applied when you stop recording; you add a background, trim the ends, and export a 4K file or share a link.",
+      "Plan the flow, record it in one take with a recorder that captures clicks, and let the software do the editing that usually takes hours. With CaptureCat on macOS the zooms, smoothed cursor, and captions are applied when you stop recording; you add a background, trim the ends, and export a 4K file or share a link.",
     steps: [
       {
         name: "Write the flow, not a script",
@@ -164,13 +167,18 @@ export const GUIDES: Guide[] = [
         answer:
           "Not for a typical demo. CaptureCat's timeline handles trim, split, cut, speed regions, narration, annotations, captions, and camera layouts.",
       },
+      {
+        question: "Can I make a product demo on CaptureCat's free plan?",
+        answer:
+          "Not for work. A demo of a product you or your employer sells is commercial use, which needs CaptureCat Pro. Free is for personal projects, learning, and hobby videos, with recordings up to 5 minutes.",
+      },
     ],
     related: [
       "zoom-in-on-clicks-in-a-screen-recording",
       "make-a-screen-recording-look-professional",
       "share-a-screen-recording-link-with-analytics",
     ],
-    lastModified: CHECKED,
+    lastModified: UPDATED,
   },
   {
     slug: "add-captions-to-a-screen-recording-on-mac",
@@ -477,7 +485,7 @@ export const GUIDES: Guide[] = [
     description:
       "The changes that make a raw screen recording look polished: background and padding, zooms on the action, a smooth cursor, captions, and clean framing.",
     answer:
-      "Put the recording on a background with padding and rounded corners, zoom in on the action, smooth the cursor, add captions, and hide desktop clutter. Those five changes account for most of the difference between a raw capture and a polished video, and CaptureCat applies the zooms and cursor smoothing automatically, free on macOS.",
+      "Put the recording on a background with padding and rounded corners, zoom in on the action, smooth the cursor, add captions, and hide desktop clutter. Those five changes account for most of the difference between a raw capture and a polished video, and CaptureCat applies the zooms and cursor smoothing automatically on macOS, free for personal use.",
     steps: [
       {
         name: "Clean the screen first",
@@ -512,7 +520,7 @@ export const GUIDES: Guide[] = [
       },
       {
         question: "Is this free?",
-        answer: "Yes. All framing, zoom, cursor, and caption features in CaptureCat are free.",
+        answer: "For personal use, yes. All framing, zoom, cursor, and caption features in CaptureCat are on the free plan, with recordings up to 5 minutes. Videos for work need Pro.",
       },
     ],
     related: [
@@ -520,7 +528,7 @@ export const GUIDES: Guide[] = [
       "smooth-cursor-in-a-screen-recording",
       "add-captions-to-a-screen-recording-on-mac",
     ],
-    lastModified: CHECKED,
+    lastModified: UPDATED,
   },
   {
     slug: "share-a-screen-recording-link-with-analytics",
@@ -530,7 +538,7 @@ export const GUIDES: Guide[] = [
     description:
       "Share a Mac screen recording as a link instead of a file, with timestamped comments and viewer analytics: views, watch time, and retention.",
     answer:
-      "Upload the recording to a host that gives you a share page with analytics instead of sending the file. CaptureCat Pro uploads straight from the Mac app and gives you a public or private link with comments pinned to the second and per-video views, watch time, and retention. The recording and editing stay free; the link is the paid part.",
+      "Upload the recording to a host that gives you a share page with analytics instead of sending the file. CaptureCat Pro uploads straight from the Mac app and gives you a public or private link with comments pinned to the second and per-video views, watch time, and retention. Free includes short share links for personal use (videos up to 5 minutes, 2 GB in total); comments, analytics, and full storage are Pro.",
     without: {
       title: "Other ways",
       text: "Loom does this for webcam-first async videos. A file in Google Drive or Dropbox gets you a link, but no idea whether anyone watched past the first ten seconds.",
@@ -557,7 +565,7 @@ export const GUIDES: Guide[] = [
       {
         question: "What happens to my links if I cancel Pro?",
         answer:
-          "Links stop serving. Nothing on your Mac is touched, and resubscribing brings the same links back.",
+          "They keep playing while your account fits Free's 2 GB of storage. Past that, they pause until you free up space or resubscribe, and the same links come back. Nothing on your Mac is touched.",
       },
     ],
     related: [
@@ -565,7 +573,7 @@ export const GUIDES: Guide[] = [
       "record-screen-and-webcam-on-mac",
       "record-your-screen-on-windows-linux-or-chromebook",
     ],
-    lastModified: CHECKED,
+    lastModified: UPDATED,
   },
   {
     slug: "edit-a-screen-recording-with-an-ai-agent",
@@ -739,7 +747,7 @@ export const GUIDES: Guide[] = [
     faqs: [
       {
         question: "Is this free?",
-        answer: "No. Capturing web pages by URL is a CaptureCat Pro feature. Recording your own screen is free.",
+        answer: "No. Capturing web pages by URL is a CaptureCat Pro feature. Recording your own screen is free for personal use.",
       },
     ],
     related: [
@@ -747,7 +755,7 @@ export const GUIDES: Guide[] = [
       "record-iphone-screen-on-mac",
       "make-a-product-demo-video-on-mac",
     ],
-    lastModified: CHECKED,
+    lastModified: UPDATED,
   },
   {
     slug: "record-your-screen-on-windows-linux-or-chromebook",
@@ -761,7 +769,7 @@ export const GUIDES: Guide[] = [
     steps: [
       {
         name: "Open the recorder",
-        text: "Go to app.capturecat.so/record and sign in. Browser projects are stored in CaptureCat cloud storage, which comes with Pro.",
+        text: "Go to app.capturecat.so/record and sign in. Browser projects are stored in your CaptureCat cloud storage. Free includes 2 GB and stops each recording at 5 minutes; Pro covers commercial use and longer takes.",
       },
       {
         name: "Pick a source",
@@ -792,7 +800,7 @@ export const GUIDES: Guide[] = [
       "share-a-screen-recording-link-with-analytics",
       "make-a-screen-recording-look-professional",
     ],
-    lastModified: CHECKED,
+    lastModified: UPDATED,
   },
   {
     slug: "search-text-inside-screen-recordings",

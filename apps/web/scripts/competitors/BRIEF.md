@@ -53,12 +53,17 @@ Each cell is: true | false | short string (≤ 40 chars, for nuance) | null (unv
 ## CaptureCat facts (the ONLY things you may claim about CaptureCat)
 - Native macOS app (Swift/AppKit/Metal, not Electron), macOS 14+, Apple Silicon and Intel.
 - Also a browser app (Chrome/Edge 113+, Safari 26+, Firefox 141+) on Windows, Linux, ChromeOS, Mac;
-  browser projects live in cloud storage that comes with Pro.
-- Free forever: unlimited recording, the full editor, automatic zoom from recorded clicks,
-  cursor smoothing with click ripples, on-device captions (English, local Whisper model),
-  export MP4/MOV up to 4K 60 fps, no watermark.
-- Pro subscription: share links with timestamped comments and viewer analytics (views, watch time,
-  retention), AI titles/chapters on share pages, web page capture by URL.
+  browser projects live in CaptureCat cloud storage (2 GB on Free, more on Pro).
+- Free is for PERSONAL USE ONLY, and each recording stops at 5 minutes (Mac and web). It includes
+  the full editor, automatic zoom from recorded clicks, cursor smoothing with click ripples,
+  on-device captions (English, local Whisper model), export MP4/MOV up to 4K 60 fps, no watermark,
+  no account needed on the Mac, and a small cloud allowance (2 GB, share links up to 5 minutes,
+  10 new shares a day). Never claim CaptureCat's free tier is unlimited, has no time limit, or
+  allows commercial use.
+- Pro subscription ($10/month or yearly): commercial use (client work, courses, marketing,
+  employer content, team communication), recordings of any length, share links with timestamped
+  comments and viewer analytics (views, watch time, retention), AI titles/chapters on share
+  pages, web page capture by URL, teams, custom domains, own S3 bucket.
 - Built-in MCP server (28 tools) so Claude Code, Codex, Cursor, Copilot, Windsurf can record,
   edit, render frames, and export.
 - Open source under AGPL-3.0 (github.com/capturecat-dev/capturecat).

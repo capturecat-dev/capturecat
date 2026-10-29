@@ -23,7 +23,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "CaptureCat records your Mac and adds the zooms, cursor smoothing, and captions automatically. Free to record and export, with share links and viewer analytics on Pro.",
+          "CaptureCat records your Mac and adds the zooms, cursor smoothing, and captions automatically. Free for personal use; Pro for commercial use and analytics.",
       },
       // WebMCP's Chrome origin trial, on every page now that every surface
       // registers tools (see originTrial.ts for the token and its origin).

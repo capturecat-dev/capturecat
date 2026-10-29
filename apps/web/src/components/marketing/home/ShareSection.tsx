@@ -37,8 +37,9 @@ export default function ShareSection() {
             Send a link instead of a file.
           </SectionTitle>
           <Lede>
-            Recording and exporting are free forever. Pro adds the hosted part:
-            share pages on capturecat.so, comments, and per video analytics.
+            Recording and exporting are free for personal use. Pro adds the
+            hosted part at full size: share pages on capturecat.so, comments,
+            and per video analytics.
           </Lede>
         </div>
 

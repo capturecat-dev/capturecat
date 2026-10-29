@@ -42,17 +42,17 @@ const STATIC_PAGES: SitePage[] = [
     path: "/",
     title: "CaptureCat: the Mac screen recorder that edits itself",
     description:
-      "A free, open-source Mac screen recorder that adds zooms, cursor smoothing, and captions automatically. Share links and viewer analytics on Pro.",
-    lastModified: "2026-09-30",
+      "An open-source Mac screen recorder that adds zooms, cursor smoothing, and captions automatically. Free for personal use; Pro for work and share links.",
+    lastModified: "2026-10-29",
     markdown: `# CaptureCat: record your screen, skip the editing
 
 CaptureCat is a Mac screen recorder that watches where you click and type,
 then adds the zooms, smooths the cursor, and writes the captions for you. What
 you see in the preview is what you get in the file.
 
-Free to record and export. Open source under the AGPL-3.0 at
-https://github.com/capturecat-dev/capturecat. Native Swift, no Electron.
-macOS 14 or later.
+Free for personal use, with recordings up to 5 minutes; Pro for commercial use.
+Open source under the AGPL-3.0 at https://github.com/capturecat-dev/capturecat.
+Native Swift, no Electron. macOS 14 or later.
 
 ## CaptureCat for Mac, and CaptureCat in your browser
 
@@ -113,9 +113,10 @@ their work, and export with the same engine the editor uses. See
 
 ## Questions
 
-- **Is it free?** Yes. Recording, the editor, auto zoom, captions, and full
-  quality export are free with no time limit and no resolution cap. Pro is only for
-  share links, comments, analytics, and cloud projects for the browser app.
+- **Is it free?** For personal use, yes. Recording, the editor, auto zoom,
+  captions, and export up to 4K are free with no watermark, and the Mac app needs
+  no account. Each recording stops at 5 minutes. Pro is for commercial use and
+  recordings of any length, and adds comments, analytics, and full cloud storage.
 - **Does it work on Windows, Linux, or ChromeOS?** Yes, in the browser. The
   browser app records a display, a window, or a tab and runs the editor on
   WebGPU. Cursor smoothing, click zooms, and the keystroke pill need a
@@ -172,49 +173,75 @@ ${FEATURE_INVENTORY_MARKDOWN}
   {
     path: "/pricing",
     title: "Pricing",
-    seoTitle: "Pricing: free recorder, Pro for share links | CaptureCat",
+    seoTitle: "Pricing: free for personal use, Pro for work | CaptureCat",
     description:
-      "CaptureCat is free to record, edit, and export. Pro adds share links, timestamped comments, and viewer analytics. Prices come live from Stripe.",
-    lastModified: "2026-09-02",
+      "CaptureCat is free for personal use, with recordings up to 5 minutes. Pro is for commercial use, recordings of any length, sharing, and analytics.",
+    lastModified: "2026-10-29",
     markdown: `# CaptureCat pricing
 
-The recorder is free. Pay for the link. Everything that runs on your Mac costs
-nothing, forever. Pro is the hosted part: share pages, comments, and
-analytics. Live prices are on the [pricing page](${SITE_URL}/pricing).
+Free for personal use. Pro for work. The whole app is free for personal
+projects, with recordings up to 5 minutes. Pro is for commercial use:
+recordings of any length, plus share pages, comments, and analytics. Live
+prices are on the [pricing page](${SITE_URL}/pricing).
 
-## Free, $0 forever
+## Free, $0 for personal use
 
-The full app, on your Mac.
+The whole app, for personal projects, learning, and hobby videos.
 
-- Unlimited screen recordings
+- Recordings up to 5 minutes each
+- The full editor, with no watermark
 - Auto zoom and motion effects
 - Camera overlay and cursor smoothing
 - On device captions
-- Export in full quality
+- Export up to 4K at 60 fps
+- No account needed on the Mac
+- A small cloud allowance: 2 GB in total, share links for videos up to 5
+  minutes, and 10 new shares a day. Browser recordings are saved there, so the
+  web editor works on Free.
 
 ## CaptureCat Pro
 
-Everything in Free, plus:
+$10 a month, or billed yearly. Everything in Free, plus:
 
-- Cloud sharing with public or private links
+- Commercial use
+- Recordings of any length
+- Cloud sharing with public or private links, and much more storage
 - Timestamped viewer comments
 - Views, watch time, retention, and click analytics
+- AI titles, summaries, and chapters on share pages
+- Team libraries and custom share domains
+- Share videos from your own S3 bucket
 - Upload screenshots and images
 - Capture web pages by URL
+- Agent access through the remote MCP server
 - Priority support
 
 Monthly and annual billing are both available. The annual plan is discounted.
-Cancel from the billing page. Local recordings and exports are never affected
-by the subscription.
+Sign in to the Mac app once with your Pro account. Cancel from the billing page.
+
+## What counts as commercial use
+
+Any use of CaptureCat to record or edit content used in revenue-generating
+activities: client work, courses, marketing, content promoting your employer's
+product or service, and communication between members of a company or team.
+Personal projects, learning, and hobby videos are fine on Free. It is a licence
+term, not a lock, and the source code stays AGPL-3.0. See the
+[terms](${SITE_URL}/terms).
 
 ## Questions
 
-- **What is free?** Recording, the editor, every effect, and export. No time
-  limit, no resolution cap.
-- **What is Pro for?** Share links, comments, analytics, and web capture.
-- **What happens to shared videos if I stop paying?** Links stop serving.
-  Nothing on your Mac is touched. Resubscribe and the same links come back.
-- **Team plan?** Not yet. Email contact@capturecat.so with the seat count.
+- **What is free?** The whole app, for personal use: recording, the editor,
+  every effect, and export up to 4K with no watermark. Each recording stops at 5
+  minutes.
+- **What is Pro for?** Commercial use and recordings of any length, plus the
+  hosted side at full size: share links, comments, analytics, and web capture.
+- **Is there a separate licence for commercial use?** No. Pro is what commercial
+  use needs.
+- **What happens to shared videos if I stop paying?** They keep playing while
+  your account fits Free's 2 GB. Past that, links pause until you free up space
+  or resubscribe, and the same links come back. Nothing on your Mac is touched.
+- **Team plan?** Not yet. Pro is per person. Email contact@capturecat.so with
+  the seat count.
 `,
   },
   {
@@ -306,12 +333,13 @@ How tokens work: [auth.md](${SITE_URL}/auth.md).
     title: "Download CaptureCat for macOS",
     seoTitle: "Download CaptureCat for Mac (free) | CaptureCat",
     description:
-      "Download CaptureCat, the free native screen recorder for macOS 14 and later. Builds for Apple Silicon and Intel. No account needed to record.",
-    lastModified: "2026-09-30",
+      "Download CaptureCat, the native screen recorder for macOS 14 and later, free for personal use. Builds for Apple Silicon and Intel. No account to record.",
+    lastModified: "2026-10-29",
     markdown: `# Download CaptureCat for macOS
 
-Free to record, edit, and export. No account needed until you want a share
-link. Builds for Apple Silicon and Intel, macOS 14 Sonoma or later.
+Free for personal use, with recordings up to 5 minutes. No account needed until
+you want a share link or Pro, which covers commercial use and recordings of any
+length. Builds for Apple Silicon and Intel, macOS 14 Sonoma or later.
 
 Get the latest build from the [download page](${SITE_URL}/download).
 
@@ -323,6 +351,7 @@ Get the latest build from the [download page](${SITE_URL}/download).
 3. Record from the menu bar icon. The editor opens with
    the auto edit already applied.
 4. Export, or sign in with Google or Apple inside the app to upload and share.
+   Pro users sign in once to lift the 5 minute limit.
 
 The app updates itself. Recordings are ordinary project folders on disk and
 stay where they are if you uninstall.
@@ -393,7 +422,7 @@ Questions? Email contact@capturecat.so.
     seoTitle: "About CaptureCat: the open-source Mac screen recorder",
     description:
       "Who makes CaptureCat, the open-source Mac screen recorder that edits itself: what it is for, how it is built, and how to reach us.",
-    lastModified: "2026-10-27",
+    lastModified: "2026-10-29",
     markdown: `# About CaptureCat
 
 CaptureCat is a screen recorder for Mac that edits itself. It records a display,
@@ -404,9 +433,10 @@ on-device captions, blur for anything private, and a framed, styled export.
 The preview and the exported file are rendered from the same frame, so what you
 see is what you get. It also runs in the browser on Windows, Linux and ChromeOS.
 
-**Free and open source.** Recording, the editor, every effect, and export are
-free with no time limit and no resolution cap. Pro adds share links with
-comments and viewer analytics. Every line is on GitHub
+**Free and open source.** Recording, the editor, every effect, and export up
+to 4K are free for personal use, with no watermark and recordings up to 5
+minutes. Pro covers commercial use and recordings of any length, and adds share
+links with comments and viewer analytics. Every line is on GitHub
 under the AGPL-3.0: https://github.com/capturecat-dev/capturecat. The Mac app is
 native Swift, with no Electron.
 
@@ -462,35 +492,62 @@ available to customers on request at the email above.
     path: "/terms",
     title: "Terms of Service",
     description:
-      "The terms that govern your use of the CaptureCat app, share links, and Pro subscription.",
-    lastModified: "2026-08-05",
+      "The terms for the CaptureCat app, share links, and Pro: Free is for personal use, commercial use needs Pro. Fees, cancellation, and your content.",
+    lastModified: "2026-10-29",
     markdown: `# Terms of Service
 
-_Last updated: 5 August 2026._ Governed by the laws of England and Wales.
+_Last updated: 29 October 2026._ Governed by the laws of England and Wales.
 
 **Who we are.** CaptureCat is operated by a UK-based sole trader trading as
 "CaptureCat". Contact: contact@capturecat.so. These terms are a binding agreement
 governing the macOS app, capturecat.so, and app.capturecat.so.
 
-**Your account.** Sign in with Google or Apple. You are responsible for activity
-under your account and must be at least 13.
+**Your account.** No account is needed to record or export with the Mac app. To
+share, use the web app, or subscribe to Pro, sign in with Google or Apple. You
+are responsible for activity under your account and must be at least 13.
 
-**Licence.** A personal, non-exclusive, non-transferable licence to use the app
-on Macs you control. No reselling or reverse engineering except as the law
-allows.
+**Licence.** CaptureCat's source code is published under the AGPL-3.0. The
+AGPL-3.0 governs the source code, and nothing in these terms limits the rights
+it gives you. These terms govern the official builds we publish (such as the
+Mac app from capturecat.so) and the service we operate. We grant you a
+non-exclusive, non-transferable licence to use the official builds on Macs you
+control: for personal use on Free, or for commercial use with an active Pro
+subscription. Do not resell the service or let others use your account.
 
-**Your content.** You own your recordings and uploads. You grant us only the
-licence needed to host and deliver videos you share. It ends when you delete them
-or close your account. Do not upload unlawful, infringing, or harmful content.
+**Personal and commercial use.** Free is for personal use only. Commercial use
+needs an active Pro subscription. Commercial use means any use of CaptureCat to
+record or edit content used in revenue-generating activities, including client
+work, courses, marketing, content promoting your employer's product or service,
+and communication between members of a company or team. Personal projects,
+learning, and hobby videos are fine on Free. This is a licence term, not a
+technical lock: the app does not check what you record, so subscribe when your
+use is commercial. Not sure? Email contact@capturecat.so.
 
-**Subscriptions.** Pro is billed via Stripe monthly or annually and renews until
-cancelled. Cancel any time. Access runs to the end of the paid period.
+**Plans and fees.** Free costs nothing: personal use, each recording stops at 5
+minutes, and a small cloud allowance (currently 2 GB in total, share links for
+videos up to 5 minutes, 10 new shares a day). Free does not include comments,
+viewer analytics, AI summaries, teams, custom domains, web page capture by URL,
+or screenshot uploads. Pro is a subscription for commercial use with no
+recording length limit and the hosted features on the pricing page. It is billed
+via Stripe monthly or yearly, renews until cancelled, and prices include VAT
+where applicable. Sign in to the Mac app with the account that holds Pro. Cancel
+any time; access runs to the end of the paid period, then the account moves to
+Free. Share links keep playing while your videos fit Free's storage; past that
+they pause until you free up space or subscribe again.
 
 **Cancellation and refunds.** You have a 14-day right to cancel under the Consumer
 Contracts Regulations 2013, but by starting to use paid features you ask us to
 begin supply immediately and lose that right for features already provided.
 Nothing affects your statutory rights under the Consumer Rights Act 2015
 (satisfactory quality, fit for purpose, as described).
+
+**Your content.** You own your recordings and uploads. You grant us only the
+licence needed to host and deliver videos you share. It ends when you delete them
+or close your account. Do not upload unlawful, infringing, or harmful content.
+
+**Shared videos.** Anyone with a public link can watch until you make it private,
+delete it, or it is paused as above. Viewer analytics are provided on plans that
+include them.
 
 **Availability and liability.** Online features are provided on a reasonable-efforts
 basis. We do not limit liability where unlawful (death or personal injury from

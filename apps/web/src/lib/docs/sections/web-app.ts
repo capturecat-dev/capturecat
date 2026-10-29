@@ -8,9 +8,10 @@ import type { DocSection } from "../types";
  * editor/ui/history, editor/transcribe/model.ts, lib/platforms.ts; Mac
  * CloudSyncController.swift, CloudProjectSync.swift, MergeReviewDialog.swift,
  * HistoryPaneAppKit.swift, EditorShellViewController.swift; API
- * routes/cloud-projects.ts, lib/upload-policy.ts and migrations 0008, 0027.
+ * routes/cloud-projects.ts, lib/upload-policy.ts and migrations 0008, 0027,
+ * 0039 (Free's 2 GB allowance; the 5-minute cap in editor/record/planCap.ts).
  */
-const CHECKED = "2026-10-07";
+const CHECKED = "2026-10-29";
 
 export const WEB_APP: DocSection = {
   id: "web-app",
@@ -26,14 +27,13 @@ export const WEB_APP: DocSection = {
       summary:
         "The CaptureCat web app records a display, a window or a browser tab with your camera and microphone, then opens the take in a web editor that uses the same project format as the Mac app. It runs in current Chrome, Edge, Safari and Firefox, and keeps projects in your CaptureCat cloud storage.",
       platforms: ["web"],
-      plan: "pro",
       blocks: [
         { type: "h2", text: "What you need" },
         {
           type: "list",
           items: [
             "**A CaptureCat account.** Sign in at [capturecat.so/app](https://capturecat.so/app).",
-            "**A plan with cloud storage.** Web recordings and web editor projects are saved in your CaptureCat cloud storage, which comes with Pro. On the free plan you can still record, but the take cannot be saved to the cloud; it stays in your browser and you can download it.",
+            "**Room in your cloud storage.** Web recordings and web editor projects are saved in your CaptureCat cloud storage. Free includes 2 GB, so you can record and edit in the browser without paying; Pro has much more. On Free each recording stops at 5 minutes, and Free is for personal use: commercial use needs Pro. See [Plans](/docs/account/plans).",
             "**A browser with WebGPU for the editor:** Chrome or Edge 113+, Safari 26+, or Firefox 141+. Other browsers see **This browser can’t run the editor**.",
             "**A computer.** Recording needs browser screen sharing, which phones and tablets do not offer.",
           ],
@@ -51,7 +51,8 @@ export const WEB_APP: DocSection = {
             ["Clicks, cursor path and keystrokes", "Recorded as data, so cursor smoothing, click zooms, auto zoom and the keystroke overlay work", "Not available; the browser draws the cursor into the video"],
             ["Editing", "The full editor", "The web editor, on the same project file"],
             ["Export", "MP4, MOV or GIF, up to 4K at 60 fps", "MP4, MOV or GIF, up to 4K at 60 fps"],
-            ["Where projects live", "On your Mac. Free.", "In your CaptureCat cloud storage, with Pro"],
+            ["Where projects live", "On your Mac", "In your CaptureCat cloud storage: 2 GB on Free, more with Pro"],
+            ["Longest recording on Free", "5 minutes", "5 minutes"],
           ],
         },
         {
@@ -97,7 +98,6 @@ export const WEB_APP: DocSection = {
       summary:
         "Open **Record** in the web app, choose **Display**, **Window** or **Tab**, pick your microphone and camera, and press the red record key. When you stop, the recording uploads to your CaptureCat cloud and opens in the web editor.",
       platforms: ["web"],
-      plan: "pro",
       blocks: [
         { type: "h2", text: "Make a recording" },
         {
@@ -150,7 +150,7 @@ export const WEB_APP: DocSection = {
         },
         {
           type: "p",
-          text: "Before recording, the gear menu has **Recording Countdown** (Off, 3s, 5s or 10s), **Duration Limit** (No Limit, or 15 seconds up to 10 minutes; the take stops on its own when it is reached) and **Floating controls**. Your choices are remembered in this browser. The **×** key releases the camera, microphone and source.",
+          text: "Before recording, the gear menu has **Recording Countdown** (Off, 3s, 5s or 10s), **Duration Limit** (No Limit, or 15 seconds up to 10 minutes; the take stops on its own when it is reached) and **Floating controls**. On Free every take stops at 5 minutes, so No Limit and 10 minutes show as **Pro**. Your choices are remembered in this browser. The **×** key releases the camera, microphone and source.",
         },
         { type: "h3", text: "Keeping the bar out of your video" },
         {
@@ -196,7 +196,7 @@ export const WEB_APP: DocSection = {
           items: [
             "If an upload fails, choose **Try again**, **Download** (saves `recording.mov`) or **Record Another**.",
             "Takes that never finished uploading are listed on the Record page under **Not uploaded yet**, with **Download**, **Delete** and **Upload**.",
-            "Projects need a plan with cloud storage. On a plan without it, the upload is refused with a message saying so, and the take stays in your browser for download.",
+            "Projects count toward your cloud storage: 2 GB on Free, more on Pro. When an upload would go over, it is refused with a message saying so, and the take stays in your browser for download. Delete projects or old versions to make room, or upgrade.",
           ],
         },
         {
@@ -225,7 +225,7 @@ export const WEB_APP: DocSection = {
         {
           question: "Does the web recorder have a time limit?",
           answer:
-            "Only the Duration Limit you choose in the recorder's settings. Your plan's storage still has to fit the recording.",
+            "On Free, yes: each recording stops at 5 minutes, and Free is for personal use. On Pro there is no limit beyond the Duration Limit you choose in the recorder's settings. Either way, your plan's storage has to fit the recording.",
         },
       ],
       related: ["web-app/editor", "web-app", "recording/camera"],
@@ -240,7 +240,6 @@ export const WEB_APP: DocSection = {
       summary:
         "The web editor opens any project in your CaptureCat cloud, whether you recorded it in the browser or sent it from the Mac. It renders the preview and the export with the same WebGPU engine, so the file you download matches what you saw.",
       platforms: ["web"],
-      plan: "pro",
       blocks: [
         { type: "h2", text: "Open a project" },
         {
@@ -325,7 +324,6 @@ export const WEB_APP: DocSection = {
       summary:
         "**Open in Web Editor** uploads a Mac project to your CaptureCat cloud and opens it in the browser. **Pull Web Edits** brings changes made there back to the Mac. When both sides changed, CaptureCat merges them and asks you only about real conflicts.",
       platforms: ["mac", "web"],
-      plan: "pro",
       blocks: [
         { type: "h2", text: "Send a project to the web editor" },
         {
@@ -391,7 +389,7 @@ export const WEB_APP: DocSection = {
         {
           type: "callout",
           tone: "pro",
-          text: "Sending projects to the web editor needs a plan with CaptureCat cloud storage. On the free plan, Open in Web Editor explains that your plan does not include it. Projects count toward your plan's storage.",
+          text: "Projects you send to the web editor count toward your CaptureCat cloud storage: 2 GB on Free, more on Pro. When a project would not fit, Open in Web Editor says your storage is full. Project history (restoring earlier versions) is on Pro and Business only.",
         },
       ],
       faqs: [

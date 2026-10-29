@@ -10,9 +10,12 @@ import type { DocSection } from "../types";
  * InspectorKit panes, TimelineViewController (lanes, toolbar, key handling),
  * ProjectBrowserViewController (delete key), ExportSheetController (export is
  * free and local); apps/api migrations 0008/0016/0023/0029 (plan features);
- * apps/web lib/platforms.ts and routes/download.tsx.
+ * apps/web lib/platforms.ts and routes/download.tsx. Personal-use Free and
+ * the 5-minute cap: migration 0039, Services/PlanGate.swift.
  */
 const CHECKED = "2026-10-07";
+/** Pages whose plan wording changed when Free became personal use (5-minute recordings). */
+const PLAN_UPDATED = "2026-10-29";
 
 export const GETTING_STARTED: DocSection = {
   id: "getting-started",
@@ -24,9 +27,9 @@ export const GETTING_STARTED: DocSection = {
       title: "What is CaptureCat? A screen recorder for Mac and the web",
       navTitle: "Overview",
       description:
-        "CaptureCat is a free, native Mac screen recorder whose editor zooms in on your clicks, plus a browser app. What each app does, and what Pro adds.",
+        "CaptureCat is a native Mac screen recorder whose editor zooms in on your clicks, plus a browser app. What each does, what's free, and what Pro adds.",
       summary:
-        "CaptureCat is a screen recorder and editor. The Mac app records your screen, camera and audio, then opens the take in an editor with zooms already placed on your clicks; recording, editing and exporting on the Mac are free, and Pro adds share links, web page capture and cloud projects.",
+        "CaptureCat is a screen recorder and editor. The Mac app records your screen, camera and audio, then opens the take in an editor with zooms already placed on your clicks. It is free for personal use, with recordings up to 5 minutes; Pro is for commercial use and recordings of any length, and adds full sharing, web page capture and more cloud storage.",
       platforms: ["mac", "web"],
       blocks: [
         { type: "h2", text: "The Mac app" },
@@ -44,7 +47,7 @@ export const GETTING_STARTED: DocSection = {
             "**Record:** displays, windows, areas, iPhone and iPad over USB, and web pages. See [Recording](/docs/recording).",
             "**Edit:** auto zoom, cursor styling, backgrounds and frames, a camera bubble, annotations, captions, blur and a multi-lane timeline. See the [editor tour](/docs/getting-started/editor-tour).",
             "**Export:** save a video file at full quality with no watermark and no account. See [Export](/docs/export-and-sharing/export).",
-            "**Share (Pro):** upload to a share link with comments and analytics. See [Share links](/docs/export-and-sharing/share-links).",
+            "**Share:** upload to a share link. Free covers short videos; comments and analytics are on Pro. See [Share links](/docs/export-and-sharing/share-links).",
           ],
         },
         { type: "h2", text: "The web app" },
@@ -61,7 +64,7 @@ export const GETTING_STARTED: DocSection = {
             ["Camera and microphone", "Yes, camera on its own track", "Yes, camera on its own track"],
             ["System audio", "Yes", "Tab audio in Chrome and Edge, whole-screen audio where the operating system shares it, none in Safari"],
             ["Clicks, cursor path and keystrokes", "Recorded as data", "Not available; the browser burns the cursor into the video"],
-            ["Where projects live", "On your Mac", "In your CaptureCat cloud storage, which comes with Pro"],
+            ["Where projects live", "On your Mac", "In your CaptureCat cloud storage: 2 GB on Free, more with Pro"],
           ],
         },
         {
@@ -73,16 +76,20 @@ export const GETTING_STARTED: DocSection = {
           type: "table",
           head: ["", "Free", "Pro"],
           rows: [
-            ["Record, edit and export on your Mac", "Yes", "Yes"],
-            ["Share links with viewer comments and analytics", "No", "Yes"],
+            ["Record, edit and export on your Mac, up to 4K with no watermark", "Yes", "Yes"],
+            ["Use", "Personal only", "Personal and commercial"],
+            ["Longest recording", "5 minutes", "No limit"],
+            ["Cloud storage", "2 GB", "Much more (see [Plans](/docs/account/plans))"],
+            ["Share links", "Videos up to 5 minutes", "Yes"],
+            ["Viewer comments and analytics", "No", "Yes"],
             ["[Web page capture](/docs/recording/web-page-capture) by URL", "No", "Yes"],
-            ["Cloud projects and the [web editor](/docs/web-app/editor)", "No", "Yes"],
+            ["Cloud projects and the [web editor](/docs/web-app/editor)", "Yes, within 2 GB", "Yes"],
             ["Share videos stored in [your own S3 bucket](/docs/custom-storage)", "No", "Yes"],
           ],
         },
         {
           type: "p",
-          text: "You don't need an account to record, edit or export on the Mac. Sign in only when you want a cloud feature. Storage and upload limits come from your plan; see [Plans](/docs/account/plans).",
+          text: "You don't need an account to record, edit or export on the Mac. Sign in when you want a cloud feature, or once with your Pro account so the app knows you have Pro. Commercial use means recording or editing anything used in revenue-generating work, such as client work, courses, marketing, or videos for your team; see [Plans](/docs/account/plans).",
         },
         {
           type: "callout",
@@ -106,7 +113,7 @@ export const GETTING_STARTED: DocSection = {
         {
           question: "Is CaptureCat free?",
           answer:
-            "Yes. The Mac app records, edits and exports at full quality for free, with no watermark and no account. Pro is for hosted features: share links, comments, analytics, web page capture and cloud projects.",
+            "For personal use, yes. The Mac app records, edits and exports at full quality with no watermark and no account, and each recording stops at 5 minutes. Pro is for commercial use and recordings of any length, and adds comments, analytics, web page capture and more cloud storage.",
         },
         {
           question: "Does CaptureCat work on Windows or Linux?",
@@ -116,11 +123,11 @@ export const GETTING_STARTED: DocSection = {
         {
           question: "Do I need an account to use CaptureCat?",
           answer:
-            "No. Recording, editing and exporting on the Mac work without signing in. You need an account for share links, cloud projects and web page capture.",
+            "No. Recording, editing and exporting on the Mac work without signing in, for personal use. You need an account for share links, cloud projects, web page capture and Pro.",
         },
       ],
       related: ["getting-started/install", "getting-started/first-recording", "web-app", "account/plans"],
-      lastModified: CHECKED,
+      lastModified: PLAN_UPDATED,
     },
     {
       slug: "getting-started/install",
@@ -272,7 +279,7 @@ export const GETTING_STARTED: DocSection = {
             },
             {
               title: "Export",
-              text: "Click **Export…** in the editor's top bar, choose your settings and save the file. Exporting is free and needs no account. To get a link instead, see [Share links](/docs/export-and-sharing/share-links).",
+              text: "Click **Export…** in the editor's top bar, choose your settings and save the file. Exporting needs no account and is free for personal use. To get a link instead, see [Share links](/docs/export-and-sharing/share-links).",
             },
           ],
         },
@@ -281,7 +288,7 @@ export const GETTING_STARTED: DocSection = {
           type: "list",
           items: [
             "**Countdown:** change or turn it off from the gear menu in the recording bar, under **Recording Countdown** (Off, 3s, 5s or 10s).",
-            "**Time limit:** set **Duration Limit** in the same menu to stop automatically after a set recorded length.",
+            "**Time limit:** set **Duration Limit** in the same menu to stop automatically after a set recorded length. On Free, every recording stops at 5 minutes; Pro has no limit beyond the one you set.",
             "**Shortcut overlay:** turn on **Capture Shortcuts (⌘⇧S overlay)** in the gear menu if you want the shortcuts you press to appear in the video. See [Keystrokes](/docs/recording/keystrokes).",
             "**Microphone on macOS 14:** recording the mic with the screen needs macOS 15 or later. On macOS 14, add narration afterwards with a voice-over. See [Audio](/docs/recording/audio).",
           ],
@@ -310,7 +317,7 @@ export const GETTING_STARTED: DocSection = {
         },
       ],
       related: ["recording", "getting-started/editor-tour", "editing/auto-zoom", "export-and-sharing/export"],
-      lastModified: CHECKED,
+      lastModified: PLAN_UPDATED,
     },
     {
       slug: "getting-started/editor-tour",

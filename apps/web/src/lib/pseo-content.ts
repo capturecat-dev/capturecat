@@ -21,7 +21,10 @@ export { COMPETITORS };
  */
 
 export const FACTS_CHECKED = "2026-10-06";
-const LAST_MODIFIED = "2026-10-06";
+/** When CaptureCat's own copy on these pages last changed (the 2026-10-29 move
+ *  to personal-use Free and Pro for commercial use). Competitor facts were not
+ *  re-checked then, so FACTS_CHECKED, which the pages print, stays put. */
+const LAST_MODIFIED = "2026-10-29";
 
 /** A feature cell: supported / not / nuance / unverified. */
 export type FeatureCell = boolean | string | null;
@@ -44,14 +47,18 @@ export const FEATURE_ROWS: FeatureRow[] = [
   { label: "Auto captions", short: "Captions", capturecat: "On-device (English)" },
   { label: "AI agent editing (MCP server)", short: "MCP", capturecat: "Built in, 28 tools" },
   { label: "Share links with viewer analytics", short: "Share analytics", capturecat: "Pro" },
-  { label: "Free version", short: "Free tier", capturecat: "Full editor, no watermark" },
+  {
+    label: "Free version",
+    short: "Free tier",
+    capturecat: "Personal use: full editor, no watermark, 5-min recordings",
+  },
   { label: "Open source", short: "Open source", capturecat: "AGPL-3.0" },
   {
     label: "Platform",
     short: "Platform",
     capturecat: "macOS (native) · browser on Windows, Linux, ChromeOS",
   },
-  { label: "Price", short: "Price", capturecat: "Free · Pro subscription" },
+  { label: "Price", short: "Price", capturecat: "Free for personal use · Pro $10/mo" },
 ];
 
 /** Index of the MCP row in FEATURE_ROWS / Competitor.features. */
@@ -153,6 +160,10 @@ function agentAnswer(c: Competitor): string {
   return `We could not confirm either way; check ${c.name}'s site.`;
 }
 
+/** The one answer every comparison and alternative page gives. */
+const FREE_ANSWER =
+  "For personal use, yes. The recorder and the full editor are free, including automatic zooms, cursor smoothing, on-device captions, and export up to 4K with no watermark, and the Mac app needs no account. Each recording stops at 5 minutes. Commercial use, such as client work, courses, marketing, or videos for your team, needs Pro, which also removes the length limit and adds comments, viewer analytics, and full cloud storage.";
+
 function compareFaqs(c: Competitor): Faq[] {
   const faqs: Faq[] = [
     {
@@ -161,8 +172,7 @@ function compareFaqs(c: Competitor): Faq[] {
     },
     {
       question: "Is CaptureCat free?",
-      answer:
-        "Yes. The recorder and the full editor are free forever, including automatic zooms, cursor smoothing, on-device captions, and full-quality export. The Pro subscription only adds cloud features: share links, timestamped comments, and viewer analytics.",
+      answer: FREE_ANSWER,
     },
     {
       question: `Does ${c.name} work with AI agents?`,
@@ -185,8 +195,7 @@ function alternativeFaqs(c: Competitor): Faq[] {
     },
     {
       question: "Is CaptureCat free?",
-      answer:
-        "Yes. The recorder and the full editor are free forever. Pro adds cloud sharing, timestamped comments, and viewer analytics.",
+      answer: FREE_ANSWER,
     },
     {
       question: `How do I switch from ${c.name} to CaptureCat?`,
@@ -227,7 +236,7 @@ export function buildPseoPage(
     ),
     heroTitle: `The ${c.name} alternative that edits itself`,
     heroSubtitle: `${c.summary} If you're after something different, CaptureCat records your Mac and applies the editing automatically (zooms, cursor smoothing, captions), then shares a link with viewer analytics.`,
-    description: `Looking for a ${name} alternative on Mac? CaptureCat is a free, open-source recorder with auto zoom, on-device captions, and AI-agent editing.`,
+    description: `Looking for a ${name} alternative on Mac? CaptureCat is open source, with auto zoom, captions, and AI-agent editing. Free for personal use.`,
     faqs: alternativeFaqs(c),
   };
 }
@@ -316,9 +325,37 @@ export function captureCatJsonLd() {
       "A native screen recorder for Mac that edits itself: automatic cinematic zooms, cursor smoothing, on-device captions, device frames, and share links with viewer analytics.",
     url: SITE_URL,
     downloadUrl: `${SITE_URL}/download`,
-    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    offers: CAPTURECAT_OFFERS,
   };
 }
+
+/**
+ * Free for personal use, Pro ($10 a month) for commercial use. The pricing
+ * page builds its own offers from the live Stripe prices; these are for the
+ * static pages that cannot fetch them.
+ */
+export const CAPTURECAT_OFFERS = [
+  {
+    "@type": "Offer",
+    name: "Free",
+    description: "Personal use. Each recording stops at 5 minutes.",
+    price: "0",
+    priceCurrency: "USD",
+  },
+  {
+    "@type": "Offer",
+    name: "Pro",
+    description: "Commercial use, recordings of any length, share links, comments, and analytics.",
+    price: "10",
+    priceCurrency: "USD",
+    priceSpecification: {
+      "@type": "UnitPriceSpecification",
+      price: "10",
+      priceCurrency: "USD",
+      billingDuration: "P1M",
+    },
+  },
+];
 
 export function pseoJsonLd(page: PseoPage): object {
   const c = page.competitor;

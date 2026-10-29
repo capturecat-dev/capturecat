@@ -23,7 +23,7 @@
       "Mac desktop build is listed for Apple Silicon only"
     ],
     "pickThemWhen": "your team mainly needs recorded sales calls, AI notes and CRM sync, with occasional screen videos on the side.",
-    "differentiator": "CaptureCat is a screen-video recorder and editor first: automatic zoom from clicks, cursor smoothing with click ripples, on-device captions and 4K export are free with no watermark. Claap's MCP works on meeting and CRM data, while CaptureCat's built-in MCP server lets agents record, edit, render frames and export video.",
+    "differentiator": "CaptureCat is a screen-video recorder and editor first: automatic zoom from clicks, cursor smoothing with click ripples, on-device captions and 4K export are free for personal use with no watermark. Claap's MCP works on meeting and CRM data, while CaptureCat's built-in MCP server lets agents record, edit, render frames and export video.",
     "switchTip": "Download any Claap videos you want to keep (a Pro feature) before cancelling. Keep Claap if you rely on its meeting bot or CRM sync; CaptureCat does not record meetings or sync to a CRM.",
     "faqExtra": {
       "question": "Is Claap still a Loom-style screen recorder?",
@@ -90,7 +90,7 @@
       "MCP is read-only apart from sending the notetaker to a meeting; it cannot record or edit screen videos"
     ],
     "pickThemWhen": "you want quick browser recordings with threaded comments and an AI notetaker for your team's meetings.",
-    "differentiator": "CaptureCat focuses on producing polished videos: a native Mac app plus a browser app, automatic zoom from clicks, cursor smoothing and on-device captions, all free and without watermark. Bubbles' MCP reads existing bubbles, while CaptureCat's MCP server lets agents record, edit and export.",
+    "differentiator": "CaptureCat focuses on producing polished videos: a native Mac app plus a browser app, automatic zoom from clicks, cursor smoothing and on-device captions, all free for personal use and without watermark. Bubbles' MCP reads existing bubbles, while CaptureCat's MCP server lets agents record, edit and export.",
     "switchTip": "Download recordings you want to keep before free bubbles lock, then record new ones in CaptureCat; share links with comments and viewer analytics need CaptureCat Pro. CaptureCat has no meeting notetaker, so keep Bubbles if you rely on that.",
     "slug": "bubbles",
     "website": "https://www.usebubbles.com",
@@ -145,7 +145,7 @@
       "No automatic zoom or cursor effects are listed in its editor"
     ],
     "pickThemWhen": "you want recordings that also become written how-to guides and shareable pages for a team.",
-    "differentiator": "CaptureCat records and edits locally with automatic zoom from clicks, cursor smoothing, click ripples and on-device captions, free with unlimited recordings. Kommodo's API and skill manage recording metadata and pages, while CaptureCat's MCP server lets agents record, edit and export the video itself.",
+    "differentiator": "CaptureCat records and edits locally with automatic zoom from clicks, cursor smoothing, click ripples and on-device captions, free for personal use, with recordings up to 5 minutes. Kommodo's API and skill manage recording metadata and pages, while CaptureCat's MCP server lets agents record, edit and export the video itself.",
     "switchTip": "Download your Kommodo videos (downloads are a Premium feature per its plan table) before switching. Kommodo's SOP guides and page builder have no CaptureCat equivalent, so keep it if you use those.",
     "faqExtra": {
       "question": "Is Kommodo the same as Komodo?",
@@ -210,7 +210,7 @@
       "Videos are capped at 1 hour each on Pro"
     ],
     "pickThemWhen": "your team wants a polished Loom replacement with native recorders, AI summaries and an MCP that feeds recordings to coding agents.",
-    "differentiator": "Both have native recorders and an MCP, but Supercut's MCP reads existing recordings while CaptureCat's lets agents record, edit, render frames and export. CaptureCat also adds automatic zoom from clicks and cursor smoothing, and its editor and on-device captions are free; Supercut covers Windows natively, which CaptureCat does only through its browser app.",
+    "differentiator": "Both have native recorders and an MCP, but Supercut's MCP reads existing recordings while CaptureCat's lets agents record, edit, render frames and export. CaptureCat also adds automatic zoom from clicks and cursor smoothing, and its editor and on-device captions are free for personal use; Supercut covers Windows natively, which CaptureCat does only through its browser app.",
     "switchTip": "Download the videos you want to keep while your Supercut subscription is active. CaptureCat Pro covers share links with comments and viewer analytics, but it has no team plan yet.",
     "slug": "supercut",
     "website": "https://supercut.ai",
@@ -269,7 +269,7 @@
       "Product focus has shifted toward AI editing and avatars more than screen recording"
     ],
     "pickThemWhen": "you want AI avatars, social clip generation and auto subtitles in the same tool as a basic recorder.",
-    "differentiator": "CaptureCat gives unlimited recording, automatic zoom from clicks, cursor smoothing with click ripples and on-device captions free, with 4K export and no watermark. It also ships an MCP server for agents; Vmaker offers AI avatars and social repurposing that CaptureCat does not.",
+    "differentiator": "CaptureCat gives automatic zoom from clicks, cursor smoothing with click ripples and on-device captions free for personal use, with recordings up to 5 minutes, 4K export and no watermark. It also ships an MCP server for agents; Vmaker offers AI avatars and social repurposing that CaptureCat does not.",
     "switchTip": "Export finished Vmaker videos before cancelling. Record screen tutorials in CaptureCat and keep Vmaker only if you rely on its avatars or long-to-short clipping.",
     "slug": "vmaker",
     "website": "https://www.vmaker.com",
@@ -319,7 +319,7 @@
       "Owned by Bending Spoons since late 2025, with major layoffs after, so plans may change"
     ],
     "pickThemWhen": "you already host video on Vimeo and want quick recordings in the same library and player.",
-    "differentiator": "CaptureCat records natively on Mac (and in the browser elsewhere) with automatic zoom from clicks, cursor smoothing and on-device captions, and exports 4K files free. Vimeo is stronger as a hosting platform; CaptureCat Pro covers share links with viewer analytics, not full video hosting.",
+    "differentiator": "CaptureCat records natively on Mac (and in the browser elsewhere) with automatic zoom from clicks, cursor smoothing and on-device captions, and exports 4K files free for personal use, though its free recordings stop at 5 minutes where Vimeo's free plan allows 30. Vimeo is stronger as a hosting platform; CaptureCat Pro covers share links with viewer analytics, not full video hosting.",
     "switchTip": "Keep your Vimeo account for hosting if you need it; you can export from CaptureCat and upload the MP4 to Vimeo.",
     "slug": "vimeo-record",
     "website": "https://vimeo.com/features/screen-recorder",
@@ -381,7 +381,7 @@
       "Pricing climbs quickly for team features ($60 to $80 per user)"
     ],
     "pickThemWhen": "you send personalized sales videos at volume and need CRM tracking of who watched.",
-    "differentiator": "CaptureCat is aimed at polished screen videos rather than sales outreach: automatic zoom from clicks, cursor smoothing, on-device captions and 4K export are free. It has no CRM integrations or personalization features.",
+    "differentiator": "CaptureCat is aimed at polished screen videos rather than sales outreach: automatic zoom from clicks, cursor smoothing, on-device captions and 4K export are free for personal use, and sales videos need CaptureCat Pro. It has no CRM integrations or personalization features.",
     "switchTip": "Keep Hippo Video for sales sequences that depend on its CRM tracking; use CaptureCat for product demos and tutorials and share the exported files or a CaptureCat Pro link.",
     "slug": "hippo-video",
     "website": "https://www.hippovideo.io",
@@ -437,7 +437,7 @@
       "MCP requires the Grow plan or higher"
     ],
     "pickThemWhen": "you record remote interviews or podcasts and want editing, clipping and publishing in one place.",
-    "differentiator": "CaptureCat is built for solo screen videos: automatic zoom from clicks, cursor smoothing with click ripples and on-device captions, free with 4K export. Both have an MCP; Riverside's works on recordings made in its studio, while CaptureCat's can also start recordings.",
+    "differentiator": "CaptureCat is built for solo screen videos: automatic zoom from clicks, cursor smoothing with click ripples and on-device captions, free for personal use with 4K export. Both have an MCP; Riverside's works on recordings made in its studio, while CaptureCat's can also start recordings.",
     "switchTip": "Use CaptureCat for screen demos and tutorials and keep Riverside for multi-guest recordings; Riverside exports can be imported into other editors.",
     "slug": "riverside",
     "website": "https://riverside.com",
@@ -492,7 +492,7 @@
       "Viewer analytics for shared recordings are not documented"
     ],
     "pickThemWhen": "you present on camera over slides or screens and want a virtual camera for live meetings too.",
-    "differentiator": "CaptureCat's editor adds automatic zoom from clicks, cursor smoothing, click ripples and on-device captions, free with 4K export. Airtime's strengths are presenter effects and a virtual camera for live calls, which CaptureCat does not offer.",
+    "differentiator": "CaptureCat's editor adds automatic zoom from clicks, cursor smoothing, click ripples and on-device captions, free for personal use with 4K export. Airtime's strengths are presenter effects and a virtual camera for live calls, which CaptureCat does not offer.",
     "switchTip": "Download recordings as MP4 from Airtime before cancelling. Keep Airtime Camera if you use it for live calls.",
     "faqExtra": {
       "question": "What happened to mmhmm?",
@@ -551,7 +551,7 @@
       "Editing is basic: cut, text, shapes, blur"
     ],
     "pickThemWhen": "you mostly need screenshots and quick browser recordings at a low price.",
-    "differentiator": "CaptureCat is a video tool rather than a screenshot tool: automatic zoom from clicks, cursor smoothing with click ripples, on-device captions and 4K export are free with no watermark. Awesome Screenshot covers full-page screenshots, which CaptureCat does not.",
+    "differentiator": "CaptureCat is a video tool rather than a screenshot tool: automatic zoom from clicks, cursor smoothing with click ripples, on-device captions and 4K export are free for personal use with no watermark. Awesome Screenshot covers full-page screenshots, which CaptureCat does not.",
     "switchTip": "Keep Awesome Screenshot for screenshots and use CaptureCat for videos; download cloud videos as MP4 before cancelling a paid plan.",
     "slug": "awesome-screenshot",
     "website": "https://www.awesomescreenshot.com",
@@ -602,7 +602,7 @@
       "Capture pricing is not listed on the FuseBase pricing page"
     ],
     "pickThemWhen": "you already use FuseBase or Nimbus Note and want screenshots and short recordings inside it.",
-    "differentiator": "CaptureCat records natively on Mac with no time limit and adds automatic zoom from clicks, cursor smoothing and on-device captions, free with 4K export. Nimbus Capture is a lighter browser extension tied to the FuseBase workspace.",
+    "differentiator": "CaptureCat records natively on Mac and adds automatic zoom from clicks, cursor smoothing and on-device captions, free for personal use with 4K export and the same 5-minute recording limit as Nimbus's free plan. Nimbus Capture is a lighter browser extension tied to the FuseBase workspace.",
     "switchTip": "Export recordings as MP4 from Nimbus before switching. Keep the extension if you rely on its full-page screenshots.",
     "faqExtra": {
       "question": "Is Nimbus Capture still available?",
@@ -651,7 +651,7 @@
       "Section-level video analytics require the Enterprise plan"
     ],
     "pickThemWhen": "you need a simple Loom-style recorder for Windows and Mac, especially one that can be HIPAA compliant.",
-    "differentiator": "CaptureCat's recorder and editor are free, with automatic zoom from clicks, cursor smoothing and on-device captions; Pro adds share links with viewer analytics. Berrycast offers HIPAA compliance and a native Windows app, which CaptureCat does not.",
+    "differentiator": "CaptureCat's recorder and editor are free for personal use, with automatic zoom from clicks, cursor smoothing and on-device captions; Pro adds commercial use and share links with viewer analytics. Berrycast offers HIPAA compliance and a native Windows app, which CaptureCat does not.",
     "switchTip": "Download your Berrycast videos before your subscription ends. Stay on Berrycast if you need a BAA for patient data.",
     "slug": "berrycast",
     "website": "https://www.berrycast.com",

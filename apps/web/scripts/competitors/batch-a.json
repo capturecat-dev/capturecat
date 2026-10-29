@@ -24,8 +24,8 @@
       "Without an active plan you can use the editor but cannot export video files"
     ],
     "pickThemWhen": "you want a polished, Mac-only recorder with automatic click zooms and you are happy to pay a subscription for it.",
-    "differentiator": "Screen Studio and CaptureCat both offer automatic zoom from clicks, cursor smoothing with click effects and on-device captions. CaptureCat includes those in a free tier with no watermark and 4K 60 fps export, is open source under AGPL-3.0, ships a built-in MCP server for coding agents, and has a browser app for Windows and Linux users.",
-    "switchTip": "Install CaptureCat next to Screen Studio and record your next demo in it; automatic zoom from recorded clicks and cursor smoothing work on the free tier. Finish any open Screen Studio projects there before you cancel, since your export access ends with the plan.",
+    "differentiator": "Screen Studio and CaptureCat both offer automatic zoom from clicks, cursor smoothing with click effects and on-device captions. CaptureCat includes those in its free tier for personal use, with 4K 60 fps export, no watermark and recordings up to 5 minutes, and Pro covers commercial use. It is open source under AGPL-3.0, ships a built-in MCP server for coding agents, and has a browser app for Windows and Linux users.",
+    "switchTip": "Install CaptureCat next to Screen Studio and record your next demo in it; automatic zoom from recorded clicks and cursor smoothing work on every plan, and demos for work need CaptureCat Pro. Finish any open Screen Studio projects there before you cancel, since your export access ends with the plan.",
     "faqExtra": {
       "question": "Does Screen Studio work on Windows?",
       "answer": "No. Screen Studio is macOS only, and its FAQ says there are no near-future plans to add Windows support."
@@ -95,8 +95,8 @@
       "Free and Desktop plans limit cloud share links to 5 minutes each (Desktop: 20 links a month)"
     ],
     "pickThemWhen": "you want an open-source recorder with native Windows and Linux apps, Loom-style instant links and team workspaces.",
-    "differentiator": "Cap matches CaptureCat on several points: open source under AGPL, automatic zoom from clicks, cursor smoothing, on-device captions and an official MCP server. CaptureCat is a native Swift/AppKit/Metal Mac app that also records iPhone and iPad over USB and adds device bezels, spotlights and a keystroke overlay, while Cap has native Windows and Linux desktop apps and team workspaces, which CaptureCat does not offer yet.",
-    "switchTip": "Finish open Studio Mode edits in Cap, then start new recordings in CaptureCat; automatic zoom, cursor smoothing and on-device captions are on its free tier. If you use Cap's Windows or Linux desktop app, CaptureCat's option on those systems is its browser app.",
+    "differentiator": "Cap matches CaptureCat on several points: open source under AGPL, automatic zoom from clicks, cursor smoothing, on-device captions and an official MCP server. Both free tiers are for personal use only: CaptureCat's also stops each recording at 5 minutes, and commercial use needs CaptureCat Pro. CaptureCat is a native Swift/AppKit/Metal Mac app that also records iPhone and iPad over USB and adds device bezels, spotlights and a keystroke overlay, while Cap has native Windows and Linux desktop apps and team workspaces, which CaptureCat does not offer yet.",
+    "switchTip": "Finish open Studio Mode edits in Cap, then start new recordings in CaptureCat; automatic zoom, cursor smoothing and on-device captions are on its free tier, which, like Cap's, is for personal use (work videos need CaptureCat Pro). If you use Cap's Windows or Linux desktop app, CaptureCat's option on those systems is its browser app.",
     "faqExtra": {
       "question": "Is Cap free for commercial use?",
       "answer": "No. Cap's free plan covers personal use; commercial use needs the Desktop License ($29/yr or $58 one-time) or Cap Pro."
@@ -174,8 +174,8 @@
       "No automatic zoom yet; Loom's editing page lists auto-zoom as coming soon"
     ],
     "pickThemWhen": "your team mainly sends quick async video messages and wants hosted links, viewer insights and Atlassian integrations out of the box.",
-    "differentiator": "Loom is cloud-first and built for teams, with analytics on every plan and admin controls; CaptureCat has no team plan yet. CaptureCat is a local editor whose free tier has no recording limit and includes automatic zoom from clicks, cursor smoothing and on-device captions, with share links, viewer analytics and timestamped comments on Pro.",
-    "switchTip": "Keep Loom for links your team already relies on and record new demos and tutorials in CaptureCat, where the free tier does not cap recording length or count. If you need hosted links with views, watch time and retention, that is CaptureCat Pro.",
+    "differentiator": "Loom is cloud-first and built for teams, with analytics on every plan and admin controls; CaptureCat has no team plan yet. CaptureCat is a local editor whose free tier, for personal use, includes automatic zoom from clicks, cursor smoothing and on-device captions, with the same 5-minute recording limit as Loom's free plan. Commercial use, longer recordings, share links with viewer analytics and timestamped comments are on Pro.",
+    "switchTip": "Keep Loom for links your team already relies on and record new demos and tutorials in CaptureCat. Work videos need CaptureCat Pro, which also has no recording length limit and adds hosted links with views, watch time and retention.",
     "faqExtra": {
       "question": "Is Loom free?",
       "answer": "Loom's Starter plan is free, with up to 25 videos per person and a 5-minute limit per screen recording. Business costs $18/user/mo billed monthly or $180/user/yr."
@@ -250,8 +250,8 @@
       "Basic includes one year of updates, then $19/yr to keep updating"
     ],
     "pickThemWhen": "you want one Mac app for screenshots, annotation and quick recordings, and a one-time purchase matters to you.",
-    "differentiator": "CleanShot X is screenshot-first, with recording and Studio Mode added on; CaptureCat is built around recording and editing video. CaptureCat generates zooms automatically from recorded clicks, runs captions on-device, is free with no watermark, is open source under AGPL-3.0, and has an MCP server and a browser app for non-Mac users. Both offer cursor smoothing, click effects and keystroke display.",
-    "switchTip": "Many people keep CleanShot X for screenshots and use CaptureCat for recordings that need zooms, captions and editing. Try CaptureCat's free tier on your next tutorial before deciding whether to renew CleanShot updates.",
+    "differentiator": "CleanShot X is screenshot-first, with recording and Studio Mode added on; CaptureCat is built around recording and editing video. CaptureCat generates zooms automatically from recorded clicks, runs captions on-device, is free for personal use with no watermark, is open source under AGPL-3.0, and has an MCP server and a browser app for non-Mac users. Both offer cursor smoothing, click effects and keystroke display.",
+    "switchTip": "Many people keep CleanShot X for screenshots and use CaptureCat for recordings that need zooms, captions and editing. Try CaptureCat on your next tutorial (free for personal use, Pro for work) before deciding whether to renew CleanShot updates.",
     "faqExtra": {
       "question": "Is there a CleanShot X free trial?",
       "answer": "CleanShot does not offer a trial; it has a 30-day money-back guarantee. The Setapp subscription that includes CleanShot has a 7-day free trial."
@@ -329,7 +329,7 @@
       "No hosted share links or viewer analytics"
     ],
     "pickThemWhen": "you need live streaming or a multi-source scene setup, and want a free, open-source tool on any desktop OS.",
-    "differentiator": "Both are free and open source. OBS is a live production and recording tool with no post-recording editor, while CaptureCat records and then edits, with automatic zoom from clicks, cursor smoothing with click ripples and on-device captions applied in post, plus a built-in MCP server.",
+    "differentiator": "Both are open source; OBS is fully free, while CaptureCat is free for personal use and needs Pro for commercial use or recordings over 5 minutes. OBS is a live production and recording tool with no post-recording editor, while CaptureCat records and then edits, with automatic zoom from clicks, cursor smoothing with click ripples and on-device captions applied in post, plus a built-in MCP server.",
     "switchTip": "If you use OBS mainly to record tutorials and then edit elsewhere, try recording the same walkthrough in CaptureCat and compare the automatic zoom and captions against your current edit. Keep OBS for live streaming.",
     "faqExtra": {
       "question": "Is OBS Studio really free?",
@@ -403,7 +403,7 @@
       "A full video editor has more to learn than a recorder with automatic editing"
     ],
     "pickThemWhen": "you produce longer training or course videos on Windows or Mac and want a full timeline editor with assets and AI voiceover.",
-    "differentiator": "Camtasia matches CaptureCat on automatic zoom from cursor and click data, cursor effects and on-device captions, and it runs natively on Windows. CaptureCat's free tier exports without a watermark at up to 4K 60 fps, it is open source under AGPL-3.0, and it has a built-in MCP server for coding agents.",
+    "differentiator": "Camtasia matches CaptureCat on automatic zoom from cursor and click data, cursor effects and on-device captions, and it runs natively on Windows. CaptureCat's free tier exports without a watermark at up to 4K 60 fps for personal use, with Pro for commercial use; it is open source under AGPL-3.0 and has a built-in MCP server for coding agents.",
     "switchTip": "Record your next tutorial in CaptureCat and compare its automatic zoom and captions with SmartFocus before your Camtasia renewal date. Keep Camtasia for projects that depend on its asset library or AI voiceover.",
     "faqExtra": {
       "question": "Can I still buy Camtasia once?",

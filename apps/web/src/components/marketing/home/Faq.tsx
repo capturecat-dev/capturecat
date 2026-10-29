@@ -8,11 +8,11 @@ export interface FaqItem {
 export const HOME_FAQ: FaqItem[] = [
   {
     q: "Is it actually free?",
-    a: "Yes. Recording, the full editor, auto zoom, captions, and full quality export are free with no time limit and no resolution cap. Pro is only for the hosted features: share links, comments, viewer analytics, and cloud projects for the browser app.",
+    a: "For personal use, yes. Recording, the full editor, auto zoom, captions, and export up to 4K are free with no watermark, and the Mac app needs no account. Each recording stops at 5 minutes. Pro is for commercial use, such as client work, courses, marketing, or videos for your team, and has no length limit. It also adds comments, viewer analytics, and full cloud storage.",
   },
   {
     q: "Is it open source?",
-    a: "Yes. The Mac app, the API, and this website are all in one public repository on GitHub under the AGPL-3.0 licence. You can read how auto zoom decides where to push in, build the app yourself, or self host the sharing side. Pro exists to pay for the hosted service, not to hide code.",
+    a: "Yes. The Mac app, the API, and this website are all in one public repository on GitHub under the AGPL-3.0 licence. You can read how auto zoom decides where to push in, build the app yourself, or self host the sharing side. Pro pays for the hosted service and covers commercial use; it does not hide any code.",
   },
   {
     q: "Does my audio go to a server for captions?",
@@ -32,7 +32,7 @@ export const HOME_FAQ: FaqItem[] = [
   },
   {
     q: "Does it work on Windows, Linux, or ChromeOS?",
-    a: "Yes, in the browser. The CaptureCat browser app records a display, a window, or a tab, and runs the editor on WebGPU in Chrome or Edge 113 and later, Safari 26, or Firefox 141. A browser cannot see your clicks or keystrokes outside the page, so cursor smoothing, click zooms, and the keystroke pill need a recording made with the Mac app. The browser app keeps projects in your cloud storage, which comes with Pro.",
+    a: "Yes, in the browser. The CaptureCat browser app records a display, a window, or a tab, and runs the editor on WebGPU in Chrome or Edge 113 and later, Safari 26, or Firefox 141. A browser cannot see your clicks or keystrokes outside the page, so cursor smoothing, click zooms, and the keystroke pill need a recording made with the Mac app. The browser app keeps projects in your cloud storage: Free includes 2 GB, and Pro much more.",
   },
   {
     q: "Is it Electron?",

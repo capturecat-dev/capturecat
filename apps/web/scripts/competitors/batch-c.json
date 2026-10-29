@@ -24,7 +24,7 @@
       "Lifetime license covers version 2.x only; the next major version costs extra"
     ],
     "pickThemWhen": "you want one auto-zoom recorder licence that covers both Mac and Windows and you will use AI extras like avatars or filler-word removal.",
-    "differentiator": "CaptureCat's free tier includes unlimited exports up to 4K 60 fps with no watermark, automatic zoom from clicks, cursor smoothing and on-device English captions, where FocuSee's free trial exports one video. FocuSee runs natively on Windows and records Android devices, which CaptureCat does not; both record iPhone over USB, and CaptureCat adds an open-source AGPL codebase and a built-in MCP server.",
+    "differentiator": "CaptureCat's free tier, for personal use, includes unlimited exports up to 4K 60 fps with no watermark, automatic zoom from clicks, cursor smoothing and on-device English captions, where FocuSee's free trial exports one video. FocuSee runs natively on Windows and records Android devices, which CaptureCat does not; both record iPhone over USB, and CaptureCat adds an open-source AGPL codebase and a built-in MCP server.",
     "switchTip": "Export finished FocuSee projects as MP4 before switching, since CaptureCat cannot open FocuSee project files. New recordings in CaptureCat get automatic zoom from clicks without any setup.",
     "faqExtra": {
       "question": "Is FocuSee free?",
@@ -72,7 +72,7 @@
       "Lifetime licence includes one year of updates; renewals cost $99"
     ],
     "pickThemWhen": "you record on Windows and want Screen Studio-style automatic zooms and cursor polish in a desktop app.",
-    "differentiator": "Rapidemo is Windows-only, while CaptureCat is a native macOS app with a browser app for Windows users. Both add automatic zoom from clicks, cursor smoothing and captions generated locally; CaptureCat exports for free without a licence and adds an MCP server, viewer analytics on Pro share links, and an AGPL open-source codebase.",
+    "differentiator": "Rapidemo is Windows-only, while CaptureCat is a native macOS app with a browser app for Windows users. Both add automatic zoom from clicks, cursor smoothing and captions generated locally; CaptureCat exports free for personal use, with Pro for commercial use, and adds an MCP server, viewer analytics on Pro share links, and an AGPL open-source codebase.",
     "switchTip": "Rapidemo projects cannot be opened in CaptureCat, so export finished videos as MP4 first. On Windows, use CaptureCat's browser app; on a Mac, use the native app.",
     "faqExtra": {
       "question": "Is Rapidemo available for Mac?",
@@ -120,7 +120,7 @@
       "Captions were added only in September 2026 (v1.11.4), so the feature is new"
     ],
     "pickThemWhen": "you want a Mac auto-zoom recorder with a one-time price and built-in vertical exports for social clips.",
-    "differentiator": "Both apps add automatic zoom from clicks, cursor smoothing, click ripples and captions on macOS. CaptureCat exports for free with no watermark, is a native Swift app (Screen Charm's changelog refers to Electron), is open source under AGPL-3.0, has a built-in MCP server, and offers viewer analytics on Pro share links.",
+    "differentiator": "Both apps add automatic zoom from clicks, cursor smoothing, click ripples and captions on macOS. CaptureCat exports free for personal use with no watermark (Pro covers commercial use), is a native Swift app (Screen Charm's changelog refers to Electron), is open source under AGPL-3.0, has a built-in MCP server, and offers viewer analytics on Pro share links.",
     "switchTip": "Export any Screen Charm projects you want to keep as MP4; CaptureCat cannot open Screen Charm projects. Your existing Screen Charm share links stay where they are.",
     "faqExtra": {
       "question": "Is Screen Charm free?",
@@ -168,7 +168,7 @@
       "Captions are English only for now"
     ],
     "pickThemWhen": "you work in Chrome on any OS and want a free open-source recorder, or a scene-based web editor with EU data hosting.",
-    "differentiator": "CaptureCat includes automatic zoom from clicks, cursor smoothing and on-device captions in its free tier, while Screenity puts zoom, captions and sharing in its paid editor. Both are open source; CaptureCat's whole app is AGPL-3.0, has a native macOS app plus a browser app, exports up to 4K 60 fps, and has a built-in MCP server.",
+    "differentiator": "CaptureCat includes automatic zoom from clicks, cursor smoothing and on-device captions in its free tier for personal use, while Screenity puts zoom, captions and sharing in its paid editor. Both are open source; CaptureCat's whole app is AGPL-3.0, has a native macOS app plus a browser app, exports up to 4K 60 fps, and has a built-in MCP server.",
     "switchTip": "Download your Screenity videos as MP4 from the editor or extension before switching; scene projects do not carry over. On Chromebook or Windows, CaptureCat's browser app works in Chrome and Edge 113+.",
     "faqExtra": {
       "question": "Is Screenity still free?",
@@ -216,7 +216,7 @@
       "Auto-zoom triggers only after two or more clicks within 3 seconds, by design"
     ],
     "pickThemWhen": "you mostly demo web apps in Chrome and want free auto-zoom with no sign-up, or a one-time Pro licence for Mac and Windows.",
-    "differentiator": "Like Cursorful, CaptureCat offers free automatic zoom from clicks, cursor smoothing with click effects and on-device captions. CaptureCat's free tier allows commercial use, records any app with mic and camera, and exports up to 4K, which Cursorful reserves for Pro; CaptureCat is also open source (AGPL-3.0), has a built-in MCP server and viewer analytics on Pro share links.",
+    "differentiator": "Like Cursorful, CaptureCat offers free automatic zoom from clicks, cursor smoothing with click effects and on-device captions. As with Cursorful, CaptureCat's free tier is for personal use only, and it stops each recording at 5 minutes. CaptureCat's free tier records any app with mic and camera and exports up to 4K, which Cursorful reserves for Pro; CaptureCat is also open source (AGPL-3.0), has a built-in MCP server and viewer analytics on Pro share links.",
     "switchTip": "Export finished Cursorful projects as MP4 before switching. If you used the Chrome extension on Windows or Linux, CaptureCat's browser app runs in Chrome and Edge 113+.",
     "faqExtra": {
       "question": "Does Cursorful auto-zoom outside the browser?",
@@ -264,8 +264,8 @@
       "Support is via GitHub issues rather than a paid support team"
     ],
     "pickThemWhen": "you want a free, open-source auto-zoom recorder that also runs natively on Windows and Linux.",
-    "differentiator": "Recordly matches CaptureCat on being free and AGPL-licensed, with auto-zoom, cursor smoothing and local captions. CaptureCat is a native Swift/Metal Mac app rather than Electron, records iPhone and iPad over USB, has a built-in MCP server, and offers Pro share links with viewer analytics; Recordly has native Windows and Linux builds, where CaptureCat offers a browser app instead.",
-    "switchTip": "Recordly saves .recordly project files that CaptureCat cannot open, so export finished videos as MP4 first. On a Mac, CaptureCat's free tier covers the same auto-zoom, cursor and caption workflow.",
+    "differentiator": "Recordly matches CaptureCat on being AGPL-licensed, with auto-zoom, cursor smoothing and local captions; Recordly is fully free, while CaptureCat is free for personal use with recordings up to 5 minutes. CaptureCat is a native Swift/Metal Mac app rather than Electron, records iPhone and iPad over USB, has a built-in MCP server, and offers Pro share links with viewer analytics; Recordly has native Windows and Linux builds, where CaptureCat offers a browser app instead.",
+    "switchTip": "Recordly saves .recordly project files that CaptureCat cannot open, so export finished videos as MP4 first. On a Mac, CaptureCat's free tier covers the same auto-zoom, cursor and caption workflow for personal use.",
     "faqExtra": {
       "question": "Is Recordly related to OpenScreen?",
       "answer": "Yes. Recordly's licence file says it started as a fork of the OpenScreen project by Siddharth Vaddem. OpenScreen's GitHub repository is now archived, while Recordly is actively developed."
@@ -312,7 +312,7 @@
       "On Mac, transcription runs in the cloud only"
     ],
     "pickThemWhen": "you need the same auto-zoom recorder on Windows and Mac and want AI fixes like speech correction or a generated webcam.",
-    "differentiator": "CaptureCat exports for free, works offline, and generates English captions on-device on the Mac, where CANVID transcribes in the cloud. CANVID runs natively on Windows and supports 99 transcription languages; CaptureCat is open source (AGPL-3.0), has a built-in MCP server and shows viewer analytics on Pro share links.",
+    "differentiator": "CaptureCat exports free for personal use (Pro covers commercial use), works offline, and generates English captions on-device on the Mac, where CANVID transcribes in the cloud. CANVID runs natively on Windows and supports 99 transcription languages; CaptureCat is open source (AGPL-3.0), has a built-in MCP server and shows viewer analytics on Pro share links.",
     "switchTip": "Export CANVID projects as MP4 before cancelling, and download anything stored in CANVID Cloud that you want to keep. CaptureCat cannot import CANVID projects.",
     "faqExtra": {
       "question": "Does CANVID work offline?",

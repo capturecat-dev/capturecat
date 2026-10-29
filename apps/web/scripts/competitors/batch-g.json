@@ -25,7 +25,7 @@
       "Commercial use needs a paid plan, and web and App Store prices differ"
     ],
     "pickThemWhen": "you mostly need quick annotated screenshots and short clips uploaded to a cloud link, and video polish is secondary.",
-    "differentiator": "Monosnap is screenshot-first with short screen recordings; CaptureCat is a video recorder and editor that adds automatic zoom from recorded clicks, cursor smoothing with click ripples and on-device captions, free and without a watermark. Monosnap's annotation and storage integrations for screenshots are broader than CaptureCat's.",
+    "differentiator": "Monosnap is screenshot-first with short screen recordings; CaptureCat is a video recorder and editor that adds automatic zoom from recorded clicks, cursor smoothing with click ripples and on-device captions without a watermark. Both free plans are for personal use only and stop recordings at 5 minutes; commercial use needs a paid plan on either. Monosnap's annotation and storage integrations for screenshots are broader than CaptureCat's.",
     "switchTip": "Keep Monosnap for screenshots if you like it, and use CaptureCat for anything you record as video; existing Monosnap MP4s can still be shared from Monosnap storage.",
     "faqExtra": {
       "question": "Is Monosnap free for screen recording?",
@@ -90,7 +90,7 @@
       "Sharing goes to third-party services, not hosted links with analytics"
     ],
     "pickThemWhen": "you want a paid-once Mac app for screenshots and simple tutorial recordings with light editing.",
-    "differentiator": "Capto and CaptureCat both record screen, camera and iPhone/iPad and offer annotations. CaptureCat adds automatic zoom from clicks, cursor smoothing with ripples and on-device captions at no cost, while Capto is a one-time purchase after a 15-day trial.",
+    "differentiator": "Capto and CaptureCat both record screen, camera and iPhone/iPad and offer annotations. CaptureCat adds automatic zoom from clicks, cursor smoothing with ripples and on-device captions at no cost for personal use, while Capto is a one-time purchase after a 15-day trial.",
     "switchTip": "Export any Capto recordings you still need as MP4, then record new tutorials in CaptureCat; its free tier needs no license to try the editor.",
     "faqExtra": {
       "question": "Is Capto a subscription?",
@@ -154,7 +154,7 @@
       "Sharing goes to Dropbox, Google Drive or Imgur rather than hosted pages"
     ],
     "pickThemWhen": "you mainly make short, small GIFs for docs, bug reports or chat.",
-    "differentiator": "Gifox focuses on short GIFs with excellent compression; CaptureCat is a full recorder and editor with automatic zoom, cursor smoothing, camera bubble and on-device captions, free with no time limit or watermark. Both can show keystrokes.",
+    "differentiator": "Gifox focuses on short GIFs with excellent compression; CaptureCat is a full recorder and editor with automatic zoom, cursor smoothing, camera bubble and on-device captions, free for personal use with no watermark and recordings up to 5 minutes. Both can show keystrokes.",
     "switchTip": "Use CaptureCat for longer walkthroughs and keep Gifox for tiny GIFs if you rely on its compression settings.",
     "faqExtra": {
       "question": "Can Gifox export MP4?",
@@ -218,7 +218,7 @@
       "Built for GIFs, not tutorials or product demos"
     ],
     "pickThemWhen": "you want a free, quick way to turn a few seconds of screen into a GIF.",
-    "differentiator": "Both are free, but GIPHY Capture makes clips of up to 30 seconds for GIFs while CaptureCat records without a time limit and adds automatic zoom, cursor smoothing, on-device speech captions and 4K 60 fps export.",
+    "differentiator": "Both are free (CaptureCat for personal use), but GIPHY Capture makes clips of up to 30 seconds for GIFs while CaptureCat records up to 5 minutes on its free tier, or any length on Pro, and adds automatic zoom, cursor smoothing, on-device speech captions and 4K 60 fps export.",
     "switchTip": "Use CaptureCat for anything longer than a quick reaction GIF; GIPHY Capture can stay installed for 30-second loops.",
     "notes": "Still updated in 2026 (4.3.1 on Jun 30, 2026; 4.3.2 on Jul 19, 2026, plus a later stability update) with Apple Silicon support. 'Captions' in GIPHY Capture are typed animated text, not speech transcription. HD MP4 save appears in its version history. Requires macOS 10.13+. The GIPHY MCP servers found in search are third-party/Microsoft wrappers for the GIPHY search API, not for this app.",
     "sources": {
@@ -274,7 +274,7 @@
       "No automatic zoom, cursor effects or speech captions listed"
     ],
     "pickThemWhen": "you stream or record live shows, interviews or webinars on a Mac and want a switcher-style studio.",
-    "differentiator": "Ecamm is a live production studio; CaptureCat is a screen-recording editor with automatic zoom from clicks, cursor smoothing, on-device captions and an MCP server for AI agents, with a free tier. CaptureCat has no live streaming.",
+    "differentiator": "Ecamm is a live production studio; CaptureCat is a screen-recording editor with automatic zoom from clicks, cursor smoothing, on-device captions and an MCP server for AI agents, with a free tier for personal use. CaptureCat has no live streaming.",
     "switchTip": "Keep Ecamm for live streams; record product demos and tutorials in CaptureCat, where the camera bubble is on its own track for later editing.",
     "faqExtra": {
       "question": "Does Ecamm Live work on Windows?",
@@ -401,7 +401,7 @@
       "No captions or hosted share links"
     ],
     "pickThemWhen": "you want polished-looking recordings straight out of the recorder, with no editing pass.",
-    "differentiator": "iShowU bakes zoom and click effects into the recording live; CaptureCat records first and applies automatic zoom from clicks, cursor smoothing and click ripples in an editor you can adjust, plus on-device captions. CaptureCat's core is free; iShowU is paid after a 7-day trial.",
+    "differentiator": "iShowU bakes zoom and click effects into the recording live; CaptureCat records first and applies automatic zoom from clicks, cursor smoothing and click ripples in an editor you can adjust, plus on-device captions. CaptureCat is free for personal use; iShowU is paid after a 7-day trial.",
     "switchTip": "Record a demo in CaptureCat and let it build the zooms from your clicks, then compare with your usual iShowU live-zoom take.",
     "faqExtra": {
       "question": "Does iShowU V6 support Intel Macs?",
@@ -467,7 +467,7 @@
       "Newest versions need macOS 15.6 or later"
     ],
     "pickThemWhen": "you want a tidy, one-time-purchase Mac utility for quick recordings and format conversion.",
-    "differentiator": "Claquette is a lightweight recorder and converter; CaptureCat adds automatic zoom from clicks, cursor smoothing, on-device captions and a full editor for free. Both are native Mac apps that record system audio and a camera overlay.",
+    "differentiator": "Claquette is a lightweight recorder and converter; CaptureCat adds automatic zoom from clicks, cursor smoothing, on-device captions and a full editor, free for personal use. Both are native Mac apps that record system audio and a camera overlay.",
     "switchTip": "Keep Claquette for quick conversions and GIF optimisation, and use CaptureCat for demos that need zooms, captions or annotations.",
     "notes": "Actively maintained: Mac App Store version 5.1 (Sep 10, 2026); requires macOS 15.6+. In-app purchases: Claquette Standard $19.99, Pro $29.99, Upgrade $19.99. Free-tier limits are not documented on the official pages I could reach. Developer listed as Thomas Zoechling (Peakstep).",
     "sources": {

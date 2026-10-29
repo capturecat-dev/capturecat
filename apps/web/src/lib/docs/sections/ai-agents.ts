@@ -179,11 +179,12 @@ export const AI_AGENTS: DocSection = {
         },
         {
           question: "Do I need a paid plan to use CaptureCat with AI agents?",
-          answer: "No. The MCP server is part of the Mac app and works on the free plan.",
+          answer:
+            "Not for the Mac's MCP server: it is part of the app and works on Free, with Free's terms, so it is for personal use and recordings it starts stop at 5 minutes. Commercial use needs Pro, and so does the remote MCP server at mcp.capturecat.so, which needs a plan with agent access.",
         },
       ],
       related: ["ai-agents/setup", "ai-agents/tools", "library"],
-      lastModified: CHECKED,
+      lastModified: "2026-10-29",
     },
     {
       slug: "ai-agents/setup",
