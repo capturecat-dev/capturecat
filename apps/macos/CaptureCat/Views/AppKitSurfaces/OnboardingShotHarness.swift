@@ -145,7 +145,8 @@ enum OnboardingShotHarness {
                + "footer top \(Int(footerTop)), height \(Int(rootH)))")
         let degenerate = stack.arrangedSubviews.filter { !$0.isHidden }
             .filter { $0.frame.width < 10 || $0.frame.height < 1 }
-        expect(degenerate.isEmpty, "\(label) no degenerate rows (\(degenerate.count))")
+        expect(degenerate.isEmpty, "\(label) no degenerate rows (\(degenerate.count))"
+            + degenerate.map { " \(type(of: $0)) \(Int($0.frame.width))×\(Int($0.frame.height))" }.joined())
         let back = onboarding.probeBackButton.convert(onboarding.probeBackButton.bounds, to: root)
         let dots = onboarding.probeStepIndicator.convert(onboarding.probeStepIndicator.bounds, to: root)
         let footerOK = next.maxX <= left.maxX - 8 && next.minX > dots.maxX

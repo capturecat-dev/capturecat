@@ -80,6 +80,8 @@ enum RecordingPanelHarness {
             try? await Task.sleep(for: .milliseconds(1000))
             await capture("paused")
 
+            let planCapFailures = await checkFreeCapCountdown(appState)
+
             appState.recordingSession.phase = .idle
             resizeRows(setup: true)
             controller?.debugSelectTab(.area)
@@ -92,6 +94,10 @@ enum RecordingPanelHarness {
 
             dumpPanelMenus()
             dumpStatusMenu(appState: appState)
+            if planCapFailures > 0 {
+                print("PLAN-CAP \(planCapFailures) failure(s)")
+                exit(1)
+            }
             if clickFailures > 0 {
                 print("PANEL-CLICKS \(clickFailures) failure(s) — controls are not reachable")
                 exit(1)
@@ -1033,6 +1039,64 @@ enum RecordingPanelHarness {
                      pass ? "PASS" : "FAIL", got, want))
     }
 
+    /// Free's 5-minute cap on the REAL panel, mid-flight: the session's own
+    /// tick runs from a seeded clock, and the chip is read while it moves —
+    /// counting down, "of 5 min", red in the last 10 s — then the cap fires,
+    /// and a paid plan landing mid-take turns the countdown back into a clock.
+    private static func checkFreeCapCountdown(_ appState: AppState) async -> Int {
+        var failures = 0
+        func check(_ ok: Bool, _ label: String) {
+            print("PLAN-CAP \(ok ? "PASS" : "FAIL") \(label)")
+            if !ok { failures += 1 }
+        }
+        guard let chip = controller?.debugTimerChip else {
+            check(false, "no timer chip")
+            return failures
+        }
+        let session = appState.recordingSession
+        let savedHook = session.onDurationLimitReached
+        let savedLimit = appState.recordingDurationLimit
+        var fired = 0
+        session.onDurationLimitReached = { fired += 1 }
+        appState.licence = .personal
+        appState.recordingDurationLimit = 0
+        let cap = PlanGate.freeRecordingSeconds
+
+        session.phase = .recording
+        session.debugStartTimer(at: cap - 12)
+        try? await Task.sleep(for: .milliseconds(500))
+        let early = chip.debugText
+        let earlyRed = chip.debugTextColor == .systemRed
+        await capture("recording-free-countdown")
+        try? await Task.sleep(for: .milliseconds(2200))
+        let late = chip.debugText
+        let lateRed = chip.debugTextColor == .systemRed
+        await capture("recording-free-countdown-red")
+        check(early.hasPrefix("-") && late.hasPrefix("-") && early != late, "the clock counts DOWN while it runs: \(early) → \(late)")
+        check(chip.debugLimitText == "of 5 min", "the chip says \"of 5 min\" (\(chip.debugLimitText ?? "nothing"))")
+        check(!earlyRed && lateRed, "red only in the last 10 s (\(early) red=\(earlyRed), \(late) red=\(lateRed))")
+        try? await Task.sleep(for: .milliseconds(10_000))
+        check(fired == 1, "the cap stops the take at 5:00, once (fired \(fired))")
+        session.reset()
+
+        // A paid plan landing mid-take: the countdown becomes a plain clock.
+        fired = 0
+        session.phase = .recording
+        session.debugStartTimer(at: cap - 2)
+        try? await Task.sleep(for: .milliseconds(400))
+        appState.licence = .pro(planName: "CaptureCat Pro")
+        try? await Task.sleep(for: .milliseconds(2600))
+        check(fired == 0 && !chip.debugText.hasPrefix("-") && chip.debugLimitText == nil,
+              "Pro mid-take lifts the cap: \(chip.debugText), fired \(fired)")
+        session.reset()
+
+        session.onDurationLimitReached = savedHook
+        appState.licence = .personal
+        appState.recordingDurationLimit = savedLimit
+        session.phase = .paused
+        return failures
+    }
+
     private static func capture(_ name: String) async {
         guard let window else { return }
         let url = outputDirectory.appendingPathComponent("capturecat-recording-panel-\(name).png")
@@ -1069,6 +1133,7 @@ private final class StatusMenuActionRecorder: NSObject, StatusMenuActions {
     func browseProjects(_ sender: Any?) {}
     func signOut(_ sender: Any?) {}
     func signIn(_ sender: Any?) {}
+    func showPlans(_ sender: Any?) {}
     func pauseOrResumeRecording(_ sender: Any?) {}
     func stopRecording(_ sender: Any?) {}
     func toggleAutoZoomNewRecordings(_ sender: Any?) {}

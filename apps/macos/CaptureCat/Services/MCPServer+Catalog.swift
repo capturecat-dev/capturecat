@@ -79,7 +79,8 @@ extension MCPServer {
         - render_frames' first call after an edit re-renders the whole project (up to about the video's length); \
         later calls on the same edit state are cached — batch edits before looking. transcribe's first run downloads the on-device Whisper model (~150 MB).
         - start_recording is always visible to the user (floating panel + 3-2-1 countdown) and needs Screen \
-        Recording permission.
+        Recording permission. On the Free plan (personal use) each recording stops itself at 5 minutes; \
+        Pro has no limit.
         - share_project never publishes on its own: the user approves every share in CaptureCat (it refuses, \
         uploading nothing, if they decline, aren't signed in or the app can't ask). Default privacy "unlisted" = \
         anyone with the link. Poll share_status; the link is live only once state is "done". No tool deletes.
@@ -609,7 +610,8 @@ extension MCPServer {
                     + "records that browser's window, launching it if needed; 'window' matches by app/title; "
                     + "'display' records a whole screen. Optional 'url' opens a page in the target browser first. "
                     + "Returns once capture is live: then drive the screen (e.g. via your browser tools) and call "
-                    + "stop_recording.",
+                    + "stop_recording. On the Free plan (personal use) a recording stops itself at 5 minutes — "
+                    + "keep demos short, or the user needs Pro.",
                  properties: [
                     "source": ["type": "string", "enum": ["display", "window", "chrome", "safari"],
                                "description": "Default display."],
@@ -622,7 +624,9 @@ extension MCPServer {
                  openWorld: true),
             tool("stop_recording", title: "Stop recording",
                  description: "Stop the in-progress recording, wait for it to be saved, and return the new "
-                    + "projectId — feed it to describe_project and the editing tools.",
+                    + "projectId — feed it to describe_project and the editing tools. If the take already stopped "
+                    + "itself (the user's Maximum Duration, or Free's 5-minute cap), it returns that take with "
+                    + "stoppedBy set.",
                  idempotent: false),
         ]
     }

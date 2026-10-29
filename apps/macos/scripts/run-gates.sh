@@ -37,6 +37,7 @@ GATES=(
   --videotrack-math-test
   --voicetrack-test
   --keysound-test
+  --plan-gate-test
   --playback-observer-test
   --raster-golden
   --editor-shell-shot

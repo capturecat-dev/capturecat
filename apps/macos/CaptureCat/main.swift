@@ -184,6 +184,13 @@ if CommandLine.arguments.contains("--keysound-test") {
     KeySoundHarness.run()
 }
 
+// Free plan recording cap (PlanGate): rule, offline grace, the live session
+// clock, a paid plan lifting it mid-take, deep-link pause/resume. Never
+// reached in a normal launch.
+if CommandLine.arguments.contains("--plan-gate-test") {
+    MainActor.assumeIsolated { PlanGateHarness.run() }
+}
+
 // Click PIPELINE probe: runs synthetic 60Hz cursor events (with a pressed
 // interval) through the exact chain the editor applies — CursorSpringMath —
 // and counts the discrete clicks that survive. The visual/audio harnesses

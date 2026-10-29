@@ -107,8 +107,12 @@ final class DeepLinkHandler {
             print("[DeepLink] Not recording, ignoring pause")
             return
         }
-        appState.recorder.pause()
-        appState.recordingSession.phase = .paused
+        // The session's own pause, like the panel and the status menu: the
+        // recording loop pauses the recorders, trackers and camera from it,
+        // and its clock stops. Setting the phase directly skipped the clock
+        // (and the trackers); resuming then restarted the timer from zero,
+        // which also reset the Free plan's 5-minute cap.
+        appState.recordingSession.pause()
         print("[DeepLink] Recording paused")
     }
 
@@ -118,9 +122,7 @@ final class DeepLinkHandler {
             print("[DeepLink] Not paused, ignoring resume")
             return
         }
-        appState.recorder.resume()
-        appState.recordingSession.phase = .recording
-        appState.recordingSession.startTimer()
+        appState.recordingSession.resume()
         print("[DeepLink] Recording resumed")
     }
 

@@ -64,6 +64,15 @@ final class RecordingSession {
         onDurationLimitReached?()
     }
 
+    /// Harness seam (`--recording-panel-shot`): a live take whose clock
+    /// already reads `elapsed` — the real 100 ms tick and limit from there,
+    /// so a 5-minute cap can be watched land in seconds, not minutes.
+    func debugStartTimer(at elapsed: TimeInterval) {
+        startTimer()
+        pauseAccumulated = elapsed
+        elapsedTime = elapsed
+    }
+
     func pause() {
         guard case .recording = phase else { return }
         if let resumeDate = lastResumeDate {

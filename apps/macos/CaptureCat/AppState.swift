@@ -37,15 +37,26 @@ final class AppState {
     var recordingError: String?
     var captureSystemAudio = true
     /// Maximum recorded duration for new takes, in seconds. 0 = no limit.
-    /// Persisted; mirrored onto `recordingSession.durationLimit` so the
-    /// session's 100ms tick enforces it against RECORDED time (its elapsed
-    /// clock already excludes paused wall time).
+    /// Persisted; applied through PlanGate onto `recordingSession.durationLimit`
+    /// so the session's 100ms tick enforces it against RECORDED time (its
+    /// elapsed clock already excludes paused wall time).
     var recordingDurationLimit: TimeInterval = 0 {
         didSet {
             UserDefaults.standard.set(recordingDurationLimit, forKey: DefaultsKey.recordingDurationLimit)
-            recordingSession.durationLimit = recordingDurationLimit > 0 ? recordingDurationLimit : nil
+            applyDurationLimit()
         }
     }
+    /// What this Mac may record (PlanGate): personal use stops each take at
+    /// 5 min; a plan with commercial use doesn't. Starts from the Keychain's
+    /// last confirmed plan, then follows the server (`refreshLicence`). A paid
+    /// plan that lands mid-take lifts the cap live.
+    var licence: LicenceState = .personal {
+        didSet { applyDurationLimit() }
+    }
+    /// Why the last take stopped itself, if it did — the Free cap gets a note
+    /// in the editor, and MCP's stop_recording says so.
+    enum LimitStop: String { case durationLimit = "duration-limit", freePlan = "free-plan-limit" }
+    private(set) var lastTakeLimitStop: LimitStop?
     /// Pre-recording countdown length in seconds (a full-screen 3-2-1). 0 = off —
     /// recording starts immediately, no overlay. Persisted; the missing-key
     /// default is 3 (the classic 3-2-1), handled in `init`.
@@ -218,7 +229,6 @@ final class AppState {
         hasCompletedOnboarding = defaults.bool(forKey: DefaultsKey.hasCompletedOnboarding)
         hasAcceptedTerms = defaults.bool(forKey: DefaultsKey.hasAcceptedTerms)
         recordingDurationLimit = defaults.double(forKey: DefaultsKey.recordingDurationLimit)
-        recordingSession.durationLimit = recordingDurationLimit > 0 ? recordingDurationLimit : nil
         // Missing key means "never chosen" → the 3s default; a stored 0 is an
         // explicit "Off" and must stay off.
         if defaults.object(forKey: DefaultsKey.recordingCountdownSeconds) != nil {
@@ -247,7 +257,10 @@ final class AppState {
         // Auto-stop takes the SAME path as the stop button — no forked
         // shutdown logic (CLAUDE.md §2 spirit: one source of truth).
         recordingSession.onDurationLimitReached = { [weak self] in
-            self?.stopRecordingInProgress()
+            guard let self else { return }
+            self.lastTakeLimitStop = PlanGate.cappedByPlan(userLimit: self.recordingDurationLimit, licence: self.licence)
+                ? .freePlan : .durationLimit
+            self.stopRecordingInProgress()
         }
         // One-time scrub: a removed AI feature left a plaintext API key in
         // defaults — extractable by anyone with disk access. AI now goes
@@ -256,9 +269,21 @@ final class AppState {
         authService.onAuthStateChange = { [weak self] in
             Task { @MainActor [weak self] in
                 self?.authStateRevision += 1
+                self?.refreshLicence(force: true)
             }
         }
         authService.configureIfNeeded()
+        licence = Self.planChecksEnabled ? authService.cachedLicence() : .personal
+        applyDurationLimit()
+        refreshLicence()
+        if Self.planChecksEnabled {
+            // Coming back to the app is when a just-bought plan shows up.
+            NotificationCenter.default.addObserver(
+                forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshLicence() }
+            }
+        }
 
         Self.current = self
         // Successful background shares stamp the library's "shared" mark.
@@ -319,6 +344,56 @@ final class AppState {
         return authService.currentUser != nil
     }
 
+    /// Set Maximum Duration from a menu or Settings. On Free, picking the
+    /// 5-minute cap itself stores "No Limit" — it's the plan's cap, not a
+    /// choice, so it lifts on its own once the account has Pro.
+    func setRecordingDurationLimit(_ seconds: TimeInterval) {
+        recordingDurationLimit = !licence.allowsCommercialUse && seconds == PlanGate.freeRecordingSeconds ? 0 : seconds
+    }
+
+    private func applyDurationLimit() {
+        recordingSession.durationLimit = PlanGate.effectiveLimit(userLimit: recordingDurationLimit, licence: licence)
+    }
+
+    /// Plan checks talk to the server; harness runs (every `--flag` launch:
+    /// shots, probes, --mcp, --export) never do — their plan is whatever they
+    /// set, so a developer's own signed-in Keychain can't change a capture.
+    /// `--show-onboarding` is the Xcode scheme's normal run, not a harness.
+    static let planChecksEnabled = !CommandLine.arguments.dropFirst().contains {
+        $0.hasPrefix("--") && $0 != "--show-onboarding"
+    }
+
+    /// Re-reads the plan in the background (60 s cache unless `force`). Never
+    /// delays a recording: a take starts on the plan already known.
+    func refreshLicence(force: Bool = false) {
+        guard Self.planChecksEnabled else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let next = await self.authService.refreshLicence(forceRefresh: force)
+            if next != self.licence { self.licence = next }
+        }
+    }
+
+    /// After a take the Free cap stopped: say why, once, in the editor.
+    @MainActor
+    private func showFreeCapNotice() {
+        guard let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "editor" && $0.isVisible }),
+              let host = window.contentView else { return }
+        if planToaster?.window !== window {
+            planToaster = (window, CCToaster(in: host))
+        }
+        let minutes = Int(PlanGate.freeRecordingSeconds / 60)
+        planToaster?.toaster.show(
+            title: "Free recordings stop at \(minutes) minutes",
+            message: isSignedIn
+                ? "Pro removes the limit and covers commercial use."
+                : "Pro removes the limit and covers commercial use. Have Pro? Sign in from Settings.",
+            symbol: "timer",
+            action: .init(title: "See plans") { NSWorkspace.shared.open(PlanGate.pricingURL) },
+            duration: 12
+        )
+    }
+    private var planToaster: (window: NSWindow?, toaster: CCToaster)?
     func completeOnboarding(acceptedTerms: Bool) {
         hasAcceptedTerms = acceptedTerms
         hasCompletedOnboarding = true
@@ -541,6 +616,8 @@ final class AppState {
         }
         recordingSession.phase = .preparing
         recordingError = nil
+        lastTakeLimitStop = nil
+        refreshLicence()
         shouldDiscardRecordingAfterStop = false
         pendingRestartRequest = nil
         recordedSegments = []
@@ -905,6 +982,12 @@ final class AppState {
                 showProjectBrowser = false
                 openEditor(with: project)
                 onRecordingFinished?(project)
+                if lastTakeLimitStop == .freePlan {
+                    Task { @MainActor [weak self] in
+                        try? await Task.sleep(for: .milliseconds(600)) // the editor window first
+                        self?.showFreeCapNotice()
+                    }
+                }
                 captureTextIndex.scheduleIndex(projectID: project.id)
                 cameraSegmentation.scheduleAfterRecording(project: project)
             }

@@ -25,7 +25,7 @@ nonisolated enum AuthKeychain {
     static let defaultAccount = "session"
 
     /// Everything the app needs about the signed-in user. Only `token` is
-    /// secret, but the whole blob lives in the Keychain so the offline export
+    /// secret, but the whole blob lives in the Keychain so the offline plan
     /// grace timestamp can't be back-dated by editing a plist.
     struct StoredSession: Codable, Equatable, Sendable {
         var token: String
@@ -37,9 +37,12 @@ nonisolated enum AuthKeychain {
         /// place on use (30-day window, refreshed daily) WITHOUT changing the
         /// token, so an active user never has to sign in again.
         var expiresAt: Date?
-        /// Last time the server confirmed an export-worthy entitlement. Backs
-        /// the 7-day offline export grace.
+        /// Last time the server confirmed a plan with commercial use (no
+        /// recording cap). Backs the 7-day offline grace (PlanGate).
         var entitlementVerifiedAt: Date?
+        /// That plan's display name, for the badge while offline. Absent in
+        /// sessions saved before 2026-10-29 (decodes as nil).
+        var verifiedPlanName: String?
 
         init(
             token: String,
@@ -48,7 +51,8 @@ nonisolated enum AuthKeychain {
             name: String? = nil,
             image: String? = nil,
             expiresAt: Date? = nil,
-            entitlementVerifiedAt: Date? = nil
+            entitlementVerifiedAt: Date? = nil,
+            verifiedPlanName: String? = nil
         ) {
             self.token = token
             self.userId = userId
@@ -57,6 +61,7 @@ nonisolated enum AuthKeychain {
             self.image = image
             self.expiresAt = expiresAt
             self.entitlementVerifiedAt = entitlementVerifiedAt
+            self.verifiedPlanName = verifiedPlanName
         }
 
         /// True when the server-reported expiry is in the past. A nil expiry is
@@ -142,10 +147,12 @@ nonisolated enum AuthKeychain {
         return session.token
     }
 
-    /// Rewrites just the entitlement timestamp, preserving the token.
-    static func stampEntitlementVerified(at date: Date? = Date(), account: String = defaultAccount) {
+    /// Rewrites just the entitlement timestamp (and the plan it confirmed),
+    /// preserving the token. nil clears both.
+    static func stampEntitlementVerified(at date: Date? = Date(), planName: String? = nil, account: String = defaultAccount) {
         guard var session = load(account: account) else { return }
         session.entitlementVerifiedAt = date
+        session.verifiedPlanName = date == nil ? nil : planName
         try? save(session, account: account)
     }
 

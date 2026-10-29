@@ -73,12 +73,13 @@ final class AuthService: NSObject {
         case free
     }
 
-    enum ExportAccessResult {
-        case allowed
-        case needsSignIn
-        case blocked
-        case notEntitled
-        case requiresPublicEmail
+    /// What /api/me said, cached for `entitlementCacheTTL`.
+    struct Entitlement: Equatable {
+        var state: EntitlementState
+        /// The plan's `commercialUse` flag: commercial use and recordings of
+        /// any length (PlanGate). An older API without it: paid or tester.
+        var commercialUse: Bool
+        var planName: String?
     }
 
     enum AuthError: LocalizedError {
@@ -94,7 +95,6 @@ final class AuthService: NSObject {
         case tokenExchangeFailed(String)
         case invalidServerResponse
         case sessionStorageFailed(String)
-        case exportAccessDenied(String)
 
         var errorDescription: String? {
             switch self {
@@ -122,8 +122,6 @@ final class AuthService: NSObject {
                 return "Received an unexpected response from the CaptureCat server."
             case .sessionStorageFailed(let detail):
                 return "Could not store your session securely: \(detail)"
-            case .exportAccessDenied(let message):
-                return message
             }
         }
     }
@@ -132,22 +130,8 @@ final class AuthService: NSObject {
 
     /// How long the loopback listener waits for the browser round trip.
     private static let signInTimeout: TimeInterval = 5 * 60
-    /// Offline export grace after the last successful entitlement check.
-    private static let offlineExportGraceInterval: TimeInterval = 7 * 24 * 60 * 60
     /// How long a non-forced entitlement read may be served from memory.
     private static let entitlementCacheTTL: TimeInterval = 60
-
-    private static let offlineExportNetworkErrorCodes: Set<Int> = [
-        NSURLErrorNotConnectedToInternet,
-        NSURLErrorTimedOut,
-        NSURLErrorNetworkConnectionLost,
-        NSURLErrorCannotConnectToHost,
-        NSURLErrorCannotFindHost,
-        NSURLErrorDNSLookupFailed,
-        NSURLErrorDataNotAllowed,
-        NSURLErrorInternationalRoamingOff,
-        NSURLErrorSecureConnectionFailed,
-    ]
 
     // MARK: - State
 
@@ -165,7 +149,7 @@ final class AuthService: NSObject {
 
     private var activeServer: LoopbackAuthServer?
     private var signInInProgress = false
-    private var cachedEntitlement: (state: EntitlementState, readAt: Date)?
+    private var cachedEntitlement: (value: Entitlement, readAt: Date)?
 
     override init() {
         super.init()
@@ -203,16 +187,6 @@ final class AuthService: NSObject {
             return
         }
         applyAuthState(AuthenticatedUser(uid: stored.userId, email: stored.email, name: stored.name))
-    }
-
-    var currentUserIdentityForAdmin: String? {
-        guard let user = currentUser else { return nil }
-        return "\(user.email ?? "no-email") (uid: \(user.uid))"
-    }
-
-    var usingPrivateRelayEmail: Bool {
-        guard let email = currentEmail?.lowercased() else { return true }
-        return email.hasSuffix("privaterelay.appleid.com")
     }
 
     // MARK: - Sign in
@@ -443,16 +417,17 @@ final class AuthService: NSObject {
     /// authority: `paid` comes from the Stripe-backed `subscription` table and
     /// `tester`/`blocked` are server-owned columns, so a cancelled subscription
     /// is revoked on the very next call (no cached claim to go stale).
-    func refreshEntitlement(forceRefresh: Bool) async throws -> EntitlementState {
+    func refreshEntitlement(forceRefresh: Bool) async throws -> Entitlement {
+        let none = Entitlement(state: .free, commercialUse: false, planName: nil)
         guard let stored = AuthKeychain.load(), !stored.isExpired else {
             applyAuthState(nil)
-            return .free
+            return none
         }
 
         if !forceRefresh,
            let cached = cachedEntitlement,
            Date().timeIntervalSince(cached.readAt) < Self.entitlementCacheTTL {
-            return cached.state
+            return cached.value
         }
 
         var request = URLRequest(url: URL(string: "\(CaptureCatAPI.baseURL)/api/me")!)
@@ -471,14 +446,15 @@ final class AuthService: NSObject {
             // 403 is the "blocked" answer from requireEntitlement, so keep the
             // session but report blocked; 401 means the credential is dead.
             if http.statusCode == 403, Self.errorMessage(from: data)?.lowercased().contains("blocked") == true {
-                cachedEntitlement = (.blocked, Date())
-                return .blocked
+                let blocked = Entitlement(state: .blocked, commercialUse: false, planName: nil)
+                cachedEntitlement = (blocked, Date())
+                return blocked
             }
             authLogger.info("session rejected by server; clearing local credential")
             AuthKeychain.clear()
             cachedEntitlement = nil
             applyAuthState(nil)
-            return .free
+            return none
         }
 
         guard http.statusCode == 200,
@@ -526,89 +502,57 @@ final class AuthService: NSObject {
             }
         }
 
-        cachedEntitlement = (state, Date())
-        return state
+        let features = json["features"] as? [String: Any]
+        let plan = json["plan"] as? [String: Any]
+        // An API from before the flag (2026-10-29) has no key: paid and
+        // testers had no cap then, so read its absence that way rather than
+        // capping a paying user against an older server.
+        let commercialUse = (features?["commercialUse"] as? Bool) ?? (state == .paid || state == .tester)
+        let entitlement = Entitlement(
+            state: state,
+            commercialUse: state != .blocked && commercialUse,
+            planName: plan?["displayName"] as? String
+        )
+        cachedEntitlement = (entitlement, Date())
+        return entitlement
     }
 
-    func evaluateExportAccess() async throws -> ExportAccessResult {
-        guard currentUser != nil else { return .needsSignIn }
+    // MARK: - Plan (PlanGate)
 
+    /// What this Mac may record: personal (no account, Free, blocked) or a
+    /// plan with commercial use. Never throws — a check that can't reach the
+    /// server answers from the last confirmed paid plan within
+    /// `PlanGate.offlineGrace` (offline, a server error), never on a
+    /// definite answer.
+    func refreshLicence(forceRefresh: Bool = false) async -> LicenceState {
+        guard currentUser != nil else { return .personal }
         do {
-            let entitlement = try await refreshEntitlement(forceRefresh: true)
-
-            // refreshEntitlement clears local state when the server rejects the
-            // credential — re-check rather than reporting "not entitled" for
-            // what is really a signed-out session.
-            guard currentUser != nil else { return .needsSignIn }
-
-            if entitlement == .blocked {
-                clearCachedExportAccess()
-                return .blocked
+            let entitlement = try await refreshEntitlement(forceRefresh: forceRefresh)
+            // refreshEntitlement signs out on a dead credential.
+            guard currentUser != nil, entitlement.commercialUse else {
+                AuthKeychain.stampEntitlementVerified(at: nil)
+                return .personal
             }
-
-            if usingPrivateRelayEmail {
-                clearCachedExportAccess()
-                return .requiresPublicEmail
-            }
-
-            if entitlement == .paid || entitlement == .tester {
-                cacheExportAccessForCurrentUser()
-                return .allowed
-            }
-
-            clearCachedExportAccess()
-            return .notEntitled
+            let name = entitlement.planName ?? "Pro"
+            AuthKeychain.stampEntitlementVerified(planName: name)
+            return .pro(planName: name)
         } catch {
-            if shouldAllowOfflineExport(using: error) {
-                authLogger.info("evaluateExportAccess: allowing cached offline export access")
-                return .allowed
-            }
-            throw error
+            authLogger.info("plan check failed (\(error.localizedDescription, privacy: .public)); using the offline grace")
+            return cachedLicence()
         }
     }
 
-    func exportAccessMessage(for result: ExportAccessResult) -> String {
-        switch result {
-        case .allowed:
-            return ""
-        case .needsSignIn:
-            return "Export is available to paid users and approved testers. Sign in to continue."
-        case .blocked:
-            return "Your account is blocked. Contact support if you think this is a mistake."
-        case .notEntitled:
-            if let identity = currentUserIdentityForAdmin {
-                return "Export is only available to paid users and approved testers.\n\nSigned in as:\n\(identity)\n\nSubscribe to CaptureCat Pro, or ask an admin to grant tester access to this account."
-            }
-            return "Export is only available to paid users and approved testers."
-        case .requiresPublicEmail:
-            return "Apple private relay email is not accepted for export access. Sign in with Google or use an Apple account that shares your real email."
-        }
-    }
-
-    // MARK: - Offline grace
-
-    private func shouldAllowOfflineExport(using error: Error) -> Bool {
-        guard hasValidCachedExportAccessForCurrentUser() else { return false }
-        return Self.isConnectivityError(error)
-    }
-
-    private func hasValidCachedExportAccessForCurrentUser() -> Bool {
-        guard let uid = currentUID,
-              let stored = AuthKeychain.load(),
-              stored.userId == uid,
-              let verifiedAt = stored.entitlementVerifiedAt
-        else {
-            return false
-        }
-        return Date().timeIntervalSince(verifiedAt) <= Self.offlineExportGraceInterval
-    }
-
-    private func cacheExportAccessForCurrentUser() {
-        AuthKeychain.stampEntitlementVerified()
-    }
-
-    private func clearCachedExportAccess() {
-        AuthKeychain.stampEntitlementVerified(at: nil)
+    /// The last confirmed plan for the signed-in account, from the Keychain —
+    /// what launch shows before the first check lands, and what a failed
+    /// check falls back to.
+    func cachedLicence(now: Date = Date()) -> LicenceState {
+        let stored = AuthKeychain.load()
+        return PlanGate.licenceWithoutServer(
+            verifiedAt: stored?.entitlementVerifiedAt,
+            verifiedPlanName: stored?.verifiedPlanName,
+            sameAccount: currentUID != nil && stored?.userId == currentUID,
+            now: now
+        )
     }
 
     // MARK: - State plumbing
@@ -656,17 +600,6 @@ final class AuthService: NSObject {
         }
         if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
             return isUserCancellation(underlying)
-        }
-        return false
-    }
-
-    private static func isConnectivityError(_ error: Error) -> Bool {
-        let nsError = error as NSError
-        if nsError.domain == NSURLErrorDomain, offlineExportNetworkErrorCodes.contains(nsError.code) {
-            return true
-        }
-        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
-            return isConnectivityError(underlying)
         }
         return false
     }

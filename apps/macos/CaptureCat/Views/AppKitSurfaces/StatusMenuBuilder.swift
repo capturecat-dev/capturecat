@@ -9,6 +9,8 @@ import AppKit
     func browseProjects(_ sender: Any?)
     func signOut(_ sender: Any?)
     func signIn(_ sender: Any?)
+    /// Opens capturecat.so/pricing (the account block's "Get Pro…").
+    func showPlans(_ sender: Any?)
     func pauseOrResumeRecording(_ sender: Any?)
     func stopRecording(_ sender: Any?)
     func toggleAutoZoomNewRecordings(_ sender: Any?)
@@ -55,6 +57,19 @@ enum StatusMenuBuilder {
             let signIn = NSMenuItem(title: "Sign In\u{2026}", action: #selector(StatusMenuActions.signIn(_:)), keyEquivalent: "")
             signIn.target = target
             items.append(signIn)
+        }
+
+        // The plan (PlanGate): "Personal use" on Free — every recording stops
+        // at 5 minutes — with the way to Pro; the plan's name on Pro.
+        let licence = appState.licence
+        let plan = NSMenuItem(title: licence.allowsCommercialUse ? "Plan: \(licence.badgeTitle)" : "Personal use \u{00B7} 5-min recordings",
+                              action: nil, keyEquivalent: "")
+        plan.isEnabled = false
+        items.append(plan)
+        if !licence.allowsCommercialUse {
+            let getPro = NSMenuItem(title: "Get Pro\u{2026}", action: #selector(StatusMenuActions.showPlans(_:)), keyEquivalent: "")
+            getPro.target = target
+            items.append(getPro)
         }
 
         if let configError = appState.authService.configurationError {
