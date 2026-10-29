@@ -474,6 +474,7 @@ final class RecordingPanelViewController: NSViewController {
         _ = appState.currentSourceLabel
         _ = appState.deviceRecorder.isRecording
         _ = appState.recordingDurationLimit
+        _ = appState.licence
         _ = appState.recordingCountdownSeconds
         _ = appState.webCaptureDevice
         _ = appState.webCaptureOptions
@@ -602,7 +603,9 @@ final class RecordingPanelViewController: NSViewController {
 
     private func renderRecordingToolbar() {
         let blocked = isPreparingPhase || isStoppingPhase
-        let limit = appState.recordingDurationLimit
+        // The limit the take actually runs to: the user's own, or Free's
+        // 5-minute cap (PlanGate) — the session enforces this same value.
+        let limit = appState.recordingSession.durationLimit ?? 0
         if limit > 0, !isPreparingPhase {
             // Count DOWN against the recorded-time cap. `elapsedTime` freezes
             // while paused, so the remaining figure freezes with it — the
@@ -612,7 +615,7 @@ final class RecordingPanelViewController: NSViewController {
                 text: "-" + remaining.formattedTimecode,
                 live: appState.recordingSession.isRecording,
                 color: remaining <= 10 ? .systemRed : .labelColor,
-                limitText: RecordingLimitChip.label(forLimit: limit)
+                limitText: RecordingLimitLabel.label(forLimit: limit)
             )
         } else {
             timerChip.update(text: timerText, live: appState.recordingSession.isRecording)
@@ -816,10 +819,10 @@ final class RecordingPanelViewController: NSViewController {
         countdownItem.submenu = countdownMenu()
         menu.addItem(countdownItem)
 
-        let limit = appState.recordingDurationLimit
+        let limit = PlanGate.effectiveLimit(userLimit: appState.recordingDurationLimit, licence: appState.licence) ?? 0
         let limitItem = NSMenuItem(
             title: limit > 0
-                ? "Duration Limit — \(RecordingLimitChip.label(forLimit: limit))"
+                ? "Duration Limit — \(RecordingLimitLabel.label(forLimit: limit))"
                 : "Duration Limit — Off",
             action: nil, keyEquivalent: ""
         )
@@ -864,8 +867,15 @@ final class RecordingPanelViewController: NSViewController {
 
     private func limitMenu() -> NSMenu {
         let menu = newMenu()
-        let current = appState.recordingDurationLimit
+        let licence = appState.licence
+        // What a take runs to — on Free, "No Limit" still stops at 5 min,
+        // so that is what's ticked.
+        let current = PlanGate.effectiveLimit(userLimit: appState.recordingDurationLimit, licence: licence) ?? 0
         for preset in Self.limitPresets {
+            if PlanGate.isProOnlyLimit(preset.seconds, licence: licence) {
+                menu.addItem(disabledItem("\(preset.title) — Pro"))
+                continue
+            }
             menu.addItem(actionItem(preset.title, state: current == preset.seconds ? .on : .off) { [weak self] in
                 self?.setDurationLimit(preset.seconds)
             })
@@ -873,15 +883,20 @@ final class RecordingPanelViewController: NSViewController {
         menu.addItem(.separator())
         let isCustom = current > 0 && !Self.limitPresets.contains { $0.seconds == current }
         let customTitle = isCustom
-            ? "Custom… (\(RecordingLimitChip.label(forLimit: current)))" : "Custom…"
+            ? "Custom… (\(RecordingLimitLabel.label(forLimit: current)))" : "Custom…"
         menu.addItem(actionItem(customTitle, state: isCustom ? .on : .off) { [weak self] in
             self?.presentCustomLimitPopover()
         })
+        if !licence.allowsCommercialUse {
+            menu.addItem(.separator())
+            menu.addItem(disabledItem("Free records up to 5 min, for personal use"))
+            menu.addItem(actionItem("See Plans…") { NSWorkspace.shared.open(PlanGate.pricingURL) })
+        }
         return menu
     }
 
     private func setDurationLimit(_ seconds: TimeInterval) {
-        appState.recordingDurationLimit = seconds
+        appState.setRecordingDurationLimit(seconds)
         refresh()
     }
 
@@ -986,6 +1001,7 @@ final class RecordingPanelViewController: NSViewController {
     var debugTabChips: [RecordingSourceTab: RecordingTabChip] { tabChips }
     /// The currently selected source tab.
     var debugSelectedTab: RecordingSourceTab { sourceTab }
+    var debugTimerChip: RecordingTimerChip { timerChip }
 
     /// Drives the two independent recording-bar hover systems through an
     /// actual transition and reports whether their presentation layers were

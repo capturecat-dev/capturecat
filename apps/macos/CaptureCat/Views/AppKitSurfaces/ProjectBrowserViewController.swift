@@ -202,6 +202,16 @@ final class ProjectBrowserViewController: NSViewController {
         sidebar.accountMenuProvider = { [weak self] in
             guard let self else { return nil }
             let menu = NSMenu()
+            // The plan first (PlanGate): Free is personal use, 5-min takes.
+            let licence = self.appState.licence
+            let plan = NSMenuItem(title: licence.allowsCommercialUse ? "Plan: \(licence.badgeTitle)" : "Personal use \u{00B7} 5-min recordings",
+                                  action: nil, keyEquivalent: "")
+            plan.isEnabled = false
+            menu.addItem(plan)
+            if !licence.allowsCommercialUse {
+                menu.addItem(Self.closureItem("Get Pro…") { NSWorkspace.shared.open(PlanGate.pricingURL) })
+            }
+            menu.addItem(.separator())
             if let user = self.appState.authService.currentUser {
                 if let email = user.email {
                     let info = NSMenuItem(title: email, action: nil, keyEquivalent: "")

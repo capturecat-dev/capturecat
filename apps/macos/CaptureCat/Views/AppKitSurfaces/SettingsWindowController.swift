@@ -190,7 +190,8 @@ final class SettingsViewController: NSViewController {
         authObservation = SurfaceObservation { [weak self] in
             guard let self else { return }
             _ = self.appState.authStateRevision
-            if self.selectedSection == .account || self.selectedSection == .storage {
+            _ = self.appState.licence
+            if self.selectedSection == .account || self.selectedSection == .storage || self.selectedSection == .recording {
                 self.showPane(for: self.selectedSection, animated: false)
             }
         }
@@ -241,6 +242,28 @@ final class SettingsViewController: NSViewController {
     }
 
     // MARK: - Panes
+
+    /// Account → Plan: the badge every account surface shows (PlanGate), and
+    /// the way to Pro on Free.
+    private func planRow() -> NSView {
+        let licence = appState.licence
+        let badge = CCBadge(licence.badgeTitle, variant: licence.allowsCommercialUse ? .primary : .subtle)
+        guard !licence.allowsCommercialUse else {
+            return SettingsRow(title: "Plan", subtitle: "Commercial use, and recordings of any length.", control: badge)
+        }
+        let getPro = CCButton(title: "Get Pro", style: .outline, size: .sm) {
+            NSWorkspace.shared.open(PlanGate.pricingURL)
+        }
+        let controls = NSStackView(views: [badge, getPro])
+        controls.orientation = .horizontal
+        controls.spacing = 8
+        controls.alignment = .centerY
+        return SettingsRow(
+            title: "Plan",
+            subtitle: "Free is for personal use, and each recording stops at 5 minutes.",
+            control: controls
+        )
+    }
 
     private func buildPane(for section: SettingsSection) -> NSView {
         if section == .storage {
@@ -299,9 +322,14 @@ final class SettingsViewController: NSViewController {
                 self?.appState.recordingCountdownSeconds = countdownValues[index]
             }
 
+            // On Free every recording stops at 5 min (PlanGate): only the
+            // lengths it can record are offered, and the cap shows as chosen.
+            let licence = appState.licence
+            let current = PlanGate.effectiveLimit(userLimit: appState.recordingDurationLimit, licence: licence) ?? 0
             var limitValues: [TimeInterval] = [0, 60, 120, 300, 600]
-            if !limitValues.contains(appState.recordingDurationLimit) {
-                limitValues.append(appState.recordingDurationLimit)
+                .filter { !PlanGate.isProOnlyLimit($0, licence: licence) }
+            if !limitValues.contains(current) {
+                limitValues.append(current)
             }
             let limit = CCSelect(placeholder: "Limit…")
             limit.options = limitValues.map { seconds in
@@ -311,9 +339,9 @@ final class SettingsViewController: NSViewController {
                 }
                 return .init(title: "\(Int(seconds)) s")
             }
-            limit.selectedIndex = limitValues.firstIndex(of: appState.recordingDurationLimit)
+            limit.selectedIndex = limitValues.firstIndex(of: current)
             limit.onSelect = { [weak self] index in
-                self?.appState.recordingDurationLimit = limitValues[index]
+                self?.appState.setRecordingDurationLimit(limitValues[index])
             }
 
             addCard([
@@ -324,7 +352,9 @@ final class SettingsViewController: NSViewController {
                 ),
                 SettingsRow(
                     title: "Maximum duration",
-                    subtitle: "Recordings stop automatically at this length.",
+                    subtitle: licence.allowsCommercialUse
+                        ? "Recordings stop automatically at this length."
+                        : "Recordings stop automatically at this length. Free records up to 5 minutes; Pro removes the limit.",
                     control: limit
                 ),
             ])
@@ -398,6 +428,7 @@ final class SettingsViewController: NSViewController {
                 }
                 addCard([
                     SettingsRow(title: email, subtitle: "Signed in", control: signOut),
+                    planRow(),
                     SettingsRow(title: "Sync exports to cloud",
                                 subtitle: "Automatically upload every export to your library.",
                                 control: autoSync),
@@ -408,8 +439,9 @@ final class SettingsViewController: NSViewController {
                 }
                 addCard([
                     SettingsRow(title: "Not signed in",
-                                subtitle: "Sign in to share captures and sync.",
+                                subtitle: "Sign in to share captures and sync, or to use Pro.",
                                 control: signIn),
+                    planRow(),
                 ])
             }
 

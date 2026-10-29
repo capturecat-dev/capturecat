@@ -33,6 +33,11 @@ final class AutomationBridge {
     /// Nonce of the most recent automation command — echoed into every status
     /// write so the MCP side can correlate request → outcome.
     private var lastNonce: String?
+    /// The take that finished since the last start-recording. A take can stop
+    /// itself (a duration limit, the Free plan's 5-minute cap) before the
+    /// agent's stop_recording arrives; that call then gets this take back
+    /// instead of "not recording".
+    private var lastFinished: [String: Any]?
 
     init(appState: AppState) {
         self.appState = appState
@@ -46,11 +51,14 @@ final class AutomationBridge {
         writeStatus(state: "idle")
 
         appState?.onRecordingFinished = { [weak self] project in
-            self?.writeStatus(state: "finished", extra: [
+            var finished: [String: Any] = [
                 "projectId": project.id.uuidString,
                 "projectName": project.name,
                 "duration": project.duration,
-            ])
+            ]
+            if let limit = self?.appState?.lastTakeLimitStop { finished["stoppedBy"] = limit.rawValue }
+            self?.lastFinished = finished
+            self?.writeStatus(state: "finished", extra: finished)
         }
 
         if let appState {
@@ -108,6 +116,7 @@ final class AutomationBridge {
             }
             let captureAudio = (params["audio"] ?? "true") == "true"
             let sourceType = params["source"] ?? "display"
+            lastFinished = nil
             writeStatus(state: "preparing")
             appState.recordingSession.reset()
             Task { @MainActor in
@@ -128,8 +137,19 @@ final class AutomationBridge {
             }
 
         case "stop-recording":
+            if case .stopping = appState.recordingSession.phase {
+                // Stopping itself right now: "finished" lands under THIS
+                // command's nonce via onRecordingFinished.
+                writeStatus(state: "stopping")
+                return
+            }
             guard appState.recordingSession.isRecording || appState.recordingSession.isPaused else {
-                writeStatus(state: "failed", extra: ["error": "not recording"])
+                if let lastFinished {
+                    // Already stopped itself: hand back that take.
+                    writeStatus(state: "finished", extra: lastFinished)
+                } else {
+                    writeStatus(state: "failed", extra: ["error": "not recording"])
+                }
                 return
             }
             writeStatus(state: "stopping")

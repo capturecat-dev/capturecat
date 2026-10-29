@@ -573,12 +573,12 @@ final class OnboardingViewController: NSViewController {
         let perks = FeatureList(items: [
             ("icloud.and.arrow.up", "Projects sync across your Macs"),
             ("link", "Instant share links with transcripts"),
-            ("square.and.arrow.up", "Unlimited exports"),
+            ("timer", "Have Pro? Recordings of any length, for work too"),
         ])
         return stepPage(
             overline: "Account",
             title: "Sign in to share",
-            subtitle: "Sign in to sync your projects and unlock exporting. Prefer to look around first? Skip — you can sign in later from the menu bar.",
+            subtitle: "CaptureCat is free for personal use, with recordings up to 5 minutes, and needs no account. Sign in to sync and share, or to use Pro. Prefer to look around first? Skip — you can sign in later from the menu bar.",
             content: [accountCard, signInRow, perks, accountErrorLabel]
         )
     }

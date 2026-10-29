@@ -1411,6 +1411,13 @@ enum MCPServer {
                 + "(set_trim, auto_zoom/add_effect, set_speed, annotations) in one batch, render_frames "
                 + "layout contact_sheet to verify, then export_project.",
         ]
+        if let stoppedBy = status["stoppedBy"] as? String {
+            result["stoppedBy"] = stoppedBy
+            result["note"] = (stoppedBy == "free-plan-limit"
+                ? "The recording stopped itself at the Free plan's 5-minute limit (Pro has none). "
+                : "The recording stopped itself at the user's Maximum Duration setting. ")
+                + (result["note"] as? String ?? "")
+        }
         if let warning = guiRunningWarning() { result["warning"] = warning }
         return result
     }

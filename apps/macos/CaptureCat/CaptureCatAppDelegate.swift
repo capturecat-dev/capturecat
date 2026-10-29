@@ -315,6 +315,10 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc func showPlans(_ sender: Any?) {
+        NSWorkspace.shared.open(PlanGate.pricingURL)
+    }
+
     @objc func pauseOrResumeRecording(_ sender: Any?) {
         if appState.recordingSession.isPaused {
             appState.recordingSession.resume()

@@ -866,6 +866,11 @@ final class RecordingTimerChip: RecordingGlassChip {
         dot.layer?.backgroundColor = (isLive ? NSColor.systemRed : NSColor.systemOrange).cgColor
     }
 
+    /// Harness seams (`--recording-panel-shot`): what the clock shows now.
+    var debugText: String { timeField.stringValue }
+    var debugTextColor: NSColor? { timeField.textColor }
+    var debugLimitText: String? { limitField.isHidden ? nil : limitField.stringValue }
+
     func update(text: String, live: Bool, color: NSColor = .labelColor, limitText: String? = nil) {
         timeField.stringValue = text
         timeField.textColor = color
@@ -932,60 +937,15 @@ final class RecordingSourceChip: RecordingGlassChip {
     }
 }
 
-/// Maximum-duration picker for the setup row. A quiet timer glyph when no
-/// limit is set; glyph + the active limit ("2 min") when one is. Pops the
-/// preset menu on press (RecordingMenuChip), flat like every other control —
-/// no fill, no capsule, just an icon/label target on the bar surface.
-final class RecordingLimitChip: RecordingMenuChip {
-    private let iconView: NSImageView
-    private let valueField: NSTextField
-
-    /// Recorded-time cap in seconds; 0 or nil = no limit.
-    var limit: TimeInterval? {
-        didSet { restyle() }
-    }
-
-    override init() {
-        iconView = RecordingGlassChip.icon("timer", size: 13, color: .secondaryLabelColor)
-        valueField = RecordingGlassChip.label("", font: RecordingPanelMetrics.toolbarText())
-        super.init()
-
-        let stack = NSStackView(views: [iconView, valueField])
-        stack.orientation = .horizontal
-        stack.spacing = 6
-        stack.alignment = .centerY
-        install(stack, horizontalPadding: 10)
-        // Icon-only square when off; grows to fit the label when a limit is on.
-        let minimum = widthAnchor.constraint(greaterThanOrEqualToConstant: 40)
-        minimum.priority = .init(999)
-        minimum.isActive = true
-        restyle()
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    /// Alignment probe (`--panel-live-capture`).
-    var debugIconCenterYInWindow: CGFloat {
-        iconView.convert(iconView.bounds, to: nil).midY
-    }
-
+/// Short labels for a recording duration limit (the gear menu, the
+/// countdown's "of 5 min").
+enum RecordingLimitLabel {
     /// "15s" / "2 min" / "1:30" — short label for a limit in seconds.
     static func label(forLimit seconds: TimeInterval) -> String {
         let whole = Int(seconds.rounded())
         if whole < 60 { return "\(whole)s" }
         if whole % 60 == 0 { return "\(whole / 60) min" }
         return TimeInterval(whole).formattedTimecode
-    }
-
-    private func restyle() {
-        let active = (limit ?? 0) > 0
-        valueField.stringValue = active ? Self.label(forLimit: limit!) : ""
-        valueField.isHidden = !active
-        iconView.contentTintColor = active ? .labelColor : .secondaryLabelColor
-        setIndicator(on: active)
-        toolTip = active
-            ? "Recording stops automatically after \(Self.label(forLimit: limit!))."
-            : "Set a maximum recording duration."
     }
 }
 
