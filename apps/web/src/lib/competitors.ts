@@ -16,7 +16,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://screen.studio",
     "category": "demo",
     "summary": "Screen Studio is a Mac screen recorder and editor that automatically adds animated zooms, smooths the cursor and frames recordings for demos and tutorials.",
-    "differentiator": "Screen Studio and CaptureCat both offer automatic zoom from clicks, cursor smoothing with click effects and on-device captions. CaptureCat includes those in a free tier with no watermark and 4K 60 fps export, is open source under AGPL-3.0, ships a built-in MCP server for coding agents, and has a browser app for Windows and Linux users.",
+    "differentiator": "Screen Studio and CaptureCat both offer automatic zoom from clicks, cursor smoothing with click effects and on-device captions. CaptureCat includes those in its free tier for personal use, with 4K 60 fps export, no watermark and recordings up to 5 minutes, and Pro covers commercial use. It is open source under AGPL-3.0, ships a built-in MCP server for coding agents, and has a browser app for Windows and Linux users.",
     "pickThemWhen": "you want a polished, Mac-only recorder with automatic click zooms and you are happy to pay a subscription for it.",
     "strengths": [
       "Automatic zoom generated from where you clicked, with Classic and Loupe zoom styles",
@@ -39,7 +39,7 @@ export const COMPETITORS: Competitor[] = [
       "macOS",
       "$29/mo or $108/yr ($9/mo)"
     ],
-    "switchTip": "Install CaptureCat next to Screen Studio and record your next demo in it; automatic zoom from recorded clicks and cursor smoothing work on the free tier. Finish any open Screen Studio projects there before you cancel, since your export access ends with the plan.",
+    "switchTip": "Install CaptureCat next to Screen Studio and record your next demo in it; automatic zoom from recorded clicks and cursor smoothing work on every plan, and demos for work need CaptureCat Pro. Finish any open Screen Studio projects there before you cancel, since your export access ends with the plan.",
     "faqExtra": {
       "question": "Does Screen Studio work on Windows?",
       "answer": "No. Screen Studio is macOS only, and its FAQ says there are no near-future plans to add Windows support."
@@ -57,7 +57,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://focusee.imobie.com",
     "category": "demo",
     "summary": "FocuSee is a screen recorder for macOS and Windows from iMobie that applies automatic zoom, cursor effects and AI editing tools to screen recordings.",
-    "differentiator": "CaptureCat's free tier includes unlimited exports up to 4K 60 fps with no watermark, automatic zoom from clicks, cursor smoothing and on-device English captions, where FocuSee's free trial exports one video. FocuSee runs natively on Windows and records Android devices, which CaptureCat does not; both record iPhone over USB, and CaptureCat adds an open-source AGPL codebase and a built-in MCP server.",
+    "differentiator": "CaptureCat's free tier, for personal use, includes unlimited exports up to 4K 60 fps with no watermark, automatic zoom from clicks, cursor smoothing and on-device English captions, where FocuSee's free trial exports one video. FocuSee runs natively on Windows and records Android devices, which CaptureCat does not; both record iPhone over USB, and CaptureCat adds an open-source AGPL codebase and a built-in MCP server.",
     "pickThemWhen": "you want one auto-zoom recorder licence that covers both Mac and Windows and you will use AI extras like avatars or filler-word removal.",
     "strengths": [
       "Automatic zoom follows both clicks and typing, with 3D motion and tilt effects",
@@ -97,7 +97,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://getrapidemo.com",
     "category": "demo",
     "summary": "Rapidemo is a Windows 10 and 11 screen recorder that adds automatic click zooms, cursor smoothing, animated layouts and subtitles to recordings.",
-    "differentiator": "Rapidemo is Windows-only, while CaptureCat is a native macOS app with a browser app for Windows users. Both add automatic zoom from clicks, cursor smoothing and captions generated locally; CaptureCat exports for free without a licence and adds an MCP server, viewer analytics on Pro share links, and an AGPL open-source codebase.",
+    "differentiator": "Rapidemo is Windows-only, while CaptureCat is a native macOS app with a browser app for Windows users. Both add automatic zoom from clicks, cursor smoothing and captions generated locally; CaptureCat exports free for personal use, with Pro for commercial use, and adds an MCP server, viewer analytics on Pro share links, and an AGPL open-source codebase.",
     "pickThemWhen": "you record on Windows and want Screen Studio-style automatic zooms and cursor polish in a desktop app.",
     "strengths": [
       "Automatic zoom on clicks plus smoothed, vector-redrawn cursors",
@@ -136,7 +136,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://screencharm.com",
     "category": "demo",
     "summary": "Screen Charm is a macOS screen recorder and editor that applies automatic click zoom, cursor smoothing and backgrounds to product demos and tutorials.",
-    "differentiator": "Both apps add automatic zoom from clicks, cursor smoothing, click ripples and captions on macOS. CaptureCat exports for free with no watermark, is a native Swift app (Screen Charm's changelog refers to Electron), is open source under AGPL-3.0, has a built-in MCP server, and offers viewer analytics on Pro share links.",
+    "differentiator": "Both apps add automatic zoom from clicks, cursor smoothing, click ripples and captions on macOS. CaptureCat exports free for personal use with no watermark (Pro covers commercial use), is a native Swift app (Screen Charm's changelog refers to Electron), is open source under AGPL-3.0, has a built-in MCP server, and offers viewer analytics on Pro share links.",
     "pickThemWhen": "you want a Mac auto-zoom recorder with a one-time price and built-in vertical exports for social clips.",
     "strengths": [
       "Automatic zoom after every click, plus cursor smoothing, click ripples and motion blur",
@@ -177,7 +177,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.tella.com",
     "category": "demo",
     "summary": "Tella is a subscription screen recorder with a browser-based editor, hosted share pages with viewer analytics, and desktop recorders for Mac and Windows.",
-    "differentiator": "Tella matches CaptureCat on automatic zoom from clicks, cursor smoothing, share analytics and an official MCP server. CaptureCat differs by being free for recording, editing and 4K export, running captions on-device, editing locally in a native Mac app, and being open source; Tella has a native Windows app and team plans, which CaptureCat doesn't yet.",
+    "differentiator": "Tella matches CaptureCat on automatic zoom from clicks, cursor smoothing, share analytics and an official MCP server. CaptureCat differs by being free for personal use for recording, editing and 4K export (commercial use needs Pro), running captions on-device, editing locally in a native Mac app, and being open source; Tella has a native Windows app and team plans, which CaptureCat doesn't yet.",
     "pickThemWhen": "you want polished, hosted demo videos with team workspaces and detailed viewer analytics, and a per-seat subscription fits your budget.",
     "strengths": [
       "Auto Zoom generates zooms from recorded cursor clicks, with styles from Subtle to Intense, and can apply them automatically after recording.",
@@ -219,7 +219,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://cursorful.com",
     "category": "demo",
     "summary": "Cursorful is a screen recorder with automatic click zooms, available as a free Chrome extension and as Pro desktop apps for macOS and Windows.",
-    "differentiator": "Like Cursorful, CaptureCat offers free automatic zoom from clicks, cursor smoothing with click effects and on-device captions. CaptureCat's free tier allows commercial use, records any app with mic and camera, and exports up to 4K, which Cursorful reserves for Pro; CaptureCat is also open source (AGPL-3.0), has a built-in MCP server and viewer analytics on Pro share links.",
+    "differentiator": "Like Cursorful, CaptureCat offers free automatic zoom from clicks, cursor smoothing with click effects and on-device captions. As with Cursorful, CaptureCat's free tier is for personal use only, and it stops each recording at 5 minutes. CaptureCat's free tier records any app with mic and camera and exports up to 4K, which Cursorful reserves for Pro; CaptureCat is also open source (AGPL-3.0), has a built-in MCP server and viewer analytics on Pro share links.",
     "pickThemWhen": "you mostly demo web apps in Chrome and want free auto-zoom with no sign-up, or a one-time Pro licence for Mac and Windows.",
     "strengths": [
       "Free extension with no sign-up, no watermark and unlimited exports",
@@ -257,7 +257,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.canvid.com",
     "category": "demo",
     "summary": "CANVID is a screen recorder for Windows and Mac that turns clicks into automatic zooms and adds AI tools for captions, voice cleanup and webcam effects.",
-    "differentiator": "CaptureCat exports for free, works offline, and generates English captions on-device on the Mac, where CANVID transcribes in the cloud. CANVID runs natively on Windows and supports 99 transcription languages; CaptureCat is open source (AGPL-3.0), has a built-in MCP server and shows viewer analytics on Pro share links.",
+    "differentiator": "CaptureCat exports free for personal use (Pro covers commercial use), works offline, and generates English captions on-device on the Mac, where CANVID transcribes in the cloud. CANVID runs natively on Windows and supports 99 transcription languages; CaptureCat is open source (AGPL-3.0), has a built-in MCP server and shows viewer analytics on Pro share links.",
     "pickThemWhen": "you need the same auto-zoom recorder on Windows and Mac and want AI fixes like speech correction or a generated webcam.",
     "strengths": [
       "Automatic zoom on every click, with cursor smoothing and styling",
@@ -303,7 +303,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://recordly.dev",
     "category": "demo",
     "summary": "Recordly is a free, open-source desktop screen recorder and editor for macOS, Windows and Linux with auto-zoom, cursor polish and styled backgrounds.",
-    "differentiator": "Recordly matches CaptureCat on being free and AGPL-licensed, with auto-zoom, cursor smoothing and local captions. CaptureCat is a native Swift/Metal Mac app rather than Electron, records iPhone and iPad over USB, has a built-in MCP server, and offers Pro share links with viewer analytics; Recordly has native Windows and Linux builds, where CaptureCat offers a browser app instead.",
+    "differentiator": "Recordly matches CaptureCat on being AGPL-licensed, with auto-zoom, cursor smoothing and local captions; Recordly is fully free, while CaptureCat is free for personal use with recordings up to 5 minutes. CaptureCat is a native Swift/Metal Mac app rather than Electron, records iPhone and iPad over USB, has a built-in MCP server, and offers Pro share links with viewer analytics; Recordly has native Windows and Linux builds, where CaptureCat offers a browser app instead.",
     "pickThemWhen": "you want a free, open-source auto-zoom recorder that also runs natively on Windows and Linux.",
     "strengths": [
       "Free and open source, with no paywalls, on macOS, Windows and Linux",
@@ -326,7 +326,7 @@ export const COMPETITORS: Competitor[] = [
       "macOS, Windows & Linux",
       "Free"
     ],
-    "switchTip": "Recordly saves .recordly project files that CaptureCat cannot open, so export finished videos as MP4 first. On a Mac, CaptureCat's free tier covers the same auto-zoom, cursor and caption workflow.",
+    "switchTip": "Recordly saves .recordly project files that CaptureCat cannot open, so export finished videos as MP4 first. On a Mac, CaptureCat's free tier covers the same auto-zoom, cursor and caption workflow for personal use.",
     "faqExtra": {
       "question": "Is Recordly related to OpenScreen?",
       "answer": "Yes. Recordly's licence file says it started as a fork of the OpenScreen project. OpenScreen's GitHub repository is now archived, while Recordly is actively developed."
@@ -347,7 +347,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.loom.com",
     "category": "async",
     "summary": "Loom is an Atlassian-owned async video messaging tool that records screen and camera and turns each recording into a hosted share link.",
-    "differentiator": "Loom is cloud-first and built for teams, with analytics on every plan and admin controls; CaptureCat has no team plan yet. CaptureCat is a local editor whose free tier has no recording limit and includes automatic zoom from clicks, cursor smoothing and on-device captions, with share links, viewer analytics and timestamped comments on Pro.",
+    "differentiator": "Loom is cloud-first and built for teams, with analytics on every plan and admin controls; CaptureCat has no team plan yet. CaptureCat is a local editor whose free tier, for personal use, includes automatic zoom from clicks, cursor smoothing and on-device captions, with the same 5-minute recording limit as Loom's free plan. Commercial use, longer recordings, share links with viewer analytics and timestamped comments are on Pro.",
     "pickThemWhen": "your team mainly sends quick async video messages and wants hosted links, viewer insights and Atlassian integrations out of the box.",
     "strengths": [
       "Instant hosted share links with viewer insights on every plan, and engagement insights on paid plans",
@@ -370,7 +370,7 @@ export const COMPETITORS: Competitor[] = [
       "Mac, Windows, Chrome, iOS, Android",
       "Free · from $15/user/mo billed yearly"
     ],
-    "switchTip": "Keep Loom for links your team already relies on and record new demos and tutorials in CaptureCat, where the free tier does not cap recording length or count. If you need hosted links with views, watch time and retention, that is CaptureCat Pro.",
+    "switchTip": "Keep Loom for links your team already relies on and record new demos and tutorials in CaptureCat. Work videos need CaptureCat Pro, which also has no recording length limit and adds hosted links with views, watch time and retention.",
     "faqExtra": {
       "question": "Is Loom free?",
       "answer": "Loom's Starter plan is free, with up to 25 videos per person and a 5-minute limit per screen recording. Business costs $18/user/mo billed monthly or $180/user/yr."
@@ -391,7 +391,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://cap.so",
     "category": "async",
     "summary": "Cap is an open-source screen recorder that combines Loom-style instant share links with a local Studio Mode editor, with desktop apps for macOS, Windows and Linux.",
-    "differentiator": "Cap matches CaptureCat on several points: open source under AGPL, automatic zoom from clicks, cursor smoothing, on-device captions and an official MCP server (Cap's manages recordings, while CaptureCat's also records and edits). CaptureCat is a native Swift/AppKit/Metal Mac app that also records iPhone and iPad over USB and adds device bezels, spotlights and a keystroke overlay, while Cap has native Windows and Linux desktop apps and team workspaces, which CaptureCat does not offer yet.",
+    "differentiator": "Cap matches CaptureCat on several points: open source under AGPL, automatic zoom from clicks, cursor smoothing, on-device captions and an official MCP server (Cap's manages recordings, while CaptureCat's also records and edits). Both free tiers are for personal use only: CaptureCat's also stops each recording at 5 minutes, and commercial use needs CaptureCat Pro. CaptureCat is a native Swift/AppKit/Metal Mac app that also records iPhone and iPad over USB and adds device bezels, spotlights and a keystroke overlay, while Cap has native Windows and Linux desktop apps and team workspaces, which CaptureCat does not offer yet.",
     "pickThemWhen": "you want an open-source recorder with native Windows and Linux apps, Loom-style instant links and team workspaces.",
     "strengths": [
       "Open source (AGPLv3) and self-hostable, with bring-your-own S3 or Google Drive storage",
@@ -414,7 +414,7 @@ export const COMPETITORS: Competitor[] = [
       "macOS, Windows & Linux",
       "Free · $29/yr desktop · Pro $12/user/mo"
     ],
-    "switchTip": "Finish open Studio Mode edits in Cap, then start new recordings in CaptureCat; automatic zoom, cursor smoothing and on-device captions are on its free tier. If you use Cap's Windows or Linux desktop app, CaptureCat's option on those systems is its browser app.",
+    "switchTip": "Finish open Studio Mode edits in Cap, then start new recordings in CaptureCat; automatic zoom, cursor smoothing and on-device captions are on its free tier, which, like Cap's, is for personal use (work videos need CaptureCat Pro). If you use Cap's Windows or Linux desktop app, CaptureCat's option on those systems is its browser app.",
     "faqExtra": {
       "question": "Is Cap free for commercial use?",
       "answer": "No. Cap's free plan covers personal use; commercial use needs the Desktop License ($29/yr or $58 one-time) or Cap Pro."
@@ -436,7 +436,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://zight.com",
     "category": "async",
     "summary": "Zight, formerly CloudApp, is a screenshot, GIF and screen recording tool that uploads captures to share links for quick visual communication in teams.",
-    "differentiator": "Zight's MCP server reads context from existing Zight links, while CaptureCat's built-in MCP server lets coding agents record, edit, render frames and export. CaptureCat also adds automatic zoom, cursor smoothing and on-device captions for free; Zight is stronger for screenshots, GIFs and team sharing.",
+    "differentiator": "Zight's MCP server reads context from existing Zight links, while CaptureCat's built-in MCP server lets coding agents record, edit, render frames and export. CaptureCat also adds automatic zoom, cursor smoothing and on-device captions, free for personal use; Zight is stronger for screenshots, GIFs and team sharing.",
     "pickThemWhen": "your team shares lots of quick screenshots, GIFs and short clips and wants AI assistants to read the context behind those links.",
     "strengths": [
       "Screenshots, GIFs and video in one app with instant share links",
@@ -480,7 +480,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.vidyard.com",
     "category": "async",
     "summary": "Vidyard is a video messaging and hosting platform built for sales and marketing teams, with screen and camera recording, viewer tracking and CRM integrations.",
-    "differentiator": "Vidyard is built around sales video messaging, CRM integrations and viewer tracking; CaptureCat focuses on producing polished screen videos with automatic zoom, cursor effects and on-device captions, free and without a monthly video cap. CaptureCat Pro also has share links with viewer analytics, but no CRM integrations or team plan yet.",
+    "differentiator": "Vidyard is built around sales video messaging, CRM integrations and viewer tracking; CaptureCat focuses on producing polished screen videos with automatic zoom, cursor effects and on-device captions, free for personal use and without a monthly video cap. Sales and other work videos need CaptureCat Pro, which also has share links with viewer analytics, but no CRM integrations or team plan yet.",
     "pickThemWhen": "you send video messages to prospects and need view tracking tied into your CRM.",
     "strengths": [
       "Viewer analytics and notifications built for sales follow-up",
@@ -524,7 +524,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://screenpal.com",
     "category": "async",
     "summary": "ScreenPal, formerly Screencast-O-Matic, is a screen recorder, video editor and video hosting service aimed at education and business, with quizzes and AI tools on higher tiers.",
-    "differentiator": "CaptureCat's free tier has no recording time limit, records system audio, and includes automatic zoom from clicks, cursor smoothing with click ripples and on-device captions, none of which ScreenPal's free plan offers. ScreenPal covers more platforms natively, including Windows, Chromebook and mobile, and has quizzes, which CaptureCat does not.",
+    "differentiator": "CaptureCat's free tier, for personal use, records system audio and includes automatic zoom from clicks, cursor smoothing with click ripples and on-device captions, none of which ScreenPal's free plan offers, though it stops each recording at 5 minutes where ScreenPal's allows 15. ScreenPal covers more platforms natively, including Windows, Chromebook and mobile, and has quizzes, which CaptureCat does not.",
     "pickThemWhen": "you need one recorder across Mac, Windows and Chromebooks, plus hosted videos with quizzes for students or staff.",
     "strengths": [
       "Runs on Mac, Windows, Chromebook, iOS and Android",
@@ -569,7 +569,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.screencastify.com",
     "category": "async",
     "summary": "Screencastify is a browser-extension screen recorder, widely used in schools, now part of the Castify suite alongside AI video-to-document, editing and video-request tools.",
-    "differentiator": "CaptureCat's free tier has unlimited recordings with no watermark, automatic zoom, cursor smoothing and on-device captions, while Screencastify gates captions to Pro and watermarks free videos. Screencastify's classroom integrations and quizzes have no CaptureCat equivalent; both offer a browser option on Chromebooks.",
+    "differentiator": "CaptureCat's free tier, for personal use, has no watermark or video count limit and includes automatic zoom, cursor smoothing and on-device captions, while Screencastify gates captions to Pro and watermarks free videos; CaptureCat's free recordings stop at 5 minutes, though, where Screencastify's run to 30. Screencastify's classroom integrations and quizzes have no CaptureCat equivalent; both offer a browser option on Chromebooks.",
     "pickThemWhen": "you teach or train on Chromebooks and want recordings that plug into Google Classroom or an LMS.",
     "strengths": [
       "Works anywhere Chrome or Edge runs, including Chromebooks",
@@ -615,7 +615,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://jumpshare.com",
     "category": "async",
     "summary": "Jumpshare is a screen recording, screenshot and file sharing tool that turns captures into share links with viewer analytics and AI summaries.",
-    "differentiator": "CaptureCat's free tier has unlimited recording length, automatic zoom, cursor smoothing with click ripples and on-device captions; Jumpshare puts captions and analytics behind Plus. Jumpshare's Business plan matches CaptureCat Pro on AI titles and chapters, and Jumpshare also handles general file sharing, which CaptureCat does not.",
+    "differentiator": "CaptureCat's free tier, for personal use, includes automatic zoom, cursor smoothing with click ripples and on-device captions, with the same 5-minute recording limit as Jumpshare's; Jumpshare puts captions and analytics behind Plus. Jumpshare's Business plan matches CaptureCat Pro on AI titles and chapters, and Jumpshare also handles general file sharing, which CaptureCat does not.",
     "pickThemWhen": "you want one tool for quick recordings, screenshots and file sharing with link-level analytics.",
     "strengths": [
       "Combines screen recording, screenshots, GIFs and file sharing in one app",
@@ -638,7 +638,7 @@ export const COMPETITORS: Competitor[] = [
       "macOS, Windows, browser, iPhone",
       "Free · Plus $12/mo, Business $16/user/mo (annual); $15/$20 monthly"
     ],
-    "switchTip": "Download recordings you want to keep from Jumpshare as MP4; record new demos in CaptureCat and use Pro share links if you still need viewer analytics.",
+    "switchTip": "Download recordings you want to keep from Jumpshare as MP4; record new demos in CaptureCat, where Pro covers work videos and adds share links with viewer analytics.",
     "sources": [
       "https://jumpshare.com/pricing",
       "https://Jmp.sh/screen-recorder-mac",
@@ -653,7 +653,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.guidde.com",
     "category": "async",
     "summary": "Guidde is an AI tool that captures a workflow in the browser and turns it into a step-by-step how-to video and guide with AI voiceover.",
-    "differentiator": "Guidde builds step-based how-to guides with AI narration; CaptureCat records continuous screen video with automatic zoom from clicks, cursor smoothing and on-device captions, free and without a watermark. Guidde also has automatic pan and zoom on clicks in some modes, so both tools cover that, but CaptureCat applies it to any recording.",
+    "differentiator": "Guidde builds step-based how-to guides with AI narration; CaptureCat records continuous screen video with automatic zoom from clicks, cursor smoothing and on-device captions, free for personal use and without a watermark; documentation for work needs CaptureCat Pro. Guidde also has automatic pan and zoom on clicks in some modes, so both tools cover that, but CaptureCat applies it to any recording.",
     "pickThemWhen": "you need to turn software workflows into step-by-step training guides with AI voiceover at scale.",
     "strengths": [
       "Generates step-by-step videos and written guides from a single capture",
@@ -689,7 +689,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.airtime.com",
     "category": "async",
     "summary": "Airtime (formerly mmhmm) is a set of video tools for work, including a screen recorder, a presentation recorder (Creator) and a virtual camera for meetings.",
-    "differentiator": "CaptureCat's editor adds automatic zoom from clicks, cursor smoothing, click ripples and on-device captions, free with 4K export. Airtime's strengths are presenter effects and a virtual camera for live calls, which CaptureCat does not offer.",
+    "differentiator": "CaptureCat's editor adds automatic zoom from clicks, cursor smoothing, click ripples and on-device captions, free for personal use with 4K export. Airtime's strengths are presenter effects and a virtual camera for live calls, which CaptureCat does not offer.",
     "pickThemWhen": "you present on camera over slides or screens and want a virtual camera for live meetings too.",
     "strengths": [
       "Presenter overlays that can be moved and resized after publishing",
@@ -732,7 +732,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.berrycast.com",
     "category": "async",
     "summary": "Berrycast is a screen and webcam video messaging tool for Windows and Mac, with share links, timed comments and a HIPAA-compliant option.",
-    "differentiator": "CaptureCat's recorder and editor are free, with automatic zoom from clicks, cursor smoothing and on-device captions; Pro adds share links with viewer analytics. Berrycast offers HIPAA compliance and a native Windows app, which CaptureCat does not.",
+    "differentiator": "CaptureCat's recorder and editor are free for personal use, with automatic zoom from clicks, cursor smoothing and on-device captions; Pro adds commercial use and share links with viewer analytics. Berrycast offers HIPAA compliance and a native Windows app, which CaptureCat does not.",
     "pickThemWhen": "you need a simple Loom-style recorder for Windows and Mac, especially one that can be HIPAA compliant.",
     "strengths": [
       "Unlimited videos and recording length on every paid plan",
@@ -767,7 +767,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.usebubbles.com",
     "category": "async",
     "summary": "Bubbles is a browser-based screen recorder and AI meeting notetaker for sending short async videos and meeting recordings to teammates.",
-    "differentiator": "CaptureCat focuses on producing polished videos: a native Mac app plus a browser app, automatic zoom from clicks, cursor smoothing and on-device captions, all free and without watermark. Bubbles' MCP reads existing bubbles, while CaptureCat's MCP server lets agents record, edit and export.",
+    "differentiator": "CaptureCat focuses on producing polished videos: a native Mac app plus a browser app, automatic zoom from clicks, cursor smoothing and on-device captions, all free for personal use and without watermark. Bubbles' MCP reads existing bubbles, while CaptureCat's MCP server lets agents record, edit and export.",
     "pickThemWhen": "you want quick browser recordings with threaded comments and an AI notetaker for your team's meetings.",
     "strengths": [
       "Free plan allows unlimited screen recordings up to 30 minutes each",
@@ -805,7 +805,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.claap.io",
     "category": "async",
     "summary": "Claap is an AI meeting and screen recorder from lemlist, now aimed mainly at sales and revenue teams, that records calls and screen videos and syncs notes to the CRM.",
-    "differentiator": "CaptureCat is a screen-video recorder and editor first: automatic zoom from clicks, cursor smoothing with click ripples, on-device captions and 4K export are free with no watermark. Claap's MCP works on meeting and CRM data, while CaptureCat's built-in MCP server lets agents record, edit, render frames and export video.",
+    "differentiator": "CaptureCat is a screen-video recorder and editor first: automatic zoom from clicks, cursor smoothing with click ripples, on-device captions and 4K export are free for personal use with no watermark. Claap's MCP works on meeting and CRM data, while CaptureCat's built-in MCP server lets agents record, edit, render frames and export video.",
     "pickThemWhen": "your team mainly needs recorded sales calls, AI notes and CRM sync, with occasional screen videos on the side.",
     "strengths": [
       "Records meetings without a bot, plus screen and camera videos, in one workspace",
@@ -848,7 +848,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.hippovideo.io",
     "category": "async",
     "summary": "Hippo Video is a video messaging and personalization platform for sales teams, with screen and camera recording, sales pages and CRM integrations.",
-    "differentiator": "CaptureCat is aimed at polished screen videos rather than sales outreach: automatic zoom from clicks, cursor smoothing, on-device captions and 4K export are free. It has no CRM integrations or personalization features.",
+    "differentiator": "CaptureCat is aimed at polished screen videos rather than sales outreach: automatic zoom from clicks, cursor smoothing, on-device captions and 4K export are free for personal use, and sales videos need CaptureCat Pro. It has no CRM integrations or personalization features.",
     "pickThemWhen": "you send personalized sales videos at volume and need CRM tracking of who watched.",
     "strengths": [
       "Built for sales outreach: personalized videos, sales pages and interactive CTAs",
@@ -882,7 +882,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://kommodo.ai",
     "category": "async",
     "summary": "Kommodo (formerly Komodo, komododecks.com) is a screen recorder with a cloud video editor, AI transcripts and auto-generated step-by-step guides.",
-    "differentiator": "CaptureCat records and edits locally with automatic zoom from clicks, cursor smoothing, click ripples and on-device captions, free with unlimited recordings. Kommodo's API and skill manage recording metadata and pages, while CaptureCat's MCP server lets agents record, edit and export the video itself.",
+    "differentiator": "CaptureCat records and edits locally with automatic zoom from clicks, cursor smoothing, click ripples and on-device captions, free for personal use, with recordings up to 5 minutes. Kommodo's API and skill manage recording metadata and pages, while CaptureCat's MCP server lets agents record, edit and export the video itself.",
     "pickThemWhen": "you want recordings that also become written how-to guides and shareable pages for a team.",
     "strengths": [
       "Free plan has no watermark and no recording time limit (15 videos)",
@@ -922,7 +922,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://supercut.ai",
     "category": "async",
     "summary": "Supercut is a Loom-style async video platform with native Mac and Windows recorders, an editor, AI summaries and hosted sharing for teams.",
-    "differentiator": "Both have native recorders and an MCP, but Supercut's MCP reads existing recordings while CaptureCat's lets agents record, edit, render frames and export. CaptureCat also adds automatic zoom from clicks and cursor smoothing, and its editor and on-device captions are free; Supercut covers Windows natively, which CaptureCat does only through its browser app.",
+    "differentiator": "Both have native recorders and an MCP, but Supercut's MCP reads existing recordings while CaptureCat's lets agents record, edit, render frames and export. CaptureCat also adds automatic zoom from clicks and cursor smoothing, and its editor and on-device captions are free for personal use; Supercut covers Windows natively, which CaptureCat does only through its browser app.",
     "pickThemWhen": "your team wants a polished Loom replacement with native recorders, AI summaries and an MCP that feeds recordings to coding agents.",
     "strengths": [
       "Native macOS and Windows recorders with up to 4K and multi-stream capture",
@@ -960,7 +960,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://vimeo.com/features/screen-recorder",
     "category": "async",
     "summary": "Vimeo Record is Vimeo's free screen and webcam recorder, running in the browser and a Chrome extension, that uploads straight into Vimeo's video hosting.",
-    "differentiator": "CaptureCat records natively on Mac (and in the browser elsewhere) with automatic zoom from clicks, cursor smoothing and on-device captions, and exports 4K files free. Vimeo is stronger as a hosting platform; CaptureCat Pro covers share links with viewer analytics, not full video hosting.",
+    "differentiator": "CaptureCat records natively on Mac (and in the browser elsewhere) with automatic zoom from clicks, cursor smoothing and on-device captions, and exports 4K files free for personal use, though its free recordings stop at 5 minutes where Vimeo's free plan allows 30. Vimeo is stronger as a hosting platform; CaptureCat Pro covers share links with viewer analytics, not full video hosting.",
     "pickThemWhen": "you already host video on Vimeo and want quick recordings in the same library and player.",
     "strengths": [
       "Recordings land in an ad-free Vimeo player and hosting library",
@@ -999,7 +999,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.techsmith.com/camtasia/",
     "category": "editor",
     "summary": "Camtasia is TechSmith's screen recorder and timeline video editor for tutorials and training videos, sold as an annual subscription for Mac and Windows.",
-    "differentiator": "Camtasia matches CaptureCat on automatic zoom from cursor and click data, cursor effects and on-device captions, and it runs natively on Windows. CaptureCat's free tier exports without a watermark at up to 4K 60 fps, it is open source under AGPL-3.0, and it has a built-in MCP server for coding agents.",
+    "differentiator": "Camtasia matches CaptureCat on automatic zoom from cursor and click data, cursor effects and on-device captions, and it runs natively on Windows. CaptureCat's free tier exports without a watermark at up to 4K 60 fps for personal use, with Pro for commercial use; it is open source under AGPL-3.0 and has a built-in MCP server for coding agents.",
     "pickThemWhen": "you produce longer training or course videos on Windows or Mac and want a full timeline editor with assets and AI voiceover.",
     "strengths": [
       "Full timeline editor with assets, animations and SmartFocus, which adds zoom-and-pan from recorded cursor and click data",
@@ -1048,7 +1048,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.telestream.net/screenflow/overview.htm",
     "category": "editor",
     "summary": "ScreenFlow by Telestream is a Mac-only screen recorder and multi-track video editor sold as a one-time purchase.",
-    "differentiator": "ScreenFlow is a deeper general-purpose editor; CaptureCat focuses on screen recordings, adding zoom automatically from recorded clicks, generating on-device captions, and offering share links with analytics on Pro. CaptureCat's core app is free and open source (AGPL-3.0) and has a built-in MCP server for coding agents.",
+    "differentiator": "ScreenFlow is a deeper general-purpose editor; CaptureCat focuses on screen recordings, adding zoom automatically from recorded clicks, generating on-device captions, and offering share links with analytics on Pro. CaptureCat's app is free for personal use, with Pro for commercial use, is open source (AGPL-3.0) and has a built-in MCP server for coding agents.",
     "pickThemWhen": "you want a mature, timeline-based Mac video editor you pay for once and are happy to place zooms and callouts by hand.",
     "strengths": [
       "Full multi-track editor with transitions, text and video animations, nested clips and markers.",
@@ -1093,7 +1093,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.descript.com",
     "category": "editor",
     "summary": "Descript is a text-based audio and video editor with a built-in screen recorder, cloud transcription and an AI co-editor called Underlord.",
-    "differentiator": "Descript and CaptureCat both offer an official MCP server, but CaptureCat's can also start recordings and render frames, and it runs locally. CaptureCat adds zoom automatically from recorded clicks, runs captions on-device, has no media-hour caps or watermark on its free tier, and its Pro share links track watch time and retention.",
+    "differentiator": "Descript and CaptureCat both offer an official MCP server, but CaptureCat's can also start recordings and render frames, and it runs locally. CaptureCat adds zoom automatically from recorded clicks, runs captions on-device, has no media-hour caps or watermark on its free tier (which is for personal use, with recordings up to 5 minutes), and its Pro share links track watch time and retention.",
     "pickThemWhen": "you edit talking-head, podcast or narrated videos and want to cut by editing the transcript.",
     "strengths": [
       "Edit video by editing its transcript, with filler-word and retake removal.",
@@ -1139,7 +1139,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://democreator.wondershare.com",
     "category": "editor",
     "summary": "Wondershare DemoCreator is a screen recorder and video editor for Windows and macOS, with an online recorder and a set of AI tools paid for with credits.",
-    "differentiator": "Both offer automatic zoom and cursor effects. CaptureCat includes them in its free version along with on-device English captions and 4K 60 fps export with no watermark or length cap, plus an MCP server for AI agents and AGPL-3.0 source. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
+    "differentiator": "Both offer automatic zoom and cursor effects. CaptureCat includes them in its free version for personal use, along with on-device English captions and 4K 60 fps export with no watermark; free recordings stop at 5 minutes, and commercial use needs Pro. It also has an MCP server for AI agents and AGPL-3.0 source. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
     "pickThemWhen": "you want a native Windows or Mac recorder with automatic zoom, a full timeline editor and a large template library, and AI credits fit your budget.",
     "strengths": [
       "Smart Zoom adds pan and zoom animations automatically after recording",
@@ -1175,7 +1175,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.movavi.com/screen-recorder/",
     "category": "editor",
     "summary": "Movavi Screen Recorder is a paid desktop screen recorder for Windows and macOS with webcam capture, on-screen drawing, scheduled recording and basic trimming.",
-    "differentiator": "On Mac, CaptureCat's free version adds what Movavi's recorder lacks: automatic zoom from recorded clicks, cursor smoothing with click ripples and on-device English captions, with no trial period or watermark. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording). Movavi has a native Windows app.",
+    "differentiator": "On Mac, CaptureCat's free version, for personal use, adds what Movavi's recorder lacks: automatic zoom from recorded clicks, cursor smoothing with click ripples and on-device English captions, with no trial period or watermark. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording). Movavi has a native Windows app.",
     "pickThemWhen": "you want a simple, inexpensive recorder on Windows or Mac that shows clicks and keystrokes, and you do your heavier editing elsewhere.",
     "strengths": [
       "Highlights the mouse cursor, clicks and keystrokes while recording",
@@ -1216,7 +1216,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://clipchamp.com",
     "category": "editor",
     "summary": "Microsoft Clipchamp is a browser-based video editor with a Windows app, a built-in screen and camera recorder, and free cloud auto-captions.",
-    "differentiator": "Both are free with no watermark. CaptureCat's Mac app adds automatic zoom from recorded clicks, cursor smoothing with click ripples, captions transcribed on-device rather than in the cloud, free 4K 60 fps export, and an MCP server for AI agents. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
+    "differentiator": "Both have free versions with no watermark; CaptureCat's is for personal use, with recordings up to 5 minutes. CaptureCat's Mac app adds automatic zoom from recorded clicks, cursor smoothing with click ripples, captions transcribed on-device rather than in the cloud, 4K 60 fps export, and an MCP server for AI agents. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
     "pickThemWhen": "you are on Windows or already pay for Microsoft 365 and want a free, general-purpose editor with captions and a basic recorder.",
     "strengths": [
       "Free plan exports up to 1080p with no watermark",
@@ -1260,7 +1260,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.veed.io",
     "category": "editor",
     "summary": "VEED is a browser-based video editor with a screen and webcam recorder, auto subtitles, AI generation tools and video hosting.",
-    "differentiator": "CaptureCat's Mac app adds automatic zoom from recorded clicks, cursor smoothing and on-device captions to its free version, with no watermark and export up to 4K 60 fps. CaptureCat's MCP server records, edits and exports, while VEED's MCP generates new videos from prompts or images. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
+    "differentiator": "CaptureCat's Mac app adds automatic zoom from recorded clicks, cursor smoothing and on-device captions to its free version for personal use, with no watermark and export up to 4K 60 fps. CaptureCat's MCP server records, edits and exports, while VEED's MCP generates new videos from prompts or images. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
     "pickThemWhen": "you want an online editor for social and marketing video with subtitles, translation and AI generation, and screen recording is only part of the job.",
     "strengths": [
       "Runs in the browser with nothing to install, plus an iOS app",
@@ -1300,7 +1300,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://atomisystems.com/activepresenter/",
     "category": "editor",
     "summary": "ActivePresenter by Atomi Systems is an eLearning authoring tool for Windows and macOS that combines screen recording, video editing, and interactive SCORM/xAPI course export.",
-    "differentiator": "CaptureCat's native Mac app zooms automatically from recorded clicks and transcribes on-device for free, but has no quizzes or SCORM export. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "differentiator": "CaptureCat's native Mac app zooms automatically from recorded clicks and transcribes on-device, free for personal use, but has no quizzes or SCORM export. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
     "pickThemWhen": "you build software training or interactive courses and need SCORM/xAPI output, quizzes, and branching.",
     "strengths": [
       "Records mouse movement as editable cursor paths, with click sounds, click effects, and cursor highlights adjustable after recording.",
@@ -1344,7 +1344,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.canva.com",
     "category": "editor",
     "summary": "Canva is an online design platform whose desktop app includes a free screen recorder that saves each recording as an editable Canva video design.",
-    "differentiator": "Canva's recorder feeds a design tool; CaptureCat is a dedicated screen recorder with automatic zoom from recorded clicks, cursor smoothing and click ripples, on-device captions and 4K 60 fps export, free and without a watermark. Both have an official MCP server, but CaptureCat's can record, edit and export screen video.",
+    "differentiator": "Canva's recorder feeds a design tool; CaptureCat is a dedicated screen recorder with automatic zoom from recorded clicks, cursor smoothing and click ripples, on-device captions and 4K 60 fps export, free for personal use and without a watermark. Both have an official MCP server, but CaptureCat's can record, edit and export screen video.",
     "pickThemWhen": "your team already designs in Canva and wants quick recordings that live alongside slides, social posts and brand assets.",
     "strengths": [
       "Screen recorder is free, with screen, camera or both, up to 25 minutes per recording",
@@ -1389,7 +1389,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.globaldelight.com/capto/",
     "category": "editor",
     "summary": "Capto by Global Delight is a screen capture, screen recording and basic video editing app for Mac (with a separate Windows version).",
-    "differentiator": "Capto and CaptureCat both record screen, camera and iPhone/iPad and offer annotations. CaptureCat adds automatic zoom from clicks, cursor smoothing with ripples and on-device captions at no cost, while Capto is a one-time purchase after a 15-day trial.",
+    "differentiator": "Capto and CaptureCat both record screen, camera and iPhone/iPad and offer annotations. CaptureCat adds automatic zoom from clicks, cursor smoothing with ripples and on-device captions at no cost for personal use, while Capto is a one-time purchase after a 15-day trial.",
     "pickThemWhen": "you want a paid-once Mac app for screenshots and simple tutorial recordings with light editing.",
     "strengths": [
       "One-time purchase that covers screenshots, recording and editing",
@@ -1477,7 +1477,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.flashbackrecorder.com/",
     "category": "editor",
     "summary": "FlashBack Express is a Windows screen recorder with a multi-track editor; it replaced the older FlashBack Pro.",
-    "differentiator": "On a Mac, CaptureCat applies zoom automatically from recorded clicks and runs captions on-device, both free. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there. FlashBack's paid Smart Zoom is the closer match on Windows.",
+    "differentiator": "On a Mac, CaptureCat applies zoom automatically from recorded clicks and runs captions on-device, both free for personal use, though its free recordings stop at 5 minutes where FlashBack's free version has no time limit. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there. FlashBack's paid Smart Zoom is the closer match on Windows.",
     "pickThemWhen": "you are on Windows and want a free, unwatermarked recorder with an optional low-cost editor.",
     "strengths": [
       "Free tier records screen, webcam, and audio with no time limit and no watermark.",
@@ -1522,7 +1522,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.kapwing.com",
     "category": "editor",
     "summary": "Kapwing is a browser-based video editor for teams that includes a screen and webcam recorder inside the editor, plus AI subtitles, dubbing and repurposing tools.",
-    "differentiator": "Kapwing is a collaborative general editor; CaptureCat is a dedicated screen recorder with automatic zoom from recorded clicks, cursor smoothing and click ripples, on-device captions, viewer analytics on Pro share links, and a built-in MCP server that can record and export. CaptureCat's free tier exports 4K 60 fps without a watermark.",
+    "differentiator": "Kapwing is a collaborative general editor; CaptureCat is a dedicated screen recorder with automatic zoom from recorded clicks, cursor smoothing and click ripples, on-device captions, viewer analytics on Pro share links, and a built-in MCP server that can record and export. CaptureCat's free tier, for personal use, exports 4K 60 fps without a watermark.",
     "pickThemWhen": "your team edits social and marketing video together in the browser and screen recording is one input among many.",
     "strengths": [
       "Runs entirely in the browser with real-time collaborative editing",
@@ -1561,7 +1561,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://riverside.com",
     "category": "editor",
     "summary": "Riverside is a remote recording studio for podcasts and video, with screen sharing, a text-based AI editor, live streaming and webinars.",
-    "differentiator": "CaptureCat is built for solo screen videos: automatic zoom from clicks, cursor smoothing with click ripples and on-device captions, free with 4K export. Both have an MCP; Riverside's works on recordings made in its studio, while CaptureCat's can also start recordings.",
+    "differentiator": "CaptureCat is built for solo screen videos: automatic zoom from clicks, cursor smoothing with click ripples and on-device captions, free for personal use with 4K export. Both have an MCP; Riverside's works on recordings made in its studio, while CaptureCat's can also start recordings.",
     "pickThemWhen": "you record remote interviews or podcasts and want editing, clipping and publishing in one place.",
     "strengths": [
       "Local recording of each participant in up to 4K on separate tracks",
@@ -1598,7 +1598,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.vmaker.com",
     "category": "editor",
     "summary": "Vmaker AI is an AI video editor and avatar generator that also includes a screen and webcam recorder.",
-    "differentiator": "CaptureCat gives unlimited recording, automatic zoom from clicks, cursor smoothing with click ripples and on-device captions free, with 4K export and no watermark. It also ships an MCP server for agents; Vmaker offers AI avatars and social repurposing that CaptureCat does not.",
+    "differentiator": "CaptureCat gives automatic zoom from clicks, cursor smoothing with click ripples and on-device captions free for personal use, with recordings up to 5 minutes, 4K export and no watermark. It also ships an MCP server for agents; Vmaker offers AI avatars and social repurposing that CaptureCat does not.",
     "pickThemWhen": "you want AI avatars, social clip generation and auto subtitles in the same tool as a basic recorder.",
     "strengths": [
       "Recorder bundled with an AI editor, auto subtitles and subtitle translation",
@@ -1633,7 +1633,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://filmora.wondershare.com",
     "category": "editor",
     "summary": "Wondershare Filmora is a consumer video editor for Windows and Mac with a built-in screen recorder that captures screen, webcam, microphone and system audio.",
-    "differentiator": "Filmora is a broad editor with a recorder attached; CaptureCat is built for screen recordings, with automatic zoom from recorded clicks, cursor smoothing, on-device captions with no credits, share links with viewer analytics on Pro, and a built-in MCP server. CaptureCat's free tier exports 4K 60 fps without a watermark; it is macOS-native, with a browser app for Windows.",
+    "differentiator": "Filmora is a broad editor with a recorder attached; CaptureCat is built for screen recordings, with automatic zoom from recorded clicks, cursor smoothing, on-device captions with no credits, share links with viewer analytics on Pro, and a built-in MCP server. CaptureCat's free tier exports 4K 60 fps without a watermark for personal use; it is macOS-native, with a browser app for Windows.",
     "pickThemWhen": "you want a general-purpose video editor for YouTube and social content and screen recording is only part of the job.",
     "strengths": [
       "Full consumer video editor with effects, transitions, keyframes and a large stock asset library",
@@ -1675,7 +1675,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://cleanshot.com",
     "category": "capture",
     "summary": "CleanShot X is a Mac screenshot and screen recording app with annotation tools, a Studio Mode video editor and CleanShot Cloud for sharing.",
-    "differentiator": "CleanShot X is screenshot-first, with recording and Studio Mode added on; CaptureCat is built around recording and editing video. CaptureCat generates zooms automatically from recorded clicks, runs captions on-device, is free with no watermark, is open source under AGPL-3.0, and has an MCP server and a browser app for non-Mac users. Both offer cursor smoothing, click effects and keystroke display.",
+    "differentiator": "CleanShot X is screenshot-first, with recording and Studio Mode added on; CaptureCat is built around recording and editing video. CaptureCat generates zooms automatically from recorded clicks, runs captions on-device, is free for personal use with no watermark, is open source under AGPL-3.0, and has an MCP server and a browser app for non-Mac users. Both offer cursor smoothing, click effects and keystroke display.",
     "pickThemWhen": "you want one Mac app for screenshots, annotation and quick recordings, and a one-time purchase matters to you.",
     "strengths": [
       "Screenshots, scrolling capture, OCR, annotation and screen recording in one Mac app",
@@ -1698,7 +1698,7 @@ export const COMPETITORS: Competitor[] = [
       "macOS",
       "$35 one-time or Pro $10/user/mo yearly"
     ],
-    "switchTip": "Many people keep CleanShot X for screenshots and use CaptureCat for recordings that need zooms, captions and editing. Try CaptureCat's free tier on your next tutorial before deciding whether to renew CleanShot updates.",
+    "switchTip": "Many people keep CleanShot X for screenshots and use CaptureCat for recordings that need zooms, captions and editing. Try CaptureCat on your next tutorial (free for personal use, Pro for work) before deciding whether to renew CleanShot updates.",
     "faqExtra": {
       "question": "Is there a CleanShot X free trial?",
       "answer": "CleanShot does not offer a trial; it has a 30-day money-back guarantee. The Setapp subscription that includes CleanShot has a 7-day free trial."
@@ -1718,7 +1718,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.techsmith.com/snagit/",
     "category": "capture",
     "summary": "Snagit by TechSmith (now branded Camtasia Snagit) is a screenshot and screen capture tool for Mac and Windows with quick video recording and step-by-step guide creation.",
-    "differentiator": "Snagit is a screenshot-first tool; CaptureCat is video-first, with automatic zoom from recorded clicks, cursor smoothing and click ripples applied after recording, and on-device captions, all in a free tier. Snagit runs natively on Windows, while CaptureCat's Windows option is its browser app.",
+    "differentiator": "Snagit is a screenshot-first tool; CaptureCat is video-first, with automatic zoom from recorded clicks, cursor smoothing and click ripples applied after recording, and on-device captions, all in a free tier for personal use. Snagit runs natively on Windows, while CaptureCat's Windows option is its browser app.",
     "pickThemWhen": "your work is mostly annotated screenshots and how-to guides, with the occasional quick screen video.",
     "strengths": [
       "Best-known for screenshots: scrolling capture, Step Capture guides and Smart Redact.",
@@ -1764,7 +1764,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.bandicam.com",
     "category": "capture",
     "summary": "Bandicam is a lightweight screen, game and webcam recorder for Windows, with a separate macOS app launched in July 2025.",
-    "differentiator": "Bandicam on Windows matches CaptureCat on click-based automatic zoom and has a native Windows app, which CaptureCat does not: CaptureCat on Windows is a browser app without auto zoom or cursor smoothing. On Mac, CaptureCat's free version includes auto zoom, cursor smoothing with click ripples, on-device captions and 4K 60 fps export with no time limit or watermark, plus an MCP server and, on Pro, share links with viewer analytics.",
+    "differentiator": "Bandicam on Windows matches CaptureCat on click-based automatic zoom and has a native Windows app, which CaptureCat does not: CaptureCat on Windows is a browser app without auto zoom or cursor smoothing. On Mac, CaptureCat's free version includes auto zoom, cursor smoothing with click ripples, on-device captions and 4K 60 fps export with no watermark for personal use (recordings stop at 5 minutes), plus an MCP server and, on Pro, share links with viewer analytics.",
     "pickThemWhen": "you record games or long sessions on Windows and want a light, native recorder with automatic zoom and an optional perpetual licence.",
     "strengths": [
       "Smart Zoom on Windows automatically zooms in on clicks and eases out, applied after recording",
@@ -1787,7 +1787,7 @@ export const COMPETITORS: Competitor[] = [
       "Windows & macOS",
       "Win from $33.26/yr or $77 once; Mac $39.99/yr"
     ],
-    "switchTip": "Windows users who depend on Smart Zoom should stay on Bandicam, since CaptureCat's browser app lacks auto zoom. Mac users can record in CaptureCat instead and get auto zoom and captions in the free version.",
+    "switchTip": "Windows users who depend on Smart Zoom should stay on Bandicam, since CaptureCat's browser app lacks auto zoom. Mac users can record in CaptureCat instead and get auto zoom and captions in the free version for personal use.",
     "faqExtra": {
       "question": "Is Bandicam available for Mac?",
       "answer": "Yes. Bandicam Company released Bandicam for Mac in July 2025. It is sold through the Mac App Store at $9.99 per month or $39.99 per year, separately from the Windows licence."
@@ -1810,7 +1810,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.apowersoft.com/record-all-screen",
     "category": "capture",
     "summary": "ApowerREC is Apowersoft's screen, webcam, and audio recorder for Windows and Mac, with companion mobile apps, scheduled recording, and live annotation.",
-    "differentiator": "CaptureCat's free tier has no recording cap or watermark, and its native Mac app zooms automatically from clicks and transcribes on-device. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "differentiator": "CaptureCat's free tier, for personal use, has no watermark and stops each recording at 5 minutes, and its native Mac app zooms automatically from clicks and transcribes on-device. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
     "pickThemWhen": "you want a cross-platform recorder with scheduled captures and direct upload to YouTube or cloud drives.",
     "strengths": [
       "Scheduled recording tasks start and stop the screen or webcam capture automatically.",
@@ -1852,7 +1852,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.awesomescreenshot.com",
     "category": "capture",
     "summary": "Awesome Screenshot is a long-running screenshot and screen-recording tool, mainly a browser extension, with desktop and iOS apps.",
-    "differentiator": "CaptureCat is a video tool rather than a screenshot tool: automatic zoom from clicks, cursor smoothing with click ripples, on-device captions and 4K export are free with no watermark. Awesome Screenshot is a lightweight browser extension for annotated screenshots; CaptureCat captures full-height web pages by URL only on Pro.",
+    "differentiator": "CaptureCat is a video tool rather than a screenshot tool: automatic zoom from clicks, cursor smoothing with click ripples, on-device captions and 4K export are free for personal use with no watermark. Awesome Screenshot is a lightweight browser extension for annotated screenshots; CaptureCat captures full-height web pages by URL only on Pro.",
     "pickThemWhen": "you mostly need screenshots and quick browser recordings at a low price.",
     "strengths": [
       "Screenshots (including full-page) and screen recording in one cheap tool",
@@ -1888,7 +1888,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://peakstep.com/claquette/",
     "category": "capture",
     "summary": "Claquette by Peakstep is a lightweight Mac app for recording the screen, camera and audio, trimming and cropping, and converting between video, GIF and audio formats.",
-    "differentiator": "Claquette is a lightweight recorder and converter; CaptureCat adds automatic zoom from clicks, cursor smoothing, on-device captions and a full editor for free. Both are native Mac apps that record system audio and a camera overlay.",
+    "differentiator": "Claquette is a lightweight recorder and converter; CaptureCat adds automatic zoom from clicks, cursor smoothing, on-device captions and a full editor, free for personal use. Both are native Mac apps that record system audio and a camera overlay.",
     "pickThemWhen": "you want a tidy, one-time-purchase Mac utility for quick recordings and format conversion.",
     "strengths": [
       "Small native app that records screen, camera, mic and system audio",
@@ -1923,7 +1923,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.ecamm.com/",
     "category": "capture",
     "summary": "Ecamm Live (now branded Ecamm) is a Mac live-streaming and video production studio that also records, with scenes, overlays, screen sharing and multi-camera support.",
-    "differentiator": "Ecamm is a live production studio; CaptureCat is a screen-recording editor with automatic zoom from clicks, cursor smoothing, on-device captions and an MCP server for AI agents, with a free tier. CaptureCat has no live streaming.",
+    "differentiator": "Ecamm is a live production studio; CaptureCat is a screen-recording editor with automatic zoom from clicks, cursor smoothing, on-device captions and an MCP server for AI agents, with a free tier for personal use. CaptureCat has no live streaming.",
     "pickThemWhen": "you stream or record live shows, interviews or webinars on a Mac and want a switcher-style studio.",
     "strengths": [
       "Strong live production: scenes, overlays, green screen and multistreaming",
@@ -1963,7 +1963,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://gifox.app",
     "category": "capture",
     "summary": "Gifox is a Mac menu-bar app for recording the screen to GIF (and MP4/MOV), with a frame editor and detailed GIF compression controls.",
-    "differentiator": "Gifox focuses on short GIFs with excellent compression; CaptureCat is a full recorder and editor with automatic zoom, cursor smoothing, camera bubble and on-device captions, free with no time limit or watermark. Both can show keystrokes.",
+    "differentiator": "Gifox focuses on short GIFs with excellent compression; CaptureCat is a full recorder and editor with automatic zoom, cursor smoothing, camera bubble and on-device captions, free for personal use with no watermark and recordings up to 5 minutes. Both can show keystrokes.",
     "pickThemWhen": "you mainly make short, small GIFs for docs, bug reports or chat.",
     "strengths": [
       "Very fine control over GIF size and quality",
@@ -2003,7 +2003,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://icecreamapps.com/Screen-Recorder/",
     "category": "capture",
     "summary": "Icecream Screen Recorder is a simple screen and webcam recorder from Icecream Apps with annotations, light editing, and instant upload for sharing.",
-    "differentiator": "CaptureCat's free tier has no time limit or watermark, and its native Mac app adds automatic zoom from clicks and on-device captions. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "differentiator": "CaptureCat's free tier, for personal use, has no watermark but stops each recording at 5 minutes, and its native Mac app adds automatic zoom from clicks and on-device captions. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
     "pickThemWhen": "you want a straightforward, inexpensive recorder with quick sharing and do not need a full editor.",
     "strengths": [
       "Simple recorder with live drawing, text, and arrow annotations plus trim, speed, and mute edits.",
@@ -2044,7 +2044,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.shinywhitebox.com/ishowu-v6",
     "category": "capture",
     "summary": "iShowU V6 by shinywhitebox is a real-time Mac screen recorder that composites screen, apps, windows, cameras and iPhones into a finished video as you record.",
-    "differentiator": "iShowU bakes zoom and click effects into the recording live; CaptureCat records first and applies automatic zoom from clicks, cursor smoothing and click ripples in an editor you can adjust, plus on-device captions. CaptureCat's core is free; iShowU is paid after a 7-day trial.",
+    "differentiator": "iShowU bakes zoom and click effects into the recording live; CaptureCat records first and applies automatic zoom from clicks, cursor smoothing and click ripples in an editor you can adjust, plus on-device captions. CaptureCat is free for personal use; iShowU is paid after a 7-day trial.",
     "pickThemWhen": "you want polished-looking recordings straight out of the recorder, with no editing pass.",
     "strengths": [
       "Real-time compositing: the video is ready when you stop recording",
@@ -2087,7 +2087,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://monosnap.ai",
     "category": "capture",
     "summary": "Monosnap is a Mac menu-bar utility for screenshots, short screen recordings and GIFs, with an image editor and its own cloud storage for sharing.",
-    "differentiator": "Monosnap is screenshot-first with short screen recordings; CaptureCat is a video recorder and editor that adds automatic zoom from recorded clicks, cursor smoothing with click ripples and on-device captions, free and without a watermark. Monosnap's annotation and storage integrations for screenshots are broader than CaptureCat's.",
+    "differentiator": "Monosnap is screenshot-first with short screen recordings; CaptureCat is a video recorder and editor that adds automatic zoom from recorded clicks, cursor smoothing with click ripples and on-device captions without a watermark. Both free plans are for personal use only and stop recordings at 5 minutes; commercial use needs a paid plan on either. Monosnap's annotation and storage integrations for screenshots are broader than CaptureCat's.",
     "pickThemWhen": "you mostly need quick annotated screenshots and short clips uploaded to a cloud link, and video polish is secondary.",
     "strengths": [
       "Fast screenshot and annotation tool with an 8x magnifier, blur and arrows",
@@ -2129,7 +2129,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://thefusebase.com/screenshot/",
     "category": "capture",
     "summary": "Nimbus Capture is a browser extension for screenshots and screen recordings, now sold under FuseBase (formerly Nimbus Web).",
-    "differentiator": "CaptureCat records natively on Mac with no time limit and adds automatic zoom from clicks, cursor smoothing and on-device captions, free with 4K export. Nimbus Capture is a lighter browser extension tied to the FuseBase workspace.",
+    "differentiator": "CaptureCat records natively on Mac and adds automatic zoom from clicks, cursor smoothing and on-device captions, free for personal use with 4K export and the same 5-minute recording limit as Nimbus's free plan. Nimbus Capture is a lighter browser extension tied to the FuseBase workspace.",
     "pickThemWhen": "you already use FuseBase or Nimbus Note and want screenshots and short recordings inside it.",
     "strengths": [
       "Full-page screenshots, blur and annotation in the same extension",
@@ -2208,7 +2208,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://obsproject.com",
     "category": "free",
     "summary": "OBS Studio is a free, open-source app for recording and live streaming that composites scenes from screens, cameras, audio and other sources in real time.",
-    "differentiator": "Both are free and open source. OBS is a live production and recording tool with no post-recording editor, while CaptureCat records and then edits, with automatic zoom from clicks, cursor smoothing with click ripples and on-device captions applied in post, plus a built-in MCP server.",
+    "differentiator": "Both are open source; OBS is fully free, while CaptureCat is free for personal use and needs Pro for commercial use or recordings over 5 minutes. OBS is a live production and recording tool with no post-recording editor, while CaptureCat records and then edits, with automatic zoom from clicks, cursor smoothing with click ripples and on-device captions applied in post, plus a built-in MCP server.",
     "pickThemWhen": "you need live streaming or a multi-source scene setup, and want a free, open-source tool on any desktop OS.",
     "strengths": [
       "Completely free and open source (GPL-2.0), on Windows, macOS (Intel and Apple Silicon) and Linux",
@@ -2251,7 +2251,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://support.apple.com/en-us/102618",
     "category": "free",
     "summary": "The Screenshot toolbar (Shift-Command-5) and QuickTime Player are the screen recording tools built into macOS, with simple trim, split and export in QuickTime Player.",
-    "differentiator": "CaptureCat is also free, but adds an editor with automatic zoom from recorded clicks, cursor smoothing with click ripples, on-device captions, blur and annotations, and records system audio on macOS 14 and later. macOS's own tools need no install and, on macOS 27, can now record system audio too.",
+    "differentiator": "CaptureCat is free for personal use, with recordings up to 5 minutes, and adds an editor with automatic zoom from recorded clicks, cursor smoothing with click ripples, on-device captions, blur and annotations, and records system audio on macOS 14 and later. macOS's own tools need no install and, on macOS 27, can now record system audio too.",
     "pickThemWhen": "you need a quick, unedited recording and are fine with trimming in QuickTime Player.",
     "strengths": [
       "Already on every Mac, with nothing to install or pay for.",
@@ -2295,7 +2295,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://getkap.co",
     "category": "free",
     "summary": "Kap is a free, open-source macOS screen recorder built on Electron that exports short recordings as GIF, MP4, WebM or APNG.",
-    "differentiator": "Like Kap, CaptureCat is free and open source (AGPL-3.0 rather than MIT), but CaptureCat is a native Swift/AppKit app rather than Electron and adds automatic zoom from recorded clicks, cursor smoothing with click ripples, on-device captions and system audio capture. CaptureCat also has a built-in MCP server so coding agents can record and edit.",
+    "differentiator": "Like Kap, CaptureCat is open source (AGPL-3.0 rather than MIT), but CaptureCat is a native Swift/AppKit app rather than Electron and adds automatic zoom from recorded clicks, cursor smoothing with click ripples, on-device captions and system audio capture. Kap is fully free, while CaptureCat is free for personal use with recordings up to 5 minutes and needs Pro for commercial use. CaptureCat also has a built-in MCP server so coding agents can record and edit.",
     "pickThemWhen": "you want a no-cost, open-source tool for short GIF or MP4 clips and don't need system audio, zooms or captions.",
     "strengths": [
       "Completely free and open source under the MIT licence.",
@@ -2318,7 +2318,7 @@ export const COMPETITORS: Competitor[] = [
       "macOS",
       "Free"
     ],
-    "switchTip": "Both apps are free, so you can install CaptureCat alongside Kap and compare on a real recording. Kap's plugins have no CaptureCat equivalent, so keep Kap if you rely on one of them.",
+    "switchTip": "You can install CaptureCat alongside Kap and compare on a real recording; CaptureCat's free tier covers personal use. Kap's plugins have no CaptureCat equivalent, so keep Kap if you rely on one of them.",
     "faqExtra": {
       "question": "Is Kap still maintained?",
       "answer": "Kap's latest release on GitHub is v3.6.0, published on 27 October 2022, and the most recent commit to the main branch is from February 2024. The app still downloads and runs on macOS 12 or later for Apple silicon and Intel."
@@ -2340,7 +2340,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://screenity.io",
     "category": "free",
     "summary": "Screenity is an open-source Chrome screen recorder extension with a paid, EU-hosted web editor for scenes, click zooms, captions and share links.",
-    "differentiator": "CaptureCat includes automatic zoom from clicks, cursor smoothing and on-device captions in its free tier, while Screenity puts zoom, captions and sharing in its paid editor. Both are open source; CaptureCat's whole app is AGPL-3.0, has a native macOS app plus a browser app, exports up to 4K 60 fps, and has a built-in MCP server.",
+    "differentiator": "CaptureCat includes automatic zoom from clicks, cursor smoothing and on-device captions in its free tier for personal use, while Screenity puts zoom, captions and sharing in its paid editor. Both are open source; CaptureCat's whole app is AGPL-3.0, has a native macOS app plus a browser app, exports up to 4K 60 fps, and has a built-in MCP server.",
     "pickThemWhen": "you work in Chrome on any OS and want a free open-source recorder, or a scene-based web editor with EU data hosting.",
     "strengths": [
       "Free, open-source (GPL-3.0) Chrome extension with drawing, live blur and system audio",
@@ -2379,7 +2379,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://getsharex.com",
     "category": "free",
     "summary": "ShareX is a free, open-source screenshot, screen recording and file-upload tool for Windows built around configurable capture workflows.",
-    "differentiator": "Both are free and open source (ShareX under GPL-3.0, CaptureCat under AGPL-3.0). ShareX is a screenshot and upload power tool; CaptureCat is built for polished recordings, with a full editor and, on Mac, automatic zoom, cursor smoothing and on-device captions. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
+    "differentiator": "Both are open source (ShareX under GPL-3.0, CaptureCat under AGPL-3.0); ShareX is fully free, while CaptureCat is free for personal use. ShareX is a screenshot and upload power tool; CaptureCat is built for polished recordings, with a full editor and, on Mac, automatic zoom, cursor smoothing and on-device captions. CaptureCat has no native Windows app: on Windows it runs as a browser app, where click-based auto zoom and cursor smoothing are not available (they need a Mac recording).",
     "pickThemWhen": "you mostly need fast screenshots, short clips or GIFs on Windows, uploaded automatically to your own storage, at no cost.",
     "strengths": [
       "Completely free and open source (GPL-3.0), with no ads and no account required",
@@ -2419,7 +2419,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://apps.apple.com/us/app/giphy-capture-the-gif-maker/id668208984?mt=12",
     "category": "free",
     "summary": "GIPHY Capture is GIPHY's free Mac app for recording short screen clips as GIFs or MP4s, with simple trimming, loop and caption-text options.",
-    "differentiator": "Both are free, but GIPHY Capture makes clips of up to 30 seconds for GIFs while CaptureCat records without a time limit and adds automatic zoom, cursor smoothing, on-device speech captions and 4K 60 fps export.",
+    "differentiator": "Both are free (CaptureCat for personal use), but GIPHY Capture makes clips of up to 30 seconds for GIFs while CaptureCat records up to 5 minutes on its free tier, or any length on Pro, and adds automatic zoom, cursor smoothing, on-device speech captions and 4K 60 fps export.",
     "pickThemWhen": "you want a free, quick way to turn a few seconds of screen into a GIF.",
     "strengths": [
       "Completely free with no watermark mentioned",
@@ -2477,7 +2477,7 @@ export const COMPETITORS: Competitor[] = [
       "Windows 11",
       "Free (built into Windows 11)"
     ],
-    "switchTip": "Keep Snipping Tool for one-off clips. For edited walkthroughs on Windows, open the CaptureCat browser app in Chrome or Edge; projects there are stored in the cloud storage that comes with Pro.",
+    "switchTip": "Keep Snipping Tool for one-off clips. For edited walkthroughs on Windows, open the CaptureCat browser app in Chrome or Edge; projects there are stored in your CaptureCat cloud storage (2 GB on Free).",
     "faqExtra": {
       "question": "Does Snipping Tool record audio?",
       "answer": "Yes. Since Snipping Tool version 11.2307.44.0 it can optionally record PC audio and a microphone, and you can choose the default audio settings and recording device."
@@ -2536,7 +2536,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.arcade.software",
     "category": "interactive",
     "summary": "Arcade is a web platform for building interactive click-through product demos and AI-generated product videos, captured with a Chrome extension or a Mac/Windows desktop app.",
-    "differentiator": "Arcade mainly produces interactive click-through demos hosted on its platform; CaptureCat produces real screen-recorded video with automatic zoom from recorded clicks, on-device captions and 4K 60 fps MP4/MOV export, all free with no watermark. Both offer an MCP server and share analytics, but CaptureCat's MCP records, edits and exports video, and CaptureCat is open source (AGPL-3.0).",
+    "differentiator": "Arcade mainly produces interactive click-through demos hosted on its platform; CaptureCat produces real screen-recorded video with automatic zoom from recorded clicks, on-device captions and 4K 60 fps MP4/MOV export, all free for personal use with no watermark; product demos for work need Pro. Both offer an MCP server and share analytics, but CaptureCat's MCP records, edits and exports video, and CaptureCat is open source (AGPL-3.0).",
     "pickThemWhen": "you want viewers to click through your product themselves on a website or in a sales email, with analytics on who engaged.",
     "strengths": [
       "Click-through HTML demos with hotspots, branching, CTAs and lead forms",
@@ -2559,7 +2559,7 @@ export const COMPETITORS: Competitor[] = [
       "Web + Chrome ext + Mac/Windows apps",
       "Free · Growth $50/seat/mo ($42.50/mo yearly)"
     ],
-    "switchTip": "Keep Arcade for embedded click-through demos and use CaptureCat when you need a narrated video file; CaptureCat's free tier exports full-quality video without a watermark, so you can try it on one walkthrough first.",
+    "switchTip": "Keep Arcade for embedded click-through demos and use CaptureCat when you need a narrated video file. CaptureCat exports full-quality video without a watermark, so you can try it on one walkthrough first; product demos for work need CaptureCat Pro.",
     "faqExtra": {
       "question": "Can Arcade export a demo as a video file?",
       "answer": "Yes, on the Growth plan Arcade exports demos as MP4 or GIF, but its docs say video exports do not include closed captions."
@@ -2580,7 +2580,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.clueso.io",
     "category": "interactive",
     "summary": "Clueso is an AI video platform that turns screen recordings, slides and documents into narrated product videos and step-by-step help articles.",
-    "differentiator": "Clueso matches CaptureCat on automatic zoom, cursor highlights and an MCP server, and adds AI voiceovers and article generation. CaptureCat runs captions on-device, exports 4K 60 fps without a watermark or a monthly export cap on its free tier, records iPhone/iPad over USB, and is open source (AGPL-3.0).",
+    "differentiator": "Clueso matches CaptureCat on automatic zoom, cursor highlights and an MCP server, and adds AI voiceovers and article generation. CaptureCat runs captions on-device, exports 4K 60 fps without a watermark or a monthly export cap on its free tier (personal use, recordings up to 5 minutes), records iPhone/iPad over USB, and is open source (AGPL-3.0).",
     "pickThemWhen": "you produce training or help-center content and want AI voiceover, translation and written guides generated from one recording.",
     "strengths": [
       "Automatic zooms when recording with its Chrome extension, plus click highlights",
@@ -2603,7 +2603,7 @@ export const COMPETITORS: Competitor[] = [
       "Web + Chrome extension + desktop app",
       "Free · Solo $40/mo · Business $120/mo (billed yearly)"
     ],
-    "switchTip": "If you rely on Clueso's AI voiceover and articles, keep it for that; if you narrate yourself and hit the export-minute caps, CaptureCat's free tier has no export limit or watermark.",
+    "switchTip": "If you rely on Clueso's AI voiceover and articles, keep it for that; if you narrate yourself and hit the export-minute caps, CaptureCat has no export limit or watermark. Its free tier is for personal use, and Pro covers work videos.",
     "sources": [
       "https://www.clueso.io/pricing",
       "https://help.clueso.io/elements/zooms/add-zoom.md",
@@ -2620,7 +2620,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.storylane.io",
     "category": "interactive",
     "summary": "Storylane is an interactive demo platform that captures products as screenshot or HTML demos (or video via its desktop app) and exports them as MP4 or GIF when needed.",
-    "differentiator": "Storylane focuses on interactive HTML and screenshot demos with sales personalization; CaptureCat is a screen recorder and video editor with automatic zoom from recorded clicks, cursor smoothing, on-device captions and watermark-free 4K 60 fps export for free. Both offer an MCP server; CaptureCat's records, edits and exports video.",
+    "differentiator": "Storylane focuses on interactive HTML and screenshot demos with sales personalization; CaptureCat is a screen recorder and video editor with automatic zoom from recorded clicks, cursor smoothing, on-device captions and watermark-free 4K 60 fps export, free for personal use and on Pro for work. Both offer an MCP server; CaptureCat's records, edits and exports video.",
     "pickThemWhen": "you sell a web product and want personalized, editable HTML demos on your site and in sales outreach.",
     "strengths": [
       "HTML demos that let you edit text and data inside the captured product",
@@ -2661,7 +2661,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://supademo.com",
     "category": "interactive",
     "summary": "Supademo is a web platform for building guided interactive product demos and 4K screen-recorded videos, with AI voiceovers, demo hubs and lead analytics.",
-    "differentiator": "Supademo is built around guided interactive demos for sales and marketing; CaptureCat is a video recorder and editor, with automatic zoom from recorded clicks, on-device captions and watermark-free 4K 60 fps export on its free tier. Both offer an MCP server; CaptureCat's records, edits and exports video, and CaptureCat is open source (AGPL-3.0).",
+    "differentiator": "Supademo is built around guided interactive demos for sales and marketing; CaptureCat is a video recorder and editor, with automatic zoom from recorded clicks, on-device captions and watermark-free 4K 60 fps export on its free tier for personal use, with Pro for work. Both offer an MCP server; CaptureCat's records, edits and exports video, and CaptureCat is open source (AGPL-3.0).",
     "pickThemWhen": "your team wants interactive demos and quick recorded videos side by side, with lead capture and trackable links for sales.",
     "strengths": [
       "Generous free tier: 5 interactive demos and 50 4K video recordings",
@@ -2684,7 +2684,7 @@ export const COMPETITORS: Competitor[] = [
       "Web + Chrome ext; Mac/Win app (paid)",
       "Free · Scale $50/creator/mo ($38/mo yearly) · Business $249/mo"
     ],
-    "switchTip": "If you mostly use Supademo's video recordings rather than its interactive demos, record the same walkthrough in CaptureCat and compare the free 4K export with Supademo's free 1080p watermarked MP4.",
+    "switchTip": "If you mostly use Supademo's video recordings rather than its interactive demos, record the same walkthrough in CaptureCat and compare the 4K export with Supademo's free 1080p watermarked MP4; for work videos you will need CaptureCat Pro.",
     "sources": [
       "https://supademo.com/pricing",
       "https://supademo.com/blog/auto-zoom-scroll-view-ux-improvements",
@@ -2699,7 +2699,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.synthesia.io",
     "category": "interactive",
     "summary": "Synthesia is an AI avatar video platform that includes an AI screen recorder browser extension for adding narrated screen captures to training and product videos.",
-    "differentiator": "Synthesia centres on AI avatars and localization; CaptureCat is a screen recorder with automatic zoom from recorded clicks, cursor smoothing, on-device captions and watermark-free 4K 60 fps export on its free tier. Both offer an MCP server and share analytics; CaptureCat's MCP records and edits screen video, while Synthesia's creates avatar video drafts.",
+    "differentiator": "Synthesia centres on AI avatars and localization; CaptureCat is a screen recorder with automatic zoom from recorded clicks, cursor smoothing, on-device captions and watermark-free 4K 60 fps export on its free tier for personal use. Both offer an MCP server and share analytics; CaptureCat's MCP records and edits screen video, while Synthesia's creates avatar video drafts.",
     "pickThemWhen": "you make training or onboarding videos at scale and want AI avatars, translation and LMS export around your screen recordings.",
     "strengths": [
       "AI avatars and voice cloning can present or narrate around your screen recording",
@@ -2741,7 +2741,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.trupeer.ai",
     "category": "interactive",
     "summary": "Trupeer is an AI tool that turns Chrome-extension screen recordings into polished product videos with AI voiceover, auto zoom, and matching written documentation.",
-    "differentiator": "Trupeer matches CaptureCat on automatic click zoom; it adds AI voiceovers and docs. CaptureCat is free with no time-limited trial, no recording-length caps and no watermark, runs captions on-device, records native apps and iPhone/iPad (not just the browser), and its MCP server can record, edit and export rather than only search.",
+    "differentiator": "Trupeer matches CaptureCat on automatic click zoom; it adds AI voiceovers and docs. CaptureCat has a free tier for personal use with no time-limited trial or watermark (recordings up to 5 minutes; Pro has no length cap), runs captions on-device, records native apps and iPhone/iPad (not just the browser), and its MCP server can record, edit and export rather than only search.",
     "pickThemWhen": "you want an AI voice to replace your own narration and need videos and documentation generated from the same recording.",
     "strengths": [
       "Automatic zoom on every click and action, added after recording",
@@ -2764,7 +2764,7 @@ export const COMPETITORS: Competitor[] = [
       "Browser (Chrome extension)",
       "Pro $49/mo ($40/mo yearly) · Scale $249/mo ($199 yearly)"
     ],
-    "switchTip": "Record the same walkthrough in CaptureCat's free tier before your Trupeer trial ends and compare; CaptureCat keeps your own voice, so script your narration if you were relying on Trupeer's AI voiceover.",
+    "switchTip": "Record the same walkthrough in CaptureCat before your Trupeer trial ends and compare (work videos need CaptureCat Pro); CaptureCat keeps your own voice, so script your narration if you were relying on Trupeer's AI voiceover.",
     "sources": [
       "https://www.trupeer.ai/pricing",
       "https://www.trupeer.ai/video",
@@ -2778,7 +2778,7 @@ export const COMPETITORS: Competitor[] = [
     "website": "https://www.vibrantsnap.com",
     "category": "interactive",
     "summary": "Vibrantsnap is a browser-based AI demo video tool that records with a Chrome extension, rewrites and re-voices your narration, and adds click zooms and captions.",
-    "differentiator": "Vibrantsnap leans on AI script rewriting and voiceover; CaptureCat keeps your own voice and gives you automatic zoom from recorded clicks in any app (not only web pages), cursor smoothing, on-device captions and unmetered 4K 60 fps export with no watermark on its free tier, plus a built-in MCP server.",
+    "differentiator": "Vibrantsnap leans on AI script rewriting and voiceover; CaptureCat keeps your own voice and gives you automatic zoom from recorded clicks in any app (not only web pages), cursor smoothing, on-device captions and unmetered 4K 60 fps export with no watermark on its free tier (personal use, recordings up to 5 minutes), plus a built-in MCP server.",
     "pickThemWhen": "you dislike your recorded narration and want an AI voice and rewritten script for customer-facing walkthroughs.",
     "strengths": [
       "Rewrites your narration into a clean script and reads it in one of 30 studio voices across 10 languages",

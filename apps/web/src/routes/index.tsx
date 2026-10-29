@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { ORGANIZATION_JSON_LD, jsonLd } from "@/lib/json-ld";
 import { pageHead } from "@/lib/site-content";
+import { CAPTURECAT_OFFERS } from "@/lib/pseo-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
 import Hero from "@/components/marketing/home/Hero";
@@ -29,7 +30,7 @@ const jsonLdData = {
       description:
         "A native screen recorder for Mac that adds zooms, smooths the cursor, and writes captions automatically, with share links and viewer analytics.",
       url: "https://capturecat.so",
-      offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      offers: CAPTURECAT_OFFERS,
       publisher: { "@id": ORGANIZATION_JSON_LD["@id"] },
     },
     {

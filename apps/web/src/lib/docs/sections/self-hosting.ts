@@ -9,7 +9,8 @@ import type { DocSection } from "../types";
  * src/routes/attest.ts, src/routes/screenshot.ts, migrations/*), apps/web and
  * apps/admin (wrangler.jsonc, package.json, src/server.ts, lib/api-url.ts,
  * lib/plan-fields.ts), and apps/macos (project.pbxproj, package.json,
- * scripts/*.sh, Services/AuthService.swift).
+ * scripts/*.sh, Services/AuthService.swift). The commercialUse and agent*
+ * feature rows: migrations 0034 and 0039, admin lib/plan-fields.ts.
  *
  * No real ids here: every account, database or zone id is a placeholder.
  */
@@ -70,9 +71,10 @@ npm run dev                                  # http://localhost:8787`;
 const LIST_PLANS = `npx wrangler d1 execute capturecat --remote \\
   --command "SELECT name, is_active, features, limits FROM plan"`;
 
-const FREE_PLAN_SQL = `-- free-plan.sql: let every signed-in user share, with 20 GB each
+const FREE_PLAN_SQL = `-- free-plan.sql: no recording cap and sharing for every signed-in user, 20 GB each
 UPDATE plan
    SET features = json_set(features,
+         '$.commercialUse', json('true'),
          '$.cloudShare', json('true'),
          '$.comments', json('true'),
          '$.customStorage', json('true')),
@@ -418,6 +420,7 @@ export const SELF_HOSTING: DocSection = {
           type: "table",
           head: ["Key", "Admin console label", "What it gates", "Also needs"],
           rows: [
+            ["`commercialUse`", "Commercial use", "Commercial use, and recordings of any length. Without it, the Mac and web recorders stop each recording at 5 minutes. The recorders enforce it themselves and read the flag from `GET /api/me`, so a Mac that is not signed in to your server is always capped.", "Nothing"],
             ["`cloudShare`", "Cloud sharing", "Uploading and share links. Also checked when a share is viewed, so turning it off pauses existing links.", "The R2 secrets"],
             ["`comments`", "Comments", "Viewer comments on shares.", "`cloudShare`"],
             ["`imageUpload`", "Screenshots", "Storing rendered screenshots in the cloud.", "Storage space"],
@@ -428,15 +431,24 @@ export const SELF_HOSTING: DocSection = {
             ["`customDomain`", "Custom domain", "Share pages on the user's own domain.", "`CF_ZONE_ID`, `CF_SAAS_API_TOKEN`"],
             ["`aiSummaries`", "AI summaries", "Server-side AI titles, summaries and chapters.", "`GEMINI_API_KEY`"],
             ["`customStorage`", "Custom storage", "Share videos in the user's own S3-compatible bucket.", "`STORAGE_CREDENTIALS_KEY`"],
+            ["`agentAccess`", "Agent access", "Agent tokens, OAuth connectors and the remote MCP server. Checked on every `/mcp` request.", "Nothing; the API Worker serves `/mcp`"],
+            ["`agentWebhooks`", "Agent webhooks", "Signed webhooks to the user's own endpoints.", "Nothing"],
+            ["`agentEditing`", "Agent editing", "The cloud-project editing tools on the remote MCP server.", "`agentAccess`"],
             ["`removeWatermark`", "No watermark", "Nothing at present: no CaptureCat mark is added to exports on any plan.", "Nothing"],
           ],
+        },
+        {
+          type: "callout",
+          tone: "tip",
+          title: "The 5-minute cap is a plan setting",
+          text: "The seeded `free` row leaves `commercialUse` off, as capturecat.so does, so Free users' recordings stop at 5 minutes. On your own server it's your choice: tick **Commercial use** on the free plan in the admin console, or set it with the SQL below, and signed-in users record for as long as they like.",
         },
         { type: "h2", text: "Limits" },
         {
           type: "table",
           head: ["Key", "Meaning", "When 0"],
           rows: [
-            ["`maxTotalStorageBytes`", "Total cloud storage per user, in bytes", "No uploads, except to the user's own bucket"],
+            ["`maxTotalStorageBytes`", "Total cloud storage per user, in bytes. Also checked when a share is viewed: a user over it (say, after moving from Pro to Free) has every link paused until they are back under it.", "No uploads, except to the user's own bucket"],
             ["`maxFileSizeBytes`", "Largest single share upload, in bytes", "No uploads"],
             ["`maxDurationSeconds`", "Longest shared video, in seconds", "No length limit"],
             ["`maxUploadsPerDay`", "New shares per UTC day", "No uploads"],
@@ -507,7 +519,7 @@ export const SELF_HOSTING: DocSection = {
         },
       ],
       related: ["self-hosting/api", "account/plans", "custom-storage"],
-      lastModified: CHECKED,
+      lastModified: "2026-10-29",
     },
     {
       slug: "self-hosting/web",

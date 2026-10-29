@@ -13,16 +13,19 @@ import type { DocSection } from "../types";
  * routes/{share.$videoId,embed.$videoId,$username}.tsx, routes/api/oembed.ts,
  * public/embed.js, server.ts; apps/api: routes/{video,upload,hub,analytics,
  * profile,playlists}.ts, lib/upload-policy.ts, lib/plans.ts and the plan rows
- * in migrations 0008, 0016, 0023, 0025 and 0029.
+ * in migrations 0008, 0016, 0023, 0025, 0029 and 0039 (Free's 2 GB allowance;
+ * routes/video.ts shareGate pauses an owner's links when they are over storage).
  */
 const CHECKED = "2026-10-07";
+/** Pages whose plan wording changed when Free became personal use with a 2 GB allowance. */
+const PLAN_UPDATED = "2026-10-29";
 
 const SCRIPT_EMBED = `<script async src="https://capturecat.so/embed.js" data-capturecat-id="VIDEO_ID"></script>`;
 
 const IFRAME_EMBED = `<iframe src="https://capturecat.so/embed/VIDEO_ID" width="800" height="450" frameborder="0" allow="fullscreen" allowfullscreen style="aspect-ratio:16/9;width:100%;height:auto"></iframe>`;
 
 const PLAN_PAUSE_TEXT =
-  "Share links are part of Pro. If your plan ends, every link shows viewers that the share is paused because the owner's plan no longer includes cloud sharing. The files are kept, and resubscribing brings every link back.";
+  "Free includes short share links: videos up to 5 minutes, 10 new shares a day and 2 GB in total. Pro has far more room. If a Pro plan ends, your links keep playing while everything you've stored fits in Free's 2 GB. Past that, every link shows viewers that the share is paused. The files are kept, and getting back under 2 GB or subscribing again brings every link back.";
 
 export const EXPORT_AND_SHARING: DocSection = {
   id: "export-and-sharing",
@@ -35,9 +38,9 @@ export const EXPORT_AND_SHARING: DocSection = {
       title: "Export a screen recording to MP4 or MOV",
       navTitle: "Export to MP4 or MOV",
       description:
-        "Export CaptureCat recordings to MP4 or MOV at 720p, 1080p, 4K or a custom size, 30 or 60 fps, with a live bitrate estimate. Free, with no watermark.",
+        "Export CaptureCat recordings to MP4 or MOV at 720p, 1080p, 4K or a custom size, 30 or 60 fps, with a live bitrate estimate. No watermark on any plan.",
       summary:
-        "Click **Export…** in the editor, choose a format, resolution, frame rate and quality, and CaptureCat renders the file on your own device. Exporting is free on every plan and adds no watermark.",
+        "Click **Export…** in the editor, choose a format, resolution, frame rate and quality, and CaptureCat renders the file on your own device. Exporting is included on every plan, Free too, and adds no watermark.",
       platforms: ["mac", "web"],
       blocks: [
         { type: "h2", text: "Export a video" },
@@ -133,7 +136,7 @@ export const EXPORT_AND_SHARING: DocSection = {
         {
           type: "callout",
           tone: "tip",
-          text: "Exporting files is free on every plan, with every effect, up to 4K at 60 fps and with no CaptureCat watermark. The paid part is hosting: share links, comments and analytics. See [Plans](/docs/account/plans).",
+          text: "Exporting files is included on every plan, with every effect, up to 4K at 60 fps and with no CaptureCat watermark. Free is for personal use, with recordings up to 5 minutes; commercial use needs Pro, which also adds comments, analytics and more storage. See [Plans](/docs/account/plans).",
         },
       ],
       faqs: [
@@ -159,7 +162,7 @@ export const EXPORT_AND_SHARING: DocSection = {
         },
       ],
       related: ["export-and-sharing/gif", "export-and-sharing/share-links", "editing/framing", "account/plans"],
-      lastModified: CHECKED,
+      lastModified: PLAN_UPDATED,
     },
 
     // ── GIF ───────────────────────────────────────────────────────────────
@@ -253,7 +256,6 @@ export const EXPORT_AND_SHARING: DocSection = {
       summary:
         "Turn on **Share link after export** in the export sheet, or choose **Share…** on a project, and CaptureCat uploads the video in the background and gives you a `capturecat.so/share/…` link. Viewers watch in any browser without an account.",
       platforms: ["mac", "web"],
-      plan: "pro",
       blocks: [
         { type: "h2", text: "Share from the Mac app" },
         {
@@ -359,7 +361,7 @@ export const EXPORT_AND_SHARING: DocSection = {
         {
           question: "Is CaptureCat a Loom alternative for sharing screen recordings?",
           answer:
-            "Yes. CaptureCat records and edits on your Mac or in the browser, then gives you a share link with a watch page, transcript, timestamped comments, reactions and viewer analytics. Recording, editing and exporting are free; only the hosted link is paid.",
+            "Yes. CaptureCat records and edits on your Mac or in the browser, then gives you a share link with a watch page, transcript, timestamped comments, reactions and viewer analytics. Free covers personal use and short links (videos up to 5 minutes, without comments or analytics); work videos, longer links and the full features need Pro.",
         },
         {
           question: "Do viewers need a CaptureCat account to watch?",
@@ -382,7 +384,7 @@ export const EXPORT_AND_SHARING: DocSection = {
         "export-and-sharing/analytics",
         "export-and-sharing/embed",
       ],
-      lastModified: CHECKED,
+      lastModified: PLAN_UPDATED,
     },
 
     // ── Share controls ────────────────────────────────────────────────────
@@ -504,7 +506,7 @@ export const EXPORT_AND_SHARING: DocSection = {
         },
       ],
       related: ["export-and-sharing/share-links", "export-and-sharing/analytics", "export-and-sharing/embed", "teams/custom-domains"],
-      lastModified: CHECKED,
+      lastModified: PLAN_UPDATED,
     },
 
     // ── Comments and reactions ────────────────────────────────────────────

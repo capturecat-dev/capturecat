@@ -24,8 +24,8 @@
       "Editing is limited to trimming; there is no zoom, caption or timeline editor."
     ],
     "pickThemWhen": "you want a no-cost, open-source tool for short GIF or MP4 clips and don't need system audio, zooms or captions.",
-    "differentiator": "Like Kap, CaptureCat is free and open source (AGPL-3.0 rather than MIT), but CaptureCat is a native Swift/AppKit app rather than Electron and adds automatic zoom from recorded clicks, cursor smoothing with click ripples, on-device captions and system audio capture. CaptureCat also has a built-in MCP server so coding agents can record and edit.",
-    "switchTip": "Both apps are free, so you can install CaptureCat alongside Kap and compare on a real recording. Kap's plugins have no CaptureCat equivalent, so keep Kap if you rely on one of them.",
+    "differentiator": "Like Kap, CaptureCat is open source (AGPL-3.0 rather than MIT), but CaptureCat is a native Swift/AppKit app rather than Electron and adds automatic zoom from recorded clicks, cursor smoothing with click ripples, on-device captions and system audio capture. Kap is fully free, while CaptureCat is free for personal use with recordings up to 5 minutes and needs Pro for commercial use. CaptureCat also has a built-in MCP server so coding agents can record and edit.",
+    "switchTip": "You can install CaptureCat alongside Kap and compare on a real recording; CaptureCat's free tier covers personal use. Kap's plugins have no CaptureCat equivalent, so keep Kap if you rely on one of them.",
     "faqExtra": {
       "question": "Is Kap still maintained?",
       "answer": "Kap's latest release on GitHub is v3.6.0, published on 27 October 2022, and the most recent commit to the main branch is from February 2024. The app still downloads and runs on macOS 12 or later for Apple silicon and Intel."
@@ -112,7 +112,7 @@
       "System audio needs macOS 27 or later; on earlier versions only microphone audio is recorded, and some apps (such as the Apple TV app) block audio capture."
     ],
     "pickThemWhen": "you need a quick, unedited recording and are fine with trimming in QuickTime Player.",
-    "differentiator": "CaptureCat is also free, but adds an editor with automatic zoom from recorded clicks, cursor smoothing with click ripples, on-device captions, blur and annotations, and records system audio on macOS 14 and later. macOS's own tools need no install and, on macOS 27, can now record system audio too.",
+    "differentiator": "CaptureCat is free for personal use, with recordings up to 5 minutes, and adds an editor with automatic zoom from recorded clicks, cursor smoothing with click ripples, on-device captions, blur and annotations, and records system audio on macOS 14 and later. macOS's own tools need no install and, on macOS 27, can now record system audio too.",
     "switchTip": "QuickTime and Screenshot recordings are standard .mov files, so keep using them for throwaway clips and use CaptureCat when a recording needs zooms, captions or a polished export.",
     "faqExtra": {
       "question": "Can the Mac's built-in screen recorder capture system audio?",
@@ -198,7 +198,7 @@
       "Mac only, and the stock media library is a separate $99/yr subscription after the first year."
     ],
     "pickThemWhen": "you want a mature, timeline-based Mac video editor you pay for once and are happy to place zooms and callouts by hand.",
-    "differentiator": "ScreenFlow is a deeper general-purpose editor; CaptureCat focuses on screen recordings, adding zoom automatically from recorded clicks, generating on-device captions, and offering share links with analytics on Pro. CaptureCat's core app is free and open source (AGPL-3.0) and has a built-in MCP server for coding agents.",
+    "differentiator": "ScreenFlow is a deeper general-purpose editor; CaptureCat focuses on screen recordings, adding zoom automatically from recorded clicks, generating on-device captions, and offering share links with analytics on Pro. CaptureCat's app is free for personal use, with Pro for commercial use, is open source (AGPL-3.0) and has a built-in MCP server for coding agents.",
     "switchTip": "ScreenFlow projects (.screenflow) don't open in CaptureCat, so finish open projects in ScreenFlow and start new recordings in CaptureCat. Both run natively on Apple silicon and Intel Macs.",
     "faqExtra": {
       "question": "Can ScreenFlow record system audio without extra software?",
@@ -285,7 +285,7 @@
       "Share pages show a total view count but no watch-time analytics."
     ],
     "pickThemWhen": "you edit talking-head, podcast or narrated videos and want to cut by editing the transcript.",
-    "differentiator": "Descript and CaptureCat both offer an official MCP server, but CaptureCat's can also start recordings and render frames, and it runs locally. CaptureCat adds zoom automatically from recorded clicks, runs captions on-device, has no media-hour caps or watermark on its free tier, and its share links track watch time and retention.",
+    "differentiator": "Descript and CaptureCat both offer an official MCP server, but CaptureCat's can also start recordings and render frames, and it runs locally. CaptureCat adds zoom automatically from recorded clicks, runs captions on-device, has no media-hour caps or watermark on its free tier (which is for personal use, with recordings up to 5 minutes), and its share links track watch time and retention.",
     "switchTip": "Export finished Descript videos as MP4 before switching, since Descript projects don't open elsewhere. If you rely on transcript-based editing or Rooms remote recording, keep Descript for that work and use CaptureCat for screen demos.",
     "faqExtra": {
       "question": "Does Descript have an MCP server?",
@@ -371,7 +371,7 @@
       "The animated cursor (smoothing, click effects) only works for Mac and Windows app recordings, and 60 fps export is Premium-only."
     ],
     "pickThemWhen": "you want polished, hosted demo videos with team workspaces and detailed viewer analytics, and a per-seat subscription fits your budget.",
-    "differentiator": "Tella matches CaptureCat on automatic zoom from clicks, cursor smoothing, share analytics and an official MCP server. CaptureCat differs by being free for recording, editing and 4K export, running captions on-device, editing locally in a native Mac app, and being open source; Tella has a native Windows app and team plans, which CaptureCat doesn't yet.",
+    "differentiator": "Tella matches CaptureCat on automatic zoom from clicks, cursor smoothing, share analytics and an official MCP server. CaptureCat differs by being free for personal use for recording, editing and 4K export (commercial use needs Pro), running captions on-device, editing locally in a native Mac app, and being open source; Tella has a native Windows app and team plans, which CaptureCat doesn't yet.",
     "switchTip": "Download your Tella videos (and SRT subtitles if you need them) before your subscription ends, since recording, editing and exporting stop when it lapses. Re-record or import the MP4s into CaptureCat, and move share links over only for videos people still watch.",
     "faqExtra": {
       "question": "Does Tella have a free plan?",
@@ -459,7 +459,7 @@
       "AI captions require a Screencast Pro subscription and are English only."
     ],
     "pickThemWhen": "your work is mostly annotated screenshots and how-to guides, with the occasional quick screen video.",
-    "differentiator": "Snagit is a screenshot-first tool; CaptureCat is video-first, with automatic zoom from recorded clicks, cursor smoothing and click ripples applied after recording, and on-device captions, all in a free tier. Snagit runs natively on Windows, while CaptureCat's Windows option is its browser app.",
+    "differentiator": "Snagit is a screenshot-first tool; CaptureCat is video-first, with automatic zoom from recorded clicks, cursor smoothing and click ripples applied after recording, and on-device captions, all in a free tier for personal use. Snagit runs natively on Windows, while CaptureCat's Windows option is its browser app.",
     "switchTip": "Keep Snagit if you rely on its screenshot and Step Capture features; CaptureCat can take over the screen video work. Snagit videos are standard MP4s you can keep or re-share as-is.",
     "faqExtra": {
       "question": "Is Snagit still a one-time purchase?",

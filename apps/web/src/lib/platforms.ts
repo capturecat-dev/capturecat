@@ -95,8 +95,8 @@ export const PLATFORM_ROWS: PlatformRow[] = [
   {
     label: "Where projects live",
     mac: "On your Mac. Free.",
-    web: "In your CaptureCat cloud storage, which comes with Pro",
-    sources: ["apps/api/src/routes/cloud-projects.ts (plan storage gate)", "apps/api/migrations/0008_plans.sql (free plan: no storage)"],
+    web: "In your CaptureCat cloud storage: 2 GB on Free, more with Pro",
+    sources: ["apps/api/src/routes/cloud-projects.ts (plan storage gate)", "apps/api/migrations/0039_personal_use.sql (free plan: 2 GB)"],
   },
 ];
 

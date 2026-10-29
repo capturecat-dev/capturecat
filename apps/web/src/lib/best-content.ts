@@ -80,6 +80,10 @@ function isRealFreeTier(cell: FeatureCell): boolean {
 }
 const hasRealFreeTier = (c: Competitor) => isRealFreeTier(c.features[ROW.free]);
 
+/** When CaptureCat's own notes last changed (2026-10-29: Free became personal
+ *  use with 5-minute recordings). Competitor facts are still FACTS_CHECKED. */
+const LAST_MODIFIED = "2026-10-29";
+
 export const BEST_LISTS: BestList[] = [
   {
     slug: "screen-recorder-for-mac",
@@ -94,9 +98,9 @@ export const BEST_LISTS: BestList[] = [
     criteria: [ROW.autoZoom, ROW.cursor, ROW.captions, ROW.share, ROW.free],
     capturecat: {
       position: "first",
-      note: "Native Mac app with automatic zoom from your clicks, cursor smoothing, and on-device captions, all free. Share links with analytics on Pro.",
+      note: "Native Mac app with automatic zoom from your clicks, cursor smoothing, and on-device captions, all free for personal use with recordings up to 5 minutes. Pro covers commercial use and longer recordings, and adds share links with analytics.",
     },
-    lastModified: FACTS_CHECKED,
+    lastModified: LAST_MODIFIED,
   },
   {
     slug: "free-screen-recorder-for-mac",
@@ -104,16 +108,16 @@ export const BEST_LISTS: BestList[] = [
     description:
       "Free Mac screen recorders that are actually free to use, not just a trial: what each free tier includes and where the limits are.",
     intro:
-      "Plenty of recorders call themselves free and then cap the length, add a watermark, or lock export. This list only includes products with a free tier you can keep using, and says what the limits are.",
+      "Plenty of recorders call themselves free and then turn out to be a trial, add a watermark, or lock export. This list only includes products with a free tier you can keep using, and says what the limits are, including length caps and personal-use-only terms.",
     criteriaText:
       "Runs on macOS and has an ongoing free tier (trials excluded). Ranked by what the free tier includes.",
     include: (c) => runsOnMac(c) && hasRealFreeTier(c),
     criteria: [ROW.free, ROW.autoZoom, ROW.cursor, ROW.captions, ROW.openSource],
     capturecat: {
       position: "first",
-      note: "Recording, the full editor, automatic zoom, captions, and 4K export are free with no watermark and no time limit.",
+      note: "Free for personal use: the full editor, automatic zoom, cursor smoothing, captions, and 4K export, with no watermark and no account. Each recording stops at 5 minutes, and commercial use needs Pro. OBS Studio, Kap, and QuickTime, further down, have neither limit.",
     },
-    lastModified: FACTS_CHECKED,
+    lastModified: LAST_MODIFIED,
   },
   {
     slug: "screen-studio-alternatives",
@@ -130,9 +134,9 @@ export const BEST_LISTS: BestList[] = [
     criteria: [ROW.autoZoom, ROW.cursor, ROW.captions, ROW.free, ROW.share],
     capturecat: {
       position: "first",
-      note: "Automatic zoom from recorded clicks and cursor smoothing like Screen Studio, with on-device captions and a free full editor.",
+      note: "Automatic zoom from recorded clicks and cursor smoothing like Screen Studio, with on-device captions and the full editor free for personal use (recordings up to 5 minutes). Commercial use needs Pro.",
     },
-    lastModified: FACTS_CHECKED,
+    lastModified: LAST_MODIFIED,
   },
   {
     slug: "loom-alternatives",
@@ -148,9 +152,9 @@ export const BEST_LISTS: BestList[] = [
     criteria: [ROW.share, ROW.captions, ROW.free, ROW.autoZoom, ROW.cursor],
     capturecat: {
       position: "first",
-      note: "Share links with timestamped comments and views, watch time, and retention on Pro, plus a free editor that adds zooms and captions before you share.",
+      note: "Share links with timestamped comments and views, watch time, and retention on Pro, which work videos need, plus an editor that adds zooms and captions before you share. Free covers personal use, with recordings up to 5 minutes.",
     },
-    lastModified: FACTS_CHECKED,
+    lastModified: LAST_MODIFIED,
   },
   {
     slug: "open-source-screen-recorders",
@@ -167,7 +171,7 @@ export const BEST_LISTS: BestList[] = [
       position: "first",
       note: "The Mac app, the API, and the website are one public repository under the AGPL-3.0.",
     },
-    lastModified: FACTS_CHECKED,
+    lastModified: LAST_MODIFIED,
   },
   {
     slug: "auto-zoom-screen-recorders",
@@ -182,9 +186,9 @@ export const BEST_LISTS: BestList[] = [
     criteria: [ROW.cursor, ROW.captions, ROW.free, ROW.share, ROW.mcp],
     capturecat: {
       position: "first",
-      note: "Zooms are placed from recorded clicks: tight clusters push in deeper, typing extends the hold. Free.",
+      note: "Zooms are placed from recorded clicks: tight clusters push in deeper, typing extends the hold. Free for personal use; commercial use needs Pro.",
     },
-    lastModified: FACTS_CHECKED,
+    lastModified: LAST_MODIFIED,
   },
   {
     slug: "screen-recorder-for-product-demos",
@@ -199,9 +203,9 @@ export const BEST_LISTS: BestList[] = [
     criteria: [ROW.autoZoom, ROW.cursor, ROW.captions, ROW.share, ROW.free],
     capturecat: {
       position: "first",
-      note: "Records once and applies the zooms, cursor smoothing, and captions automatically; exports 4K or shares a link with analytics.",
+      note: "Records once and applies the zooms, cursor smoothing, and captions automatically; exports 4K or shares a link with analytics. A demo of a product you sell is commercial use, so it needs Pro.",
     },
-    lastModified: FACTS_CHECKED,
+    lastModified: LAST_MODIFIED,
   },
   {
     slug: "screen-recorders-for-ai-agents",
@@ -218,7 +222,7 @@ export const BEST_LISTS: BestList[] = [
       position: "first",
       note: "A built-in MCP server with 28 tools: record, read clicks and transcripts, add zooms and blurs, render frames to check the edit, and export.",
     },
-    lastModified: FACTS_CHECKED,
+    lastModified: LAST_MODIFIED,
   },
   {
     slug: "screen-recorder-for-windows",
@@ -241,7 +245,7 @@ export const BEST_LISTS: BestList[] = [
         [ROW.platform]: "Browser (no Windows app)",
       },
     },
-    lastModified: FACTS_CHECKED,
+    lastModified: LAST_MODIFIED,
   },
 ];
 

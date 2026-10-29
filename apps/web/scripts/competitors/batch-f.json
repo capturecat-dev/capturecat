@@ -106,7 +106,7 @@
     ],
     "pickThemWhen": "you need a quick region recording on Windows 11 with nothing to install.",
     "differentiator": "CaptureCat adds a full editor and, on Pro, share links with viewer analytics, where Snipping Tool records and trims. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
-    "switchTip": "Keep Snipping Tool for one-off clips. For edited walkthroughs on Windows, open the CaptureCat browser app in Chrome or Edge; projects there are stored in the cloud storage that comes with Pro.",
+    "switchTip": "Keep Snipping Tool for one-off clips. For edited walkthroughs on Windows, open the CaptureCat browser app in Chrome or Edge; projects there are stored in your CaptureCat cloud storage (2 GB on Free).",
     "faqExtra": {
       "question": "Does Snipping Tool record audio?",
       "answer": "Yes. Since Snipping Tool version 11.2307.44.0 it can optionally record PC audio and a microphone, and you can choose the default audio settings and recording device."
@@ -266,7 +266,7 @@
       "AI subtitles are metered: 10 minutes on the free tier, 120 on paid, then extra credits."
     ],
     "pickThemWhen": "you are on Windows and want a free, unwatermarked recorder with an optional low-cost editor.",
-    "differentiator": "On a Mac, CaptureCat applies zoom automatically from recorded clicks and runs captions on-device, both free. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there. FlashBack's paid Smart Zoom is the closer match on Windows.",
+    "differentiator": "On a Mac, CaptureCat applies zoom automatically from recorded clicks and runs captions on-device, both free for personal use, though its free recordings stop at 5 minutes where FlashBack's free version has no time limit. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there. FlashBack's paid Smart Zoom is the closer match on Windows.",
     "switchTip": "FlashBack exports MP4, so finished videos carry over. Mac users get CaptureCat's full native app; Windows users should compare FlashBack's Smart Zoom against the CaptureCat browser app, which has no auto zoom.",
     "faqExtra": {
       "question": "Can I still buy FlashBack Pro?",
@@ -352,7 +352,7 @@
       "The free edition is for trial and non-commercial use, and outputs using paid features carry a watermark."
     ],
     "pickThemWhen": "you build software training or interactive courses and need SCORM/xAPI output, quizzes, and branching.",
-    "differentiator": "CaptureCat's native Mac app zooms automatically from recorded clicks and transcribes on-device for free, but has no quizzes or SCORM export. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "differentiator": "CaptureCat's native Mac app zooms automatically from recorded clicks and transcribes on-device, free for personal use, but has no quizzes or SCORM export. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
     "switchTip": "Switch only the video-tutorial part of your workflow; keep ActivePresenter for interactive courses and LMS packages, since CaptureCat does not export SCORM or xAPI.",
     "faqExtra": {
       "question": "Is the free edition of ActivePresenter allowed for commercial use?",
@@ -439,7 +439,7 @@
       "No automatic zoom or auto captions."
     ],
     "pickThemWhen": "you want a straightforward, inexpensive recorder with quick sharing and do not need a full editor.",
-    "differentiator": "CaptureCat's free tier has no time limit or watermark, and its native Mac app adds automatic zoom from clicks and on-device captions. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "differentiator": "CaptureCat's free tier, for personal use, has no watermark but stops each recording at 5 minutes, and its native Mac app adds automatic zoom from clicks and on-device captions. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
     "switchTip": "Download any videos you still need from Icecream's cloud before switching. CaptureCat share links with view analytics need Pro, the same as Icecream's PRO plan.",
     "faqExtra": {
       "question": "Does Icecream Screen Recorder work on Mac?",
@@ -521,7 +521,7 @@
       "The free version is limited, and third-party sources disagree on the exact cap and whether it adds a watermark."
     ],
     "pickThemWhen": "you want a cross-platform recorder with scheduled captures and direct upload to YouTube or cloud drives.",
-    "differentiator": "CaptureCat's free tier has no recording cap or watermark, and its native Mac app zooms automatically from clicks and transcribes on-device. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
+    "differentiator": "CaptureCat's free tier, for personal use, has no watermark and stops each recording at 5 minutes, and its native Mac app zooms automatically from clicks and transcribes on-device. CaptureCat has no native Windows app; on Windows it runs as a browser app (Chrome/Edge 113+, Firefox 141+), and click-based auto zoom and cursor smoothing are not available there.",
     "switchTip": "Export or download anything stored in RecCloud first. On a Mac, CaptureCat replaces live hotkey zoom with automatic zoom in the editor; on Windows, the browser app has no auto zoom.",
     "faqExtra": {
       "question": "Is ApowerREC available on Mac?",

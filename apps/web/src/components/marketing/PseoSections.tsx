@@ -229,8 +229,9 @@ export function PseoCta({ competitorName }: { competitorName?: string }) {
           Try the recording{competitorName ? `, not the pitch` : ""}
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
-          The recorder and the full editor are free. Record one clip and watch
-          the zooms, cursor smoothing, and captions appear on their own.
+          The recorder and the full editor are free for personal use. Record
+          one clip and watch the zooms, cursor smoothing, and captions appear
+          on their own.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link

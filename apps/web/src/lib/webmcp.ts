@@ -177,7 +177,9 @@ export function siteTools(deps: SiteDeps): PageTool[] {
       title: "CaptureCat pricing",
       description:
         "Get CaptureCat's current plan and prices as JSON, live from the same source the pricing page uses " +
-        "(prices come from Stripe). Recording, editing and export are free; the paid plan adds sharing features.",
+        "(prices come from Stripe). Free is for personal use: the full app, with each recording stopping at 5 minutes " +
+        "and a small cloud allowance. Pro is for commercial use and recordings of any length, and adds full sharing, " +
+        "comments and analytics.",
       inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false },
       readOnly: true,
       execute: async (_input, signal) => {

@@ -14,28 +14,32 @@ const SECTIONS = [
   },
   { id: "s2-your-account", label: "2. Your account" },
   { id: "s3-licence-to-use-the-app", label: "3. Licence to use the app" },
-  { id: "s4-your-content", label: "4. Your content" },
-  { id: "s5-subscriptions-and-payment", label: "5. Subscriptions and payment" },
+  {
+    id: "s4-personal-and-commercial-use",
+    label: "4. Personal and commercial use",
+  },
+  { id: "s5-plans-and-fees", label: "5. Plans and fees" },
   {
     id: "s6-your-right-to-cancel-and-refunds",
     label: "6. Your right to cancel and refunds",
   },
+  { id: "s7-your-content", label: "7. Your content" },
   {
-    id: "s7-shared-videos-and-analytics",
-    label: "7. Shared videos and analytics",
+    id: "s8-shared-videos-and-analytics",
+    label: "8. Shared videos and analytics",
   },
-  { id: "s8-availability", label: "8. Availability" },
-  { id: "s9-our-liability", label: "9. Our liability" },
+  { id: "s9-availability", label: "9. Availability" },
+  { id: "s10-our-liability", label: "10. Our liability" },
   {
-    id: "s10-suspension-and-termination",
-    label: "10. Suspension and termination",
+    id: "s11-suspension-and-termination",
+    label: "11. Suspension and termination",
   },
-  { id: "s11-changes-to-these-terms", label: "11. Changes to these terms" },
-  { id: "s12-governing-law", label: "12. Governing law" },
-  { id: "s13-contact", label: "13. Contact" },
+  { id: "s12-changes-to-these-terms", label: "12. Changes to these terms" },
+  { id: "s13-governing-law", label: "13. Governing law" },
+  { id: "s14-contact", label: "14. Contact" },
 ];
 
-const EFFECTIVE = "5 August 2026";
+const EFFECTIVE = "29 October 2026";
 
 function TermsPage() {
   return (
@@ -68,57 +72,98 @@ function TermsPage() {
       <section className="space-y-3">
         <h2 id="s2-your-account">2. Your account</h2>
         <p>
-          You sign in using Google or Apple. You are responsible for keeping
-          access to that account secure and for activity that takes place under
-          it. You must be at least 13 years old to use the Service.
+          You do not need an account to record or export with the CaptureCat
+          Mac app. To share videos, use the web app, or subscribe to Pro, you
+          sign in using Google or Apple. You are responsible for keeping access
+          to that account secure and for activity that takes place under it.
+          You must be at least 13 years old to use the Service.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 id="s3-licence-to-use-the-app">3. Licence to use the app</h2>
         <p>
-          We grant you a personal, non-exclusive, non-transferable licence to
-          install and use the CaptureCat app on Macs you own or control, for
-          your own use. You must not copy, resell, reverse engineer, or
-          redistribute the app except to the extent the law permits.
+          CaptureCat&apos;s source code is published under the GNU Affero
+          General Public License, version 3 (&ldquo;AGPL-3.0&rdquo;). The
+          AGPL-3.0 governs the source code, and nothing in these terms limits
+          the rights it gives you. These terms govern the official builds of
+          CaptureCat that we publish, such as the Mac app downloaded from
+          capturecat.so, and the Service we operate.
+        </p>
+        <p>
+          We grant you a non-exclusive, non-transferable licence to install and
+          use the official builds on Macs you own or control, for personal use
+          on the Free plan or for commercial use with an active Pro
+          subscription, as section 4 explains. You must not resell the Service
+          or let other people use your account.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 id="s4-your-content">4. Your content</h2>
+        <h2 id="s4-personal-and-commercial-use">
+          4. Personal and commercial use
+        </h2>
         <p>
-          You keep ownership of every recording you make and every video or
-          image you upload (&ldquo;Your Content&rdquo;). You grant us only the
-          limited licence needed to host, process, and deliver Your Content so
-          the Service works, for example, so a share link plays for the people
-          you send it to. That licence ends when you delete the content or close
-          your account, subject to short technical delays and backups.
+          The Free plan is for personal use only. Commercial use needs an
+          active Pro subscription.
         </p>
-        <p>You agree not to upload content that:</p>
+        <p>
+          &ldquo;Commercial use&rdquo; means any use of CaptureCat to record or
+          edit content that is used in revenue-generating activities. That
+          includes:
+        </p>
         <ul>
-          <li>you do not have the right to share;</li>
-          <li>
-            is unlawful, defamatory, infringing, or breaches anyone&apos;s
-            privacy; or
-          </li>
-          <li>contains malware or is intended to harm others.</li>
+          <li>client work;</li>
+          <li>courses;</li>
+          <li>marketing;</li>
+          <li>content that promotes your employer&apos;s product or service; and</li>
+          <li>communication between members of a company or team.</li>
         </ul>
         <p>
-          We may remove content and suspend or terminate accounts that breach
-          these terms.
+          Personal projects, learning, and hobby videos are personal use and
+          are fine on Free.
+        </p>
+        <p>
+          This is a term of your licence, not a technical lock: the app does
+          not check what you record, so it is up to you to subscribe to Pro
+          when your use is commercial. If you are not sure which applies to
+          you, email{" "}
+          <a href="mailto:contact@capturecat.so">contact@capturecat.so</a>.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 id="s5-subscriptions-and-payment">5. Subscriptions and payment</h2>
+        <h2 id="s5-plans-and-fees">5. Plans and fees</h2>
         <p>
-          CaptureCat is free to use with an optional paid plan
-          (&ldquo;Pro&rdquo;). Pro is billed through Stripe on a monthly or
-          annual basis and renews automatically at the then-current price until
-          cancelled. Prices are shown at checkout and include VAT where
-          applicable. You can cancel at any time from your billing page;
-          cancellation stops future renewals and your access continues until the
-          end of the period you have paid for.
+          <strong>Free</strong> costs nothing. It is for personal use, and each
+          recording stops at 5 minutes. It includes a small cloud allowance,
+          currently 2 GB of storage in total, share links for videos up to 5
+          minutes, and 10 new shares a day. Free does not include comments,
+          viewer analytics, AI summaries, teams, custom domains, web page
+          capture by URL, or screenshot uploads.
+        </p>
+        <p>
+          <strong>Pro</strong> is a paid subscription. It covers commercial
+          use, has no recording length limit, and adds the hosted features and
+          allowances shown on our{" "}
+          <a href="/pricing">pricing page</a>. Pro is billed through Stripe
+          monthly or yearly and renews automatically at the then-current price
+          until cancelled. Prices are shown on the pricing page and at checkout
+          and include VAT where applicable. To use Pro in the Mac app, sign in
+          to it with the account that holds the subscription. References to
+          Pro in these terms include any other paid plan we offer.
+        </p>
+        <p>
+          You can cancel at any time from your billing page. Cancelling stops
+          future renewals, and your access continues until the end of the
+          period you have paid for. Your account then moves to Free. Your share
+          links keep playing while your stored videos fit within Free&apos;s
+          storage allowance; past that, they pause until you free up space or
+          subscribe again.
+        </p>
+        <p>
+          The pricing page shows each plan&apos;s current features and
+          allowances, which may change over time.
         </p>
       </section>
 
@@ -146,20 +191,47 @@ function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 id="s7-shared-videos-and-analytics">
-          7. Shared videos and analytics
-        </h2>
+        <h2 id="s7-your-content">7. Your content</h2>
         <p>
-          When you make a video public and share its link, anyone with the link
-          can view it until you make it private or delete it. We provide you
-          with aggregate analytics about how your shared videos are viewed (see
-          our <a href="/privacy">Privacy Policy</a>). You are responsible for
-          ensuring you have the right to share what you upload.
+          You keep ownership of every recording you make and every video or
+          image you upload (&ldquo;Your Content&rdquo;). You grant us only the
+          limited licence needed to host, process, and deliver Your Content so
+          the Service works, for example, so a share link plays for the people
+          you send it to. That licence ends when you delete the content or close
+          your account, subject to short technical delays and backups.
+        </p>
+        <p>You agree not to upload content that:</p>
+        <ul>
+          <li>you do not have the right to share;</li>
+          <li>
+            is unlawful, defamatory, infringing, or breaches anyone&apos;s
+            privacy; or
+          </li>
+          <li>contains malware or is intended to harm others.</li>
+        </ul>
+        <p>
+          We may remove content and suspend or terminate accounts that breach
+          these terms.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 id="s8-availability">8. Availability</h2>
+        <h2 id="s8-shared-videos-and-analytics">
+          8. Shared videos and analytics
+        </h2>
+        <p>
+          When you make a video public and share its link, anyone with the link
+          can view it until you make it private or delete it, or until it is
+          paused as section 5 describes. On plans that include them, we
+          provide you with aggregate analytics about how your shared videos
+          are viewed (see our <a href="/privacy">Privacy Policy</a>). You are
+          responsible for ensuring you have the right to share what you
+          upload.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 id="s9-availability">9. Availability</h2>
         <p>
           We work to keep the Service available and your share links working,
           but we provide the online parts of the Service on a reasonable-efforts
@@ -170,7 +242,7 @@ function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 id="s9-our-liability">9. Our liability</h2>
+        <h2 id="s10-our-liability">10. Our liability</h2>
         <p>
           We do not exclude or limit our liability where it would be unlawful to
           do so. This includes liability for death or personal injury caused by
@@ -184,8 +256,8 @@ function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 id="s10-suspension-and-termination">
-          10. Suspension and termination
+        <h2 id="s11-suspension-and-termination">
+          11. Suspension and termination
         </h2>
         <p>
           You may stop using the Service and close your account at any time. We
@@ -197,7 +269,7 @@ function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 id="s11-changes-to-these-terms">11. Changes to these terms</h2>
+        <h2 id="s12-changes-to-these-terms">12. Changes to these terms</h2>
         <p>
           We may update these terms from time to time. If we make material
           changes we will update the date above and, where appropriate, notify
@@ -207,7 +279,7 @@ function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 id="s12-governing-law">12. Governing law</h2>
+        <h2 id="s13-governing-law">13. Governing law</h2>
         <p>
           These terms are governed by the laws of England and Wales, and
           disputes are subject to the non-exclusive jurisdiction of the courts
@@ -218,7 +290,7 @@ function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 id="s13-contact">13. Contact</h2>
+        <h2 id="s14-contact">14. Contact</h2>
         <p>
           Questions about these terms? Email{" "}
           <a href="mailto:contact@capturecat.so">contact@capturecat.so</a>.

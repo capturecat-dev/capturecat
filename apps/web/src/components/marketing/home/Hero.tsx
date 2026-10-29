@@ -7,7 +7,7 @@ import { Ambient, AppleGlyph, PrimaryLink, SecondaryAnchor } from "../primitives
 import { ProductLoop } from "./demo/ProductLoop";
 
 const PROOF = [
-  "Free to record and export",
+  "Free for personal use",
   "Open source, AGPL-3.0",
   "Native Swift, no Electron",
   "macOS 14 or later",

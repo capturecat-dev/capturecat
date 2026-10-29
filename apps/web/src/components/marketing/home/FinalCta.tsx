@@ -16,8 +16,8 @@ export default function FinalCta() {
             Record one thing today and see what comes out.
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-pretty text-lg leading-relaxed text-muted-foreground">
-            The download is free, there is no account to make, and your first
-            export is ready about a minute after you stop recording.
+            It is free for personal use, there is no account to make, and your
+            first export is ready about a minute after you stop recording.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <PrimaryLink to="/download">

@@ -24,7 +24,7 @@
       "Auto captions and viewer analytics sit on paid tiers"
     ],
     "pickThemWhen": "you need one recorder across Mac, Windows and Chromebooks, plus hosted videos with quizzes for students or staff.",
-    "differentiator": "CaptureCat's free tier has no recording time limit, records system audio, and includes automatic zoom from clicks, cursor smoothing with click ripples and on-device captions, none of which ScreenPal's free plan offers. ScreenPal covers more platforms natively, including Windows, Chromebook and mobile, and has quizzes, which CaptureCat does not.",
+    "differentiator": "CaptureCat's free tier, for personal use, records system audio and includes automatic zoom from clicks, cursor smoothing with click ripples and on-device captions, none of which ScreenPal's free plan offers, though it stops each recording at 5 minutes where ScreenPal's allows 15. ScreenPal covers more platforms natively, including Windows, Chromebook and mobile, and has quizzes, which CaptureCat does not.",
     "switchTip": "Download your ScreenPal videos as MP4 before switching; CaptureCat can't import ScreenPal projects, so start new recordings in CaptureCat and keep old hosted links where they are.",
     "faqExtra": {
       "question": "Is ScreenPal the same as Screencast-O-Matic?",
@@ -68,7 +68,7 @@
       "Editing is basic (trim, crop, merge); no automatic zoom"
     ],
     "pickThemWhen": "your team shares lots of quick screenshots, GIFs and short clips and wants AI assistants to read the context behind those links.",
-    "differentiator": "Zight's MCP server reads context from existing Zight links, while CaptureCat's built-in MCP server lets coding agents record, edit, render frames and export. CaptureCat also adds automatic zoom, cursor smoothing and on-device captions for free; Zight is stronger for screenshots, GIFs and team sharing.",
+    "differentiator": "Zight's MCP server reads context from existing Zight links, while CaptureCat's built-in MCP server lets coding agents record, edit, render frames and export. CaptureCat also adds automatic zoom, cursor smoothing and on-device captions, free for personal use; Zight is stronger for screenshots, GIFs and team sharing.",
     "switchTip": "Keep Zight for screenshots and GIFs if you rely on them, and use CaptureCat for polished screen videos; download any Zight videos you want to re-edit as MP4 first.",
     "faqExtra": {
       "question": "Is Zight the same as CloudApp?",
@@ -112,7 +112,7 @@
       "Editor is minimal (trim and stitch); no zoom or cursor effects"
     ],
     "pickThemWhen": "you send video messages to prospects and need view tracking tied into your CRM.",
-    "differentiator": "Vidyard is built around sales video messaging, CRM integrations and viewer tracking; CaptureCat focuses on producing polished screen videos with automatic zoom, cursor effects and on-device captions, free and without a monthly video cap. CaptureCat Pro also has share links with viewer analytics, but no CRM integrations or team plan yet.",
+    "differentiator": "Vidyard is built around sales video messaging, CRM integrations and viewer tracking; CaptureCat focuses on producing polished screen videos with automatic zoom, cursor effects and on-device captions, free for personal use and without a monthly video cap. Sales and other work videos need CaptureCat Pro, which also has share links with viewer analytics, but no CRM integrations or team plan yet.",
     "switchTip": "If your workflow depends on Vidyard's CRM integrations, keep it for prospect outreach and use CaptureCat for product demos and tutorials; export from CaptureCat as MP4 and upload wherever you host.",
     "faqExtra": {
       "question": "Does Vidyard work on Mac?",
@@ -155,7 +155,7 @@
       "No native desktop app; recording runs through the browser extension"
     ],
     "pickThemWhen": "you teach or train on Chromebooks and want recordings that plug into Google Classroom or an LMS.",
-    "differentiator": "CaptureCat's free tier has unlimited recordings with no watermark, automatic zoom, cursor smoothing and on-device captions, while Screencastify gates captions to Pro and watermarks free videos. Screencastify's classroom integrations and quizzes have no CaptureCat equivalent; both offer a browser option on Chromebooks.",
+    "differentiator": "CaptureCat's free tier, for personal use, has no watermark or video count limit and includes automatic zoom, cursor smoothing and on-device captions, while Screencastify gates captions to Pro and watermarks free videos; CaptureCat's free recordings stop at 5 minutes, though, where Screencastify's run to 30. Screencastify's classroom integrations and quizzes have no CaptureCat equivalent; both offer a browser option on Chromebooks.",
     "switchTip": "Download Screencastify videos you want to keep before your plan changes; teachers on Chromebooks can use CaptureCat's browser app in Chrome, while Mac users get the native app.",
     "faqExtra": {
       "question": "Is Screencastify now called Castify?",
@@ -199,8 +199,8 @@
       "Click tracking is noted for Mac recordings only"
     ],
     "pickThemWhen": "you want one tool for quick recordings, screenshots and file sharing with link-level analytics.",
-    "differentiator": "CaptureCat's free tier has unlimited recording length, automatic zoom, cursor smoothing with click ripples and on-device captions; Jumpshare puts captions and analytics behind Plus. Jumpshare's Business plan matches CaptureCat Pro on AI titles and chapters, and Jumpshare also handles general file sharing, which CaptureCat does not.",
-    "switchTip": "Download recordings you want to keep from Jumpshare as MP4; record new demos in CaptureCat and use Pro share links if you still need viewer analytics.",
+    "differentiator": "CaptureCat's free tier, for personal use, includes automatic zoom, cursor smoothing with click ripples and on-device captions, with the same 5-minute recording limit as Jumpshare's; Jumpshare puts captions and analytics behind Plus. Jumpshare's Business plan matches CaptureCat Pro on AI titles and chapters, and Jumpshare also handles general file sharing, which CaptureCat does not.",
+    "switchTip": "Download recordings you want to keep from Jumpshare as MP4; record new demos in CaptureCat, where Pro covers work videos and adds share links with viewer analytics.",
     "notes": "Pricing page shows $12 and $16 per user per month with 20% off for annual billing; third-party listings give $15 and $20 for monthly billing, which matches the 20% discount. Could not confirm whether Jumpshare has any zoom effect in its video editor, so autoZoom is null. Click tracking highlights clicks during recording rather than as a post-edit effect.",
     "sources": {
       "autoZoom": [],
@@ -238,7 +238,7 @@
       "Output is step-based how-to content rather than continuous screen video"
     ],
     "pickThemWhen": "you need to turn software workflows into step-by-step training guides with AI voiceover at scale.",
-    "differentiator": "Guidde builds step-based how-to guides with AI narration; CaptureCat records continuous screen video with automatic zoom from clicks, cursor smoothing and on-device captions, free and without a watermark. Guidde also has automatic pan and zoom on clicks in some modes, so both tools cover that, but CaptureCat applies it to any recording.",
+    "differentiator": "Guidde builds step-based how-to guides with AI narration; CaptureCat records continuous screen video with automatic zoom from clicks, cursor smoothing and on-device captions, free for personal use and without a watermark; documentation for work needs CaptureCat Pro. Guidde also has automatic pan and zoom on clicks in some modes, so both tools cover that, but CaptureCat applies it to any recording.",
     "switchTip": "Keep Guidde for documentation-style SOPs if your team relies on its written guides; use CaptureCat for narrated product demos and tutorials you export as MP4 or share via Pro links.",
     "notes": "No official Guidde MCP server found (searches only returned an unrelated GUID-generator MCP). Auto pan & zoom on detected click areas is documented for the Employee Training use case with Magic Mic; other sources say auto pan & zoom is a Pro+ Brand Kit feature, so plan gating is unclear. Auto captions start at Pro per the pricing page.",
     "sources": {

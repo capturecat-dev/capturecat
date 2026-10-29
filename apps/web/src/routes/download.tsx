@@ -56,7 +56,7 @@ const STEPS = [
   },
   {
     title: "Export, or sign in to share",
-    body: "Export is free at full quality. If you want a link instead of a file, sign in with Google or Apple from inside the app and upload. That is the only part that needs an account.",
+    body: "Export is free at full quality for personal use, with no account. If you want a link instead of a file, sign in with Google or Apple from inside the app and upload. If you have Pro for commercial use or recordings over 5 minutes, sign in once with that account.",
   },
 ];
 
@@ -83,8 +83,9 @@ function DownloadPage() {
             Download CaptureCat for Mac
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Free to record, edit, and export. No account needed until you want
-            a share link. The page picks the right build for your Mac.
+            Free for personal use, with recordings up to 5 minutes. No account
+            needed until you want a share link or Pro. The page picks the right
+            build for your Mac.
           </p>
 
           {release ? (

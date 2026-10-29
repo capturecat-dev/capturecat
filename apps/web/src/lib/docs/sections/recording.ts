@@ -13,9 +13,13 @@ import type { DocSection } from "../types";
  * SettingsWindowController, ProjectSettings defaults, the Camera / Cursor /
  * Audio inspector panes, ExportSheetController (Image (PNG) | Video (MP4));
  * apps/api routes/screenshot.ts + lib/screenshot/params.ts (webCapture gate,
- * SSRF guard) and migration 0008 (webCapture: Pro only).
+ * SSRF guard) and migration 0008 (webCapture: Pro only). The Free recording
+ * cap: Services/PlanGate.swift and limitMenu() in RecordingPanelViewController,
+ * migration 0039 (commercialUse).
  */
 const CHECKED = "2026-10-07";
+/** Pages whose plan wording changed when Free became personal use (5-minute recordings). */
+const PLAN_UPDATED = "2026-10-29";
 
 export const RECORDING: DocSection = {
   id: "recording",
@@ -78,13 +82,19 @@ export const RECORDING: DocSection = {
           rows: [
             ["**Capture Shortcuts (⌘⇧S overlay)**", "On or off. Records the shortcuts you press so the editor can show them. See [Keystrokes](/docs/recording/keystrokes).", "Off"],
             ["**Recording Countdown**", "Off, 3s, 5s, 10s", "3s"],
-            ["**Duration Limit**", "No Limit, 15s, 30s, 1 min, 2 min, 5 min, 10 min, or **Custom…**", "No Limit"],
+            ["**Duration Limit**", "No Limit, 15s, 30s, 1 min, 2 min, 5 min, 10 min, or **Custom…**. On Free, No Limit and anything over 5 minutes show as **Pro**.", "No Limit (5 min on Free)"],
             ["**Settings…**", "Opens CaptureCat's settings.", ""],
           ],
         },
         {
           type: "p",
           text: "The countdown appears in the middle of the screen you're about to record. It never appears in the video, and clicks pass through it, so you can arrange windows while it counts down. The duration limit counts recorded time, so paused time doesn't count, and recording stops by itself when it's reached. You can set the same defaults under **Settings → Recording** (**Countdown** and **Maximum duration**).",
+        },
+        {
+          type: "callout",
+          tone: "pro",
+          title: "Free recordings stop at 5 minutes",
+          text: "Free is for personal use, and each recording stops at 5 minutes of recorded time; the editor then tells you the limit ended the take. Pro is for commercial use and has no limit beyond the Duration Limit you choose. If you have Pro, sign in once from **Settings → Account**. See [Plans](/docs/account/plans).",
         },
         { type: "h2", text: "While you record", id: "while-you-record" },
         {
@@ -144,7 +154,7 @@ export const RECORDING: DocSection = {
         {
           question: "Is there a time limit on recordings?",
           answer:
-            "No, unless you set one. Duration Limit in the recording bar's gear menu stops recording automatically after 15 seconds to 10 minutes, or a custom length.",
+            "On Free, yes: each recording stops at 5 minutes, and Free is for personal use. Pro has no limit beyond your own Duration Limit, set in the recording bar's gear menu, which stops recording automatically after 15 seconds to 10 minutes, or a custom length.",
         },
         {
           question: "Does the mouse pointer appear in the recording?",
@@ -153,7 +163,7 @@ export const RECORDING: DocSection = {
         },
       ],
       related: ["getting-started/first-recording", "recording/audio", "recording/camera", "editing/auto-zoom"],
-      lastModified: CHECKED,
+      lastModified: PLAN_UPDATED,
     },
     {
       slug: "recording/iphone-and-ipad",
@@ -605,7 +615,7 @@ export const RECORDING: DocSection = {
         {
           type: "callout",
           tone: "pro",
-          text: "Web page capture by URL is included in CaptureCat Pro. Recording and screenshotting your own screen, including a browser window, is free.",
+          text: "Web page capture by URL is included in CaptureCat Pro. Recording and screenshotting your own screen, including a browser window, is free for personal use.",
         },
       ],
       faqs: [
@@ -621,11 +631,11 @@ export const RECORDING: DocSection = {
         },
         {
           question: "Is web page capture free?",
-          answer: "No. Capturing a page by URL is a CaptureCat Pro feature. Recording your own screen and taking screenshots of it are free.",
+          answer: "No. Capturing a page by URL is a CaptureCat Pro feature. Recording your own screen and taking screenshots of it are free for personal use.",
         },
       ],
       related: ["recording/screenshots", "editing/framing", "account/plans", "recording"],
-      lastModified: CHECKED,
+      lastModified: PLAN_UPDATED,
     },
     {
       slug: "recording/screenshots",
