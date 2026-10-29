@@ -291,10 +291,10 @@ export function Field({
 }
 
 /** The plan a feature belongs to. One look everywhere. */
-export function PlanChip({ plan }: { plan: "pro" | "business" }) {
+export function PlanChip({ plan }: { plan: "personal" | "pro" | "business" }) {
   return (
     <span className="cc-well inline-flex h-5 items-center rounded-full px-2 text-[11px] font-semibold text-foreground/80">
-      {plan === "pro" ? "Pro" : "Business"}
+      {plan === "personal" ? "Personal use" : plan === "pro" ? "Pro" : "Business"}
     </span>
   );
 }

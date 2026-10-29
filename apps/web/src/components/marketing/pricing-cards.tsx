@@ -25,11 +25,15 @@ export interface PlanView {
   popular?: boolean;
   trialDays: number;
   features: Record<string, boolean> | null;
+  /** How long one recording may run on Pro; null = no cap. */
+  recordingLimitSeconds?: number | null;
   free: {
     name: string;
     description: string | null;
     features: Record<string, boolean>;
     limits: PlanLimits;
+    /** Free is for personal use: each recording stops here (5 min). */
+    recordingLimitSeconds?: number | null;
   } | null;
   limits: PlanLimits;
 }
@@ -51,26 +55,32 @@ function formatPrice(amount: number | null, currency: string): string {
   }).format(amount / 100);
 }
 
-/** Copy for the gateable feature keys stored on the D1 plan rows. */
+/** Copy for the gateable feature keys stored on the D1 plan rows. Not
+ *  `removeWatermark`: no plan adds a mark to exports, so a dashed "Watermark-free
+ *  exports" on Free would contradict its own "no watermark" row. */
 const FEATURE_LABELS: Record<string, string> = {
+  commercialUse: "Commercial use",
   webCapture: "Capture web pages by URL",
   imageUpload: "Upload screenshots & images",
   cloudShare: "Cloud sharing with links",
   comments: "Timestamped viewer comments",
-  removeWatermark: "Watermark-free exports",
   teams: "Team library & member invites",
   customStorage: "Share videos from your own S3 bucket",
 };
 
 /** Ships with the app on every tier; not gated in D1. */
 const CORE_FEATURES = [
-  "Unlimited screen recordings",
-  "Free, watermark-optional local export",
+  "The full editor, no watermark",
   "Auto zoom & motion effects",
   "Camera overlay & cursor smoothing",
   "On-device captions",
   "Export in full quality",
 ];
+
+/** How long one recording may run (Free stops each one at 5 min). */
+function recordingBullet(seconds: number | null | undefined): string {
+  return seconds ? `Recordings up to ${Math.round(seconds / 60)} min each` : "Recordings of any length";
+}
 
 function gb(bytes: number): string {
   return `${Math.round(bytes / 1024 ** 3)} GB`;
@@ -174,13 +184,14 @@ export function PricingCards({ plan }: { plan: PlanView | null }) {
             {plan?.free?.name ?? "Free"}
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {plan?.free?.description ?? "The full editor, on your Mac."}
+            {plan?.free?.description ?? "Personal use. Recordings up to 5 minutes."}
           </p>
           <div className="mt-6">
             <span className="text-5xl font-semibold tracking-[-0.02em]">$0</span>
-            <span className="text-muted-foreground"> forever</span>
+            <span className="text-muted-foreground"> for personal use</span>
           </div>
           <ul className="mt-8 space-y-3">
+            <FeatureRow label={recordingBullet(plan?.free ? plan.free.recordingLimitSeconds : 300)} included />
             {CORE_FEATURES.map((f) => (
               <FeatureRow key={f} label={f} included />
             ))}
@@ -191,6 +202,7 @@ export function PricingCards({ plan }: { plan: PlanView | null }) {
                 included={freeGates?.[k] ?? false}
               />
             ))}
+            {plan?.free && limitBullets(plan.free.limits).map((f) => <FeatureRow key={f} label={f} included />)}
           </ul>
           <Link
             to="/download"
@@ -235,6 +247,7 @@ export function PricingCards({ plan }: { plan: PlanView | null }) {
           </div>
           {saleNote ? <p className="mt-2 text-sm text-muted-foreground">{saleNote}</p> : null}
           <ul className="mt-8 space-y-3">
+            <FeatureRow label={recordingBullet(plan?.recordingLimitSeconds)} included />
             {CORE_FEATURES.map((f) => (
               <FeatureRow key={f} label={f} included />
             ))}

@@ -16,7 +16,7 @@ import type { Env, Variables } from "../types";
 import { createTestD1, type TestD1 } from "../test-support/d1-sqlite.js";
 import { FakeStripeCatalog } from "../test-support/fake-stripe-catalog";
 import { clearLookupKeyCache } from "../lib/stripe-catalog";
-import { FEATURE_KEYS, LIMIT_KEYS } from "../lib/plans";
+import { FEATURE_KEYS, FREE_RECORDING_SECONDS, LIMIT_KEYS } from "../lib/plans";
 import {
   FEATURE_FIELDS,
   LIMIT_FIELDS,
@@ -485,6 +485,32 @@ describe("sales: a price for a period, as Stripe coupons", () => {
     expect(Number(/max-age=(\d+)/.exec(before.headers.get("Cache-Control")!)![1])).toBeLessThanOrEqual(60);
   });
 });
+
+describe("personal-use Free (0039)", () => {
+  it("the public /api/plans says Free recordings stop at 5 minutes, Pro's don't, and Free has a small cloud allowance", async () => {
+    legacyPro();
+    await ok(call("POST", "/admin/plans/plan_pro/stripe-sync"));
+    const body = (await (await app.request("/api/plans", {}, env)).json()) as Record<string, any>;
+    expect(body.features.commercialUse).toBe(true);
+    expect(body.recordingLimitSeconds).toBeNull();
+    expect(body.free).toMatchObject({
+      description: "Personal use. Recordings up to 5 minutes.",
+      recordingLimitSeconds: FREE_RECORDING_SECONDS,
+      features: { commercialUse: false, cloudShare: true },
+      limits: { maxDurationSeconds: 300, maxTotalStorageBytes: 2 * 1024 ** 3, maxUploadsPerDay: 10 },
+    });
+  });
+
+  it("an operator who turns commercialUse on for Free lifts its cap", async () => {
+    legacyPro();
+    await ok(call("POST", "/admin/plans/plan_pro/stripe-sync"));
+    await ok(call("PUT", "/admin/plans/plan_free", { features: { ...FREE_FEATURES_ON } }));
+    const body = (await (await app.request("/api/plans", {}, env)).json()) as Record<string, any>;
+    expect(body.free.recordingLimitSeconds).toBeNull();
+  });
+});
+
+const FREE_FEATURES_ON = Object.fromEntries(FEATURE_KEYS.map((k) => [k, k === "commercialUse" || k === "cloudShare"]));
 
 describe("the plan editor", () => {
   it("has a field for every feature and limit the API enforces", () => {

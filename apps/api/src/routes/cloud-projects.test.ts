@@ -602,7 +602,13 @@ function setProLimits(limits: Record<string, number>) {
 }
 
 describe("quota", () => {
-  it("a plan without cloud storage is refused with 402", async () => {
+  it("a Free account's web recording is accepted (Free has a small allowance, 0039)", async () => {
+    const res = await call(FREE, "PUT", `/cloud-projects/${ID}`, await manifest(baseFiles()));
+    expect(res.status).toBe(200);
+  });
+
+  it("a plan without cloud sharing is refused with 402", async () => {
+    db.query(`UPDATE plan SET features = json_set(features, '$.cloudShare', json('false')) WHERE name = 'free'`);
     const res = await call(FREE, "PUT", `/cloud-projects/${ID}`, await manifest(baseFiles()));
     expect(res.status).toBe(402);
     expect((await json(res)).code).toBe("cloud_share_required");

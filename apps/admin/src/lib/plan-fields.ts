@@ -13,6 +13,7 @@
  */
 
 export const FEATURE_FIELDS: ReadonlyArray<{ key: string; label: string; hint: string }> = [
+  { key: "commercialUse", label: "Commercial use", hint: "Commercial use and recordings of any length (off: 5-minute cap)" },
   { key: "cloudShare", label: "Cloud sharing", hint: "Upload and get a share link" },
   { key: "imageUpload", label: "Screenshots", hint: "Upload stills, not just recordings" },
   { key: "webCapture", label: "URL capture", hint: "Capture a web page by address" },

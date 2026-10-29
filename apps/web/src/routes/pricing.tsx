@@ -44,11 +44,15 @@ export const Route = createFileRoute("/pricing")({
 export const PRICING_FAQ: FaqItem[] = [
   {
     q: "What exactly is free?",
-    a: "The whole app on your Mac: recording from any source, the editor, auto zoom, cursor smoothing, captions, device frames, the camera bubble, annotations, and export at full quality. There is no time limit and no resolution cap.",
+    a: "The whole app, for personal use: recording from any source, the editor, auto zoom, cursor smoothing, captions, device frames, the camera bubble, annotations, and export up to 4K with no watermark. Each recording stops at 5 minutes, and Free includes a small cloud allowance for short share links.",
+  },
+  {
+    q: "What counts as commercial use?",
+    a: "Recording or editing anything used in work that earns money: client work, courses, marketing, demos of your employer's product, and videos for your team at a company. Commercial use needs Pro. Personal projects, learning, and hobby videos are fine on Free.",
   },
   {
     q: "So what am I paying for with Pro?",
-    a: "The hosted side. Uploading from the app to a capturecat.so share page, public and private links, timestamped comments from viewers, per video analytics, and web capture by URL. Storage and per video duration limits are shown on the card above and come from your plan.",
+    a: "Commercial use and recordings of any length, plus the hosted side at full size: uploads to a capturecat.so share page, public and private links, timestamped comments from viewers, per video analytics, and web capture by URL. Storage and per video limits are shown on the cards above and come from your plan.",
   },
   {
     q: "Is there a trial?",
@@ -60,11 +64,11 @@ export const PRICING_FAQ: FaqItem[] = [
   },
   {
     q: "How do I cancel?",
-    a: "From the billing page in your account. Access to Pro features runs to the end of the paid period. Your local recordings and exports are unaffected because they never depended on the subscription.",
+    a: "From the billing page in your account. Access to Pro features runs to the end of the paid period, then your account is on Free again: personal use, with new recordings stopping at 5 minutes. Recordings and exports you already made are untouched.",
   },
   {
     q: "What happens to my shared videos if I stop paying?",
-    a: "Links stop serving when the plan ends. Nothing on your Mac is touched. If you resubscribe, the same links come back.",
+    a: "If they fit Free's cloud allowance they keep playing; past it, your links pause until you free up space or resubscribe, and the same links come back. Nothing on your Mac is touched.",
   },
   {
     q: "Do you offer refunds?",
@@ -130,12 +134,13 @@ function PricingPage() {
         <Container className="flex flex-col items-center pb-20 pt-16 md:pt-24">
           <Eyebrow>Pricing</Eyebrow>
           <h1 className="mt-6 max-w-3xl text-balance text-center text-5xl font-semibold leading-[1.04] tracking-[-0.03em] md:text-6xl">
-            The recorder is free. Pay for the link.
+            Free for personal use. Pro for work.
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-pretty text-center text-lg leading-relaxed text-muted-foreground">
-            Everything that runs on your Mac costs nothing, forever. Pro is the
-            hosted part: share pages, comments, and analytics. Prices below
-            are live from Stripe.
+            The whole app is free for personal projects, with recordings up to
+            5 minutes. Pro is for commercial use: recordings of any length,
+            plus share pages, comments, and analytics. Prices below are live
+            from Stripe.
           </p>
 
           <div className="mt-14 w-full">
@@ -171,15 +176,15 @@ function PricingPage() {
             <GlassCard padding="p-7">
               <h3 className="text-[17px] font-medium tracking-[-0.01em]">No resolution cap</h3>
               <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-                Free exports go up to 4K at 60 fps with every effect on. The
-                free tier is not a demo of the paid one.
+                Free exports go up to 4K at 60 fps with every effect on and no
+                watermark. Free is the whole app, not a demo of it.
               </p>
             </GlassCard>
             <GlassCard padding="p-7">
               <h3 className="text-[17px] font-medium tracking-[-0.01em]">No account to record</h3>
               <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-                You only sign in when you want a share link. Recording and
-                editing never phone home.
+                On the Mac you only sign in for a share link or for Pro. Free
+                recording and editing work offline.
               </p>
             </GlassCard>
             <GlassCard padding="p-7">

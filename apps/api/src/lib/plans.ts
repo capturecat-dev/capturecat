@@ -49,6 +49,9 @@ import type { EntitlementTier } from "../types";
  *   agentWebhooks   Signed webhooks to the user's own endpoints (lib/webhooks.ts).
  *   agentEditing    Cloud-project editing tools on the remote MCP server
  *                   (each tool calls requireAgentEditing in src/mcp/gates.ts).
+ *   commercialUse   Commercial use, and recordings of any length. Without it
+ *                   the Mac and web recorders stop each recording at
+ *                   FREE_RECORDING_SECONDS; they read it from GET /api/me.
  */
 export const FEATURE_KEYS = [
   "webCapture",
@@ -65,8 +68,17 @@ export const FEATURE_KEYS = [
   "agentAccess",
   "agentWebhooks",
   "agentEditing",
+  "commercialUse",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
+
+/**
+ * How long one recording may run on a plan without `commercialUse`. Enforced
+ * by the clients, which carry the same number (the Mac's PlanGate, the web's
+ * editor/record/planCap.ts — a web test reads this line), because a Mac user
+ * with no account, or offline, is capped too. Here it only describes plans.
+ */
+export const FREE_RECORDING_SECONDS = 300;
 
 /**
  * Every enforced cap. `routes/upload.ts` (via `lib/upload-policy.ts`) and
