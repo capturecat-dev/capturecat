@@ -45,6 +45,11 @@ export const billingRouter = createTRPCRouter({
       tier: "free" | "tester" | "paid";
       tester: boolean;
       blocked: boolean;
+      /** The plan the API resolved (lib/entitlement.ts) — what every gate reads. */
+      plan?: { name: string; displayName: string };
+      /** Feature flags of that plan (apps/api/src/lib/plans.ts FEATURE_KEYS). */
+      features?: Partial<Record<string, boolean>>;
+      limits?: Partial<Record<string, number>>;
     };
   }),
 

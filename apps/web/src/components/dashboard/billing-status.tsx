@@ -13,6 +13,7 @@ import { IconKey, LiveDot, Meter, Panel, PlanChip, Section, Sections } from "@/c
 type PublicPlans = {
   available?: boolean;
   monthly?: { amount?: number | null; currency?: string };
+  annual?: { amount?: number | null; currency?: string } | null;
   limits?: {
     maxTotalStorageBytes?: number;
     maxFileSizeBytes?: number;
@@ -86,10 +87,10 @@ export function BillingStatus({ success }: { success: boolean }) {
   }
 
   const isPaid = data?.tier === "paid";
-  const proPrice =
-    typeof pro?.monthly?.amount === "number"
-      ? money(pro.monthly.amount, pro.monthly.currency ?? "usd")
-      : null;
+  const priceOf = (p?: { amount?: number | null; currency?: string } | null) =>
+    typeof p?.amount === "number" ? money(p.amount, p.currency ?? "usd") : null;
+  const proPrice = priceOf(pro?.monthly);
+  const proYearly = priceOf(pro?.annual);
 
   const used = library?.storageUsedBytes ?? 0;
   const limit = library?.storageLimitBytes ?? 0;
@@ -123,12 +124,14 @@ export function BillingStatus({ success }: { success: boolean }) {
                   <LiveDot tone="green" className="size-1.5" /> Active
                 </span>
               </span>
-            ) : undefined
+            ) : (
+              <PlanChip plan="personal" />
+            )
           }
           description={
             isPaid
-              ? "Cloud sharing, comments, analytics, AI summaries, team libraries, and custom domains."
-              : "Recording, editing, and export are free forever. Pro adds cloud sharing, comments, analytics, AI summaries, team libraries, and custom domains."
+              ? "Commercial use and recordings of any length, with cloud sharing, comments, analytics, AI summaries, team libraries, and custom domains."
+              : "Free is for personal use, and each recording stops at 5 minutes. Pro is for commercial use and recordings of any length, and adds full cloud sharing, comments, analytics, AI summaries, team libraries, and custom domains."
           }
         >
           {isPaid ? (
@@ -141,17 +144,28 @@ export function BillingStatus({ success }: { success: boolean }) {
               {createPortal.isPending ? "Loading…" : "Manage subscription"}
             </Button>
           ) : proAvailable ? (
-            <Button
-              onClick={() => createCheckout.mutate({ annual: false })}
-              disabled={createCheckout.isPending}
-            >
-              <CCIcon name="sparkles" data-icon="inline-start" />
-              {createCheckout.isPending
-                ? "Redirecting…"
-                : proPrice
-                  ? `Upgrade to Pro — ${proPrice}/mo`
-                  : "Upgrade to Pro"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={() => createCheckout.mutate({ annual: false })}
+                disabled={createCheckout.isPending}
+              >
+                <CCIcon name="sparkles" data-icon="inline-start" />
+                {createCheckout.isPending
+                  ? "Redirecting…"
+                  : proPrice
+                    ? `Upgrade to Pro — ${proPrice}/mo`
+                    : "Upgrade to Pro"}
+              </Button>
+              {proYearly && (
+                <Button
+                  variant="outline"
+                  onClick={() => createCheckout.mutate({ annual: true })}
+                  disabled={createCheckout.isPending}
+                >
+                  {`${proYearly}/yr`}
+                </Button>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               Upgrades aren’t available right now — check back soon.
@@ -183,9 +197,9 @@ export function BillingStatus({ success }: { success: boolean }) {
           <Section icon={<CCIcon name="gauge"  />} title="What Pro includes">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
               {[
+                ["Recordings", "Any length"],
                 ["Cloud storage", formatSize(pro.limits.maxTotalStorageBytes ?? 0)],
-                ["Per video", formatSize(pro.limits.maxFileSizeBytes ?? 0)],
-                ["Max length", `${Math.round((pro.limits.maxDurationSeconds ?? 0) / 60)} min`],
+                ["Share length", `${Math.round((pro.limits.maxDurationSeconds ?? 0) / 60)} min`],
                 ["Shares per day", String(pro.limits.maxUploadsPerDay ?? 0)],
               ].map(([label, value], i) => (
                 <div key={label} className="dsh-rise" style={{ "--i": i + 2 } as CSSProperties}>

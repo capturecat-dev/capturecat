@@ -55,6 +55,8 @@ import { publishTake, type PublishProgress } from "./publish";
 import { discardTakeFiles, leftoverTakes, warmRecorder, type RecordedTake } from "./session";
 import { createTakeRecorder, recorderEngine, type TakeRecorder } from "./takeRecorder";
 import { useConceal } from "./useConceal";
+import { cappedByPlan, effectiveLimit } from "./planCap";
+import { startLimitTicker } from "./limitTicker";
 
 export const RECORD_FPS = 60;
 export const COUNTDOWN_CHOICES = [0, 3, 5, 10] as const;
@@ -189,7 +191,17 @@ export function useInputLevel(stream: MediaStream | null): number {
   return level;
 }
 
-export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void }) {
+export function useRecorder({
+  onSaved,
+  commercialUse,
+  onPlanCap,
+}: {
+  onSaved: (projectId: string) => void;
+  /** The plan allows commercial use and takes of any length (planCap.ts); without it each take stops at 5 min. */
+  commercialUse: boolean;
+  /** The Free cap — not the user's own Duration Limit — ended a take. */
+  onPlanCap?: () => void;
+}) {
   // Capabilities are client facts: null through SSR + hydration, set after mount.
   const [support, setSupport] = useState<ReturnType<typeof recorderSupport> | null>(null);
   const [engine, setEngine] = useState<ReturnType<typeof recorderEngine>>("webcodecs");
@@ -561,9 +573,26 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     }
   }, [screen, camStream, micStream, closeFloating, releaseUi, attachUi]);
 
+  // What the take actually runs to: the user's Duration Limit, capped at
+  // 5 min on a plan without commercial use. Checked on a worker tick, not the
+  // clock's animation frames (limitTicker.ts) — those stall in a hidden tab.
+  const limit = effectiveLimit(prefs.limit, commercialUse);
+  const limitRef = useRef({ limit, planCapped: cappedByPlan(prefs.limit, commercialUse), onPlanCap });
+  limitRef.current = { limit, planCapped: cappedByPlan(prefs.limit, commercialUse), onPlanCap };
   useEffect(() => {
-    if (phase.kind === "recording" && prefs.limit > 0 && elapsed >= prefs.limit) void stop();
-  }, [phase.kind, elapsed, prefs.limit, stop]);
+    if (phase.kind !== "recording") return;
+    let told = false;
+    return startLimitTicker(() => {
+      const { limit: l, planCapped, onPlanCap: capped } = limitRef.current;
+      if (l <= 0 || (sessionRef.current?.elapsed() ?? 0) < l) return;
+      if (planCapped && !told) {
+        told = true;
+        capped?.();
+      }
+      // Again on every tick until it takes: stop() is a no-op while busy.
+      void stopRef.current();
+    });
+  }, [phase.kind]);
 
   /**
    * The display a whole-screen share can float the controls over, or null
@@ -760,7 +789,7 @@ export function useRecorder({ onSaved }: { onSaved: (projectId: string) => void 
     return () => window.removeEventListener("beforeunload", guard);
   }, [phase.kind]);
 
-  const remaining = prefs.limit > 0 ? prefs.limit - elapsed : null;
+  const remaining = limit > 0 ? limit - elapsed : null;
 
   return {
     support,

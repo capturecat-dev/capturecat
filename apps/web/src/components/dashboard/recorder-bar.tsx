@@ -57,6 +57,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,6 +83,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { usePlan } from "@/lib/use-plan";
+import { FREE_RECORDING_SECONDS, effectiveLimit } from "@/editor/record/planCap";
 import { CCIcon } from "@/editor/ui/kit/ccIcon";
 import type { SurfaceKind } from "@/editor/record/capture";
 import { bubblePolicy } from "@/editor/record/cameraBubble";
@@ -122,7 +125,11 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   // navigating right there was blocked as "A recording is in progress" and
   // the take never opened (2026-10-28).
   const [savedProject, setSavedProject] = useState<string | null>(null);
-  const rec = useRecorder({ onSaved: setSavedProject });
+  // Free is for personal use: each take stops at 5 min (editor/record/planCap.ts).
+  const { commercialUse } = usePlan();
+  const [planCapped, setPlanCapped] = useState(false);
+  const onPlanCap = useCallback(() => setPlanCapped(true), []);
+  const rec = useRecorder({ onSaved: setSavedProject, commercialUse, onPlanCap });
   const busy = rec.phase.kind === "recording" || rec.phase.kind === "countdown" || rec.phase.kind === "saving";
   // Leaving the dashboard (the editor, the marketing site) unmounts the
   // recorder — ask first while a take is live or uploading, in the house
@@ -143,6 +150,18 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     setSavedProject(null);
     void navigate({ to: "/app/editor/$projectId", params: { projectId: savedProject } });
   }, [savedProject, busy, navigate]);
+  // Said once the take has stopped, never while it is still capturing — a
+  // toast on the page then could end up in the recording. The root Toaster
+  // keeps it up across the move to the editor.
+  useEffect(() => {
+    if (!planCapped || rec.phase.kind === "recording" || rec.phase.kind === "countdown") return;
+    setPlanCapped(false);
+    toast("Free recordings stop at 5 minutes", {
+      description: "Pro removes the limit and covers commercial use.",
+      duration: 12_000,
+      action: { label: "See plans", onClick: () => void navigate({ to: "/app/billing" }) },
+    });
+  }, [planCapped, rec.phase.kind, navigate]);
   const uploading = rec.phase.kind === "saving";
   const blocked = blocker.status === "blocked";
   // A block decided on a state that is already over (the take finished in
@@ -471,6 +490,7 @@ function SourceTabs({ rec }: { rec: Recorder }) {
 
 function SetupRow({ rec }: { rec: Recorder }) {
   const { prefs, setPrefs, devices } = rec;
+  const { commercialUse } = usePlan();
   const level = useInputLevel(rec.micStream);
   const current = SURFACES.find((s) => s.kind === prefs.surface) ?? SURFACES[0];
   const labelsHidden = devices.mics.length === 0 || devices.mics.every((d) => /^Microphone \d+$/.test(d.label));
@@ -568,13 +588,25 @@ function SetupRow({ rec }: { rec: Recorder }) {
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Duration Limit</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={String(prefs.limit)} onValueChange={(v) => setPrefs({ limit: Number(v) })}>
-            {LIMIT_CHOICES.map((l) => (
-              <DropdownMenuRadioItem key={l} value={String(l)}>
-                {limitTitle(l)}
-              </DropdownMenuRadioItem>
-            ))}
+          <DropdownMenuRadioGroup
+            value={String(effectiveLimit(prefs.limit, commercialUse))}
+            onValueChange={(v) => setPrefs({ limit: Number(v) })}
+          >
+            {LIMIT_CHOICES.map((l) => {
+              // On Free every take stops at 5 min: longer limits (and "No
+              // Limit") are Pro's, and say so instead of silently not working.
+              const pro = !commercialUse && (l === 0 || l > FREE_RECORDING_SECONDS);
+              return (
+                <DropdownMenuRadioItem key={l} value={String(l)} disabled={pro}>
+                  {limitTitle(l)}
+                  {pro && <span className="ml-auto text-xs text-muted-foreground">Pro</span>}
+                </DropdownMenuRadioItem>
+              );
+            })}
           </DropdownMenuRadioGroup>
+          {!commercialUse && (
+            <p className="px-2 pb-1.5 text-xs text-muted-foreground">Free records up to 5 minutes, for personal use.</p>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuCheckboxItem
             checked={prefs.floatControls}

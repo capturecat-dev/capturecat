@@ -28,6 +28,13 @@
  *   dialog         demoing the dashboard itself, Log out mid-take: the house
  *                  "recording in progress" dialog is logged and cut; Stay
  *   defect-no-hide CSS forces the dock visible during the take: MUST fail
+ *   free-cap       a Free account (personal use): nobody presses Stop — the
+ *                  take stops itself at the Free cap (shortened to 4 s with
+ *                  the dev-only cc.dev.freeCap), and the "Free recordings stop
+ *                  at 5 minutes" toast comes up only AFTER the last frame
+ *                  (toasts are marked like recorder UI, so one inside the
+ *                  take fails "raw: marker only while the UI was logged")
+ *   defect-toast   a toast put on the page mid-take: MUST fail (the gate sees toasts)
  *
  * Every scenario records a real take in headless Chrome on the REAL dashboard
  * (/editor-lab/dashboard?page=record: DashboardShell → RecorderProvider →
@@ -96,7 +103,7 @@ const BASE = opt("url", "http://localhost:3200");
 const OUT = opt("out", "/tmp/capturecat-bar-hidden");
 const HEADED = args.includes("--headed");
 const API = "http://localhost:8787"; // .env.development VITE_API_URL — every request to it is answered here
-const ALL = ["monitor", "mediarecorder", "edge", "window-nopip", "window-pip", "tab-self", "tab-other", "restart", "dialog", "defect-no-hide"];
+const ALL = ["monitor", "mediarecorder", "edge", "window-nopip", "window-pip", "tab-self", "tab-other", "restart", "dialog", "defect-no-hide", "free-cap", "defect-toast"];
 const ONLY = opt("only", ALL.join(",")).split(",");
 mkdirSync(OUT, { recursive: true });
 
@@ -145,6 +152,8 @@ const SCENARIOS = {
   "tab-other": { fake: "other-tab", surface: "browser", engine: "webcodecs", countdown: 1, float: false, steps: "other", stop: "click", expect: { mode: "none", reveals: 0 } },
   dialog: { fake: "monitor", surface: "monitor", engine: "webcodecs", countdown: 1, float: false, steps: "dialog", stop: "shortcut", expect: { mode: "reveal", reveals: 1, middleCut: true, tailCut: false } },
   restart: { fake: "monitor", surface: "monitor", engine: "webcodecs", countdown: 1, float: false, steps: "restart", stop: "shortcut", expect: { mode: "reveal", reveals: 0, middleCut: false, tailCut: false } },
+  "free-cap": { fake: "monitor", surface: "monitor", engine: "webcodecs", countdown: 1, float: false, steps: "capped", stop: "auto", tier: "free", freeCap: 4, expect: { mode: "reveal", reveals: 0, middleCut: false, tailCut: false } },
+  "defect-toast": { fake: "monitor", surface: "monitor", engine: "webcodecs", countdown: 1, float: false, steps: "toast", stop: "shortcut", expect: { mode: "reveal", reveals: 0 }, mustFail: ["raw: marker only while the UI was logged on screen", "output: marker in zero frames"] },
   "defect-no-hide": { fake: "monitor", surface: "monitor", engine: "webcodecs", countdown: 1, float: false, steps: "short", stop: "click", defect: "no-hide", expect: { mode: "reveal", reveals: 1 }, mustFail: ["raw: marker only while the UI was logged on screen", "output: marker in zero frames"] },
 };
 
@@ -231,9 +240,9 @@ function harnessInit(cfg) {
     const style = document.createElement("style");
     style.id = "cc-gate";
     style.textContent =
-      "[data-rec-ui]{background:#00ffff !important;background-image:none !important;border-color:#00ffff !important;" +
+      "[data-rec-ui],[data-sonner-toast]{background:#00ffff !important;background-image:none !important;border-color:#00ffff !important;" +
       "box-shadow:none !important;backdrop-filter:none !important;filter:none !important;color:#00ffff !important}" +
-      "[data-rec-ui]>*{opacity:0 !important}" +
+      "[data-rec-ui]>*,[data-sonner-toast]>*{opacity:0 !important}" +
       (cfg.defect === "no-hide"
         ? "[data-recorder-dock-root][data-concealed='true']{opacity:1 !important;visibility:visible !important}"
         : "");
@@ -487,6 +496,31 @@ async function runSteps(page, sc, notes) {
       notes.push({ step: "stayed", dom: await domState(page) });
       break;
     }
+    case "toast": {
+      await sleep(1200);
+      await page.evaluate(() => {
+        const t = document.createElement("li");
+        // As sonner marks a toast once it is on screen (its CSS keeps an
+        // unmounted one at opacity 0).
+        t.setAttribute("data-sonner-toast", "");
+        t.setAttribute("data-mounted", "true");
+        t.setAttribute("data-visible", "true");
+        t.textContent = "A toast during the take";
+        t.style.cssText = "position:fixed;right:24px;bottom:24px;width:320px;height:64px;z-index:2147483646;list-style:none;opacity:1;transform:none";
+        document.body.appendChild(t);
+      });
+      await sleep(1500);
+      break;
+    }
+    case "capped": {
+      // Nobody stops it: the Free cap does.
+      await waitProbe(page, "take", (sc.freeCap + 20) * 1000);
+      const stoppedAt = (await probeOf(page)).find((e) => e.kind === "take")?.t ?? null;
+      await page.getByText("Free recordings stop at 5 minutes").first().waitFor({ timeout: 15_000 });
+      const toastAt = await page.evaluate(() => performance.now());
+      notes.push({ step: "free cap toast", stoppedAt, toastAt });
+      break;
+    }
     case "restart": {
       await sleep(1200);
       await sim("leave");
@@ -514,7 +548,7 @@ async function recordTake(browser, name, sc) {
   page.on("console", (m) => {
     if (m.type() === "error" && !/status of 404|Failed to load resource/.test(m.text())) errors.push(`console: ${m.text()}`);
   });
-  const url = `${BASE}/editor-lab/dashboard?page=record&cloud=network`;
+  const url = `${BASE}/editor-lab/dashboard?page=record&cloud=network${sc.tier ? `&tier=${sc.tier}` : ""}`;
   await page.goto(url, { waitUntil: "domcontentloaded" });
   // Prefs (and the fake camera's id) before the recorder mounts for real.
   const camId = sc.camera
@@ -530,8 +564,10 @@ async function recordTake(browser, name, sc) {
       // The camera bubble parked top-right: its default bottom-right spot can
       // sit over the Record key once the bar widens with a long source name.
       localStorage.setItem("cc.cameraBubble.position", JSON.stringify({ h: "right", dx: 12, v: "top", dy: 72 }));
+      if (p.freeCap) localStorage.setItem("cc.dev.freeCap", String(p.freeCap));
+      else localStorage.removeItem("cc.dev.freeCap");
     },
-    { surface: sc.surface, micId: "", camId, systemAudio: false, countdown: sc.countdown, limit: 0, floatControls: sc.float },
+    { surface: sc.surface, micId: "", camId, systemAudio: false, countdown: sc.countdown, limit: 0, floatControls: sc.float, freeCap: sc.freeCap ?? 0 },
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector("[data-recorder-dock]", { timeout: 60_000 });
@@ -558,7 +594,9 @@ async function recordTake(browser, name, sc) {
     else if (sc.stop === "shortcut-revealed") await page.keyboard.press("Meta+Shift+KeyS");
     else if (sc.stop === "escape") await page.keyboard.press("Escape");
     else if (sc.stop === "floating" && pip) await pip.getByRole("button", { name: "Stop", exact: true }).click({ timeout: 10_000 });
-    else await page.keyboard.press("Meta+Shift+KeyS");
+    else if (sc.stop === "auto") {
+      // stopped itself (runSteps waited for it)
+    } else await page.keyboard.press("Meta+Shift+KeyS");
     await waitProbe(page, "take", 30_000);
   } catch (error) {
     const dir = join(OUT, name);
@@ -765,6 +803,11 @@ async function analyse(browser, name, sc, rec) {
   check(rec.errors.length === 0, "no page errors", rec.errors.slice(0, 3).join(" | "));
   check(start?.mode === sc.expect.mode, `take runs in "${sc.expect.mode}" mode`, String(start?.mode));
   check(reveals.length === sc.expect.reveals, `${sc.expect.reveals} reveal(s) logged`, String(reveals.length));
+  if (sc.freeCap) {
+    check(rec.take.duration >= sc.freeCap - 0.25 && rec.take.duration <= sc.freeCap + 0.75, `the Free cap stopped the take by itself at ${sc.freeCap} s`, `${rec.take.duration.toFixed(2)} s`);
+    const toast = rec.notes.find((n) => n.step === "free cap toast");
+    check(toast?.stoppedAt != null && toast.toastAt > toast.stoppedAt, "the cap's toast comes up only after the take's last frame", JSON.stringify(toast));
+  }
   if (sc.float) {
     const fw = rec.notes.find((n) => n.step === "floating window");
     check(fw?.open === true && fw.hasBar > 0, "the controls float in the Picture-in-Picture window", JSON.stringify(fw));

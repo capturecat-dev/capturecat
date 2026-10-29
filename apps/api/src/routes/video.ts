@@ -16,7 +16,7 @@ import {
 import type { VideoMetadata } from "../types";
 import { getAISummary, getTranscript } from "../lib/db";
 import { requireAuth } from "../middleware/auth";
-import { requireEntitlement, userRateLimit, fixedWindowAllow, planForUser } from "../lib/entitlement";
+import { requireEntitlement, userRateLimit, fixedWindowAllow, planForUser, storageUsageForUser } from "../lib/entitlement";
 import { headR2ObjectMeta } from "../lib/presign";
 import { customObjectUrl, deleteStoredObject, storeFor, StorageUnavailableError } from "../lib/storage";
 import { resolveDomain, domainIsLive } from "../lib/db";
@@ -333,6 +333,14 @@ async function shareGate(
   // caps were only ever enforced on the upload path.
   const ownerPlan = await planForUser(c.env, doc.uid);
   if (!ownerPlan.features.cloudShare) {
+    return { state: "paused" };
+  }
+  // Free has a small cloud allowance (migration 0039), so `cloudShare` alone
+  // no longer pauses a lapsed Pro owner's links. Their plan's storage does:
+  // over it, every share of theirs pauses until they are back under it or
+  // pay again. Uploads can never take an owner over, so on a plan they keep
+  // paying for this never fires.
+  if ((await storageUsageForUser(c.env, doc.uid)) > ownerPlan.limits.maxTotalStorageBytes) {
     return { state: "paused" };
   }
   if (doc.expiresAt && Date.parse(doc.expiresAt) < Date.now()) {

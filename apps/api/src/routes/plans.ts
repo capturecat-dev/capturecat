@@ -22,7 +22,7 @@ import type Stripe from "stripe";
 import type { Env, Variables } from "../types";
 import { createStripeClient } from "../lib/stripe";
 import { resolveLookupKeys } from "../lib/stripe-catalog";
-import { listPlans, parseStoredLimits, stripePlansFromDB } from "../lib/plans";
+import { FREE_RECORDING_SECONDS, listPlans, parseStoredLimits, stripePlansFromDB, type PlanFeatures } from "../lib/plans";
 import { currentPrices, nextSaleBoundary } from "../lib/plan-sale";
 
 export const planRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -120,12 +120,14 @@ planRoutes.get("/plans", async (c) => {
       // The same column checkout reads the trial from.
       trialDays: proRow?.trialDays ?? 0,
       features: proRow?.features ?? null,
+      recordingLimitSeconds: recordingLimit(proRow?.features ?? null),
       free: freeRow
         ? {
             name: freeRow.displayName,
             description: freeRow.description,
             features: freeRow.features,
             limits: freeRow.limits,
+            recordingLimitSeconds: recordingLimit(freeRow.features),
           }
         : null,
       // The same row lib/upload-policy.ts enforces from. No row = no caps.
@@ -135,3 +137,9 @@ planRoutes.get("/plans", async (c) => {
     { "Cache-Control": `public, max-age=${maxAge}` }
   );
 });
+
+/** The per-recording cap a plan's recorders enforce; null = none. A missing
+ *  plan row is treated as paid here (the page only describes Pro with it). */
+function recordingLimit(features: PlanFeatures | null): number | null {
+  return features && !features.commercialUse ? FREE_RECORDING_SECONDS : null;
+}

@@ -164,6 +164,30 @@ describe("private team videos stream only while the uploader's plan includes tea
   });
 });
 
+describe("a lapsed Pro owner's links, now that Free has a small cloud allowance (0039)", () => {
+  function publicVideo(bytes: number) {
+    db.query(
+      `INSERT INTO shared_videos (video_id, uid, file_name, r2_key, url, is_private, status, created_at, file_size_bytes)
+       VALUES ('v2', ?, 'demo.mp4', 'videos/v2.mp4', 'https://capturecat.so/share/v2', 0, 'ready', ?, ?)`,
+      PRO, new Date().toISOString(), bytes,
+    );
+    bucket.objects.set("videos/v2.mp4", new TextEncoder().encode("movie-bytes"));
+  }
+
+  it("keep playing while they fit Free's storage", async () => {
+    publicVideo(100 * 1024 ** 2);
+    db.query(`UPDATE "user" SET tester = 0 WHERE id = ?`, PRO);
+    expect((await call(null, "GET", "/video/v2")).status).toBe(200);
+  });
+
+  it("EXPLOIT: pause past Free's storage — one month of Pro must not buy permanent hosting", async () => {
+    publicVideo(3 * 1024 ** 3);
+    expect((await call(null, "GET", "/video/v2")).status).toBe(200);
+    db.query(`UPDATE "user" SET tester = 0 WHERE id = ?`, PRO);
+    expect((await call(null, "GET", "/video/v2")).status).toBe(403);
+  });
+});
+
 describe("share uploads: storage cap under concurrency", () => {
   function pendingUpload(videoId: string, bytes: number) {
     const now = new Date().toISOString();

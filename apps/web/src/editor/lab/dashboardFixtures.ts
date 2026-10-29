@@ -297,7 +297,7 @@ function trpcData(path: string, input: unknown, o: LabOptions): unknown {
       return {
         videos,
         storageUsedBytes: empty ? 0 : Math.round(61.4 * 1024 ** 3),
-        storageLimitBytes: o.tier === "paid" ? 100 * 1024 ** 3 : 0,
+        storageLimitBytes: o.tier === "paid" ? 100 * 1024 ** 3 : 2 * 1024 ** 3,
       };
     case "videos.playlists":
       return { playlists: empty ? [] : PLAYLISTS };
@@ -393,7 +393,15 @@ function trpcData(path: string, input: unknown, o: LabOptions): unknown {
         corsOrigins: ["https://capturecat.so", "https://www.capturecat.so", "https://app.capturecat.so"],
       };
     case "billing.status":
-      return { uid: "lab-user", email: "mike@acme.test", tier: o.tier, tester: false, blocked: false };
+      return {
+        uid: "lab-user",
+        email: "mike@acme.test",
+        tier: o.tier,
+        tester: false,
+        blocked: false,
+        plan: { name: o.tier === "free" ? "free" : "pro", displayName: o.tier === "free" ? "Free" : "CaptureCat Pro" },
+        features: { commercialUse: o.tier !== "free", cloudShare: true },
+      };
     case "profile.me":
       return {
         name: "Mike Garland",

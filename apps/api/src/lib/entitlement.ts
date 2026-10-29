@@ -20,6 +20,7 @@ import { createMiddleware } from "hono/factory";
 import type { Env, Variables, EntitlementTier } from "../types";
 import { activeSubscriptionPlan, hasPaidSubscription } from "./stripe";
 import { planForEntitlement, type PlanFeatures, type PlanRecord } from "./plans";
+import { storageUsageBytes } from "./db";
 
 export async function resolveTier(
   db: D1Database,
@@ -102,6 +103,23 @@ export async function planForUser(env: { DB: D1Database }, uid: string): Promise
     .put(cacheKey, new Response(JSON.stringify(plan), { headers: { "Cache-Control": "s-maxage=60" } }))
     .catch(() => {});
   return plan;
+}
+
+/** A user's stored bytes (lib/db.ts STORAGE_SUM_SQL), cached 60 s per colo
+ *  like their plan: share views ask it on every play (video.ts shareGate). */
+export async function storageUsageForUser(env: { DB: D1Database }, uid: string): Promise<number> {
+  const cacheKey = new Request(`https://entitlement.internal/storage/${encodeURIComponent(uid)}`);
+  const cache = caches.default;
+  const hit = await cache.match(cacheKey).catch(() => undefined);
+  if (hit) {
+    const n = Number(await hit.text().catch(() => ""));
+    if (Number.isFinite(n)) return n;
+  }
+  const used = await storageUsageBytes(env.DB, uid);
+  await cache
+    .put(cacheKey, new Response(String(used), { headers: { "Cache-Control": "s-maxage=60" } }))
+    .catch(() => {});
+  return used;
 }
 
 export async function featuresForUser(env: { DB: D1Database }, uid: string): Promise<PlanFeatures> {
