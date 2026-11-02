@@ -1,21 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Download, Globe, RefreshCw, ScrollText, Trash2 } from "lucide-react";
 
 import { API_URL } from "@/lib/api-url";
 import { pageHead } from "@/lib/site-content";
-import Navbar from "@/components/marketing/Navbar";
-import Footer from "@/components/marketing/Footer";
 import { DownloadButtons } from "@/components/marketing/download-buttons";
 import { PinnedStory } from "@/components/marketing/home/demo/PinnedStory";
 import { DmgScene, ExportScene, MenuBarScene, PermissionScene, SceneSlot } from "@/components/marketing/home/demo/Scenes";
 import demosCss from "@/styles/demos.css?url";
 import demosPagesCss from "@/styles/demos-pages.css?url";
-import {
-  Ambient,
-  Container,
-  Eyebrow,
-  GlassCard,
-  SectionTitle,
-} from "@/components/marketing/primitives";
+import airyCss from "@/styles/airy.css?url";
+import { AirPage, AirPageHero } from "@/components/marketing/airy/Page";
+import { AIR_CELL, AIR_GRID, AirContainer, AirTitle } from "@/components/marketing/airy/primitives";
 
 async function getLatestRelease() {
   try {
@@ -37,7 +32,12 @@ async function getLatestRelease() {
 
 export const Route = createFileRoute("/download")({
   loader: async () => ({ release: await getLatestRelease() }),
-  head: () => pageHead("/download", [{ rel: "stylesheet", href: demosCss }, { rel: "stylesheet", href: demosPagesCss }]),
+  head: () =>
+    pageHead("/download", [
+      { rel: "stylesheet", href: demosCss },
+      { rel: "stylesheet", href: demosPagesCss },
+      { rel: "stylesheet", href: airyCss },
+    ]),
   component: DownloadPage,
 });
 
@@ -70,55 +70,45 @@ function DownloadPage() {
   const { release } = Route.useLoaderData();
 
   return (
-    <main className="flex min-h-screen flex-col bg-background">
-      <Navbar />
-
-      <section className="relative isolate overflow-hidden">
-        <Ambient variant="hero" />
-        <Container className="flex flex-col items-center pb-16 pt-16 text-center md:pt-24">
-          <Eyebrow>
-            {release ? `Version ${release.version}, released ${formatDate(release.date)}` : "macOS app"}
-          </Eyebrow>
-          <h1 className="mt-6 max-w-3xl text-balance text-5xl font-semibold leading-[1.04] tracking-[-0.03em] md:text-6xl">
-            Download CaptureCat for Mac
-          </h1>
-          <p className="mx-auto mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Free for personal use, with recordings up to 5 minutes. No account
-            needed until you want a share link or Pro. The page picks the right
-            build for your Mac.
-          </p>
-
-          {release ? (
-            <>
+    <AirPage>
+      <AirPageHero
+        pill={release ? `Version ${release.version}, released ${formatDate(release.date)}` : "macOS app"}
+        icon={<Download className="h-3.5 w-3.5" strokeWidth={2} />}
+        title="Download CaptureCat for Mac"
+        lede="Free for personal use, with recordings up to 5 minutes. No account needed until you want a share link or Pro. The page picks the right build for your Mac."
+      >
+        {release ? (
+          <>
+            <div className="mt-4">
               <DownloadButtons release={release} />
-              <p className="mt-4 text-sm text-muted-foreground">
-                Requires macOS {release.minOS || "14 Sonoma"} or later. Not sure which Mac you have? Open the Apple menu, then About This
-                Mac. Apple Silicon says Apple M1 or later under Chip.
-              </p>
-            </>
-          ) : (
-            <p className="mt-8 text-lg text-muted-foreground">
-              The download is not available right now. Try again in a few minutes.
+            </div>
+            <p className="mt-5 max-w-xl text-[13.5px] leading-relaxed text-[var(--cc-air-faint)]">
+              Requires macOS {release.minOS || "14 Sonoma"} or later. Not sure which Mac you have? Open the Apple menu,
+              then About This Mac. Apple Silicon says Apple M1 or later under Chip.
             </p>
-          )}
-          <a
-            href="/#anywhere"
-            className="group mt-8 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.06] px-4 py-1.5 text-[13px] text-muted-foreground backdrop-blur-xl transition-colors hover:border-white/20 hover:text-foreground"
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-300/80" />
-            Not on a Mac? CaptureCat also runs in the browser
-            <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
-              ›
-            </span>
-          </a>
-        </Container>
-      </section>
+          </>
+        ) : (
+          <p className="mt-8 text-lg text-[var(--cc-air-muted)]">
+            The download is not available right now. Try again in a few minutes.
+          </p>
+        )}
+        <a
+          href="/#everywhere"
+          className="group mt-8 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-[13px] text-[var(--cc-air-ink-2)] shadow-[0_1px_2px_rgb(0_0_0/0.06)] ring-1 ring-black/[0.07] transition-shadow hover:shadow-[0_6px_18px_-8px_rgb(0_0_0/0.2)]"
+        >
+          <Globe className="h-3.5 w-3.5 text-[var(--cc-air-violet)]" strokeWidth={2} />
+          Not on a Mac? CaptureCat also runs in the browser
+          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
+            ›
+          </span>
+        </a>
+      </AirPageHero>
 
-      <section className="relative isolate py-16">
-        <Container>
-          <SectionTitle muted="About two minutes, most of it macOS asking permission.">
-            After the download
-          </SectionTitle>
+      <section className="relative isolate pb-16 pt-8">
+        <AirContainer>
+          <AirTitle className="max-w-2xl" muted="About two minutes, most of it macOS asking permission.">
+            After the download.
+          </AirTitle>
           <PinnedStory
             className="ccd-dl mt-6 lg:mt-0"
             stage={
@@ -139,49 +129,52 @@ function DownloadPage() {
             }
             steps={STEPS.map((step, i) => (
               <div className="flex gap-4">
-                <span className="ccd-stepnum inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.07] text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
+                <span className="ccd-stepnum inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-[var(--cc-air-ink)] ring-1 ring-black/[0.08]">
                   {i + 1}
                 </span>
                 <div>
-                  <h3 className="text-xl font-medium tracking-[-0.02em] text-foreground md:text-2xl">{step.title}</h3>
-                  <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">{step.body}</p>
+                  <h3 className="text-[22px] font-semibold leading-snug tracking-[-0.025em] text-[var(--cc-air-ink)] md:text-[26px]">
+                    {step.title}
+                  </h3>
+                  <p className="mt-3 max-w-lg text-[15.5px] leading-relaxed text-[var(--cc-air-muted)]">{step.body}</p>
                 </div>
               </div>
             ))}
           />
-        </Container>
+        </AirContainer>
       </section>
 
-      <section className="relative isolate py-16 pb-28">
-        <Container>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <GlassCard padding="p-7">
-              <h3 className="text-[17px] font-medium tracking-[-0.01em]">Updates</h3>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-                The app checks for updates itself and installs them in the
-                background. You can also check from the menu bar menu.
-              </p>
-            </GlassCard>
-            <GlassCard padding="p-7">
-              <h3 className="text-[17px] font-medium tracking-[-0.01em]">Uninstalling</h3>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-                Drag the app to the Bin. Your recordings are ordinary project
-                folders in Application Support and stay where they are.
-              </p>
-            </GlassCard>
-            <GlassCard padding="p-7">
-              <h3 className="text-[17px] font-medium tracking-[-0.01em]">Release notes</h3>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-                {release?.notes
-                  ? release.notes
-                  : "Each release ships with notes inside the update prompt, so you can see what changed before installing."}
-              </p>
-            </GlassCard>
+      <section className="border-t border-[var(--cc-air-hairline)] bg-white py-20 md:py-24">
+        <AirContainer>
+          <div className={`${AIR_GRID} md:grid-cols-3`}>
+            {[
+              {
+                icon: RefreshCw,
+                title: "Updates",
+                body: "The app checks for updates itself and installs them in the background. You can also check from the menu bar menu.",
+              },
+              {
+                icon: Trash2,
+                title: "Uninstalling",
+                body: "Drag the app to the Bin. Your recordings are ordinary project folders in Application Support and stay where they are.",
+              },
+              {
+                icon: ScrollText,
+                title: "Release notes",
+                body:
+                  release?.notes ||
+                  "Each release ships with notes inside the update prompt, so you can see what changed before installing.",
+              },
+            ].map((card) => (
+              <div key={card.title} className={`${AIR_CELL} p-7 md:p-8`}>
+                <card.icon className="h-5 w-5 text-[var(--cc-air-violet)]" strokeWidth={1.75} />
+                <h3 className="mt-5 text-[16px] font-semibold tracking-[-0.01em] text-[var(--cc-air-ink)]">{card.title}</h3>
+                <p className="mt-1.5 text-[14.5px] leading-relaxed text-[var(--cc-air-muted)]">{card.body}</p>
+              </div>
+            ))}
           </div>
-        </Container>
+        </AirContainer>
       </section>
-
-      <Footer />
-    </main>
+    </AirPage>
   );
 }

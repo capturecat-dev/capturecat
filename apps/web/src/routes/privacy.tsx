@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalLayout } from "@/components/marketing/LegalLayout";
 import { pageHead } from "@/lib/site-content";
+import airyCss from "@/styles/airy.css?url";
 
 export const Route = createFileRoute("/privacy")({
-  head: () => pageHead("/privacy"),
+  head: () => pageHead("/privacy", [{ rel: "stylesheet", href: airyCss }]),
   component: PrivacyPage,
 });
 

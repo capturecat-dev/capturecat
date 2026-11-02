@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { Check, Minus } from "lucide-react";
 
 import { SubscribeButton } from "./subscribe-button";
+import { AIR_CARD, InkLink } from "./airy/primitives";
 
 /** One interval's price. During a sale `amount` is what checkout charges and
  *  `regularAmount` the price struck through (the API decides both, by the
@@ -149,7 +149,7 @@ export function PricingCards({ plan }: { plan: PlanView | null }) {
   return (
     <div className="flex w-full flex-col items-center">
       {hasAnnual && (
-        <div className="mb-10 flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.05] p-1 text-sm backdrop-blur-2xl">
+        <div className="mb-10 flex items-center gap-1 rounded-full bg-white p-1 text-sm shadow-[0_1px_2px_rgb(0_0_0/0.06)] ring-1 ring-black/[0.08]">
           {(["Monthly", "Annual"] as const).map((label) => {
             const active = label === "Annual" ? annual : !annual;
             return (
@@ -158,12 +158,12 @@ export function PricingCards({ plan }: { plan: PlanView | null }) {
                 type="button"
                 onClick={() => setAnnual(label === "Annual")}
                 className={`rounded-full px-4 py-1.5 transition-colors ${
-                  active ? "bg-white text-black" : "text-muted-foreground hover:text-foreground"
+                  active ? "bg-[var(--cc-air-ink)] text-white" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {label}
                 {label === "Annual" && savings ? (
-                  <span className={`ml-1.5 text-xs ${active ? "text-black/60" : ""}`}>
+                  <span className={`ml-1.5 text-xs ${active ? "text-white/60" : ""}`}>
                     −{savings}%
                   </span>
                 ) : null}
@@ -175,11 +175,7 @@ export function PricingCards({ plan }: { plan: PlanView | null }) {
 
       <div className="grid w-full max-w-4xl grid-cols-1 gap-6 md:grid-cols-2">
         {/* Free */}
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-2xl">
-          <span
-            aria-hidden
-            className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent"
-          />
+        <div className={`${AIR_CARD} relative p-8`}>
           <h2 className="text-xl font-semibold tracking-[-0.01em]">
             {plan?.free?.name ?? "Free"}
           </h2>
@@ -204,19 +200,20 @@ export function PricingCards({ plan }: { plan: PlanView | null }) {
             ))}
             {plan?.free && limitBullets(plan.free.limits).map((f) => <FeatureRow key={f} label={f} included />)}
           </ul>
-          <Link
-            to="/download"
-            className="mt-8 inline-flex h-11 w-full items-center justify-center rounded-full border border-white/12 bg-white/[0.06] text-[15px] font-medium text-foreground backdrop-blur-xl transition-colors hover:border-white/20 hover:bg-white/[0.10]"
-          >
+          <InkLink to="/download" className="mt-8 w-full">
             Download for Mac
-          </Link>
+          </InkLink>
         </div>
 
-        {/* Pro */}
-        <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/[0.06] p-8 shadow-[0_30px_90px_-30px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
+        {/* Pro: an ink card, the light pages' dark accent (airy.css puts the
+            dark tokens back under data-air-dark). */}
+        <div
+          data-air-dark
+          className="relative isolate overflow-hidden rounded-[24px] bg-[#0b0b10] p-8 text-white shadow-[0_30px_80px_-30px_rgb(40_24_110/0.55)] ring-1 ring-white/10"
+        >
           <span
             aria-hidden
-            className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/50 to-transparent"
+            className="absolute inset-0 -z-10 bg-[radial-gradient(70%_50%_at_100%_0%,rgb(124_92_240/0.35),transparent_70%),radial-gradient(60%_40%_at_0%_100%,rgb(47_123_255/0.18),transparent_70%)]"
           />
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold tracking-[-0.01em]">
@@ -224,12 +221,12 @@ export function PricingCards({ plan }: { plan: PlanView | null }) {
             </h2>
             <div className="flex items-center gap-2">
               {plan?.popular ? (
-                <span className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-xs text-foreground">
+                <span className="rounded-full bg-white/[0.1] px-3 py-1 text-xs text-white ring-1 ring-white/15">
                   Most popular
                 </span>
               ) : null}
               {plan?.trialDays ? (
-                <span className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-xs text-foreground">
+                <span className="rounded-full bg-white/[0.1] px-3 py-1 text-xs text-white ring-1 ring-white/15">
                   {plan.trialDays}-day free trial
                 </span>
               ) : null}

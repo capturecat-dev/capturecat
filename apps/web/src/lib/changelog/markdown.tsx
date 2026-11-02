@@ -439,27 +439,41 @@ const CLS = {
   a: "font-medium text-foreground underline decoration-white/25 underline-offset-4 transition-colors hover:decoration-white/70",
 } as const;
 
-function renderInlines(nodes: MdInline[]): ReactNode[] {
+/** The same body on the light marketing pages (`tone="light"`). */
+const CLS_LIGHT: Record<keyof typeof CLS, string> = {
+  ...CLS,
+  ul: "list-disc space-y-1.5 pl-5 marker:text-black/30",
+  ol: "list-decimal space-y-1.5 pl-5 marker:text-black/40",
+  quote: "space-y-3 border-l-2 border-black/10 pl-4 text-foreground/75",
+  pre: "overflow-x-auto rounded-xl bg-[#0b0b10] p-4 font-mono text-[13px] leading-relaxed text-white/85",
+  hr: "border-black/10",
+  code: "rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.86em] text-foreground/90",
+  a: "font-medium text-foreground underline decoration-black/20 underline-offset-4 transition-colors hover:decoration-black/60",
+};
+
+type Classes = Record<keyof typeof CLS, string>;
+
+function renderInlines(nodes: MdInline[], cls: Classes): ReactNode[] {
   return nodes.map((node, i) => {
     switch (node.type) {
       case "text":
         return node.text;
       case "strong":
-        return createElement("strong", { key: i, className: CLS.strong }, ...renderInlines(node.children));
+        return createElement("strong", { key: i, className: cls.strong }, ...renderInlines(node.children, cls));
       case "em":
-        return createElement("em", { key: i, className: CLS.em }, ...renderInlines(node.children));
+        return createElement("em", { key: i, className: cls.em }, ...renderInlines(node.children, cls));
       case "code":
-        return createElement("code", { key: i, className: CLS.code }, node.text);
+        return createElement("code", { key: i, className: cls.code }, node.text);
       case "link":
         return createElement(
           "a",
           {
             key: i,
             href: node.href,
-            className: CLS.a,
+            className: cls.a,
             ...(node.external ? { target: "_blank", rel: "noopener noreferrer" } : {}),
           },
-          ...renderInlines(node.children),
+          ...renderInlines(node.children, cls),
         );
     }
   });
@@ -471,41 +485,41 @@ function headingTag(level: number, base: number): { tag: string; sub: boolean } 
   return { tag: `h${Math.min(6, base + (sub ? 1 : 0))}`, sub };
 }
 
-function renderBlocks(blocks: MdBlock[], base: number): ReactNode[] {
+function renderBlocks(blocks: MdBlock[], base: number, cls: Classes): ReactNode[] {
   return blocks.map((block, i) => {
     switch (block.type) {
       case "paragraph":
-        return createElement("p", { key: i, className: CLS.p }, ...renderInlines(block.children));
+        return createElement("p", { key: i, className: cls.p }, ...renderInlines(block.children, cls));
       case "heading": {
         const { tag, sub } = headingTag(block.level, base);
-        return createElement(tag, { key: i, className: sub ? CLS.hSub : CLS.h }, ...renderInlines(block.children));
+        return createElement(tag, { key: i, className: sub ? cls.hSub : cls.h }, ...renderInlines(block.children, cls));
       }
       case "list":
         return createElement(
           block.ordered ? "ol" : "ul",
-          { key: i, className: block.ordered ? CLS.ol : CLS.ul, ...(block.ordered && block.start !== 1 ? { start: block.start } : {}) },
+          { key: i, className: block.ordered ? cls.ol : cls.ul, ...(block.ordered && block.start !== 1 ? { start: block.start } : {}) },
           ...block.items.map((item, j) => {
             // A one-paragraph item renders tight (its text straight in the <li>).
             const [head, ...rest] = item;
-            const lead = head?.type === "paragraph" ? renderInlines(head.children) : renderBlocks(head ? [head] : [], base);
+            const lead = head?.type === "paragraph" ? renderInlines(head.children, cls) : renderBlocks(head ? [head] : [], base, cls);
             return createElement(
               "li",
-              { key: j, className: CLS.li },
+              { key: j, className: cls.li },
               ...lead,
-              ...(rest.length ? [createElement("div", { key: "rest", className: "space-y-2" }, ...renderBlocks(rest, base))] : []),
+              ...(rest.length ? [createElement("div", { key: "rest", className: "space-y-2" }, ...renderBlocks(rest, base, cls))] : []),
             );
           }),
         );
       case "quote":
-        return createElement("blockquote", { key: i, className: CLS.quote }, ...renderBlocks(block.children, base));
+        return createElement("blockquote", { key: i, className: cls.quote }, ...renderBlocks(block.children, base, cls));
       case "code":
         return createElement(
           "pre",
-          { key: i, className: CLS.pre },
+          { key: i, className: cls.pre },
           createElement("code", null, block.text),
         );
       case "rule":
-        return createElement("hr", { key: i, className: CLS.hr });
+        return createElement("hr", { key: i, className: cls.hr });
     }
   });
 }
@@ -517,15 +531,19 @@ function renderBlocks(blocks: MdBlock[], base: number): ReactNode[] {
 export function ChangelogMarkdown({
   source,
   headingBase = 2,
+  tone = "dark",
   className = "",
 }: {
   source: string;
   headingBase?: number;
+  /** "light" on the light marketing pages; the admin preview stays dark. */
+  tone?: "dark" | "light";
   className?: string;
 }) {
   const blocks = parseMarkdown(source);
   if (blocks.length === 0) return null;
-  return createElement("div", { className: `${CLS.root} ${className}`.trim() }, ...renderBlocks(blocks, headingBase));
+  const cls = tone === "light" ? CLS_LIGHT : CLS;
+  return createElement("div", { className: `${cls.root} ${className}`.trim() }, ...renderBlocks(blocks, headingBase, cls));
 }
 
 // ── HTML string (the RSS feed) ──────────────────────────────────────────────

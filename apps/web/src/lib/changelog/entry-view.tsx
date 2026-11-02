@@ -21,13 +21,23 @@ export type ChangelogEntryLike = Pick<ChangelogEntry, "title" | "summary" | "bod
 
 const pill = "inline-flex h-6 items-center rounded-full border px-2.5 text-[12px] font-medium leading-none";
 
-export function ChangelogBadges({ entry }: { entry: Pick<ChangelogEntryLike, "category" | "platforms"> }) {
+export function ChangelogBadges({
+  entry,
+  tone = "dark",
+}: {
+  entry: Pick<ChangelogEntryLike, "category" | "platforms">;
+  tone?: "dark" | "light";
+}) {
   const category = CATEGORY_META[entry.category] ?? CATEGORY_META.new;
+  const light = tone === "light";
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className={`${pill} ${category.badge}`}>{category.label}</span>
+      <span className={`${pill} ${light ? category.lightBadge : category.badge}`}>{category.label}</span>
       {entry.platforms.map((p) => (
-        <span key={p} className={`${pill} border-white/12 bg-white/[0.05] text-muted-foreground`}>
+        <span
+          key={p}
+          className={`${pill} ${light ? "border-black/[0.08] bg-white" : "border-white/12 bg-white/[0.05]"} text-muted-foreground`}
+        >
           {PLATFORM_LABELS[p] ?? p}
         </span>
       ))}
@@ -38,12 +48,15 @@ export function ChangelogBadges({ entry }: { entry: Pick<ChangelogEntryLike, "ca
 export function ChangelogEntryView({
   entry,
   variant = "list",
+  tone = "dark",
   renderTitle,
   className = "",
 }: {
   entry: ChangelogEntryLike;
   /** "list": an h3 under a month heading. "page": the entry's own page (h1). */
   variant?: "list" | "page";
+  /** "light" on the light marketing pages; the admin preview stays dark. */
+  tone?: "dark" | "light";
   /** Wraps the title text, e.g. in a router Link to the entry's page. */
   renderTitle?: (title: ReactNode) => ReactNode;
   className?: string;
@@ -62,14 +75,14 @@ export function ChangelogEntryView({
           )}
           {entry.version && (
             <>
-              <span aria-hidden className="text-white/25">
+              <span aria-hidden className={tone === "light" ? "text-black/20" : "text-white/25"}>
                 ·
               </span>
               <span className="font-mono text-[12.5px] text-foreground/80">{versionLabel(entry.version)}</span>
             </>
           )}
         </p>
-        <ChangelogBadges entry={entry} />
+        <ChangelogBadges entry={entry} tone={tone} />
       </div>
       <Title
         className={
@@ -85,7 +98,7 @@ export function ChangelogEntryView({
           {entry.summary}
         </p>
       )}
-      <ChangelogMarkdown source={entry.body} headingBase={page ? 2 : 4} className={page ? "mt-8" : "mt-5"} />
+      <ChangelogMarkdown source={entry.body} headingBase={page ? 2 : 4} tone={tone} className={page ? "mt-8" : "mt-5"} />
     </article>
   );
 }

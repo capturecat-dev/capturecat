@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import {
   Monitor,
+  Sparkles,
   Smartphone,
   Globe,
   Search,
@@ -12,10 +13,20 @@ import {
 
 import { jsonLd } from "@/lib/json-ld";
 import { pageHead } from "@/lib/site-content";
-import Navbar from "@/components/marketing/Navbar";
-import Footer from "@/components/marketing/Footer";
 import FeatureInventory from "@/components/marketing/FeatureInventory";
-import FinalCta from "@/components/marketing/home/FinalCta";
+import { AirPage, AirPageHero } from "@/components/marketing/airy/Page";
+import { AirFinalCta } from "@/components/marketing/airy/Sections";
+import {
+  AirChecks,
+  AirContainer,
+  AirLede,
+  AirPill,
+  AirTitle,
+  GHOST_ON_DARK,
+  InkLink,
+  SoftLink,
+} from "@/components/marketing/airy/primitives";
+import { AppleGlyph } from "@/components/marketing/primitives";
 import { PinnedStory } from "@/components/marketing/home/demo/PinnedStory";
 import {
   AnnotationsScene,
@@ -28,18 +39,15 @@ import {
 } from "@/components/marketing/home/demo/Scenes";
 import demosCss from "@/styles/demos.css?url";
 import demosPagesCss from "@/styles/demos-pages.css?url";
-import {
-  Ambient,
-  AppleGlyph,
-  Container,
-  Eyebrow,
-  IconTile,
-  PrimaryLink,
-  SecondaryLink,
-} from "@/components/marketing/primitives";
+import airyCss from "@/styles/airy.css?url";
 
 export const Route = createFileRoute("/features")({
-  head: () => pageHead("/features", [{ rel: "stylesheet", href: demosCss }, { rel: "stylesheet", href: demosPagesCss }]),
+  head: () =>
+    pageHead("/features", [
+      { rel: "stylesheet", href: demosCss },
+      { rel: "stylesheet", href: demosPagesCss },
+      { rel: "stylesheet", href: airyCss },
+    ]),
   component: FeaturesPage,
 });
 
@@ -150,39 +158,30 @@ const SECTIONS: Array<{
 
 function FeaturesPage() {
   return (
-    <main className="flex min-h-screen flex-col bg-background">
+    <AirPage>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd(jsonLdData) }}
       />
-      <Navbar />
+      <AirPageHero
+        pill="Features"
+        icon={<Sparkles className="h-3.5 w-3.5" strokeWidth={2} />}
+        title="Everything CaptureCat does, on one page."
+        lede="The home page shows the headline features. Here is the rest, then the complete inventory of what ships in the app today. Nothing on this page is planned or in beta."
+      >
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <InkLink to="/download">
+            <AppleGlyph />
+            Download for Mac
+          </InkLink>
+          <SoftLink to="/" hash="zoom">
+            Headline features
+          </SoftLink>
+        </div>
+      </AirPageHero>
 
-      <section className="relative isolate overflow-hidden">
-        <Ambient variant="hero" />
-        <Container className="pb-12 pt-16 text-center md:pt-24">
-          <Eyebrow>Features</Eyebrow>
-          <h1 className="mx-auto mt-6 max-w-3xl text-balance text-5xl font-semibold leading-[1.04] tracking-[-0.03em] md:text-6xl">
-            Everything CaptureCat does, on one page.
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            The home page shows the headline features. This page shows the
-            rest, followed by the complete inventory of what ships in the app
-            today. Nothing on this page is planned or in beta.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <PrimaryLink to="/download">
-              <AppleGlyph />
-              Download for Mac
-            </PrimaryLink>
-            <SecondaryLink to="/" hash="features">
-              Headline features
-            </SecondaryLink>
-          </div>
-        </Container>
-      </section>
-
-      <section className="relative isolate py-8 lg:py-0">
-        <Container>
+      <section className="relative isolate pb-8 lg:pb-0">
+        <AirContainer>
           <PinnedStory
             className="ccd-fp"
             stage={
@@ -211,37 +210,30 @@ function FeaturesPage() {
               </>
             }
             steps={SECTIONS.map((item) => (
-              <>
-                <IconTile>
-                  <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                </IconTile>
-                <p className="mt-5 text-[13px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                  {item.eyebrow}
-                </p>
-                <h2 className="mt-2 text-balance text-2xl font-medium tracking-[-0.02em] text-foreground md:text-3xl">
-                  {item.title}
-                </h2>
-                <p className="mt-4 text-[15.5px] leading-relaxed text-muted-foreground">{item.body}</p>
-                <ul className="mt-5 space-y-2">
-                  {item.details.map((d) => (
-                    <li key={d} className="flex gap-2.5 text-[14px] leading-relaxed text-muted-foreground">
-                      <span aria-hidden className="mt-[8px] h-1 w-1 shrink-0 rounded-full bg-cyan-300/60" />
-                      {d}
-                    </li>
-                  ))}
-                </ul>
-              </>
+              <div>
+                <AirPill icon={<item.icon className="h-3.5 w-3.5" strokeWidth={2} />}>{item.eyebrow}</AirPill>
+                <AirTitle className="mt-5 !text-[28px] md:!text-[36px]">{item.title}</AirTitle>
+                <AirLede className="mt-4 !text-[16px]">{item.body}</AirLede>
+                <AirChecks items={item.details} />
+              </div>
             ))}
           />
-        </Container>
+        </AirContainer>
       </section>
 
       <FeatureInventory
         title="The complete inventory."
         muted="Grouped by where it lives in the app."
       />
-      <FinalCta />
-      <Footer />
-    </main>
+      <AirFinalCta
+        title="Record one thing today and see what comes out."
+        lede="Free for personal use, no account to make, and your first export is ready about a minute after you stop recording."
+        secondary={
+          <Link to="/pricing" className={GHOST_ON_DARK}>
+            See pricing
+          </Link>
+        }
+      />
+    </AirPage>
   );
 }

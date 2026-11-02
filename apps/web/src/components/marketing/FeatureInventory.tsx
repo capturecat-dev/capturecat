@@ -1,5 +1,5 @@
 import { FEATURE_GROUPS } from "@/lib/feature-inventory";
-import { Container, GlassCard, SectionTitle } from "./primitives";
+import { AIR_CARD, AirContainer, AirTitle } from "./airy/primitives";
 
 /**
  * The complete inventory, every shipped feature grouped. Data lives in
@@ -14,39 +14,29 @@ export default function FeatureInventory({
   muted?: string;
 }) {
   return (
-    <section id="everything" className="relative isolate py-24">
-      <Container>
-        <SectionTitle className="scroll-reveal" muted={muted}>
+    <section id="everything" className="relative scroll-mt-24 bg-[var(--cc-air-tint)] py-24 md:py-32">
+      <AirContainer>
+        <AirTitle className="scroll-reveal max-w-2xl" muted={muted}>
           {title}
-        </SectionTitle>
-        <div className="mt-12 columns-1 gap-4 md:columns-2 lg:columns-3">
+        </AirTitle>
+        <div className="mt-14 columns-1 gap-4 md:columns-2 lg:columns-3">
           {FEATURE_GROUPS.map((group) => (
-            <GlassCard
-              key={group.title}
-              padding="p-7"
-              className="scroll-reveal mb-4 break-inside-avoid"
-            >
-              <h3 className="text-base font-medium tracking-[-0.01em] text-foreground">
+            <article key={group.title} className={`${AIR_CARD} scroll-reveal mb-4 break-inside-avoid p-7`}>
+              <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-[var(--cc-air-ink)]">
                 {group.title}
               </h3>
               <ul className="mt-4 space-y-2.5">
                 {group.items.map((item) => (
-                  <li
-                    key={item}
-                    className="flex gap-2.5 text-[13.5px] leading-relaxed text-muted-foreground"
-                  >
-                    <span
-                      aria-hidden
-                      className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-cyan-300/60"
-                    />
+                  <li key={item} className="flex gap-2.5 text-[14px] leading-relaxed text-[var(--cc-air-muted)]">
+                    <span aria-hidden className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-[var(--cc-air-violet)]" />
                     {item}
                   </li>
                 ))}
               </ul>
-            </GlassCard>
+            </article>
           ))}
         </div>
-      </Container>
+      </AirContainer>
     </section>
   );
 }

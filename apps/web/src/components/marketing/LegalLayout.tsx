@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
+import { Building2, Scale } from "lucide-react";
 
-import Navbar from "./Navbar";
-import Footer from "./Footer";
-import { Ambient, Container, Eyebrow } from "./primitives";
+import { AirPage, AirPageHero } from "./airy/Page";
+import { AIR_CARD, AirContainer } from "./airy/primitives";
 
 export interface LegalSection {
   id: string;
@@ -10,9 +10,9 @@ export interface LegalSection {
 }
 
 /**
- * Privacy and Terms: the site's glass typography and layout, no motion.
- * One stacked glass surface with hairline-divided sections (no card grid),
- * and a sticky contents list on wide screens.
+ * Privacy, Terms, About and Contact: the light pages' type and layout, no
+ * motion. One white surface with hairline-divided sections (no card grid),
+ * and a sticky contents list on wide screens. Routes add styles/airy.css.
  */
 export function LegalLayout({
   title,
@@ -29,30 +29,34 @@ export function LegalLayout({
   children: ReactNode;
 }) {
   return (
-    <main className="flex min-h-screen flex-col bg-background">
-      <Navbar />
-      <section className="relative isolate overflow-hidden">
-        <Ambient variant="top" />
-        <Container className="pb-10 pt-16 md:pt-24">
-          <Eyebrow>{eyebrow}</Eyebrow>
-          <h1 className="mt-6 max-w-3xl text-balance text-4xl font-semibold leading-[1.05] tracking-[-0.03em] text-foreground md:text-6xl">
-            {title}
-          </h1>
-          <p className="mt-4 text-sm text-muted-foreground">Last updated: {updated}</p>
-        </Container>
-      </section>
+    <AirPage>
+      <AirPageHero
+        align="left"
+        pill={eyebrow}
+        icon={
+          eyebrow === "Legal" ? (
+            <Scale className="h-3.5 w-3.5" strokeWidth={2} />
+          ) : (
+            <Building2 className="h-3.5 w-3.5" strokeWidth={2} />
+          )
+        }
+        title={title}
+        className="md:!pb-14"
+      >
+        <p className="mt-4 text-[13.5px] text-[var(--cc-air-faint)]">Last updated: {updated}</p>
+      </AirPageHero>
 
-      <Container className="flex-1 pb-28">
+      <AirContainer className="flex-1 pb-28">
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
           <nav aria-label="Contents" className="hidden lg:col-span-3 lg:block">
             <div className="sticky top-24">
-              <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-muted-foreground">Contents</p>
-              <ol className="mt-4 space-y-1 border-l border-white/10">
+              <p className="text-[12px] font-medium uppercase tracking-[0.08em] text-[var(--cc-air-faint)]">Contents</p>
+              <ol className="mt-4 space-y-1 border-l border-[var(--cc-air-hairline)]">
                 {sections.map((s) => (
                   <li key={s.id}>
                     <a
                       href={`#${s.id}`}
-                      className="-ml-px block border-l border-transparent py-1.5 pl-4 text-[13.5px] leading-snug text-muted-foreground transition-colors hover:border-white/40 hover:text-foreground focus-visible:border-white/60 focus-visible:text-foreground focus-visible:outline-none"
+                      className="-ml-px block border-l border-transparent py-1.5 pl-4 text-[13.5px] leading-snug text-[var(--cc-air-muted)] transition-colors hover:border-[var(--cc-air-ink)] hover:text-[var(--cc-air-ink)] focus-visible:border-[var(--cc-air-ink)] focus-visible:text-[var(--cc-air-ink)] focus-visible:outline-none"
                     >
                       {s.label}
                     </a>
@@ -62,18 +66,13 @@ export function LegalLayout({
             </div>
           </nav>
 
-          <article className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.035] px-6 py-8 md:px-10 md:py-10 lg:col-span-9">
-            <span
-              aria-hidden
-              className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent"
-            />
-            <div className="max-w-2xl text-[15.5px] leading-[1.75] text-muted-foreground [&>section+section]:mt-9 [&>section+section]:border-t [&>section+section]:border-white/8 [&>section+section]:pt-9 [&_a]:text-foreground [&_a]:underline [&_a]:decoration-white/30 [&_a]:underline-offset-4 [&_a:hover]:decoration-white/70 [&_h2]:scroll-mt-28 [&_h2]:text-[22px] [&_h2]:font-medium [&_h2]:tracking-[-0.02em] [&_h2]:text-foreground [&_h3]:mt-5 [&_h3]:text-[16px] [&_h3]:font-medium [&_h3]:text-foreground [&_li]:pl-1 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 [&_ul]:marker:text-cyan-300/60">
+          <article className={`${AIR_CARD} px-6 py-8 md:px-10 md:py-10 lg:col-span-9`}>
+            <div className="max-w-2xl text-[15.5px] leading-[1.75] text-[var(--cc-air-muted)] [&>section+section]:mt-9 [&>section+section]:border-t [&>section+section]:border-[var(--cc-air-hairline)] [&>section+section]:pt-9 [&_a]:font-medium [&_a]:text-[var(--cc-air-ink)] [&_a]:underline [&_a]:decoration-black/20 [&_a]:underline-offset-4 [&_a:hover]:decoration-black/60 [&_h2]:scroll-mt-28 [&_h2]:text-[22px] [&_h2]:font-semibold [&_h2]:tracking-[-0.02em] [&_h2]:text-[var(--cc-air-ink)] [&_h3]:mt-5 [&_h3]:text-[16px] [&_h3]:font-semibold [&_h3]:text-[var(--cc-air-ink)] [&_li]:pl-1 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 [&_ul]:marker:text-[var(--cc-air-violet)]">
               {children}
             </div>
           </article>
         </div>
-      </Container>
-      <Footer />
-    </main>
+      </AirContainer>
+    </AirPage>
   );
 }

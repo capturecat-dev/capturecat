@@ -1,9 +1,8 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
 
-import Navbar from "@/components/marketing/Navbar";
-import Footer from "@/components/marketing/Footer";
-import { Ambient } from "@/components/marketing/primitives";
+import { AirPage, BackPill } from "@/components/marketing/airy/Page";
+import { AirCard } from "@/components/marketing/airy/primitives";
+import airyCss from "@/styles/airy.css?url";
 import { ChangelogEntryView } from "@/lib/changelog/entry-view";
 import type { ChangelogEntry } from "@/lib/changelog/model";
 import {
@@ -28,8 +27,10 @@ export const Route = createFileRoute("/changelog/$slug")({
   },
   head: ({ loaderData }) => {
     const entry = loaderData?.entry;
-    if (!entry) return { meta: [{ title: "Changelog | CaptureCat" }, { name: "robots", content: "noindex" }] };
-    return changelogHead({
+    const airy = { rel: "stylesheet", href: airyCss };
+    if (!entry)
+      return { meta: [{ title: "Changelog | CaptureCat" }, { name: "robots", content: "noindex" }], links: [airy] };
+    const head = changelogHead({
       path: changelogEntryPath(entry.slug),
       title: entry.title.length + 13 <= 65 ? `${entry.title} | CaptureCat` : entry.title,
       description: entry.summary,
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/changelog/$slug")({
       publishedAt: entry.publishedAt,
       modifiedAt: entry.updatedAt,
     });
+    return { ...head, links: [...head.links, airy] };
   },
   component: ChangelogEntryPage,
 });
@@ -58,36 +60,34 @@ function entryJsonLd(entry: ChangelogEntry) {
   };
 }
 
-const footLink = "transition-colors hover:text-foreground";
+const footLink = "transition-colors hover:text-[var(--cc-air-ink)]";
 
 function ChangelogEntryPage() {
   const { entry, slug } = Route.useLoaderData();
 
   return (
-    <main className="flex min-h-screen flex-col bg-background">
+    <AirPage>
       {entry && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(entryJsonLd(entry)) }} />}
-      <Navbar />
 
-      <section className="relative isolate overflow-hidden">
-        <Ambient variant="top" />
-        <div className="mx-auto w-full max-w-3xl px-6 pb-24 pt-14 md:pt-20">
-          <Link
-            to="/changelog"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" /> Changelog
-          </Link>
+      <section className="relative isolate -mt-[68px] overflow-hidden">
+        <div className="air-wash !bottom-auto h-[460px]" aria-hidden />
+        <div className="mx-auto w-full max-w-3xl px-6 pb-24 pt-[124px] md:pt-[156px]">
+          <BackPill to="/changelog">Changelog</BackPill>
 
           {entry ? (
-            <ChangelogEntryView entry={entry} variant="page" className="mt-8" />
+            <AirCard as="article" className="mt-8 px-6 py-8 md:px-10 md:py-10">
+              <ChangelogEntryView entry={entry} variant="page" tone="light" />
+            </AirCard>
           ) : (
             <div className="mt-8">
-              <h1 className="text-3xl font-semibold tracking-[-0.02em]">This update couldn&rsquo;t load just now</h1>
-              <p className="mt-3 text-muted-foreground">Try again in a minute.</p>
+              <h1 className="text-3xl font-semibold tracking-[-0.02em] text-[var(--cc-air-ink)]">
+                This update couldn&rsquo;t load just now
+              </h1>
+              <p className="mt-3 text-[var(--cc-air-muted)]">Try again in a minute.</p>
             </div>
           )}
 
-          <p className="mt-16 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/8 pt-6 text-xs text-muted-foreground">
+          <p className="mt-12 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--cc-air-hairline)] pt-6 text-xs text-[var(--cc-air-muted)]">
             <Link to="/changelog" className={footLink}>
               All updates
             </Link>
@@ -100,8 +100,6 @@ function ChangelogEntryPage() {
           </p>
         </div>
       </section>
-
-      <Footer />
-    </main>
+    </AirPage>
   );
 }

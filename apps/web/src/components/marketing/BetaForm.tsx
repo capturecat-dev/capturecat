@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { API_URL } from "@/lib/api-url";
+import { AIR_CARD } from "./airy/primitives";
 
 /**
  * Public beta waitlist form.
@@ -61,7 +62,8 @@ export function BetaForm() {
         // Telemetry attribution for the integration. Also mirrored as
         // data-action on the container div below.
         action: "turnstile-spin-v2",
-        theme: "auto",
+        // The form only renders on the light /beta page.
+        theme: "light",
         callback: (token: string) => {
           tokenRef.current = token;
         },
@@ -148,20 +150,16 @@ export function BetaForm() {
 
   if (status === "success") {
     return (
-      <div className="relative w-full max-w-md rounded-3xl border border-white/12 bg-white/[0.04] p-8 text-center shadow-[0_40px_120px_-20px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
-        <span
-          aria-hidden
-          className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent"
-        />
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10 text-cyan-200">
+      <div className={`${AIR_CARD} relative w-full max-w-md p-8 text-center`}>
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--cc-air-ink)] text-white">
           <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
             <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-foreground">
+        <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em] text-[var(--cc-air-ink)]">
           You&rsquo;re on the list
         </h2>
-        <p className="mt-2 text-pretty text-muted-foreground">
+        <p className="mt-2 text-pretty text-[var(--cc-air-muted)]">
           Thanks for signing up. We&rsquo;ll email you when your beta invite is
           ready.
         </p>
@@ -172,12 +170,8 @@ export function BetaForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="relative w-full max-w-md rounded-3xl border border-white/12 bg-white/[0.04] p-8 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.8)] backdrop-blur-2xl"
+      className={`${AIR_CARD} relative w-full max-w-md p-8`}
     >
-      <span
-        aria-hidden
-        className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent"
-      />
 
       {/* Honeypot — off-screen, not tabbable, not autofilled. A filled value is
           a bot and the server silently drops it. */}
@@ -188,7 +182,7 @@ export function BetaForm() {
         </label>
       </div>
 
-      <label htmlFor="beta-email" className="block text-sm font-medium text-foreground">
+      <label htmlFor="beta-email" className="block text-sm font-medium text-[var(--cc-air-ink)]">
         Email address
       </label>
       <input
@@ -206,7 +200,7 @@ export function BetaForm() {
             setMessage(null);
           }
         }}
-        className="mt-2 h-12 w-full rounded-full border border-white/12 bg-white/[0.06] px-5 text-[15px] text-foreground outline-none backdrop-blur-xl transition-colors placeholder:text-muted-foreground focus:border-white/25 focus:bg-white/[0.09]"
+        className="mt-2 h-12 w-full rounded-full bg-white px-5 text-[15px] text-[var(--cc-air-ink)] shadow-[0_1px_2px_rgb(0_0_0/0.05)] outline-none ring-1 ring-black/[0.1] transition-shadow placeholder:text-[var(--cc-air-faint)] focus:ring-2 focus:ring-[var(--cc-air-violet)]/50"
       />
 
       {/* Turnstile widget. `cf-turnstile` + data-action satisfy the analytics
@@ -218,7 +212,7 @@ export function BetaForm() {
       />
 
       {status === "error" && message && (
-        <p role="alert" className="mt-4 text-sm text-red-300">
+        <p role="alert" className="mt-4 text-sm text-red-600">
           {message}
         </p>
       )}
@@ -226,12 +220,12 @@ export function BetaForm() {
       <button
         type="submit"
         disabled={status === "submitting"}
-        className="group relative mt-5 inline-flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-7 text-[15px] font-medium text-black shadow-[0_8px_30px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+        className="group relative mt-5 inline-flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-[var(--cc-air-ink)] px-7 text-[15px] font-medium text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_8px_20px_-10px_rgb(0_0_0/0.55)] transition-[transform,background-color] duration-300 hover:-translate-y-px hover:bg-[#1b1b22] active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
       >
         {status === "submitting" ? "Joining…" : "Join the beta"}
       </button>
 
-      <p className="mt-4 text-center text-xs text-muted-foreground">
+      <p className="mt-4 text-center text-xs text-[var(--cc-air-faint)]">
         No spam. We&rsquo;ll only email you about your beta access.
       </p>
     </form>

@@ -1,8 +1,7 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
+import { Check } from "lucide-react";
 import { jsonLd } from "@/lib/json-ld";
 
-import Navbar from "@/components/marketing/Navbar";
-import Footer from "@/components/marketing/Footer";
 import { PseoCta } from "@/components/marketing/PseoSections";
 import {
   DISCLOSURE,
@@ -14,6 +13,9 @@ import {
 } from "@/lib/best-content";
 import { FACTS_CHECKED, FEATURE_ROWS, comparePath, type FeatureCell } from "@/lib/pseo-content";
 import { pageHead } from "@/lib/site-content";
+import { AirPage, AirPageHero, BackPill } from "@/components/marketing/airy/Page";
+import { AIR_CARD, AirCard, AirContainer, AirHeading } from "@/components/marketing/airy/primitives";
+import airyCss from "@/styles/airy.css?url";
 
 /**
  * /best/{slug}: "best X" lists generated from the sourced competitor records.
@@ -28,29 +30,21 @@ export const Route = createFileRoute("/best/$slug")({
   },
   head: ({ params }) => {
     const list = findBestList(params.slug);
-    return list ? pageHead(bestPath(list)) : {};
+    return list ? pageHead(bestPath(list), [{ rel: "stylesheet", href: airyCss }]) : {};
   },
   component: BestPage,
 });
 
 function Cell({ cell }: { cell: FeatureCell }) {
-  if (cell === true) return <span className="text-foreground">✓</span>;
-  if (cell === false) return <span className="text-muted-foreground/60">No</span>;
-  if (cell === null)
-    return <span className="text-xs text-muted-foreground/60">check their site</span>;
-  return <span className="text-[13px] text-muted-foreground">{cell}</span>;
-}
-
-const card =
-  "relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] p-6 backdrop-blur-2xl";
-
-function Hairline() {
-  return (
-    <span
-      aria-hidden
-      className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
-    />
-  );
+  if (cell === true)
+    return (
+      <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/[0.06] text-[var(--cc-air-ink)]" aria-label="Yes">
+        <Check className="h-3 w-3" strokeWidth={3} />
+      </span>
+    );
+  if (cell === false) return <span className="text-[var(--cc-air-faint)]">No</span>;
+  if (cell === null) return <span className="text-xs text-[var(--cc-air-faint)]">check their site</span>;
+  return <span className="text-[13px] text-[var(--cc-air-muted)]">{cell}</span>;
 }
 
 function BestPage() {
@@ -61,67 +55,45 @@ function BestPage() {
   const top = entries.slice(0, 3).map((e) => e.name);
 
   return (
-    <main className="min-h-screen bg-background flex flex-col">
+    <AirPage>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd(bestJsonLd(list)) }}
       />
-      <Navbar />
-
-      <section className="relative isolate overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{
-            background:
-              "radial-gradient(120% 80% at 50% -20%, rgba(120,140,255,0.18), transparent 60%)," +
-              "radial-gradient(70% 50% at 85% 20%, rgba(80,220,255,0.10), transparent 55%)",
-          }}
-        />
-        <div className="mx-auto max-w-3xl px-6 pb-10 pt-20 md:pt-28">
-          <Link
-            to="/compare"
-            className="text-sm font-medium uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Compare
-          </Link>
-          <h1 className="mt-3 text-balance text-4xl font-semibold leading-[1.08] tracking-[-0.03em] md:text-5xl">
-            {list.title} ({FACTS_CHECKED.slice(0, 4)})
-          </h1>
-          <p className="mt-6 text-pretty text-lg leading-relaxed text-muted-foreground">
-            {list.intro}
+      <AirPageHero
+        before={<BackPill to="/compare">Compare</BackPill>}
+        align="left"
+        compact
+        title={`${list.title} (${FACTS_CHECKED.slice(0, 4)})`}
+        lede={list.intro}
+        className="!max-w-3xl md:!pb-14"
+      >
+        <AirCard className="mt-8 p-6 md:p-7">
+          <p className="text-xs font-medium uppercase tracking-[0.12em] text-[var(--cc-air-faint)]">Short answer</p>
+          <p className="mt-3 text-[18px] leading-relaxed text-[var(--cc-air-ink)]">
+            {top.join(", ")}. {entries.length} tools qualified; the full table is below.
           </p>
-          <div className={`mt-8 ${card}`}>
-            <Hairline />
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Short answer
-            </p>
-            <p className="mt-3 text-lg leading-relaxed">
-              {top.join(", ")}. {entries.length} tools qualified; the full table is below.
-            </p>
-          </div>
-        </div>
-      </section>
+        </AirCard>
+      </AirPageHero>
 
-      <section className="mx-auto w-full max-w-3xl px-6 pb-8">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em]">How we picked</h2>
-        <p className="mt-3 text-pretty text-sm leading-relaxed text-muted-foreground">
+      <AirContainer className="!max-w-3xl pb-8">
+        <AirHeading>How we picked</AirHeading>
+        <p className="mt-3 text-pretty text-[15px] leading-relaxed text-[var(--cc-air-muted)]">
           {list.criteriaText} Facts checked {FACTS_CHECKED}. {DISCLOSURE}
         </p>
-      </section>
+      </AirContainer>
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-8">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em]">At a glance</h2>
-        <div className="relative mt-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] backdrop-blur-2xl">
-          <Hairline />
+      <AirContainer className="py-8">
+        <AirHeading>At a glance</AirHeading>
+        <div className={`${AIR_CARD} mt-6 overflow-hidden`}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-left text-sm">
               <thead>
-                <tr className="border-b border-white/10">
-                  <th className="px-5 py-4 font-medium text-muted-foreground">#</th>
-                  <th className="px-5 py-4 font-medium text-muted-foreground">Recorder</th>
+                <tr className="border-b border-[var(--cc-air-hairline)] bg-[var(--cc-air-tint)]">
+                  <th className="px-5 py-4 font-medium text-[var(--cc-air-muted)]">#</th>
+                  <th className="px-5 py-4 font-medium text-[var(--cc-air-muted)]">Recorder</th>
                   {rows.map((r) => (
-                    <th key={r} className="px-4 py-4 font-medium text-muted-foreground">
+                    <th key={r} className="px-4 py-4 font-medium text-[var(--cc-air-muted)]">
                       {FEATURE_ROWS[r].short}
                     </th>
                   ))}
@@ -131,15 +103,15 @@ function BestPage() {
                 {entries.map((e, i) => (
                   <tr
                     key={e.name}
-                    className={`border-b border-white/5 last:border-0 ${e.competitor ? "" : "bg-white/[0.03]"}`}
+                    className={`border-b border-[var(--cc-air-hairline)] last:border-0 ${e.competitor ? "" : "bg-[#f7f5fe]"}`}
                   >
-                    <td className="px-5 py-3.5 tabular-nums text-muted-foreground">{i + 1}</td>
-                    <th className="px-5 py-3.5 font-medium">
+                    <td className="px-5 py-3.5 tabular-nums text-[var(--cc-air-faint)]">{i + 1}</td>
+                    <th className="px-5 py-3.5 font-medium text-[var(--cc-air-ink)]">
                       {e.competitor ? (
                         <Link
                           to="/compare/$slug"
                           params={{ slug: comparePath(e.competitor).split("/").pop()! }}
-                          className="underline decoration-white/15 underline-offset-4 hover:decoration-white/50"
+                          className="underline decoration-black/15 underline-offset-4 hover:decoration-black/50"
                         >
                           {e.name}
                         </Link>
@@ -158,34 +130,32 @@ function BestPage() {
             </table>
           </div>
         </div>
-      </section>
+      </AirContainer>
 
-      <section className="mx-auto w-full max-w-3xl px-6 py-8">
+      <AirContainer className="!max-w-3xl py-8">
         <ol className="space-y-4">
           {entries.map((e, i) => (
-            <li key={e.name} className={card}>
-              <Hairline />
-              <h2 className="text-lg font-semibold tracking-[-0.01em]">
-                <span className="mr-2 tabular-nums text-muted-foreground">{i + 1}.</span>
+            <AirCard key={e.name} as="li" className="p-6 md:p-7">
+              <h2 className="text-[18px] font-semibold tracking-[-0.015em] text-[var(--cc-air-ink)]">
+                <span className="mr-2 tabular-nums text-[var(--cc-air-faint)]">{i + 1}.</span>
                 {e.name}
               </h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{e.note}</p>
+              <p className="mt-2 text-[14.5px] leading-relaxed text-[var(--cc-air-muted)]">{e.note}</p>
               {e.competitor && (
                 <Link
                   to="/compare/$slug"
                   params={{ slug: comparePath(e.competitor).split("/").pop()! }}
-                  className="mt-3 inline-block text-sm font-medium text-foreground underline decoration-white/20 underline-offset-4 hover:decoration-white/60"
+                  className="mt-3 inline-block text-[14px] font-medium text-[var(--cc-air-ink)] underline decoration-black/20 underline-offset-4 hover:decoration-black/60"
                 >
                   CaptureCat vs {e.name}
                 </Link>
               )}
-            </li>
+            </AirCard>
           ))}
         </ol>
-      </section>
+      </AirContainer>
 
       <PseoCta />
-      <Footer />
-    </main>
+    </AirPage>
   );
 }

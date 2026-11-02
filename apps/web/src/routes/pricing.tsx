@@ -1,22 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { CreditCard, Gauge, LayoutGrid, Tag, WifiOff } from "lucide-react";
 
 import { jsonLd } from "@/lib/json-ld";
 import { API_URL } from "@/lib/api-url";
 import { pageHead } from "@/lib/site-content";
-import Navbar from "@/components/marketing/Navbar";
-import Footer from "@/components/marketing/Footer";
 import { PricingCards, type PlanView } from "@/components/marketing/pricing-cards";
 import { DashboardDemo } from "@/components/marketing/home/demo/DashboardDemo";
 import demosCss from "@/styles/demos.css?url";
 import demosPagesCss from "@/styles/demos-pages.css?url";
-import { FaqList, type FaqItem } from "@/components/marketing/home/Faq";
+import airyCss from "@/styles/airy.css?url";
+import type { FaqItem } from "@/components/marketing/home/Faq";
+import { AirPage, AirPageHero } from "@/components/marketing/airy/Page";
+import { AirFaq } from "@/components/marketing/airy/Faq";
 import {
-  Ambient,
-  Container,
-  Eyebrow,
-  GlassCard,
-  SectionTitle,
-} from "@/components/marketing/primitives";
+  AIR_CELL,
+  AIR_GRID,
+  AirContainer,
+  AirLede,
+  AirPill,
+  AirTitle,
+  SoftFrame,
+} from "@/components/marketing/airy/primitives";
 
 /**
  * The price and the gated feature list come from the API (Stripe plus the D1
@@ -37,7 +41,12 @@ async function getPlan(): Promise<PlanView | null> {
 
 export const Route = createFileRoute("/pricing")({
   loader: async () => ({ plan: await getPlan() }),
-  head: () => pageHead("/pricing", [{ rel: "stylesheet", href: demosCss }, { rel: "stylesheet", href: demosPagesCss }]),
+  head: () =>
+    pageHead("/pricing", [
+      { rel: "stylesheet", href: demosCss },
+      { rel: "stylesheet", href: demosPagesCss },
+      { rel: "stylesheet", href: airyCss },
+    ]),
   component: PricingPage,
 });
 
@@ -77,6 +86,25 @@ export const PRICING_FAQ: FaqItem[] = [
   {
     q: "Is there a team plan?",
     a: "Not yet. Pro is per person. If you need seats for a team, email contact@capturecat.so and say how many.",
+  },
+];
+
+/** The three things Free and Pro both promise. */
+const PROMISES = [
+  {
+    icon: Gauge,
+    title: "No resolution cap",
+    body: "Free exports go up to 4K at 60 fps with every effect on and no watermark. Free is the whole app, not a demo of it.",
+  },
+  {
+    icon: WifiOff,
+    title: "No account to record",
+    body: "On the Mac you only sign in for a share link or for Pro. Free recording and editing work offline.",
+  },
+  {
+    icon: CreditCard,
+    title: "Cancel from the billing page",
+    body: "One click, no email to support. Stripe handles the card, we never see the number.",
   },
 ];
 
@@ -122,92 +150,60 @@ function PricingPage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col bg-background">
+    <AirPage>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd(jsonLdData) }}
       />
-      <Navbar />
+      <AirPageHero
+        pill="Pricing"
+        icon={<Tag className="h-3.5 w-3.5" strokeWidth={2} />}
+        title="Free for personal use. Pro for work."
+        lede="The whole app is free for personal projects, with recordings up to 5 minutes. Pro is for commercial use: recordings of any length, plus share pages, comments and analytics. Prices below are live from Stripe."
+        className="md:pb-24"
+      >
+        <div className="mt-14 w-full text-left">
+          <PricingCards plan={plan} />
+        </div>
+      </AirPageHero>
 
-      <section className="relative isolate overflow-hidden">
-        <Ambient variant="hero" />
-        <Container className="flex flex-col items-center pb-20 pt-16 md:pt-24">
-          <Eyebrow>Pricing</Eyebrow>
-          <h1 className="mt-6 max-w-3xl text-balance text-center text-5xl font-semibold leading-[1.04] tracking-[-0.03em] md:text-6xl">
-            Free for personal use. Pro for work.
-          </h1>
-          <p className="mx-auto mt-6 max-w-xl text-pretty text-center text-lg leading-relaxed text-muted-foreground">
-            The whole app is free for personal projects, with recordings up to
-            5 minutes. Pro is for commercial use: recordings of any length,
-            plus share pages, comments, and analytics. Prices below are live
-            from Stripe.
-          </p>
-
-          <div className="mt-14 w-full">
-            <PricingCards plan={plan} />
-          </div>
-        </Container>
-      </section>
-
-      <section className="relative isolate py-16">
-        <Container>
-          <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14">
-            <div className="lg:col-span-5">
-              <SectionTitle muted="Every shared video, its link, and how it did.">
+      <section className="py-24 md:py-32">
+        <AirContainer>
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-14">
+            <div className="scroll-reveal lg:col-span-5">
+              <AirPill icon={<LayoutGrid className="h-3.5 w-3.5" strokeWidth={2} />}>Pro on the web</AirPill>
+              <AirTitle className="mt-5 !text-[28px] md:!text-[32px]" muted="Every shared video, its link, and how it did.">
                 What Pro looks like from the web.
-              </SectionTitle>
-              <p className="mt-5 text-[15.5px] leading-relaxed text-muted-foreground">
-                Uploads from the app land here. Rename a video, flip it between
-                public and private, read the comments, and open the analytics
-                for any of them. Links use your own custom domain if you set
-                one up.
-              </p>
+              </AirTitle>
+              <AirLede className="mt-4">
+                Uploads from the app land here. Rename a video, flip it between public and private, read the
+                comments, and open the analytics for any of them. Links use your own custom domain if you set one up.
+              </AirLede>
             </div>
-            <div className="lg:col-span-7">
-              <DashboardDemo />
+            <div className="scroll-reveal lg:col-span-7">
+              <SoftFrame>
+                <DashboardDemo />
+              </SoftFrame>
             </div>
           </div>
-        </Container>
+        </AirContainer>
       </section>
 
-      <section className="relative isolate py-16">
-        <Container>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <GlassCard padding="p-7">
-              <h3 className="text-[17px] font-medium tracking-[-0.01em]">No resolution cap</h3>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-                Free exports go up to 4K at 60 fps with every effect on and no
-                watermark. Free is the whole app, not a demo of it.
-              </p>
-            </GlassCard>
-            <GlassCard padding="p-7">
-              <h3 className="text-[17px] font-medium tracking-[-0.01em]">No account to record</h3>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-                On the Mac you only sign in for a share link or for Pro. Free
-                recording and editing work offline.
-              </p>
-            </GlassCard>
-            <GlassCard padding="p-7">
-              <h3 className="text-[17px] font-medium tracking-[-0.01em]">Cancel from the billing page</h3>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-                One click, no email to support. Stripe handles the card, we
-                never see the number.
-              </p>
-            </GlassCard>
+      <section className="border-t border-[var(--cc-air-hairline)] bg-white py-20 md:py-24">
+        <AirContainer>
+          <div className={`${AIR_GRID} md:grid-cols-3`}>
+            {PROMISES.map((p) => (
+              <div key={p.title} className={`${AIR_CELL} p-7 md:p-8`}>
+                <p.icon className="h-5 w-5 text-[var(--cc-air-violet)]" strokeWidth={1.75} />
+                <h3 className="mt-5 text-[16px] font-semibold tracking-[-0.01em] text-[var(--cc-air-ink)]">{p.title}</h3>
+                <p className="mt-1.5 text-[14.5px] leading-relaxed text-[var(--cc-air-muted)]">{p.body}</p>
+              </div>
+            ))}
           </div>
-        </Container>
+        </AirContainer>
       </section>
 
-      <section className="relative isolate py-16 pb-28">
-        <Container>
-          <SectionTitle>Pricing questions</SectionTitle>
-          <div className="mt-10 max-w-3xl">
-            <FaqList items={PRICING_FAQ} />
-          </div>
-        </Container>
-      </section>
-
-      <Footer />
-    </main>
+      <AirFaq items={PRICING_FAQ} title="Pricing questions" />
+    </AirPage>
   );
 }

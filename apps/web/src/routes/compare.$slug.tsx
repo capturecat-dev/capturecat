@@ -1,10 +1,12 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
+import { Scale } from "lucide-react";
 import { jsonLd } from "@/lib/json-ld";
 
-import Navbar from "@/components/marketing/Navbar";
-import Footer from "@/components/marketing/Footer";
 import { ProductLoop } from "@/components/marketing/home/demo/ProductLoop";
 import demosCss from "@/styles/demos.css?url";
+import airyCss from "@/styles/airy.css?url";
+import { AirPage, AirPageHero } from "@/components/marketing/airy/Page";
+import { AirContainer, AirHeading, SoftFrame } from "@/components/marketing/airy/primitives";
 import {
   FeatureTable,
   StrengthsTradeoffs,
@@ -32,7 +34,10 @@ export const Route = createFileRoute("/compare/$slug")({
   head: ({ params }) => {
     const competitor = competitorFromSlug(params.slug);
     if (!competitor) return {};
-    return pageHead(comparePath(competitor), [{ rel: "stylesheet", href: demosCss }]);
+    return pageHead(comparePath(competitor), [
+      { rel: "stylesheet", href: demosCss },
+      { rel: "stylesheet", href: airyCss },
+    ]);
   },
   component: ComparePage,
 });
@@ -42,54 +47,37 @@ function ComparePage() {
   const page = buildPseoPage("compare", competitor);
 
   return (
-    <main className="min-h-screen bg-background flex flex-col">
+    <AirPage>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd(pseoJsonLd(page)) }}
       />
-      <Navbar />
-
-      <section className="relative isolate overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{
-            background:
-              "radial-gradient(120% 80% at 50% -20%, rgba(120,140,255,0.18), transparent 60%)," +
-              "radial-gradient(70% 50% at 85% 20%, rgba(80,220,255,0.10), transparent 55%)",
-          }}
-        />
-        <div className="mx-auto max-w-6xl px-6 pb-14 pt-20 text-center md:pt-28">
-          <p className="text-sm font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Comparison
-          </p>
-          <h1 className="mx-auto mt-3 max-w-3xl text-balance text-5xl font-semibold leading-[1.04] tracking-[-0.03em] md:text-6xl">
-            {page.heroTitle}
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            {page.heroSubtitle}
-          </p>
-          <div className="mx-auto mt-12 max-w-4xl text-left">
+      <AirPageHero
+        pill="Comparison"
+        icon={<Scale className="h-3.5 w-3.5" strokeWidth={2} />}
+        title={page.heroTitle}
+        lede={page.heroSubtitle}
+      >
+        <div className="mt-14 w-full max-w-4xl text-left">
+          <SoftFrame>
             <ProductLoop />
-          </div>
+          </SoftFrame>
         </div>
-      </section>
+      </AirPageHero>
 
-      <section className="mx-auto w-full max-w-6xl px-6 pb-8">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em]">Side by side</h2>
+      <AirContainer className="pb-8 pt-6">
+        <AirHeading>Side by side</AirHeading>
         <div className="mt-6">
           <FeatureTable competitor={competitor} />
         </div>
-      </section>
+      </AirContainer>
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+      <AirContainer className="pb-24 pt-10">
         <StrengthsTradeoffs competitor={competitor} />
-      </section>
+      </AirContainer>
 
       <FaqSection faqs={page.faqs} />
       <PseoCta competitorName={competitor.name} />
-
-      <Footer />
-    </main>
+    </AirPage>
   );
 }

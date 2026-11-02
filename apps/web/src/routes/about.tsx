@@ -2,10 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { LegalLayout } from "@/components/marketing/LegalLayout";
 import { ORGANIZATION_JSON_LD, jsonLd } from "@/lib/json-ld";
 import { pageHead } from "@/lib/site-content";
+import airyCss from "@/styles/airy.css?url";
 
 /** Who makes CaptureCat. Mirrors the /about Markdown twin in site-content.ts. */
 export const Route = createFileRoute("/about")({
-  head: () => pageHead("/about"),
+  head: () => pageHead("/about", [{ rel: "stylesheet", href: airyCss }]),
   component: AboutPage,
 });
 

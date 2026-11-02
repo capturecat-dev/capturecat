@@ -2,10 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { LegalLayout } from "@/components/marketing/LegalLayout";
 import { ORGANIZATION_JSON_LD, jsonLd } from "@/lib/json-ld";
 import { pageHead } from "@/lib/site-content";
+import airyCss from "@/styles/airy.css?url";
 
 /** How to reach CaptureCat. Mirrors the /contact Markdown twin in site-content.ts. */
 export const Route = createFileRoute("/contact")({
-  head: () => pageHead("/contact"),
+  head: () => pageHead("/contact", [{ rel: "stylesheet", href: airyCss }]),
   component: ContactPage,
 });
 

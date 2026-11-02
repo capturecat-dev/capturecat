@@ -1,10 +1,10 @@
+import type { ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { Globe, Sparkles, Wrench } from "lucide-react";
 
 import { jsonLd } from "@/lib/json-ld";
 import { MCP_ENDPOINT, MCP_TOOLS, claudeMcpAddCommand } from "@/lib/agent-access";
 import { pageHead } from "@/lib/site-content";
-import Navbar from "@/components/marketing/Navbar";
-import Footer from "@/components/marketing/Footer";
 import {
   ClaudeLogo,
   OpenAILogo,
@@ -15,16 +15,26 @@ import {
 import { AgentSessionDemo, ConnectAgentsDemo } from "@/components/marketing/home/demo/AgentDemos";
 import demosCss from "@/styles/demos.css?url";
 import demosPagesCss from "@/styles/demos-pages.css?url";
+import airyCss from "@/styles/airy.css?url";
+import { AirPage, AirPageHero } from "@/components/marketing/airy/Page";
 import {
-  Ambient,
-  Container,
-  Eyebrow,
-  GlassCard,
-  SectionTitle,
-} from "@/components/marketing/primitives";
+  AIR_CELL,
+  AIR_GRID,
+  AirCard,
+  AirContainer,
+  AirLede,
+  AirPill,
+  AirTitle,
+  SoftFrame,
+} from "@/components/marketing/airy/primitives";
 
 export const Route = createFileRoute("/agents")({
-  head: () => pageHead("/agents", [{ rel: "stylesheet", href: demosCss }, { rel: "stylesheet", href: demosPagesCss }]),
+  head: () =>
+    pageHead("/agents", [
+      { rel: "stylesheet", href: demosCss },
+      { rel: "stylesheet", href: demosPagesCss },
+      { rel: "stylesheet", href: airyCss },
+    ]),
   component: AgentsPage,
 });
 
@@ -165,236 +175,242 @@ const jsonLdData = {
   url: "https://capturecat.so/agents",
 };
 
+const CODE_BLOCK =
+  "mt-4 overflow-x-auto rounded-2xl bg-[#0b0b10] p-4 text-[12.5px] leading-relaxed text-white/80 shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]";
+const INLINE_CODE = "rounded-md bg-black/[0.05] px-1.5 py-0.5 text-[13px] text-[var(--cc-air-ink)]";
+
+function ClientHeader({ logo: Logo, name, note }: { logo: (props: { className?: string }) => React.JSX.Element; name: string; note: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--cc-air-tint)] text-[var(--cc-air-ink)] ring-1 ring-black/[0.06]">
+        <Logo className="h-5 w-5" />
+      </span>
+      <div>
+        <h4 className="font-semibold tracking-[-0.01em] text-[var(--cc-air-ink)]">{name}</h4>
+        <p className="text-[12.5px] text-[var(--cc-air-muted)]">{note}</p>
+      </div>
+    </div>
+  );
+}
+
 function AgentsPage() {
   return (
-    <main className="flex min-h-screen flex-col bg-background">
+    <AirPage>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd(jsonLdData) }}
       />
-      <Navbar />
+      <AirPageHero
+        title="Your agent can record, edit, and export."
+        lede="CaptureCat ships a Model Context Protocol server inside the app binary. No plugin, no sidecar process. Tell Claude Code, Codex, Cursor, Copilot, or Windsurf what you want and it uses the same engine as the editor."
+        className="md:pb-16"
+      >
+        <div className="order-first mb-8 flex items-center justify-center gap-5 text-[var(--cc-air-ink-2)]">
+          <ClaudeLogo className="h-7 w-7" />
+          <OpenAILogo className="h-7 w-7" />
+          <CursorLogo className="h-7 w-7" />
+          <CopilotLogo className="h-7 w-7" />
+          <WindsurfLogo className="h-7 w-7" />
+        </div>
+      </AirPageHero>
 
-      <section className="relative isolate overflow-hidden">
-        <Ambient variant="hero" />
-        <Container className="pb-16 pt-16 text-center md:pt-24">
-          <div className="mx-auto mb-8 flex items-center justify-center gap-5 text-muted-foreground">
-            <ClaudeLogo className="h-7 w-7" />
-            <OpenAILogo className="h-7 w-7" />
-            <CursorLogo className="h-7 w-7" />
-            <CopilotLogo className="h-7 w-7" />
-            <WindsurfLogo className="h-7 w-7" />
+      <section className="pb-24 md:pb-32">
+        <AirContainer className="max-w-5xl">
+          <div className="air-bare">
+            <AgentSessionDemo />
           </div>
-          <h1 className="mx-auto max-w-3xl text-balance text-5xl font-semibold leading-[1.04] tracking-[-0.03em] md:text-6xl">
-            Your agent can record, edit, and export.
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            CaptureCat ships a Model Context Protocol server inside the app
-            binary. No plugin, no sidecar process. Tell Claude Code, Codex,
-            Cursor, Copilot, or Windsurf what you want and it uses the same
-            engine as the editor.
-          </p>
-        </Container>
-      </section>
-
-      <section className="relative isolate py-8">
-        <Container>
-          <AgentSessionDemo />
-          <p className="mt-3 text-center text-sm text-muted-foreground">
+          <p className="mt-4 text-center text-[13px] text-[var(--cc-air-faint)]">
             Claude Code adding zooms to a project while the editor updates.
           </p>
-        </Container>
+        </AirContainer>
       </section>
 
-      <section className="relative isolate py-16">
-        <Container>
-          <SectionTitle muted="Every tool is validated by the same rules the editor uses.">
-            30 tools
-          </SectionTitle>
-          <div className="mt-10 space-y-8">
+      <section className="border-t border-[var(--cc-air-hairline)] bg-white py-24 md:py-32">
+        <AirContainer>
+          <div className="scroll-reveal max-w-2xl">
+            <AirPill icon={<Wrench className="h-3.5 w-3.5" strokeWidth={2} />}>MCP tools</AirPill>
+            <AirTitle className="mt-5" muted="Every tool is validated by the same rules the editor uses.">
+              30 tools.
+            </AirTitle>
+          </div>
+          <div className="mt-14 space-y-12">
             {TOOL_GROUPS.map((group) => (
               <div key={group.title}>
-                <h3 className="text-[13px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                <h3 className="text-[13px] font-medium uppercase tracking-[0.08em] text-[var(--cc-air-faint)]">
                   {group.title}
                 </h3>
-                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className={`${AIR_GRID} mt-4 sm:grid-cols-2 lg:grid-cols-3`}>
                   {group.tools.map((tool) => (
-                    <GlassCard key={tool.name} padding="p-6">
-                      <code className="text-sm font-medium text-foreground">{tool.name}</code>
-                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                        {tool.description}
-                      </p>
-                    </GlassCard>
+                    <div key={tool.name} className={`${AIR_CELL} p-6`}>
+                      <code className="text-[13.5px] font-semibold text-[var(--cc-air-ink)]">{tool.name}</code>
+                      <p className="mt-2 text-[14px] leading-relaxed text-[var(--cc-air-muted)]">{tool.description}</p>
+                    </div>
                   ))}
                 </div>
               </div>
             ))}
           </div>
-          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Edits are written atomically with a backup. Media files are never
-            touched. Overlapping effects, out of range times, and invalid
-            settings are refused with an error the agent can read, so it
-            corrects itself instead of corrupting the project.
+          <p className="mt-8 max-w-2xl text-[14.5px] leading-relaxed text-[var(--cc-air-muted)]">
+            Edits are written atomically with a backup. Media files are never touched. Overlapping effects, out of
+            range times, and invalid settings are refused with an error the agent can read, so it corrects itself
+            instead of corrupting the project.
           </p>
-        </Container>
+        </AirContainer>
       </section>
 
-      <section className="relative isolate py-16">
-        <Container>
-          <SectionTitle muted="Things people actually type.">Prompts that work</SectionTitle>
-          <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <section
+        data-air-dark
+        className="relative isolate overflow-hidden bg-[linear-gradient(180deg,#0b0b18_0%,#101a3a_100%)] py-24 md:py-32"
+      >
+        <div
+          aria-hidden
+          className="absolute inset-0 -z-10 bg-[radial-gradient(50%_60%_at_80%_0%,rgb(47_123_255/0.25),transparent_70%),radial-gradient(40%_50%_at_10%_100%,rgb(124_92_240/0.25),transparent_70%)]"
+        />
+        <AirContainer>
+          <AirTitle dark className="scroll-reveal max-w-2xl" muted="Things people actually type.">
+            Prompts that work.
+          </AirTitle>
+          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2">
             {PROMPTS.map((p) => (
-              <GlassCard key={p} padding="p-6">
-                <p className="font-mono text-[13.5px] leading-relaxed text-foreground/90">
-                  <span className="text-muted-foreground">› </span>
+              <div
+                key={p}
+                className="scroll-reveal rounded-[20px] bg-white/[0.05] p-6 ring-1 ring-white/10 shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]"
+              >
+                <p className="font-mono text-[13.5px] leading-relaxed text-white/85">
+                  <span className="text-white/40">› </span>
                   {p}
                 </p>
-              </GlassCard>
+              </div>
             ))}
           </div>
-        </Container>
+        </AirContainer>
       </section>
 
-      <section className="relative isolate py-16">
-        <Container>
-          <SectionTitle muted="The server is the app itself.">Install</SectionTitle>
-          <p className="mt-4 max-w-2xl text-muted-foreground">
-            <code className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[13px]">
-              CaptureCat --mcp
-            </code>{" "}
-            speaks MCP over stdio. Install CaptureCat first, then register it
-            in your client.
-          </p>
+      <section className="py-24 md:py-32">
+        <AirContainer>
+          <div className="scroll-reveal max-w-2xl">
+            <AirTitle muted="The server is the app itself.">Install.</AirTitle>
+            <AirLede className="mt-5">
+              <code className={INLINE_CODE}>CaptureCat --mcp</code> speaks MCP over stdio. Install CaptureCat
+              first, then register it in your client.
+            </AirLede>
+          </div>
 
-          <div className="mt-8 grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-14">
-            <div className="lg:col-span-5">
-              <Eyebrow>Easiest way</Eyebrow>
-              <h3 className="mt-4 text-2xl font-medium tracking-[-0.02em]">
+          <div className="mt-14 grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14">
+            <div className="scroll-reveal lg:col-span-5">
+              <AirPill icon={<Sparkles className="h-3.5 w-3.5" strokeWidth={2} />}>Easiest way</AirPill>
+              <AirTitle as="h3" className="mt-5 !text-[28px] md:!text-[34px]">
                 Let the app do it.
-              </h3>
-              <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-                Open CaptureCat, click the menu bar icon, and choose Connect AI
-                Agents. Pick your client and the app writes the config with the
-                correct path resolved. Nothing to paste.
-              </p>
+              </AirTitle>
+              <AirLede className="mt-4">
+                Open CaptureCat, click the menu bar icon, and choose Connect AI Agents. Pick your client and the app
+                writes the config with the correct path resolved. Nothing to paste.
+              </AirLede>
             </div>
-            <div className="lg:col-span-7">
-              <ConnectAgentsDemo />
+            <div className="scroll-reveal lg:col-span-7">
+              <SoftFrame>
+                <ConnectAgentsDemo />
+              </SoftFrame>
             </div>
           </div>
 
-          <h3 className="mt-16 text-[13px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+          <h3 className="mt-20 text-[13px] font-medium uppercase tracking-[0.08em] text-[var(--cc-air-faint)]">
             Or by hand
           </h3>
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
             {CLIENTS.map((client) => (
-              <GlassCard key={client.name} padding="p-6">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.07]">
-                    <client.logo className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <h4 className="font-medium tracking-[-0.01em]">{client.name}</h4>
-                    <p className="text-xs text-muted-foreground">{client.note}</p>
-                  </div>
-                </div>
+              <AirCard key={client.name} as="article" className="min-w-0 p-6">
+                <ClientHeader logo={client.logo} name={client.name} note={client.note} />
                 {client.action && (
                   <a
                     href={client.action.href}
-                    className="mt-4 inline-flex h-9 items-center justify-center rounded-full bg-white px-4 text-[13px] font-medium text-black transition-transform duration-300 hover:scale-[1.03] active:scale-[0.98]"
+                    className="mt-4 inline-flex h-9 items-center justify-center rounded-full bg-[var(--cc-air-ink)] px-4 text-[13px] font-medium text-white transition-[transform,background-color] duration-300 hover:-translate-y-px hover:bg-[#1b1b22] active:translate-y-0"
                   >
                     {client.action.label}
                   </a>
                 )}
-                <pre className="mt-4 overflow-x-auto rounded-2xl border border-white/8 bg-black/40 p-4 text-[12.5px] leading-relaxed text-muted-foreground">
+                <pre className={CODE_BLOCK}>
                   <code>{client.snippet}</code>
                 </pre>
-              </GlassCard>
+              </AirCard>
             ))}
           </div>
-          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            One thing to know: an open project reloads the agent's edits
-            automatically, unless it has unsaved changes in the editor. Then
-            your in-app edits win, so save before handing a project to an
-            agent. The server warns about exactly this if it happens.
+          <p className="mt-6 max-w-2xl text-[14.5px] leading-relaxed text-[var(--cc-air-muted)]">
+            One thing to know: an open project reloads the agent's edits automatically, unless it has unsaved
+            changes in the editor. Then your in-app edits win, so save before handing a project to an agent. The
+            server warns about exactly this if it happens.
           </p>
-        </Container>
+        </AirContainer>
       </section>
 
-      <section className="relative isolate py-16">
-        <Container>
-          <SectionTitle muted="For agents that don't run on your Mac.">Connect any agent</SectionTitle>
-          <p className="mt-4 max-w-2xl text-muted-foreground">
-            CaptureCat also runs a remote MCP server at{" "}
-            <code className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[13px]">{MCP_ENDPOINT}</code>. Claude.ai,
-            Claude Code, ChatGPT or a scheduled agent can list your shared videos, read transcripts, comments and
-            analytics, reply to viewers, change share settings, and edit your cloud projects (zooms, cuts, speed,
-            blur, annotations, style) without the editor open. Claude.ai and ChatGPT need only the URL: add a custom
-            connector and sign in with CaptureCat. Other clients use a token from Settings, Agent access. Either way
-            the agent gets only the permissions you allow, never more than your plan, and you can revoke it at any
-            time.
-          </p>
-          <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <GlassCard padding="p-6">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.07]">
-                  <ClaudeLogo className="h-5 w-5" />
-                </span>
-                <div>
-                  <h4 className="font-medium tracking-[-0.01em]">Claude Code</h4>
-                  <p className="text-xs text-muted-foreground">Paste your token in place of &lt;token&gt;.</p>
-                </div>
-              </div>
-              <pre className="mt-4 overflow-x-auto rounded-2xl border border-white/8 bg-black/40 p-4 text-[12.5px] leading-relaxed text-muted-foreground">
+      <section className="bg-[var(--cc-air-tint)] py-24 md:py-32">
+        <AirContainer>
+          <div className="scroll-reveal max-w-3xl">
+            <AirPill icon={<Globe className="h-3.5 w-3.5" strokeWidth={2} />}>Remote MCP</AirPill>
+            <AirTitle className="mt-5" muted="For agents that don't run on your Mac.">
+              Connect any agent.
+            </AirTitle>
+            <AirLede className="mt-5">
+              CaptureCat also runs a remote MCP server at <code className={INLINE_CODE}>{MCP_ENDPOINT}</code>.
+              Claude.ai, Claude Code, ChatGPT or a scheduled agent can list your shared videos, read transcripts,
+              comments and analytics, reply to viewers, change share settings, and edit your cloud projects (zooms,
+              cuts, speed, blur, annotations, style) without the editor open.
+            </AirLede>
+            <AirLede className="mt-4">
+              Claude.ai and ChatGPT need only the URL: add a custom connector and sign in with CaptureCat. Other
+              clients use a token from Settings, Agent access. Either way the agent gets only the permissions you
+              allow, never more than your plan, and you can revoke it at any time.
+            </AirLede>
+          </div>
+          <div className="mt-12 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <AirCard as="article" className="min-w-0 p-6">
+              <ClientHeader logo={ClaudeLogo} name="Claude Code" note="Paste your token in place of <token>." />
+              <pre className={CODE_BLOCK}>
                 <code>{claudeMcpAddCommand("<token>")}</code>
               </pre>
-            </GlassCard>
-            <GlassCard padding="p-6">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.07]">
-                  <OpenAILogo className="h-5 w-5" />
-                </span>
-                <div>
-                  <h4 className="font-medium tracking-[-0.01em]">Claude.ai or ChatGPT</h4>
-                  <p className="text-xs text-muted-foreground">
-                    Add a custom connector with this URL, then sign in with CaptureCat. No token to paste.
-                  </p>
-                </div>
-              </div>
-              <pre className="mt-4 overflow-x-auto rounded-2xl border border-white/8 bg-black/40 p-4 text-[12.5px] leading-relaxed text-muted-foreground">
+            </AirCard>
+            <AirCard as="article" className="min-w-0 p-6">
+              <ClientHeader
+                logo={OpenAILogo}
+                name="Claude.ai or ChatGPT"
+                note="Add a custom connector with this URL, then sign in with CaptureCat. No token to paste."
+              />
+              <pre className={CODE_BLOCK}>
                 <code>{MCP_ENDPOINT}</code>
               </pre>
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-3 text-[12.5px] text-[var(--cc-air-muted)]">
                 Any other MCP client: the same URL, signing in with OAuth or sending a token as{" "}
-                <code className="text-[11px]">Authorization: Bearer &lt;token&gt;</code>.
+                <code className="text-[11.5px] text-[var(--cc-air-ink)]">Authorization: Bearer &lt;token&gt;</code>.
               </p>
-            </GlassCard>
+            </AirCard>
           </div>
           <div className="mt-6 flex max-w-3xl flex-wrap gap-1.5">
             {MCP_TOOLS.map((tool) => (
               <code
                 key={tool.name}
                 title={`${tool.summary} Scope: ${tool.scope}.`}
-                className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[12px] text-muted-foreground"
+                className="rounded-full bg-white px-2.5 py-1 text-[12px] text-[var(--cc-air-ink-2)] ring-1 ring-black/[0.07]"
               >
                 {tool.name}
               </code>
             ))}
           </div>
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-6 max-w-2xl text-[14.5px] leading-relaxed text-[var(--cc-air-muted)]">
             No delete or billing tools. Comments an agent posts show your name followed by "(via agent)", every
             project edit is a version in History you can restore, every call lands in your activity log, and text
             written by viewers comes back marked as untrusted. Before an agent posts a comment or makes a video
             viewable to more people, it asks you first with a link to approve. Webhooks can tell your agent when a
             video is ready or a viewer comments.{" "}
-            <a href="/auth.md" className="text-foreground underline underline-offset-4">
+            <a
+              href="/auth.md"
+              className="font-medium text-[var(--cc-air-ink)] underline decoration-black/20 underline-offset-4 hover:decoration-black/60"
+            >
               How sign-in, tokens and webhooks work
             </a>
             .
           </p>
-        </Container>
+        </AirContainer>
       </section>
-
-      <Footer />
-    </main>
+    </AirPage>
   );
 }

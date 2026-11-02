@@ -89,11 +89,13 @@ interface Release {
 
 const ARCH_LABEL: Record<Arch, string> = { arm64: "Apple silicon", x86_64: "Intel" };
 
+// The light pages' ink and white pills (airy/primitives.tsx), one size up.
 const primaryCls =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-8 text-sm font-medium text-black shadow transition-all duration-300 hover:scale-105 hover:bg-white/90 active:scale-95";
+  "inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--cc-air-ink)] px-7 text-[15px] font-medium text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_8px_20px_-10px_rgb(0_0_0/0.55)] transition-[transform,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:bg-[#1b1b22] active:translate-y-0 active:scale-[0.98]";
 const secondaryCls =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-background/50 px-8 text-sm font-medium text-foreground shadow backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:bg-white/10 active:scale-95";
-const linkCls = "text-foreground underline decoration-white/25 underline-offset-4 transition-colors hover:decoration-white/70";
+  "inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-7 text-[15px] font-medium text-[var(--cc-air-ink)] shadow-[0_1px_2px_rgb(0_0_0/0.06)] ring-1 ring-black/[0.08] transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-px hover:shadow-[0_6px_18px_-8px_rgb(0_0_0/0.2)] active:translate-y-0 active:scale-[0.98]";
+const linkCls =
+  "font-medium text-[var(--cc-air-ink)] underline decoration-black/20 underline-offset-4 transition-colors hover:decoration-black/60";
 
 export function DownloadButtons({ release: _release }: { release: Release | null }) {
   const url: Record<Arch, string> = {
@@ -146,7 +148,7 @@ export function DownloadButtons({ release: _release }: { release: Release | null
           <a href={url[arch]} onClick={tagDownload} className={primaryCls} data-arch={arch}>
             <AppleLogo className="h-4 w-4" />
             Download for Mac
-            <span className="font-normal text-black/55">· {ARCH_LABEL[arch]}</span>
+            <span className="font-normal text-white/55">· {ARCH_LABEL[arch]}</span>
           </a>
           <p className="text-sm text-muted-foreground">
             {detected?.kind === "mac" && !detected.confident ? "Have an Intel Mac? " : "Need the other build? "}

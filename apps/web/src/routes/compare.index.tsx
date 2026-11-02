@@ -1,9 +1,11 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { Scale } from "lucide-react";
 import { jsonLd } from "@/lib/json-ld";
 
-import Navbar from "@/components/marketing/Navbar";
-import Footer from "@/components/marketing/Footer";
 import { CompareMatrix, PseoCta } from "@/components/marketing/PseoSections";
+import { AirPage, AirPageHero } from "@/components/marketing/airy/Page";
+import { AIR_CELL_LINK, AIR_CHIP, AIR_GRID, AirContainer, AirHeading } from "@/components/marketing/airy/primitives";
+import airyCss from "@/styles/airy.css?url";
 import { BEST_LISTS } from "@/lib/best-content";
 import {
   CATEGORY_LABELS,
@@ -47,110 +49,83 @@ const jsonLdData = {
 };
 
 export const Route = createFileRoute("/compare/")({
-  head: () => pageHead("/compare"),
+  head: () => pageHead("/compare", [{ rel: "stylesheet", href: airyCss }]),
   component: CompareHubPage,
 });
 
 function CompareHubPage() {
   return (
-    <main className="min-h-screen bg-background flex flex-col">
+    <AirPage>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd(jsonLdData) }}
       />
-      <Navbar />
+      <AirPageHero
+        pill="Compare"
+        icon={<Scale className="h-3.5 w-3.5" strokeWidth={2} />}
+        title="How CaptureCat compares"
+        lede={`${COMPETITORS.length} screen recorders, feature by feature, including where each of them is genuinely the better pick. Every fact is checked against the product's own site and sourced.`}
+      />
 
-      <section className="relative isolate overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{
-            background:
-              "radial-gradient(120% 80% at 50% -20%, rgba(120,140,255,0.18), transparent 60%)," +
-              "radial-gradient(70% 50% at 85% 20%, rgba(80,220,255,0.10), transparent 55%)",
-          }}
-        />
-        <div className="mx-auto max-w-6xl px-6 pb-14 pt-20 text-center md:pt-28">
-          <h1 className="mx-auto max-w-3xl text-balance text-5xl font-semibold leading-[1.04] tracking-[-0.03em] md:text-6xl">
-            How CaptureCat compares
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            {COMPETITORS.length} screen recorders, feature by feature, including
-            where each of them is genuinely the better pick. Every fact is
-            checked against the product&apos;s own site and sourced.
-          </p>
-        </div>
-      </section>
-
-      <section className="mx-auto w-full max-w-6xl px-6 pb-10">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em]">Best-of lists</h2>
-        <div className="mt-6 flex flex-wrap gap-3">
+      <AirContainer className="pb-12">
+        <AirHeading>Best-of lists</AirHeading>
+        <div className="mt-6 flex flex-wrap gap-2.5">
           {BEST_LISTS.map((list) => (
-            <Link
-              key={list.slug}
-              to="/best/$slug"
-              params={{ slug: list.slug }}
-              className="inline-flex h-9 items-center rounded-full border border-white/12 bg-white/[0.06] px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-white/[0.1] hover:text-foreground"
-            >
+            <Link key={list.slug} to="/best/$slug" params={{ slug: list.slug }} className={AIR_CHIP}>
               {list.title}
             </Link>
           ))}
         </div>
-      </section>
+      </AirContainer>
 
-      <section className="mx-auto w-full max-w-6xl px-6 pb-8">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em]">All recorders at a glance</h2>
+      <AirContainer className="pb-8 pt-8">
+        <AirHeading>All recorders at a glance</AirHeading>
         <div className="mt-6">
           <CompareMatrix />
         </div>
-      </section>
+      </AirContainer>
 
       {competitorsByCategory().map(([cat, list]) => (
-        <section key={cat} className="mx-auto w-full max-w-6xl px-6 pt-10">
-          <h2 className="text-2xl font-semibold tracking-[-0.02em]">{CATEGORY_LABELS[cat]}</h2>
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <AirContainer key={cat} className="pt-14">
+          <AirHeading>{CATEGORY_LABELS[cat]}</AirHeading>
+          <div className={`${AIR_GRID} mt-6 bg-white md:grid-cols-2`}>
             {list.map((c) => (
               <Link
                 key={c.slug}
                 to="/compare/$slug"
                 params={{ slug: comparePath(c).split("/").pop()! }}
-                className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] p-6 backdrop-blur-2xl transition-colors hover:bg-white/[0.07]"
+                className={AIR_CELL_LINK}
               >
-                <span
-                  aria-hidden
-                  className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                />
-                <h3 className="font-medium tracking-[-0.01em] group-hover:text-foreground">
+                <h3 className="flex items-center justify-between gap-4 text-[16px] font-semibold tracking-[-0.01em] text-[var(--cc-air-ink)]">
                   CaptureCat vs {c.name}
+                  <span aria-hidden className="text-[var(--cc-air-faint)] transition-transform group-hover:translate-x-0.5">
+                    →
+                  </span>
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{c.summary}</p>
+                <p className="mt-2 text-[14.5px] leading-relaxed text-[var(--cc-air-muted)]">{c.summary}</p>
               </Link>
             ))}
           </div>
-        </section>
+        </AirContainer>
       ))}
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-12">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em]">
-          Looking for an alternative?
-        </h2>
-        <div className="mt-6 flex flex-wrap gap-3">
+      <AirContainer className="pt-14">
+        <AirHeading>Looking for an alternative?</AirHeading>
+        <div className="mt-6 flex flex-wrap gap-2.5">
           {PSEO_ALTERNATIVE_PAGES.map((page) => (
             <Link
               key={page.path}
               to="/alternatives/$slug"
               params={{ slug: page.path.split("/").pop()! }}
-              className="inline-flex h-9 items-center rounded-full border border-white/12 bg-white/[0.06] px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-white/[0.1] hover:text-foreground"
+              className={AIR_CHIP}
             >
               {page.title}
             </Link>
           ))}
         </div>
-      </section>
+      </AirContainer>
 
       <PseoCta />
-
-      <Footer />
-    </main>
+    </AirPage>
   );
 }

@@ -5,19 +5,21 @@ import { pageHead } from "@/lib/site-content";
 import { CAPTURECAT_OFFERS } from "@/lib/pseo-content";
 import Navbar from "@/components/marketing/Navbar";
 import Footer from "@/components/marketing/Footer";
-import Hero from "@/components/marketing/home/Hero";
-import BeforeAfter from "@/components/marketing/home/BeforeAfter";
-import HowItWorks from "@/components/marketing/home/HowItWorks";
-import FeatureShowcase from "@/components/marketing/home/FeatureShowcase";
-import ShareSection from "@/components/marketing/home/ShareSection";
-import AgentSection from "@/components/marketing/AgentSection";
-import UseCases from "@/components/marketing/home/UseCases";
-import OpenSource from "@/components/marketing/home/OpenSource";
-import FeatureInventory from "@/components/marketing/FeatureInventory";
-import Faq, { HOME_FAQ } from "@/components/marketing/home/Faq";
-import FinalCta from "@/components/marketing/home/FinalCta";
-import Platforms from "@/components/marketing/home/Platforms";
+import { HOME_FAQ } from "@/components/marketing/home/Faq";
+import AirHero from "@/components/marketing/airy/Hero";
+import FeatureRows from "@/components/marketing/airy/FeatureRows";
+import {
+  AgentsBand,
+  AirFaq,
+  AirFinalCta,
+  CapabilityBand,
+  DetailCards,
+  Everywhere,
+  FeatureGrid,
+  Statement,
+} from "@/components/marketing/airy/Sections";
 import demosCss from "@/styles/demos.css?url";
+import airyCss from "@/styles/airy.css?url";
 
 const jsonLdData = {
   "@context": "https://schema.org",
@@ -52,30 +54,33 @@ const jsonLdData = {
 };
 
 export const Route = createFileRoute("/")({
-  head: () => pageHead("/", [{ rel: "stylesheet", href: demosCss }]),
+  head: () => pageHead("/", [
+    { rel: "stylesheet", href: demosCss },
+    { rel: "stylesheet", href: airyCss },
+  ]),
   component: Home,
 });
 
 function Home() {
   return (
-    <main className="flex min-h-screen flex-col bg-background selection:bg-cyan-500/30 selection:text-cyan-100">
+    // The light, airy home (styles/airy.css): `data-cc-light` re-points the
+    // theme tokens while this page is mounted; every other page stays dark.
+    <main data-cc-light className="flex min-h-screen flex-col bg-background text-foreground selection:bg-violet-500/20">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd(jsonLdData) }}
       />
       <Navbar />
-      <Hero />
-      <Platforms />
-      <BeforeAfter />
-      <HowItWorks />
-      <FeatureShowcase />
-      <ShareSection />
-      <AgentSection />
-      <UseCases />
-      <OpenSource />
-      <FeatureInventory />
-      <Faq />
-      <FinalCta />
+      <AirHero />
+      <CapabilityBand />
+      <FeatureRows />
+      <Everywhere />
+      <DetailCards />
+      <Statement />
+      <AgentsBand />
+      <FeatureGrid />
+      <AirFaq />
+      <AirFinalCta />
       <Footer />
     </main>
   );

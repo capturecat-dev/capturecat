@@ -39,13 +39,30 @@ export interface ChangelogPage {
 
 /**
  * Badge looks, in the site's glass language: a tinted hairline border over a
- * faint wash, the same four tints as the docs callouts.
+ * faint wash, the same four tints as the docs callouts. `lightBadge` is the
+ * same tint for the light marketing pages (the admin preview stays dark).
  */
-export const CATEGORY_META: Record<ChangelogCategory, { label: string; badge: string }> = {
-  new: { label: "New", badge: "border-cyan-300/25 bg-cyan-300/[0.08] text-cyan-200" },
-  improved: { label: "Improved", badge: "border-violet-300/25 bg-violet-300/[0.09] text-violet-200" },
-  fixed: { label: "Fixed", badge: "border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-200" },
-  security: { label: "Security", badge: "border-amber-300/30 bg-amber-300/[0.09] text-amber-200" },
+export const CATEGORY_META: Record<ChangelogCategory, { label: string; badge: string; lightBadge: string }> = {
+  new: {
+    label: "New",
+    badge: "border-cyan-300/25 bg-cyan-300/[0.08] text-cyan-200",
+    lightBadge: "border-cyan-600/20 bg-cyan-50 text-cyan-800",
+  },
+  improved: {
+    label: "Improved",
+    badge: "border-violet-300/25 bg-violet-300/[0.09] text-violet-200",
+    lightBadge: "border-violet-600/20 bg-violet-50 text-violet-800",
+  },
+  fixed: {
+    label: "Fixed",
+    badge: "border-emerald-300/25 bg-emerald-300/[0.08] text-emerald-200",
+    lightBadge: "border-emerald-600/20 bg-emerald-50 text-emerald-800",
+  },
+  security: {
+    label: "Security",
+    badge: "border-amber-300/30 bg-amber-300/[0.09] text-amber-200",
+    lightBadge: "border-amber-600/25 bg-amber-50 text-amber-900",
+  },
 };
 
 export const PLATFORM_LABELS: Record<ChangelogPlatform, string> = {
