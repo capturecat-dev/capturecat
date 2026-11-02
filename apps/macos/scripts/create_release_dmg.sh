@@ -82,25 +82,8 @@ build_dmg_for_arch() {
   echo "    Creating DMG..."
   rm -f "$dmg_path"
 
-  npx create-dmg@latest \
-    --overwrite \
-    --identity "$SIGNING_IDENTITY" \
-    --no-version-in-filename \
-    --dmg-title "$PRODUCT_NAME" \
-    "$app_path" \
-    "$BUILD_ROOT/"
-
-  # Rename to arch-specific filename
-  local generated_dmg="$BUILD_ROOT/${PRODUCT_NAME}.dmg"
-  if [[ -f "$generated_dmg" ]]; then
-    mv "$generated_dmg" "$dmg_path"
-  else
-    local found_dmg
-    found_dmg="$(ls -t "$BUILD_ROOT"/${PRODUCT_NAME}*.dmg 2>/dev/null | head -1)"
-    if [[ -n "$found_dmg" && "$found_dmg" != "$dmg_path" ]]; then
-      mv "$found_dmg" "$dmg_path"
-    fi
-  fi
+  # The drag-to-install window (make_dmg.sh: layout + background), signed.
+  "$(dirname "$0")/make_dmg.sh" "$app_path" "$dmg_path" "$SIGNING_IDENTITY"
 
   # ── Notarize ─────────────────────────────────────────────────────────────
   echo "    Submitting for notarization (this takes 2-5 minutes)..."
