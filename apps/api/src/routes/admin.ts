@@ -40,6 +40,7 @@ import { purgePlanCache } from "../lib/entitlement";
 import { registerUserPlanAdminRoutes } from "./admin-user-plan";
 import { registerChangelogAdminRoutes } from "./changelog";
 import { registerModerationAdminRoutes } from "./admin-moderation";
+import { registerProjectAdminRoutes } from "./admin-projects";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -268,3 +269,5 @@ registerAnalyticsAdminRoutes(adminRoutes);
 registerChangelogAdminRoutes(adminRoutes);
 // Videos: every upload, viewer reports, takedowns (migration 0038).
 registerModerationAdminRoutes(adminRoutes);
+// Projects: every cloud project, and whether it was ever shared (read-only).
+registerProjectAdminRoutes(adminRoutes);

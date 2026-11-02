@@ -110,11 +110,12 @@ function toAdminVideo(env: Env, r: AdminVideoRow) {
   };
 }
 
-/** Opaque keyset cursor for the "all" list: (created_at, video_id) of the last row. */
-function encodeCursor(createdAt: string, videoId: string): string {
+/** Opaque keyset cursor for the "all" list: (created_at, video_id) of the last row
+ *  (the Projects list pages the same way, by (created_at, id)). */
+export function encodeCursor(createdAt: string, videoId: string): string {
   return btoa(JSON.stringify([createdAt, videoId]));
 }
-function decodeCursor(raw: string | undefined): [string, string] | null {
+export function decodeCursor(raw: string | undefined): [string, string] | null {
   if (!raw) return null;
   try {
     const value = JSON.parse(atob(raw));
@@ -261,29 +262,8 @@ export function registerModerationAdminRoutes(app: App): void {
       }
     }
 
-    const range = parseRange(c.req.header("Range"));
-    const object = range ? await c.env.R2.get(r2Key, { range }) : await c.env.R2.get(r2Key);
-    if (!object) return c.json({ error: "Video file not found in storage" }, 404);
-    const headers = new Headers({
-      "Content-Type": doc.contentType || "video/mp4",
-      "Accept-Ranges": "bytes",
-      // Never in a shared cache: this route ignores every share gate.
-      "Cache-Control": "private, no-store",
-    });
-    if (range) {
-      // What R2 served (object.range), else what was asked, clamped to the file.
-      const served = ("range" in object && object.range ? object.range : range) as R2Range;
-      const offset = "suffix" in served && served.suffix !== undefined
-        ? Math.max(0, object.size - served.suffix)
-        : ("offset" in served ? served.offset ?? 0 : 0);
-      const asked = "length" in served && served.length !== undefined ? served.length : object.size - offset;
-      const length = Math.max(0, Math.min(asked, object.size - offset));
-      headers.set("Content-Range", `bytes ${offset}-${offset + length - 1}/${object.size}`);
-      headers.set("Content-Length", String(length));
-      return new Response(object.body, { status: 206, headers });
-    }
-    headers.set("Content-Length", String(object.size));
-    return new Response(object.body, { status: 200, headers });
+    const res = await rangedR2Response(c.env.R2, r2Key, c.req.header("Range"), doc.contentType || "video/mp4");
+    return res ?? c.json({ error: "Video file not found in storage" }, 404);
   });
 
   app.get("/admin/videos/:id/thumbnail", async (c) => {
@@ -335,6 +315,36 @@ export function registerModerationAdminRoutes(app: App): void {
     await recordModerationAction(c.env.DB, { videoId: doc.videoId, videoOwner: doc.uid, adminUid: c.get("user").uid, action: "delete" });
     return c.json({ deleted: true, ...(result.leftInBucket.length > 0 ? { leftInBucket: result.leftInBucket } : {}) });
   });
+}
+
+/**
+ * An R2 object for the console's player: ranged when the request asks,
+ * never cacheable (the admin routes ignore every share gate). Null when the
+ * object is missing. Shared with the Projects page (admin-projects.ts).
+ */
+export async function rangedR2Response(r2: R2Bucket, key: string, rangeHeader: string | undefined, contentType: string): Promise<Response | null> {
+  const range = parseRange(rangeHeader);
+  const object = range ? await r2.get(key, { range }) : await r2.get(key);
+  if (!object) return null;
+  const headers = new Headers({
+    "Content-Type": contentType,
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "private, no-store",
+  });
+  if (range) {
+    // What R2 served (object.range), else what was asked, clamped to the file.
+    const served = ("range" in object && object.range ? object.range : range) as R2Range;
+    const offset = "suffix" in served && served.suffix !== undefined
+      ? Math.max(0, object.size - served.suffix)
+      : ("offset" in served ? served.offset ?? 0 : 0);
+    const asked = "length" in served && served.length !== undefined ? served.length : object.size - offset;
+    const length = Math.max(0, Math.min(asked, object.size - offset));
+    headers.set("Content-Range", `bytes ${offset}-${offset + length - 1}/${object.size}`);
+    headers.set("Content-Length", String(length));
+    return new Response(object.body, { status: 206, headers });
+  }
+  headers.set("Content-Length", String(object.size));
+  return new Response(object.body, { status: 200, headers });
 }
 
 /** "bytes=a-b" / "bytes=a-" / "bytes=-n" → an R2 range, or null. */

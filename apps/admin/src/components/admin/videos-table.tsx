@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Film, Search } from "lucide-react";
+import { Film } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TableLoading } from "@/components/ui/table-loading";
+import { ProjectsList, SearchBox } from "@/components/admin/projects-table";
 import { VideoModerationSheet } from "@/components/admin/video-moderation-sheet";
 import { API_URL } from "@/lib/api-url";
 import { formatBytes, formatDuration, relativeTime } from "@/lib/format";
@@ -36,17 +36,23 @@ const EMPTY: Record<VideoFilter, { title: string; body: string }> = {
  * Every shared video, newest first — or the Reported queue (open viewer
  * reports, most recent first) or what was taken down. Search by title, file
  * name, owner email or video id. A row opens the moderation sheet.
+ *
+ * "Never shared" lists the recordings users have on CaptureCat that were
+ * never shared as a video (cloud projects; the Projects page has them all).
  */
 export function VideosTable() {
   const [filter, setFilter] = useState<VideoFilter>("reported");
+  // Its own flag, so the videos query keeps its input (and its counts).
+  const [unshared, setUnshared] = useState(false);
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<string | null>(null);
 
   const list = trpc.admin.listVideos.useInfiniteQuery(
     { filter, q: query || undefined },
-    { getNextPageParam: (last) => last.nextCursor ?? undefined },
+    { getNextPageParam: (last) => last.nextCursor ?? undefined, enabled: !unshared },
   );
+  const unsharedCount = trpc.admin.listProjects.useQuery({ filter: "unshared", limit: 1 }).data?.counts.unshared;
   const pages = list.data?.pages ?? [];
   const videos = pages.flatMap((p) => p.videos);
   const counts = pages[0]?.counts;
@@ -59,10 +65,13 @@ export function VideosTable() {
             <Button
               key={f.id}
               role="tab"
-              aria-selected={filter === f.id}
+              aria-selected={!unshared && filter === f.id}
               size="sm"
-              variant={filter === f.id ? "secondary" : "ghost"}
-              onClick={() => setFilter(f.id)}
+              variant={!unshared && filter === f.id ? "secondary" : "ghost"}
+              onClick={() => {
+                setFilter(f.id);
+                setUnshared(false);
+              }}
             >
               {f.label}
               {counts && (
@@ -72,31 +81,38 @@ export function VideosTable() {
               )}
             </Button>
           ))}
+          <Button
+            role="tab"
+            aria-selected={unshared}
+            size="sm"
+            variant={unshared ? "secondary" : "ghost"}
+            onClick={() => setUnshared(true)}
+          >
+            Never shared
+            {unsharedCount !== undefined && (
+              <Badge variant="outline" className="ml-1.5">
+                {unsharedCount}
+              </Badge>
+            )}
+          </Button>
         </div>
-        <form
-          className="relative w-full sm:w-72"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setQuery(search.trim());
+        <SearchBox
+          value={search}
+          placeholder={unshared ? "Name, owner email or project id" : "Title, owner email or video id"}
+          label={unshared ? "Search projects" : "Search videos"}
+          onChange={(v) => {
+            setSearch(v);
+            if (!v) setQuery("");
           }}
-        >
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              if (!e.target.value) setQuery("");
-            }}
-            placeholder="Title, owner email or video id"
-            className="pl-9"
-            aria-label="Search videos"
-          />
-        </form>
+          onSubmit={() => setQuery(search.trim())}
+        />
       </div>
 
-      {list.error && <p className="text-sm text-destructive">{list.error.message}</p>}
+      {unshared && <ProjectsList filter="unshared" query={query} />}
 
-      {list.isLoading ? (
+      {!unshared && list.error && <p className="text-sm text-destructive">{list.error.message}</p>}
+
+      {unshared ? null : list.isLoading ? (
         <TableLoading />
       ) : videos.length === 0 && !list.error ? (
         <Empty className="border">
@@ -161,7 +177,7 @@ export function VideosTable() {
         </div>
       )}
 
-      {list.hasNextPage && (
+      {!unshared && list.hasNextPage && (
         <div className="flex justify-center">
           <Button size="sm" variant="outline" disabled={list.isFetchingNextPage} onClick={() => list.fetchNextPage()}>
             {list.isFetchingNextPage ? "Loading…" : "Load more"}

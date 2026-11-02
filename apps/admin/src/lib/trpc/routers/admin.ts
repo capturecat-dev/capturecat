@@ -8,6 +8,7 @@ import type { Analytics, SignupSource, UserActivity, UserUsage } from "@/lib/ana
 import type { AdminChangelogEntry } from "@/lib/changelog-form";
 import { CHANGELOG_CATEGORIES, CHANGELOG_PLATFORMS } from "@/lib/changelog-form";
 import type { AdminVideoDetail, AdminVideoPage } from "@/lib/moderation-types";
+import type { AdminProjectDetail, AdminProjectPage } from "@/lib/project-types";
 
 /**
  * Admin directory + entitlement writes, proxied to api.capturecat.so.
@@ -350,6 +351,32 @@ export const adminRouter = createTRPCRouter({
         { method: "DELETE" },
         "Could not delete the video",
       ),
+    ),
+
+  /** Projects page: every cloud project (or only the never-shared / shared ones), searchable. */
+  listProjects: adminProcedure
+    .input(
+      z.object({
+        filter: z.enum(["all", "unshared", "shared"]),
+        q: z.string().max(200).optional(),
+        cursor: z.string().max(400).nullish(),
+        /** 1 = just the counts (the Videos page's "Never shared" badge). */
+        limit: z.number().int().min(1).max(100).optional(),
+      }),
+    )
+    .query(({ input }) => {
+      const params = new URLSearchParams({ filter: input.filter });
+      if (input.q?.trim()) params.set("q", input.q.trim());
+      if (input.cursor) params.set("cursor", input.cursor);
+      if (input.limit) params.set("limit", String(input.limit));
+      return apiJson<AdminProjectPage>(`/api/admin/projects?${params}`, { method: "GET" }, "Could not load projects");
+    }),
+
+  /** One project with its files and the videos shared from it. */
+  projectDetail: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(({ input }) =>
+      apiJson<AdminProjectDetail>(`/api/admin/projects/${encodeURIComponent(input.id)}`, { method: "GET" }, "Could not load the project"),
     ),
 
   /** Every changelog entry, drafts included (newest drafts first). */

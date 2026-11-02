@@ -16,6 +16,7 @@ import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.anal
 import { Route as DashboardBetaRouteImport } from './routes/_dashboard.beta'
 import { Route as DashboardChangelogRouteImport } from './routes/_dashboard.changelog'
 import { Route as DashboardPlansRouteImport } from './routes/_dashboard.plans'
+import { Route as DashboardProjectsRouteImport } from './routes/_dashboard.projects'
 import { Route as DashboardTeamsRouteImport } from './routes/_dashboard.teams'
 import { Route as DashboardUsersRouteImport } from './routes/_dashboard.users'
 import { Route as DashboardVideosRouteImport } from './routes/_dashboard.videos'
@@ -55,6 +56,11 @@ const DashboardPlansRoute = DashboardPlansRouteImport.update({
   path: '/plans',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardProjectsRoute = DashboardProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardTeamsRoute = DashboardTeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/beta': typeof DashboardBetaRoute
   '/changelog': typeof DashboardChangelogRoute
   '/plans': typeof DashboardPlansRoute
+  '/projects': typeof DashboardProjectsRoute
   '/teams': typeof DashboardTeamsRoute
   '/users': typeof DashboardUsersRoute
   '/videos': typeof DashboardVideosRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/beta': typeof DashboardBetaRoute
   '/changelog': typeof DashboardChangelogRoute
   '/plans': typeof DashboardPlansRoute
+  '/projects': typeof DashboardProjectsRoute
   '/teams': typeof DashboardTeamsRoute
   '/users': typeof DashboardUsersRoute
   '/videos': typeof DashboardVideosRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/_dashboard/beta': typeof DashboardBetaRoute
   '/_dashboard/changelog': typeof DashboardChangelogRoute
   '/_dashboard/plans': typeof DashboardPlansRoute
+  '/_dashboard/projects': typeof DashboardProjectsRoute
   '/_dashboard/teams': typeof DashboardTeamsRoute
   '/_dashboard/users': typeof DashboardUsersRoute
   '/_dashboard/videos': typeof DashboardVideosRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/beta'
     | '/changelog'
     | '/plans'
+    | '/projects'
     | '/teams'
     | '/users'
     | '/videos'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/beta'
     | '/changelog'
     | '/plans'
+    | '/projects'
     | '/teams'
     | '/users'
     | '/videos'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/_dashboard/beta'
     | '/_dashboard/changelog'
     | '/_dashboard/plans'
+    | '/_dashboard/projects'
     | '/_dashboard/teams'
     | '/_dashboard/users'
     | '/_dashboard/videos'
@@ -212,6 +224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPlansRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/projects': {
+      id: '/_dashboard/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof DashboardProjectsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/teams': {
       id: '/_dashboard/teams'
       path: '/teams'
@@ -248,6 +267,7 @@ interface DashboardRouteChildren {
   DashboardBetaRoute: typeof DashboardBetaRoute
   DashboardChangelogRoute: typeof DashboardChangelogRoute
   DashboardPlansRoute: typeof DashboardPlansRoute
+  DashboardProjectsRoute: typeof DashboardProjectsRoute
   DashboardTeamsRoute: typeof DashboardTeamsRoute
   DashboardUsersRoute: typeof DashboardUsersRoute
   DashboardVideosRoute: typeof DashboardVideosRoute
@@ -258,6 +278,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardBetaRoute: DashboardBetaRoute,
   DashboardChangelogRoute: DashboardChangelogRoute,
   DashboardPlansRoute: DashboardPlansRoute,
+  DashboardProjectsRoute: DashboardProjectsRoute,
   DashboardTeamsRoute: DashboardTeamsRoute,
   DashboardUsersRoute: DashboardUsersRoute,
   DashboardVideosRoute: DashboardVideosRoute,
