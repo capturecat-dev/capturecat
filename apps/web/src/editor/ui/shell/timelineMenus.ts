@@ -4,6 +4,9 @@
  * voiceContextMenu. The Mac's submenus (Zoom Level, Set/Change Speed) are
  * flattened into a SECTION of checked rows — the kit menu has no cascades.
  * Kit icons lead each row; Delete shows its key (⌫ — EditorShell's keydown).
+ * A camera-layout block adds Camera on Left / Right and Full Height / Tiles
+ * (Side by Side only) and Copy / Paste Layout (docs/camera-cutout.md §12.6 /
+ * §12.7 / §12.11 — the Mac block's context menu).
  */
 import type { MenuEntry } from "../kit";
 import { formatSpeed, type ContextMenuRequest } from "../timeline/TimelineRenderer";
@@ -14,7 +17,12 @@ const ZOOM_LEVELS = [1.5, 2.0, 2.5, 3.0, 4.0, 5.0];
 
 const DELETE_KEY = "⌫";
 
-export function timelineMenu(req: ContextMenuRequest, act: (a: TimelineAction) => void): MenuEntry[] | null {
+export interface TimelineMenuOptions {
+  /** A camera layout has been copied (Paste Layout is enabled). */
+  canPasteCameraLayout?: boolean;
+}
+
+export function timelineMenu(req: ContextMenuRequest, act: (a: TimelineAction) => void, options: TimelineMenuOptions = {}): MenuEntry[] | null {
   const { lane, target, time } = req;
 
   if (lane === "video") {
@@ -88,6 +96,46 @@ export function timelineMenu(req: ContextMenuRequest, act: (a: TimelineAction) =
 
   if (lane === "focus" && target?.lane === "focus") {
     const entries: MenuEntry[] = [];
+    const layout = !target.isHighlight ? req.focus?.cameraLayout : undefined;
+    if (layout) {
+      const regionId = target.id;
+      if (layout.mode === "sideBySide") {
+        entries.push({
+          title: "Camera on Left",
+          icon: "sidebar-left",
+          checked: layout.side === "leading",
+          onSelect: () => act({ type: "setCameraSide", regionId, side: "leading" }),
+        });
+        entries.push({
+          title: "Camera on Right",
+          icon: "sidebar-right",
+          checked: layout.side === "trailing",
+          onSelect: () => act({ type: "setCameraSide", regionId, side: "trailing" }),
+        });
+        entries.push("separator");
+        entries.push({
+          title: "Full Height",
+          icon: "sidebar-right",
+          checked: layout.split === "full",
+          onSelect: () => act({ type: "setSplitStyle", regionId, style: "full" }),
+        });
+        entries.push({
+          title: "Tiles",
+          icon: "split",
+          checked: layout.split === "tiles",
+          onSelect: () => act({ type: "setSplitStyle", regionId, style: "tiles" }),
+        });
+        entries.push("separator");
+      }
+      entries.push({ title: "Copy Layout", icon: "fill-toggle", onSelect: () => act({ type: "copyCameraLayout", regionId }) });
+      entries.push({
+        title: "Paste Layout",
+        icon: "clipboard",
+        disabled: !options.canPasteCameraLayout,
+        onSelect: () => act({ type: "pasteCameraLayout", regionId }),
+      });
+      entries.push("separator");
+    }
     if (!target.isHighlight) {
       entries.push({ title: "Rename…", icon: "pencil", disabled: true });
       entries.push("separator");

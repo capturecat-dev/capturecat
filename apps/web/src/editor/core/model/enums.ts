@@ -280,6 +280,50 @@ export const CameraLook = {
 } as const;
 export type CameraLook = ValueOf<typeof CameraLook>;
 
+/**
+ * settings.cameraCardFill (docs/camera-cutout.md §12.1/§12.3): what fills the
+ * pop-out card behind the person. Absent = "gradient". Raw values are
+ * persistence identity; decoded leniently (unknown → absent).
+ */
+export const CameraCardFill = {
+  gradient: "gradient",
+  camera: "camera",
+  color: "color",
+  image: "image",
+} as const;
+export type CameraCardFill = ValueOf<typeof CameraCardFill>;
+
+/** settings.cameraCardBorder (§12.3): the pop-out card's inner border ring. Absent = no border. */
+export const CameraCardBorder = {
+  solid: "solid",
+  aurora: "aurora",
+  gold: "gold",
+} as const;
+export type CameraCardBorder = ValueOf<typeof CameraCardBorder>;
+
+/**
+ * CameraLayoutRegion.cameraSide (§12.6): the camera tile's side in a Side by
+ * Side block. Absent = trailing (today's); only read while the region's mode
+ * is sideBySide (kept, ignored otherwise). Decoded leniently.
+ */
+export const CameraSide = {
+  leading: "leading",
+  trailing: "trailing",
+} as const;
+export type CameraSide = ValueOf<typeof CameraSide>;
+
+/**
+ * CameraLayoutRegion.splitStyle (§12.11): how a Side by Side block splits the
+ * frame — "tiles" (today's equal-height row) or "full" (two full-height
+ * columns, "Split Screen"). Absent = tiles; only read while the region's mode
+ * is sideBySide (kept, ignored otherwise). Decoded leniently.
+ */
+export const CameraSplitStyle = {
+  tiles: "tiles",
+  full: "full",
+} as const;
+export type CameraSplitStyle = ValueOf<typeof CameraSplitStyle>;
+
 // ── Services-declared persisted enums ───────────────────────────────────────
 /** Services/ClickSoundPlayer.swift */
 export const ClickSoundStyle = {

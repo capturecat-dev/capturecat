@@ -9,7 +9,8 @@
  *   keystrokes  keys.json        (KeystrokeRecording — keys, scrolls)
  *   images      every referenced image as an ImageBitmap, keyed by the
  *               project.json reference string (backgroundImagePath, the
- *               watermark / curtain-logo file names, …)
+ *               pop-out card's cameraCardImagePath, the watermark /
+ *               curtain-logo file names, …)
  *   cameraMask  camera-mask.ccmask (the person mask the camera looks draw
  *               through — docs/camera-cutout.md §2), parsed; only fetched
  *               while a camera-layout region carries a `look`
@@ -66,14 +67,17 @@ type Json = Record<string, unknown>;
 export function refsOf(doc: Json): { cursor?: string; keystrokes?: string; camera?: string; mask?: string; images: string[]; audio: string[] } {
   const s = (doc.settings ?? {}) as Json;
   const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+  // One entry per reference (the card image may be the background image too).
   const images = [
     str(s.backgroundImagePath),
+    // The pop-out card's image fill (docs/camera-cutout.md §12.3) — a path exactly like backgroundImagePath.
+    str(s.cameraCardImagePath),
     str(s.watermarkFileName),
     str(s.curtainLogoFileName),
     // The webcam poster the Mac saves beside the project (Project.cameraPosterURL),
     // shown before the camera's first frame — folder-relative, like the Mac.
     s.showCamera === true && str(doc.cameraVideoURL) ? "camera_poster.png" : undefined,
-  ].filter((v): v is string => Boolean(v));
+  ].filter((v, i, all): v is string => Boolean(v) && all.indexOf(v) === i);
   const audio = ((doc.voiceOverClips as Json[] | undefined) ?? [])
     .map((c) => str(c.fileName))
     .filter((v): v is string => Boolean(v));
@@ -154,23 +158,27 @@ export async function loadSceneAssets(doc: Json, media: RenderMedia): Promise<Sc
     const bmp = bitmaps[i] as ImageBitmap | null;
     if (bmp) images.set(ref, bmp);
   });
-  // BackgroundLook.decodedImage: the backdrop image is decoded as an ImageIO
-  // thumbnail — orientation applied, longest edge capped at maxImageEdge.
-  const bgRef = typeof (doc.settings as Json | undefined)?.backgroundImagePath === "string"
-    ? ((doc.settings as Json).backgroundImagePath as string)
-    : null;
-  const bg = bgRef ? images.get(bgRef) : undefined;
-  if (bgRef && bg && Math.max(bg.width, bg.height) > MAX_BACKGROUND_EDGE) {
-    const k = MAX_BACKGROUND_EDGE / Math.max(bg.width, bg.height);
+  // BackgroundLook.decodedImage: the backdrop image — and the pop-out card's
+  // image fill, which the Mac decodes through it too (CameraCardStyle.cardImage)
+  // — is decoded as an ImageIO thumbnail: orientation applied, longest edge
+  // capped at maxImageEdge.
+  const settings = (doc.settings as Json | undefined) ?? {};
+  const cappedRefs = [settings.backgroundImagePath, settings.cameraCardImagePath].filter(
+    (v, i, all): v is string => typeof v === "string" && all.indexOf(v) === i,
+  );
+  for (const ref of cappedRefs) {
+    const bmp = images.get(ref);
+    if (!bmp || Math.max(bmp.width, bmp.height) <= MAX_BACKGROUND_EDGE) continue;
+    const k = MAX_BACKGROUND_EDGE / Math.max(bmp.width, bmp.height);
     try {
-      const capped = await createImageBitmap(bg, {
-        resizeWidth: Math.max(1, Math.round(bg.width * k)),
-        resizeHeight: Math.max(1, Math.round(bg.height * k)),
+      const capped = await createImageBitmap(bmp, {
+        resizeWidth: Math.max(1, Math.round(bmp.width * k)),
+        resizeHeight: Math.max(1, Math.round(bmp.height * k)),
         resizeQuality: "high",
         premultiplyAlpha: "premultiply",
       });
-      bg.close();
-      images.set(bgRef, capped);
+      bmp.close();
+      images.set(ref, capped);
     } catch {
       // keep the full-size decode
     }

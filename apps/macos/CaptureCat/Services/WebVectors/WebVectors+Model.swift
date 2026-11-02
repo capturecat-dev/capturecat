@@ -147,6 +147,30 @@ extension WebVectors {
         for key in ["cameraTagFontName", "watermarkFileName", "curtainLogoFileName", "subtitleFontName"] where rng.bool(0.4) {
             json[key] = rng.pick(["Avenir Next", "logo.png", "SF Pro Rounded", "Helvetica Neue"])
         }
+        // Camera styles (docs/camera-cutout.md §12.1), from a side stream
+        // keyed by this settings object so the main stream is unchanged —
+        // valid values mostly, garbage sometimes (lenient decode → absent).
+        var styleRng = WVRandom(seed: "settings-styles-\(String(describing: json["cameraSize"]))-\(String(describing: json["shadowRadius"]))-\(String(describing: json["cursorSize"]))")
+        func garbage() -> Any { styleRng.pick(["lots", 7, true, ["x": 1], [1, 2]] as [Any]) }
+        for key in ["cameraPopOutAmount", "cameraBackgroundBlur", "cameraEdgeSoftness", "cameraEdgeInset",
+                    "cameraCardBorderWidth"] where styleRng.bool(0.35) {
+            json[key] = styleRng.bool(0.85) ? styleRng.edgy(-0.5, 1.5, edges: [0, 0.5, 1]) : garbage()
+        }
+        for key in ["cameraCardGradientStart", "cameraCardGradientEnd", "cameraCardColor", "cameraCardBorderColor"]
+            where styleRng.bool(0.3) {
+            json[key] = styleRng.bool(0.85) ? randomColorJSON(&styleRng) : garbage()
+        }
+        if styleRng.bool(0.35) {
+            json["cameraCardFill"] = styleRng.bool(0.85) ? styleRng.pick(CameraCardFill.allCases.map(\.rawValue)) : garbage()
+        }
+        if styleRng.bool(0.35) {
+            json["cameraCardBorder"] = styleRng.bool(0.85) ? styleRng.pick(CameraCardBorder.allCases.map(\.rawValue)) : garbage()
+        }
+        if styleRng.bool(0.3) { json["cameraCardImagePath"] = styleRng.bool(0.85) ? "/Users/x/card.heic" : garbage() }
+        if styleRng.bool(0.3) { json["cameraShrinkOnZoom"] = styleRng.bool(0.85) ? styleRng.bool() : garbage() }
+        if styleRng.bool(0.3) { json["cameraPortraitStack"] = styleRng.bool(0.85) ? styleRng.bool() : garbage() }
+        if styleRng.bool(0.3) { json["cameraStackRatio"] = styleRng.bool(0.85) ? styleRng.edgy(0, 1, edges: [0.25, 0.42, 0.7]) : garbage() }
+        if styleRng.bool(0.3) { json["cameraStackGap"] = styleRng.bool(0.85) ? styleRng.edgy(-0.05, 0.12, edges: [0, 0.02, 0.08]) : garbage() }
         return json
     }
 
@@ -217,7 +241,8 @@ extension WebVectors {
             let s = t()
             let id = rng.uuid()
             return CameraLayoutRegion(id: id, startTime: s, endTime: s + 2, mode: rng.pick(CameraLayoutMode.allCases),
-                                      look: WebVectors.randomLook(for: id))
+                                      look: WebVectors.randomLook(for: id), cameraSide: WebVectors.randomSide(for: id),
+                                      splitStyle: WebVectors.randomSplit(for: id))
         })
         p["annotations"] = encodedArray((0..<rng.int(0, 4)).map { _ -> Annotation in
             let s = t()

@@ -180,6 +180,11 @@ enum CloudProjectManifest {
         if let path = project.settings.backgroundImagePath, !path.isEmpty {
             add(URL(fileURLWithPath: path), source: path)
         }
+        // The pop-out card's image travels exactly like the background image
+        // (docs/camera-cutout.md §12.9).
+        if let path = project.settings.cameraCardImagePath, !path.isEmpty {
+            add(URL(fileURLWithPath: path), source: path)
+        }
         add(projectDirectory.appendingPathComponent("camera_poster.png"))
         add(projectDirectory.appendingPathComponent("thumbnail.jpg"))
         add(projectDirectory.appendingPathComponent(CameraMaskTrack.fileName))
@@ -923,10 +928,10 @@ final class CloudProjectSync {
     ///    → the committed file it names (`files`, resolved the way the web
     ///    resolves it) when that is here, else the same file name in the
     ///    project folder;
-    ///  - a `backgroundImagePath` that does not exist here (the web's
-    ///    `/CaptureCat/Projects/<id>/<name>`, another Mac's wallpaper) → the
-    ///    absolute path of the downloaded copy — how the Mac spells a
-    ///    background image.
+    ///  - a `backgroundImagePath` (or `cameraCardImagePath`) that does not
+    ///    exist here (the web's `/CaptureCat/Projects/<id>/<name>`, another
+    ///    Mac's wallpaper) → the absolute path of the downloaded copy — how
+    ///    the Mac spells an image.
     /// Voice-over, watermark and curtain-logo names are relative to the
     /// project folder and download under the same name: nothing to change.
     static func validatedDocument(
@@ -959,12 +964,15 @@ final class CloudProjectSync {
                 changed = true
             }
         }
-        if var settings = object["settings"] as? [String: Any],
-           let path = settings["backgroundImagePath"] as? String, !path.isEmpty, !fm.fileExists(atPath: path),
-           let local = CloudProjectMedia.localCopy(of: path, index: index, in: projectDirectory), local.path != path {
-            settings["backgroundImagePath"] = local.path
-            object["settings"] = settings
-            changed = true
+        // Background image and the pop-out card image (§12.9) relink alike.
+        for key in ["backgroundImagePath", "cameraCardImagePath"] {
+            if var settings = object["settings"] as? [String: Any],
+               let path = settings[key] as? String, !path.isEmpty, !fm.fileExists(atPath: path),
+               let local = CloudProjectMedia.localCopy(of: path, index: index, in: projectDirectory), local.path != path {
+                settings[key] = local.path
+                object["settings"] = settings
+                changed = true
+            }
         }
         guard changed else { return data }
 

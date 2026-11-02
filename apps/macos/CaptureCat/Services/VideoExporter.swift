@@ -746,6 +746,13 @@ final class VideoExporter {
             }
         }
         let cameraMaskDecoder = cameraMaskTrack.map { CameraMaskTrack.Decoder(track: $0) }
+        // Camera styles (docs/camera-cutout.md §12): resolved once — they are
+        // whole-video settings — through the type the preview reads too.
+        let cardStyle = CameraCardStyle(settings)
+        let maskEdgeCache = CameraMaskEdge.Cache()
+        let cardImage: CIImage? = cardStyle.fill == .image
+            ? cardStyle.imagePath.flatMap(CameraCardStyle.cardImage(path:)).map { CIImage(cgImage: $0) }
+            : nil
 
         // Working space MATCHES the source file (Display P3 for new
         // recordings, sRGB for older ones) — same non-linear transfer curve in
@@ -950,6 +957,7 @@ final class VideoExporter {
         // must equal export).
         let cachedCardStatics: CIImage? = (tiltActive || !project.zoomRegions.isEmpty
             || !project.cameraLayoutRegions.isEmpty
+            || CameraLayoutMath.stackActive(settings: settings, canvas: outputSize)
             || settings.introSlideStyle != .off
             || project.sourceSegments.contains { $0.kind == .device })
             ? bakeStatic(
@@ -1218,6 +1226,10 @@ final class VideoExporter {
             }
             return CameraStaticAssets(baseRect: baseRect, mask: mask, stroke: stroke, shadow: shadow, ring: ring, tag: tag)
         }()
+        // Vertical stack (§12.12): rows of the content rect, Y-up like every
+        // rect here — only with a camera to show. Built per frame: the camera
+        // row yields to the zoom (§12.13).
+        let stackOn = cameraStaticAssets != nil && CameraLayoutMath.stackActive(settings: settings, canvas: outputSize)
 
         // Cache the cursor CGImage as a CIImage at native pixel size.
         // renderCursorCI scales it to the layout's drawRect, which is in canvas-point
@@ -1354,6 +1366,17 @@ final class VideoExporter {
 
             // Use pre-computed smoothed camera values
             let cam = cameraPath[frameIndex]
+            // §12.13: the stacked camera row yields height to the zoom
+            // (Shrink During Zoom), and the layout owns every zoom-in while
+            // the stack is on — the card zoom stage below keeps `outerZoom`.
+            let stackRows: CameraLayoutMath.StackRows? = stackOn
+                ? CameraLayoutMath.stackRows(
+                    area: staticLayout.contentRect,
+                    ratio: settings.cameraStackRatio ?? CameraLayoutMath.stackDefaultRatio, yAxisIsUp: true,
+                    yield: CameraLayoutMath.stackYield(zoom: ReactiveCameraLayout.layoutZoom(
+                        Double(cam.zoom), shrinkOnZoom: settings.cameraShrinkOnZoom ?? true)),
+                    gap: settings.cameraStackGap)
+                : nil
 
             // Dynamic camera layout, fully interpolated across mode
             // boundaries. Resolved BEFORE the card composite because the
@@ -1368,7 +1391,7 @@ final class VideoExporter {
                 // RAW smoothed zoom, not the cover-compensated card zoom — the
                 // preview's renderCamera feeds motion.zoom straight in, and the
                 // bubble must shrink identically.
-                zoom: Double(cam.zoom),
+                zoom: ReactiveCameraLayout.layoutZoom(Double(cam.zoom), shrinkOnZoom: settings.cameraShrinkOnZoom ?? true),
                 padding: Double(cameraPadding),
                 aspect: cameraAspect,
                 yAxisIsUp: true
@@ -1383,7 +1406,9 @@ final class VideoExporter {
                     customRadius: CGFloat(settings.cameraCornerRadius) * canvasScale,
                     size: bubbleRectNow.size),
                 cardCornerRadius: max(0, settings.cornerRadius * canvasScale),
-                hasCamera: cameraStaticAssets != nil
+                hasCamera: cameraStaticAssets != nil,
+                stack: stackRows,
+                stackZoom: CameraLayoutMath.StackZoom(zoom: Double(cam.zoom), focalX: cam.focalX, focalY: cam.focalY)
             )
             // Camera looks, eased across region edges like the layout itself
             // (CameraLayoutMath.lookWeights — the preview calls the same).
@@ -1391,7 +1416,7 @@ final class VideoExporter {
                 cameraMaskDecoder != nil && cameraStaticAssets != nil
                     ? CameraLayoutMath.lookWeights(
                         at: currentTime, regions: project.cameraLayoutRegions,
-                        defaultLook: settings.cameraLook)
+                        defaultLook: settings.cameraLook, stacking: stackRows != nil)
                     : .none
             /// The look stack's camera: the already mirrored + adjusted
             /// source × the mask frame for the camera sample actually drawn
@@ -1400,19 +1425,32 @@ final class VideoExporter {
                 guard lookWeights.isActive, let decoder = cameraMaskDecoder,
                       let baseRect = cameraStaticAssets?.baseRect else { return nil }
                 let index = live ? decoder.track.frameIndex(at: CMTimeGetSeconds(currentCameraSampleTime)) : 0
-                guard let alpha = try? decoder.frame(index),
-                      let mask = CameraStyleMath.maskCIImage(
-                          alpha: alpha, width: decoder.track.header.width, height: decoder.track.header.height)
+                let header = decoder.track.header
+                guard let raw = try? decoder.frame(index) else { return nil }
+                // §12.4 edge inset / softness, before the frame becomes alpha.
+                let alpha = maskEdgeCache.processed(
+                    raw, token: decoder.track.token, index: index, width: header.width, height: header.height,
+                    softness: cardStyle.edgeSoftness, inset: cardStyle.edgeInset)
+                guard let mask = CameraStyleMath.maskCIImage(alpha: alpha, width: header.width, height: header.height)
                 else { return nil }
                 let sizeFactor = CameraCutoutMath.sizeFactor(rect: rect, baseWidth: baseRect.width)
+                // §12.3 camera fill: the plain (unmasked) source, blurred in
+                // camera pixels — only built while a pop-out card draws.
+                let cardCamera = lookWeights.popOut > 0 && cardStyle.fill == .camera
+                    ? CameraStyleMath.cardCameraImage(
+                        source, sigma: cardStyle.blurSigma(cameraHeight: source.extent.height))
+                    : nil
                 return CameraLookStack(
                     weights: lookWeights,
                     masked: CameraStyleMath.maskedImage(source, mask: mask, mirrored: settings.cameraMirrored),
-                    shadowSigma: CameraCutoutMath.cardShadowRadius * canvasScale * sizeFactor)
+                    shadowSigma: CameraCutoutMath.cardShadowRadius * canvasScale * sizeFactor,
+                    style: cardStyle,
+                    cardCamera: cardCamera,
+                    cardImage: cardImage)
             }
             // Cover-compensated like the preview — see TiltMath.effectiveCoverZoom.
             let zoom = Double(TiltMath.effectiveCoverZoom(
-                zoom: CGFloat(cam.zoom),
+                zoom: CGFloat(CameraLayoutMath.outerZoom(Double(cam.zoom), stacking: stackOn)),
                 pitchDegrees: cam.tiltPitch,
                 yawDegrees: cam.tiltYaw,
                 rollDegrees: cam.tiltRoll,
@@ -1845,6 +1883,9 @@ final class VideoExporter {
                 // composite, so the camera tile itself is never squeezed.)
                 // The classic bubble keeps its late, canvas-level composite.
                 var overrideCameraOverlay: CIImage?
+                // A joined stack row's card shadow (§12.14), composited UNDER
+                // the card so the screen covers what would land on it.
+                var overrideCameraUnderShadow: CIImage?
                 if sourceCMTime != nil, let assets = cameraStaticAssets,
                    !camLayout.isPlainBubble, camLayout.cameraOpacity > 0.001,
                    let rect = camLayout.cameraRect {
@@ -1868,11 +1909,14 @@ final class VideoExporter {
                             camLayout.cameraCornerRadius,
                             min(rect.width, rect.height) / 2
                         )
+                        // A joined stack row (§12.14): corners from a shape
+                        // past the seam, cropped to the row — square there.
+                        let shape = camLayout.cameraShapeRect ?? rect
                         let mask = CIFilter(
                             name: "CIRoundedRectangleGenerator",
                             parameters: [
-                                "inputExtent": CIVector(cgRect: rect),
-                                kCIInputRadiusKey: max(0, radius),
+                                "inputExtent": CIVector(cgRect: shape),
+                                kCIInputRadiusKey: max(0, min(camLayout.cameraCornerRadius, min(shape.width, shape.height) / 2)),
                                 kCIInputColorKey: CIColor.white,
                             ]
                         )?.outputImage?.cropped(to: rect)
@@ -1898,9 +1942,20 @@ final class VideoExporter {
                                 rect: rect,
                                 cornerRadius: radius,
                                 shadowRadius: max(0, settings.shadowRadius * canvasScale),
-                                shadowOpacity: max(0, settings.shadowOpacity) * cardness
+                                // A joined row (§12.14) casts no shadow across the screen.
+                                shadowOpacity: max(0, settings.shadowOpacity) * cardness * (1 - camLayout.seamJoin)
                             ) {
                                 shadowImage = shadowImage.map { cardShadow.composited(over: $0) } ?? cardShadow
+                            }
+                            if camLayout.seamJoin > 0.001 {
+                                overrideCameraUnderShadow = makeFrameShadow(
+                                    extent: rect.insetBy(dx: -slack, dy: -slack),
+                                    rect: rect,
+                                    cornerRadius: radius,
+                                    shadowRadius: max(0, settings.shadowRadius * canvasScale),
+                                    shadowOpacity: max(0, settings.shadowOpacity) * cardness * camLayout.seamJoin
+                                        * settings.cameraOpacity * camLayout.cameraOpacity
+                                )
                             }
                         }
                         overrideCameraOverlay = compositeCamera(
@@ -1933,7 +1988,36 @@ final class VideoExporter {
                             .transformed(by: layoutXform)
                             .cropped(to: outputRect)
                     }
+                    // Full-height split (docs/camera-cutout.md §12.11): keep
+                    // only the screen column — riders included — and give it
+                    // the card's own drop shadow, scaled like the card.
+                    if let clip = camLayout.cardClip, clip.width > 0, clip.height > 0 {
+                        let radius = min(max(0, camLayout.cardClipCornerRadius), min(clip.width, clip.height) / 2)
+                        // Joined stack (§12.14): the shape runs past the seam.
+                        let shape = camLayout.cardClipShapeRect ?? clip
+                        if let clipMask = CIFilter(name: "CIRoundedRectangleGenerator", parameters: [
+                            "inputExtent": CIVector(cgRect: shape),
+                            kCIInputRadiusKey: min(max(0, camLayout.cardClipCornerRadius), min(shape.width, shape.height) / 2),
+                            kCIInputColorKey: CIColor.white,
+                        ])?.outputImage?.cropped(to: clip) {
+                            composited = composited.applyingFilter("CIBlendWithMask", parameters: [
+                                kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: outputRect),
+                                kCIInputMaskImageKey: clipMask,
+                            ]).cropped(to: outputRect)
+                        }
+                        if let tileShadow = makeFrameShadow(
+                            extent: outputRect, rect: clip, cornerRadius: radius,
+                            shadowRadius: max(0, settings.shadowRadius * canvasScale) * min(1, camLayout.cardScale),
+                            shadowOpacity: max(0, settings.shadowOpacity)
+                        ) {
+                            composited = composited.composited(over: tileShadow).cropped(to: outputRect)
+                        }
+                    }
 
+                    // A joined row's shadow goes under the card (§12.14).
+                    if let overrideCameraUnderShadow {
+                        composited = composited.composited(over: overrideCameraUnderShadow).cropped(to: outputRect)
+                    }
                     // Camera tile rides every transform from here on.
                     if let overrideCameraOverlay {
                         composited = overrideCameraOverlay
@@ -2068,12 +2152,16 @@ final class VideoExporter {
                     if settings.motionBlur, frameIndex > 0 {
                         let prev = cameraPath[frameIndex - 1]
                         let frameDT = outputTime.seconds - outputFrameTimes[frameIndex - 1].seconds
+                        // The zoom this stage applies (§12.13) — a zoom the
+                        // layout owns stays out of the blur.
                         let blur = MotionBlurMath.blur(
                             previous: MotionBlurMath.CameraSample(
-                                zoom: prev.zoom, focalX: prev.focalX, focalY: prev.focalY,
+                                zoom: CameraLayoutMath.outerZoom(Double(prev.zoom), stacking: stackOn),
+                                focalX: prev.focalX, focalY: prev.focalY,
                                 offsetX: prev.offsetX, offsetY: prev.offsetY),
                             current: MotionBlurMath.CameraSample(
-                                zoom: cam.zoom, focalX: cam.focalX, focalY: cam.focalY,
+                                zoom: CameraLayoutMath.outerZoom(Double(cam.zoom), stacking: stackOn),
+                                focalX: cam.focalX, focalY: cam.focalY,
                                 offsetX: cam.offsetX, offsetY: cam.offsetY),
                             dt: frameDT,
                             strength: settings.motionBlurStrength
@@ -3134,9 +3222,9 @@ final class VideoExporter {
             // Cutout: ONE crop to B — no shape mask.
             if w.cutout > 0 { add(person, w.cutout) }
             if w.popOut > 0 {
-                add(popOutCardStack(person: person, rect: rect,
-                                    cameraAspect: Double(camExtent.width / camExtent.height),
-                                    shadowSigma: looks.shadowSigma), w.popOut)
+                add(popOutCardStack(person: person, cardCamera: looks.cardCamera.map(placed), looks: looks,
+                                    rect: rect, cameraAspect: Double(camExtent.width / camExtent.height)),
+                    w.popOut)
             }
             overlay = sum ?? CIImage.empty()
         }
@@ -3160,14 +3248,20 @@ final class VideoExporter {
         return overlay.composited(over: image).cropped(to: outputRect)
     }
 
-    /// The pop-out card stack in CI (Y-up) space (contract §5): the bubble
-    /// shadow recipe on the card's rounded rect, the card (a CILinearGradient
-    /// through the card's rounded-rect generator), then the masked person
-    /// clipped to B with only its BOTTOM corners rounded — the head rises
-    /// into the headroom above the card. Geometry is CameraCutoutMath's, the
-    /// same call the preview makes in Y-down space.
-    private func popOutCardStack(person: CIImage, rect: CGRect, cameraAspect: Double, shadowSigma: CGFloat) -> CIImage {
-        let g = CameraCutoutMath.geometry(look: .popOut, bubbleRect: rect, cameraAspect: cameraAspect, yAxisIsUp: true)
+    /// The pop-out card stack in CI (Y-up) space (contract §5, §12.3): the
+    /// bubble shadow recipe on the card's rounded rect, the card fill
+    /// (gradient / camera / colour / image) through the card's rounded-rect
+    /// generator, the inner border ring, then the masked person clipped to B
+    /// with only its BOTTOM corners rounded — the head rises into the
+    /// headroom above the card and over the ring. Geometry is
+    /// CameraCutoutMath's, the same call the preview makes in Y-down space.
+    /// `cardCamera` is the §12.3 camera fill already placed into B (P).
+    private func popOutCardStack(person: CIImage, cardCamera: CIImage?, looks: CameraLookStack, rect: CGRect, cameraAspect: Double) -> CIImage {
+        let style = looks.style
+        let shadowSigma = looks.shadowSigma
+        let g = CameraCutoutMath.geometry(
+            look: .popOut, bubbleRect: rect, cameraAspect: cameraAspect,
+            popOutAmount: style.popOutAmount, cardBorderWidth: style.geometryBorderWidth, yAxisIsUp: true)
         var stack = CIImage.empty()
         func roundedMask(_ r: CGRect, _ radius: CGFloat) -> CIImage? {
             CIFilter(name: "CIRoundedRectangleGenerator", parameters: [
@@ -3175,6 +3269,27 @@ final class VideoExporter {
                 kCIInputRadiusKey: max(0, radius),
                 kCIInputColorKey: CIColor.white,
             ])?.outputImage?.cropped(to: r)
+        }
+        let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
+        func ciColor(_ c: CameraCardStyle.RGB) -> CIColor? {
+            CIColor(red: c.r, green: c.g, blue: c.b, alpha: 1, colorSpace: srgb)
+        }
+        /// Top colour at the card's TOP edge (maxY in CI space) → bottom
+        /// colour at its bottom edge, interpolated by CI.
+        func verticalGradient(_ top: CameraCardStyle.RGB, _ bottom: CameraCardStyle.RGB, over card: CGRect) -> CIImage? {
+            guard let color0 = ciColor(top), let color1 = ciColor(bottom) else { return nil }
+            return CIFilter(name: "CILinearGradient", parameters: [
+                "inputPoint0": CIVector(x: card.midX, y: card.maxY),
+                "inputPoint1": CIVector(x: card.midX, y: card.minY),
+                "inputColor0": color0,
+                "inputColor1": color1,
+            ])?.outputImage
+        }
+        func through(_ image: CIImage, mask: CIImage, extent: CGRect) -> CIImage {
+            image.cropped(to: extent).applyingFilter("CIBlendWithMask", parameters: [
+                kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: extent),
+                kCIInputMaskImageKey: mask,
+            ]).cropped(to: extent)
         }
         if let card = g.cardRect, card.width > 0, card.height > 0,
            let cardMask = roundedMask(card, g.cardCornerRadius) {
@@ -3193,23 +3308,39 @@ final class VideoExporter {
                     .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: shadowSigma])
                     .cropped(to: extent)
             }
-            // Card: top colour at the card's TOP edge (maxY in CI space) →
-            // bottom colour at its bottom edge, interpolated by CI.
-            let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
-            let top = CameraCutoutMath.cardTopColor, bottom = CameraCutoutMath.cardBottomColor
-            if let color0 = CIColor(red: top.r, green: top.g, blue: top.b, alpha: 1, colorSpace: srgb),
-               let color1 = CIColor(red: bottom.r, green: bottom.g, blue: bottom.b, alpha: 1, colorSpace: srgb),
-               let gradient = CIFilter(name: "CILinearGradient", parameters: [
-                "inputPoint0": CIVector(x: card.midX, y: card.maxY),
-                "inputPoint1": CIVector(x: card.midX, y: card.minY),
-                "inputColor0": color0,
-                "inputColor1": color1,
-            ])?.outputImage {
-                let rounded = gradient.cropped(to: card).applyingFilter("CIBlendWithMask", parameters: [
-                    kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: card),
-                    kCIInputMaskImageKey: cardMask,
+            // Card fill (§12.3). A missing image falls back to the gradient.
+            let fill: CIImage?
+            switch style.fill {
+            case .camera:
+                fill = cardCamera
+            case .color:
+                fill = ciColor(style.color).map { CIImage(color: $0) }
+            case .image:
+                fill = looks.cardImage.map { image in
+                    let target = CameraCardStyle.imageFillRect(imageSize: image.extent.size, card: card)
+                    return image.transformed(by: CGAffineTransform(
+                        a: target.width / image.extent.width, b: 0, c: 0,
+                        d: target.height / image.extent.height,
+                        tx: target.minX - image.extent.minX * target.width / image.extent.width,
+                        ty: target.minY - image.extent.minY * target.height / image.extent.height))
+                } ?? verticalGradient(style.gradientTop, style.gradientBottom, over: card)
+            case .gradient:
+                fill = verticalGradient(style.gradientTop, style.gradientBottom, over: card)
+            }
+            if let fill {
+                stack = through(fill, mask: cardMask, extent: card).composited(over: stack)
+            }
+            // Inner border ring (§12.2): outer card shape minus the inset
+            // shape, filled solid or with the preset's vertical gradient.
+            if let inner = CameraCutoutMath.cardBorderInner(g),
+               let innerMask = roundedMask(inner.rect, inner.radius) {
+                let ringMask = cardMask.applyingFilter("CISourceOutCompositing", parameters: [
+                    kCIInputBackgroundImageKey: innerMask,
                 ]).cropped(to: card)
-                stack = rounded.composited(over: stack)
+                let colors = style.borderColors
+                if let paint = verticalGradient(colors.top, colors.bottom, over: card) {
+                    stack = through(paint, mask: ringMask, extent: card).composited(over: stack)
+                }
             }
         }
         // Person clip: the rounded-rect generator over B extended UP by r,
@@ -4056,4 +4187,11 @@ struct CameraLookStack {
     var masked: CIImage
     /// Card shadow blur sigma in output pixels (bubble recipe × size factor).
     var shadowSigma: CGFloat
+    /// The §12 camera styles (whole video).
+    var style: CameraCardStyle
+    /// §12.3 `camera` fill: the plain source (mirrored + adjusted, NOT
+    /// masked), portrait-blurred; nil for every other fill.
+    var cardCamera: CIImage?
+    /// §12.3 `image` fill bitmap; nil → the gradient fill.
+    var cardImage: CIImage?
 }

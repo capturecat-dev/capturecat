@@ -197,6 +197,11 @@ class ExportPipeline {
     };
     // Second decode streams (the webcam) resolve their exact frame first.
     await this.graph.prefetch(state);
+    // While the vertical stack is on the layout owns every zoom-in (§12.13) —
+    // known only once the camera stream has opened (prefetch), so re-derive.
+    if (this.graph.cameraStacking()) {
+      Object.assign(state, cameraStateAt(this.cameraPath, this.scene.geometry, this.args.extras.project?.settings ?? null, t, true));
+    }
     return { index, outputTime: t, sourceTime: src, sourceIndex, state };
   }
 

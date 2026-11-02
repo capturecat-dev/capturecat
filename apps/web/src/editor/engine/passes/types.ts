@@ -22,7 +22,7 @@
  * shadow, video and every card overlay move as one plane.
  */
 import type { CameraKey } from "../../core/math/exportCameraPath";
-import type { Project } from "../../core/model";
+import type { Project, Rect } from "../../core/model";
 import type { WorkingSpace } from "../color";
 import type { RenderMedia, RenderSettings } from "../contract";
 import type { GpuContext } from "../gpu/device";
@@ -233,12 +233,30 @@ export interface FrameEncoder {
 }
 
 /**
+ * `cardSeam`: drawn into the squeezed card layer UNDER the clipped card while
+ * a `cardClip` exists (the full-height split's tile shadow, §12.11).
+ *
  * `cardTop`: card-space layers composited AFTER the card-local pre-transform
  * (`RenderPass.cardTransform`, the camera-layout squeeze) and BEFORE the
  * camera warp, drawn with an identity transform (Mac: the camera-layout tile,
  * "composited BEFORE the card transform stage so tilt/zoom move it").
  */
-export type PassStage = "prepare" | "backdrop" | "card" | "cardTop" | "overlay";
+export type PassStage = "prepare" | "backdrop" | "card" | "cardSeam" | "cardTop" | "overlay";
+
+/**
+ * The full-height split's card clip (docs/camera-cutout.md §12.11): at the
+ * card seam (right after the card-local transform) only what lies inside
+ * this rounded rect is kept — riders included. Y-down target px; the radius
+ * is already clamped to half the short side.
+ */
+export interface CardClip {
+  rect: Rect;
+  radius: number;
+  /** A joined stack (§12.14): the generator's rect — the row run past the
+   *  seam — and its radius; the crop stays `rect`. Absent = `rect`. */
+  shape?: Rect;
+  shapeRadius?: number;
+}
 
 export interface RenderPass {
   readonly name: string;
@@ -255,11 +273,23 @@ export interface RenderPass {
    */
   cardTransform?(ctx: PassContext, frame: FrameState): Mat3 | null;
   /**
+   * The card clip at the seam (§12.11), called after every `cardTransform`.
+   * Non-null forces the squeezed card-layer path (even with an identity
+   * transform) and runs the `cardSeam` stage under the clipped card.
+   */
+  cardClip?(ctx: PassContext, frame: FrameState): CardClip | null;
+  /**
    * Export only: resolve async per-frame inputs (e.g. wait for the exact
    * frame of a second decode stream) before `render`. The preview never
    * calls it (it re-renders when late inputs land).
    */
   prefetch?(scene: Scene, frame: FrameState): Promise<void>;
+  /**
+   * The vertical stack is on AND its camera shows (docs/camera-cutout.md
+   * §12.13) — the camera feature's own gate, so the card zoom stage can hand
+   * the stacked screen's zoom to its row. Absent = false.
+   */
+  cameraStacking?(scene: Scene): boolean;
   /**
    * Export fast path (`StaticSpanCollapse.FrameKey`, core/export/staticSpans):
    * this pass's per-frame inputs to the static-span key, read after

@@ -87,6 +87,8 @@ export interface PaneActions {
    *  false for a plain global slide. */
   onJoinSlideToSelectedBlock?(): boolean;
   onChooseBackgroundImage?(): void;
+  /** Camera pane, pop-out card `image` fill: "Choose Image…" (docs/camera-cutout.md §12.8). */
+  onChooseCameraCardImage?(): void;
   onChooseWatermark?(): void;
   onRemoveWatermark?(): void;
   onChooseCurtainLogo?(): void;
@@ -108,9 +110,11 @@ export interface PaneActions {
   /** Resolve a project-folder file (watermark / curtain logo) to a URL. */
   assetUrl?(fileName: string): string | undefined;
   /** Picker progress / errors, shown under each picker's button (the Mac Brand pane's error caption). */
-  pickerStatus?: Partial<Record<"background" | "watermark" | "curtainLogo", PickerStatus>>;
+  pickerStatus?: Partial<Record<"background" | "watermark" | "curtainLogo" | "cameraCard", PickerStatus>>;
   /** The Background pane's image tiles: this browser's image library + the project's own image. */
   backgroundImages?: BackgroundImages;
+  /** The Camera pane's card-image tiles (the same library; `current` = the card's own image). */
+  cameraCardImages?: BackgroundImages;
 }
 
 export interface PickerStatus {

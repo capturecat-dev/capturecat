@@ -332,6 +332,14 @@ enum PreviewParityHarness {
             s.cameraTagText = ""; s.cameraTagSubtext = ""
             s.cameraTiltPitch = 0; s.cameraTiltYaw = 0
             s.cameraOrientation = .auto
+            // Camera styles (docs/camera-cutout.md §12) back to their defaults.
+            s.cameraPopOutAmount = nil; s.cameraCardFill = nil
+            s.cameraCardGradientStart = nil; s.cameraCardGradientEnd = nil; s.cameraCardColor = nil
+            s.cameraCardImagePath = nil; s.cameraBackgroundBlur = nil
+            s.cameraEdgeSoftness = nil; s.cameraEdgeInset = nil
+            s.cameraCardBorder = nil; s.cameraCardBorderWidth = nil; s.cameraCardBorderColor = nil
+            s.cameraShrinkOnZoom = nil
+            s.cameraPortraitStack = nil; s.cameraStackRatio = nil; s.cameraStackGap = nil
             s.showCursor = true
             s.showClickRipple = true
             s.showSubtitles = false

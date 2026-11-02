@@ -149,7 +149,9 @@ export function EditorShell(props: EditorShellProps & { timelineRendererRef?: { 
 
   const onContextMenu = useCallback(
     (req: ContextMenuRequest) => {
-      const entries = timelineMenu(req, (a) => timelineIntents.action?.(a));
+      const entries = timelineMenu(req, (a) => timelineIntents.action?.(a), {
+        canPasteCameraLayout: timelineIntents.hasCameraLayoutClipboard?.() ?? false,
+      });
       if (entries?.length) setMenu({ at: { x: req.clientX, y: req.clientY }, entries });
     },
     [timelineIntents],

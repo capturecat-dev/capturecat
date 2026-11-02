@@ -49,6 +49,18 @@ final class PreviewInteractionView: NSView {
         /// mid-block drag stored the block's look as videoCustomX/Y, so the
         /// release sprang back to a polluted base instead of centre).
         var activeZoomID: UUID? = nil
+        /// Vertical stack (§12.12) while settled: the camera row and the area
+        /// the rows split (canvas space). nil = no resize notch.
+        var stack: StackSeam? = nil
+    }
+
+    struct StackSeam {
+        var cameraRow: CGRect
+        var area: CGRect
+        /// The rows' gap as a share of the stack height (§12.14 `stackGap`).
+        var gap: Double = Double(CameraLayoutMath.stackGapFraction)
+        /// The seam between the rows (canvas y): the camera row's bottom.
+        var seamY: CGFloat { cameraRow.maxY }
     }
 
     var context: HitContext?
@@ -96,6 +108,8 @@ final class PreviewInteractionView: NSView {
         case blockOffset(id: UUID, initial: CGPoint, moved: Bool)
         case zoomFocal                                   // on-canvas focal target
         case blurDraw(style: BlurStyle)                  // armed rubber-band draw
+        /// Vertical stack resize notch (§12.12): the stored ratio at mousedown.
+        case stackResize(initial: Double?)
     }
 
     enum RegionRef {
@@ -136,6 +150,45 @@ final class PreviewInteractionView: NSView {
     private var armedBlurStyle: BlurStyle?
     /// The live rubber-band rect while a blur draw drag is in flight.
     private let blurMarquee = CAShapeLayer()
+
+    /// Vertical stack resize notch (+StackNotch.swift): a white pill on the
+    /// seam, shown while the pointer is over the stacked camera row.
+    lazy var stackNotchLayer: CALayer = {
+        let l = CALayer()
+        l.backgroundColor = NSColor.white.cgColor
+        l.borderColor = NSColor(white: 0, alpha: 0.12).cgColor
+        l.borderWidth = 0.5
+        l.shadowColor = NSColor.black.cgColor
+        l.shadowOpacity = 0.35
+        l.shadowRadius = 4
+        l.shadowOffset = CGSize(width: 0, height: -1)
+        l.opacity = 0
+        wantsLayer = true
+        layer?.addSublayer(l)
+        return l
+    }()
+    var stackCursorPushed = false
+    private var hoverTracking: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTracking { removeTrackingArea(hoverTracking) }
+        let area = NSTrackingArea(rect: bounds, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+                                  owner: self, userInfo: nil)
+        addTrackingArea(area)
+        hoverTracking = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        updateStackNotch(pointer: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        if case .stackResize = mode { return }
+        updateStackNotch(pointer: nil)
+    }
 
     /// Arm one drag-to-draw pass. The pointer becomes a crosshair; the next
     /// press-drag-release on the video creates a region via onCreateBlurRegion.
@@ -305,6 +358,15 @@ final class PreviewInteractionView: NSView {
             mode = .watermark(initial: CGPoint(x: ctx.project.settings.watermarkX, y: ctx.project.settings.watermarkY))
             return
         }
+        // Vertical stack: the seam (or the notch on it) resizes the rows;
+        // the stacked camera row itself is not a draggable bubble.
+        if let stack = ctx.stack {
+            if stackSeamHit(p, stack) {
+                mode = .stackResize(initial: ctx.project.settings.cameraStackRatio)
+                return
+            }
+            if stack.cameraRow.contains(p) { return }
+        }
         if let r = ctx.cameraRect, r.contains(p) {
             let s = ctx.project.settings
             let f = (s.cameraCustomX != nil && s.cameraCustomY != nil)
@@ -454,6 +516,12 @@ final class PreviewInteractionView: NSView {
                 x: max(0, min(1, n.x)),
                 y: max(0, min(1, n.y))))
             requestRender?()
+
+        case .stackResize:
+            guard let stack = ctx.stack else { break }
+            s.cameraStackRatio = CameraLayoutMath.stackRatio(stackRatio(at: p.y, area: stack.area, gap: stack.gap))
+            requestRender?()
+            updateStackNotch(pointer: p)
 
         case .camera(let initial):
             // Same normalized origin-interpolation space as the pads.
@@ -635,6 +703,15 @@ final class PreviewInteractionView: NSView {
             if !rect.isNull, rect.width > 0.005, rect.height > 0.005 {
                 onCreateBlurRegion?(rect, style)
             }
+        case .stackResize(let initial):
+            // One undo step per drag, back to the ratio at mousedown.
+            let settings = s
+            let after = s.cameraStackRatio
+            if after != initial {
+                undoManager?.registerUndo(withTarget: settings) { target in target.cameraStackRatio = initial }
+                undoManager?.setActionName("Camera Height")
+            }
+            _ = after
         case .camera:
             // Corner magnetism collapses back to the clean enum.
             if let x = s.cameraCustomX, let y = s.cameraCustomY {

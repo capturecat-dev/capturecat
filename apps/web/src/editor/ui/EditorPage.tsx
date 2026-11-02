@@ -319,6 +319,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
       const outcome = controller.apply(E.autoZoom(await pending));
       return outcome ? store.getState().project!.zoomRegions.filter((z) => z.isAuto === true).length : 0;
     };
+    controller.hooks.recordingSize = () => ({ width: info.width, height: info.height });
     controller.hooks.stillMotion = async () => {
       const p = store.getState().project;
       // The Mac confirms before regenerating over existing zoom blocks (CCAlert).
@@ -327,6 +328,7 @@ export function EditorPage({ projectId, pendingSeek }: { projectId: string; /** 
     };
     return () => {
       controller.hooks.autoZoom = undefined;
+      controller.hooks.recordingSize = undefined;
       controller.hooks.stillMotion = undefined;
     };
   }, [loaded, info, controller, store, alerts]);

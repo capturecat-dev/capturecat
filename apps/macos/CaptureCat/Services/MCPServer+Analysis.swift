@@ -121,8 +121,14 @@ extension MCPServer {
         let otherFocus: [[String: Any]] =
             project.focusRegions.map { ["kind": "depth-focus", "id": $0.id.uuidString,
                                         "start": round3($0.startTime), "end": round3($0.endTime)] }
-            + project.cameraLayoutRegions.map { ["kind": "camera-layout:\($0.mode.rawValue)", "id": $0.id.uuidString,
-                                                 "start": round3($0.startTime), "end": round3($0.endTime)] }
+            + project.cameraLayoutRegions.map { region in
+                var entry: [String: Any] = ["kind": "camera-layout:\(region.mode.rawValue)", "id": region.id.uuidString,
+                                            "start": round3(region.startTime), "end": round3(region.endTime)]
+                if let look = region.effectiveLook { entry["look"] = look.rawValue }
+                if region.mode == .sideBySide, let side = region.cameraSide { entry["cameraSide"] = side.rawValue }
+                if region.mode == .sideBySide, let split = region.splitStyle { entry["splitStyle"] = split.rawValue }
+                return entry
+            }
         if !otherFocus.isEmpty { result["otherFocusLaneRegions"] = otherFocus }
         if !project.voiceOverClips.isEmpty { result["voiceOverClips"] = project.voiceOverClips.count }
 

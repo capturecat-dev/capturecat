@@ -14,14 +14,26 @@
  *    every decode is serialized.
  *  - GPU: one r8unorm texture of the mask size, rewritten only when the frame
  *    changes (no per-frame allocation — the cache's arrays are reused).
+ *  - Edge softness / inset (docs/camera-cutout.md §12.4): the frame goes
+ *    through `processMaskEdge` on its way into the texture, so the texture
+ *    IS the processed-frame cache, keyed by (frame index, inset radius,
+ *    softness radius). Both radii 0 → the decoded bytes, untouched.
  */
 import { CameraMaskDecoder, frameIndexAt, type CameraMaskTrack } from "../../core/mask/cameraMaskCodec";
+import { maskEdgeRadii, processMaskEdge } from "../../core/mask/maskEdge";
 import { PTS_EPSILON } from "./demux";
 
 /** Frames kept decoded (playback reads ahead; a scrub reuses recent ones). */
 const CACHE_FRAMES = 16;
 /** Frames decoded ahead of the one the preview draws. */
 const LOOKAHEAD = 4;
+
+/** §12.4 edge processing for the frames a look draws (0…1 each, clamped by the core). */
+export interface MaskEdge {
+  softness: number;
+  inset: number;
+}
+const NO_EDGE: MaskEdge = { softness: 0, inset: 0 };
 
 export class CameraMaskFeed {
   readonly width: number;
@@ -33,7 +45,7 @@ export class CameraMaskFeed {
   private readonly pending = new Map<number, Promise<Uint8Array>>();
   private queue: Promise<unknown> = Promise.resolve();
   private failed = false;
-  private texture: { texture: GPUTexture; view: GPUTextureView; index: number } | null = null;
+  private texture: { texture: GPUTexture; view: GPUTextureView; index: number; radii: string } | null = null;
 
   constructor(
     readonly track: CameraMaskTrack,
@@ -131,12 +143,13 @@ export class CameraMaskFeed {
   }
 
   /**
-   * The GPU view for frame `i`: uploads it when decoded and not already
-   * there. Falls back to whatever the texture last held (a decode still on its
-   * way — the seek gate holds a seek until it lands); an all-zero mask before
-   * the first upload.
+   * The GPU view for frame `i` with the §12.4 edge processing: uploads it
+   * when decoded and not already there (with these radii). Falls back to
+   * whatever the texture last held (a decode still on its way — the seek
+   * gate holds a seek until it lands); an all-zero mask before the first
+   * upload.
    */
-  view(device: GPUDevice, i: number): GPUTextureView {
+  view(device: GPUDevice, i: number, edge: MaskEdge = NO_EDGE): GPUTextureView {
     if (!this.texture) {
       const texture = device.createTexture({
         label: "camera-person-mask",
@@ -144,14 +157,18 @@ export class CameraMaskFeed {
         format: "r8unorm",
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
       });
-      this.texture = { texture, view: texture.createView(), index: -1 };
+      this.texture = { texture, view: texture.createView(), index: -1, radii: "" };
     }
     const t = this.texture;
-    if (t.index !== i) {
+    const r = maskEdgeRadii(this.height, edge.softness, edge.inset);
+    const radii = `${r.inset}|${r.softness}`;
+    if (t.index !== i || t.radii !== radii) {
       const alpha = this.cache.get(i);
       if (alpha) {
-        device.queue.writeTexture({ texture: t.texture }, alpha as Uint8Array<ArrayBuffer>, { bytesPerRow: this.width }, { width: this.width, height: this.height });
+        const data = processMaskEdge(alpha, this.width, this.height, edge.softness, edge.inset);
+        device.queue.writeTexture({ texture: t.texture }, data as Uint8Array<ArrayBuffer>, { bytesPerRow: this.width }, { width: this.width, height: this.height });
         t.index = i;
+        t.radii = radii;
       }
     }
     return t.view;

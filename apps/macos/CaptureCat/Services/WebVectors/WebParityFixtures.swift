@@ -53,6 +53,10 @@ enum WebParityFixtures {
         /// as the must-fail self-test (`plainBubble`).
         var cameraMask = false
         var lookCheck: (settledCutout: Int, plainBubble: Int)?
+        /// Camera styles (docs/camera-cutout.md §12): write a synthetic
+        /// `card.png` beside the project and point `cameraCardImagePath` at
+        /// it (manifest `media.cardImage`), before `configure` runs.
+        var cardImage = false
     }
 
     static func run() -> Never {
@@ -158,6 +162,11 @@ enum WebParityFixtures {
         s.exportSettings.collapseStaticSpans = false
         s.exportSettings.format = .mp4
         s.showCamera = cameraURL != nil
+        if f.cardImage {
+            let url = dir.appendingPathComponent("card.png")
+            try writeSyntheticCardImage(to: url)
+            s.cameraCardImagePath = url.path
+        }
         f.configure(project)
         let projectURL = dir.appendingPathComponent("project.json")
         let encoder = JSONEncoder()
@@ -300,6 +309,7 @@ enum WebParityFixtures {
                 "cursor": f.withCursor ? "cursor.json" : .null,
                 "camera": f.withCamera ? "camera.mp4" : .null,
                 "mask": f.cameraMask ? .str(CameraMaskTrack.fileName) : .null,
+                "cardImage": f.cardImage ? "card.png" : .null,
                 "export": "export.mp4",
             ],
             "sourceSize": f.sourceSize.wv,

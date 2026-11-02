@@ -76,6 +76,19 @@ final class PreviewCompositorView: NSView {
     /// Segment-dip target: bezel + shadow + video + island (the exact subtree
     /// PreviewView's phaseAnimator scales/fades at device-segment boundaries).
     private let cardGroup = CALayer()
+    /// The card AND its riders (overlays, annotations, cursor, ripples,
+    /// curtain) — the camera layout transform lands here, as the exporter
+    /// transforms its card-over-transparency image with the riders burnt in.
+    private let layoutGroup = CALayer()
+    /// Untransformed wrapper whose mask is the full-height split's screen
+    /// column (docs/camera-cutout.md §12.11); no mask otherwise.
+    private let layoutClipGroup = CALayer()
+    private let layoutClipMask = CAShapeLayer()
+    /// The screen column's drop shadow while the card is clipped.
+    private let screenTileShadow = CALayer()
+    /// A joined stack row's card shadow (§12.14), UNDER the card (below
+    /// `layoutClipGroup`) so the screen covers what would land on it.
+    private let cameraSeamShadow = CALayer()
     private let bezelButtonsLayer = CALayer()
     private let bezelSlabLayer = CALayer()
     private let bezelLayer = CALayer()
@@ -135,6 +148,16 @@ final class PreviewCompositorView: NSView {
     private let cameraPopClip = CALayer()
     private let cameraPopVideo = CALayer()
     private let cameraPopPoster = CALayer()
+    /// §12.3 card fills: the camera fill (unmasked, blurred frame placed like
+    /// the person) and the image fill, both inside the rounded card.
+    private let cameraPopCardCamera = CALayer()
+    private let cameraPopCardVideo = CALayer()
+    private let cameraPopCardPoster = CALayer()
+    private let cameraPopCardImage = CALayer()
+    /// §12.2 inner border ring: the preset paint masked by the ring path.
+    private let cameraPopBorder = CAGradientLayer()
+    private let cameraPopBorderMask = CAShapeLayer()
+    private var cachedCardPoster: (key: String, image: NSImage)?
     private var lastLookWeights = CameraLayoutMath.LookWeights.none
     /// Poster through mask frame 0 (cached per poster/adjustments/mask).
     private var cachedLookPoster: (key: String, image: NSImage)?
@@ -427,8 +450,20 @@ final class PreviewCompositorView: NSView {
         contentGroup.anchorPoint = .zero
         zoomGroup.addSublayer(contentGroup)
 
+        screenTileShadow.anchorPoint = .zero
+        screenTileShadow.shadowColor = NSColor.black.cgColor
+        screenTileShadow.isHidden = true
+        contentGroup.addSublayer(screenTileShadow)
+        cameraSeamShadow.anchorPoint = .zero
+        cameraSeamShadow.shadowColor = NSColor.black.cgColor
+        cameraSeamShadow.isHidden = true
+        contentGroup.addSublayer(cameraSeamShadow)
+        layoutClipGroup.anchorPoint = .zero
+        contentGroup.addSublayer(layoutClipGroup)
+        layoutGroup.anchorPoint = .zero
+        layoutClipGroup.addSublayer(layoutGroup)
         cardGroup.anchorPoint = .zero
-        contentGroup.addSublayer(cardGroup)
+        layoutGroup.addSublayer(cardGroup)
         // ZStack order from `drawYDown`: buttons, then the extruded side slab,
         // then the body (whose drop shadow falls over both).
         for layer in [bezelButtonsLayer, bezelSlabLayer, bezelLayer] {
@@ -465,7 +500,7 @@ final class PreviewCompositorView: NSView {
         // NOT part of the dip subtree (SwiftUI z-order: video card →
         // highlight dim → blur patches).
         overlayClip.anchorPoint = .zero
-        contentGroup.addSublayer(overlayClip)
+        layoutGroup.addSublayer(overlayClip)
         highlightGroup.anchorPoint = .zero
         overlayClip.addSublayer(highlightGroup)
         blurGroup.anchorPoint = .zero
@@ -477,18 +512,18 @@ final class PreviewCompositorView: NSView {
 
         // Annotations follow the skewed card, above the card overlays.
         annotationLayer.contentsGravity = .resize
-        contentGroup.addSublayer(annotationLayer)
+        layoutGroup.addSublayer(annotationLayer)
 
         // Cursor + ripple: siblings of the card INSIDE the tilted content
         // space — the parent transform warps them with the content, so the
         // arrow can never detach (the CA answer to the GeometryEffect
         // subtree-split bug).
-        contentGroup.addSublayer(cursorLayer)
-        contentGroup.addSublayer(rippleGroup)
+        layoutGroup.addSublayer(cursorLayer)
+        layoutGroup.addSublayer(rippleGroup)
         // Curtain Unveil rides zoom/tilt with the content — TOPMOST card-space
         // sublayer, above the cursor (the curtain covers everything on the card).
         curtainLayer.contentsGravity = .resize
-        contentGroup.addSublayer(curtainLayer)
+        layoutGroup.addSublayer(curtainLayer)
         cursorLayer.shadowColor = NSColor.black.cgColor
         cursorLayer.shadowOpacity = Float(CursorOverlayLayout.shadowOpacity)
         cursorLayer.shadowRadius = CursorOverlayLayout.shadowBlurRadius
@@ -561,6 +596,23 @@ final class PreviewCompositorView: NSView {
         cameraPopCard.masksToBounds = true
         cameraPopCard.cornerCurve = .circular
         cameraPopStack.addSublayer(cameraPopCard)
+        // Card fills (§12.3) ride inside the rounded card's clip.
+        cameraPopCardCamera.isHidden = true
+        cameraPopCard.addSublayer(cameraPopCardCamera)
+        cameraPopCardVideo.contentsGravity = .resizeAspectFill
+        cameraPopCardCamera.addSublayer(cameraPopCardVideo)
+        cameraPopCardPoster.contentsGravity = .resizeAspectFill
+        cameraPopCardCamera.addSublayer(cameraPopCardPoster)
+        cameraPopCardImage.contentsGravity = .resize
+        cameraPopCardImage.isHidden = true
+        cameraPopCard.addSublayer(cameraPopCardImage)
+        // Border ring (§12.2): over the fill, under the person.
+        cameraPopBorder.startPoint = CGPoint(x: 0.5, y: 0)
+        cameraPopBorder.endPoint = CGPoint(x: 0.5, y: 1)
+        cameraPopBorderMask.fillRule = .evenOdd
+        cameraPopBorder.mask = cameraPopBorderMask
+        cameraPopBorder.isHidden = true
+        cameraPopStack.addSublayer(cameraPopBorder)
         cameraPopStack.addSublayer(cameraPopClip)
         cameraPopVideo.contentsGravity = .resizeAspectFill
         cameraPopClip.addSublayer(cameraPopVideo)
@@ -578,7 +630,7 @@ final class PreviewCompositorView: NSView {
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         let scale = effectiveScale
-        for l in [subtitleLayer, keystrokeLayer, menuBarLayer, cursorLayer, watermarkLayer, posterLayer, cameraPoster, cameraRing, cameraTag, backgroundImage, cameraCutoutPoster, cameraPopPoster] {
+        for l in [subtitleLayer, keystrokeLayer, menuBarLayer, cursorLayer, watermarkLayer, posterLayer, cameraPoster, cameraRing, cameraTag, backgroundImage, cameraCutoutPoster, cameraPopPoster, cameraPopCardPoster, cameraPopCardImage] {
             l.contentsScale = scale
         }
     }
@@ -726,9 +778,12 @@ final class PreviewCompositorView: NSView {
         // ── Card-only zoom about the tilt-projected anchor ────────────────
         // Cover-compensated: zooming while tilted/rotated must never expose
         // the canvas behind the card's corners (TiltMath.effectiveCoverZoom —
-        // the exporter applies the identical function).
+        // the exporter applies the identical function). While the vertical
+        // stack is on the layout owns every zoom-in (§12.13,
+        // resolveCameraLayout) — this stage keeps only a scale-down.
+        let stacking = cameraStacking(input, canvas: canvas)
         let zoom = TiltMath.effectiveCoverZoom(
-            zoom: visible ? motion.zoom : 1.0,
+            zoom: visible ? CameraLayoutMath.outerZoom(motion.zoom, stacking: stacking) : 1.0,
             pitchDegrees: angles.pitch,
             yawDegrees: angles.yaw,
             rollDegrees: angles.roll,
@@ -782,7 +837,7 @@ final class PreviewCompositorView: NSView {
         // Finite difference of the spring camera across timeline time (works
         // for playback AND scrubbing — motion replays deterministically, so
         // adjacent scrub positions yield the same velocities playback sees).
-        renderMotionBlur(input, s: s, canvas: canvas)
+        renderMotionBlur(input, s: s, canvas: canvas, stacking: stacking)
 
         // Background parallax — the backdrop drifts gently with the zoom for
         // depth (identical scale in the exporter via ZoomFocalMath).
@@ -807,13 +862,19 @@ final class PreviewCompositorView: NSView {
         lastContentOrigin = contentRect.origin
         resolveCameraLayout(
             input, canvas: canvas,
-            cardRectInCanvas: videoRect.offsetBy(dx: contentRect.minX, dy: contentRect.minY))
+            cardRectInCanvas: videoRect.offsetBy(dx: contentRect.minX, dy: contentRect.minY),
+            contentRectInCanvas: contentRect)
 
         // Segment dip: device-segment index change triggers the transient
         // scale/opacity dip on the card subtree (same curve as phaseAnimator).
         let segmentIndex = activeDeviceSegmentIndex(input)
-        applyDip(input, contentSize: contentRect.size)
+        applyDip(input, contentSize: contentRect.size, videoRect: videoRect)
 
+        for group in [layoutClipGroup, layoutGroup] {
+            group.bounds = CGRect(origin: .zero, size: contentRect.size)
+            group.position = .zero
+        }
+        applyLayoutClip(input, contentOrigin: contentRect.origin)
         cardGroup.bounds = CGRect(origin: .zero, size: contentRect.size)
         overlayClip.bounds = CGRect(origin: .zero, size: contentRect.size)
         overlayClip.position = .zero
@@ -907,7 +968,17 @@ final class PreviewCompositorView: NSView {
             cardOffset: motion.cardOffset,
             activeZoomID: input.project.zoomRegions.first(where: {
                 input.currentTime >= $0.startTime && input.currentTime <= $0.endTime
-            })?.id
+            })?.id,
+            // The resize notch only while the stack is settled on screen
+            // (not mid-morph into or out of a Bubble block, and not while
+            // the row yields to a zoom — a drag there would set the yielded
+            // height).
+            stack: lastStackRows.flatMap { rows in
+                lastStackActive && lastStackYield > 0.999 && lastCameraLayout.cardClip == rows.screen
+                    ? PreviewInteractionView.StackSeam(
+                        cameraRow: rows.camera, area: lastStackArea,
+                        gap: CameraLayoutMath.stackGap(input.project.settings.cameraStackGap)) : nil
+            }
         )
     }
 
@@ -956,7 +1027,9 @@ final class PreviewCompositorView: NSView {
     /// opacity and popped; the piecewise ease-in-out turned around through a
     /// corner at the trough; and a free-running timer beat against vsync. It
     /// also forked the curve away from the exporter's, which is a §2 violation.
-    private func applyDip(_ input: FrameInput, contentSize: CGSize) {
+    /// `videoRect` is in content space: the layout transform scales about
+    /// its centre, as CameraLayoutMath.cardTransform does in the exporter.
+    private func applyDip(_ input: FrameInput, contentSize: CGSize, videoRect: CGRect) {
         var boundaries: [TimeInterval] = []
         if input.project.settings.showDeviceFrame,
            input.project.recordingSourceKind != .device {
@@ -972,24 +1045,64 @@ final class PreviewCompositorView: NSView {
         t = CATransform3DScale(t, scale, scale, 1)
         t = CATransform3DTranslate(t, -cx, -cy, 0)
 
-        // Side-by-side squeeze: the card scales toward the leading column
-        // while the background stays put. Concatenated with the dip on the
-        // SAME layer the exporter transforms at its card-over-transparency
-        // seam, from the same shared CameraLayoutMath transform.
-        let layout = lastCameraLayout
-        if layout.cardScale != 1 || layout.cardTranslationX != 0 {
-            // contentSize-local: the card rect the transform is defined about
-            // is in canvas space, and cardGroup is laid out in content space —
-            // a uniform scale about the centre plus an X shift is the same in
-            // both, so only the translation needs no conversion.
-            let s = layout.cardScale
-            var l = CATransform3DMakeTranslation(cx + layout.cardTranslationX, cy, 0)
-            l = CATransform3DScale(l, s, s, 1)
-            l = CATransform3DTranslate(l, -cx, -cy, 0)
-            t = CATransform3DConcat(l, t)
-        }
         cardGroup.transform = t
         cardGroup.opacity = Float(DeviceSegmentDip.opacity(phase))
+
+        // Side-by-side squeeze: the card scales toward the leading column
+        // while the background stays put — on the group that also carries
+        // the riders, because the exporter transforms its card-over-
+        // transparency image with cursor, overlays and annotations burnt in.
+        let layout = lastCameraLayout
+        var l = CATransform3DIdentity
+        if layout.cardScale != 1 || layout.cardTranslationX != 0 || layout.cardTranslationY != 0 {
+            // Content-local: a uniform scale about the card's centre plus a
+            // translation (deltas need no conversion between canvas and
+            // content space) — the exporter's cardTransform exactly.
+            let s = layout.cardScale
+            let vx = videoRect.midX, vy = videoRect.midY
+            l = CATransform3DMakeTranslation(vx + layout.cardTranslationX, vy + layout.cardTranslationY, 0)
+            l = CATransform3DScale(l, s, s, 1)
+            l = CATransform3DTranslate(l, -vx, -vy, 0)
+        }
+        layoutGroup.transform = l
+    }
+
+    /// Full-height split (docs/camera-cutout.md §12.11): mask the card +
+    /// riders to the screen column and draw the card's own drop shadow under
+    /// it (scaled like the card) — the exporter's clip at the same seam. No
+    /// clip → no mask, no extra layer.
+    private func applyLayoutClip(_ input: FrameInput, contentOrigin: CGPoint) {
+        let layout = lastCameraLayout
+        guard !Self.debugDisableLayoutClip,
+              let clipInCanvas = layout.cardClip, clipInCanvas.width > 0, clipInCanvas.height > 0 else {
+            if layoutClipGroup.mask != nil { layoutClipGroup.mask = nil }
+            screenTileShadow.isHidden = true
+            return
+        }
+        let s = input.project.settings
+        let clip = clipInCanvas.offsetBy(dx: -contentOrigin.x, dy: -contentOrigin.y)
+        let radius = min(max(0, layout.cardClipCornerRadius), min(clip.width, clip.height) / 2)
+        let path = CGPath(roundedRect: clip, cornerWidth: radius, cornerHeight: radius, transform: nil)
+        layoutClipMask.frame = layoutClipGroup.bounds
+        if !Self.debugIgnoreSeamShapes, let shapeInCanvas = layout.cardClipShapeRect {
+            // Joined stack (§12.14): the shape runs past the seam, cropped to
+            // the row — square corners there, the exporter's exact mask.
+            let shape = shapeInCanvas.offsetBy(dx: -contentOrigin.x, dy: -contentOrigin.y)
+            let r = min(max(0, layout.cardClipCornerRadius), min(shape.width, shape.height) / 2)
+            layoutClipMask.path = CGPath(roundedRect: shape, cornerWidth: r, cornerHeight: r, transform: nil)
+                .intersection(CGPath(rect: clip, transform: nil))
+        } else {
+            layoutClipMask.path = path
+        }
+        if layoutClipGroup.mask !== layoutClipMask { layoutClipGroup.mask = layoutClipMask }
+        // A filled stack row scales the card UP; its shadow stays card-sized.
+        let shadowRadius = max(0, s.shadowRadius) * min(1, layout.cardScale)
+        screenTileShadow.isHidden = !(shadowRadius > 0 && s.shadowOpacity > 0)
+        screenTileShadow.frame = layoutClipGroup.bounds
+        screenTileShadow.shadowPath = path
+        screenTileShadow.shadowOpacity = Float(0.45 * s.shadowOpacity)
+        screenTileShadow.shadowRadius = shadowRadius
+        screenTileShadow.shadowOffset = CGSize(width: 0, height: shadowRadius / 3)
     }
 
     // MARK: - Background
@@ -2221,6 +2334,14 @@ final class PreviewCompositorView: NSView {
     /// Interpolated camera layout for the frame being rendered. Resolved in
     /// `render()` BEFORE the card transform is applied, because the
     /// side-by-side squeeze moves the card, not the camera.
+    /// Vertical stack state from the last resolve (§12.12): whether it is
+    /// active, its rows and the area they split (canvas space) — the
+    /// interaction view's resize notch reads these.
+    private(set) var lastStackActive = false
+    private(set) var lastStackRows: CameraLayoutMath.StackRows?
+    /// The camera row's share of its full height this frame (§12.13).
+    private(set) var lastStackYield: Double = 1
+    private(set) var lastStackArea: CGRect = .zero
     private var lastCameraLayout = CameraLayoutMath.Resolved(
         cameraRect: nil, cameraCornerRadius: 0, cameraOpacity: 0, chromeOpacity: 0,
         cardScale: 1, cardTranslationX: 0, isPlainBubble: true)
@@ -2232,11 +2353,29 @@ final class PreviewCompositorView: NSView {
     /// disagreed.
     private var lastContentOrigin = CGPoint.zero
 
-    func resolveCameraLayout(_ input: FrameInput, canvas: CGSize, cardRectInCanvas: CGRect) {
+    func resolveCameraLayout(
+        _ input: FrameInput, canvas: CGSize, cardRectInCanvas: CGRect, contentRectInCanvas: CGRect
+    ) {
         let s = input.project.settings
         let hasCamera = s.showCamera
             && (input.cameraPlayer != nil || input.cameraPosterImage != nil)
-        guard hasCamera, !input.project.cameraLayoutRegions.isEmpty else {
+        // Vertical stack (§12.12): camera row on top of a portrait canvas.
+        let stackOn = hasCamera && CameraLayoutMath.stackActive(settings: s, canvas: canvas)
+        lastStackActive = stackOn
+        // §12.13: the camera row yields height while the screen zooms
+        // (Shrink During Zoom), and the screen zooms inside its own row.
+        lastStackYield = Self.debugStackZoomOutside ? 1 : CameraLayoutMath.stackYield(
+            zoom: ReactiveCameraLayout.layoutZoom(motion.zoom, shrinkOnZoom: s.cameraShrinkOnZoom ?? true))
+        lastStackRows = stackOn
+            ? CameraLayoutMath.stackRows(
+                area: contentRectInCanvas, ratio: s.cameraStackRatio ?? CameraLayoutMath.stackDefaultRatio,
+                yAxisIsUp: false, yield: lastStackYield, gap: s.cameraStackGap)
+            : nil
+        let visible = input.project.hasVisibleVideo(at: input.currentTime)
+        let stackZoom = Self.debugStackZoomOutside ? .none : CameraLayoutMath.StackZoom(
+            zoom: visible ? motion.zoom : 1, focalX: motion.focalX, focalY: motion.focalY)
+        lastStackArea = contentRectInCanvas
+        guard hasCamera, !input.project.cameraLayoutRegions.isEmpty || stackOn else {
             lastCameraLayout = CameraLayoutMath.Resolved(
                 cameraRect: nil, cameraCornerRadius: 0,
                 cameraOpacity: hasCamera ? 1 : 0, chromeOpacity: 1,
@@ -2254,7 +2393,7 @@ final class PreviewCompositorView: NSView {
             basePosition: s.cameraPosition,
             customPosition: custom,
             baseSize: scaledBase,
-            zoom: motion.zoom,
+            zoom: ReactiveCameraLayout.layoutZoom(motion.zoom, shrinkOnZoom: s.cameraShrinkOnZoom ?? true),
             padding: 12 * fit,
             aspect: ReactiveCameraLayout.shapeAspect(
                 shape: s.cameraShape, videoAspect: Double(input.cameraVideoAspect),
@@ -2271,8 +2410,19 @@ final class PreviewCompositorView: NSView {
                 customRadius: CGFloat(s.cameraCornerRadius),
                 size: bubbleRect.size),
             cardCornerRadius: CGFloat(max(0, s.cornerRadius)),
-            hasCamera: true
+            hasCamera: true,
+            stack: lastStackRows,
+            stackZoom: stackZoom
         )
+    }
+
+    /// The vertical stack is on this frame (§12.13) — the same camera gate
+    /// `resolveCameraLayout` uses, before it runs.
+    private func cameraStacking(_ input: FrameInput, canvas: CGSize) -> Bool {
+        if Self.debugStackZoomOutside { return false }
+        let s = input.project.settings
+        let hasCamera = s.showCamera && (input.cameraPlayer != nil || input.cameraPosterImage != nil)
+        return hasCamera && CameraLayoutMath.stackActive(settings: s, canvas: canvas)
     }
 
     private func renderCamera(_ input: FrameInput, canvas: CGSize, visible: Bool) {
@@ -2283,6 +2433,7 @@ final class PreviewCompositorView: NSView {
             && camLayout.cameraOpacity > 0.001
 
         cameraGroup.isHidden = !show
+        cameraSeamShadow.isHidden = true
         lastCameraRect = nil
         guard show else { return }
         // Camera looks — weights only when a FRESH mask is at hand; without
@@ -2290,7 +2441,7 @@ final class PreviewCompositorView: NSView {
         let weights = input.cameraMask == nil ? CameraLayoutMath.LookWeights.none
             : CameraLayoutMath.lookWeights(
                 at: input.currentTime, regions: input.project.cameraLayoutRegions,
-                defaultLook: input.project.settings.cameraLook)
+                defaultLook: input.project.settings.cameraLook, stacking: lastStackActive)
         lastLookWeights = weights
 
         if !camLayout.isPlainBubble, let overrideRect = camLayout.cameraRect {
@@ -2328,7 +2479,16 @@ final class PreviewCompositorView: NSView {
                 roundedRect: local, cornerWidth: radius, cornerHeight: radius, transform: nil)
             cameraClip.frame = local
             let mask = CAShapeLayer()
-            mask.path = path
+            // A joined stack row (§12.14) takes its corners from a shape that
+            // runs past the seam — square there once the tile bounds crop it.
+            if !Self.debugIgnoreSeamShapes, let shape = camLayout.cameraShapeRect {
+                let localShape = shape.offsetBy(dx: -overrideRect.minX, dy: -overrideRect.minY)
+                let r = min(camLayout.cameraCornerRadius, min(localShape.width, localShape.height) / 2)
+                mask.path = CGPath(roundedRect: localShape, cornerWidth: max(0, r), cornerHeight: max(0, r), transform: nil)
+                    .intersection(CGPath(rect: local, transform: nil))
+            } else {
+                mask.path = path
+            }
             cameraClip.mask = mask
             cameraClip.backgroundColor = NSColor.black.withAlphaComponent(0.2).cgColor
 
@@ -2346,7 +2506,20 @@ final class PreviewCompositorView: NSView {
             cameraCardShadow.shadowPath = path
             cameraCardShadow.shadowRadius = s.shadowRadius
             cameraCardShadow.shadowOffset = CGSize(width: 0, height: s.shadowRadius / 3)
-            cameraCardShadow.shadowOpacity = Float(0.45 * s.shadowOpacity * cardness)
+            // A joined row (§12.14) casts its shadow UNDER the card instead —
+            // the screen covers what would land on it.
+            cameraCardShadow.shadowOpacity = Float(0.45 * s.shadowOpacity * cardness * (1 - camLayout.seamJoin))
+            if camLayout.seamJoin > 0.001, s.shadowRadius > 0, s.shadowOpacity > 0 {
+                cameraSeamShadow.isHidden = false
+                cameraSeamShadow.frame = CGRect(
+                    x: overrideRect.minX - lastContentOrigin.x, y: overrideRect.minY - lastContentOrigin.y,
+                    width: overrideRect.width, height: overrideRect.height)
+                cameraSeamShadow.shadowPath = path
+                cameraSeamShadow.shadowRadius = s.shadowRadius
+                cameraSeamShadow.shadowOffset = CGSize(width: 0, height: s.shadowRadius / 3)
+                cameraSeamShadow.shadowOpacity = Float(0.45 * s.shadowOpacity * cardness * camLayout.seamJoin)
+                cameraSeamShadow.opacity = cameraGroup.opacity
+            }
             cameraStroke.frame = local
             cameraStroke.path = path
             cameraStroke.strokeColor = CameraStyleMath.borderNSColor(s).cgColor
@@ -2404,7 +2577,7 @@ final class PreviewCompositorView: NSView {
             basePosition: s.cameraPosition,
             customPosition: custom,
             baseSize: scaledBase,
-            zoom: motion.zoom,
+            zoom: ReactiveCameraLayout.layoutZoom(motion.zoom, shrinkOnZoom: s.cameraShrinkOnZoom ?? true),
             padding: 12 * fit,
             aspect: ReactiveCameraLayout.shapeAspect(
                 shape: s.cameraShape, videoAspect: Double(input.cameraVideoAspect),
@@ -2586,9 +2759,15 @@ final class PreviewCompositorView: NSView {
     /// look draws this frame (no look → no extra CI pass).
     private func configureCameraDriverMask(_ input: FrameInput, weights: CameraLayoutMath.LookWeights) {
         guard let driver = cameraDriver else { return }
+        let style = CameraCardStyle(input.project.settings)
         driver.maskedLayers = [cameraCutoutVideo, cameraPopVideo]
         driver.maskSourceLeadIn = input.cameraSourceLeadIn
         driver.maskTrack = input.cameraMask
+        driver.maskEdge = (style.edgeSoftness, style.edgeInset)
+        // §12.3 camera fill: an unmasked (blurred) frame for the card, only
+        // while a pop-out card with that fill draws.
+        driver.cardLayers = weights.popOut > 0 && style.fill == .camera ? [cameraPopCardVideo] : []
+        driver.cardBlur = style.backgroundBlur
         driver.producesMasked = weights.isActive
     }
 
@@ -2631,20 +2810,22 @@ final class PreviewCompositorView: NSView {
         // Video vs poster follows the bubble's own choice exactly.
         let showPoster = !cameraPoster.isHidden
         let showVideo = input.cameraPlayer != nil && cameraDriver?.hasFrame == true
+        let style = CameraCardStyle(s)
         let poster = showPoster
-            ? lookPosterImage(input.cameraPosterImage, adjustments: adjustments, mask: input.cameraMask)
+            ? lookPosterImage(input.cameraPosterImage, adjustments: adjustments, mask: input.cameraMask, style: style)
             : nil
         let aspect = Double(input.cameraVideoAspect)
 
-        func place(video: CALayer, poster posterLayer: CALayer, in clip: CGRect) {
+        func place(video: CALayer, poster posterLayer: CALayer, in clip: CGRect, posterImage: NSImage? = nil) {
             let inner = CGRect(origin: .zero, size: clip.size)
+            let shown = posterImage ?? poster
             video.frame = inner
             video.transform = mirror
             video.isHidden = !showVideo
             posterLayer.frame = inner
             posterLayer.transform = mirror
-            posterLayer.contents = poster
-            posterLayer.isHidden = poster == nil
+            posterLayer.contents = shown
+            posterLayer.isHidden = shown == nil
         }
 
         if weights.cutout > 0 {
@@ -2656,7 +2837,9 @@ final class PreviewCompositorView: NSView {
         }
 
         if weights.popOut > 0 {
-            let g = CameraCutoutMath.geometry(look: .popOut, bubbleRect: local, cameraAspect: aspect)
+            let g = CameraCutoutMath.geometry(
+                look: .popOut, bubbleRect: local, cameraAspect: aspect,
+                popOutAmount: style.popOutAmount, cardBorderWidth: style.geometryBorderWidth)
             cameraPopStack.frame = local
             cameraPopStack.opacity = Float(min(1, weights.popOut))
             if let card = g.cardRect, let cardPath = CameraCutoutMath.cardPath(g) {
@@ -2668,9 +2851,15 @@ final class PreviewCompositorView: NSView {
                 cameraPopCard.isHidden = false
                 cameraPopCard.frame = card
                 cameraPopCard.cornerRadius = min(g.cardCornerRadius, min(card.width, card.height) / 2)
+                renderPopCardFill(input, style: style, card: card, clip: g.clipRect, adjustments: adjustments,
+                                  showPoster: showPoster) { video, posterLayer, clip, image in
+                    place(video: video, poster: posterLayer, in: clip, posterImage: image)
+                }
+                renderPopBorder(g, style: style, card: card)
             } else {
                 cameraPopShadow.isHidden = true
                 cameraPopCard.isHidden = true
+                cameraPopBorder.isHidden = true
             }
             // Person clip: the rounded rect over B extended UP by r, cut to
             // B (masksToBounds) — only the bottom corners round, as the
@@ -2686,22 +2875,115 @@ final class PreviewCompositorView: NSView {
         }
     }
 
+    /// The pop-out card's fill (§12.3) — the exporter's `popOutCardStack`
+    /// draws the same choice: the card gradient (custom colours), a flat
+    /// colour, the aspect-filled image, or the unmasked camera frame placed
+    /// exactly like the person (B, aspect-fill, same mirror), blurred by the
+    /// driver. `place` is renderCameraLooks' own placement, so the card
+    /// camera and the person can never land on different pixels.
+    private func renderPopCardFill(
+        _ input: FrameInput, style: CameraCardStyle, card: CGRect, clip: CGRect,
+        adjustments: CameraStyleMath.Adjustments, showPoster: Bool,
+        place: (CALayer, CALayer, CGRect, NSImage?) -> Void
+    ) {
+        func cg(_ c: CameraCardStyle.RGB) -> CGColor { CGColor(srgbRed: c.r, green: c.g, blue: c.b, alpha: 1) }
+        let clear = CGColor(gray: 0, alpha: 0)
+        let image = style.fill == .image ? style.imagePath.flatMap(CameraCardStyle.cardImage(path:)) : nil
+        cameraPopCardCamera.isHidden = style.fill != .camera
+        cameraPopCardImage.isHidden = image == nil
+        switch style.fill {
+        case .camera:
+            // Nothing under the camera: the export draws it alone through
+            // the card mask, so the rounded edge blends with transparency.
+            cameraPopCard.colors = [clear, clear]
+            cameraPopCardCamera.frame = clip.offsetBy(dx: -card.minX, dy: -card.minY)
+            let poster = showPoster
+                ? cardPosterImage(input.cameraPosterImage, adjustments: adjustments, blur: style.backgroundBlur)
+                : nil
+            place(cameraPopCardVideo, cameraPopCardPoster, clip, poster)
+            // No poster available → keep the poster layer empty rather than
+            // falling back to the masked look poster.
+            if showPoster, poster == nil { cameraPopCardPoster.isHidden = true }
+        case .color:
+            cameraPopCard.colors = [cg(style.color), cg(style.color)]
+        case .image:
+            if let image {
+                cameraPopCard.colors = [clear, clear]
+                let target = CameraCardStyle.imageFillRect(
+                    imageSize: CGSize(width: image.width, height: image.height),
+                    card: CGRect(origin: .zero, size: card.size))
+                cameraPopCardImage.frame = target
+                cameraPopCardImage.contents = image
+            } else {
+                cameraPopCard.colors = [cg(style.gradientTop), cg(style.gradientBottom)]
+            }
+        case .gradient:
+            cameraPopCard.colors = [cg(style.gradientTop), cg(style.gradientBottom)]
+        }
+    }
+
+    /// The §12.2 inner border ring over the card, under the person.
+    private func renderPopBorder(_ g: CameraCutoutMath.Geometry, style: CameraCardStyle, card: CGRect) {
+        var local = g
+        local.cardRect = CGRect(origin: .zero, size: card.size)
+        guard let ring = CameraCutoutMath.cardBorderRingPath(local) else {
+            cameraPopBorder.isHidden = true
+            return
+        }
+        let colors = style.borderColors
+        cameraPopBorder.isHidden = false
+        cameraPopBorder.frame = card
+        cameraPopBorder.colors = [
+            CGColor(srgbRed: colors.top.r, green: colors.top.g, blue: colors.top.b, alpha: 1),
+            CGColor(srgbRed: colors.bottom.r, green: colors.bottom.g, blue: colors.bottom.b, alpha: 1),
+        ]
+        cameraPopBorderMask.frame = CGRect(origin: .zero, size: card.size)
+        cameraPopBorderMask.path = ring
+    }
+
+    /// The camera fill's poster (§12.3): adjusted, UNmasked, blurred with
+    /// the shared recipe — what the card shows before the camera starts.
+    private func cardPosterImage(
+        _ poster: NSImage?, adjustments: CameraStyleMath.Adjustments, blur: Double
+    ) -> NSImage? {
+        guard let poster else { return nil }
+        guard blur > 0 else { return adjustedPosterImage(poster, adjustments: adjustments) }
+        let key = "\(ObjectIdentifier(poster).hashValue):\(adjustments.brightness):\(adjustments.contrast):\(adjustments.saturation):\(adjustments.hue):\(adjustments.filter.rawValue):\(blur)"
+        if let cached = cachedCardPoster, cached.key == key { return cached.image }
+        guard let cg = poster.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        let adjusted = CameraStyleMath.adjustedImage(CIImage(cgImage: cg), adjustments: adjustments)
+        let blurred = CameraStyleMath.cardCameraImage(
+            adjusted, sigma: CameraCardStyle.blurSigma(blur: blur, cameraHeight: adjusted.extent.height))
+        guard let out = VideoFrameLayerDriver.sharedCIContext.createCGImage(blurred, from: blurred.extent) else {
+            return nil
+        }
+        let image = NSImage(cgImage: out, size: poster.size)
+        cachedCardPoster = (key, image)
+        return image
+    }
+
     /// The poster through mask frame 0 — what a look shows before the camera
     /// starts (contract §2), via the SAME CameraStyleMath steps the live
     /// frames take. Unmirrored here: the layer's mirror transform flips poster
     /// and mask together, as the exporter's mirrored mask does.
     private func lookPosterImage(
-        _ poster: NSImage?, adjustments: CameraStyleMath.Adjustments, mask: CameraMaskTrack?
+        _ poster: NSImage?, adjustments: CameraStyleMath.Adjustments, mask: CameraMaskTrack?,
+        style: CameraCardStyle
     ) -> NSImage? {
         // Defect injection for `--preview-parity`'s look self-test: the
         // person mask is NOT applied (the structural check must then fail).
         if Self.debugUnmaskedLooks { return adjustedPosterImage(poster, adjustments: adjustments) }
         guard let poster, let mask else { return nil }
-        let key = "\(ObjectIdentifier(poster).hashValue):\(adjustments.brightness):\(adjustments.contrast):\(adjustments.saturation):\(adjustments.hue):\(adjustments.filter.rawValue):\(mask.token)"
+        let edge = CameraMaskEdge.radii(height: mask.header.height, softness: style.edgeSoftness, inset: style.edgeInset)
+        let key = "\(ObjectIdentifier(poster).hashValue):\(adjustments.brightness):\(adjustments.contrast):\(adjustments.saturation):\(adjustments.hue):\(adjustments.filter.rawValue):\(mask.token):\(edge.inset):\(edge.softness)"
         if let cached = cachedLookPoster, cached.key == key { return cached.image }
         guard let cg = poster.cgImage(forProposedRect: nil, context: nil, hints: nil),
-              let alpha = try? CameraMaskTrack.Decoder(track: mask).frame(0),
-              let maskCI = CameraStyleMath.maskCIImage(
+              let raw = try? CameraMaskTrack.Decoder(track: mask).frame(0) else { return nil }
+        // §12.4 — the poster's mask frame takes the same edge processing.
+        let alpha = CameraMaskEdge.process(
+            raw, width: mask.header.width, height: mask.header.height,
+            softness: style.edgeSoftness, inset: style.edgeInset)
+        guard let maskCI = CameraStyleMath.maskCIImage(
                   alpha: alpha, width: mask.header.width, height: mask.header.height) else { return nil }
         let adjusted = CameraStyleMath.adjustedImage(CIImage(cgImage: cg), adjustments: adjustments)
         let masked = CameraStyleMath.maskedImage(adjusted, mask: maskCI, mirrored: false)
@@ -2756,6 +3038,17 @@ final class PreviewCompositorView: NSView {
     /// Defect injection (`--preview-parity` look self-test only): draw the
     /// looks WITHOUT the person mask. Never set in a normal launch.
     static var debugUnmaskedLooks = false
+    /// Defect injection (`--preview-parity` split self-test only): skip the
+    /// full-height split's clip. Never set in a normal launch.
+    static var debugDisableLayoutClip = false
+    /// Defect injection (`--preview-parity` stack-zoom self-test only): the
+    /// pre-§12.13 stack — the whole stack zooms, the camera row included, and
+    /// never yields. Never set in a normal launch.
+    static var debugStackZoomOutside = false
+    /// Defect injection (`--preview-parity` joined-stack self-test only):
+    /// ignore the seam shapes, so a joined stack keeps its rounded seam
+    /// corners. Never set in a normal launch.
+    static var debugIgnoreSeamShapes = false
     /// Camera-look weights resolved for the last render (contract §4).
     func debugCameraLookWeights() -> CameraLayoutMath.LookWeights { lastLookWeights }
     /// Opacities of the bubble / cutout / pop-out stacks as rendered.
@@ -2765,6 +3058,12 @@ final class PreviewCompositorView: NSView {
          cameraPopStack.isHidden ? 0 : cameraPopStack.opacity)
     }
     func debugCameraGroupTransform() -> CATransform3D { cameraGroup.transform }
+    /// The camera layout resolved for the last render (canvas space).
+    func debugCameraLayout() -> CameraLayoutMath.Resolved { lastCameraLayout }
+    /// The full-height split's clip mask as installed (content space), or nil.
+    func debugLayoutClipPath() -> CGPath? { layoutClipGroup.mask == nil ? nil : layoutClipMask.path }
+    /// The camera tile's mask path (tile-local) while it draws as a layout tile.
+    func debugCameraMaskPath() -> CGPath? { (cameraClip.mask as? CAShapeLayer)?.path }
 
     // MARK: - Watermark
 
@@ -2900,9 +3199,12 @@ final class PreviewCompositorView: NSView {
     /// CIMotionBlur over the composited card. Same MotionBlurMath, same
     /// CIMotionBlur kernel; radius converted to pixels with the canvas width
     /// (the exporter uses its output width, so fractions agree by design).
-    private func renderMotionBlur(_ input: FrameInput, s: ProjectSettings, canvas: CGSize) {
+    private func renderMotionBlur(_ input: FrameInput, s: ProjectSettings, canvas: CGSize, stacking: Bool) {
+        // The zoom this stage actually applies (§12.13) — a zoom the layout
+        // owns stays out of the blur, so it never smears the camera.
         let sample = MotionBlurMath.CameraSample(
-            zoom: motion.zoom, focalX: motion.focalX, focalY: motion.focalY,
+            zoom: CameraLayoutMath.outerZoom(motion.zoom, stacking: stacking),
+            focalX: motion.focalX, focalY: motion.focalY,
             offsetX: motion.cardOffsetX, offsetY: motion.cardOffsetY)
         var blur = MotionBlurMath.Blur.none
         if s.motionBlur {
@@ -3065,6 +3367,18 @@ final class VideoFrameLayerDriver {
     var producesMasked = false {
         didSet { if producesMasked != oldValue { representIfMasked() } }
     }
+    /// §12.4 edge (softness, inset) applied to every mask frame.
+    var maskEdge: (softness: Double, inset: Double) = (0, 0) {
+        didSet { if maskEdge != oldValue { representIfMasked() } }
+    }
+    private let maskEdgeCache = CameraMaskEdge.Cache()
+    /// §12.3 camera fill: layers that show the adjusted, UNmasked frame,
+    /// blurred by `cardBlur` (0…1) — produced only alongside the masked one.
+    var cardLayers: [CALayer] = []
+    var cardBlur: Double = 0 {
+        didSet { if cardBlur != oldValue { representIfMasked() } }
+    }
+    private var cardBuffer: CVPixelBuffer?
     private var maskDecoder: CameraMaskTrack.Decoder?
     private var maskedBuffer: CVPixelBuffer?
     /// Item time of the DISPLAYED frame — the mask is looked up by the frame
@@ -3129,11 +3443,17 @@ final class VideoFrameLayerDriver {
         }
         guard let surface else { return }
         let masked = producesMasked && !maskedLayers.isEmpty ? maskedSurface(for: pixelBuffer) : nil
+        let card: IOSurface? = producesMasked && !cardLayers.isEmpty
+            ? (cardBlur > 0 ? cardSurface(for: pixelBuffer) : surface)
+            : nil
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         layer?.contents = surface
         if let masked {
             for maskedLayer in maskedLayers { maskedLayer.contents = masked }
+        }
+        if let card {
+            for cardLayer in cardLayers { cardLayer.contents = card }
         }
         CATransaction.commit()
         displayedPixelBuffer = pixelBuffer
@@ -3148,9 +3468,13 @@ final class VideoFrameLayerDriver {
     private func maskedSurface(for pixelBuffer: CVPixelBuffer) -> IOSurface? {
         guard let decoder = maskDecoder else { return nil }
         let rawPTS = displayedItemSeconds + maskSourceLeadIn
-        guard let (index, alpha) = try? decoder.alpha(at: rawPTS),
-              let maskCI = CameraStyleMath.maskCIImage(
-                  alpha: alpha, width: decoder.track.header.width, height: decoder.track.header.height)
+        let header = decoder.track.header
+        guard let (index, raw) = try? decoder.alpha(at: rawPTS) else { return nil }
+        // §12.4 edge inset / softness, the exporter's exact step.
+        let alpha = maskEdgeCache.processed(
+            raw, token: decoder.track.token, index: index, width: header.width, height: header.height,
+            softness: maskEdge.softness, inset: maskEdge.inset)
+        guard let maskCI = CameraStyleMath.maskCIImage(alpha: alpha, width: header.width, height: header.height)
         else { return nil }
         lastMaskIndex = index
         let width = CVPixelBufferGetWidth(pixelBuffer)
@@ -3170,6 +3494,33 @@ final class VideoFrameLayerDriver {
         let masked = CameraStyleMath.maskedImage(adjusted, mask: maskCI, mirrored: false)
         Self.sharedCIContext.render(
             masked, to: dest,
+            bounds: CGRect(x: 0, y: 0, width: width, height: height),
+            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
+        )
+        return CVPixelBufferGetIOSurface(dest)?.takeUnretainedValue()
+    }
+
+    /// §12.3 camera fill: the adjusted, UNmasked frame through the shared
+    /// card blur (`CameraStyleMath.cardCameraImage`), the exporter's step.
+    private func cardSurface(for pixelBuffer: CVPixelBuffer) -> IOSurface? {
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        if cardBuffer == nil
+            || CVPixelBufferGetWidth(cardBuffer!) != width
+            || CVPixelBufferGetHeight(cardBuffer!) != height {
+            var created: CVPixelBuffer?
+            CVPixelBufferCreate(kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA, [
+                kCVPixelBufferIOSurfacePropertiesKey as String: [:] as [String: Any],
+            ] as CFDictionary, &created)
+            cardBuffer = created
+        }
+        guard let dest = cardBuffer else { return nil }
+        let adjusted = CameraStyleMath.adjustedImage(
+            CIImage(cvPixelBuffer: pixelBuffer), adjustments: cameraAdjustments)
+        let blurred = CameraStyleMath.cardCameraImage(
+            adjusted, sigma: CameraCardStyle.blurSigma(blur: cardBlur, cameraHeight: CGFloat(height)))
+        Self.sharedCIContext.render(
+            blurred, to: dest,
             bounds: CGRect(x: 0, y: 0, width: width, height: height),
             colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
         )

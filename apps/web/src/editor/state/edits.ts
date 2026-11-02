@@ -17,12 +17,17 @@
  */
 import type {
   AnnotationType,
+  AspectRatio,
   BlurStyle,
   CameraLayoutMode,
+  CameraLayoutRegion,
   CameraLook,
+  CameraSide,
+  CameraSplitStyle,
   CodableColor,
   Project,
   Rect,
+  Size,
   VideoClipSegment,
   VoiceOverClip,
   ZoomRegion,
@@ -39,6 +44,7 @@ import {
   newZoomRegion,
 } from "../core/model";
 import { applyAutoZoom, applyStillMotion, type AutoZoomInputs } from "../core/edit/autoZoom";
+import { canvasAspect } from "../core/math/aspectRatio";
 import { smax, smin } from "../core/math/swift";
 import { effectiveTrimEnd, effectiveTrimStart, effectiveVideoClipSegments } from "../core/time/clips";
 import { SpeedTimeMap } from "../core/time/speedTimeMap";
@@ -243,9 +249,10 @@ export const enableCurtainUnveil: Edit = (p, sel) => {
   };
 };
 
-/** addCameraLayoutRegion(mode:look:) — near-start snaps to 0; 4 s; FOCUS lane slot.
- *  A look (Cutout / Pop-out card, docs/camera-cutout.md §9) is a Bubble region carrying it. */
-export function addCameraLayoutRegion(mode: CameraLayoutMode, look?: CameraLook): Edit {
+/** addCameraLayoutRegion(mode:look:splitStyle:) — near-start snaps to 0; 4 s; FOCUS lane slot.
+ *  A look (Cutout / Pop-out card, docs/camera-cutout.md §9) is a Bubble region carrying it;
+ *  Split Screen (§12.11) is a Side by Side region with the full-height split. */
+export function addCameraLayoutRegion(mode: CameraLayoutMode, look?: CameraLook, splitStyle?: CameraSplitStyle): Edit {
   return (p, sel, env) => {
     let desiredStart = smax(0, smin(env.playheadSource, p.duration));
     if (desiredStart < 0.75) desiredStart = 0;
@@ -255,6 +262,7 @@ export function addCameraLayoutRegion(mode: CameraLayoutMode, look?: CameraLook)
     const region = newCameraLayoutRegion(start, end);
     region.mode = look ? "bubble" : mode;
     if (look) region.look = look;
+    if (splitStyle && region.mode === "sideBySide") region.splitStyle = splitStyle;
     p.cameraLayoutRegions.push(region);
     return { label: look ? `Add ${CAMERA_LOOK_NAMES[look]}` : "Add Camera Layout", selection: assign(sel, "cameraLayout", region.id) };
   };
@@ -262,6 +270,84 @@ export function addCameraLayoutRegion(mode: CameraLayoutMode, look?: CameraLook)
 
 /** The looks' display names (docs/camera-cutout.md §9). */
 export const CAMERA_LOOK_NAMES: Record<CameraLook, string> = { cutout: "Cutout", popOut: "Pop-out card" };
+
+/**
+ * The aspect picker. Moving a project with a camera from a landscape (or
+ * square) canvas to a PORTRAIT one also turns the vertical stack on
+ * (docs/camera-cutout.md §12.12 — the renderer never does that on its own).
+ * `sourceSize` = the recording's size (what `.auto` follows; null = unknown).
+ * One undo step.
+ */
+export function setAspectRatio(aspect: AspectRatio, sourceSize: Size | null): Edit {
+  return (p) => {
+    if (p.settings.aspectRatio === aspect) return null;
+    const size = sourceSize ?? { width: 0, height: 0 };
+    const wasPortrait = canvasAspect(p.settings.aspectRatio, size) < 1;
+    p.settings.aspectRatio = aspect;
+    if (p.cameraVideoURL !== null && !wasPortrait && canvasAspect(aspect, size) < 1) p.settings.cameraPortraitStack = true;
+    return { label: "Aspect Ratio" };
+  };
+}
+
+/** A camera-layout block's arrangement for Copy / Paste Layout (docs/camera-cutout.md §12.7, §12.11). */
+export interface CameraLayoutClip {
+  mode: CameraLayoutMode;
+  look?: CameraLook;
+  cameraSide?: CameraSide;
+  splitStyle?: CameraSplitStyle;
+}
+
+/** Copy Layout: the block's `mode`, `look`, `cameraSide` and `splitStyle` (absent keys stay absent). */
+export function copyCameraLayout(r: CameraLayoutRegion): CameraLayoutClip {
+  const clip: CameraLayoutClip = { mode: r.mode };
+  if (r.look !== undefined) clip.look = r.look;
+  if (r.cameraSide !== undefined) clip.cameraSide = r.cameraSide;
+  if (r.splitStyle !== undefined) clip.splitStyle = r.splitStyle;
+  return clip;
+}
+
+/** Paste Layout onto block `id`: replaces its mode, look, camera side and
+ *  split style; keeps its id, start and end. One undo step; nothing to
+ *  change → no-op. */
+export function pasteCameraLayout(id: string, clip: CameraLayoutClip): Edit {
+  return (p, sel) => {
+    const r = p.cameraLayoutRegions.find((x) => x.id === id);
+    if (!r) return null;
+    if (r.mode === clip.mode && r.look === clip.look && r.cameraSide === clip.cameraSide && r.splitStyle === clip.splitStyle) return null;
+    r.mode = clip.mode;
+    if (clip.look !== undefined) r.look = clip.look;
+    else delete r.look;
+    if (clip.cameraSide !== undefined) r.cameraSide = clip.cameraSide;
+    else delete r.cameraSide;
+    if (clip.splitStyle !== undefined) r.splitStyle = clip.splitStyle;
+    else delete r.splitStyle;
+    return { label: "Paste Layout", selection: assign(sel, "cameraLayout", r.id) };
+  };
+}
+
+/** Full Height / Tiles for a Side by Side block (§12.11): full is stored,
+ *  tiles (today's) clears the key so the block re-encodes as before. */
+export function setSplitStyle(id: string, style: CameraSplitStyle): Edit {
+  return (p) => {
+    const r = p.cameraLayoutRegions.find((x) => x.id === id);
+    if (!r || (r.splitStyle ?? "tiles") === style) return null;
+    if (style === "full") r.splitStyle = "full";
+    else delete r.splitStyle;
+    return { label: style === "full" ? "Full Height" : "Tiles" };
+  };
+}
+
+/** Camera on Left / Right for a Side by Side block (§12.6): leading is stored,
+ *  trailing (today's) clears the key so the block re-encodes as before. */
+export function setCameraSide(id: string, side: CameraSide): Edit {
+  return (p) => {
+    const r = p.cameraLayoutRegions.find((x) => x.id === id);
+    if (!r || (r.cameraSide ?? "trailing") === side) return null;
+    if (side === "leading") r.cameraSide = "leading";
+    else delete r.cameraSide;
+    return { label: side === "leading" ? "Camera on Left" : "Camera on Right" };
+  };
+}
 
 /** autoZoom() — AutoZoomApplier (only earlier AUTO regions are replaced);
  *  nothing zoom-worthy → no change. */

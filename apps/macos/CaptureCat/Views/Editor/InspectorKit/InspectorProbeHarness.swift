@@ -51,6 +51,21 @@ enum InspectorProbeHarness {
             selection.inspectorTab = .camera
         }
 
+        // `--inspector-probe camera-popout` — the Pop-out card look with the
+        // camera fill and an aurora border, so the Cutout & Pop-out section
+        // (docs/camera-cutout.md §12.8) renders its card + border rows.
+        if CommandLine.arguments.contains("camera-popout") {
+            project.cameraVideoURL = URL(fileURLWithPath: "/tmp/capturecat-probe-camera.mov")
+            project.settings.showCamera = true
+            project.settings.cameraShape = .roundedRect
+            project.settings.cameraLook = .popOut
+            project.settings.cameraCardFill = .camera
+            project.settings.cameraBackgroundBlur = 0.4
+            project.settings.cameraCardBorder = .aurora
+            project.settings.cameraPortraitStack = true
+            selection.inspectorTab = .camera
+        }
+
         // `--inspector-probe annotate` — seed a selected text annotation and
         // open the Annotate tab so the native pane's editor state renders.
         if CommandLine.arguments.contains("annotate") {
@@ -106,6 +121,14 @@ enum InspectorProbeHarness {
         print("PROBE column frame=\(column.frame)")
         if let scroll = findView(ofType: NSScrollView.self, in: column) {
             print("PROBE scroll frame=\(scroll.frame) contentSize=\(scroll.contentSize)")
+            // `scroll=<points>` — capture further down a tall pane (the
+            // Camera pane's Cutout & Pop-out section sits below the fold).
+            if let arg = CommandLine.arguments.first(where: { $0.hasPrefix("scroll=") }),
+               let offset = Double(arg.dropFirst("scroll=".count)) {
+                scroll.contentView.scroll(to: NSPoint(x: 0, y: offset))
+                scroll.reflectScrolledClipView(scroll.contentView)
+                scroll.layoutSubtreeIfNeeded()
+            }
             if let doc = scroll.documentView {
                 print("PROBE documentView frame=\(doc.frame) tamic=\(doc.translatesAutoresizingMaskIntoConstraints)")
                 for sub in doc.subviews {

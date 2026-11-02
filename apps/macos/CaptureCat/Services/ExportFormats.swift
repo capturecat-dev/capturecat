@@ -176,11 +176,11 @@ struct StaticSpanCollapse {
         looks: CameraLayoutMath.LookWeights = .none
     ) -> String {
         String(
-            format: "%.0f,%.0f,%.0f,%.0f,%.3f,%.3f,%.4f,%.1f,%.3f,%.3f",
+            format: "%.0f,%.0f,%.0f,%.0f,%.3f,%.3f,%.4f,%.1f,%.1f,%.3f,%.3f",
             layout.cameraRect?.minX ?? -1, layout.cameraRect?.minY ?? -1,
             layout.cameraRect?.width ?? -1, layout.cameraRect?.height ?? -1,
             layout.cameraOpacity, layout.chromeOpacity,
-            layout.cardScale, layout.cardTranslationX,
+            layout.cardScale, layout.cardTranslationX, layout.cardTranslationY,
             looks.cutout, looks.popOut)
     }
 

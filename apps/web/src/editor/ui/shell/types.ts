@@ -179,6 +179,7 @@ export type EffectsPick =
   | "curtain"
   | "cameraFull"
   | "cameraSideBySide"
+  | "cameraSplitScreen"
   | "cameraHide"
   | "cameraCutout"
   | "cameraPopOut";

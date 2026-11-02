@@ -17,7 +17,10 @@
  */
 import type { Rect, Size } from "./layout";
 
-export type StageHitKind = "camera" | "subtitle" | "watermark";
+/** `stackSeam`: the vertical stack's gap between the camera and screen rows
+ *  (docs/camera-cutout.md §12.12) — the stage's camera-height notch;
+ *  `usable.height` is the two rows' heights (the ratio's denominator). */
+export type StageHitKind = "camera" | "subtitle" | "watermark" | "stackSeam";
 export type StageHitSpace = "canvas" | "card";
 
 export interface StageHitRect {

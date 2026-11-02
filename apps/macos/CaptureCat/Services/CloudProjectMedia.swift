@@ -79,7 +79,7 @@ nonisolated enum CloudDocumentReferences {
             if let name = clip["fileName"] as? String, !name.isEmpty { out.append(name) }
         }
         if let settings = object["settings"] as? [String: Any] {
-            for key in ["watermarkFileName", "curtainLogoFileName", "backgroundImagePath"] {
+            for key in ["watermarkFileName", "curtainLogoFileName", "backgroundImagePath", "cameraCardImagePath"] {
                 if let value = settings[key] as? String, !value.isEmpty { out.append(value) }
             }
         }

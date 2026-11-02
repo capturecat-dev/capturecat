@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 
 /// The entire Camera tab as a native AppKit view.
 /// Reads the @Observable ProjectSettings through a withObservationTracking
@@ -25,6 +26,37 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private static let backgroundLooks: [CameraBubbleLook?] = [nil] + CameraBubbleLook.allCases
     private let mirrorToggle = InspectorToggleControl("Mirror Camera")
     private let sizeSlider: InspectorSliderRow
+    /// §12.5 — off keeps the bubble at its size while the screen zooms.
+    private let shrinkToggle = InspectorToggleControl("Shrink During Zoom")
+    /// §12.12 — vertical videos: camera row on top, screen below.
+    private let stackToggle = InspectorToggleControl("Stack on Top in Vertical Video")
+    private let stackHeightSlider = InspectorSliderRow(label: "Camera Height", range: 25...70, step: 1)
+    /// §12.14 — the gap between the rows; None joins them into one card.
+    private let stackGapSlider = InspectorSliderRow(label: "Gap", range: 0...8, step: 1)
+
+    // Cutout & Pop-out (docs/camera-cutout.md §12) — whole-video styles for
+    // the two looks; the section shows only while the project uses a look.
+    private let looksBox = InspectorSectionBox("Cutout & Pop-out")
+    private let edgeSoftnessSlider = InspectorSliderRow(label: "Edge Softness", range: 0...1, step: 0.05)
+    private let edgeInsetSlider = InspectorSliderRow(label: "Edge Inset", range: 0...1, step: 0.05)
+    private let popOutSlider = InspectorSliderRow(label: "Pop-out", range: 0...1, step: 0.05)
+    private let cardLabel = InspectorKitViews.label("Card")
+    private let cardChips = InspectorChipsControl()
+    private let gradientStartWell = InspectorColorWellControl()
+    private let gradientEndWell = InspectorColorWellControl()
+    private var gradientRow: NSView!
+    private let cardColorWell = InspectorColorWellControl()
+    private var cardColorRow: NSView!
+    private let backgroundBlurSlider = InspectorSliderRow(label: "Background Blur", range: 0...1, step: 0.05)
+    private let cardChooseImageButton = CaptureCatButton(title: "Choose Image…", symbol: "photo", style: .secondary)
+    private let cardImageGrid = WallpaperGridControl(mode: .customImages)
+    private let cardWallpaperGrid = WallpaperGridControl(mode: .catalog)
+    private let cardBorderLabel = InspectorKitViews.label("Border")
+    private let cardBorderChips = InspectorChipsControl()
+    private static let cardBorders: [CameraCardBorder?] = [nil] + CameraCardBorder.allCases
+    private let cardBorderWidthSlider = InspectorSliderRow(label: "Thickness", range: 0...1, step: 0.05)
+    private let cardBorderColorWell = InspectorColorWellControl()
+    private var cardBorderColorRow: NSView!
 
     // Adjust section — color sliders + look preset + ring light.
     private let brightnessSlider = InspectorSliderRow(label: "Brightness", range: -1...1, step: 0.05)
@@ -155,7 +187,35 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         cameraBox.addRow(orientationChips, attached: true)
         cameraBox.addRow(mirrorToggle)
         cameraBox.addRow(sizeSlider)
+        cameraBox.addRow(shrinkToggle)
+        cameraBox.addRow(stackToggle)
+        cameraBox.addRow(stackHeightSlider, attached: true)
+        cameraBox.addRow(stackGapSlider, attached: true)
         fullWidth(cameraBox)
+
+        // Cutout & Pop-out: edges first (both looks), then the card.
+        let gradientPair = NSStackView(views: [gradientStartWell, gradientEndWell])
+        gradientPair.orientation = .horizontal
+        gradientPair.spacing = 8
+        gradientRow = InspectorKitViews.row("Card Colors", control: gradientPair)
+        cardColorRow = InspectorKitViews.row("Card Color", control: cardColorWell)
+        cardBorderColorRow = InspectorKitViews.row("Border Color", control: cardBorderColorWell)
+        looksBox.addRow(edgeSoftnessSlider)
+        looksBox.addRow(edgeInsetSlider)
+        looksBox.addRow(popOutSlider)
+        looksBox.addRow(cardLabel)
+        looksBox.addRow(cardChips, attached: true)
+        looksBox.addRow(gradientRow)
+        looksBox.addRow(cardColorRow)
+        looksBox.addRow(backgroundBlurSlider)
+        looksBox.addRow(cardChooseImageButton)
+        looksBox.addRow(cardImageGrid, attached: true)
+        looksBox.addRow(cardWallpaperGrid)
+        looksBox.addRow(cardBorderLabel)
+        looksBox.addRow(cardBorderChips, attached: true)
+        looksBox.addRow(cardBorderWidthSlider)
+        looksBox.addRow(cardBorderColorRow)
+        fullWidth(looksBox)
 
         let adjustBox = InspectorSectionBox("Adjust")
         for row in [brightnessSlider, contrastSlider, saturationSlider, hueSlider] {
@@ -183,7 +243,7 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
 
         detailViews = [
             backgroundLabel, backgroundChips, positionRow, shapeRow, orientationChips, mirrorToggle, sizeSlider,
-            adjustBox, styleBox, tagBox,
+            shrinkToggle, stackToggle, adjustBox, styleBox, tagBox,
         ]
 
         positionMenu.items = ProjectSettings.CameraPosition.allCases.map { .init(title: $0.rawValue) }
@@ -198,6 +258,17 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         hueSlider.format = { "\(Int($0))°" }
         ringLightSlider.format = { "\(Int($0 * 100))%" }
         opacitySlider.format = { "\(Int($0 * 100))%" }
+        for slider in [edgeSoftnessSlider, edgeInsetSlider, popOutSlider, backgroundBlurSlider, cardBorderWidthSlider] {
+            slider.format = { "\(Int(($0 * 100).rounded()))%" }
+        }
+        cardChips.items = CameraCardFill.allCases.map(\.displayName)
+        cardChips.toolTip = "What fills the pop-out card behind you"
+        cardBorderChips.items = Self.cardBorders.map { $0?.displayName ?? "None" }
+        shrinkToggle.toolTip = "Shrink the camera while the screen is zoomed in"
+        stackToggle.toolTip = "In 9:16 and 4:5 videos, put the camera across the top and the screen below"
+        stackHeightSlider.format = { "\(Int($0.rounded()))%" }
+        stackGapSlider.format = { $0 < 0.5 ? "None" : "\(Int($0.rounded()))%" }
+        stackGapSlider.toolTip = "Space between the camera and the screen — None joins them into one card"
         tagTextField.delegate = self
         tagSubtextField.delegate = self
         tiltPad.maxAngle = 25
@@ -229,6 +300,60 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
             // render (idempotent; a fresh mask is reused).
             if let project, project.usesCameraLook { segmentation?.ensureMask(for: project) }
         }
+
+        shrinkToggle.onChange = { [weak self] on in
+            // Default (on) is stored as nil so untouched projects stay byte-identical.
+            self?.settings.cameraShrinkOnZoom = on ? nil : false
+        }
+        stackToggle.onChange = { [weak self] on in self?.settings.cameraPortraitStack = on }
+        stackHeightSlider.onChange = { [weak self] percent in self?.settings.cameraStackRatio = percent / 100 }
+        stackGapSlider.onChange = { [weak self] percent in self?.settings.cameraStackGap = percent.rounded() / 100 }
+
+        // Cutout & Pop-out (§12)
+        edgeSoftnessSlider.onChange = { [weak self] v in self?.settings.cameraEdgeSoftness = v }
+        edgeInsetSlider.onChange = { [weak self] v in self?.settings.cameraEdgeInset = v }
+        popOutSlider.onChange = { [weak self] v in self?.settings.cameraPopOutAmount = v }
+        backgroundBlurSlider.onChange = { [weak self] v in self?.settings.cameraBackgroundBlur = v }
+        cardChips.onSelect = { [weak self] index in
+            self?.settings.cameraCardFill = CameraCardFill.allCases[index]
+        }
+        gradientStartWell.getColor = { [weak self] in
+            guard let self else { return .white }
+            return Self.nsColor(CameraCardStyle(self.settings).gradientTop)
+        }
+        gradientStartWell.setColor = { [weak self] c in self?.settings.cameraCardGradientStart = CodableColor(c) }
+        gradientEndWell.getColor = { [weak self] in
+            guard let self else { return .white }
+            return Self.nsColor(CameraCardStyle(self.settings).gradientBottom)
+        }
+        gradientEndWell.setColor = { [weak self] c in self?.settings.cameraCardGradientEnd = CodableColor(c) }
+        cardColorWell.getColor = { [weak self] in
+            guard let self else { return .black }
+            return Self.nsColor(CameraCardStyle(self.settings).color)
+        }
+        cardColorWell.setColor = { [weak self] c in self?.settings.cameraCardColor = CodableColor(c) }
+        cardChooseImageButton.onClick = { [weak self] in
+            let panel = NSOpenPanel()
+            panel.allowedContentTypes = [.image]
+            if panel.runModal() == .OK, let url = panel.url {
+                // Same as the canvas background's picker: reference the file,
+                // remember a copy so it reappears as a tile.
+                self?.settings.cameraCardImagePath = url.path
+                CustomWallpaperStore.add(from: url)
+                self?.cardImageGrid.reloadCustomItems()
+            }
+        }
+        cardImageGrid.onSelect = { [weak self] path in self?.settings.cameraCardImagePath = path }
+        cardWallpaperGrid.onSelect = { [weak self] path in self?.settings.cameraCardImagePath = path }
+        cardBorderChips.onSelect = { [weak self] index in
+            self?.settings.cameraCardBorder = Self.cardBorders[index]
+        }
+        cardBorderWidthSlider.onChange = { [weak self] v in self?.settings.cameraCardBorderWidth = v }
+        cardBorderColorWell.getColor = { [weak self] in
+            guard let self else { return .white }
+            return Self.nsColor(CameraCardStyle(self.settings).borderColor)
+        }
+        cardBorderColorWell.setColor = { [weak self] c in self?.settings.cameraCardBorderColor = CodableColor(c) }
 
         // Adjust
         brightnessSlider.onChange = { [weak self] v in self?.settings.cameraBrightness = v }
@@ -347,7 +472,72 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         tagTextColorWell.refresh()
         tagBackgroundColorWell.refresh()
         pad.refresh()
+        shrinkToggle.isOn = settings.cameraShrinkOnZoom ?? true
+        let stackOn = settings.cameraPortraitStack ?? false
+        stackToggle.isOn = stackOn
+        stackHeightSlider.setValue(CameraLayoutMath.stackRatio(settings.cameraStackRatio) * 100)
+        if stackHeightSlider.isHidden != (!showDetails || !stackOn) {
+            stackHeightSlider.isHidden = !showDetails || !stackOn
+            if !stackHeightSlider.isHidden { CCMotion.expand(self) }
+        }
+        stackGapSlider.setValue(CameraLayoutMath.stackGap(settings.cameraStackGap) * 100)
+        if stackGapSlider.isHidden != (!showDetails || !stackOn) {
+            stackGapSlider.isHidden = !showDetails || !stackOn
+            if !stackGapSlider.isHidden { CCMotion.expand(self) }
+        }
+        applyLooksSection(showDetails: showDetails)
         applyLookStatus(showDetails: showDetails)
+    }
+
+    private static func nsColor(_ c: CameraCardStyle.RGB) -> NSColor {
+        NSColor(srgbRed: c.r, green: c.g, blue: c.b, alpha: 1)
+    }
+
+    /// The Cutout & Pop-out section (§12.8): shown while the project uses a
+    /// look; the card rows only while a pop-out card can draw, and each fill
+    /// shows only its own controls.
+    private func applyLooksSection(showDetails: Bool) {
+        let regionLooks = project?.cameraLayoutRegions.compactMap(\.effectiveLook) ?? []
+        let usesLook = settings.cameraLook != nil || !regionLooks.isEmpty
+        let usesPopOut = settings.cameraLook == .popOut || regionLooks.contains(.popOut)
+        let shown = showDetails && usesLook
+        if shown != !looksBox.isHidden {
+            looksBox.isHidden = !shown
+            if shown {
+                // Arrival lands on the house bounce, like the status row.
+                CCMotion.expand(self)
+                CCMotion.fadeAlpha(looksBox, to: 1, from: 0)
+            }
+        }
+        guard shown else { return }
+        let style = CameraCardStyle(settings)
+
+        edgeSoftnessSlider.setValue(style.edgeSoftness)
+        edgeInsetSlider.setValue(style.edgeInset)
+        popOutSlider.setValue(style.popOutAmount ?? 0.5)
+        backgroundBlurSlider.setValue(min(1, max(0, settings.cameraBackgroundBlur ?? 0)))
+        cardChips.selectedIndex = CameraCardFill.allCases.firstIndex(of: style.fill) ?? 0
+        cardBorderChips.selectedIndex = Self.cardBorders.firstIndex(of: style.border) ?? 0
+        cardBorderWidthSlider.setValue(style.borderThickness)
+        for well in [gradientStartWell, gradientEndWell, cardColorWell, cardBorderColorWell] { well.refresh() }
+
+        let card: [NSView] = [popOutSlider, cardLabel, cardChips, cardBorderLabel, cardBorderChips]
+        for view in card { view.isHidden = !usesPopOut }
+        gradientRow.isHidden = !usesPopOut || style.fill != .gradient
+        cardColorRow.isHidden = !usesPopOut || style.fill != .color
+        backgroundBlurSlider.isHidden = !usesPopOut || style.fill != .camera
+        let showsImage = usesPopOut && style.fill == .image
+        cardChooseImageButton.isHidden = !showsImage
+        cardImageGrid.isHidden = !showsImage
+        cardWallpaperGrid.isHidden = !showsImage
+        if showsImage {
+            cardImageGrid.selectedPath = settings.cameraCardImagePath
+            cardImageGrid.loadIfNeeded()
+            cardWallpaperGrid.selectedPath = settings.cameraCardImagePath
+            cardWallpaperGrid.loadIfNeeded()
+        }
+        cardBorderWidthSlider.isHidden = !usesPopOut || style.border == nil
+        cardBorderColorRow.isHidden = !usesPopOut || style.border != .solid
     }
 
     /// "Removing background… 42%" while the mask job runs for this project.

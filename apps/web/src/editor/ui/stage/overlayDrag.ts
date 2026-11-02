@@ -22,7 +22,8 @@ import type { StageHitKind, StageHitRect, StageHits } from "../../engine/stageHi
 import { insetRect, rectContains } from "./stageGeometry";
 import type { Pt } from "./stageMapping";
 
-export type OverlayKind = StageHitKind;
+/** The draggable overlays (the stack seam has its own drag — StageInteraction). */
+export type OverlayKind = Exclude<StageHitKind, "stackSeam">;
 
 /** Mouse-down order — watermark > camera > subtitle (the compositor's z-order). */
 export const OVERLAY_ORDER: readonly OverlayKind[] = ["watermark", "camera", "subtitle"];

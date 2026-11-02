@@ -50,10 +50,72 @@ describe("cameraLook (Swift optionalEnumKey)", () => {
   });
 });
 
+describe("camera styles (docs/camera-cutout.md §12.8)", () => {
+  it("sets every §12.1 key by name; none clears the enum keys; unset reads null / none / the default", () => {
+    const s = defaultProjectSettings();
+    const camera = (styleOptions({ ...newProject({ id: "00000000-0000-4000-8000-000000000001", duration: 3 }), settings: s }).groups as Record<
+      string,
+      Record<string, Record<string, unknown>>
+    >).camera;
+    expect(camera.cameraPopOutAmount).toMatchObject({ type: "number", min: 0, max: 1, current: null });
+    expect(camera.cameraCardFill).toMatchObject({ type: "enum", values: ["none", "gradient", "camera", "color", "image"], current: "none" });
+    expect(camera.cameraCardBorder).toMatchObject({ values: ["none", "solid", "aurora", "gold"], current: "none" });
+    expect(camera.cameraShrinkOnZoom).toMatchObject({ type: "boolean", current: true });
+    expect(camera.cameraCardBorderColor).toMatchObject({ type: "color", current: null });
+
+    applyStyle("cameraPopOutAmount", 0.8, s);
+    applyStyle("cameraCardFill", "camera", s);
+    applyStyle("cameraBackgroundBlur", 0.6, s);
+    applyStyle("cameraCardGradientStart", "#FF0000", s);
+    applyStyle("cameraCardGradientEnd", "#0000FF", s);
+    applyStyle("cameraCardColor", "#112233", s);
+    applyStyle("cameraCardImagePath", "/CaptureCat/Projects/X/card.png", s);
+    applyStyle("cameraEdgeSoftness", 0.4, s);
+    applyStyle("cameraEdgeInset", 0.3, s);
+    applyStyle("cameraCardBorder", "aurora", s);
+    applyStyle("cameraCardBorderWidth", 1, s);
+    applyStyle("cameraCardBorderColor", "#FFFFFF", s);
+    applyStyle("cameraShrinkOnZoom", false, s);
+    expect(s).toMatchObject({
+      cameraPopOutAmount: 0.8,
+      cameraCardFill: "camera",
+      cameraBackgroundBlur: 0.6,
+      cameraCardGradientStart: { red: 1, green: 0, blue: 0, opacity: 1 },
+      cameraCardColor: { red: 0x11 / 255, green: 0x22 / 255, blue: 0x33 / 255, opacity: 1 },
+      cameraCardImagePath: "/CaptureCat/Projects/X/card.png",
+      cameraEdgeSoftness: 0.4,
+      cameraEdgeInset: 0.3,
+      cameraCardBorder: "aurora",
+      cameraCardBorderWidth: 1,
+      cameraShrinkOnZoom: false,
+    });
+    expect(message(() => applyStyle("cameraPopOutAmount", 1.5, s))).toBe("invalid value for cameraPopOutAmount: 1.5 (allowed: a number in 0...1)");
+    expect(() => applyStyle("cameraCardFill", "wallpaper", s)).toThrow(ToolError);
+
+    applyStyle("cameraCardFill", "none", s);
+    applyStyle("cameraCardBorder", "none", s);
+    expect(s.cameraCardFill).toBeUndefined();
+    expect(s.cameraCardBorder).toBeUndefined();
+    // optionalBoolKey: writing the default stores nil.
+    applyStyle("cameraShrinkOnZoom", true, s);
+    expect(s.cameraShrinkOnZoom).toBeUndefined();
+    // The vertical stack (§12.12).
+    applyStyle("cameraPortraitStack", true, s);
+    applyStyle("cameraStackRatio", 0.5, s);
+    expect(s).toMatchObject({ cameraPortraitStack: true, cameraStackRatio: 0.5 });
+    applyStyle("cameraPortraitStack", false, s);
+    expect(s.cameraPortraitStack).toBeUndefined();
+    expect(message(() => applyStyle("cameraStackRatio", 0.8, s))).toBe("invalid value for cameraStackRatio: 0.8 (allowed: a number in 0.25...0.7)");
+    applyStyle("cameraStackGap", 0, s);
+    expect(s).toMatchObject({ cameraStackGap: 0 });
+    expect(message(() => applyStyle("cameraStackGap", 0.1, s))).toBe("invalid value for cameraStackGap: 0.1 (allowed: a number in 0...0.08)");
+  });
+});
+
 describe("set_style table", () => {
-  it("has the Mac's 121 keys in 11 groups", () => {
-    expect(STYLE_KEYS).toHaveLength(121);
-    expect(new Set(STYLE_KEYS.map((k) => k.key)).size).toBe(121);
+  it("has the Mac's 137 keys in 11 groups", () => {
+    expect(STYLE_KEYS).toHaveLength(137);
+    expect(new Set(STYLE_KEYS.map((k) => k.key)).size).toBe(137);
     expect(new Set(STYLE_KEYS.map((k) => k.group))).toEqual(new Set(STYLE_GROUPS));
     expect(styleKeySummary()).toContain("canvas: aspectRatio, backgroundPadding, videoPlacement, frameShape, cornerRadius… (+4)");
   });
@@ -115,7 +177,7 @@ describe("style_options", () => {
   it("lists every group with types, ranges and (with a project) current values", () => {
     const project = newProject({ id: "00000000-0000-4000-8000-000000000001", duration: 3 });
     const all = styleOptions(project);
-    expect(all.keyCount).toBe(121);
+    expect(all.keyCount).toBe(137);
     const canvas = (all.groups as Record<string, Record<string, Record<string, unknown>>>).canvas;
     expect(canvas.backgroundPadding).toEqual({
       type: "number",

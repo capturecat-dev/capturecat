@@ -47,6 +47,9 @@ const CAMERA_LAYOUT_NAMES: Record<string, string> = {
   screenOnly: "Screen Only",
 };
 
+/** CameraSplitStyle.full's display name (docs/camera-cutout.md §12.11). */
+const SPLIT_SCREEN_LABEL = "Split Screen";
+
 /** CameraLook display names (docs/camera-cutout.md §9). */
 const CAMERA_LOOK_LABELS: Record<string, string> = {
   cutout: "Cutout",
@@ -287,8 +290,22 @@ export function timelineSnapshot({ project: p, selection: sel, sliceArmed, hasAu
       start: map.outputTime(r.startTime),
       end: map.outputTime(r.endTime),
       // A look on a Bubble region is named by the look (docs/camera-cutout.md §9).
-      label: `Camera: ${r.mode === "bubble" && r.look ? CAMERA_LOOK_LABELS[r.look] : (CAMERA_LAYOUT_NAMES[r.mode] ?? r.mode)}`,
+      // A look on a Bubble region is named by the look; a full-height split by its style (§12.11).
+      label: `Camera: ${
+        r.mode === "bubble" && r.look
+          ? CAMERA_LOOK_LABELS[r.look]
+          : r.mode === "sideBySide" && r.splitStyle === "full"
+            ? SPLIT_SCREEN_LABEL
+            : (CAMERA_LAYOUT_NAMES[r.mode] ?? r.mode)
+      }`,
       selected: sel.cameraLayoutId === r.id,
+      // The block menu's Camera on Left / Right, Full Height / Tiles and Copy /
+      // Paste Layout (docs/camera-cutout.md §12.6 / §12.7 / §12.11).
+      cameraLayout: {
+        mode: r.mode,
+        side: r.cameraSide === "leading" ? ("leading" as const) : ("trailing" as const),
+        split: r.splitStyle === "full" ? ("full" as const) : ("tiles" as const),
+      },
     })),
     ...p.highlightRegions.map((r) => ({ id: r.id, isHighlight: true, start: map.outputTime(r.startTime), end: map.outputTime(r.endTime), label: r.label, selected: sel.highlightId === r.id })),
   ];

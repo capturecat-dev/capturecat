@@ -35,7 +35,7 @@ extension WebVectors {
                 build: cameraLayoutMathBasicsCases),
             WebVectorUnit(
                 name: "cameraLayoutResolve",
-                notes: "Services/CameraLayoutMath.swift — resolve(at:regions:videoRect:bubbleRect:bubbleCornerRadius:cardCornerRadius:hasCamera:) (private target/lerp through it), cardTransform(_:videoRect:), region(at:regions:) (as id), mode(at:regions:); queries cluster on edges and mid-morph",
+                notes: "Services/CameraLayoutMath.swift — resolve(at:regions:videoRect:bubbleRect:bubbleCornerRadius:cardCornerRadius:hasCamera:stack:stackZoom:) (private target/lerp through it), cardTransform(_:videoRect:), region(at:regions:) (as id), mode(at:regions:); queries cluster on edges and mid-morph. Optional `stack` {camera, screen} (§12.12) and `stackZoom` {zoom, focalX, focalY} (§12.13: the stacked screen zooms inside its row — scale fill × max(1, zoom), the clamped focal easing by envelope(zoom) to its own fraction of the row; the row order gives the Y convention; zoom ≤ 1 is the plain fill exactly)",
                 build: cameraLayoutResolveCases),
             WebVectorUnit(
                 name: "cameraLayoutBoundaries",
@@ -57,8 +57,27 @@ extension WebVectors {
     /// query sitting exactly on an edge flipped sides in the TS port.)
     static func styleRegionWV(_ r: CameraLayoutRegion) -> WV {
         let base: WV = ["id": .str(r.id.uuidString), "startTime": r.startTime.wv, "endTime": r.endTime.wv, "mode": .str(r.mode.rawValue)]
-        // `look` only when set — exactly as project.json stores it.
-        return r.look.map { base.setting("look", .str($0.rawValue)) } ?? base
+        // `look` / `cameraSide` only when set — exactly as project.json stores them.
+        let withLook = r.look.map { base.setting("look", .str($0.rawValue)) } ?? base
+        let withSide = r.cameraSide.map { withLook.setting("cameraSide", .str($0.rawValue)) } ?? withLook
+        return r.splitStyle.map { withSide.setting("splitStyle", .str($0.rawValue)) } ?? withSide
+    }
+
+    /// A split style for a generated region (§12.11), from its own id-seeded
+    /// stream like `randomSide`. Any mode may carry one (ignored off sideBySide).
+    static func randomSplit(for id: UUID) -> CameraSplitStyle? {
+        var splitRng = WVRandom(seed: "split-\(id.uuidString)")
+        let roll = splitRng.unit()
+        return roll < 0.5 ? nil : (roll < 0.85 ? .full : .tiles)
+    }
+
+    /// A Side by Side camera side for a generated region (§12.6), from a
+    /// stream seeded by the region's id like `randomLook`, so the existing
+    /// inputs stay unchanged. Any mode may carry one (ignored off sideBySide).
+    static func randomSide(for id: UUID) -> CameraSide? {
+        var sideRng = WVRandom(seed: "side-\(id.uuidString)")
+        let roll = sideRng.unit()
+        return roll < 0.5 ? nil : (roll < 0.85 ? .leading : .trailing)
     }
 
     /// A camera look for a generated region, drawn from a stream seeded by the
@@ -89,7 +108,8 @@ extension WebVectors {
             let end = inverted ? start - len : start + len
             let id = rng.uuid()
             regions.append(CameraLayoutRegion(id: id, startTime: start, endTime: end, mode: rng.pick(styleLayoutModes),
-                                              look: randomLook(for: id)))
+                                              look: randomLook(for: id), cameraSide: randomSide(for: id),
+                                              splitStyle: randomSplit(for: id)))
             cursor = max(cursor, end)
         }
         _ = duration
@@ -219,12 +239,18 @@ extension WebVectors {
                 ? CGRect(x: rng.double(-100, 100), y: rng.double(-100, 100), width: rng.double(-800, 800), height: rng.double(-600, 600))
                 : rng.rect(origin: -200, 400, size: 0, 3000)
             let cols = CameraLayoutMath.columns(in: videoRect)
+            let leading = CameraLayoutMath.columns(in: videoRect, side: .leading)
+            let fullCols = CameraLayoutMath.columns(in: videoRect, style: .full)
+            let fullLeading = CameraLayoutMath.columns(in: videoRect, side: .leading, style: .full)
             cases.append(vcase(
                 ["t": t.wv, "shape": .str(shape.rawValue), "customRadius": customRadius.wv, "size": size.wv, "videoRect": videoRect.wv],
                 [
                     "ease": CameraLayoutMath.ease(t).wv,
                     "bubbleApproxCornerRadius": CameraLayoutMath.bubbleApproxCornerRadius(shape: shape, customRadius: customRadius, size: size).wv,
                     "columns": ["screen": cols.screen.wv, "camera": cols.camera.wv],
+                    "columnsLeading": ["screen": leading.screen.wv, "camera": leading.camera.wv],
+                    "columnsFull": ["screen": fullCols.screen.wv, "camera": fullCols.camera.wv],
+                    "columnsFullLeading": ["screen": fullLeading.screen.wv, "camera": fullLeading.camera.wv],
                 ]
             ))
         }
@@ -239,6 +265,12 @@ extension WebVectors {
             "chromeOpacity": r.chromeOpacity.wv,
             "cardScale": r.cardScale.wv,
             "cardTranslationX": r.cardTranslationX.wv,
+            "cardTranslationY": r.cardTranslationY.wv,
+            "cardClip": r.cardClip.wv,
+            "cardClipCornerRadius": r.cardClipCornerRadius.wv,
+            "cameraShapeRect": r.cameraShapeRect.wv,
+            "cardClipShapeRect": r.cardClipShapeRect.wv,
+            "seamJoin": r.seamJoin.wv,
             "isPlainBubble": r.isPlainBubble.wv,
         ]
     }
@@ -266,18 +298,82 @@ extension WebVectors {
                 queries.append(e + rng.pick([0.1, 0.225, 0.3, 0.449999, 0.45, 0.4500001]))
             }
             for _ in 0..<6 { queries.append(rng.edgy(-1, duration + 1, edges: [0, 0.05, 0.0501, duration])) }
+            // Vertical stack (§12.12) on a quarter of the cases, from its own
+            // stream so every other input above is unchanged.
+            var stackRng = WVRandom(seed: "cameraLayoutResolve-stack-\(i)")
+            let stack: CameraLayoutMath.StackRows? = i % 4 == 1
+                ? CameraLayoutMath.stackRows(
+                    area: stackRng.rect(origin: -40, 120, size: 50, 2000),
+                    ratio: stackRng.edgy(0, 1, edges: [0.25, 0.42, 0.7]), yAxisIsUp: stackRng.bool(),
+                    // §12.14: a joined stack (gap 0) on a third of them, drawn
+                    // after the other inputs so those streams are unchanged.
+                    gap: stackRng.bool(0.33) ? 0 : nil)
+                : nil
+            var input: WV = [
+                "regions": .arr(regions.map(styleRegionWV)),
+                "videoRect": videoRect.wv, "bubbleRect": bubbleRect.wv,
+                "bubbleCornerRadius": bubbleRadius.wv, "cardCornerRadius": cardRadius.wv,
+                "hasCamera": hasCamera.wv, "queries": queries.wv,
+            ]
+            if let stack { input = input.setting("stack", ["camera": stack.camera.wv, "screen": stack.screen.wv]) }
+            cases.append(vcase(
+                input,
+                [
+                    "results": .arr(queries.map { t in
+                        let r = CameraLayoutMath.resolve(
+                            at: t, regions: regions, videoRect: videoRect, bubbleRect: bubbleRect,
+                            bubbleCornerRadius: bubbleRadius, cardCornerRadius: cardRadius, hasCamera: hasCamera,
+                            stack: stack)
+                        return [
+                            "resolved": resolvedWV(r),
+                            "cardTransform": CameraLayoutMath.cardTransform(r, videoRect: videoRect).wv,
+                            "regionID": CameraLayoutMath.region(at: t, regions: regions).map { WV.str($0.id.uuidString) } ?? .null,
+                            "mode": .str(CameraLayoutMath.mode(at: t, regions: regions).rawValue),
+                        ]
+                    }),
+                ]
+            ))
+        }
+        // §12.13: the screen zooming inside its stacked row (a yielded
+        // camera row, a zoom and a focal) — its own stream, so every case
+        // above is unchanged.
+        var zoomRng = WVRandom(seed: "cameraLayoutResolve-stackZoom")
+        for i in 0..<300 {
+            let duration = zoomRng.edgy(1, 60, edges: [10, 30])
+            let regions = i % 5 == 0 ? [] : randomLayoutRegions(&zoomRng, duration: duration)
+            let videoRect = zoomRng.rect(origin: -50, 200, size: 50, 2000)
+            let bubbleRect = zoomRng.rect(origin: -50, 1800, size: 0, 500)
+            let cardRadius = CGFloat(zoomRng.edgy(0, 60, edges: [0, 12]))
+            let stack = CameraLayoutMath.stackRows(
+                area: zoomRng.rect(origin: -40, 120, size: 50, 2000),
+                ratio: zoomRng.edgy(0, 1, edges: [0.25, 0.42, 0.7]), yAxisIsUp: zoomRng.bool(),
+                yield: zoomRng.edgy(0.75, 1, edges: [0.75, 1], edgeP: 0.3),
+                gap: zoomRng.bool(0.3) ? 0 : zoomRng.edgy(0, 0.1, edges: [0.02, 0.08]))
+            let zoom = CameraLayoutMath.StackZoom(
+                zoom: zoomRng.edgy(0.5, 3.5, edges: [1, 1.0001, 1.25, 1.5, 2.4], edgeP: 0.3),
+                focalX: zoomRng.edgy(-0.2, 1.2, edges: [0, 0.5, 1], edgeP: 0.2),
+                focalY: zoomRng.edgy(-0.2, 1.2, edges: [0, 0.5, 1], edgeP: 0.2))
+            var queries: [Double] = []
+            for e in regions.flatMap({ [$0.startTime, $0.endTime] }).prefix(6) {
+                queries.append(e + zoomRng.double(0.0, 0.45))
+                queries.append(e + zoomRng.pick([0.1, 0.225, 0.4500001]))
+            }
+            for _ in 0..<4 { queries.append(zoomRng.edgy(-1, duration + 1, edges: [0, duration])) }
             cases.append(vcase(
                 [
                     "regions": .arr(regions.map(styleRegionWV)),
                     "videoRect": videoRect.wv, "bubbleRect": bubbleRect.wv,
-                    "bubbleCornerRadius": bubbleRadius.wv, "cardCornerRadius": cardRadius.wv,
-                    "hasCamera": hasCamera.wv, "queries": queries.wv,
+                    "bubbleCornerRadius": CGFloat(40).wv, "cardCornerRadius": cardRadius.wv,
+                    "hasCamera": true.wv, "queries": queries.wv,
+                    "stack": ["camera": stack.camera.wv, "screen": stack.screen.wv],
+                    "stackZoom": ["zoom": zoom.zoom.wv, "focalX": zoom.focalX.wv, "focalY": zoom.focalY.wv],
                 ],
                 [
                     "results": .arr(queries.map { t in
                         let r = CameraLayoutMath.resolve(
                             at: t, regions: regions, videoRect: videoRect, bubbleRect: bubbleRect,
-                            bubbleCornerRadius: bubbleRadius, cardCornerRadius: cardRadius, hasCamera: hasCamera)
+                            bubbleCornerRadius: 40, cardCornerRadius: cardRadius, hasCamera: true,
+                            stack: stack, stackZoom: zoom)
                         return [
                             "resolved": resolvedWV(r),
                             "cardTransform": CameraLayoutMath.cardTransform(r, videoRect: videoRect).wv,

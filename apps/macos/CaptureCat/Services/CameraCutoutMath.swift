@@ -13,8 +13,15 @@ import Foundation
 /// keeps the BOTTOM of B and gives up its TOP — the headroom the head rises
 /// into — in both spaces).
 enum CameraCutoutMath {
-    /// Headroom above the pop-out card, as a fraction of B's height.
+    /// Headroom above the pop-out card, as a fraction of B's height, at the
+    /// default pop-out amount (0.5).
     static let headroomFraction: CGFloat = 0.22
+    /// Headroom at pop-out amount 1 (§12.2): headroom = 0.44 × amount × B.h,
+    /// so the default 0.5 is exactly `headroomFraction`.
+    static let maxHeadroomFraction: CGFloat = 0.44
+    /// Card border ring at thickness 1, as a fraction of the card's shorter
+    /// side (§12.2).
+    static let maxBorderFraction: CGFloat = 0.08
     /// Card corner radius, as a fraction of the card's shorter side.
     static let cardCornerFraction: CGFloat = 0.16
     /// Card gradient, sRGB, top → bottom (vertical, linear in sRGB values).
@@ -41,6 +48,14 @@ enum CameraCutoutMath {
         var cardRect: CGRect?
         /// The card's corner radius (all four corners; 0 for the cutout).
         var cardCornerRadius: CGFloat
+        /// Inner border ring width (§12.2); 0 = no ring (and for the cutout).
+        var cardBorderWidth: CGFloat = 0
+    }
+
+    /// Headroom fraction for a pop-out amount (nil = 0.5 → 0.22 exactly).
+    static func headroom(forAmount amount: Double?) -> CGFloat {
+        guard let amount else { return headroomFraction }
+        return maxHeadroomFraction * CGFloat(min(1, max(0, amount)))
     }
 
     /// `aspectFill(a, B)`: the camera image scaled to cover B, centred —
@@ -57,10 +72,15 @@ enum CameraCutoutMath {
         return CGRect(x: b.minX - (w - b.width) / 2, y: b.minY - (h - b.height) / 2, width: w, height: h)
     }
 
+    /// - Parameters:
+    ///   - popOutAmount: §12.2 pop-out amount 0…1; nil = 0.5 (today's card).
+    ///   - cardBorderWidth: §12.2 border THICKNESS 0…1; nil = no ring.
     static func geometry(
         look: CameraBubbleLook,
         bubbleRect b: CGRect,
         cameraAspect: Double,
+        popOutAmount: Double? = nil,
+        cardBorderWidth: Double? = nil,
         yAxisIsUp: Bool = false
     ) -> Geometry {
         let person = aspectFill(aspect: cameraAspect, in: b)
@@ -69,7 +89,7 @@ enum CameraCutoutMath {
             return Geometry(personRect: person, clipRect: b, clipBottomCornerRadius: 0,
                             cardRect: nil, cardCornerRadius: 0)
         case .popOut:
-            let headroom = headroomFraction * b.height
+            let headroom = headroom(forAmount: popOutAmount) * b.height
             // Y-down: the TOP edge (minY) moves down. Y-up: the top is maxY,
             // so the card keeps minY and loses the headroom off its height.
             let card = CGRect(
@@ -78,8 +98,11 @@ enum CameraCutoutMath {
                 width: b.width,
                 height: b.height - headroom)
             let r = cardCornerFraction * min(card.width, card.height)
+            let w = cardBorderWidth.map {
+                CGFloat(min(1, max(0, $0))) * maxBorderFraction * min(card.width, card.height)
+            } ?? 0
             return Geometry(personRect: person, clipRect: b, clipBottomCornerRadius: r,
-                            cardRect: card, cardCornerRadius: r)
+                            cardRect: card, cardCornerRadius: r, cardBorderWidth: w)
         }
     }
 
@@ -101,6 +124,28 @@ enum CameraCutoutMath {
         return r > 0
             ? CGPath(roundedRect: card, cornerWidth: r, cornerHeight: r, transform: nil)
             : CGPath(rect: card, transform: nil)
+    }
+
+    /// The border ring's INNER rounded rect (§12.2): C inset by w, radius
+    /// max(0, r − w). nil = no ring (w ≤ 0, no card, or no inner area).
+    static func cardBorderInner(_ g: Geometry) -> (rect: CGRect, radius: CGFloat)? {
+        guard let card = g.cardRect, g.cardBorderWidth > 0 else { return nil }
+        let inner = card.insetBy(dx: g.cardBorderWidth, dy: g.cardBorderWidth)
+        guard inner.width > 0, inner.height > 0 else { return nil }
+        return (inner, max(0, g.cardCornerRadius - g.cardBorderWidth))
+    }
+
+    /// The ring as one even-odd path (outer card rounded rect + inner rounded
+    /// rect) — the preview's shape-layer mask. nil = no ring.
+    static func cardBorderRingPath(_ g: Geometry) -> CGPath? {
+        guard let outer = cardPath(g), let inner = cardBorderInner(g) else { return nil }
+        let r = min(inner.radius, min(inner.rect.width, inner.rect.height) / 2)
+        let path = CGMutablePath()
+        path.addPath(outer)
+        path.addPath(r > 0
+            ? CGPath(roundedRect: inner.rect, cornerWidth: r, cornerHeight: r, transform: nil)
+            : CGPath(rect: inner.rect, transform: nil))
+        return path
     }
 
     /// The pop-out person clip's mask rect: B extended UP by r (so the

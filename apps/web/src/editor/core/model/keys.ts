@@ -85,6 +85,24 @@ export const PROJECT_SETTINGS_KEYS = [
   "cameraOrientation",
   "cameraMirrored",
   "cameraLook",
+  // Camera styles (docs/camera-cutout.md §12.1), in contract order.
+  "cameraPopOutAmount",
+  "cameraCardFill",
+  "cameraCardGradientStart",
+  "cameraCardGradientEnd",
+  "cameraCardColor",
+  "cameraCardImagePath",
+  "cameraBackgroundBlur",
+  "cameraEdgeSoftness",
+  "cameraEdgeInset",
+  "cameraCardBorder",
+  "cameraCardBorderWidth",
+  "cameraCardBorderColor",
+  "cameraShrinkOnZoom",
+  // The vertical stack (§12.12), right after cameraShrinkOnZoom.
+  "cameraPortraitStack",
+  "cameraStackRatio",
+  "cameraStackGap",
   "cameraBrightness",
   "cameraContrast",
   "cameraSaturation",
@@ -169,6 +187,22 @@ export const PROJECT_SETTINGS_OPTIONAL_KEYS = new Set<string>([
   "cameraCustomX",
   "cameraCustomY",
   "cameraLook",
+  "cameraPopOutAmount",
+  "cameraCardFill",
+  "cameraCardGradientStart",
+  "cameraCardGradientEnd",
+  "cameraCardColor",
+  "cameraCardImagePath",
+  "cameraBackgroundBlur",
+  "cameraEdgeSoftness",
+  "cameraEdgeInset",
+  "cameraCardBorder",
+  "cameraCardBorderWidth",
+  "cameraCardBorderColor",
+  "cameraShrinkOnZoom",
+  "cameraPortraitStack",
+  "cameraStackRatio",
+  "cameraStackGap",
   "cameraBorderColor",
   "cameraTagFontName",
   "watermarkFileName",
@@ -237,7 +271,7 @@ export const FOCUS_REGION_KEYS = [
   "rectH",
 ] as const;
 
-export const CAMERA_LAYOUT_REGION_KEYS = ["id", "startTime", "endTime", "mode", "look"] as const;
+export const CAMERA_LAYOUT_REGION_KEYS = ["id", "startTime", "endTime", "mode", "look", "cameraSide", "splitStyle"] as const;
 
 export const ANNOTATION_KEYS = [
   "id",

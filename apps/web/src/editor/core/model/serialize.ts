@@ -223,8 +223,10 @@ class Encoder {
         startTime: this.num(r.startTime, `${path}.startTime`),
         endTime: this.num(r.endTime, `${path}.endTime`),
         mode: r.mode,
-        // Encoded only when set (docs/camera-cutout.md §1).
+        // Encoded only when set (docs/camera-cutout.md §1, §12.1, §12.11).
         ...(r.look !== undefined ? { look: r.look } : {}),
+        ...(r.cameraSide !== undefined ? { cameraSide: r.cameraSide } : {}),
+        ...(r.splitStyle !== undefined ? { splitStyle: r.splitStyle } : {}),
       },
       r.$extra,
     );

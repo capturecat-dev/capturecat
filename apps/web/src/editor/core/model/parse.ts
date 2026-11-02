@@ -21,12 +21,16 @@ import {
   AspectRatio,
   BackgroundType,
   BlurStyle,
+  CameraCardBorder,
+  CameraCardFill,
   CameraFilterStyle,
   CameraLayoutMode,
   CameraLook,
   CameraOrientation,
   CameraPosition,
   CameraShape,
+  CameraSide,
+  CameraSplitStyle,
   CameraTagPosition,
   ClickSoundStyle,
   CurtainUnveilCorner,
@@ -140,6 +144,10 @@ const eZoomStyle = e(ZoomAnimationStyle);
 const eBlurStyle = e(BlurStyle);
 const eFocusStyle = e(FocusRegionStyle);
 const eCameraLook = e(CameraLook);
+const eCameraCardFill = e(CameraCardFill);
+const eCameraCardBorder = e(CameraCardBorder);
+const eCameraSide = e(CameraSide);
+const eCameraSplitStyle = e(CameraSplitStyle);
 const eAnnotationType = e(AnnotationType);
 const eAnnotationEffect = e(AnnotationEffect);
 const eSourceKind = e(RecordingSourceKind);
@@ -261,6 +269,26 @@ export const decodeProjectSettings: Decode<ProjectSettings> = (v, path) => {
     cameraMirrored: c.decodeIfPresent("cameraMirrored", dBool) ?? false,
     // Lenient like a region's look: missing, null, unknown or mistyped → absent.
     cameraLook: c.tryDecodeIfPresent("cameraLook", eCameraLook),
+    // Camera styles (docs/camera-cutout.md §12.1): missing, null, unknown,
+    // mistyped or non-finite → absent, never a failed decode. Stored as
+    // given — clamped where used (core/math/cameraCardStyle.ts).
+    cameraPopOutAmount: c.tryDecodeIfPresent("cameraPopOutAmount", dDouble),
+    cameraCardFill: c.tryDecodeIfPresent("cameraCardFill", eCameraCardFill),
+    cameraCardGradientStart: c.tryDecodeIfPresent("cameraCardGradientStart", color),
+    cameraCardGradientEnd: c.tryDecodeIfPresent("cameraCardGradientEnd", color),
+    cameraCardColor: c.tryDecodeIfPresent("cameraCardColor", color),
+    cameraCardImagePath: c.tryDecodeIfPresent("cameraCardImagePath", dString),
+    cameraBackgroundBlur: c.tryDecodeIfPresent("cameraBackgroundBlur", dDouble),
+    cameraEdgeSoftness: c.tryDecodeIfPresent("cameraEdgeSoftness", dDouble),
+    cameraEdgeInset: c.tryDecodeIfPresent("cameraEdgeInset", dDouble),
+    cameraCardBorder: c.tryDecodeIfPresent("cameraCardBorder", eCameraCardBorder),
+    cameraCardBorderWidth: c.tryDecodeIfPresent("cameraCardBorderWidth", dDouble),
+    cameraCardBorderColor: c.tryDecodeIfPresent("cameraCardBorderColor", color),
+    cameraShrinkOnZoom: c.tryDecodeIfPresent("cameraShrinkOnZoom", dBool),
+    // The vertical stack (§12.12): same lenient rules.
+    cameraPortraitStack: c.tryDecodeIfPresent("cameraPortraitStack", dBool),
+    cameraStackRatio: c.tryDecodeIfPresent("cameraStackRatio", dDouble),
+    cameraStackGap: c.tryDecodeIfPresent("cameraStackGap", dDouble),
     cameraBrightness: c.decodeIfPresent("cameraBrightness", dDouble) ?? 0,
     cameraContrast: c.decodeIfPresent("cameraContrast", dDouble) ?? 1,
     cameraSaturation: c.decodeIfPresent("cameraSaturation", dDouble) ?? 1,
@@ -448,9 +476,9 @@ function decodeLayoutMode(c: Keyed): CameraLayoutMode {
 }
 
 /** Models/CameraLayoutRegion.swift — every field optional; a missing id gets
- * a FRESH random UUID (as Swift's `?? UUID()` does). `look` is lenient
- * (`try?` — missing, null, unknown or mistyped → absent) and stays absent
- * unless set, so untouched projects re-encode byte-identically. */
+ * a FRESH random UUID (as Swift's `?? UUID()` does). `look`, `cameraSide` and
+ * `splitStyle` are lenient (`try?` — missing, null, unknown or mistyped → absent) and stay
+ * absent unless set, so untouched projects re-encode byte-identically. */
 export const decodeCameraLayoutRegion: Decode<CameraLayoutRegion> = (v, path) => {
   const c = new Keyed(v, path, CAMERA_LAYOUT_REGION_KEYS);
   const region: CameraLayoutRegion = {
@@ -461,6 +489,12 @@ export const decodeCameraLayoutRegion: Decode<CameraLayoutRegion> = (v, path) =>
   };
   const look = c.tryDecodeIfPresent("look", eCameraLook);
   if (look !== undefined) region.look = look;
+  // docs/camera-cutout.md §12.1: "leading" | "trailing" round-trip; anything else → absent (trailing).
+  const side = c.tryDecodeIfPresent("cameraSide", eCameraSide);
+  if (side !== undefined) region.cameraSide = side;
+  // §12.11: "tiles" | "full" round-trip; anything else → absent (tiles).
+  const split = c.tryDecodeIfPresent("splitStyle", eCameraSplitStyle);
+  if (split !== undefined) region.splitStyle = split;
   return withExtra(region, c.extra());
 };
 

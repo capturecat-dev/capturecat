@@ -26,11 +26,15 @@ import type {
   BackgroundType,
   BlurStyle,
   CameraFilterStyle,
+  CameraCardBorder,
+  CameraCardFill,
   CameraLayoutMode,
   CameraLook,
   CameraOrientation,
   CameraPosition,
   CameraShape,
+  CameraSide,
+  CameraSplitStyle,
   CameraTagPosition,
   ClickSoundStyle,
   CurtainUnveilCorner,
@@ -185,6 +189,37 @@ export interface ProjectSettings extends HasExtra {
   /** The Camera pane's whole-video look (docs/camera-cutout.md §1a): absent =
    *  the plain bubble. Decoded leniently; written only when set. */
   cameraLook?: CameraLook;
+  // Camera styles (docs/camera-cutout.md §12.1): every key optional, decoded
+  // leniently, written only when set; numbers clamped where USED
+  // (core/math/cameraCardStyle.ts), never at decode.
+  /** Pop-out headroom 0…1 (absent = 0.5 → today's 22 % of B). */
+  cameraPopOutAmount?: number;
+  /** What fills the pop-out card (absent = gradient). */
+  cameraCardFill?: CameraCardFill;
+  cameraCardGradientStart?: CodableColor;
+  cameraCardGradientEnd?: CodableColor;
+  cameraCardColor?: CodableColor;
+  /** The `image` fill's file — a path, exactly like backgroundImagePath. */
+  cameraCardImagePath?: string;
+  /** Portrait blur of the `camera` fill, 0…1. */
+  cameraBackgroundBlur?: number;
+  /** Person-edge feather / erosion for both looks, 0…1 (core/mask/maskEdge.ts). */
+  cameraEdgeSoftness?: number;
+  cameraEdgeInset?: number;
+  /** The pop-out card's inner border ring (absent = none). */
+  cameraCardBorder?: CameraCardBorder;
+  cameraCardBorderWidth?: number;
+  cameraCardBorderColor?: CodableColor;
+  /** false = the bubble keeps its base size while zoomed (absent = true). */
+  cameraShrinkOnZoom?: boolean;
+  /** The vertical stack (§12.12): camera row on top, screen below, in a
+   *  portrait output (absent = false). */
+  cameraPortraitStack?: boolean;
+  /** The stack's camera-row share, clamped 0.25…0.7 at use (absent = 0.42). */
+  cameraStackRatio?: number;
+  /** The gap between the stack's rows, a share of its height, clamped 0…0.08
+   *  at use (absent = 0.02); 0 joins the rows into one card (§12.14). */
+  cameraStackGap?: number;
   cameraBrightness: number;
   cameraContrast: number;
   cameraSaturation: number;
@@ -331,6 +366,12 @@ export interface CameraLayoutRegion extends HasExtra {
   /** Cutout / pop-out card (docs/camera-cutout.md §1) — only while `mode` is
    *  "bubble"; absent = the plain bubble. Encoded only when set. */
   look?: CameraLook;
+  /** Side by Side only (§12.6): the camera tile's side; absent = trailing.
+   *  Kept but ignored on any other mode. Encoded only when set. */
+  cameraSide?: CameraSide;
+  /** Side by Side only (§12.11): tiles (absent) or the full-height split.
+   *  Kept but ignored on any other mode. Encoded only when set. */
+  splitStyle?: CameraSplitStyle;
 }
 
 /** Annotation.swift (custom decoder, synthesized encoder). */

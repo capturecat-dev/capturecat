@@ -489,6 +489,41 @@ fn cropCoverage(s: vec2f, dims: vec2f) -> f32 {
 `;
 
 /**
+ * The camera-layout squeeze resample WITH the full-height split clip
+ * (docs/camera-cutout.md §12.11): `layerComposeWGSL`'s resample, then the
+ * exporter's `CIBlendWithMask` through `CIRoundedRectangleGenerator(cardClip,
+ * radius).cropped(to: cardClip)` — generator AA coverage × one area-coverage
+ * crop. Used only while a clip exists, so every other frame keeps the plain
+ * resample pipeline (byte-identical).
+ */
+export const layerComposeClippedWGSL = /* wgsl */ `
+${common}
+${bilinearClear}
+struct LayerU { inv0: vec4f, inv1: vec4f, inv2: vec4f, clip0: vec4f, clip1: vec4f, clip2: vec4f, clipDims: vec4f, card: vec4f, cardP: vec4f, shape: vec4f };
+@group(0) @binding(0) var<uniform> u: LayerU;
+@group(0) @binding(1) var layer: texture_2d<f32>;
+
+fn boxCov1(q: vec2f, r: vec4f) -> f32 {
+  let x = clamp(min(q.x + 0.5, r.x + r.z) - max(q.x - 0.5, r.x), 0.0, 1.0);
+  let y = clamp(min(q.y + 0.5, r.y + r.w) - max(q.y - 0.5, r.y), 0.0, 1.0);
+  return x * y;
+}
+
+@fragment fn fs_main(in: VSOut) -> @location(0) vec4f {
+  // The generator runs over \`shape\` (the clip, or a joined stack's row run
+  // past the seam, §12.14), cropped to the clip.
+  let cov = clamp(0.5 - sdRoundRect(in.pos.xy, u.shape, u.cardP.x), 0.0, 1.0) * boxCov1(in.pos.xy, u.card);
+  if (cov <= 0.0) { return vec4f(0.0); }
+  let p = vec3f(in.pos.xy, 1.0);
+  let h = vec3f(dot(u.inv0.xyz, p), dot(u.inv1.xyz, p), dot(u.inv2.xyz, p));
+  if (h.z <= 0.0) { return vec4f(0.0); }
+  let c = bilinearClear(layer, h.xy / h.z);
+  let a = u.clipDims.w;
+  return vec4f(c.rgb * (a * a), c.a * a) * cov;
+}
+`;
+
+/**
  * Card motion blur — the CIMotionBlur twin (measured on macOS by impulse
  * response): a 1D Gaussian along the motion with σ = inputRadius px, input
  * clamped to its extent, total weight scaled by CI's `gain` (1 / 0.9934 /

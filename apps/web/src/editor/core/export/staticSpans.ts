@@ -106,6 +106,8 @@ export interface CameraLayoutKeyInput {
   chromeOpacity: number;
   cardScale: number;
   cardTranslationX: number;
+  /** The vertical stack's Y translation (docs/camera-cutout.md §12.12); absent = 0. */
+  cardTranslationY?: number;
 }
 
 /** `CameraLayoutMath.lookWeights` (docs/camera-cutout.md §4) — absent = no look. */
@@ -116,7 +118,8 @@ export interface CameraLookKeyInput {
 
 /**
  * `StaticSpanCollapse.cameraLayoutKey` — `String(format: "%.0f,%.0f,%.0f,%.0f,
- * %.3f,%.3f,%.4f,%.1f,%.3f,%.3f", rect?.minX ?? -1, …, cutout, popOut)`. On
+ * %.3f,%.3f,%.4f,%.1f,%.1f,%.3f,%.3f", rect?.minX ?? -1, …, cardTranslationX,
+ * cardTranslationY, cutout, popOut)` (cardTranslationY: §12.12). On
  * the Mac a nil rect formats as "nan" (the `?? -1` CGFloat does not survive
  * the variadic), which the golden vectors record — ported as observed. The
  * two look weights (docs/camera-cutout.md §11) end every key, so a span with
@@ -133,6 +136,7 @@ export function cameraLayoutKey(l: CameraLayoutKeyInput, weights: CameraLookKeyI
     formatFixed(l.chromeOpacity, 3),
     formatFixed(l.cardScale, 4),
     formatFixed(l.cardTranslationX, 1),
+    formatFixed(l.cardTranslationY ?? 0, 1),
     formatFixed(weights.cutout, 3),
     formatFixed(weights.popOut, 3),
   ].join(",");

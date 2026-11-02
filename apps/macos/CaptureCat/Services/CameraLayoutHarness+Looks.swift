@@ -16,6 +16,7 @@ extension CameraLayoutHarness {
         dissolveChecks(expect: expect)
         codecChecks(expect: expect)
         maskPixelChecks(expect: expect)
+        cameraStyleChecks(expect: expect)
     }
 
     // MARK: - Model
@@ -217,8 +218,8 @@ extension CameraLayoutHarness {
         // Static-span key (§11): two fields appended, %.3f.
         let plainKey = StaticSpanCollapse.cameraLayoutKey(layout)
         let lookKey = StaticSpanCollapse.cameraLayoutKey(layout, looks: .init(cutout: 0.5, popOut: 0.25))
-        expect(plainKey.hasSuffix(",0.000,0.000") && plainKey.split(separator: ",").count == 10,
-               "span key without a look ends in ,0.000,0.000 (10 fields)")
+        expect(plainKey.hasSuffix(",0.000,0.000") && plainKey.split(separator: ",").count == 11,
+               "span key without a look ends in ,0.000,0.000 (11 fields, cardTranslationY since §12.12)")
         expect(lookKey.hasSuffix(",0.500,0.250") && lookKey != plainKey, "a fading look changes the span key")
     }
 

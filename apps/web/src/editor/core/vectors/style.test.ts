@@ -98,10 +98,17 @@ describe("style golden vectors", () => {
       ease: CLM.ease(i.t),
       bubbleApproxCornerRadius: CLM.bubbleApproxCornerRadius(i.shape, i.customRadius, i.size),
       columns: CLM.columns(i.videoRect),
+      // §12.6 / §12.10: the camera-on-the-left split.
+      columnsLeading: CLM.columns(i.videoRect, "leading"),
+      // §12.11: the full-height split, both sides.
+      columnsFull: CLM.columns(i.videoRect, "trailing", "full"),
+      columnsFullLeading: CLM.columns(i.videoRect, "leading", "full"),
     }));
   });
 
   it("cameraLayoutResolve", () => {
+    // Regions as project.json; §12.10 sets carry cameraSide (adjacent leading/trailing morph),
+    // §12.11 sets splitStyle — `resolved` then carries cardClip / cardClipCornerRadius.
     checkUnit("cameraLayoutResolve", (i) => ({
       results: i.queries.map((t: number) => {
         const r = CLM.resolve(
@@ -112,6 +119,10 @@ describe("style golden vectors", () => {
           i.bubbleCornerRadius,
           i.cardCornerRadius,
           i.hasCamera,
+          // §12.12: the vertical stack's rows (caller space) when the case is stacked.
+          i.stack ?? null,
+          // §12.13: the screen's zoom inside its stacked row.
+          i.stackZoom ?? undefined,
         );
         return {
           resolved: r,
@@ -121,6 +132,19 @@ describe("style golden vectors", () => {
         };
       }),
     }));
+  });
+
+  it("cameraStackRows", () => {
+    // §12.12: camera row on top, screen row below, in either Y convention.
+    // §12.13 yield and §12.14 stored gap (both optional inputs).
+    checkUnit("cameraStackRows", (i) => CLM.stackRows(i.area, i.ratio, i.yAxisIsUp, i.yield ?? 1, i.gap ?? null));
+  });
+
+  it("cameraStackZoom", () => {
+    // §12.13: the camera row's yield; the zoom left to the card stage while the stack is on.
+    checkUnit("cameraStackZoom", (i) =>
+      i.kind === "yield" ? { yield: CLM.stackYield(i.zoom) } : { zoom: CLM.outerZoom(i.zoom, i.stacking) },
+    );
   });
 
   it("cameraLayoutBoundaries", () => {

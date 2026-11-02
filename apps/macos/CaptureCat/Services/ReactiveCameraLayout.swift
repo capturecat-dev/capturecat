@@ -16,9 +16,22 @@ enum ReactiveCameraLayout {
         return t * t * (3 - 2 * t)
     }
 
+    /// The zoom every `cameraRect` caller hands in (docs/camera-cutout.md
+    /// §12.5): Shrink during zoom off keeps the bubble at its base size.
+    static func layoutZoom(_ zoom: Double, shrinkOnZoom: Bool) -> Double {
+        shrinkOnZoom ? zoom : 1
+    }
+
     /// Camera size at full envelope, expressed as a fraction of base size.
     /// 0.75 = noticeable shrink without the bubble disappearing.
     static let minSizeFactor: Double = 0.75
+
+    /// The camera's size at `zoom` as a fraction of its base: 1 at rest,
+    /// `minSizeFactor` once the zoom passes 1.5×. The bubble and the vertical
+    /// stack's camera row (§12.13) both shrink by it.
+    static func sizeFactor(forZoom zoom: Double) -> Double {
+        1.0 - (1.0 - minSizeFactor) * envelope(forZoom: zoom)
+    }
 
     /// The rect aspect a camera SHAPE permits: circle and square are always
     /// 1:1 — the video aspect-fills the bubble — while the rounded-rect AND
@@ -118,9 +131,7 @@ enum ReactiveCameraLayout {
         aspect: Double = 1,
         yAxisIsUp: Bool
     ) -> CGRect {
-        let env = envelope(forZoom: zoom)
-        let sizeFactor = 1.0 - (1.0 - minSizeFactor) * env
-        let size = bubbleSize(baseSize: baseSize * sizeFactor, aspect: aspect)
+        let size = bubbleSize(baseSize: baseSize * sizeFactor(forZoom: zoom), aspect: aspect)
 
         // Free placement interpolates the origin across the padded usable
         // area; the legacy corners are exactly f = 0/1. `customPosition` is

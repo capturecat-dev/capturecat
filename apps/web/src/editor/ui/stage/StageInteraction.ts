@@ -23,10 +23,14 @@
  * inside a zoom block), placement (card drag) and overlay — the Mac's
  * `.camera` / `.subtitle` / `.watermark` drags, hit-tested against the rects
  * the engine reports it DREW (FrameInfo.hits, engine/stageHits.ts) with the
- * fraction math + magnetism in ./overlayDrag.ts.
+ * fraction math + magnetism in ./overlayDrag.ts — and stackSeam, the
+ * vertical stack's camera-height notch (docs/camera-cutout.md §12.12):
+ * hovering the seam between the rows shows it; dragging writes
+ * cameraStackRatio (one undo step per drag).
  */
 import type { BlurStyle, Project, Rect } from "../../core/model";
 import { highlightCornerRadiusFor, highlightRegionRectInViewSpace, focusRegionRectInViewSpace } from "../../core/math/regionGeometry";
+import { stackRatio } from "../../core/math/cameraLayoutMath";
 import { clampCardOffset } from "../../core/math/zoomFocalMath";
 import * as Placement from "../../core/math/placementMath";
 import type { EngineClient } from "../../engine/client";
@@ -37,7 +41,7 @@ import { assignAll } from "../../state/selection";
 import type { EditorStore } from "../../state/store";
 import type { StageViewport } from "../shell/types";
 import { annotationCssFont, annotationLabelRect, measureLine } from "./annotationLabel";
-import { drawAnnotationChrome, drawFocalReticle, drawMarquee, drawRegionChrome, readChromeTheme, type ChromeFrame } from "./stageChrome";
+import { drawAnnotationChrome, drawFocalReticle, drawMarquee, drawRegionChrome, drawStackNotch, readChromeTheme, type ChromeFrame } from "./stageChrome";
 import {
   CARD_DRAG_THRESHOLD,
   adjustRegionRect,
@@ -145,7 +149,12 @@ type DragMode =
   | { kind: "placement"; moved: boolean; grab: Pt }
   | { kind: "blockOffset"; id: string; initial: Pt; moved: boolean }
   /** `.camera` / `.watermark` / `.subtitle`: `initial` = the fraction at mousedown. */
-  | { kind: "overlay"; overlay: OverlayKind; initial: Pt };
+  | { kind: "overlay"; overlay: OverlayKind; initial: Pt }
+  /** The vertical stack's seam: `initial` = the clamped ratio at mousedown, `startY` card px. */
+  | { kind: "stackSeam"; initial: number; startY: number };
+
+/** Vertical hit slop of the stack seam, in points each side (the gap is thin). */
+const STACK_SEAM_SLOP = 6;
 
 type SelectionStep = Parameters<typeof assignAll>[1];
 
@@ -191,6 +200,8 @@ class StageInteractionSurface implements StageInteraction {
   private readonly listeners = new Set<() => void>();
   /** The pointer is over a draggable overlay while idle (hover cursor). */
   private hoverOverlay = false;
+  /** The pointer is over the vertical stack's seam while idle (the notch shows). */
+  private hoverSeam = false;
 
   constructor(
     readonly host: HTMLElement,
@@ -451,6 +462,14 @@ class StageInteractionSurface implements StageInteraction {
       }
     }
 
+    // 1-pre — the vertical stack's seam (§12.12): drag the camera height.
+    if (this.seamAt(cp, g.u)) {
+      this.mode = { kind: "stackSeam", initial: stackRatio(project.settings.cameraStackRatio), startY: cp.y };
+      this.updateCursor();
+      this.schedule();
+      return;
+    }
+
     // 1 — canvas-level chrome, topmost first (watermark > camera > subtitle),
     // against the rects the engine drew this frame.
     const overlay = overlayHitTest(this.frame?.hits, p, cp, g.u);
@@ -591,6 +610,15 @@ class StageInteractionSurface implements StageInteraction {
       case "blurDraw":
         this.schedule();
         return;
+      case "stackSeam": {
+        // dy card px of the seam = dy of the camera row = dy ÷ (the rows' heights) of the ratio.
+        const hit = this.frame.hits?.stackSeam;
+        if (!hit || !(hit.usable.height > 0)) return;
+        const ratio = stackRatio(mode.initial + (this.cardPoint(p).y - mode.startY) / hit.usable.height);
+        if (ratio !== this.project()?.settings.cameraStackRatio) this.write("Camera Height", (d) => void (d.settings.cameraStackRatio = ratio));
+        this.schedule();
+        return;
+      }
       case "overlay": {
         // The live rect (the Mac reads ctx.<x>Rect per drag event; none → no write).
         const hit = this.frame.hits?.[mode.overlay];
@@ -807,22 +835,36 @@ class StageInteractionSurface implements StageInteraction {
     const m = this.mode;
     const grabbing = ((m.kind === "placement" || m.kind === "blockOffset") && m.moved) || m.kind === "overlay";
     const grab = m.kind === "idle" && this.hoverOverlay;
-    this.overlay.style.cursor = this.armedStyle != null ? "crosshair" : grabbing ? "grabbing" : grab ? "grab" : "";
+    const seam = m.kind === "stackSeam" || (m.kind === "idle" && this.hoverSeam);
+    this.overlay.style.cursor = this.armedStyle != null ? "crosshair" : seam ? "row-resize" : grabbing ? "grabbing" : grab ? "grab" : "";
   }
 
-  /** Idle pointer over the camera bubble / subtitle / watermark → an open hand (they drag). */
+  /** The vertical stack's seam under a card point (the gap, ± a few points). */
+  private seamAt(cp: Pt, u: number): boolean {
+    const hit = this.frame?.hits?.stackSeam;
+    if (!hit || this.armedStyle != null || this.deps.store.getState().preview) return false;
+    return rectContains(insetRect(hit.rect, 0, -STACK_SEAM_SLOP * u), cp);
+  }
+
+  /** Idle pointer over the camera bubble / subtitle / watermark → an open hand
+   *  (they drag); over the stack seam → the height notch. */
   private updateHover(e: PointerEvent): void {
     const f = this.frame;
     const g = this.geometry();
     if (!f || !g || !f.hits) return this.setHover(false);
     const p = this.canvasPoint(e);
-    this.setHover(overlayHitTest(f.hits, p, this.cardPoint(p), g.u) !== null);
+    const cp = this.cardPoint(p);
+    const seam = this.seamAt(cp, g.u);
+    this.setHover(!seam && overlayHitTest(f.hits, p, cp, g.u) !== null, seam);
   }
 
-  private setHover(on: boolean): void {
-    if (this.hoverOverlay === on) return;
+  private setHover(on: boolean, seam = false): void {
+    if (this.hoverOverlay === on && this.hoverSeam === seam) return;
+    const seamChanged = this.hoverSeam !== seam;
     this.hoverOverlay = on;
+    this.hoverSeam = seam;
     this.updateCursor();
+    if (seamChanged) this.schedule();
   }
 
   // ── Chrome ───────────────────────────────────────────────────────────────
@@ -927,6 +969,13 @@ class StageInteractionSurface implements StageInteraction {
 
     if (this.mode.kind === "blurDraw") {
       drawMarquee(ctx, this.downCanvas, this.currentCanvas, g.u);
+      drew = true;
+    }
+
+    // The vertical stack's height notch (hovered or dragged seam).
+    const seam = f.hits?.stackSeam;
+    if (seam && (this.mode.kind === "stackSeam" || (this.mode.kind === "idle" && this.hoverSeam))) {
+      drawStackNotch(ctx, cf, seam.rect, this.mode.kind === "stackSeam");
       drew = true;
     }
     this.drewChrome = drew;

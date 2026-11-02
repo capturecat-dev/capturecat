@@ -778,7 +778,16 @@ final class EditorToolbarController: NSObject {
         aspectSelect.minTriggerWidth = 84
         aspectSelect.options = ratios.map { .init(title: $0.rawValue, subtitle: $0.platformHint) }
         aspectSelect.onSelect = { [weak project] index in
-            project?.settings.aspectRatio = ratios[index]
+            guard let project else { return }
+            let ratio = ratios[index]
+            project.settings.aspectRatio = ratio
+            // Vertical stack (docs/camera-cutout.md §12.12): moving a camera
+            // project to a portrait frame puts the camera on top — once; a
+            // choice the user already made (on or off) is kept.
+            if (ratio == .vertical || ratio == .tallVertical),
+               project.cameraVideoURL != nil, project.settings.cameraPortraitStack == nil {
+                project.settings.cameraPortraitStack = true
+            }
         }
         aspectObservation = SurfaceObservation { [weak self, weak project] in
             guard let self, let project else { return }

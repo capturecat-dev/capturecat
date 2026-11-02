@@ -218,7 +218,8 @@ export class ProjectMedia {
     this.emit();
   }
 
-  /** A reference to a file this project already holds with exactly these bytes, as a backgroundImagePath. */
+  /** A reference to a file this project already holds with exactly these bytes, as a backgroundImagePath
+   *  (or a cameraCardImagePath — the same kind of path, docs/camera-cutout.md §12.9). */
   backgroundRefForSha(sha256: string): string | undefined {
     const known = this.knownRefs.get(sha256);
     if (known) return known;
@@ -515,6 +516,7 @@ export class ProjectMedia {
       const s = project.settings;
       const refs = [
         s.backgroundImagePath,
+        s.cameraCardImagePath,
         s.watermarkFileName,
         s.curtainLogoFileName,
         ...project.voiceOverClips.map((c) => c.fileName),

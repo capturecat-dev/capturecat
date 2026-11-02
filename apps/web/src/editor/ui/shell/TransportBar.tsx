@@ -81,6 +81,8 @@ function effectsGroups(project: ShellProjectInfo): PickerGroup<EffectsPick>[] {
       rows: [
         { id: "cameraFull", icon: "person.crop.rectangle", title: "Full Screen", detail: "The webcam fills the card — a talking head" },
         { id: "cameraSideBySide", icon: "rectangle.split.2x1", title: "Side by Side", detail: "The screen shrinks left; the webcam fills the right" },
+        // docs/camera-cutout.md §12.11: a Side by Side block with the full-height split.
+        { id: "cameraSplitScreen", icon: "sidebar.right", title: "Split Screen", detail: "Screen and webcam in two full-height columns" },
         { id: "cameraCutout", icon: "person.and.background.dotted", title: "Cutout", detail: "The webcam with its background removed, over the screen" },
         { id: "cameraPopOut", icon: "person-popout", title: "Pop-out card", detail: "A cut-out webcam on a card — the head breaks out the top" },
         { id: "cameraHide", icon: "person.crop.rectangle.badge.xmark", title: "Hide Camera", detail: "No webcam for a span — the screen only" },

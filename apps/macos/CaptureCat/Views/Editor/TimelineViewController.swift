@@ -677,6 +677,13 @@ final class TimelineViewController: NSViewController {
             .init(icon: "rectangle.split.2x1", title: "Side by Side",
                   detail: "Screen shrinks left, webcam fills the right",
                   isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .sideBySide) },
+            .init(icon: "rectangle.split.2x1", title: "Side by Side, Camera Left",
+                  detail: "Webcam on the left, screen shrinks right",
+                  isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .sideBySide, side: .leading) },
+            .init(icon: Self.symbol("rectangle.lefthalf.inset.filled", fallback: "rectangle.split.2x1.fill"),
+                  title: CameraSplitStyle.full.displayName,
+                  detail: "Two full-height columns — screen fills the left, webcam the right",
+                  isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .sideBySide, split: .full) },
             .init(icon: Self.symbol("person.and.background.dotted", fallback: "person.fill"),
                   title: CameraBubbleLook.cutout.displayName,
                   detail: "Background removed — you, right over the screen",
@@ -1347,7 +1354,8 @@ final class TimelineViewController: NSViewController {
                     isHighlight: false,
                     startTime: map.outputTime(forSource: region.startTime),
                     endTime: map.outputTime(forSource: region.endTime),
-                    label: "Camera: \(region.effectiveLook?.displayName ?? region.mode.displayName)",
+                    label: "Camera: \(region.effectiveLook?.displayName ?? (region.mode == .sideBySide ? region.effectiveSplitStyle.displayName : region.mode.displayName))"
+                        + (region.mode == .sideBySide && region.effectiveSide == .leading ? " (Left)" : ""),
                     isSelected: selectedCameraLayoutID == region.id
                 )
             }
@@ -1584,6 +1592,7 @@ final class TimelineViewController: NSViewController {
                     deleteBlurRegion(id: id)
                 }
             },
+            focusMenuExtras: { [self] id in cameraLayoutMenuEntries(id: id) },
             addBlurAt: { [self] time in addBlurRegion(at: map.sourceTime(forOutput: time)) },
             addHighlightAt: { [self] time in addHighlightRegion(at: map.sourceTime(forOutput: time)) },
             selectAnnotation: { [self] id in
@@ -1974,7 +1983,9 @@ final class TimelineViewController: NSViewController {
         CCIcon.has(name) ? name : fallback
     }
 
-    private func addCameraLayoutRegion(mode: CameraLayoutMode, look: CameraBubbleLook? = nil) {
+    private func addCameraLayoutRegion(
+        mode: CameraLayoutMode, look: CameraBubbleLook? = nil, side: CameraSide? = nil, split: CameraSplitStyle? = nil
+    ) {
         // Playhead near the start = "this is my intro": snap to 0 so the
         // video OPENS on the arrangement (CameraLayoutMath renders a block
         // at t=0 settled from frame one, no ease-in from the bubble).
@@ -1992,7 +2003,8 @@ final class TimelineViewController: NSViewController {
         )
         guard start < end else { NSSound.beep(); return } // lane full
 
-        let region = CameraLayoutRegion(startTime: start, endTime: end, mode: mode, look: look)
+        let region = CameraLayoutRegion(startTime: start, endTime: end, mode: mode, look: look,
+                                        cameraSide: side, splitStyle: split)
         project.cameraLayoutRegions.append(region)
         selectedCameraLayoutID = region.id
         // A look needs the person mask — start segmenting now rather than on
@@ -2002,7 +2014,82 @@ final class TimelineViewController: NSViewController {
         undoManager?.registerUndo(withTarget: project) { project in
             project.cameraLayoutRegions.removeAll { $0.id == region.id }
         }
-        undoManager?.setActionName(look.map { "Add \($0.displayName)" } ?? "Add Camera Layout")
+        undoManager?.setActionName(look.map { "Add \($0.displayName)" }
+            ?? split.map { "Add \($0.displayName)" } ?? "Add Camera Layout")
+    }
+
+    /// In-app clipboard for Copy / Paste Layout (docs/camera-cutout.md
+    /// §12.7): a block's mode, look and camera side — never its times or id.
+    private static var copiedCameraLayout: (
+        mode: CameraLayoutMode, look: CameraBubbleLook?, side: CameraSide?, split: CameraSplitStyle?
+    )?
+
+    /// Context-menu rows for a camera-layout block: the Side by Side camera
+    /// side, then Copy / Paste Layout. Other FOCUS blocks get none.
+    private func cameraLayoutMenuEntries(id: UUID) -> [TimelineMenuEntry] {
+        guard let region = project.cameraLayoutRegions.first(where: { $0.id == id }) else { return [] }
+        var entries: [TimelineMenuEntry] = []
+        if region.mode == .sideBySide {
+            for side in CameraSide.allCases {
+                entries.append(TimelineMenuEntry(
+                    title: side.displayName, checked: region.effectiveSide == side,
+                    action: { [weak self] in self?.setCameraSide(side, regionID: id) }))
+            }
+            entries.append(.separator)
+            for split in [CameraSplitStyle.full, .tiles] {
+                entries.append(TimelineMenuEntry(
+                    title: split == .full ? "Full Height" : "Tiles", checked: region.effectiveSplitStyle == split,
+                    action: { [weak self] in self?.setSplitStyle(split, regionID: id) }))
+            }
+            entries.append(.separator)
+        }
+        entries.append(TimelineMenuEntry(title: "Copy Layout", action: {
+            Self.copiedCameraLayout = (region.mode, region.look, region.cameraSide, region.splitStyle)
+        }))
+        entries.append(TimelineMenuEntry(
+            title: "Paste Layout", isEnabled: Self.copiedCameraLayout != nil,
+            action: { [weak self] in self?.pasteCameraLayout(regionID: id) }))
+        return entries
+    }
+
+    private func setCameraSide(_ side: CameraSide, regionID: UUID) {
+        guard let index = project.cameraLayoutRegions.firstIndex(where: { $0.id == regionID }) else { return }
+        let before = project.cameraLayoutRegions[index]
+        // Trailing is the default: stored as nil so the block stays as written.
+        project.cameraLayoutRegions[index].cameraSide = side == .trailing ? nil : side
+        undoManager?.registerUndo(withTarget: project) { project in
+            guard let i = project.cameraLayoutRegions.firstIndex(where: { $0.id == regionID }) else { return }
+            project.cameraLayoutRegions[i] = before
+        }
+        undoManager?.setActionName(side.displayName)
+    }
+
+    private func setSplitStyle(_ split: CameraSplitStyle, regionID: UUID) {
+        guard let index = project.cameraLayoutRegions.firstIndex(where: { $0.id == regionID }) else { return }
+        let before = project.cameraLayoutRegions[index]
+        // Tiles is the default: stored as nil so the block stays as written.
+        project.cameraLayoutRegions[index].splitStyle = split == .tiles ? nil : split
+        undoManager?.registerUndo(withTarget: project) { project in
+            guard let i = project.cameraLayoutRegions.firstIndex(where: { $0.id == regionID }) else { return }
+            project.cameraLayoutRegions[i] = before
+        }
+        undoManager?.setActionName(split == .full ? "Full Height" : "Tiles")
+    }
+
+    private func pasteCameraLayout(regionID: UUID) {
+        guard let copied = Self.copiedCameraLayout,
+              let index = project.cameraLayoutRegions.firstIndex(where: { $0.id == regionID }) else { return }
+        let before = project.cameraLayoutRegions[index]
+        project.cameraLayoutRegions[index].mode = copied.mode
+        project.cameraLayoutRegions[index].look = copied.look
+        project.cameraLayoutRegions[index].cameraSide = copied.side
+        project.cameraLayoutRegions[index].splitStyle = copied.split
+        if copied.look != nil { AppState.current?.cameraSegmentation.ensureMask(for: project) }
+        undoManager?.registerUndo(withTarget: project) { project in
+            guard let i = project.cameraLayoutRegions.firstIndex(where: { $0.id == regionID }) else { return }
+            project.cameraLayoutRegions[i] = before
+        }
+        undoManager?.setActionName("Paste Layout")
     }
 
     private func deleteCameraLayoutRegion(id: UUID) {

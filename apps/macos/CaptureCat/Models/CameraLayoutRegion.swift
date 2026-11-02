@@ -48,6 +48,76 @@ enum CameraBubbleLook: String, CaseIterable, Codable, Sendable {
     }
 }
 
+/// What fills the pop-out card behind the person (docs/camera-cutout.md
+/// §12.3). Raw values are persistence identity — never rename one.
+enum CameraCardFill: String, CaseIterable, Codable, Sendable {
+    /// Today's vertical gradient (colours overridable).
+    case gradient
+    /// The camera's own, unmasked frame — optionally portrait-blurred.
+    case camera
+    /// One flat colour.
+    case color
+    /// A wallpaper or picked image, aspect-filled into the card.
+    case image
+
+    var displayName: String {
+        switch self {
+        case .gradient: return "Gradient"
+        case .camera: return "Camera"
+        case .color: return "Color"
+        case .image: return "Image"
+        }
+    }
+}
+
+/// The pop-out card's inner border ring (docs/camera-cutout.md §12.3). nil
+/// on the settings = no border. Raw values are persistence identity.
+enum CameraCardBorder: String, CaseIterable, Codable, Sendable {
+    case solid
+    case aurora
+    case gold
+
+    var displayName: String {
+        switch self {
+        case .solid: return "Solid"
+        case .aurora: return "Aurora"
+        case .gold: return "Gold"
+        }
+    }
+}
+
+/// How a Side by Side block splits the frame (docs/camera-cutout.md
+/// §12.11). Absent on the region = tiles, today's equal-height row. Raw
+/// values are persistence identity.
+enum CameraSplitStyle: String, CaseIterable, Codable, Sendable {
+    /// Two equal-height tiles, vertically centred (the screen shrinks to fit).
+    case tiles
+    /// Two full-height columns: the screen fills (crops into) its column.
+    case full
+
+    var displayName: String {
+        switch self {
+        case .tiles: return "Side by Side"
+        case .full: return "Split Screen"
+        }
+    }
+}
+
+/// Which side the camera tile takes in a Side by Side block
+/// (docs/camera-cutout.md §12.6). Absent on the region = trailing, today's
+/// arrangement. Raw values are persistence identity.
+enum CameraSide: String, CaseIterable, Codable, Sendable {
+    case leading
+    case trailing
+
+    var displayName: String {
+        switch self {
+        case .leading: return "Camera on Left"
+        case .trailing: return "Camera on Right"
+        }
+    }
+}
+
 /// A span of the timeline that overrides the camera/screen arrangement.
 /// Regions never overlap (the timeline allocates non-overlapping slots); the
 /// first region containing a time wins.
@@ -60,8 +130,20 @@ struct CameraLayoutRegion: Identifiable, Codable, Sendable, Equatable {
     /// any other mode it is ignored but KEPT (switching the block back to
     /// Bubble restores the look). nil = the plain bubble.
     var look: CameraBubbleLook?
+    /// Side by Side only: the camera tile's side (§12.6). nil = trailing.
+    /// Ignored but KEPT on any other mode, like `look`.
+    var cameraSide: CameraSide?
+    /// Side by Side only: tiles or full-height columns (§12.11). nil = tiles.
+    /// Ignored but KEPT on any other mode, like `look`.
+    var splitStyle: CameraSplitStyle?
 
     var duration: TimeInterval { endTime - startTime }
+
+    /// The split this region's Side by Side draws (tiles unless set).
+    var effectiveSplitStyle: CameraSplitStyle { splitStyle ?? .tiles }
+
+    /// The side this region's Side by Side split draws (trailing unless set).
+    var effectiveSide: CameraSide { cameraSide ?? .trailing }
 
     /// The look this region actually draws: its `look` when it is a Bubble
     /// block, else none (CameraLayoutMath.lookWeights reads this).
@@ -72,19 +154,23 @@ struct CameraLayoutRegion: Identifiable, Codable, Sendable, Equatable {
         startTime: TimeInterval,
         endTime: TimeInterval,
         mode: CameraLayoutMode = .cameraOnly,
-        look: CameraBubbleLook? = nil
+        look: CameraBubbleLook? = nil,
+        cameraSide: CameraSide? = nil,
+        splitStyle: CameraSplitStyle? = nil
     ) {
         self.id = id
         self.startTime = startTime
         self.endTime = endTime
         self.mode = mode
         self.look = look
+        self.cameraSide = cameraSide
+        self.splitStyle = splitStyle
     }
 
     // Hand-rolled Codable (house rule): every field decodes with a default so
     // a project written by an older build always loads.
     private enum CodingKeys: String, CodingKey {
-        case id, startTime, endTime, mode, look
+        case id, startTime, endTime, mode, look, cameraSide, splitStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -104,6 +190,9 @@ struct CameraLayoutRegion: Identifiable, Codable, Sendable, Equatable {
         }
         // Lenient: missing, null, unknown or mistyped → nil (plain bubble).
         look = (try? c.decodeIfPresent(CameraBubbleLook.self, forKey: .look)) ?? nil
+        // Same leniency (§12.1): anything but a known side → nil (trailing).
+        cameraSide = (try? c.decodeIfPresent(CameraSide.self, forKey: .cameraSide)) ?? nil
+        splitStyle = (try? c.decodeIfPresent(CameraSplitStyle.self, forKey: .splitStyle)) ?? nil
     }
 
     func encode(to encoder: Encoder) throws {
@@ -114,5 +203,7 @@ struct CameraLayoutRegion: Identifiable, Codable, Sendable, Equatable {
         try c.encode(mode, forKey: .mode)
         // Only when set — untouched projects stay byte-identical.
         try c.encodeIfPresent(look, forKey: .look)
+        try c.encodeIfPresent(cameraSide, forKey: .cameraSide)
+        try c.encodeIfPresent(splitStyle, forKey: .splitStyle)
     }
 }

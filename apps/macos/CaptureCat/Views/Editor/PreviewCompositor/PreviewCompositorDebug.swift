@@ -22,8 +22,17 @@ extension PreviewCompositorView {
     func debugCursorHotspot() -> CGPoint? {
         guard let cursor = debugCursorLayer(), !cursor.isHidden,
               let hs = lastCursorHotspotInLayer else { return nil }
-        let inContent = CGPoint(x: cursor.frame.minX + hs.x, y: cursor.frame.minY + hs.y)
-        guard let content = cursor.superlayer, let zoomL = content.superlayer else { return nil }
+        return canvasPoint(fromRider: cursor, CGPoint(x: cursor.frame.minX + hs.x, y: cursor.frame.minY + hs.y))
+    }
+
+    /// A point in a card rider's parent space (the layout group: card +
+    /// riders) → canvas: through the camera-layout transform, then the
+    /// content (tilt) transform and the content origin, then the zoom.
+    /// Every group on the way is anchored at the origin.
+    private func canvasPoint(fromRider rider: CALayer, _ p: CGPoint) -> CGPoint? {
+        guard let layout = rider.superlayer, let clip = layout.superlayer,
+              let content = clip.superlayer, let zoomL = content.superlayer else { return nil }
+        let inContent = apply(clip.transform, to: apply(layout.transform, to: p))
         let p1 = apply(content.transform, to: inContent)
         let inCanvas = CGPoint(x: p1.x + content.frame.origin.x, y: p1.y + content.frame.origin.y)
         return apply(zoomL.transform, to: inCanvas)
@@ -33,15 +42,8 @@ extension PreviewCompositorView {
     /// harness only.
     func debugWarpedCursorCenter() -> CGPoint? {
         guard let cursor = debugCursorLayer(), !cursor.isHidden else { return nil }
-        let center = CGPoint(x: cursor.frame.midX, y: cursor.frame.midY)
-        // Through the tilt (content) transform, then the zoom transform.
-        guard let content = cursor.superlayer, let zoomL = content.superlayer else { return nil }
-        let inContent = center
-        let contentT = content.transform
-        let p1 = apply(contentT, to: inContent)
-        let inCanvas = CGPoint(x: p1.x + content.frame.origin.x, y: p1.y + content.frame.origin.y)
-        let p2 = apply(zoomL.transform, to: inCanvas)
-        return p2
+        // Through the layout, tilt (content) and zoom transforms.
+        return canvasPoint(fromRider: cursor, CGPoint(x: cursor.frame.midX, y: cursor.frame.midY))
     }
 
     private func apply(_ t: CATransform3D, to p: CGPoint) -> CGPoint {

@@ -143,6 +143,24 @@ extension MCPServer {
         )
     }
 
+    private static func optionalBoolKey(
+        _ key: String, _ group: String,
+        _ path: ReferenceWritableKeyPath<Settings, Bool?>,
+        default defaultValue: Bool, note: String? = nil
+    ) -> StyleKey {
+        StyleKey(
+            key: key, group: group, kind: .boolean, note: note,
+            read: { $0[keyPath: path] ?? defaultValue },
+            write: { settings, value in
+                guard let b = value as? Bool else {
+                    throw ToolError("\(key) must be a boolean (true/false), got \(value)")
+                }
+                // The default is stored as nil, so untouched projects stay byte-identical.
+                settings[keyPath: path] = b == defaultValue ? nil : b
+            }
+        )
+    }
+
     private static func textKey(
         _ key: String, _ group: String,
         _ path: ReferenceWritableKeyPath<Settings, String>,
@@ -321,6 +339,35 @@ extension MCPServer {
         boolKey("cameraMirrored", "camera", \.cameraMirrored),
         optionalEnumKey("cameraLook", "camera", \.cameraLook,
                         note: "background removal for the whole video: cutout = you over the screen, popOut = you on a gradient card. The app finds the person when the project is next open in the editor; until then it renders as the plain bubble"),
+        // Camera styles (docs/camera-cutout.md §12) — whole video, for the two looks.
+        optionalNumberKey("cameraPopOutAmount", "camera", \.cameraPopOutAmount, 0...1,
+                          note: "popOut look: how far the head rises above the card (default 0.5; 0 = no breakout)"),
+        optionalEnumKey("cameraCardFill", "camera", \.cameraCardFill,
+                        note: "popOut card fill: gradient (default), camera = your real background (see cameraBackgroundBlur), color, image (cameraCardImagePath)"),
+        optionalColorKey("cameraCardGradientStart", "camera", \.cameraCardGradientStart, note: "gradient fill, top colour"),
+        optionalColorKey("cameraCardGradientEnd", "camera", \.cameraCardGradientEnd, note: "gradient fill, bottom colour"),
+        optionalColorKey("cameraCardColor", "camera", \.cameraCardColor, note: "color fill"),
+        optionalTextKey("cameraCardImagePath", "camera", \.cameraCardImagePath, maxLength: 1024,
+                        note: "image fill: absolute path of an image file on this Mac; missing → gradient"),
+        optionalNumberKey("cameraBackgroundBlur", "camera", \.cameraBackgroundBlur, 0...1,
+                          note: "camera fill only: portrait blur of your real background"),
+        optionalNumberKey("cameraEdgeSoftness", "camera", \.cameraEdgeSoftness, 0...1,
+                          note: "cutout + popOut: feathers the person's edge"),
+        optionalNumberKey("cameraEdgeInset", "camera", \.cameraEdgeInset, 0...1,
+                          note: "cutout + popOut: pulls the person's edge in (hides halos)"),
+        optionalEnumKey("cameraCardBorder", "camera", \.cameraCardBorder,
+                        note: "popOut card inner border: solid (cameraCardBorderColor), aurora, gold; none = no border"),
+        optionalNumberKey("cameraCardBorderWidth", "camera", \.cameraCardBorderWidth, 0...1,
+                          note: "border thickness (default 0.5)"),
+        optionalColorKey("cameraCardBorderColor", "camera", \.cameraCardBorderColor, note: "solid border colour (default white)"),
+        optionalBoolKey("cameraShrinkOnZoom", "camera", \.cameraShrinkOnZoom, default: true,
+                        note: "false keeps the bubble at full size while the screen is zoomed"),
+        optionalBoolKey("cameraPortraitStack", "camera", \.cameraPortraitStack, default: false,
+                        note: "vertical videos (9:16, 4:5): camera row on top, screen below, instead of the bubble"),
+        optionalNumberKey("cameraStackRatio", "camera", \.cameraStackRatio, 0.25...0.7,
+                          note: "vertical stack: the camera row's share of the height (default 0.42)"),
+        optionalNumberKey("cameraStackGap", "camera", \.cameraStackGap, 0...0.08,
+                          note: "vertical stack: the gap between the rows as a share of the height (default 0.02); 0 joins them into one card"),
         numberKey("cameraBrightness", "camera", \.cameraBrightness, -1...1),
         numberKey("cameraContrast", "camera", \.cameraContrast, 0.5...1.5),
         numberKey("cameraSaturation", "camera", \.cameraSaturation, 0...2),

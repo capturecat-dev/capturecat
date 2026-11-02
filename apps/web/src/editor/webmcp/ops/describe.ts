@@ -219,8 +219,12 @@ export function describeProject(project: Project, inputs: DescribeInputs): JSONO
       id: id(r.id),
       start: round3(r.startTime),
       end: round3(r.endTime),
-      // Cutout / Pop-out card on a Bubble region (docs/camera-cutout.md §1).
-      ...(r.look ? { look: r.look } : {}),
+      // Cutout / Pop-out card on a Bubble region (`effectiveLook`, docs/camera-cutout.md §1).
+      ...(r.look && r.mode === "bubble" ? { look: r.look } : {}),
+      // The camera tile's side on a Side by Side region (§12.6), when set.
+      ...(r.cameraSide && r.mode === "sideBySide" ? { cameraSide: r.cameraSide } : {}),
+      // Tiles or the full-height split (§12.11), when set.
+      ...(r.splitStyle && r.mode === "sideBySide" ? { splitStyle: r.splitStyle } : {}),
     })),
   ];
   if (otherFocus.length > 0) result.otherFocusLaneRegions = otherFocus;

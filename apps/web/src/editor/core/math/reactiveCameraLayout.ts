@@ -4,7 +4,8 @@
  * corner never changes). CLAUDE.md names it a preview/export source of truth:
  * the preview compositor AND the exporter feed it the same smoothed zoom.
  *
- * Functions: `envelope(forZoom:)`, `shapeAspect(shape:videoAspect:orientation:)`,
+ * Functions: `envelope(forZoom:)`, `sizeFactor(forZoom:)`, `layoutZoom(_:shrinkOnZoom:)`,
+ * `shapeAspect(shape:videoAspect:orientation:)`,
  * `bubbleSize(baseSize:aspect:)`, `canvasFitScale(for:)`, `fraction(for:)`,
  * `cameraRect(in:basePosition:customPosition:baseSize:zoom:padding:aspect:yAxisIsUp:)`
  * and the constants `minSizeFactor`, `squircleMaxAspect`, `verticalAspect`.
@@ -34,6 +35,22 @@ export const verticalAspect = 0.8;
 export function envelope(zoom: number): number {
   const t = smax(0, smin(1, (zoom - 1.0) / 0.5));
   return t * t * (3 - 2 * t);
+}
+
+/** `sizeFactor(forZoom:)` — the camera's size at `zoom` as a fraction of its
+ *  base: 1 at rest, `minSizeFactor` past 1.5×. The bubble and the vertical
+ *  stack's camera row (§12.13) both shrink by it. */
+export function sizeFactor(zoom: number): number {
+  return 1.0 - (1.0 - minSizeFactor) * envelope(zoom);
+}
+
+/**
+ * `layoutZoom(_:shrinkOnZoom:)` (docs/camera-cutout.md §12.5) — the zoom
+ * every `cameraRect` caller hands in: Shrink during zoom off
+ * (`settings.cameraShrinkOnZoom == false`) keeps the bubble at its base size.
+ */
+export function layoutZoom(zoom: number, shrinkOnZoom: boolean): number {
+  return shrinkOnZoom ? zoom : 1;
 }
 
 /** `shapeAspect(shape:videoAspect:orientation:)` */
@@ -109,9 +126,7 @@ export function cameraRect(
   aspect: number,
   yAxisIsUp: boolean,
 ): Rect {
-  const env = envelope(zoom);
-  const sizeFactor = 1.0 - (1.0 - minSizeFactor) * env;
-  const size = bubbleSize(baseSize * sizeFactor, aspect);
+  const size = bubbleSize(baseSize * sizeFactor(zoom), aspect);
 
   const f =
     customPosition != null

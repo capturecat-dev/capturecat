@@ -366,6 +366,232 @@ extension WebParityFixtures {
                 f.lookCheck = (settledCutout: 45, plainBubble: 0)
                 return f
             }(),
+            {
+                // Camera STYLES (docs/camera-cutout.md §12.10): the pop-out
+                // card with the camera's own background (blurred), a higher
+                // pop-out, an aurora ring, softened + inset person edges,
+                // Side by Side with the camera on the LEFT, and the bubble
+                // NOT shrinking under a zoom. Frames settled in every block
+                // and mid every edge.
+                var f = Fixture(
+                    name: "17-camera-looks-frame",
+                    description: "Camera styles: pop-out card filled with the camera's own background (blur 0.6), pop-out 0.8, aurora border, edge softness 0.4 + inset 0.3 (both looks), Side by Side camera-left, and Shrink During Zoom off under a zoom on the bubble. Mask = camera-mask.ccmask.",
+                    features: ["camera.bubble", "cameraLook.popOut", "cameraLook.cutout", "cameraLook.crossfade",
+                               "cameraStyle.cameraFill", "cameraStyle.blur", "cameraStyle.popOutAmount",
+                               "cameraStyle.border.aurora", "cameraStyle.edge", "cameraLayout.sideBySide.leading",
+                               "cameraStyle.noShrink", "zoom"],
+                    duration: 6, sourceSize: screen, withCursor: false, withCamera: true,
+                    frames: [0, 30, 37, 50, 72, 79, 90, 102, 109, 125, 138, 145, 160, 175],
+                    configure: { p in
+                        let s = p.settings
+                        s.showCamera = true
+                        s.cameraShape = .roundedRect
+                        s.cameraCornerRadius = 18
+                        s.cameraSize = 300
+                        s.cameraBorderWidth = 0
+                        s.cameraPosition = .bottomRight
+                        s.cameraCardFill = .camera
+                        s.cameraBackgroundBlur = 0.6
+                        s.cameraPopOutAmount = 0.8
+                        s.cameraCardBorder = .aurora
+                        s.cameraEdgeSoftness = 0.4
+                        s.cameraEdgeInset = 0.3
+                        s.cameraShrinkOnZoom = false
+                        p.cameraLayoutRegions = [
+                            CameraLayoutRegion(id: id(1701), startTime: 1.0, endTime: 2.4, mode: .bubble, look: .popOut),
+                            CameraLayoutRegion(id: id(1702), startTime: 2.4, endTime: 3.4, mode: .bubble, look: .cutout),
+                            CameraLayoutRegion(id: id(1703), startTime: 3.4, endTime: 4.6, mode: .sideBySide, cameraSide: .leading),
+                        ]
+                        p.zoomRegions = [
+                            ZoomRegion(id: id(1711), startTime: 4.9, endTime: 6.0, zoomLevel: 1.8,
+                                       focalPoint: CGPoint(x: 0.4, y: 0.4), animationStyle: .snappy),
+                        ]
+                    })
+                f.cameraMask = true
+                return f
+            }(),
+            {
+                // Camera STYLES, image fill: the pop-out card shows a picked
+                // image (card.png, shipped in the fixture) with a solid red
+                // inner border; a bubble → pop-out fade on each side.
+                var f = Fixture(
+                    name: "18-camera-looks-card",
+                    description: "Camera styles: pop-out card with the image fill (card.png beside the project, cameraCardImagePath) and a solid red border at thickness 0.8, faded in from and out to the plain bubble. Mask = camera-mask.ccmask.",
+                    features: ["camera.bubble", "cameraLook.popOut", "cameraLook.crossfade", "cameraStyle.imageFill",
+                               "cameraStyle.border.solid"],
+                    duration: 4, sourceSize: screen, withCursor: false, withCamera: true,
+                    frames: [0, 30, 37, 50, 70, 90, 97, 110],
+                    configure: { p in
+                        let s = p.settings
+                        s.showCamera = true
+                        s.cameraShape = .circle
+                        s.cameraSize = 320
+                        s.cameraBorderWidth = 0
+                        s.cameraPosition = .bottomLeft
+                        s.cameraCardFill = .image
+                        s.cameraCardBorder = .solid
+                        s.cameraCardBorderWidth = 0.8
+                        s.cameraCardBorderColor = CodableColor(red: 0.95, green: 0.15, blue: 0.2, opacity: 1)
+                        p.cameraLayoutRegions = [
+                            CameraLayoutRegion(id: id(1801), startTime: 1.0, endTime: 3.0, mode: .bubble, look: .popOut),
+                        ]
+                    })
+                f.cameraMask = true
+                f.cardImage = true
+                return f
+            }(),
+            Fixture(
+                // Full-height split (docs/camera-cutout.md §12.11) WITH a
+                // cursor, so the clipped riders are gated: bubble → full →
+                // full camera-left → tiles → bubble, frames settled in every
+                // block and mid every edge.
+                name: "19-camera-split-full",
+                description: "Split Screen: Side by Side with splitStyle full (two full-height columns, the screen cropped into its column and clipped with its cursor), then camera-left, then the tiles split, back to the bubble.",
+                features: ["camera.bubble", "cameraLayout.sideBySide", "cameraLayout.sideBySide.full",
+                           "cameraLayout.sideBySide.leading", "cursor"],
+                duration: 6, sourceSize: screen, withCursor: true, withCamera: true,
+                frames: [0, 24, 31, 45, 60, 67, 80, 96, 103, 120, 140, 147, 165],
+                configure: { p in
+                    let s = p.settings
+                    s.showCamera = true
+                    s.cameraShape = .roundedRect
+                    s.cameraCornerRadius = 18
+                    s.cameraSize = 280
+                    s.cameraBorderWidth = 0
+                    s.cameraPosition = .bottomRight
+                    p.cameraLayoutRegions = [
+                        CameraLayoutRegion(id: id(1901), startTime: 0.8, endTime: 2.0, mode: .sideBySide, splitStyle: .full),
+                        CameraLayoutRegion(id: id(1902), startTime: 2.0, endTime: 3.2, mode: .sideBySide,
+                                           cameraSide: .leading, splitStyle: .full),
+                        CameraLayoutRegion(id: id(1903), startTime: 3.2, endTime: 4.6, mode: .sideBySide),
+                    ]
+                }),
+            Fixture(
+                // Vertical stack (docs/camera-cutout.md §12.12) in 9:16 with a
+                // cursor: camera row on top, the screen card filling and
+                // clipped to the row below, a Bubble block mid-way (morphs
+                // out and back), then a taller camera row.
+                name: "20-camera-stack-vertical",
+                description: "Vertical stack: a 9:16 export with cameraPortraitStack on — camera across the top, the screen filling the row below (clipped, cursor riding it) — morphing into a Bubble block from 2.0 to 3.2 s and back.",
+                features: ["camera.bubble", "cameraLayout.stack", "aspect.vertical", "cursor"],
+                duration: 5, sourceSize: screen, withCursor: true, withCamera: true,
+                frames: [0, 30, 60, 67, 80, 96, 103, 120, 149],
+                configure: { p in
+                    let s = p.settings
+                    s.aspectRatio = .vertical
+                    s.showCamera = true
+                    s.cameraShape = .roundedRect
+                    s.cameraCornerRadius = 18
+                    s.cameraSize = 280
+                    s.cameraBorderWidth = 0
+                    s.cameraPosition = .bottomRight
+                    s.cameraPortraitStack = true
+                    s.cameraStackRatio = 0.46
+                    p.cameraLayoutRegions = [
+                        CameraLayoutRegion(id: id(2001), startTime: 2.0, endTime: 3.2, mode: .bubble),
+                    ]
+                }),
+            {
+                // The stacked camera row wears the whole-video look
+                // (docs/camera-cutout.md §12.12): a pop-out card fills the
+                // row, unchanged through a Side by Side block (it stacks),
+                // then morphs into a Bubble block wearing Cutout — geometry
+                // and look fading together — and back.
+                var f = Fixture(
+                    name: "21-camera-stack-popout",
+                    description: "Vertical stack wearing the whole-video Pop-out card: the card fills the camera row with the head rising into its top, unchanged through a Side by Side block (1.0–2.0 s, it stacks), then morphing into a Bubble block with Cutout (2.6–3.8 s) and back. Mask = camera-mask.ccmask.",
+                    features: ["camera.bubble", "cameraLayout.stack", "aspect.vertical", "cameraLook.popOut",
+                               "cameraLook.cutout", "cameraLook.crossfade", "cameraLayout.sideBySide"],
+                    duration: 5, sourceSize: screen, withCursor: false, withCamera: true,
+                    frames: [0, 45, 70, 85, 100, 120, 140],
+                    configure: { p in
+                        let s = p.settings
+                        s.aspectRatio = .vertical
+                        s.showCamera = true
+                        s.cameraShape = .roundedRect
+                        s.cameraCornerRadius = 18
+                        s.cameraSize = 280
+                        s.cameraBorderWidth = 0
+                        s.cameraPosition = .bottomRight
+                        s.cameraPortraitStack = true
+                        s.cameraStackRatio = 0.46
+                        s.cameraLook = .popOut
+                        p.cameraLayoutRegions = [
+                            CameraLayoutRegion(id: id(2101), startTime: 1.0, endTime: 2.0, mode: .sideBySide),
+                            CameraLayoutRegion(id: id(2102), startTime: 2.6, endTime: 3.8, mode: .bubble, look: .cutout),
+                        ]
+                    })
+                f.cameraMask = true
+                return f
+            }(),
+            {
+                // §12.13: a zoom inside the vertical stack — the camera row
+                // yields its height (the seam glides up) while the screen
+                // zooms inside its row, panning a focal the fill cropped away
+                // into view; motion blur on, so a stacked zoom must not blur
+                // the camera row. Then a Bubble block mid-zoom: the zoom hands
+                // back to the whole card through the morph.
+                var f = Fixture(
+                    name: "22-camera-stack-zoom",
+                    description: "Vertical stack with a 2.4x zoom (0.6–3.4 s) on a focal near the right edge the row's fill crops away: the camera row yields to 75% of its height and stays unzoomed, the screen zooms inside its own row and pans the focal into view, motion blur on. A Bubble block (2.4–3.0 s) hands the zoom back to the whole card mid-zoom and returns. Pop-out card look, mask = camera-mask.ccmask.",
+                    features: ["camera.bubble", "cameraLayout.stack", "cameraLayout.stackZoom", "aspect.vertical",
+                               "zoom", "motionBlur", "cameraLook.popOut"],
+                    duration: 4, sourceSize: screen, withCursor: false, withCamera: true,
+                    frames: [0, 24, 30, 36, 48, 66, 75, 84, 96, 108, 117],
+                    configure: { p in
+                        let s = p.settings
+                        s.aspectRatio = .vertical
+                        s.showCamera = true
+                        s.cameraShape = .roundedRect
+                        s.cameraCornerRadius = 18
+                        s.cameraSize = 280
+                        s.cameraBorderWidth = 0
+                        s.cameraPosition = .bottomRight
+                        s.cameraPortraitStack = true
+                        s.cameraStackRatio = 0.46
+                        s.cameraLook = .popOut
+                        s.motionBlur = true
+                        p.zoomRegions = [
+                            ZoomRegion(id: id(2201), startTime: 0.6, endTime: 3.4, zoomLevel: 2.4,
+                                       focalPoint: CGPoint(x: 0.88, y: 0.35)),
+                        ]
+                        p.cameraLayoutRegions = [
+                            CameraLayoutRegion(id: id(2202), startTime: 2.4, endTime: 3.0, mode: .bubble),
+                        ]
+                    })
+                f.cameraMask = true
+                return f
+            }(),
+            // §12.14: Gap None — the rows join into one card. Big card
+            // corners and a strong shadow make the seam visible: square seam
+            // corners on both rows (each mask's shape runs past the seam),
+            // no camera shadow across the screen; then a Bubble block eases
+            // the join and the shapes out and back.
+            Fixture(
+                name: "23-camera-stack-joined",
+                description: "Vertical stack with Gap None (cameraStackGap 0): camera row and screen row touch and read as one card — corner radius 40 with square corners at the seam on both rows, the card shadow on but no camera shadow across the screen — morphing into a Bubble block from 2.0 to 3.0 s and back.",
+                features: ["camera.bubble", "cameraLayout.stack", "cameraLayout.stackGap", "aspect.vertical", "cursor"],
+                duration: 4, sourceSize: screen, withCursor: true, withCamera: true,
+                frames: [0, 30, 62, 65, 69, 80, 92, 96, 105, 119],
+                configure: { p in
+                    let s = p.settings
+                    s.aspectRatio = .vertical
+                    s.showCamera = true
+                    s.cameraShape = .roundedRect
+                    s.cameraCornerRadius = 18
+                    s.cameraSize = 280
+                    s.cameraBorderWidth = 0
+                    s.cameraPosition = .bottomRight
+                    s.cameraPortraitStack = true
+                    s.cameraStackRatio = 0.4
+                    s.cameraStackGap = 0
+                    s.cornerRadius = 40
+                    s.shadowRadius = 30
+                    s.shadowOpacity = 0.8
+                    p.cameraLayoutRegions = [
+                        CameraLayoutRegion(id: id(2301), startTime: 2.0, endTime: 3.0, mode: .bubble),
+                    ]
+                }),
         ]
     }
 

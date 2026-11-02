@@ -63,14 +63,19 @@
 import type { CameraLayoutRegion, Point, ProjectSettings, Rect, Size } from "../model/types";
 import type { CameraShape, FrameShape } from "../model/enums";
 import { type AffineTransform, insetBy, minX, minY, rectHeight, rectWidth } from "./geometry";
-import { bubbleSize, cameraRect, canvasFitScale, shapeAspect } from "./reactiveCameraLayout";
+import { bubbleSize, cameraRect, canvasFitScale, layoutZoom, shapeAspect } from "./reactiveCameraLayout";
 import {
   bubbleApproxCornerRadius,
   cardTransform,
   lookWeights as layoutLookWeights,
   resolve,
+  stackActive,
+  stackRatio,
+  stackRows,
+  stackYield,
   type CameraLayoutResolved,
   type CameraLookWeights,
+  type CameraStackRows,
 } from "./cameraLayoutMath";
 import {
   bubbleWeight as lookBubbleWeight,
@@ -90,6 +95,7 @@ import {
   type RingRecipe,
   type TagMeasure,
 } from "./cameraStyleMath";
+import { cameraCardStyle, geometryBorderWidth } from "./cameraCardStyle";
 import { path as continuousRoundedPath } from "./continuousRoundedRect";
 import type { SRGBA } from "./oklabGradient";
 import { cgPathRect, cgPathRoundedRect, type PathElement } from "./styleSupport";
@@ -458,6 +464,13 @@ export type ExportFrameCameraSettings = Pick<
   | "cameraTiltPitch"
   | "cameraTiltYaw"
   | "cameraLook"
+  | "cameraShrinkOnZoom"
+  | "cameraPopOutAmount"
+  | "cameraCardBorder"
+  | "cameraCardBorderWidth"
+  | "cameraPortraitStack"
+  | "cameraStackRatio"
+  | "cameraStackGap"
 >;
 
 export interface ExportFrameCameraInput {
@@ -465,6 +478,10 @@ export interface ExportFrameCameraInput {
   currentTime: number;
   /** RAW smoothed zoom from the camera path (not the cover-compensated card zoom). */
   zoom: number;
+  /** The camera path's focal point (0…1 of the video rect, Y-down) — the
+   *  vertical stack zooms the screen inside its row about it (§12.13). Absent = centre. */
+  focalX?: number;
+  focalY?: number;
   /** sourceCMTime is non-nil: the clip is visible at this frame. */
   sourceVisible: boolean;
   /** A camera pixel buffer has been decoded so far (see CameraReaderCursor). */
@@ -493,8 +510,12 @@ export interface ExportCardShadow {
 
 export interface ExportOverrideCamera {
   rect: Rect;
-  /** CIRoundedRectangleGenerator radius (max(0, radius)). */
+  /** CIRoundedRectangleGenerator radius (max(0, radius)); with `maskShape`,
+   *  max(0, min(layout radius, half the shape's short side)). */
   maskRadius: number;
+  /** A joined stack row (§12.14): the generator's rect (the row run past the
+   *  seam), cropped to `rect` — square corners there. null = `rect`. */
+  maskShape: Rect | null;
   /** min(layout radius, half the short side) — also the card-shadow corner. */
   radius: number;
   chrome: number;
@@ -503,6 +524,9 @@ export interface ExportOverrideCamera {
   assetTransform: AffineTransform;
   cardness: number;
   cardShadow: ExportCardShadow | null;
+  /** A joined stack row's card shadow (§12.14): the same shadow × seamJoin ×
+   *  the camera opacity, composited UNDER the card. null = none. */
+  underShadow: ExportCardShadow | null;
   opacity: number;
   tiltPitch: number;
   tiltYaw: number;
@@ -534,6 +558,8 @@ export interface ExportCameraLooks {
 
 export interface ExportFrameCamera {
   bubbleRectNow: Rect;
+  /** The vertical stack's rows (§12.12, Y-up) while it is active, else null. */
+  stack: CameraStackRows | null;
   bubbleCornerRadius: number;
   cardCornerRadius: number;
   layout: CameraLayoutResolved;
@@ -562,6 +588,8 @@ export function assetTransformFor(rect: Rect, baseRect: Rect): AffineTransform {
 /**
  * One output frame of the exporter camera flow. videoRect = the exporter
  * staticLayout.videoRect (Y-up output px); regions in SOURCE time.
+ * contentRect = the exporter FrameLayout.contentRect (Y-up) — the vertical
+ * stack's area (§12.12); null = no stack.
  */
 export function exportFrameCamera(
   statics: ExportCameraStatics,
@@ -571,6 +599,7 @@ export function exportFrameCamera(
   outputSize: Size,
   cameraTimeOffset: number,
   f: ExportFrameCameraInput,
+  contentRect: Rect | null = null,
 ): ExportFrameCamera {
   const outputRect: Rect = { x: 0, y: 0, width: outputSize.width, height: outputSize.height };
   const custom =
@@ -580,7 +609,8 @@ export function exportFrameCamera(
     s.cameraPosition,
     custom,
     statics.cameraBaseSize,
-    f.zoom,
+    // §12.5: Shrink during zoom off keeps the bubble at its base size.
+    layoutZoom(f.zoom, s.cameraShrinkOnZoom ?? true),
     statics.cameraPadding,
     statics.cameraAspect,
     true,
@@ -590,6 +620,19 @@ export function exportFrameCamera(
     height: bubbleRectNow.height,
   });
   const cardCornerRadius = smax(0, s.cornerRadius * statics.canvasScale);
+  // The vertical stack (§12.12): on, a camera to show, a portrait output.
+  // §12.13: the camera row yields height to the zoom (Shrink During Zoom),
+  // and the screen zooms inside its row about the path's focal point.
+  const stack =
+    contentRect !== null && statics.assets !== null && stackActive(s, outputSize)
+      ? stackRows(
+          contentRect,
+          stackRatio(s.cameraStackRatio),
+          true,
+          stackYield(layoutZoom(f.zoom, s.cameraShrinkOnZoom ?? true)),
+          s.cameraStackGap,
+        )
+      : null;
   const layout = resolve(
     f.currentTime,
     regions,
@@ -598,6 +641,8 @@ export function exportFrameCamera(
     bubbleCornerRadius,
     cardCornerRadius,
     statics.assets !== null,
+    stack,
+    { zoom: f.zoom, focalX: f.focalX ?? 0.5, focalY: f.focalY ?? 0.5 },
   );
   const cameraTargetTime = f.currentTime - cameraTimeOffset;
   const source: ExportFrameCamera["source"] =
@@ -605,9 +650,12 @@ export function exportFrameCamera(
 
   // The look gate (VideoExporter: a decoder for a FRESH mask AND the camera statics).
   const lookWeights: CameraLookWeights =
-    f.maskAvailable === true && statics.assets !== null ? layoutLookWeights(f.currentTime, regions, s.cameraLook) : { cutout: 0, popOut: 0 };
+    f.maskAvailable === true && statics.assets !== null
+      ? layoutLookWeights(f.currentTime, regions, s.cameraLook, stack !== null)
+      : { cutout: 0, popOut: 0 };
   const out: ExportFrameCamera = {
     bubbleRectNow,
+    stack,
     bubbleCornerRadius,
     cardCornerRadius,
     layout,
@@ -622,8 +670,13 @@ export function exportFrameCamera(
   };
   const assets = statics.assets;
   if (!assets || !f.sourceVisible || source === "none") return out;
+  // §12.2 pop-out amount + border thickness, clamped once (CameraCardStyle).
+  const style = cameraCardStyle(s);
   const looksAt = (rect: Rect): ExportCameraLooks | null =>
-    exportCameraLooks(lookWeights, rect, assets.baseRect, statics.canvasScale, statics.cameraImageAspect, source);
+    exportCameraLooks(lookWeights, rect, assets.baseRect, statics.canvasScale, statics.cameraImageAspect, source, {
+      popOutAmount: style.popOutAmount,
+      cardBorderWidth: geometryBorderWidth(style),
+    });
 
   if (!layout.isPlainBubble && layout.cameraOpacity > 0.001 && layout.cameraRect) {
     const rect = layout.cameraRect;
@@ -631,27 +684,37 @@ export function exportFrameCamera(
     const chrome = layout.chromeOpacity;
     const cardness = 1 - chrome;
     let cardShadow: ExportCardShadow | null = null;
+    let underShadow: ExportCardShadow | null = null;
+    // A joined stack row (§12.14) casts its shadow UNDER the card instead.
+    const shadowOpacity = smax(0, s.shadowOpacity) * cardness * (1 - layout.seamJoin);
     if (cardness > 0.01 && s.shadowRadius > 0 && s.shadowOpacity > 0) {
       const slack = Math.ceil(s.shadowRadius * statics.canvasScale * 2 + 24);
-      cardShadow = {
+      const shadow = {
         extent: insetBy(rect, -slack, -slack),
         rect,
         cornerRadius: radius,
         shadowRadius: smax(0, s.shadowRadius * statics.canvasScale),
-        shadowOpacity: smax(0, s.shadowOpacity) * cardness,
       };
+      if (shadowOpacity > 0) cardShadow = { ...shadow, shadowOpacity };
+      if (layout.seamJoin > 0.001) {
+        const under = smax(0, s.shadowOpacity) * cardness * layout.seamJoin * s.cameraOpacity * layout.cameraOpacity;
+        if (under > 0) underShadow = { ...shadow, shadowOpacity: under };
+      }
     }
+    const shape = layout.cameraShapeRect ?? null;
     out.path = "override";
     out.looks = looksAt(rect);
     out.override = {
       rect,
-      maskRadius: smax(0, radius),
+      maskRadius: shape ? smax(0, smin(layout.cameraCornerRadius, smin(rectWidth(shape), rectHeight(shape)) / 2)) : smax(0, radius),
+      maskShape: shape,
       radius,
       chrome,
       chromeVisible: chrome > 0.01,
       assetTransform: assetTransformFor(rect, assets.baseRect),
       cardness,
       cardShadow,
+      underShadow,
       opacity: s.cameraOpacity * layout.cameraOpacity,
       tiltPitch: s.cameraTiltPitch * chrome,
       tiltYaw: s.cameraTiltYaw * chrome,
@@ -683,12 +746,14 @@ export function exportCameraLooks(
   canvasScale: number,
   cameraImageAspect: number,
   source: "live" | "poster" | "none",
+  /** §12.2: pop-out amount (null = 0.5) and border thickness (null = no ring). */
+  card: { popOutAmount: number | null; cardBorderWidth: number | null } = { popOutAmount: null, cardBorderWidth: null },
 ): ExportCameraLooks | null {
   if (!(weights.cutout > 0 || weights.popOut > 0)) return null;
   const sf = lookSizeFactor(rect, rectWidth(baseRect));
   const sigma = cardShadowRadius * canvasScale * sf;
   const geometry = (look: "cutout" | "popOut"): ExportLookGeometry => {
-    const g: ExportLookGeometry = { ...cutoutGeometry(look, rect, cameraImageAspect, true) };
+    const g: ExportLookGeometry = { ...cutoutGeometry(look, rect, cameraImageAspect, card.popOutAmount, card.cardBorderWidth, true) };
     if (look === "popOut") {
       g.personClipMaskRect = personClipMaskRect(g, true);
       g.cardShadowExtent = g.cardRect ? insetBy(g.cardRect, -(sigma * 4 + 4), -(sigma * 4 + 4)) : null;

@@ -16,6 +16,35 @@ extension WebParityFixtures {
     /// dark ellipse plus "shoulders" along the bottom edge — as an alpha in
     /// 0…1 at camera-image unit coords (Y-down, unmirrored). `u` is the clip
     /// progress 0…1 (same drift as SyntheticMovie's camera ellipse).
+    /// The `18-camera-looks-card` image fill: 480×320 sRGB, diagonal colour
+    /// bands plus a bright disc off-centre — orientation and aspect-fill
+    /// cropping both show up in a mismatch.
+    static func writeSyntheticCardImage(to url: URL) throws {
+        let w = 480, h = 320
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: space,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { throw FixtureError(message: "card image: no context") }
+        let bands: [(CGFloat, CGFloat, CGFloat)] = [(0.95, 0.35, 0.3), (0.98, 0.75, 0.25), (0.3, 0.8, 0.55), (0.25, 0.45, 0.95)]
+        for (i, c) in bands.enumerated() {
+            ctx.setFillColor(CGColor(srgbRed: c.0, green: c.1, blue: c.2, alpha: 1))
+            let x0 = CGFloat(i) * CGFloat(w) / 3 - CGFloat(h) / 2
+            ctx.move(to: CGPoint(x: x0, y: 0))
+            ctx.addLine(to: CGPoint(x: x0 + CGFloat(w) / 3 + 2, y: 0))
+            ctx.addLine(to: CGPoint(x: x0 + CGFloat(w) / 3 + 2 + CGFloat(h), y: CGFloat(h)))
+            ctx.addLine(to: CGPoint(x: x0 + CGFloat(h), y: CGFloat(h)))
+            ctx.closePath()
+            ctx.fillPath()
+        }
+        ctx.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 0.92, alpha: 1))
+        ctx.fillEllipse(in: CGRect(x: 300, y: 190, width: 110, height: 110))
+        guard let image = ctx.makeImage(),
+              let dest = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil)
+        else { throw FixtureError(message: "card image: encode failed") }
+        CGImageDestinationAddImage(dest, image, nil)
+        guard CGImageDestinationFinalize(dest) else { throw FixtureError(message: "card image: write failed") }
+    }
+
     static func syntheticSilhouette(x: Double, y: Double, progress u: Double) -> (alpha: Double, distance: Double) {
         let cx = 0.475 + 0.1 * u
         let hx = (x - cx) / 0.2, hy = (y - 0.5) / 0.3

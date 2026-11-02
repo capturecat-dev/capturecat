@@ -8,7 +8,7 @@
  * React-free on purpose: the page builds one per project and hands its
  * callbacks to the shell; per-frame time flows through `playhead`.
  */
-import type { AnnotationType, BlurStyle, Rect, VoiceOverClip } from "../core/model";
+import type { AnnotationType, AspectRatio, BlurStyle, Rect, Size, VoiceOverClip } from "../core/model";
 import { effectiveTrimEnd, effectiveTrimStart, effectiveVideoClipSegments } from "../core/time/clips";
 import type { EngineClient } from "../engine/client";
 import type { AnnotationPick, EditorShellCallbacks, EffectsPick, FocusPick, InspectorTabId } from "../ui/shell/types";
@@ -36,12 +36,16 @@ export interface ControllerHooks {
   share?(): void;
   /** A camera look was applied: make sure the camera has a fresh person mask (state/cameraMask.ts). */
   cameraLookAdded?(): void;
+  /** The recording's size (engine LoadedInfo) — what an `Auto` aspect follows. */
+  recordingSize?(): Size | null;
 }
 
 export class EditorController {
   readonly playhead = createPlayheadChannel(0);
   client: EngineClient | null = null;
   hooks: ControllerHooks = {};
+  /** Copy / Paste Layout (docs/camera-cutout.md §12.7): an in-app clipboard, not the system pasteboard. */
+  cameraLayoutClipboard: E.CameraLayoutClip | null = null;
   /** The pill's chosen colour (applyToolbarColor with nothing selected). */
   toolbarAnnotationColor: { red: number; green: number; blue: number; opacity: number } | null = null;
 
@@ -294,6 +298,10 @@ export class EditorController {
       case "cameraSideBySide":
         this.apply(E.addCameraLayoutRegion("sideBySide"));
         return;
+      case "cameraSplitScreen":
+        // Split Screen (docs/camera-cutout.md §12.11): Side by Side with the full-height split.
+        this.apply(E.addCameraLayoutRegion("sideBySide", undefined, "full"));
+        return;
       case "cameraHide":
         this.apply(E.addCameraLayoutRegion("screenOnly"));
         return;
@@ -339,7 +347,8 @@ export class EditorController {
       onShare: () => this.hooks.share?.(),
       onSyncRetry: () => this.store.retrySave(),
       onRename: (name) => this.store.updateProject({ name }, "Rename"),
-      onAspectChange: (id) => this.store.updateSettings({ aspectRatio: id as never }, "Aspect Ratio"),
+      // A camera project moved to a portrait canvas also turns the vertical stack on (§12.12).
+      onAspectChange: (id) => void this.apply(E.setAspectRatio(id as AspectRatio, this.hooks.recordingSize?.() ?? null)),
       onStillTreatmentChange: (t) => this.store.updateProject({ stillTreatment: t }, "Treatment"),
       onGoToStart: () => this.goToStart(),
       onTogglePlay: () => this.togglePlay(),
@@ -395,6 +404,7 @@ export class EditorController {
       voiceCommit: (clipId, value: VoiceOverClip) => void this.apply(E.commitVoiceClip(clipId, value)),
       sliceAt: (t) => void this.apply(E.sliceAt(t)),
       action: (a) => this.timelineAction(a),
+      hasCameraLayoutClipboard: () => this.cameraLayoutClipboard !== null,
     };
   }
 
@@ -527,6 +537,23 @@ export class EditorController {
         return;
       case "toggleMute":
         this.apply(E.toggleMute);
+        return;
+      case "copyCameraLayout": {
+        const region = this.store.getState().project?.cameraLayoutRegions.find((r) => r.id === a.regionId);
+        if (region) this.cameraLayoutClipboard = E.copyCameraLayout(region);
+        return;
+      }
+      case "pasteCameraLayout": {
+        const clip = this.cameraLayoutClipboard;
+        // A pasted look needs the camera's person mask, like adding one.
+        if (clip && this.apply(E.pasteCameraLayout(a.regionId, clip)) && clip.look) this.hooks.cameraLookAdded?.();
+        return;
+      }
+      case "setCameraSide":
+        this.apply(E.setCameraSide(a.regionId, a.side));
+        return;
+      case "setSplitStyle":
+        this.apply(E.setSplitStyle(a.regionId, a.style));
         return;
     }
   }

@@ -12,6 +12,17 @@ struct TimelineFocusItem: Equatable {
     var isSelected: Bool
 }
 
+/// One context-menu row a lane block contributes (title, checkmark,
+/// enabled, action); a nil action is a separator.
+struct TimelineMenuEntry {
+    var title: String = ""
+    var checked = false
+    var isEnabled = true
+    var action: (() -> Void)?
+
+    static let separator = TimelineMenuEntry()
+}
+
 /// One block on the ANNOTATE lane, already mapped into output time.
 struct TimelineAnnotateItem: Equatable {
     var id: UUID
@@ -109,6 +120,9 @@ struct TimelineCanvasCallbacks {
     var selectFocus: (UUID?, Bool) -> Void
     var commitFocusTimes: (UUID, Bool, TimeInterval, TimeInterval) -> Void
     var deleteFocus: (UUID, Bool) -> Void
+    /// Extra entries for a FOCUS block's context menu, above Delete (camera
+    /// layout blocks: side + Copy / Paste Layout). Empty = none.
+    var focusMenuExtras: (UUID) -> [TimelineMenuEntry] = { _ in [] }
     var addBlurAt: (TimeInterval) -> Void
     var addHighlightAt: (TimeInterval) -> Void
     var selectAnnotation: (UUID?) -> Void
@@ -1707,6 +1721,15 @@ final class TimelineCanvasView: NSView {
             menu.addItem(rename)
             menu.addItem(.separator())
         }
+        let extras = callbacks?.focusMenuExtras(item.id) ?? []
+        for entry in extras {
+            guard let action = entry.action else { menu.addItem(.separator()); continue }
+            let row = CanvasMenuItem(title: entry.title, handler: action)
+            row.state = entry.checked ? .on : .off
+            row.isEnabled = entry.isEnabled
+            menu.addItem(row)
+        }
+        if !extras.isEmpty { menu.addItem(.separator()) }
         menu.addItem(CanvasMenuItem(title: "Delete") { [weak self] in
             self?.callbacks?.deleteFocus(item.id, item.isHighlight)
         })

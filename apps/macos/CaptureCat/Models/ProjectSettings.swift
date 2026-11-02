@@ -149,6 +149,38 @@ final class ProjectSettings: Codable {
     /// sets no look of its own — CameraLayoutMath.look(at:) draws this. Not
     /// a timeline block, so it never takes a lane slot.
     var cameraLook: CameraBubbleLook?
+    // Camera styles (docs/camera-cutout.md §12). Every one is optional: nil =
+    // the default, written only when set, so untouched projects stay
+    // byte-identical. Clamp where USED (CameraCardStyle), never at decode.
+    /// Pop-out headroom, 0…1 (nil = 0.5 → today's 22 % of B).
+    var cameraPopOutAmount: Double?
+    /// What fills the pop-out card (nil = gradient).
+    var cameraCardFill: CameraCardFill?
+    var cameraCardGradientStart: CodableColor?
+    var cameraCardGradientEnd: CodableColor?
+    var cameraCardColor: CodableColor?
+    /// Wallpaper / picked image for the `image` fill — a path, exactly like
+    /// `backgroundImagePath` (cloud sync carries it the same way).
+    var cameraCardImagePath: String?
+    /// Portrait blur of the `camera` fill, 0…1.
+    var cameraBackgroundBlur: Double?
+    /// Person-edge feather / erosion for both looks, 0…1 (CameraMaskEdge).
+    var cameraEdgeSoftness: Double?
+    var cameraEdgeInset: Double?
+    /// Pop-out card inner border ring (nil = none).
+    var cameraCardBorder: CameraCardBorder?
+    var cameraCardBorderWidth: Double?
+    var cameraCardBorderColor: CodableColor?
+    /// false = the bubble keeps its size while zoomed (nil = true).
+    var cameraShrinkOnZoom: Bool?
+    /// Vertical stack (§12.12): camera row on top, screen below, while the
+    /// output canvas is portrait. nil = off. The aspect picker turns it on.
+    var cameraPortraitStack: Bool?
+    /// The camera row's share of the stack height, 0.25…0.7 (nil = 0.42).
+    var cameraStackRatio: Double?
+    /// The gap between the stack's rows, a share of the stack height,
+    /// 0…0.08 (nil = 0.02). 0 joins the rows into one card (§12.14).
+    var cameraStackGap: Double?
     // Camera color adjustments — all defaults are IDENTITY so existing
     // projects render exactly as before. Mapping to CIFilter inputs lives
     // ONLY in CameraStyleMath (shared by preview + exporter).
@@ -453,6 +485,10 @@ final class ProjectSettings: Codable {
         case keystrokeOverlayScopeToRecordedApp
         case showCamera, cameraPosition, cameraCustomX, cameraCustomY, cameraSize, cameraShape, cameraOrientation, cameraMirrored, showDeviceFrame
         case cameraLook
+        case cameraPopOutAmount, cameraCardFill, cameraCardGradientStart, cameraCardGradientEnd, cameraCardColor
+        case cameraCardImagePath, cameraBackgroundBlur, cameraEdgeSoftness, cameraEdgeInset
+        case cameraCardBorder, cameraCardBorderWidth, cameraCardBorderColor, cameraShrinkOnZoom
+        case cameraPortraitStack, cameraStackRatio, cameraStackGap
         case cameraBrightness, cameraContrast, cameraSaturation, cameraHue, cameraFilter, cameraRingLight
         case cameraCornerRadius, cameraBorderWidth, cameraBorderColor, cameraOpacity, cameraTiltPitch, cameraTiltYaw
         case cameraTagText, cameraTagSubtext, cameraTagFontName, cameraTagTextColor, cameraTagBackgroundColor, cameraTagPosition
@@ -563,6 +599,30 @@ final class ProjectSettings: Codable {
         // Lenient like a region's `look`: missing, null, unknown or mistyped
         // → nil (the plain bubble), never a failed project decode.
         cameraLook = (try? c.decodeIfPresent(CameraBubbleLook.self, forKey: .cameraLook)) ?? nil
+        // Camera styles (§12.1): missing, null, unknown, mistyped or
+        // non-finite → nil (the default), never a failed project decode.
+        func lenient<T: Decodable>(_ type: T.Type, _ key: CodingKeys) -> T? {
+            (try? c.decodeIfPresent(type, forKey: key)) ?? nil
+        }
+        func lenientNumber(_ key: CodingKeys) -> Double? {
+            lenient(Double.self, key).flatMap { $0.isFinite ? $0 : nil }
+        }
+        cameraPopOutAmount = lenientNumber(.cameraPopOutAmount)
+        cameraCardFill = lenient(CameraCardFill.self, .cameraCardFill)
+        cameraCardGradientStart = lenient(CodableColor.self, .cameraCardGradientStart)
+        cameraCardGradientEnd = lenient(CodableColor.self, .cameraCardGradientEnd)
+        cameraCardColor = lenient(CodableColor.self, .cameraCardColor)
+        cameraCardImagePath = lenient(String.self, .cameraCardImagePath)
+        cameraBackgroundBlur = lenientNumber(.cameraBackgroundBlur)
+        cameraEdgeSoftness = lenientNumber(.cameraEdgeSoftness)
+        cameraEdgeInset = lenientNumber(.cameraEdgeInset)
+        cameraCardBorder = lenient(CameraCardBorder.self, .cameraCardBorder)
+        cameraCardBorderWidth = lenientNumber(.cameraCardBorderWidth)
+        cameraCardBorderColor = lenient(CodableColor.self, .cameraCardBorderColor)
+        cameraShrinkOnZoom = lenient(Bool.self, .cameraShrinkOnZoom)
+        cameraPortraitStack = lenient(Bool.self, .cameraPortraitStack)
+        cameraStackRatio = lenientNumber(.cameraStackRatio)
+        cameraStackGap = lenientNumber(.cameraStackGap)
         cameraBrightness = try c.decodeIfPresent(Double.self, forKey: .cameraBrightness) ?? 0
         cameraContrast = try c.decodeIfPresent(Double.self, forKey: .cameraContrast) ?? 1
         cameraSaturation = try c.decodeIfPresent(Double.self, forKey: .cameraSaturation) ?? 1
@@ -710,6 +770,23 @@ final class ProjectSettings: Codable {
         try c.encode(cameraMirrored, forKey: .cameraMirrored)
         // Only when set, so projects that never use it stay byte-identical.
         try c.encodeIfPresent(cameraLook, forKey: .cameraLook)
+        // Camera styles (§12.1): only when set, in contract order.
+        try c.encodeIfPresent(cameraPopOutAmount, forKey: .cameraPopOutAmount)
+        try c.encodeIfPresent(cameraCardFill, forKey: .cameraCardFill)
+        try c.encodeIfPresent(cameraCardGradientStart, forKey: .cameraCardGradientStart)
+        try c.encodeIfPresent(cameraCardGradientEnd, forKey: .cameraCardGradientEnd)
+        try c.encodeIfPresent(cameraCardColor, forKey: .cameraCardColor)
+        try c.encodeIfPresent(cameraCardImagePath, forKey: .cameraCardImagePath)
+        try c.encodeIfPresent(cameraBackgroundBlur, forKey: .cameraBackgroundBlur)
+        try c.encodeIfPresent(cameraEdgeSoftness, forKey: .cameraEdgeSoftness)
+        try c.encodeIfPresent(cameraEdgeInset, forKey: .cameraEdgeInset)
+        try c.encodeIfPresent(cameraCardBorder, forKey: .cameraCardBorder)
+        try c.encodeIfPresent(cameraCardBorderWidth, forKey: .cameraCardBorderWidth)
+        try c.encodeIfPresent(cameraCardBorderColor, forKey: .cameraCardBorderColor)
+        try c.encodeIfPresent(cameraShrinkOnZoom, forKey: .cameraShrinkOnZoom)
+        try c.encodeIfPresent(cameraPortraitStack, forKey: .cameraPortraitStack)
+        try c.encodeIfPresent(cameraStackRatio, forKey: .cameraStackRatio)
+        try c.encodeIfPresent(cameraStackGap, forKey: .cameraStackGap)
         try c.encode(cameraBrightness, forKey: .cameraBrightness)
         try c.encode(cameraContrast, forKey: .cameraContrast)
         try c.encode(cameraSaturation, forKey: .cameraSaturation)

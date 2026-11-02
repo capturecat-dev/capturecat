@@ -9,6 +9,8 @@ import {
   AnimationSpeed,
   AspectRatio,
   BackgroundType,
+  CameraCardBorder,
+  CameraCardFill,
   CameraFilterStyle,
   CameraLook,
   CameraOrientation,
@@ -113,6 +115,9 @@ export interface StyleKey {
   /** An optional enum whose first value "none" means unset (Swift
    *  `optionalEnumKey`): reads "none" when unset, writing "none" clears it. */
   noneIsUnset?: boolean;
+  /** An optional Bool with a default (Swift `optionalBoolKey`): reads the
+   *  default when unset; writing the default stores nil. */
+  boolDefault?: boolean;
   /** Post-write side effect (`then:` in Swift). */
   then?: (settings: ProjectSettings) => void;
 }
@@ -159,6 +164,13 @@ const bool = (key: string, group: string, note?: string, then?: StyleKey["then"]
   kind: { type: "boolean" },
   note,
   then,
+});
+const optBool = (key: string, group: string, defaultValue: boolean, note?: string): StyleKey => ({
+  key,
+  group,
+  kind: { type: "boolean" },
+  note,
+  boolDefault: defaultValue,
 });
 const text = (key: string, group: string, maxLength: number, note?: string, optional = false): StyleKey => ({
   key,
@@ -257,6 +269,28 @@ export const STYLE_KEYS: readonly StyleKey[] = [
     enumValues(CameraLook),
     "background removal for the whole video: cutout = you over the screen, popOut = you on a gradient card. The app finds the person when the project is next open in the editor; until then it renders as the plain bubble",
   ),
+  // Camera styles (docs/camera-cutout.md §12) — whole video, for the two looks.
+  num("cameraPopOutAmount", "camera", 0, 1, "popOut look: how far the head rises above the card (default 0.5; 0 = no breakout)", true),
+  optEn(
+    "cameraCardFill",
+    "camera",
+    enumValues(CameraCardFill),
+    "popOut card fill: gradient (default), camera = your real background (see cameraBackgroundBlur), color, image (cameraCardImagePath)",
+  ),
+  color("cameraCardGradientStart", "camera", "gradient fill, top colour", true),
+  color("cameraCardGradientEnd", "camera", "gradient fill, bottom colour", true),
+  color("cameraCardColor", "camera", "color fill", true),
+  text("cameraCardImagePath", "camera", 1024, "image fill: absolute path of an image file on this Mac; missing → gradient", true),
+  num("cameraBackgroundBlur", "camera", 0, 1, "camera fill only: portrait blur of your real background", true),
+  num("cameraEdgeSoftness", "camera", 0, 1, "cutout + popOut: feathers the person's edge", true),
+  num("cameraEdgeInset", "camera", 0, 1, "cutout + popOut: pulls the person's edge in (hides halos)", true),
+  optEn("cameraCardBorder", "camera", enumValues(CameraCardBorder), "popOut card inner border: solid (cameraCardBorderColor), aurora, gold; none = no border"),
+  num("cameraCardBorderWidth", "camera", 0, 1, "border thickness (default 0.5)", true),
+  color("cameraCardBorderColor", "camera", "solid border colour (default white)", true),
+  optBool("cameraShrinkOnZoom", "camera", true, "false keeps the bubble at full size while the screen is zoomed"),
+  optBool("cameraPortraitStack", "camera", false, "vertical videos (9:16, 4:5): camera row on top, screen below, instead of the bubble"),
+  num("cameraStackRatio", "camera", 0.25, 0.7, "vertical stack: the camera row's share of the height (default 0.42)", true),
+  num("cameraStackGap", "camera", 0, 0.08, "vertical stack: the gap between the rows as a share of the height (default 0.02); 0 joins them into one card", true),
   num("cameraBrightness", "camera", -1, 1),
   num("cameraContrast", "camera", 0.5, 1.5),
   num("cameraSaturation", "camera", 0, 2),
@@ -389,7 +423,8 @@ function write(entry: StyleKey, settings: ProjectSettings, value: unknown): void
     case "boolean": {
       const b = boolValue(value);
       if (b === null) throw new ToolError(`${key} must be a boolean (true/false), got ${describeValue(value)}`);
-      s[key] = b;
+      // optionalBoolKey: the default is stored as nil (untouched projects stay byte-identical).
+      s[key] = entry.boolDefault !== undefined && b === entry.boolDefault ? undefined : b;
       break;
     }
     case "string":
@@ -405,6 +440,7 @@ function write(entry: StyleKey, settings: ProjectSettings, value: unknown): void
 function read(entry: StyleKey, settings: ProjectSettings): unknown {
   const v = (settings as Settings)[entry.key];
   if (entry.noneIsUnset) return v ?? "none";
+  if (entry.boolDefault !== undefined) return v ?? entry.boolDefault;
   if (entry.optional && (v === undefined || v === null)) return null;
   switch (entry.kind.type) {
     case "number":

@@ -90,7 +90,8 @@ for (const fx of manifest.fixtures) {
       if (mask && project.cameraVideoURL) files["camera-mask.ccmask"] = `${base}/${mask}`;
       for (const k of ["keystrokeDataURL"]) if (project[k]) files[project[k]] = `${base}/${project[k].split("/").pop()}`;
       const s = project.settings ?? {};
-      for (const ref of [s.backgroundImagePath, s.watermarkFileName, s.curtainLogoFileName]) {
+      // cameraCardImagePath: the pop-out card's image fill (docs/camera-cutout.md §12.3, fixture 18).
+      for (const ref of [s.backgroundImagePath, s.cameraCardImagePath, s.watermarkFileName, s.curtainLogoFileName]) {
         if (ref) files[ref] = `${base}/${String(ref).split("/").pop()}`;
       }
       await client.load(project, { video: `${base}/${fx.media.video}`, files });

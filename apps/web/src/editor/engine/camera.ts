@@ -47,6 +47,7 @@ import {
   type Homography,
 } from "../core/math/tiltMath";
 import { blur as motionBlur } from "../core/math/motionBlurMath";
+import { outerZoom } from "../core/math/cameraLayoutMath";
 import { parallaxScale } from "../core/math/zoomFocalMath";
 import { effectiveTrimEnd } from "../core/time/clips";
 import type { CardGeometry, Size } from "./layout";
@@ -164,15 +165,20 @@ export function motionBlurAt(
   outputTime: number,
   settings: { motionBlur: boolean; motionBlurStrength: number },
   targetWidth: number,
+  stacking = false,
 ): MotionBlurFrame | null {
   if (!settings.motionBlur) return null;
   const i = cameraIndexAt(path, outputTime);
   if (i < 1) return null;
   const prev = path!.keys[i - 1];
   const cur = path!.keys[i];
+  // The zoom the card stage applies (§12.13) — a zoom the layout owns while
+  // the vertical stack is on stays out of the blur.
+  const prevZoom = outerZoom(prev.zoom, stacking);
+  const curZoom = outerZoom(cur.zoom, stacking);
   const b = motionBlur(
-    { zoom: prev.zoom, focalX: prev.focalX, focalY: prev.focalY, offsetX: prev.offsetX, offsetY: prev.offsetY },
-    { zoom: cur.zoom, focalX: cur.focalX, focalY: cur.focalY, offsetX: cur.offsetX, offsetY: cur.offsetY },
+    { zoom: prevZoom, focalX: prev.focalX, focalY: prev.focalY, offsetX: prev.offsetX, offsetY: prev.offsetY },
+    { zoom: curZoom, focalX: cur.focalX, focalY: cur.focalY, offsetX: cur.offsetX, offsetY: cur.offsetY },
     path!.times[i] - path!.times[i - 1],
     settings.motionBlurStrength,
   );
@@ -227,6 +233,7 @@ export function cameraFrame(
   geometry: CardGeometry,
   settings: CameraSettings,
   outputTime: number,
+  stacking = false,
 ): CameraFrame {
   const { width: W, height: H } = geometry.target;
   const vr = geometry.videoRect;
@@ -242,8 +249,9 @@ export function cameraFrame(
   }
 
   // 2. Card-only zoom, cover-compensated, about the (tilt-projected) focal
-  //    point — then the exporter crops to the canvas.
-  const zoom = effectiveCoverZoom(key.zoom, key.tiltPitch, key.tiltYaw, key.tiltRoll, W / Math.max(1, H));
+  //    point — then the exporter crops to the canvas. While the vertical
+  //    stack is on the layout owns every zoom-in (§12.13): `outerZoom`.
+  const zoom = effectiveCoverZoom(outerZoom(key.zoom, stacking), key.tiltPitch, key.tiltYaw, key.tiltRoll, W / Math.max(1, H));
   const zoomed = Math.abs(zoom - 1) > 0.001;
   if (zoomed) {
     let anchor = { x: vr.x + key.focalX * vr.width, y: vr.y + key.focalY * vr.height };
@@ -314,18 +322,20 @@ export function cameraStateAt(
   geometry: CardGeometry,
   settings: (CameraSettings & { motionBlur: boolean; motionBlurStrength: number }) | null,
   outputTime: number,
+  /** The vertical stack is on with a camera (FrameGraph.cameraStacking, §12.13). */
+  stacking = false,
 ): CameraState {
   if (!path || !settings) return CAMERA_REST;
   // Evaluated even when the path is static: the intro slide is a pure
   // function of time and settings.
   const key = cameraKeyAt(path, outputTime);
-  const f = cameraFrame(key, geometry, settings, outputTime);
+  const f = cameraFrame(key, geometry, settings, outputTime, stacking);
   return {
     cameraKey: key,
     tilt: { pitch: key.tiltPitch, yaw: key.tiltYaw },
     camera: f.matrix,
     cameraClip: f.clip,
     parallax: f.parallax,
-    motionBlur: path.moves ? motionBlurAt(path, outputTime, settings, geometry.target.width) : null,
+    motionBlur: path.moves ? motionBlurAt(path, outputTime, settings, geometry.target.width, stacking) : null,
   };
 }

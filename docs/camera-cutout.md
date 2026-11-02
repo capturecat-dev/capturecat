@@ -457,3 +457,421 @@ existing eight, `%.3f` like the opacities, in this order:
 `…,<cardTranslationX %.1f>,<cutout %.3f>,<popOut %.3f>`. A key without any
 look therefore ends in `,0.000,0.000` — the existing vector units that record
 keys change once, regenerated from the Mac binary.
+
+## 12. Camera styles — pop-out amount, card fill, blur, border, edges, split side
+
+Owner request (Mike, 2026-11-02): a full set of camera layout and style
+controls, Mac and web together (same rule as §1). This section is the
+contract; §1–§11 stay in force except where this section says otherwise.
+
+| Control | CaptureCat |
+|---|---|
+| Default / Camera only / Split screen | Bubble / Camera Only / Side by Side (+ §12.6 camera side) |
+| Frame style, Pop-out amount | Pop-out card + `cameraPopOutAmount` (§12.2) |
+| Background: blur, none, color, gradient, wallpaper, image | card fill + `cameraBackgroundBlur` (§12.3) |
+| Border presets, thickness, colour | card border (§12.2, §12.3) |
+| Cutout style: edge softness, edge inset | mask edge processing (§12.4), both looks |
+| Shrink during zoom | `cameraShrinkOnZoom` (§12.5) |
+| Copy / paste layout effects | timeline Copy / Paste Layout (§12.7) |
+
+Not taken: a full-height camera "tower" split — CaptureCat tried and
+rejected that composition (see `CameraLayoutMath.sideBySideScreenFraction`).
+
+### 12.1 Model
+
+Whole-video keys on `settings` (same pattern as `cameraLook`, §1a). Every key
+is optional: missing, null, unknown, mistyped or non-finite → absent
+(`(try? decodeIfPresent(T.self)) ?? nil`; web `parse.ts` mirrors it). Written
+only when set, in this order, right after `cameraLook`. Numbers are stored as
+given and clamped to their range where they are USED, never at decode.
+
+| key | type | values | absent = |
+|---|---|---|---|
+| `cameraPopOutAmount` | number | 0…1 | 0.5 (= today's headroom) |
+| `cameraCardFill` | string | `"gradient"`, `"camera"`, `"color"`, `"image"` | `"gradient"` |
+| `cameraCardGradientStart` | color | `{red, green, blue, opacity}` like every CodableColor | §3 top colour |
+| `cameraCardGradientEnd` | color | | §3 bottom colour |
+| `cameraCardColor` | color | | `(0.11, 0.11, 0.13, 1)` |
+| `cameraCardImagePath` | string | a path, exactly like `backgroundImagePath` | none |
+| `cameraBackgroundBlur` | number | 0…1 | 0 |
+| `cameraEdgeSoftness` | number | 0…1 | 0 |
+| `cameraEdgeInset` | number | 0…1 | 0 |
+| `cameraCardBorder` | string | `"solid"`, `"aurora"`, `"gold"` | none (no border) |
+| `cameraCardBorderWidth` | number | 0…1 | 0.5 |
+| `cameraCardBorderColor` | color | | white `(1, 1, 1, 1)` |
+| `cameraShrinkOnZoom` | bool | | true |
+
+Region key (on `CameraLayoutRegion`, like `look`): `cameraSide`, string,
+`"leading"` | `"trailing"` | absent (= trailing, today's). Lenient decode, encode only when
+set, only takes effect while `mode == sideBySide` (kept, ignored otherwise).
+Old builds ignore every new key and draw today's render — a safe fallback.
+
+Projects that set none of these keys render byte-for-byte as before on both
+sides (no extra pass, no changed constant).
+
+### 12.2 Geometry — `CameraCutoutMath` additions
+
+- `headroom = 0.44 × clamp(cameraPopOutAmount ?? 0.5, 0, 1) × B.height`
+  (0.44 × 0.5 is exactly today's 0.22). Amount 0 → the card is B: no head
+  breakout. The card rect, corner radius and person clip follow from the
+  headroom exactly as §3 states.
+- Card border (only while `cameraCardBorder` is set and the look is pop-out):
+  `w = clamp(cameraCardBorderWidth ?? 0.5, 0, 1) × 0.08 × min(C.width, C.height)`.
+  The border is an INNER ring: the region inside the rounded rect `(C, r)` and
+  outside the rounded rect `(C inset by w on all sides, max(0, r − w))`. w ≤ 0,
+  or an inner rect with no area → no ring at all.
+- `Geometry` gains `cardBorderWidth` (w, 0 when no border or for the cutout).
+  `geometry(look:bubbleRect:cameraAspect:popOutAmount:cardBorderWidth:yAxisIsUp:)`
+  — `popOutAmount` nil = 0.5, `cardBorderWidth` = the 0…1 thickness or nil
+  for no border.
+
+### 12.3 The pop-out stack, revised
+
+```
+popStack = card shadow → card fill → card border ring → masked person (personClip)
+```
+
+All fills are drawn through the card's rounded-rect mask `(C, r)`, cropped to
+C, exactly where §5 draws today's gradient.
+
+- `gradient` (default): today's `CILinearGradient`, colours =
+  `cameraCardGradientStart/End` when set, else §3's. Absent keys →
+  byte-identical to today.
+- `color`: `cameraCardColor ?? (0.11, 0.11, 0.13)`, alpha forced to 1, flat.
+- `image`: the file at `cameraCardImagePath` decoded once (EXIF orientation
+  applied, converted to sRGB 8-bit), aspect-filled into C — `s = max(C.width /
+  iw, C.height / ih)`, centred on C — through the card mask. Path absent, file
+  missing or unreadable → the `gradient` fill.
+- `camera`: the camera frame after mirror + adjustments and NOT masked (the
+  plain bubble's pixels), placed with the SAME transform as the person
+  (aspect-fill into B, §3 `P`), through the card mask. Inside the card the
+  person (drawn next) lands on its own pixels, so the seam is invisible; above
+  the card only the masked person shows.
+  - `cameraBackgroundBlur` b > 0: that card camera image is blurred in
+    CAMERA-PIXEL space before placement: `σ = b × 0.03 × H` where H is the
+    camera frame's height in its own decoded pixels; clamp to extent →
+    Gaussian σ → crop to the frame (Mac: `clampedToExtent()`, `CIGaussianBlur`
+    radius σ, `cropped(to:)`; web: a separable Gaussian, kernel radius
+    `ceil(3σ)`, weights `exp(−x² / 2σ²)` normalised, clamp-to-edge sampling).
+    The person stays sharp, so b reads as a portrait-mode background blur.
+  - b is ignored by the other fills.
+- Border ring, filled with:
+  - `solid`: `cameraCardBorderColor ?? white`, alpha forced to 1.
+  - `aurora`: vertical linear gradient across C, top `(0.36, 0.91, 1.00)` →
+    bottom `(0.29, 0.40, 1.00)`, sRGB.
+  - `gold`: top `(1.00, 0.89, 0.52)` → bottom `(0.85, 0.55, 0.16)`, sRGB.
+  Gradients run from C's top edge to its bottom edge (CI: maxY → minY), the
+  same construction as the card gradient.
+- The head that pops out draws OVER the ring (person last).
+
+### 12.4 Edge softness and inset — `CameraMaskEdge`
+
+One integer algorithm, byte-identical in Swift (`Services/CameraMaskEdge.swift`)
+and TS (`core/mask/maskEdge.ts`), applied to every decoded mask frame
+(including frame 0 under the poster) before it is used as alpha, wherever a
+look draws. It changes the person's edge for BOTH looks.
+
+```
+k     = height / 192                                    (mask rows → radius scale)
+i     = round(clamp(cameraEdgeInset, 0, 1) × 6 × k)     (round half up; inputs ≥ 0)
+s     = round(clamp(cameraEdgeSoftness, 0, 1) × 6 × k)
+i = 0 and s = 0 → the frame unchanged
+erode (i > 0):  rows then columns, out[x] = min(in[clamp(x + d)]) for d ∈ [−i, i]
+soften (s > 0): box blur rows, columns, rows, columns (two passes each way),
+                out[x] = (Σ in[clamp(x + d)] for d ∈ [−s, s] + s) ÷ (2s + 1)
+                (integer division)
+clamp(j) = min(max(j, 0), n − 1)  — clamp-to-edge along the pass
+order: erode, then soften
+```
+
+Swift `Double.rounded()` and JS `Math.round` agree for non-negative inputs.
+Cache the processed frame by (frame index, i, s); the cost is small (≤ 341×192).
+
+### 12.5 Shrink during zoom
+
+`cameraShrinkOnZoom == false` → the bubble keeps its base size at every zoom:
+every `ReactiveCameraLayout.cameraRect` caller passes zoom 1 (helper
+`ReactiveCameraLayout.layoutZoom(_ zoom:, shrinkOnZoom:)` → `shrinkOnZoom ?
+zoom : 1`, web the same name). Nothing else changes.
+
+### 12.6 Camera side in Side by Side
+
+- `columns(in:side:)`: trailing (default) is today's. Leading mirrors it:
+  camera `(videoRect.minX, tileY, cameraWidth, tileHeight)`, screen
+  `(videoRect.maxX − screenWidth, tileY, screenWidth, tileHeight)`.
+- `target(.sideBySide)` uses the containing region's side, so
+  `cardTranslationX = cols.screen.midX − videoRect.midX` is positive for
+  leading.
+- Morph identity: `resolve` compares ARRANGEMENTS, not modes —
+  `(mode, mode == sideBySide ? side : trailing)`. Adjacent Side by Side blocks
+  with different sides morph (the camera slides across); everything else is
+  unchanged.
+- The static-span key needs nothing new: the side reaches it through
+  `cardTranslationX`.
+
+### 12.7 Copy / Paste Layout
+
+UI only, no model change: copies a camera-layout block's `mode`, `look` and
+`cameraSide`; pasting onto another block replaces those three and keeps its
+id, start and end. One undo step. In-app clipboard (not the system pasteboard).
+Mac: the block's context menu; web: the timeline block menu.
+
+### 12.8 Surfaces
+
+- Camera pane (Mac `CameraSettingsPaneAppKit`, web `CameraPane`), under the
+  Background chips:
+  - Cutout or Pop-out card: "Edge softness", "Edge inset" (0–100 %).
+  - Pop-out card: "Pop-out" (0–100 %); "Card" chips Gradient / Camera / Color /
+    Image, then per fill: two colour wells / "Background blur" / a colour well /
+    the wallpaper grid + "Choose Image…"; "Border" chips None / Solid / Aurora /
+    Gold, "Thickness", and a colour well for Solid.
+  - "Shrink during zoom" switch beside Size.
+- Camera-layout popover / Effects picker: a Side by Side block can be set to
+  camera left or right (Mac: context menu "Camera on Left/Right"; web: the
+  block menu).
+- MCP `set_style` / WebMCP `set_style`: every §12.1 settings key by name
+  (colours as `#RRGGBB`, `"none"` clears a string key); `style_options` lists
+  them with ranges. Camera-layout region tools accept `cameraSide`.
+
+### 12.9 Sync and merge
+
+`cameraCardImagePath` travels exactly like `backgroundImagePath`: Mac
+`CloudProjectMedia` key list and `CloudProjectSync` upload + relink, web
+`state/projectMedia.ts` and `state/cloud.ts`. `MergePolicy` / web merge
+policy: atomic group `cameraCard = [cameraCardFill, cameraCardImagePath]`.
+
+### 12.10 Gates
+
+- Vectors (regenerated from the Mac binary):
+  - `cameraCutoutGeometry`: input gains optional `popOutAmount` and
+    `cardBorderWidth` (0…1 thickness); output gains `cardBorderWidth`.
+  - new `cameraMaskEdge`: input `{ width, height, base64, softness, inset }`
+    (masks ≤ 64×36 plus one 288-row case), output `{ base64 }`; cases cover
+    identity, inset only, softness only, both, 0 and 1, and the k scaling.
+  - `cameraLayoutMathBasics` gains `columnsLeading`; `cameraLayoutResolve`
+    region sets carry `cameraSide` (including adjacent leading/trailing).
+  - model decode/encode cases with every new key, plus garbage values.
+- Parity fixtures (exported by the real Mac exporter, names contain
+  `camera-looks` so parity.mjs maps the mask):
+  - `17-camera-looks-frame`: pop-out, `camera` fill, blur 0.6, amount 0.8,
+    `aurora` border, softness 0.4, inset 0.3; regions bubble → popOut →
+    cutout → sideBySide leading → bubble; `cameraShrinkOnZoom` false with a
+    zoom over a bubble span; frames mid every edge and settled in every block.
+  - `18-camera-looks-card`: pop-out `image` fill (a synthetic PNG shipped in
+    the fixture), `solid` red border; then `color` fill is covered by the
+    preview gate only.
+- Mac `--preview-parity` looks checks (structural, not mean-diff): camera fill
+  shows the camera's background inside the card and only the person above it;
+  blur lowers high-frequency energy inside the card versus b = 0; the border
+  ring pixels carry the preset colour; inset shrinks the silhouette area and
+  softness widens its edge; amount moves the card's top edge; each with an
+  injected defect that must fail.
+- Mac `--cameralayout-test`: round-trip and lenient decode of every key,
+  `cameraSide` morph mid-flight strictly between endpoints.
+
+### 12.11 Full-height split ("Split Screen")
+
+Owner request (Mike, 2026-11-02): a split in two full-height
+columns. The composition rejected earlier was a full-height camera beside a
+SHRUNKEN, floating screen card; here the screen FILLS its column (cropped,
+not letterboxed), so both columns are full height and nothing floats.
+
+- Region key `splitStyle`, string: `"tiles"` | `"full"` | absent (= tiles,
+  today's equal-height row). Same rules as `cameraSide`: lenient decode,
+  encode only when set, only takes effect while `mode == sideBySide`.
+  Display names: tiles = "Side by Side", full = "Split Screen".
+- `columns(in:side:style:)`, full: `gap = W × 0.03`, `screenWidth = W × 0.60`,
+  `cameraWidth = W − screenWidth − gap`, both tiles at `y = videoRect.minY`,
+  `height = videoRect.height`; side places them exactly as §12.6.
+- `target(.sideBySide, full)`: `cardScale = 1`, `cardTranslationX =
+  screen.midX − videoRect.midX` (the screen's CENTRE shows in its column; a
+  zoom still steers what is centred), `cameraRect = camera tile`,
+  `cameraCornerRadius = cardCornerRadius`, and the new clip below `= screen
+  tile`, radius `cardCornerRadius`.
+- `Resolved` gains `cardClip: CGRect?` and `cardClipCornerRadius` (caller's
+  space, same as `videoRect`). nil everywhere except a settled full split and
+  any morph with a full split at either end; there the clip lerps (same `p`)
+  from/to `transformedCard(r) = cardTransform(r) applied to videoRect` with
+  radius `cardCornerRadius × r.cardScale` for the end that has no clip.
+  Arrangement identity adds `splitStyle` (sideBySide only).
+- Renderers, while `cardClip` is non-nil, at the card-over-transparency seam
+  right after the card transform (the cursor, ripples, highlights, blur,
+  annotations and curtain ride the card there and are clipped with it; the
+  camera tile composites after, unclipped):
+  1. keep only what lies inside the rounded rect `(cardClip, radius)`;
+  2. draw a TILE shadow under it: the card's own drop-shadow recipe (Mac
+     export `makeFrameShadow`, preview `cardShadow`: black × 0.45 ×
+     shadowOpacity, offset `(0, radius/3)` Y-down) on the rounded clip rect,
+     with shadow radius `shadowRadius × cardScale` (× canvasScale in export),
+     so the switch from the scaled card's own shadow is seamless.
+  With `cardClip` nil nothing changes (byte-identical).
+- Mac preview: the card riders (overlayClip, annotations, cursor, ripples,
+  curtain) now sit with the card in one group that takes the layout
+  transform, as the exporter has always done — before this, the preview left
+  them unsqueezed in Side by Side.
+- Static-span key: nothing new (the clip is a function of the transform
+  fields already in it).
+- Surfaces: picker row "Split Screen" (a Side by Side block with `full`),
+  block menu "Full Height" / "Tiles" on Side by Side blocks, Copy / Paste
+  Layout carries `splitStyle`, MCP `describe_project` reports it.
+- Gates: vectors (`cameraLayoutMathBasics.columnsFull[Leading]`,
+  `cameraLayoutResolve` regions with `splitStyle`, `resolved.cardClip`),
+  `--cameralayout-test` (geometry, clip lerp mid-flight, round trip),
+  `--preview-parity` (settled full split: screen fills its column top to
+  bottom, nothing drawn in the gutter, the cursor stays inside the screen
+  column), parity fixture `19-camera-split-full` WITH a cursor (bubble → full
+  → full leading → tiles → bubble).
+
+### 12.12 Vertical stack — camera on top in a portrait frame
+
+Owner request (Mike, 2026-11-02): in a 9:16 video the camera goes on top
+automatically, the screen below, and the camera's height is draggable (a notch
+on hover) and set in the sidebar.
+
+- Settings (same rules as §12.1, written right after `cameraShrinkOnZoom`):
+  - `cameraPortraitStack`, bool, absent = false. The UI turns it on when a
+    project with a camera is switched to a portrait aspect (it never changes
+    on its own in the renderer, so existing projects render as before).
+  - `cameraStackRatio`, number, the camera row's share of the stack height,
+    clamped to 0.25…0.7 at use, absent = 0.42.
+- Active when `cameraPortraitStack` is true, the project shows a camera, and
+  the OUTPUT canvas is portrait (height > width: 9:16, 4:5, or Auto on a
+  portrait recording). Shared helper
+  `CameraLayoutMath.stackRows(area:ratio:yAxisIsUp:)` → `(camera, screen)`,
+  where `area` is the content rect (the canvas inside the frame padding — Mac
+  preview `contentRect`, exporter `FrameLayout.contentRect`):
+  `gap = 0.02 × area.height`, `h = (area.height − gap) × ratio`; camera row
+  `(area.minX, top, area.width, h)` at the TOP (Y-down `area.minY`, Y-up
+  `area.maxY − h`); screen row the rest, `area.height − h − gap` tall, at
+  the bottom.
+- Arrangement (stack active): outside every region → stacked; a Side by
+  Side region (either side or split style) → stacked; Bubble, Camera Only and
+  Screen Only regions → as today. Morph identity adds `stacked`, so entering
+  or leaving a Bubble block morphs.
+- `target(stacked)`: `cameraRect = camera row`, `cameraCornerRadius =
+  cardCornerRadius`, `chromeOpacity 0`; the card aspect-FILLS the screen row:
+  `cardScale = max(screen.w / videoRect.w, screen.h / videoRect.h)`,
+  `cardTranslationX = screen.midX − videoRect.midX`, new `cardTranslationY =
+  screen.midY − videoRect.midY` (caller space, so it is correct in Y-down
+  and Y-up alike because the rows are), `cardClip = screen row`, radius
+  `cardCornerRadius`.
+- `Resolved.cardTranslationY` (default 0); `cardTransform` translates by
+  `(tx, ty)` about videoRect's centre. Everything that transforms the card
+  applies both (the preview's layout group scales about videoRect's centre
+  in content space — Mac preview `layoutGroup`).
+- Tile shadow (§12.11) radius is `shadowRadius × min(1, cardScale)` (a filled
+  row scales the card UP; its shadow stays card-sized). §12.11 never exceeds
+  scale 1, so it is unchanged there.
+- Looks (cutout, pop-out) draw on the stack's camera row: `look(at:)` returns
+  `defaultLook` outside regions (stacked or not) and, while the stack is
+  active, on a Side by Side region too (it stacks, so it wears the same look).
+  B is the camera row, so the pop-out card is the row minus its headroom and
+  the head rises into the top of the row. (Until 2026-11-02 looks were off
+  while stacked; Mike: "pop out doesnt work".)
+- Static-span key: append `,<cardTranslationY %.1f>` after `cardTranslationX`.
+- Surfaces: Camera pane "Stack on top in vertical videos" switch and a
+  "Camera height" slider (25–70 %); the aspect picker turns the switch on when
+  it moves a camera project to a portrait aspect; on the preview, hovering the
+  seam between the rows shows a notch you drag up and down (writes
+  `cameraStackRatio`, one undo step per drag; never exported). MCP / WebMCP
+  `set_style` keys `cameraPortraitStack`, `cameraStackRatio`.
+- Gates: `cameraStackRows` vector unit; `cameraLayoutResolve` cases with a
+  stack; `--cameralayout-test` (rows in both Y conventions, settled stack,
+  morph into a Bubble block, the whole-video look on the stacked row); `--preview-parity` (camera fills the
+  top row, screen fills the bottom row, background in the gap); parity
+  fixture `20-camera-stack-vertical` (9:16, cursor, a Bubble block mid-way).
+
+### 12.13 Zoom inside the vertical stack
+
+Owner request (Mike, 2026-11-02): "zoom in doesnt make it go smaller? think of
+an apple way style of handling in 9:16". Until then the whole stack sat inside
+the card zoom: a 2.4× zoom magnified the camera row with the screen and pushed
+it off the top of the frame, about the wrong point (the unstacked focal).
+
+The rule: the screen row is a WINDOW. The zoom happens inside it; the camera
+row never zooms. With Shrink During Zoom on, the camera row yields height the
+way the bubble shrinks, so the seam glides up and the screen gets the room —
+one curve, one moving edge, nothing flies off the frame.
+
+- Yield: `CameraLayoutMath.stackYield(zoom:)` =
+  `ReactiveCameraLayout.sizeFactor(forZoom:)` (`1 − 0.25 × envelope`, the
+  bubble's own shrink; `cameraRect` now calls the same helper). Callers pass
+  `layoutZoom(rawZoom, shrinkOnZoom)`, so the switch off keeps the row.
+  `stackRows(area:ratio:yAxisIsUp:yield:)` multiplies the camera row's height
+  by it (top edge fixed); the screen row takes the rest, gap unchanged.
+- Zoom in the row: `resolve(…, stack:, stackZoom: StackZoom(zoom, focalX,
+  focalY))` — the RAW smoothed zoom and the path's focal (0…1, Y-down). The
+  stacked target becomes `cardScale = fill × z` with `z = max(1, zoom)` and the
+  translation that maps the focal point P (on the filled card) to
+  `Q = P + (Qd − P) × envelope(z)`, where `Qd` is the same fraction of the
+  ROW (Y-up callers mirror the fraction; the row order — camera on top — tells
+  the convention). At full envelope the focal sits where it would in an
+  unstacked card, so a focal the fill cropped away pans into view; both ends
+  cover the row, so every blend does. `z == 1` is exactly the old fill.
+- The layout owns EVERY zoom-in while the stack is on (it, a camera, a
+  portrait canvas): stacked as above; in a Bubble / Camera Only / Screen Only
+  block the plain zoom about the focal on the card (`cardScale × z`, the
+  focal fixed — the classic picture, folded into the card transform). The
+  card zoom stage after the layout applies `outerZoom(zoom, stacking:)` =
+  `stacking && zoom > 1 ? 1 : zoom`, so a scale-down still shrinks the whole
+  composition. Both morph ends are zoomed layouts, so a morph into a Bubble
+  block while zoomed only blends them: the camera tile (composited before
+  that stage) never rides a zoom, and nothing pops when the morph ends. (A
+  first cut blended the outer zoom by a stack weight through the morph — it
+  flew the tile off the frame and read as motion blur; parity fixture 22
+  caught it.) The cover zoom, background parallax and both motion-blur samples use
+  the outer zoom, so a zoom the layout owns never blurs the camera.
+- Mac: preview `cameraStacking` + `resolveCameraLayout`, exporter per-frame
+  `stackRows`; web: `exportFrameCamera` (focal from the camera key), the
+  camera pass's `cameraStacking` hook → `FrameGraph.cameraStacking()` →
+  `cameraStateAt(…, stacking)` (the exporter re-derives it after `prefetch`,
+  once the camera stream is open).
+- The seam notch hides while the row is yielding (a drag would write the
+  yielded height).
+- Gates: `cameraStackRows` (yield cases), `cameraStackZoom` (yield, outer),
+  `cameraLayoutResolve` stack-zoom cases; `--cameralayout-test` (yield in
+  both Y conventions, coverage, the focal landing in the row, outer zoom, the
+  Bubble block's zoom, no jump at either end of its morph); `--preview-parity` `stack-zoom` (row
+  yielded and unzoomed, padding bare, screen clipped) with a self-test that
+  the old whole-stack zoom fails, and `stack-zoom-glide` (the seam caught
+  mid-glide, tracking the zoom); parity fixture `22-camera-stack-zoom`.
+
+### 12.14 Gap between the stacked rows
+
+Owner request (Mike, 2026-11-02): "what if usr wnt to rmve cap between cam and
+screen". The gap was a fixed 2% of the stack height.
+
+- Setting `cameraStackGap`, number, the gap as a share of the stack height,
+  clamped to 0…0.08 at use, absent = 0.02 (today's rows exactly). Written
+  right after `cameraStackRatio`; same lenient rules. Shared
+  `CameraLayoutMath.stackGap(_:)`; `stackRows(area:ratio:yAxisIsUp:yield:gap:)`
+  takes the stored value.
+- Gap 0 JOINS the rows into one card. `target(stacked)` sees the rows touch
+  (seam ≤ 1e-6 × the rows' heights) and returns:
+  - `cameraShapeRect` = the camera row run past the seam by
+    `cardCornerRadius`, `cardClipShapeRect` = the screen row run past it the
+    other way (nil when the radius is 0). Every mask takes its corners from
+    the SHAPE and is cropped to the visible rect, so the seam corners are
+    square and the outer ones stay round: exporter
+    `CIRoundedRectangleGenerator(inputExtent: shape, radius clamped to the
+    shape).cropped(to: rect)` for the camera tile and the card clip; Mac
+    preview the shape path ∩ the rect; web tile shader mode 1 with `mCrop` =
+    the shape, card-clip shader `shape` uniform.
+  - `seamJoin` = 1 (0 otherwise; morphs lerp it, and the shapes lerp to the
+    other end's outline). The camera tile's card shadow is drawn with
+    `× (1 − seamJoin)` over the card as before, and with `× seamJoin × the
+    camera opacity` UNDER the card (after the tile shadow, before the camera
+    tile — Mac preview `cameraSeamShadow` below `layoutClipGroup`, web the
+    "cardSeam" stage `under` shadow), so the screen covers what would land on
+    it and the two shadows read as one silhouette.
+- Surfaces: Camera pane "Gap" slider under Camera Height (0–8 %, None at 0)
+  on Mac and web; MCP / WebMCP `set_style` key `cameraStackGap`. The seam
+  notch still drags at Gap 0 (its hit band is padded).
+- Gates: `cameraStackRows` gap cases, `cameraLayoutResolve` joined cases
+  (resolved now carries `cameraShapeRect`, `cardClipShapeRect`, `seamJoin`),
+  `projectDecode` key; `--cameralayout-test` (clamp, rows touch, shapes in
+  both Y conventions, square radius 0, morph eases the join); `--preview-parity`
+  `stack-joined` (the old gap band covered, the real mask paths square at the
+  seam and round outside) with a self-test that ignoring the shapes fails;
+  parity fixture `23-camera-stack-joined` (radius 40, strong shadow, a Bubble
+  block).

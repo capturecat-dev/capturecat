@@ -10,6 +10,8 @@
  *   card squeeze:     [layer]   card passes
  *                     [layer2]  layer∘squeeze → cardTop     (Mac: cardTransform, then the tile)
  *                     [target]  backdrop(bg) → layer2∘camera → overlays
+ *   split clip:       [layer2]  cardSeam (tile shadow) → layer∘squeeze × clip → cardTop
+ *                     (docs/camera-cutout.md §12.11, full-height split and its morphs)
  *
  * Stitched device segments (`withDeviceSegment`): a framed segment forces the
  * layer path; the segment dip is the innermost factor of `camera` and fades
@@ -28,7 +30,7 @@ import { KeystrokePillPass } from "./cursor/keystrokePass";
 import { CameraFeature } from "./cameraBubble";
 import { LayerComposePass } from "./layer";
 import { StaticLayers } from "./staticLayers";
-import type { FrameEncoder, FrameState, PassContext, RenderPass, Scene, StaticKeyParts, StaticTextures } from "./types";
+import type { CardClip, FrameEncoder, FrameState, PassContext, RenderPass, Scene, StaticKeyParts, StaticTextures } from "./types";
 import type { StageHits } from "../stageHits";
 import { HighlightPass } from "./highlight";
 import { RegionVideoPass } from "./regionEffects";
@@ -85,6 +87,8 @@ export function defaultPasses(): RenderPass[] {
     // then annotations → curtain (topmost, pre-warp).
     new AnnotationsPass(),
     new CurtainPass(),
+    // cardSeam: the full-height split's tile shadow, under the clipped card.
+    camera.seam,
     // cardTop: the camera-layout tile (after the squeeze, before the warp).
     camera.tile,
     // overlay: the classic bubble (canvas space, after the warp), then the
@@ -161,6 +165,12 @@ export class FrameGraph {
     const scene = this.scene;
     if (!scene) return;
     await Promise.all(this.passes.map((p) => p.prefetch?.(scene, frame)));
+  }
+
+  /** Some pass draws the vertical stack's camera row (§12.13) — see `RenderPass.cameraStacking`. */
+  cameraStacking(): boolean {
+    const scene = this.scene;
+    return !!scene && this.passes.some((p) => p.cameraStacking?.(scene) ?? false);
   }
 
   /** Export fast path: the passes' inputs to the static-span key for `frame` (after `prefetch`). */
@@ -253,7 +263,11 @@ export class FrameGraph {
       const m = p.cardTransform?.(ctx, frame);
       if (m && !isIdentity(m)) cardPre = multiply(m, cardPre);
     }
-    const squeezed = frame.video !== null && !isIdentity(cardPre);
+    // The full-height split's clip at the same seam (§12.11) — it forces the
+    // squeezed path even while the transform is momentarily identity.
+    let cardClip: CardClip | null = null;
+    for (const p of this.passes) cardClip ??= p.cardClip?.(ctx, frame) ?? null;
+    const squeezed = frame.video !== null && (!isIdentity(cardPre) || cardClip !== null);
 
     for (const p of this.passes) if (p.stage === "prepare") p.encode(ctx, frame, enc);
 
@@ -301,7 +315,14 @@ export class FrameGraph {
           colorAttachments: [{ view: squeezeLayer.view, loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }],
         });
         enc.pass = sp;
-        this.squeeze.encode(ctx, { ...frame, camera: cardPre, cameraClip: null, motionBlur: null, cardOpacity: 1 }, sp, "rgba16float", layer);
+        const squeezeFrame = { ...frame, camera: cardPre, cameraClip: null, motionBlur: null, cardOpacity: 1 };
+        if (cardClip) {
+          // Mac: the transformed card × the rounded clip, composited over the tile shadow.
+          for (const p of byStage("cardSeam")) p.encode(ctx, frame, enc);
+          this.squeeze.encodeClipped(ctx, squeezeFrame, sp, "rgba16float", layer, cardClip);
+        } else {
+          this.squeeze.encode(ctx, squeezeFrame, sp, "rgba16float", layer);
+        }
         for (const p of byStage("cardTop")) p.encode(ctx, frame, enc);
         sp.end();
         composed = squeezeLayer;

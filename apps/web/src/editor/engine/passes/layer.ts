@@ -14,9 +14,9 @@
  * `encode` warps straight onto the canvas.
  */
 import { L, Uniforms, type PooledTexture } from "../gpu/resources";
-import { layerComposeWGSL, motionBlurWGSL } from "../gpu/shaders";
+import { layerComposeClippedWGSL, layerComposeWGSL, motionBlurWGSL } from "../gpu/shaders";
 import { apply, IDENTITY, invert, toRows, type Mat3 } from "../mat3";
-import type { FrameEncoder, FrameState, PassContext } from "./types";
+import type { CardClip, FrameEncoder, FrameState, PassContext } from "./types";
 
 const RT = GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING;
 
@@ -84,6 +84,7 @@ export class LayerComposePass {
   private warpU: Uniforms | null = null;
   private boxU: Uniforms | null = null;
   private tapU: Uniforms | null = null;
+  private clipU: Uniforms | null = null;
   private warped: PooledTexture | null = null;
   private boxed: PooledTexture | null = null;
   private plan: BlurPlan | null = null;
@@ -168,6 +169,39 @@ export class LayerComposePass {
     this.ext = plan.box > 0 ? NO_CLAMP : ext;
   }
 
+  /**
+   * The camera-layout squeeze resample clipped to the full-height split's
+   * rounded rect (docs/camera-cutout.md §12.11), premultiplied over what the
+   * pass already holds (the tile shadow). No motion blur on this seam.
+   */
+  encodeClipped(ctx: PassContext, frame: FrameState, pass: GPURenderPassEncoder, format: GPUTextureFormat, layer: PooledTexture, clip: CardClip) {
+    this.clipU ??= new Uniforms(ctx.device, 40, "layer-clip-u");
+    const { width, height } = ctx.scene.target;
+    const cc = frame.cameraClip ?? null;
+    this.clipU.write([
+      ...toRows(invert(frame.camera)),
+      ...toRows(cc ?? IDENTITY),
+      width, height, cc ? 1 : 0, Math.min(1, Math.max(0, frame.cardOpacity ?? 1)),
+      clip.rect.x, clip.rect.y, clip.rect.width, clip.rect.height,
+      clip.shape ? (clip.shapeRadius ?? clip.radius) : clip.radius, 0, 0, 0,
+      // The generator's rect: a joined stack's shape (§12.14), else the clip.
+      ...(clip.shape ? [clip.shape.x, clip.shape.y, clip.shape.width, clip.shape.height] : [clip.rect.x, clip.rect.y, clip.rect.width, clip.rect.height]),
+    ]);
+    const { pipeline, layout } = ctx.pipelines.get({
+      id: "layer-compose-clipped", code: layerComposeClippedWGSL, format, blend: "premultipliedOver",
+      entries: [L.uniform(0), L.texture(1)],
+    });
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, ctx.device.createBindGroup({
+      layout,
+      entries: [
+        { binding: 0, resource: { buffer: this.clipU.buffer } },
+        { binding: 1, resource: layer.view },
+      ],
+    }));
+    pass.draw(3);
+  }
+
   /** Inside the canvas pass: the warped (and blurred) card over the backdrop. */
   encode(ctx: PassContext, frame: FrameState, pass: GPURenderPassEncoder, format: GPUTextureFormat, layer: PooledTexture) {
     const plan = this.plan;
@@ -196,5 +230,6 @@ export class LayerComposePass {
     this.warpU?.destroy();
     this.boxU?.destroy();
     this.tapU?.destroy();
+    this.clipU?.destroy();
   }
 }

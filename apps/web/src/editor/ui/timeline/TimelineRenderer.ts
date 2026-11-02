@@ -56,6 +56,8 @@ export interface ContextMenuRequest {
   effect?: EffectBlock;
   /** VIDEO segment under the pointer (speed entries). */
   segment?: { sourceStart: number; sourceEnd: number; outputStart: number; regionId?: string; startsAtSplit: boolean };
+  /** FOCUS block under the pointer (camera-layout entries). */
+  focus?: FocusBlock;
 }
 
 export interface TimelineRendererHooks {
@@ -2144,7 +2146,7 @@ export class TimelineRenderer {
       else {
         const focus = this.focusAt(p);
         const anno = focus ? null : this.annotateAt(p);
-        if (focus) req = { ...base, lane: "focus", target: { lane: "focus", id: focus.id, isHighlight: focus.isHighlight } };
+        if (focus) req = { ...base, lane: "focus", target: { lane: "focus", id: focus.id, isHighlight: focus.isHighlight }, focus };
         else if (anno) req = { ...base, lane: "annotate", target: { lane: "annotate", id: anno.id } };
         else if (this.inRect(p, this.annotateLaneRect())) req = { ...base, lane: "annotate", target: null };
         else if (this.inRect(p, this.effectsLaneRect())) req = { ...base, lane: "effects", target: null };

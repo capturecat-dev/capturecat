@@ -5,6 +5,11 @@
  *                               used as the background AND remembered in the
  *                               image library (CustomWallpaperStore.add)
  *   library tiles               use / "Set as Default" / "Remove from Library"
+ *   Camera card "Choose Image…" CameraSettingsPaneAppKit, pop-out card `image`
+ *                               fill (docs/camera-cutout.md §12.8): the same
+ *                               file rules and library as the background —
+ *                               cameraCardImagePath travels exactly like
+ *                               backgroundImagePath (§12.9)
  *   Brand "Choose/Replace Logo…" BrandSettingsPaneAppKit.pickLogo:
  *                               `watermark-<UUID8>.<ext>`, Show Watermark on
  *   Curtain "Choose Logo…"      EffectsSettingsPaneAppKit.pickCurtainLogo:
@@ -42,6 +47,11 @@ import type { BackgroundImageTile, PaneActions, PickerStatus } from "./panes/typ
 
 /** A library tile whose image is not in this project yet. */
 const LIBRARY_PREFIX = "library:";
+
+/** Picker status slots: the three file pickers + the camera card's image. */
+type StatusKind = ImagePickerKind | "cameraCard";
+/** The settings keys an image picked from the library is written to. */
+type ImagePathKey = "backgroundImagePath" | "cameraCardImagePath";
 
 /** Open the browser's file chooser. Resolves null when cancelled. */
 export function pickFile(accept: string): Promise<File | null> {
@@ -82,7 +92,7 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
   const media = loaded?.media ?? null;
   const project = useEditorStore(store, (s) => s.project);
   const [library, setLibrary] = useState<LibraryImage[]>([]);
-  const [status, setStatus] = useState<Partial<Record<ImagePickerKind, PickerStatus>>>({});
+  const [status, setStatus] = useState<Partial<Record<StatusKind, PickerStatus>>>({});
   const [, setMediaVersion] = useState(0);
 
   useEffect(() => {
@@ -104,7 +114,7 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
   // URL refreshes and uploads re-render the tiles (fresh thumbnail URLs, new refs).
   useEffect(() => media?.subscribe(() => setMediaVersion((n) => n + 1)), [media]);
 
-  const setKind = useCallback((kind: ImagePickerKind, value: PickerStatus | null) => {
+  const setKind = useCallback((kind: StatusKind, value: PickerStatus | null) => {
     setStatus((prev) => {
       const next = { ...prev };
       if (value) next[kind] = value;
@@ -115,7 +125,7 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
 
   // History keeping removed media blocked the upload: offer Free up, then the retry.
   const freeUpAction = useCallback(
-    (kind: ImagePickerKind): PickerStatus["action"] => {
+    (kind: StatusKind): PickerStatus["action"] => {
       if (!media?.historyBlock || !media.canFreeUpHistory) return null;
       return {
         title: "Free Up History",
@@ -132,7 +142,7 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
   );
 
   const run = useCallback(
-    async (kind: ImagePickerKind, task: () => Promise<void>) => {
+    async (kind: StatusKind, task: () => Promise<void>) => {
       setKind(kind, { busy: "Preparing image…" });
       try {
         await task();
@@ -154,7 +164,7 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
 
   /** Add a file to the project (engine sees it first), then write the setting. */
   const addAndApply = useCallback(
-    async (kind: ImagePickerKind, file: { ref: string; path: string; image: PickedImage }, patch: Partial<ProjectSettings>, label: string) => {
+    async (kind: StatusKind, file: { ref: string; path: string; image: PickedImage }, patch: Partial<ProjectSettings>, label: string) => {
       if (!media) throw new ImageImportError("The project is still loading.");
       if (!media.canAddFiles) throw new ImageImportError("Only the project’s owner can add images to it.");
       const name = store.getState().project?.name;
@@ -168,12 +178,13 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
       });
       apply(patch, label);
       if (media.origin === "cloud") {
-        setKind(kind, { busy: kind === "background" ? "Uploading image…" : "Uploading logo…" });
+        const isImage = kind === "background" || kind === "cameraCard";
+        setKind(kind, { busy: isImage ? "Uploading image…" : "Uploading logo…" });
         try {
           await persisted;
         } catch (error) {
           // The file stays in this tab (the next pick retries its upload).
-          const what = kind === "background" ? "image" : "logo";
+          const what = isImage ? "image" : "logo";
           throw new ImageImportError(`Couldn’t upload the ${what}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
@@ -181,21 +192,33 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
     [media, store, apply, setKind],
   );
 
-  /** Use an image as the background: an identical file already in the project is reused. */
-  const applyBackgroundImage = useCallback(
-    async (image: PickedImage) => {
+  /** Use an image for a path key (the background or the camera card): an identical file already in the project is reused. */
+  const applyProjectImage = useCallback(
+    async (image: PickedImage, key: ImagePathKey, kind: StatusKind, label: string) => {
       if (!media) throw new ImageImportError("The project is still loading.");
-      const current = store.getState().project?.settings.backgroundImagePath;
+      const current = store.getState().project?.settings[key];
       const existing = media.backgroundRefForSha(image.sha256);
       if (existing) {
-        if (existing !== current) apply({ backgroundImagePath: existing }, "Background Image");
+        if (existing !== current) apply({ [key]: existing }, label);
         return;
       }
       const fileName = backgroundFileName(image.name, image.ext, image.sha256, media.takenBy);
       const ref = projectFilePath(media.projectId, fileName);
-      await addAndApply("background", { ref, path: fileName, image }, { backgroundImagePath: ref }, "Background Image");
+      await addAndApply(kind, { ref, path: fileName, image }, { [key]: ref }, label);
     },
     [media, store, apply, addAndApply],
+  );
+
+  /** Use an image as the background. */
+  const applyBackgroundImage = useCallback(
+    (image: PickedImage) => applyProjectImage(image, "backgroundImagePath", "background", "Background Image"),
+    [applyProjectImage],
+  );
+
+  /** Use an image as the pop-out card's fill (docs/camera-cutout.md §12.3). */
+  const applyCardImage = useCallback(
+    (image: PickedImage) => applyProjectImage(image, "cameraCardImagePath", "cameraCard", "Card Image"),
+    [applyProjectImage],
   );
 
   const chooseBackground = useCallback(async () => {
@@ -211,6 +234,20 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
       await applyBackgroundImage(picked);
     });
   }, [run, applyBackgroundImage]);
+
+  const chooseCameraCardImage = useCallback(async () => {
+    const file = await pickFile(PICKER_ACCEPT.background);
+    if (!file) return;
+    await run("cameraCard", async () => {
+      // The background's file rules; the pick joins the same image library.
+      const img = await importImage(file, "background");
+      const picked: PickedImage = { blob: img.blob, name: img.baseName, ext: img.ext, contentType: img.contentType, sha256: img.sha256 };
+      await imageLibrary()
+        .add(picked)
+        .catch(() => undefined);
+      await applyCardImage(picked);
+    });
+  }, [run, applyCardImage]);
 
   const chooseLogo = useCallback(
     async (kind: "watermark" | "curtainLogo") => {
@@ -285,9 +322,29 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
     if (sha) void imageLibrary().remove(sha);
   };
 
+  // ── Camera card tiles (the same library; the card's own image first) ──
+
+  const cardPath = settings?.cameraCardImagePath;
+  const cardCurrent: BackgroundImageTile | null = cardPath
+    ? { path: cardPath, name: imageDisplayName(cardPath), thumbnailUrl: media?.mediaUrl(cardPath) }
+    : null;
+  const selectCardTile = (tile: BackgroundImageTile) => {
+    const sha = shaByPath.get(tile.path);
+    if (tile.path.startsWith(LIBRARY_PREFIX) && sha) {
+      void run("cameraCard", async () => {
+        const image = await imageLibrary().get(sha);
+        if (!image) throw new ImageImportError("This image is no longer in your library.");
+        await applyCardImage({ blob: image.blob, name: image.name, ext: image.ext, contentType: image.contentType, sha256: image.sha256 });
+      });
+      return;
+    }
+    if (tile.path !== store.getState().project?.settings.cameraCardImagePath) apply({ cameraCardImagePath: tile.path }, "Card Image");
+  };
+
   const onChooseBackgroundImage = useCallback(() => void chooseBackground(), [chooseBackground]);
   const onChooseWatermark = useCallback(() => void chooseLogo("watermark"), [chooseLogo]);
   const onChooseCurtainLogo = useCallback(() => void chooseLogo("curtainLogo"), [chooseLogo]);
+  const onChooseCameraCardImage = useCallback(() => void chooseCameraCardImage(), [chooseCameraCardImage]);
 
   const libraryKey = libraryTiles.map((t) => `${t.path}|${t.thumbnailUrl}`).join(",");
   const currentKey = currentTile ? `${currentTile.path}|${currentTile.thumbnailUrl}` : "";
@@ -298,12 +355,22 @@ export function useMediaPickers(store: EditorStore, loaded: LoadedEditorProject 
     [libraryKey, currentKey, media, run, applyBackgroundImage, apply],
   );
 
+  const cardCurrentKey = cardCurrent ? `${cardCurrent.path}|${cardCurrent.thumbnailUrl}` : "";
+  const cameraCardImages = useMemo(
+    () => ({ library: libraryTiles, current: cardCurrent, onSelect: selectCardTile, onRemoveFromLibrary: removeFromLibrary }),
+    // Rebuilt with the tiles, like backgroundImages.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [libraryKey, cardCurrentKey, media, run, applyCardImage, apply],
+  );
+
   if (!loaded) return {};
   return {
     onChooseBackgroundImage,
+    onChooseCameraCardImage,
     onChooseWatermark,
     onChooseCurtainLogo,
     pickerStatus: status,
     backgroundImages,
+    cameraCardImages,
   };
 }

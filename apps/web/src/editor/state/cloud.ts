@@ -66,7 +66,7 @@ export interface CloudMediaFile {
   bytes: number;
   contentType: string;
   /** The reference exactly as project.json spells it when it is not `path`
-   *  (an absolute backgroundImagePath, say). */
+   *  (an absolute backgroundImagePath or cameraCardImagePath, say). */
   source: string | null;
   url: string;
 }

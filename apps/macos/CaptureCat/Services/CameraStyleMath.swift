@@ -135,6 +135,18 @@ enum CameraStyleMath {
         ]).cropped(to: e)
     }
 
+    /// The pop-out card's `camera` fill (docs/camera-cutout.md §12.3): the
+    /// adjusted, UNmasked frame, Gaussian-blurred in camera-pixel space —
+    /// clamp to extent → CIGaussianBlur σ → crop — so the edges never fade.
+    /// σ ≤ 0 returns the frame untouched. Both renderers call this.
+    static func cardCameraImage(_ adjusted: CIImage, sigma: CGFloat) -> CIImage {
+        let e = adjusted.extent
+        guard sigma > 0, !e.isInfinite, e.width > 0, e.height > 0 else { return adjusted }
+        return adjusted.clampedToExtent()
+            .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: sigma])
+            .cropped(to: e)
+    }
+
     // MARK: - Shape / corner radius
 
     /// Corner radius per shape, in the SAME units as `rect` (multiply by the

@@ -7,6 +7,11 @@
  *                         (CameraMaskTrack.swift), decoded here: header,
  *                         per-frame key/delta + SHA-256 of the decoded alpha,
  *                         frameIndexAt lookups
+ *   cameraMaskEdge        CameraMaskEdge.process (§12.4): the processed
+ *                         alpha bytes, exact
+ *
+ * §12.10: cameraCutoutGeometry inputs carry optional popOutAmount /
+ * cardBorderWidth (0…1 thickness) and its output cardBorderWidth.
  *
  * Written by `CaptureCat --web-vectors`; a missing unit FAILS (never skips).
  */
@@ -15,6 +20,7 @@ import { checkUnit, loadVectors } from "./harness";
 import * as CLM from "../math/cameraLayoutMath";
 import { cutoutGeometry } from "../math/cameraCutoutMath";
 import { CameraMaskDecoder, frameIndexAt, parseCameraMask } from "../mask/cameraMaskCodec";
+import { processMaskEdge } from "../mask/maskEdge";
 import { decodeCameraLayoutRegion } from "../model/parse";
 
 function base64Bytes(b64: string): Uint8Array {
@@ -31,17 +37,27 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 
 describe("camera look golden vectors", () => {
   it("cameraLookWeights", () => {
-    checkUnit("cameraLookWeights", (i: { regions: unknown[]; queries: number[]; defaultLook?: "cutout" | "popOut" }) => {
+    checkUnit("cameraLookWeights", (i: { regions: unknown[]; queries: number[]; defaultLook?: "cutout" | "popOut"; stacking?: boolean }) => {
       // Regions as project.json: decoded like the Mac's Codable (lenient look,
       // unknown mode → bubble).
       const regions = i.regions.map((r, k) => decodeCameraLayoutRegion(r, `regions[${k}]`));
       // defaultLook = settings.cameraLook (the whole-video look), absent = none.
-      return { results: i.queries.map((t) => CLM.lookWeights(t, regions, i.defaultLook ?? null)) };
+      // stacking: the vertical stack is active (§12.12) — when a case carries it.
+      return { results: i.queries.map((t) => CLM.lookWeights(t, regions, i.defaultLook ?? null, i.stacking === true)) };
     });
   });
 
   it("cameraCutoutGeometry", () => {
-    checkUnit("cameraCutoutGeometry", (i) => cutoutGeometry(i.look, i.bubbleRect, i.cameraAspect));
+    checkUnit("cameraCutoutGeometry", (i) => cutoutGeometry(i.look, i.bubbleRect, i.cameraAspect, i.popOutAmount ?? null, i.cardBorderWidth ?? null));
+  });
+
+  it("cameraMaskEdge", () => {
+    checkUnit("cameraMaskEdge", (i: { width: number; height: number; base64: string; softness: number; inset: number }) => {
+      const out = processMaskEdge(base64Bytes(i.base64), i.width, i.height, i.softness, i.inset);
+      let raw = "";
+      for (const b of out) raw += String.fromCharCode(b);
+      return { base64: btoa(raw) };
+    });
   });
 
   it("cameraMaskCodec", async () => {

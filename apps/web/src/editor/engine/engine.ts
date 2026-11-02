@@ -536,7 +536,8 @@ export class Engine {
     const g = this.scene?.geometry;
     if (!c && g && this.core && this.cameraPath) {
       // The exporter's camera at the export frame on screen — preview == export.
-      return cameraStateAt(this.cameraPath, g, this.core.settings, t);
+      // While the vertical stack is on the layout owns every zoom-in (§12.13).
+      return cameraStateAt(this.cameraPath, g, this.core.settings, t, this.graph.cameraStacking());
     }
     if (!c || !g || Math.abs(c.zoom - 1) < 1e-4) return CAMERA_REST;
     // Card-only zoom about the focal point in the video rect (exporter's zoom

@@ -453,6 +453,40 @@ function drawHandle(ctx: Ctx, f: ChromeFrame, p: Pt, diameter: number, alpha: nu
   });
 }
 
+// ── Vertical stack notch (docs/camera-cutout.md §12.12) ─────────────────────
+
+/** The camera-height notch, in points: a pill on the seam between the rows. */
+export const STACK_NOTCH = { width: 36, height: 6 } as const;
+
+/**
+ * The vertical stack's height notch: a white pill centred on the seam
+ * (card space — it rides the camera like the rows), the handle's soft
+ * shadow and hairline. Shown while the seam is hovered or dragged; editor
+ * chrome only, never exported.
+ */
+export function drawStackNotch(ctx: Ctx, f: ChromeFrame, seam: Rect, active: boolean): void {
+  const u = f.u;
+  const c = { x: seam.x + seam.width / 2, y: seam.y + seam.height / 2 };
+  const w = STACK_NOTCH.width * u;
+  const h = STACK_NOTCH.height * u;
+  inCard(ctx, f, c, () => {
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.35)";
+    ctx.shadowOffsetY = -1;
+    ctx.shadowBlur = 3;
+    ctx.beginPath();
+    ctx.roundRect(c.x - w / 2, c.y - h / 2, w, h, h / 2);
+    ctx.fillStyle = active ? SELECTION_BLUE : "#ffffff";
+    ctx.fill();
+    ctx.restore();
+    ctx.beginPath();
+    ctx.roundRect(c.x - w / 2 + u / 2, c.y - h / 2 + u / 2, w - u, h - u, (h - u) / 2);
+    ctx.strokeStyle = "rgba(0,0,0,0.2)";
+    ctx.lineWidth = u;
+    ctx.stroke();
+  });
+}
+
 // ── Zoom focal reticle ──────────────────────────────────────────────────────
 
 /**

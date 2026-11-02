@@ -31,6 +31,25 @@
  *    straight into the group when settled), then the name tag, unweighted.
  *    The person mask (camera-mask.ccmask) is looked up by the DRAWN camera
  *    frame's PTS; a missing or stale mask draws every look as the bubble.
+ *  - Camera styles (docs/camera-cutout.md §12, core `cameraCardStyle`): the
+ *    pop-out stack is card shadow → card fill (gradient / flat colour / the
+ *    picked image aspect-filled into C / the camera's own UNMASKED frame,
+ *    placed like the person, optionally portrait-blurred by a separable
+ *    Gaussian in camera-texel space) → border ring → person. Edge softness /
+ *    inset reshape the person mask for both looks (CameraMaskFeed). None of
+ *    the keys set → exactly today's passes.
+ *  - Full-height split (§12.11): while `resolve` carries a `cardClip`, the
+ *    feature hands the FrameGraph the clip (`cardClip` hook — the squeezed
+ *    card is cut to that rounded rect at the seam, riders included) and
+ *    draws the TILE shadow under it (`seam`, the "cardSeam" stage): the
+ *    exporter's makeFrameShadow on the clip rect with shadow radius
+ *    shadowRadius × canvasScale × min(1, cardScale). The camera tile (cardTop)
+ *    composites after, unclipped.
+ *  - Vertical stack (§12.12): in a portrait output with
+ *    `cameraPortraitStack` on, `exportFrameCamera` gets the content rect and
+ *    resolves the stacked arrangement (camera row on top, the card filling
+ *    and clipped to the screen row below); the feature reports the seam
+ *    between the rows to the stage (`stackSeam` hit) for the height notch.
  *
  * Mac EXPORT behaviour ported on purpose (each measured against the real
  * exporter output — parity fixture 13 — or the real CoreImage filters):
@@ -47,15 +66,16 @@
  *    (saturation → contrast → brightness) and CIHueAdjust kernels — GPU vs
  *    CoreImage ≤ 2/255 (see cameraShaders.ts).
  */
-import { adjustmentsFromSettings, isIdentity as adjustmentsIdentity } from "../../core/math/cameraStyleMath";
-import { lookWeights, type CameraLookWeights } from "../../core/math/cameraLayoutMath";
+import { adjustmentsFromSettings, identityAdjustments, isIdentity as adjustmentsIdentity } from "../../core/math/cameraStyleMath";
+import { arrangement, lookWeights, stackActive, type CameraLookWeights } from "../../core/math/cameraLayoutMath";
+import { layoutZoom } from "../../core/math/reactiveCameraLayout";
 import {
   bubbleWeight,
+  cardBorderInner,
   cardShadowExportAlpha,
   maskIsFresh,
-  popOutCardBottom,
-  popOutCardTop,
 } from "../../core/math/cameraCutoutMath";
+import { blurSigma, borderColors, cameraCardStyle, imageFillRect, type CameraCardStyle, type CardRGB } from "../../core/math/cameraCardStyle";
 import type { CameraMaskTrack } from "../../core/mask/cameraMaskCodec";
 import {
   compositeCameraGeometry,
@@ -65,19 +85,23 @@ import {
   type ExportCameraStatics,
   type ExportFrameCamera,
 } from "../../core/math/exportCameraBubble";
-import type { AffineTransform } from "../../core/math/geometry";
+import { rectHeight, rectWidth, type AffineTransform } from "../../core/math/geometry";
 import { perspectiveDistance, projectionTransform } from "../../core/math/tiltMath";
 import type { Project, Rect } from "../../core/model";
 import { srgbToWorking, type WorkingSpace } from "../color";
 import { L, Uniforms } from "../gpu/resources";
 import {
   cameraAssetWGSL,
+  cameraBlurWGSL,
+  cameraCardImageWGSL,
   cameraCardShadowWGSL,
   cameraCardWGSL,
   cameraComposeWGSL,
   cameraStackWGSL,
   cameraLiveWGSL,
   cameraPosterWGSL,
+  cameraPrepLiveWGSL,
+  cameraPrepPosterWGSL,
 } from "../gpu/cameraShaders";
 import { CAMERA_FILTER_LUTS, CAMERA_LUT_SIZE } from "../gpu/cameraFilterLuts";
 import { apply, IDENTITY, invert, isIdentity, multiply, toRows, type Mat3 } from "../mat3";
@@ -85,7 +109,7 @@ import { CameraSource, type CameraFrame } from "../media/cameraSource";
 import { CameraMaskFeed } from "../media/cameraMaskFeed";
 import { stageHitRecorder } from "../stageHits";
 import { bakeCameraAssets, measureTag, type BakedAsset } from "./cameraAssets";
-import type { FrameEncoder, FrameState, PassContext, RenderPass, Scene, StaticKeyParts } from "./types";
+import type { CardClip, FrameEncoder, FrameState, PassContext, RenderPass, Scene, StaticKeyParts } from "./types";
 import { cameraLayoutKey } from "../../core/export/staticSpans";
 
 /** The poster the Mac saves beside the project (Project.cameraPosterURL). */
@@ -170,23 +194,37 @@ interface ShadowLayer {
 /** How the camera layer is clipped (each matches a CoreImage mask the exporter builds). */
 type CameraClip =
   | { kind: "asset"; xform: Mat3 }                 // the baked bubble shape mask, re-targeted
-  | { kind: "roundedRect"; radius: number }        // CIRoundedRectangleGenerator (layout tile)
+  | { kind: "roundedRect"; radius: number; maskRect?: Rect } // CIRoundedRectangleGenerator (layout tile); maskRect = a joined row's shape (§12.14)
   | { kind: "none" }                               // the cutout: one crop to B
-  | { kind: "bottomRounded"; radius: number; maskRect: Rect }; // the pop-out person: generator over B extended up, cropped to B
+  | { kind: "bottomRounded"; radius: number; maskRect: Rect } // the pop-out person: generator over B extended up, cropped to B
+  | { kind: "card"; radius: number; rect: Rect };  // the §12.3 camera fill: one crop to B, then through the card mask (C, r)
 interface CameraLayer {
   kind: "camera";
   clip: CameraClip;
   /** × the person mask (a look). */
   person: boolean;
+  /** The §12.3 camera fill's portrait blur 0…1 (σ = blur × 0.03 × the frame's height, camera px). */
+  blur?: number;
 }
-/** The pop-out card fill. */
+/** The pop-out card's gradient / flat fill, or its border ring (`ring`). sRGB colours. */
 interface CardLayer {
   kind: "card";
   rect: Rect;
   radius: number;
+  top: CardRGB;
+  bottom: CardRGB;
+  /** Border ring: the inner rounded rect it stops at (Y-down). */
+  ring?: { rect: Rect; radius: number };
 }
-type Layer = AssetLayer | ShadowLayer | CameraLayer | CardLayer;
-type ShadowSlot = "card" | "look";
+/** The §12.3 image card fill (project.json reference of the decoded image). */
+interface CardImageLayer {
+  kind: "cardImage";
+  rect: Rect;
+  radius: number;
+  ref: string;
+}
+type Layer = AssetLayer | ShadowLayer | CameraLayer | CardLayer | CardImageLayer;
+type ShadowSlot = "card" | "look" | "tile" | "under";
 
 /** A weighted part of the group: composed as a whole, scaled by `weight` and summed with the others. */
 interface Stack {
@@ -228,6 +266,10 @@ interface Plan {
   looks: CameraLookWeights;
   /** Person-mask frame for the drawn camera frame (−1: no look drawn). */
   maskIndex: number;
+  /** The §12 camera styles, resolved (defaults applied, clamped). */
+  style: CameraCardStyle;
+  /** The full-height split's card clip (§12.11, Y-down, radius clamped); null = none. */
+  cardClip: CardClip | null;
   /** Group bounds (Y-down, integer, inside the target). */
   bounds: Rect;
   tilt: Mat3;
@@ -249,7 +291,17 @@ export class CameraFeature {
   private group: { texture: GPUTexture; view: GPUTextureView; width: number; height: number } | null = null;
   /** A stack being cross-faded renders here first (its weight scales the stack as a whole). */
   private scratch: { texture: GPUTexture; view: GPUTextureView; width: number; height: number } | null = null;
-  private shadowCaches: Record<ShadowSlot, { texture: GPUTexture; view: GPUTextureView; width: number; height: number; key: string } | null> = { card: null, look: null };
+  private shadowCaches: Record<ShadowSlot, { texture: GPUTexture; view: GPUTextureView; width: number; height: number; key: string } | null> = { card: null, look: null, tile: null, under: null };
+  /** The §12.3 camera fill's blurred frame (camera px): `a` holds the result, `b` the horizontal pass. */
+  private cardBlur: { a: GPUTexture; b: GPUTexture; aView: GPUTextureView; bView: GPUTextureView; width: number; height: number; key: string } | null = null;
+  private cardBlurWeights: { buffer: GPUBuffer; floats: number } | null = null;
+  private prepU: Uniforms | null = null;
+  private blurU: [Uniforms | null, Uniforms | null] = [null, null];
+  /** The §12.3 image card fill's texture (re-made when the decoded image changes). */
+  private cardImage: { bitmap: ImageBitmap; space: WorkingSpace; texture: GPUTexture; view: GPUTextureView } | null = null;
+  private cardImageU: Uniforms[] = [];
+  /** Bumped whenever the poster texture is rebuilt (the blur cache key). */
+  private posterVersion = 0;
   /** camera-mask.ccmask for this renderer (null: none in the scene). */
   private maskFeed: CameraMaskFeed | null = null;
   /** Export: the person-mask frame prefetch decoded for this output time. */
@@ -265,10 +317,15 @@ export class CameraFeature {
   private camU: Uniforms[] = [];
   private cardU: Uniforms[] = [];
   private stackU: Uniforms[] = [];
-  private shadowU: Record<ShadowSlot, Uniforms | null> = { card: null, look: null };
+  private shadowU: Record<ShadowSlot, Uniforms | null> = { card: null, look: null, tile: null, under: null };
+  /** The tile shadow's draw at the seam (its own pass — not one of the group's asset slots). */
+  private seamU: Uniforms | null = null;
+  private underU: Uniforms | null = null;
   private composeU: Uniforms | null = null;
   /** The rect the bubble / tile was composited at this frame (stage hit-testing). */
   private readonly hit = stageHitRecorder("camera");
+  /** The vertical stack's seam between the rows (§12.12) — the stage's height notch. */
+  private readonly seamHit = stageHitRecorder("stackSeam");
   /**
    * Preview: the camera frame the last plan wanted vs. the one it drew. A
    * seek resolves only once they match (EditorPlaybackController seeks the
@@ -277,6 +334,7 @@ export class CameraFeature {
   private wait = { wanted: -1, drawn: -1, waiting: false };
 
   readonly prepare: RenderPass;
+  readonly seam: RenderPass;
   readonly tile: RenderPass;
   readonly overlay: RenderPass;
 
@@ -287,16 +345,24 @@ export class CameraFeature {
       stage: "prepare",
       sceneChanged: (ctx) => self.sceneChanged(ctx),
       cardTransform: (ctx, frame) => self.cardTransform(ctx, frame),
+      cardClip: (_ctx, frame) => (self.plan && self.plan.outputTime === frame.outputTime ? self.plan.cardClip : null),
       prefetch: (scene, frame) => self.prefetch(scene, frame),
+      cameraStacking: (scene) => self.stacking(scene),
       staticKey: (scene, frame) => self.staticKey(scene, frame),
       encode: (ctx, frame, enc) => self.encodeGroup(ctx, frame, enc),
       destroy: () => self.destroy(),
       stageHit: this.hit,
       inputsReady: () => !self.wait.waiting,
     };
+    this.seam = {
+      name: "camera-split-seam",
+      stage: "cardSeam",
+      encode: (ctx, frame, enc) => self.encodeSeam(ctx, frame, enc),
+    };
     this.tile = {
       name: "camera-tile",
       stage: "cardTop",
+      stageHit: this.seamHit,
       encode: (ctx, frame, enc) => self.compose(ctx, frame, enc, "override"),
     };
     this.overlay = {
@@ -373,6 +439,14 @@ export class CameraFeature {
 
   private project(scene: Scene): Project | null {
     return scene.extras.project;
+  }
+
+  /** The stack's camera gate (§12.13) — `exportFrameCamera`'s: the camera
+   *  stream for this scene is open (statics carry assets) and the stack is on. */
+  private stacking(scene: Scene): boolean {
+    const p = this.project(scene);
+    const url = this.cameraUrl(scene);
+    return !!p && !!url && this.source?.url === url && this.source.isOpen && stackActive(p.settings, scene.target);
   }
 
   private ensureStatics(ctx: PassContext, source: CameraSource): Statics {
@@ -452,6 +526,7 @@ export class CameraFeature {
       { width: bitmap.width, height: bitmap.height },
     );
     this.poster = { bitmap, space, texture, view: texture.createView() };
+    this.posterVersion++;
     return this.poster.view;
   }
 
@@ -491,7 +566,8 @@ export class CameraFeature {
     this.exact = { outputTime: frame.outputTime, frame: f };
     // The person mask joins the exact-frame wait: decoded before this frame renders.
     this.exactMask = null;
-    const w = lookWeights(frame.sourceTime, p.cameraLayoutRegions, p.settings.cameraLook);
+    // The vertical stack's camera row wears the whole-video look, Side by Side included (§12.12).
+    const w = lookWeights(frame.sourceTime, p.cameraLayoutRegions, p.settings.cameraLook, this.source.isOpen && stackActive(p.settings, scene.target));
     const feed = this.ensureMaskFeed(scene);
     if ((w.cutout > 0 || w.popOut > 0) && this.maskUsable(feed, this.source)) {
       const index = this.maskIndexFor(feed, this.source, f);
@@ -530,11 +606,13 @@ export class CameraFeature {
     const cam = exportFrameCamera(this.keyStatics.statics, s, project.cameraLayoutRegions, videoRectYUp, target, project.cameraTimeOffset, {
       currentTime: frame.sourceTime,
       zoom: frame.cameraKey?.zoom ?? 1,
+      focalX: frame.cameraKey?.focalX,
+      focalY: frame.cameraKey?.focalY,
       sourceVisible: frame.video !== null,
       cameraFrameDecoded: true,
       posterAvailable: false,
       maskAvailable: this.maskUsable(this.ensureMaskFeed(scene), source),
-    });
+    }, contentRectYUp(scene));
     // The (gated) look weights end the key (docs/camera-cutout.md §11): a fading look never collapses.
     return { cameraSampleSeconds: source.exportSampleSeconds, cameraLayout: cameraLayoutKey(cam.layout, cam.lookWeights) };
   }
@@ -576,11 +654,28 @@ export class CameraFeature {
     const cam = exportFrameCamera(statics.statics, s, project.cameraLayoutRegions, videoRectYUp, scene.target, project.cameraTimeOffset, {
       currentTime: frame.sourceTime,
       zoom: frame.cameraKey?.zoom ?? 1,
+      focalX: frame.cameraKey?.focalX,
+      focalY: frame.cameraKey?.focalY,
       sourceVisible: frame.video !== null,
       cameraFrameDecoded: live !== null,
       posterAvailable,
       maskAvailable,
-    });
+    }, contentRectYUp(scene));
+    // The vertical stack's seam (§12.12): the gap between the rows, card
+    // space; `usable.height` = the two rows' heights, so a drag of dy moves
+    // the ratio by dy ÷ usable.height. Only while the stack is the arrangement
+    // and the row is not yielding to a zoom (§12.13 — a drag would set the
+    // yielded height).
+    const yielding = (s.cameraShrinkOnZoom ?? true) && layoutZoom(frame.cameraKey?.zoom ?? 1, true) > 1.001;
+    if (cam.stack && !yielding && arrangement(frame.sourceTime, project.cameraLayoutRegions, true).stacked) {
+      const top = rectYDown(cam.stack.camera, H);
+      const bottom = rectYDown(cam.stack.screen, H);
+      this.seamHit.current = {
+        rect: { x: top.x, y: top.y + top.height, width: top.width, height: bottom.y - (top.y + top.height) },
+        space: "card",
+        usable: { width: top.width, height: top.height + bottom.height },
+      };
+    }
     const exporting = !!(this.exact && this.exact.outputTime === frame.outputTime);
     if (!exporting) {
       this.wait = previewWait(source, target, live, frame.video !== null, cam.layout.cameraOpacity);
@@ -617,13 +712,44 @@ export class CameraFeature {
       rect: { x: 0, y: 0, width: 0, height: 0 },
       stacks: [],
       top: [],
-      shadows: { card: null, look: null },
+      shadows: { card: null, look: null, tile: null, under: null },
       looks,
       maskIndex,
+      style: cameraCardStyle(s),
+      cardClip: null,
       bounds: { x: 0, y: 0, width: 0, height: 0 },
       tilt: IDENTITY,
       opacity: 1,
     };
+    // Full-height split (§12.11): the card clip at the seam and its tile
+    // shadow — whether or not the camera itself draws this frame.
+    const clipUp = cam.layout.cardClip;
+    if (clipUp && rectWidth(clipUp) > 0 && rectHeight(clipUp) > 0) {
+      const rect = rectYDown(clipUp, H);
+      const radius = Math.min(Math.max(0, cam.layout.cardClipCornerRadius), Math.min(rect.width, rect.height) / 2);
+      // A joined stack (§12.14): the generator runs past the seam, cropped to the row.
+      const shapeUp = cam.layout.cardClipShapeRect ?? null;
+      const shape = shapeUp ? rectYDown(shapeUp, H) : null;
+      plan.cardClip = shape
+        ? { rect, radius, shape, shapeRadius: Math.min(Math.max(0, cam.layout.cardClipCornerRadius), Math.min(shape.width, shape.height) / 2) }
+        : { rect, radius };
+      // makeFrameShadow(extent: outputRect, rect: clip, cornerRadius: radius,
+      // shadowRadius: max(0, shadowRadius × canvasScale) × min(1, cardScale), shadowOpacity: max(0, …)) —
+      // a stack row scales the card UP; its shadow stays card-sized (§12.12).
+      const shadowRadius = Math.max(0, s.shadowRadius * statics.statics.canvasScale) * Math.min(1, cam.layout.cardScale);
+      const shadowOpacity = Math.max(0, s.shadowOpacity);
+      if (shadowRadius > 0 && shadowOpacity > 0) {
+        const spec = {
+          rect,
+          radius,
+          sigma: shadowRadius / 2,
+          alpha: shadowOpacity * 0.45,
+          offsetY: shadowRadius / 3,
+          extent: { x: 0, y: 0, width: scene.target.width, height: scene.target.height },
+        };
+        plan.shadows.tile = { ...spec, key: JSON.stringify(spec) };
+      }
+    }
     if (cam.path === "none" || !plan.source) {
       plan.path = "none";
       plan.looks = zero;
@@ -668,8 +794,25 @@ export class CameraFeature {
         plan.shadows.card = { ...spec, key: JSON.stringify(spec) };
         bubble.push({ kind: "shadow", slot: "card" });
       }
+      if (o.underShadow) {
+        // A joined stack row (§12.14): drawn at the seam, UNDER the card.
+        const us = o.underShadow;
+        const spec = {
+          rect: rectYDown(us.rect, H),
+          radius: us.cornerRadius,
+          sigma: us.shadowRadius / 2,
+          alpha: us.shadowOpacity * 0.45,
+          offsetY: us.shadowRadius / 3,
+          extent: rectYDown(us.extent, H),
+        };
+        plan.shadows.under = { ...spec, key: JSON.stringify(spec) };
+      }
       if (o.chromeVisible) asset(bubble, a.ring, x, chrome);
-      bubble.push({ kind: "camera", clip: { kind: "roundedRect", radius: o.maskRadius }, person: false });
+      bubble.push({
+        kind: "camera",
+        clip: { kind: "roundedRect", radius: o.maskRadius, maskRect: o.maskShape ? rectYDown(o.maskShape, H) : undefined },
+        person: false,
+      });
       if (o.chromeVisible) {
         asset(bubble, a.stroke, x, chrome);
         asset(plan.top, a.tag, x, chrome);
@@ -702,7 +845,22 @@ export class CameraFeature {
         plan.shadows.look = { ...spec, key: JSON.stringify(spec) };
         layers.push({ kind: "shadow", slot: "look" });
       }
-      if (card.width > 0 && card.height > 0) layers.push({ kind: "card", rect: card, radius: pop.cardCornerRadius });
+      if (card.width > 0 && card.height > 0) {
+        // §12.3: card fill → border ring, under the person.
+        layers.push(cardFill(plan.style, card, pop.cardCornerRadius, scene));
+        const inner = cardBorderInner(pop);
+        if (inner) {
+          const colors = borderColors(plan.style);
+          layers.push({
+            kind: "card",
+            rect: card,
+            radius: pop.cardCornerRadius,
+            top: colors.top,
+            bottom: colors.bottom,
+            ring: { rect: rectYDown(inner.rect, H), radius: inner.radius },
+          });
+        }
+      }
       layers.push({
         kind: "camera",
         clip: { kind: "bottomRounded", radius: pop.clipBottomCornerRadius, maskRect: rectYDown(pop.personClipMaskRect!, H) },
@@ -716,7 +874,7 @@ export class CameraFeature {
     for (const l of [...plan.stacks.flatMap((st) => st.layers), ...plan.top]) {
       if (l.kind === "asset") b = union(b, boundsOf(l.xform, l.asset.baked.crop));
       else if (l.kind === "shadow" && plan.shadows[l.slot]) b = union(b, plan.shadows[l.slot]!.extent);
-      else if (l.kind === "card") b = union(b, l.rect);
+      else if (l.kind === "card" || l.kind === "cardImage") b = union(b, l.rect);
     }
     const x0 = Math.max(0, Math.floor(b.x));
     const y0 = Math.max(0, Math.floor(b.y));
@@ -813,17 +971,22 @@ export class CameraFeature {
     // The FrameGraph calls cardTransform first; a caller that did not still gets a plan.
     if (!this.plan || this.plan.outputTime !== frame.outputTime) this.plan = this.makePlan(ctx, frame);
     const plan = this.plan;
-    if (!plan || plan.path === "none" || !plan.source) return;
+    if (!plan) return;
+    // Shadow caches (re-rendered only when their geometry changes — morphs, a
+    // moving bubble). The split's tile shadow is drawn at the seam even when
+    // the camera itself does not draw.
+    for (const slot of ["card", "look", "tile", "under"] as const) {
+      const spec = plan.shadows[slot];
+      if (spec) this.renderShadow(ctx, enc, slot, spec);
+    }
+    if (plan.path === "none" || !plan.source) return;
     const { device, pipelines } = ctx;
     const { width: W, height: H } = ctx.scene.target;
     const group = this.ensureGroup(device, W, H);
     const b = plan.bounds;
-
-    // Shadow caches (re-rendered only when their geometry changes — morphs, a moving bubble).
-    for (const slot of ["card", "look"] as const) {
-      const spec = plan.shadows[slot];
-      if (spec) this.renderShadow(ctx, enc, slot, spec);
-    }
+    // §12.3 camera fill blur: its own passes, before the group pass opens.
+    const blurLayer = plan.stacks.flatMap((st) => st.layers).find((l): l is CameraLayer => l.kind === "camera" && (l.blur ?? 0) > 0);
+    const blurView = blurLayer ? this.renderCardBlur(ctx, enc, plan, blurLayer.blur!) : null;
 
     const assetPipe = pipelines.get({
       id: "camera-asset", code: cameraAssetWGSL, format: GROUP_FORMAT, blend: "premultipliedOver",
@@ -832,6 +995,7 @@ export class CameraFeature {
     let slot = 0;
     let camSlot = 0;
     let cardSlot = 0;
+    let cardImageSlot = 0;
     let stackSlot = 0;
     const drawAsset = (pass: GPURenderPassEncoder, view: GPUTextureView, inv: Mat3, origin: { x: number; y: number }, crop: Rect, fade: number, alphaOnly: boolean) => {
       const u = this.uni(slot++, device);
@@ -860,8 +1024,10 @@ export class CameraFeature {
           if (cache && plan.shadows[l.slot]) drawAsset(pass, cache.view, IDENTITY, { x: 0, y: 0 }, full, 1, true);
         } else if (l.kind === "card") {
           this.drawCard(ctx, pass, l, cardSlot++);
+        } else if (l.kind === "cardImage") {
+          this.drawCardImage(ctx, pass, l, cardImageSlot++);
         } else if (l.kind === "camera") {
-          this.drawCamera(ctx, pass, plan, l, camSlot++);
+          this.drawCamera(ctx, pass, plan, l, camSlot++, l.blur ? blurView : null);
         }
       }
     };
@@ -922,18 +1088,55 @@ export class CameraFeature {
     close();
   }
 
-  /** The pop-out card: gradient through its rounded rect (cameraCardWGSL). */
+  /**
+   * The full-height split's tile shadow (§12.11) into the squeezed card layer,
+   * UNDER the clipped card (the FrameGraph's "cardSeam" stage): the cached
+   * makeFrameShadow alpha as black.
+   */
+  private encodeSeam(ctx: PassContext, frame: FrameState, enc: FrameEncoder): void {
+    const plan = this.plan;
+    if (!plan || plan.outputTime !== frame.outputTime || !plan.cardClip || !enc.pass) return;
+    // The tile shadow, then a joined stack row's shadow (§12.14) — the Mac
+    // composites the card over the tile shadow, then that over the row's.
+    for (const slot of ["tile", "under"] as const) {
+      const cache = this.shadowCaches[slot];
+      if (!plan.shadows[slot] || !cache) continue;
+      const { device, pipelines, scene } = ctx;
+      const { width: W, height: H } = scene.target;
+      const u = slot === "tile" ? (this.seamU ??= new Uniforms(device, 24, "camera-seam-u")) : (this.underU ??= new Uniforms(device, 24, "camera-under-u"));
+      u.write([...toRows(IDENTITY), 0, 0, 0, 0, 0, 0, W, H, 1, 1, 1, 1]);
+      const { pipeline, layout } = pipelines.get({
+        id: "camera-asset", code: cameraAssetWGSL, format: enc.format, blend: "premultipliedOver",
+        entries: [L.uniform(0), L.texture(1)],
+      });
+      enc.pass.setPipeline(pipeline);
+      enc.pass.setBindGroup(0, device.createBindGroup({
+        layout,
+        entries: [
+          { binding: 0, resource: { buffer: u.buffer } },
+          { binding: 1, resource: cache.view },
+        ],
+      }));
+      enc.pass.draw(3);
+    }
+  }
+
+
+  /** The pop-out card: gradient / flat colour through its rounded rect, or its border ring (cameraCardWGSL). */
   private drawCard(ctx: PassContext, pass: GPURenderPassEncoder, card: CardLayer, slot: number): void {
     const { device, pipelines, scene } = ctx;
-    while (this.cardU.length <= slot) this.cardU.push(new Uniforms(device, 16, `camera-card-u${this.cardU.length}`));
+    while (this.cardU.length <= slot) this.cardU.push(new Uniforms(device, 20, `camera-card-u${this.cardU.length}`));
     const u = this.cardU[slot]!;
-    const top = srgbToWorking([popOutCardTop.red, popOutCardTop.green, popOutCardTop.blue], scene.workingSpace);
-    const bottom = srgbToWorking([popOutCardBottom.red, popOutCardBottom.green, popOutCardBottom.blue], scene.workingSpace);
+    // sRGB as stored, alpha forced to 1 (§12.3), matched into the working space.
+    const top = srgbToWorking([card.top.r, card.top.g, card.top.b], scene.workingSpace);
+    const bottom = srgbToWorking([card.bottom.r, card.bottom.g, card.bottom.b], scene.workingSpace);
+    const ring = card.ring;
     u.write([
       card.rect.x, card.rect.y, card.rect.width, card.rect.height,
-      card.radius, 0, 0, 0,
+      card.radius, ring ? 1 : 0, ring?.radius ?? 0, 0,
       top[0], top[1], top[2], 1,
       bottom[0], bottom[1], bottom[2], 1,
+      ring?.rect.x ?? 0, ring?.rect.y ?? 0, ring?.rect.width ?? 0, ring?.rect.height ?? 0,
     ]);
     const { pipeline, layout } = pipelines.get({
       id: "camera-card", code: cameraCardWGSL, format: GROUP_FORMAT, blend: "premultipliedOver", entries: [L.uniform(0)],
@@ -943,7 +1146,200 @@ export class CameraFeature {
     pass.draw(3);
   }
 
-  private drawCamera(ctx: PassContext, pass: GPURenderPassEncoder, plan: Plan, layer: CameraLayer, slot: number): void {
+  /** The §12.3 image fill: the decoded image aspect-filled into C through the card mask (cameraCardImageWGSL). */
+  private drawCardImage(ctx: PassContext, pass: GPURenderPassEncoder, layer: CardImageLayer, slot: number): void {
+    const { device, pipelines, scene } = ctx;
+    const view = this.cardImageTexture(ctx, layer.ref);
+    const bmp = scene.extras.assets.images.get(layer.ref);
+    if (!view || !bmp) return;
+    // s = max(C.width / iw, C.height / ih), centred on C (CameraCardStyle.imageFillRect).
+    const place = imageFillRect({ width: bmp.width, height: bmp.height }, layer.rect);
+    while (this.cardImageU.length <= slot) this.cardImageU.push(new Uniforms(device, 12, `camera-card-image-u${this.cardImageU.length}`));
+    const u = this.cardImageU[slot]!;
+    u.write([
+      layer.rect.x, layer.rect.y, layer.rect.width, layer.rect.height,
+      layer.radius, 0, 0, 0,
+      place.x, place.y, place.width, place.height,
+    ]);
+    const { pipeline, layout } = pipelines.get({
+      id: "camera-card-image", code: cameraCardImageWGSL, format: GROUP_FORMAT, blend: "premultipliedOver",
+      entries: [L.uniform(0), L.sampler(1), L.texture(2)],
+    });
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, device.createBindGroup({
+      layout,
+      entries: [
+        { binding: 0, resource: { buffer: u.buffer } },
+        { binding: 1, resource: pipelines.linearSampler() },
+        { binding: 2, resource: view },
+      ],
+    }));
+    pass.draw(3);
+  }
+
+  /** The card image as a texture (sRGB 8-bit, EXIF-oriented by the decode, matched into the working space). */
+  private cardImageTexture(ctx: PassContext, ref: string): GPUTextureView | null {
+    const bitmap = ctx.scene.extras.assets.images.get(ref);
+    if (!bitmap) return null;
+    const space = ctx.scene.workingSpace;
+    if (this.cardImage?.bitmap === bitmap && this.cardImage.space === space) return this.cardImage.view;
+    const old = this.cardImage;
+    if (old) void ctx.device.queue.onSubmittedWorkDone().then(() => old.texture.destroy());
+    const texture = ctx.device.createTexture({
+      label: "camera-card-image",
+      size: { width: bitmap.width, height: bitmap.height },
+      format: "rgba8unorm",
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+    ctx.device.queue.copyExternalImageToTexture(
+      { source: bitmap },
+      { texture, colorSpace: space, premultipliedAlpha: true },
+      { width: bitmap.width, height: bitmap.height },
+    );
+    this.cardImage = { bitmap, space, texture, view: texture.createView() };
+    return this.cardImage.view;
+  }
+
+  /**
+   * The §12.3 camera fill's portrait blur: the drawn camera frame (adjusted,
+   * unmirrored) at its own pixels → separable Gaussian σ = blur × 0.03 × H
+   * (H = the frame's decoded height), kernel radius ceil(3σ), normalised
+   * exp(−x² / 2σ²), clamp-to-edge — horizontal then vertical. Cached until
+   * the frame, σ or the adjustments change. Null: nothing to blur.
+   */
+  private renderCardBlur(ctx: PassContext, enc: FrameEncoder, plan: Plan, blur: number): GPUTextureView | null {
+    const { device, pipelines, scene } = ctx;
+    const src = plan.source;
+    if (!src) return null;
+    let poster: GPUTextureView | null = null;
+    let cw: number;
+    let ch: number;
+    let identity: string;
+    if (src.kind === "live") {
+      cw = src.frame.frame.displayWidth;
+      ch = src.frame.frame.displayHeight;
+      identity = `live:${src.frame.index}:${src.frame.frame.timestamp}`;
+    } else {
+      poster = this.posterTexture(ctx);
+      const bmp = scene.extras.assets.images.get(CAMERA_POSTER_REF);
+      if (!poster || !bmp) return null;
+      cw = bmp.width;
+      ch = bmp.height;
+      identity = `poster:${this.posterVersion}`;
+    }
+    const sigma = blurSigma({ ...plan.style, backgroundBlur: blur }, ch);
+    if (!(sigma > 0) || !(cw > 0 && ch > 0)) return null;
+    const adj = adjustmentsFromSettings(scene.extras.project!.settings);
+    const key = JSON.stringify([identity, cw, ch, sigma, adj, scene.workingSpace]);
+    const cache = this.ensureCardBlur(device, cw, ch);
+    // The camera runs slower than the output: most frames reuse the last blur.
+    if (cache.key === key) return cache.aView;
+    const binding: GPUExternalTexture | GPUTextureView =
+      src.kind === "live" ? device.importExternalTexture({ source: src.frame.frame, colorSpace: scene.workingSpace }) : poster!;
+
+    // 1. The adjusted frame at camera px → a.
+    const preset = adj.filter !== "None" ? this.presetView(device, adj.filter as PresetName) : null;
+    this.prepU ??= new Uniforms(device, 12, "camera-blur-prep-u");
+    this.prepU.write([
+      cw, ch, 0, 0,
+      adj.brightness, adj.contrast, adj.saturation, (adj.hue * Math.PI) / 180,
+      preset ? 1 : 0,
+      adj.brightness !== 0 || adj.contrast !== 1 || adj.saturation !== 1 ? 1 : 0,
+      adj.hue !== 0 ? 1 : 0,
+      adjustmentsIdentity(adj) ? 1 : 0,
+    ]);
+    const live = src.kind === "live";
+    const prep = pipelines.get({
+      id: live ? "camera-blur-prep-live" : "camera-blur-prep-poster",
+      code: live ? cameraPrepLiveWGSL : cameraPrepPosterWGSL,
+      format: GROUP_FORMAT,
+      blend: "replace",
+      entries: [L.uniform(0), L.sampler(1), live ? L.external(3) : L.texture(3), LUT_ENTRY(4)],
+    });
+    const p0 = enc.beginPass({ label: "camera-blur-prep", colorAttachments: [{ view: cache.aView, loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }] });
+    p0.setPipeline(prep.pipeline);
+    p0.setBindGroup(0, device.createBindGroup({
+      layout: prep.layout,
+      entries: [
+        { binding: 0, resource: { buffer: this.prepU.buffer } },
+        { binding: 1, resource: pipelines.linearSampler() },
+        { binding: 3, resource: binding },
+        { binding: 4, resource: preset ?? this.presetView(device, null) },
+      ],
+    }));
+    p0.draw(3);
+    p0.end();
+
+    // 2. Normalised Gaussian weights, w[0] = centre … w[R].
+    const radius = Math.ceil(3 * sigma);
+    const weights = new Float32Array(radius + 1);
+    let sum = 0;
+    for (let x = -radius; x <= radius; x++) sum += Math.exp(-(x * x) / (2 * sigma * sigma));
+    for (let x = 0; x <= radius; x++) weights[x] = Math.exp(-(x * x) / (2 * sigma * sigma)) / sum;
+    const wbuf = this.ensureBlurWeights(device, radius + 1);
+    device.queue.writeBuffer(wbuf, 0, weights);
+
+    // 3. Horizontal a → b, vertical b → a.
+    const blurPipe = pipelines.get({
+      id: "camera-blur", code: cameraBlurWGSL, format: GROUP_FORMAT, blend: "replace", entries: [L.uniform(0), L.texture(1), L.storage(2)],
+    });
+    const passes: Array<[GPUTextureView, GPUTextureView, number, number]> = [
+      [cache.aView, cache.bView, 1, 0],
+      [cache.bView, cache.aView, 0, 1],
+    ];
+    passes.forEach(([from, to, dx, dy], k) => {
+      const u = (this.blurU[k] ??= new Uniforms(device, 4, `camera-blur-u${k}`));
+      u.write([dx, dy, radius, 0]);
+      const bp = enc.beginPass({ label: "camera-blur", colorAttachments: [{ view: to, loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }] });
+      bp.setPipeline(blurPipe.pipeline);
+      bp.setBindGroup(0, device.createBindGroup({
+        layout: blurPipe.layout,
+        entries: [
+          { binding: 0, resource: { buffer: u.buffer } },
+          { binding: 1, resource: from },
+          { binding: 2, resource: { buffer: wbuf } },
+        ],
+      }));
+      bp.draw(3);
+      bp.end();
+    });
+    cache.key = key;
+    return cache.aView;
+  }
+
+  private ensureCardBlur(device: GPUDevice, w: number, h: number) {
+    const hit = this.cardBlur;
+    if (hit && hit.width === w && hit.height === h) return hit;
+    if (hit) void device.queue.onSubmittedWorkDone().then(() => (hit.a.destroy(), hit.b.destroy()));
+    const make = (label: string) => device.createTexture({ label, size: { width: w, height: h }, format: GROUP_FORMAT, usage: RT });
+    const a = make("camera-card-blur-a");
+    const b = make("camera-card-blur-b");
+    this.cardBlur = { a, b, aView: a.createView(), bView: b.createView(), width: w, height: h, key: "" };
+    return this.cardBlur;
+  }
+
+  private ensureBlurWeights(device: GPUDevice, floats: number): GPUBuffer {
+    const hit = this.cardBlurWeights;
+    if (hit && hit.floats >= floats) return hit.buffer;
+    if (hit) {
+      const old = hit.buffer;
+      void device.queue.onSubmittedWorkDone().then(() => old.destroy());
+    }
+    const size = Math.max(16, Math.ceil((floats * 4) / 16) * 16);
+    const buffer = device.createBuffer({ label: "camera-blur-weights", size, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.cardBlurWeights = { buffer, floats: size / 4 };
+    return buffer;
+  }
+
+  private drawCamera(
+    ctx: PassContext,
+    pass: GPURenderPassEncoder,
+    plan: Plan,
+    layer: CameraLayer,
+    slot: number,
+    /** The §12.3 camera fill's blurred frame (adjusted, camera px), when this layer is blurred. */
+    blurred: GPUTextureView | null = null,
+  ): void {
     const { device, pipelines, scene } = ctx;
     const H = scene.target.height;
     const src = plan.source!;
@@ -952,14 +1348,14 @@ export class CameraFeature {
     let ch: number;
     if (src.kind === "live") {
       const vf = src.frame.frame;
-      binding = device.importExternalTexture({ source: vf, colorSpace: scene.workingSpace });
+      binding = blurred ?? device.importExternalTexture({ source: vf, colorSpace: scene.workingSpace });
       cw = vf.displayWidth;
       ch = vf.displayHeight;
     } else {
       const view = this.posterTexture(ctx);
       const bmp = scene.extras.assets.images.get(CAMERA_POSTER_REF);
       if (!view || !bmp) return;
-      binding = view;
+      binding = blurred ?? view;
       cw = bmp.width;
       ch = bmp.height;
     }
@@ -970,18 +1366,22 @@ export class CameraFeature {
     const camToOut = multiply(flip(H), multiply(affineMat(g.transform), flip(ch)));
     const inv = invert(camToOut);
     const s = scene.extras.project!.settings;
-    const adj = adjustmentsFromSettings(s);
-    const identity = adjustmentsIdentity(adj);
+    // A blurred fill is already adjusted (renderCardBlur): drawn as is.
+    const adj = blurred ? identityAdjustments : adjustmentsFromSettings(s);
+    const identity = blurred ? true : adjustmentsIdentity(adj);
     const preset = adj.filter !== "None" ? this.presetView(device, adj.filter as PresetName) : null;
     const clip = layer.clip;
     const maskAsset = this.statics?.assets.mask ?? null;
     const mInv = clip.kind === "asset" ? invert(clip.xform) : IDENTITY;
     const mb = clip.kind === "asset" ? maskAsset?.baked : undefined;
-    // bottomRounded: the generator rect (personClipMaskRect, Y-down) rides the mask-crop slot.
-    const mCrop = clip.kind === "bottomRounded" ? clip.maskRect : mb?.crop;
-    // Clip kind (cameraShaders.ts CamU.mode): 0 baked shape, 1 generator, 2 none, 3 bottom-rounded generator.
-    const kind = clip.kind === "asset" ? (maskAsset ? 0 : 1) : clip.kind === "roundedRect" ? 1 : clip.kind === "none" ? 2 : 3;
-    const radius = clip.kind === "roundedRect" || clip.kind === "bottomRounded" ? clip.radius : 0;
+    // bottomRounded / card: the generator rect (personClipMaskRect / the card, Y-down) rides the mask-crop slot.
+    // roundedRect: a joined stack row's shape (§12.14) when present.
+    const mCrop =
+      clip.kind === "bottomRounded" || clip.kind === "roundedRect" ? clip.maskRect : clip.kind === "card" ? clip.rect : mb?.crop;
+    // Clip kind (cameraShaders.ts CamU.mode): 0 baked shape, 1 generator, 2 none, 3 bottom-rounded generator, 4 card mask.
+    const kind =
+      clip.kind === "asset" ? (maskAsset ? 0 : 1) : clip.kind === "roundedRect" ? 1 : clip.kind === "none" ? 2 : clip.kind === "bottomRounded" ? 3 : 4;
+    const radius = clip.kind === "roundedRect" || clip.kind === "bottomRounded" || clip.kind === "card" ? clip.radius : 0;
     while (this.camU.length <= slot) this.camU.push(new Uniforms(device, 56, `camera-u${this.camU.length}`));
     const u = this.camU[slot]!;
     u.write([
@@ -1001,12 +1401,15 @@ export class CameraFeature {
       Math.max(1e-6, Math.abs(mInv[0])),
       Math.max(1e-6, Math.abs(mInv[4])),
       layer.person ? 1 : 0,
-      clip.kind === "none" ? 1 : 2,
+      // B crops: one for the cutout and the card fill (`placed` crops once), two otherwise.
+      clip.kind === "none" || clip.kind === "card" ? 1 : 2,
       0,
       0,
     ]);
-    const personView = layer.person && this.maskFeed && plan.maskIndex >= 0 ? this.maskFeed.view(device, plan.maskIndex) : this.dummyR8(device);
-    const live = src.kind === "live";
+    // §12.4: the person's edge (softness / inset) is processed on upload.
+    const edge = { softness: plan.style.edgeSoftness, inset: plan.style.edgeInset };
+    const personView = layer.person && this.maskFeed && plan.maskIndex >= 0 ? this.maskFeed.view(device, plan.maskIndex, edge) : this.dummyR8(device);
+    const live = src.kind === "live" && !blurred;
     const { pipeline, layout } = pipelines.get({
       id: live ? "camera-live" : "camera-poster",
       code: live ? cameraLiveWGSL : cameraPosterWGSL,
@@ -1127,16 +1530,37 @@ export class CameraFeature {
     this.cardU = [];
     for (const u of this.stackU) u.destroy();
     this.stackU = [];
+    for (const u of this.cardImageU) u.destroy();
+    this.cardImageU = [];
+    this.prepU?.destroy();
+    this.prepU = null;
+    for (const u of this.blurU) u?.destroy();
+    this.blurU = [null, null];
+    this.cardBlur?.a.destroy();
+    this.cardBlur?.b.destroy();
+    this.cardBlur = null;
+    this.cardBlurWeights?.buffer.destroy();
+    this.cardBlurWeights = null;
+    this.cardImage?.texture.destroy();
+    this.cardImage = null;
     this.shadowU.card?.destroy();
     this.shadowU.look?.destroy();
-    this.shadowU = { card: null, look: null };
+    this.shadowU.tile?.destroy();
+    this.shadowU.under?.destroy();
+    this.shadowU = { card: null, look: null, tile: null, under: null };
+    this.seamU?.destroy();
+    this.seamU = null;
+    this.underU?.destroy();
+    this.underU = null;
     this.composeU?.destroy();
     this.group?.texture.destroy();
     this.scratch?.texture.destroy();
     this.scratch = null;
     this.shadowCaches.card?.texture.destroy();
     this.shadowCaches.look?.texture.destroy();
-    this.shadowCaches = { card: null, look: null };
+    this.shadowCaches.tile?.texture.destroy();
+    this.shadowCaches.under?.texture.destroy();
+    this.shadowCaches = { card: null, look: null, tile: null, under: null };
     this.maskFeed?.dispose();
     this.maskFeed = null;
     this.poster?.texture.destroy();
@@ -1147,6 +1571,35 @@ export class CameraFeature {
     this.group = null;
     this.poster = null;
   }
+}
+
+/** The exporter's FrameLayout.contentRect (the vertical stack's area, §12.12) in its Y-up space. */
+function contentRectYUp(scene: Scene): Rect {
+  const c = scene.geometry.contentRect;
+  return { x: c.x, y: scene.target.height - c.y - c.height, width: c.width, height: c.height };
+}
+
+/**
+ * The §12.3 card fill layer for the resolved style: the gradient (default,
+ * colours overridable), a flat colour, the decoded image (missing /
+ * unreadable → the gradient), or the camera's own unmasked frame placed like
+ * the person and cut by the card mask with the gradient's coverage.
+ */
+function cardFill(style: CameraCardStyle, card: Rect, radius: number, scene: Scene): Layer {
+  switch (style.fill) {
+    case "color":
+      return { kind: "card", rect: card, radius, top: style.color, bottom: style.color };
+    case "image":
+      if (style.imagePath && scene.extras.assets.images.has(style.imagePath)) {
+        return { kind: "cardImage", rect: card, radius, ref: style.imagePath };
+      }
+      break;
+    case "camera":
+      return { kind: "camera", clip: { kind: "card", radius, rect: card }, person: false, blur: style.backgroundBlur };
+    case "gradient":
+      break;
+  }
+  return { kind: "card", rect: card, radius, top: style.gradientTop, bottom: style.gradientBottom };
 }
 
 /**

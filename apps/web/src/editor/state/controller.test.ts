@@ -73,6 +73,69 @@ describe("EditorController (canvas callbacks)", () => {
     expect(store.getState().project!.cameraLayoutRegions).toHaveLength(1);
   });
 
+  it("camera-layout block menu: Copy / Paste Layout (mode, look, side; one undo step) and Camera on Left / Right", () => {
+    const { store, controller } = setup();
+    let kicked = 0;
+    controller.hooks.cameraLookAdded = () => void kicked++;
+    void controller.effectsPick("cameraPopOut"); // 0–4 s
+    controller.seek(4); // output 4 = source 6
+    void controller.effectsPick("cameraSideBySide");
+    const [pop, split] = store.getState().project!.cameraLayoutRegions;
+    expect(controller.timelineIntents().hasCameraLayoutClipboard?.()).toBe(false);
+
+    controller.timelineAction({ type: "setCameraSide", regionId: split!.id, side: "leading" });
+    expect(store.getState().project!.cameraLayoutRegions[1]).toMatchObject({ mode: "sideBySide", cameraSide: "leading" });
+    expect(store.getState().undoLabel).toBe("Camera on Left");
+    controller.timelineAction({ type: "setCameraSide", regionId: split!.id, side: "trailing" });
+    expect(store.getState().project!.cameraLayoutRegions[1]!.cameraSide).toBeUndefined();
+    controller.timelineAction({ type: "setCameraSide", regionId: split!.id, side: "leading" });
+
+    // Copy the split, paste onto the pop-out block: its id, start and end stay.
+    controller.timelineAction({ type: "copyCameraLayout", regionId: split!.id });
+    expect(controller.timelineIntents().hasCameraLayoutClipboard?.()).toBe(true);
+    kicked = 0;
+    controller.timelineAction({ type: "pasteCameraLayout", regionId: pop!.id });
+    const pasted = store.getState().project!.cameraLayoutRegions[0]!;
+    expect(pasted).toEqual({ id: pop!.id, startTime: pop!.startTime, endTime: pop!.endTime, mode: "sideBySide", cameraSide: "leading" });
+    expect(store.getState().undoLabel).toBe("Paste Layout");
+    expect(kicked).toBe(0);
+    store.undo();
+    expect(store.getState().project!.cameraLayoutRegions[0]).toMatchObject({ mode: "bubble", look: "popOut" });
+
+    // Copy the look the other way: pasting a look kicks segmentation.
+    controller.timelineAction({ type: "copyCameraLayout", regionId: pop!.id });
+    controller.timelineAction({ type: "pasteCameraLayout", regionId: split!.id });
+    const second = store.getState().project!.cameraLayoutRegions[1]!;
+    expect(second).toMatchObject({ id: split!.id, mode: "bubble", look: "popOut" });
+    expect(second.cameraSide).toBeUndefined();
+    expect(kicked).toBe(1);
+  });
+
+  it("Effects → Split Screen: a Side by Side block with the full-height split; Full Height / Tiles; Copy / Paste carries it", () => {
+    const { store, controller } = setup();
+    void controller.effectsPick("cameraSplitScreen");
+    const [split] = store.getState().project!.cameraLayoutRegions;
+    expect(split).toMatchObject({ mode: "sideBySide", splitStyle: "full", startTime: 0, endTime: 4 });
+    controller.timelineAction({ type: "setSplitStyle", regionId: split!.id, style: "tiles" });
+    expect(store.getState().project!.cameraLayoutRegions[0]!.splitStyle).toBeUndefined();
+    expect(store.getState().undoLabel).toBe("Tiles");
+    controller.timelineAction({ type: "setSplitStyle", regionId: split!.id, style: "full" });
+    expect(store.getState().undoLabel).toBe("Full Height");
+
+    controller.seek(4); // output 4 = source 6
+    void controller.effectsPick("cameraFull");
+    const other = store.getState().project!.cameraLayoutRegions[1]!;
+    controller.timelineAction({ type: "copyCameraLayout", regionId: split!.id });
+    controller.timelineAction({ type: "pasteCameraLayout", regionId: other.id });
+    expect(store.getState().project!.cameraLayoutRegions[1]).toEqual({
+      id: other.id,
+      startTime: other.startTime,
+      endTime: other.endTime,
+      mode: "sideBySide",
+      splitStyle: "full",
+    });
+  });
+
   it("⌘D duplicates the selected linked block into the next free slot", () => {
     const { store, controller } = setup();
     controller.seek(2); // source 4

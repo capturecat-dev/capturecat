@@ -1,18 +1,37 @@
 /**
  * The Camera tab, 1:1 with CameraSettingsPaneAppKit: Camera Overlay (toggle,
  * drag-to-place pad, position/shape menus, orientation chips for the
- * aspect-following shapes, mirror, size as % of canvas width — and, first
- * under the pad, Background: the whole-video camera look), Adjust
- * (colour sliders, look chips, ring light), Style (corner radius for rounded
- * rect, border + colour with reset, opacity, ±25° skew pad) and Name Tag.
+ * aspect-following shapes, mirror, size as % of canvas width + Shrink during
+ * zoom, the vertical stack's switch + camera height (§12.12) — and, first
+ * under the pad, Background: the whole-video camera look,
+ * then the camera styles of docs/camera-cutout.md §12.8: edge softness /
+ * inset for either look; pop-out amount, card fill (gradient colours /
+ * background blur / colour / image grid) and border for the pop-out card),
+ * Adjust (colour sliders, look chips, ring light), Style (corner radius for
+ * rounded rect, border + colour with reset, opacity, ±25° skew pad) and
+ * Name Tag.
  */
-import type { ProjectSettings } from "../../core/model";
-import { CameraFilterStyle, CameraOrientation, CameraPosition, CameraShape, CameraTagPosition, enumValues, type CameraLook } from "../../core/model/enums";
+import type { CodableColor, ProjectSettings } from "../../core/model";
+import {
+  CameraCardBorder,
+  CameraCardFill,
+  CameraFilterStyle,
+  CameraOrientation,
+  CameraPosition,
+  CameraShape,
+  CameraTagPosition,
+  enumValues,
+  type CameraLook,
+} from "../../core/model/enums";
+import { cameraCardStyle, type CardRGB } from "../../core/math/cameraCardStyle";
+import { stackRatio, stackRatioRange, stackGap, stackGapRange } from "../../core/math/cameraLayoutMath";
 import { borderColor } from "../../core/math/cameraStyleMath";
-import { formatFixed, sInt } from "../../core/math/swift";
-import { Chips, ColorSwatch, InspectorButton, InspectorField, PillSlider, Row, ToggleRow } from "../kit";
+import { formatFixed, sInt, srounded } from "../../core/math/swift";
+import { Button, Chips, ColorSwatch, InspectorButton, InspectorField, PillSlider, Row, ToggleRow, type MenuEntry } from "../kit";
 import { Box, PaneStack } from "./layout";
 import { CameraPreviewPad, TiltPad } from "./livePads";
+import { WallpaperGrid, type WallpaperItem } from "./pads";
+import { hasPickerStatus, PickerStatusLine } from "./pickerStatus";
 import { Cap, MenuRow, pctTrunc, toCodable, toRGBA } from "./shared";
 import { resolveFacts, type PaneProps } from "./types";
 
@@ -27,8 +46,16 @@ const BACKGROUNDS: readonly (CameraLook | undefined)[] = [undefined, "cutout", "
 const BACKGROUND_LABELS = ["None", "Cutout", "Pop-out card"];
 /** Size is shown as % of a 1456pt nominal canvas width (persisted in points). */
 const NOMINAL = 1456;
+/** Card fill chips (absent = Gradient, written as absent). */
+const CARD_FILLS = enumValues(CameraCardFill);
+const CARD_FILL_LABELS = ["Gradient", "Camera", "Color", "Image"];
+/** Border chips: None (absent), then the presets. */
+const CARD_BORDERS: readonly (CameraCardBorder | undefined)[] = [undefined, ...enumValues(CameraCardBorder)];
+const CARD_BORDER_LABELS = ["None", "Solid", "Aurora", "Gold"];
 
-export function CameraPane({ settings: s, onSettingsChange, onCommit, project, facts: overrides }: PaneProps) {
+const codable = (c: CardRGB): CodableColor => ({ red: c.r, green: c.g, blue: c.b, opacity: 1 });
+
+export function CameraPane({ settings: s, onSettingsChange, onCommit, project, actions, facts: overrides }: PaneProps) {
   const facts = resolveFacts(project, overrides);
   const set = (patch: Partial<ProjectSettings>) => onSettingsChange(patch);
   const pick = (patch: Partial<ProjectSettings>) => {
@@ -41,6 +68,31 @@ export function CameraPane({ settings: s, onSettingsChange, onCommit, project, f
   const aspectShape = s.cameraShape === "Rounded Rectangle" || s.cameraShape === "Squircle";
   const effectiveSize = Math.max(120, s.cameraSize);
   const border = borderColor(s);
+  // §12.8 camera styles: shown while the project draws a look — the
+  // whole-video Background or a Bubble block's look.
+  const regionLooks = project?.cameraLayoutRegions.filter((r) => r.mode === "bubble").map((r) => r.look) ?? [];
+  const usesLook = details && (s.cameraLook !== undefined || regionLooks.some((l) => l !== undefined));
+  const usesPopOut = details && (s.cameraLook === "popOut" || regionLooks.includes("popOut"));
+  const card = cameraCardStyle(s);
+  // Card images: the image library + the card's own image when it is not one of them.
+  const cardImages = actions?.cameraCardImages;
+  const cardLibrary: readonly WallpaperItem[] = cardImages?.library ?? [];
+  const cardCurrent = cardImages?.current ?? null;
+  const cardTiles = cardCurrent && !cardLibrary.some((t) => t.path === cardCurrent.path) ? [cardCurrent, ...cardLibrary] : cardLibrary;
+  const cardStatus = actions?.pickerStatus?.cameraCard;
+  const selectCardTile = (path: string) => {
+    const tile = cardTiles.find((t) => t.path === path);
+    if (cardImages && tile) cardImages.onSelect(tile);
+    else pick({ cameraCardImagePath: path });
+  };
+  const cardTileMenu = (tile: WallpaperItem): MenuEntry[] | null => {
+    if (!cardImages) return null;
+    const entries: MenuEntry[] = [];
+    if (cardImages.onRemoveFromLibrary && cardLibrary.some((t) => t.path === tile.path)) {
+      entries.push({ title: "Remove from Library", icon: "trash", destructive: true, onSelect: () => cardImages.onRemoveFromLibrary?.(tile) });
+    }
+    return entries;
+  };
 
   return (
     <PaneStack
@@ -91,6 +143,196 @@ export function CameraPane({ settings: s, onSettingsChange, onCommit, project, f
                   ),
                 },
                 {
+                  key: "edgeSoftness",
+                  show: usesLook,
+                  node: (
+                    <PillSlider
+                      title="Edge softness"
+                      value={card.edgeSoftness}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      format={pctTrunc}
+                      onChange={(v) => set({ cameraEdgeSoftness: v })}
+                      onCommit={commit}
+                    />
+                  ),
+                },
+                {
+                  key: "edgeInset",
+                  show: usesLook,
+                  node: (
+                    <PillSlider
+                      title="Edge inset"
+                      value={card.edgeInset}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      format={pctTrunc}
+                      onChange={(v) => set({ cameraEdgeInset: v })}
+                      onCommit={commit}
+                    />
+                  ),
+                },
+                {
+                  key: "popOutAmount",
+                  show: usesPopOut,
+                  node: (
+                    <PillSlider
+                      title="Pop-out"
+                      value={card.popOutAmount ?? 0.5}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      format={pctTrunc}
+                      onChange={(v) => set({ cameraPopOutAmount: v })}
+                      onCommit={commit}
+                    />
+                  ),
+                },
+                {
+                  key: "cardLabel",
+                  show: usesPopOut,
+                  node: <Row label="Card">{null}</Row>,
+                },
+                {
+                  key: "cardFill",
+                  show: usesPopOut,
+                  attached: true,
+                  node: (
+                    <Chips
+                      items={CARD_FILL_LABELS}
+                      selectedIndex={Math.max(0, CARD_FILLS.indexOf(card.fill))}
+                      // Gradient is the default: written as absent, like Background None.
+                      onSelect={(i) => pick({ cameraCardFill: i === 0 ? undefined : CARD_FILLS[i] })}
+                      ariaLabel="Card"
+                    />
+                  ),
+                },
+                {
+                  key: "cardGradientStart",
+                  show: usesPopOut && card.fill === "gradient",
+                  node: (
+                    <Row label="Start Color">
+                      <ColorSwatch
+                        color={toRGBA(s.cameraCardGradientStart ?? codable(card.gradientTop))}
+                        onChange={(c) => set({ cameraCardGradientStart: toCodable(c, s.cameraCardGradientStart) })}
+                        ariaLabel="Start Color"
+                      />
+                    </Row>
+                  ),
+                },
+                {
+                  key: "cardGradientEnd",
+                  show: usesPopOut && card.fill === "gradient",
+                  node: (
+                    <Row label="End Color">
+                      <ColorSwatch
+                        color={toRGBA(s.cameraCardGradientEnd ?? codable(card.gradientBottom))}
+                        onChange={(c) => set({ cameraCardGradientEnd: toCodable(c, s.cameraCardGradientEnd) })}
+                        ariaLabel="End Color"
+                      />
+                    </Row>
+                  ),
+                },
+                {
+                  key: "cardBlur",
+                  show: usesPopOut && card.fill === "camera",
+                  node: (
+                    <PillSlider
+                      title="Background blur"
+                      value={Math.min(1, Math.max(0, s.cameraBackgroundBlur ?? 0))}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      format={pctTrunc}
+                      onChange={(v) => set({ cameraBackgroundBlur: v })}
+                      onCommit={commit}
+                    />
+                  ),
+                },
+                {
+                  key: "cardColor",
+                  show: usesPopOut && card.fill === "color",
+                  node: (
+                    <Row label="Color">
+                      <ColorSwatch
+                        color={toRGBA(s.cameraCardColor ?? codable(card.color))}
+                        onChange={(c) => set({ cameraCardColor: toCodable(c, s.cameraCardColor) })}
+                        ariaLabel="Card Color"
+                      />
+                    </Row>
+                  ),
+                },
+                {
+                  key: "cardChoose",
+                  show: usesPopOut && card.fill === "image",
+                  node: (
+                    <Button variant="secondary" symbol="photo" onClick={actions?.onChooseCameraCardImage} style={{ alignSelf: "flex-start" }}>
+                      Choose Image…
+                    </Button>
+                  ),
+                },
+                {
+                  key: "cardChooseStatus",
+                  show: usesPopOut && card.fill === "image" && hasPickerStatus(cardStatus),
+                  attached: true,
+                  node: <PickerStatusLine status={cardStatus} />,
+                },
+                {
+                  key: "cardImages",
+                  show: usesPopOut && card.fill === "image",
+                  attached: true,
+                  node: <WallpaperGrid mode="images" items={cardTiles} selected={s.cameraCardImagePath ?? null} onSelect={selectCardTile} menuFor={cardTileMenu} />,
+                },
+                {
+                  key: "cardBorderLabel",
+                  show: usesPopOut,
+                  node: <Row label="Border">{null}</Row>,
+                },
+                {
+                  key: "cardBorder",
+                  show: usesPopOut,
+                  attached: true,
+                  node: (
+                    <Chips
+                      items={CARD_BORDER_LABELS}
+                      selectedIndex={Math.max(0, CARD_BORDERS.indexOf(s.cameraCardBorder))}
+                      onSelect={(i) => pick({ cameraCardBorder: CARD_BORDERS[i] })}
+                      ariaLabel="Border"
+                    />
+                  ),
+                },
+                {
+                  key: "cardBorderWidth",
+                  show: usesPopOut && card.border !== null,
+                  node: (
+                    <PillSlider
+                      title="Thickness"
+                      value={card.borderThickness}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      format={pctTrunc}
+                      onChange={(v) => set({ cameraCardBorderWidth: v })}
+                      onCommit={commit}
+                    />
+                  ),
+                },
+                {
+                  key: "cardBorderColor",
+                  show: usesPopOut && card.border === "solid",
+                  node: (
+                    <Row label="Color">
+                      <ColorSwatch
+                        color={toRGBA(s.cameraCardBorderColor ?? codable(card.borderColor))}
+                        onChange={(c) => set({ cameraCardBorderColor: toCodable(c, s.cameraCardBorderColor) })}
+                        ariaLabel="Card Border Color"
+                      />
+                    </Row>
+                  ),
+                },
+                {
                   key: "position",
                   show: details,
                   node: (
@@ -138,6 +380,57 @@ export function CameraPane({ settings: s, onSettingsChange, onCommit, project, f
                       step={0.5}
                       format={(v) => (v % 1 === 0 ? `${sInt(v)}%` : `${formatFixed(v, 1)}%`)}
                       onChange={(v) => set({ cameraSize: (v / 100) * NOMINAL })}
+                      onCommit={commit}
+                    />
+                  ),
+                },
+                {
+                  key: "shrink",
+                  show: details,
+                  // §12.5: off keeps the bubble at its base size while the screen is zoomed.
+                  node: <ToggleRow label="Shrink during zoom" checked={card.shrinkOnZoom} onChange={(v) => pick({ cameraShrinkOnZoom: v ? undefined : false })} />,
+                },
+                {
+                  key: "stack",
+                  show: details,
+                  // §12.12: camera row on top, screen below — portrait outputs only.
+                  node: (
+                    <ToggleRow
+                      label="Stack on top in vertical videos"
+                      checked={s.cameraPortraitStack ?? false}
+                      onChange={(v) => pick({ cameraPortraitStack: v ? true : undefined })}
+                    />
+                  ),
+                },
+                {
+                  key: "stackRatio",
+                  show: details && (s.cameraPortraitStack ?? false),
+                  node: (
+                    <PillSlider
+                      title="Camera height"
+                      value={stackRatio(s.cameraStackRatio)}
+                      min={stackRatioRange.lowerBound}
+                      max={stackRatioRange.upperBound}
+                      step={0.01}
+                      format={(v) => `${sInt(srounded(v * 100))}%`}
+                      onChange={(v) => set({ cameraStackRatio: v })}
+                      onCommit={commit}
+                    />
+                  ),
+                },
+                {
+                  key: "stackGap",
+                  show: details && (s.cameraPortraitStack ?? false),
+                  // §12.14: the gap between the rows; None joins them into one card.
+                  node: (
+                    <PillSlider
+                      title="Gap"
+                      value={stackGap(s.cameraStackGap)}
+                      min={stackGapRange.lowerBound}
+                      max={stackGapRange.upperBound}
+                      step={0.01}
+                      format={(v) => (v <= 0 ? "None" : `${sInt(srounded(v * 100))}%`)}
+                      onChange={(v) => set({ cameraStackGap: v })}
                       onCommit={commit}
                     />
                   ),

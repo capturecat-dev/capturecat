@@ -8,7 +8,7 @@
  * TimelineViewController's wrappers — the timeline never sees the model or
  * the time map.
  */
-import type { ProjectSourceSegment, VoiceOverClip } from "../../core/model";
+import type { CameraLayoutMode, CameraSide, CameraSplitStyle, ProjectSourceSegment, VoiceOverClip } from "../../core/model";
 
 export interface EffectBlock {
   /** Stable key: "e:<zoomId|->:<tiltId|->". */
@@ -44,6 +44,10 @@ export interface FocusBlock {
   end: number;
   label: string;
   selected: boolean;
+  /** Camera-layout blocks only: the arrangement its block menu reads
+   *  (Copy / Paste Layout, Camera on Left / Right, Full Height / Tiles —
+   *  docs/camera-cutout.md §12.6 / §12.7 / §12.11). */
+  cameraLayout?: { mode: CameraLayoutMode; side: CameraSide; split: CameraSplitStyle };
 }
 
 export interface AnnotateBlock {
@@ -209,7 +213,12 @@ export type TimelineAction =
   | { type: "changeSpeed"; regionId: string; speed: number }
   | { type: "removeSpeed"; regionId: string }
   | { type: "removeSplit"; outputTime: number }
-  | { type: "toggleMute" };
+  | { type: "toggleMute" }
+  // Camera-layout block menu (docs/camera-cutout.md §12.6 / §12.7).
+  | { type: "copyCameraLayout"; regionId: string }
+  | { type: "pasteCameraLayout"; regionId: string }
+  | { type: "setCameraSide"; regionId: string; side: CameraSide }
+  | { type: "setSplitStyle"; regionId: string; style: CameraSplitStyle };
 
 export interface TimelineIntents {
   /** Live scrub while dragging (inexact seek). */
@@ -231,6 +240,8 @@ export interface TimelineIntents {
   /** Slice tool click: split the clip at this output time. */
   sliceAt?(outputSeconds: number): void;
   action?(action: TimelineAction): void;
+  /** A camera layout was copied (the block menu's Paste Layout is enabled). */
+  hasCameraLayoutClipboard?(): boolean;
   /** Horizontal zoom changed by pinch (the toolbar slider mirrors it). */
   scaleChanged?(scale: number): void;
 

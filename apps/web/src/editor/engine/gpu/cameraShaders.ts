@@ -237,9 +237,10 @@ struct CamU {
   adj1: vec4f,     // preset cube on, colour controls on, hue on, identity
   mInv0: vec4f, mInv1: vec4f, mInv2: vec4f, // output px → mask asset px
   mTex: vec4f,     // mask texel (0,0) top-left (asset px)
-  mCrop: vec4f,    // mask crop (asset px); clip kind 3: the generator rect (output px, Y-down)
+  mCrop: vec4f,    // mask crop (asset px); clip kinds 3 / 4 (and 1 when set): the generator rect (output px, Y-down)
   mode: vec4f,     // clip kind (0 baked shape mask, 1 CIRoundedRectangleGenerator, 2 none — the cutout,
-                   // 3 generator with only the BOTTOM corners rounded — the pop-out person), radius, mask footprint (x, y)
+                   // 3 generator with only the BOTTOM corners rounded — the pop-out person,
+                   // 4 the card mask — the §12.3 camera fill), radius, mask footprint (x, y)
   look: vec4f,     // person mask on, crop count (2: crop + masked crop; 1: the cutout's single crop), 0, 0
 };
 @group(0) @binding(0) var<uniform> u: CamU;
@@ -267,6 +268,15 @@ fn edgeFactor(s: vec2f, dims: vec2f) -> f32 {
 }
 
 fn maskAt(p: vec2f) -> f32 {
+  if (u.mode.x > 3.5) {
+    // The §12.3 camera card fill (VideoExporter.popOutCardStack): the placed
+    // camera (one crop to B, rectCrops) .cropped(to: card) through
+    // CIBlendWithMask with the card's generator .cropped(to: card), the
+    // result .cropped(to: card) — the gradient card's coverage.
+    let card = u.mCrop;
+    let c = boxCov(p, vec2f(1.0), card);
+    return clamp(0.5 - sdRoundRect(p, card, u.mode.y), 0.0, 1.0) * c * c * c;
+  }
   if (u.mode.x > 2.5) {
     // Pop-out person clip (VideoExporter.popOutCardStack): the rounded-rect
     // generator over personClipMaskRect (B extended UP by r; mCrop here,
@@ -277,8 +287,10 @@ fn maskAt(p: vec2f) -> f32 {
   }
   if (u.mode.x > 1.5) { return 1.0; }   // cutout: no shape mask
   if (u.mode.x > 0.5) {
-    // CIRoundedRectangleGenerator(rect, radius) — AA coverage — .cropped(to: rect).
-    return clamp(0.5 - sdRoundRect(p, u.rect, u.mode.y), 0.0, 1.0) * boxCov(p, vec2f(1.0), u.rect);
+    // CIRoundedRectangleGenerator(shape, radius) — AA coverage — .cropped(to: rect):
+    // the shape is the rect, or a joined stack row run past the seam (mCrop, §12.14).
+    let shape = select(u.rect, u.mCrop, u.mCrop.z > 0.0);
+    return clamp(0.5 - sdRoundRect(p, shape, u.mode.y), 0.0, 1.0) * boxCov(p, vec2f(1.0), u.rect);
   }
   let h = applyH(u.mInv0, u.mInv1, u.mInv2, p);
   // CIBlendWithMask reads the mask's grey level (white-on-black coverage).
@@ -363,26 +375,149 @@ struct StackU { p: vec4f };   // weight, 0, 0, 0
  * with CIRoundedRectangleGenerator(card, radius).cropped(to: card), the
  * result .cropped(to: card) — generator AA coverage × three area-coverage
  * crops (nested CI crops multiply). Opaque, premultiplied.
+ *
+ * The same construction draws the §12.3 `color` fill (top = bottom) and the
+ * card BORDER RING (ring on): the region inside (card, radius) and outside
+ * the inner rounded rect (card inset by w, max(0, radius − w)), filled with
+ * the preset's vertical gradient across the card (solid: one colour) — the
+ * exporter's ring mask is the card mask CISourceOutCompositing the inner
+ * generator (cropped to the inner rect), cropped to the card.
  */
 export const cameraCardWGSL = /* wgsl */ `
 ${common}
 ${croppedBilinear}
 struct CardU {
   rect: vec4f,     // card, Y-down px
-  p: vec4f,        // radius, 0, 0, 0
+  p: vec4f,        // radius, ring on, inner radius, 0
   top: vec4f,      // working-space colour at the top edge (rgb, 1)
   bottom: vec4f,   // … at the bottom edge
+  inner: vec4f,    // ring only: the inner rounded rect, Y-down px
 };
 @group(0) @binding(0) var<uniform> u: CardU;
 
 @fragment fn fs_main(in: VSOut) -> @location(0) vec4f {
   let p = in.pos.xy;
   let c = boxCov(p, vec2f(1.0), u.rect);
-  let cov = clamp(0.5 - sdRoundRect(p, u.rect, u.p.x), 0.0, 1.0) * c * c * c;
+  var cov = clamp(0.5 - sdRoundRect(p, u.rect, u.p.x), 0.0, 1.0) * c * c * c;
+  if (u.p.y > 0.5) {
+    // The ring mask: card mask CISourceOut the inner generator (.cropped(to:
+    // inner)), .cropped(to: card) — one more card crop than the fill.
+    let inner = clamp(0.5 - sdRoundRect(p, u.inner, u.p.z), 0.0, 1.0) * boxCov(p, vec2f(1.0), u.inner);
+    cov = cov * c * (1.0 - inner);
+  }
   if (cov <= 0.0) { return vec4f(0.0); }
   let t = clamp((p.y - u.rect.y) / max(u.rect.w, 1e-6), 0.0, 1.0);
   let rgb = mix(u.top.rgb, u.bottom.rgb, t);
   return vec4f(rgb * cov, cov);
+}
+`;
+
+/**
+ * The §12.3 `image` card fill: the picked image (EXIF-oriented, colour-matched
+ * into the working space, premultiplied) aspect-FILLED into the card —
+ * s = max(C.w / iw, C.h / ih), centred on C — bilinear with clear outside its
+ * extent, through the card's rounded-rect mask with the gradient's coverage
+ * (generator × three crops).
+ */
+export const cameraCardImageWGSL = /* wgsl */ `
+${common}
+${croppedBilinear}
+struct CardImageU {
+  rect: vec4f,     // card, Y-down px
+  p: vec4f,        // radius, 0, 0, 0
+  place: vec4f,    // the scaled image's origin (xy) and size (zw), Y-down px
+};
+@group(0) @binding(0) var<uniform> u: CardImageU;
+@group(0) @binding(1) var samp: sampler;
+@group(0) @binding(2) var img: texture_2d<f32>;
+
+fn clearOutside(s: vec2f, dims: vec2f) -> f32 {
+  let t = s - vec2f(0.5);
+  let i0 = floor(t);
+  let f = t - i0;
+  var wx = 1.0;
+  if (i0.x < 0.0) { wx -= (1.0 - f.x); }
+  if (i0.x + 1.0 > dims.x - 1.0) { wx -= f.x; }
+  var wy = 1.0;
+  if (i0.y < 0.0) { wy -= (1.0 - f.y); }
+  if (i0.y + 1.0 > dims.y - 1.0) { wy -= f.y; }
+  return clamp(wx, 0.0, 1.0) * clamp(wy, 0.0, 1.0);
+}
+
+@fragment fn fs_main(in: VSOut) -> @location(0) vec4f {
+  let p = in.pos.xy;
+  let c = boxCov(p, vec2f(1.0), u.rect);
+  let cov = clamp(0.5 - sdRoundRect(p, u.rect, u.p.x), 0.0, 1.0) * c * c * c;
+  if (cov <= 0.0) { return vec4f(0.0); }
+  let uv = (p - u.place.xy) / max(u.place.zw, vec2f(1e-6));
+  let dims = vec2f(textureDimensions(img));
+  return textureSampleLevel(img, samp, uv, 0.0) * clearOutside(uv * dims, dims) * cov;
+}
+`;
+
+/**
+ * The §12.3 `camera` card fill's portrait blur, step 1: the camera frame
+ * (live or poster) with CameraStyleMath adjustments, at its own decoded
+ * pixels (one fragment per camera texel, sampled at the texel centre),
+ * premultiplied, NOT mirrored (the mirror commutes with the symmetric blur
+ * and is applied where the fill is placed).
+ */
+const cameraPrepCommon = /* wgsl */ `
+${common}
+struct PrepU {
+  src: vec4f,      // camera size.xy, 0, 0
+  adj0: vec4f,     // brightness, contrast, saturation, hue (radians)
+  adj1: vec4f,     // preset cube on, colour controls on, hue on, identity
+};
+@group(0) @binding(0) var<uniform> u: PrepU;
+@group(0) @binding(1) var samp: sampler;
+@group(0) @binding(4) var lut: texture_3d<f32>;
+${adjustments}
+`;
+
+export const cameraPrepLiveWGSL = /* wgsl */ `
+${cameraPrepCommon}
+@group(0) @binding(3) var cam: texture_external;
+
+@fragment fn fs_main(in: VSOut) -> @location(0) vec4f {
+  return adjust(textureSampleBaseClampToEdge(cam, samp, in.pos.xy / u.src.xy), u.adj0, u.adj1);
+}
+`;
+
+export const cameraPrepPosterWGSL = /* wgsl */ `
+${cameraPrepCommon}
+@group(0) @binding(3) var cam: texture_2d<f32>;
+
+@fragment fn fs_main(in: VSOut) -> @location(0) vec4f {
+  return adjust(textureSampleLevel(cam, samp, in.pos.xy / u.src.xy, 0.0), u.adj0, u.adj1);
+}
+`;
+
+/**
+ * Step 2: one pass of the separable Gaussian (docs/camera-cutout.md §12.3,
+ * web): kernel radius ceil(3σ), weights exp(−x² / 2σ²) normalised (CPU,
+ * storage buffer, w[0] = centre), clamp-to-edge texel loads, in CAMERA-texel
+ * space. Run horizontally, then vertically.
+ */
+export const cameraBlurWGSL = /* wgsl */ `
+${common}
+struct BlurU { p: vec4f };   // direction.xy, radius, 0
+@group(0) @binding(0) var<uniform> u: BlurU;
+@group(0) @binding(1) var src: texture_2d<f32>;
+@group(0) @binding(2) var<storage, read> weights: array<f32>;
+
+@fragment fn fs_main(in: VSOut) -> @location(0) vec4f {
+  let dims = vec2i(textureDimensions(src));
+  let ip = vec2i(floor(in.pos.xy));
+  let dir = vec2i(i32(u.p.x), i32(u.p.y));
+  let r = i32(u.p.z);
+  var acc = textureLoad(src, ip, 0) * weights[0];
+  for (var k = 1; k <= r; k++) {
+    let a = textureLoad(src, clamp(ip + dir * k, vec2i(0), dims - vec2i(1)), 0);
+    let b = textureLoad(src, clamp(ip - dir * k, vec2i(0), dims - vec2i(1)), 0);
+    acc += (a + b) * weights[k];
+  }
+  return acc;
 }
 `;
 

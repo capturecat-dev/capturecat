@@ -116,6 +116,25 @@ export function applyTransform(t: AffineTransform, p: Point): Point {
   return { x: t.a * p.x + t.c * p.y + t.tx, y: t.b * p.x + t.d * p.y + t.ty };
 }
 
+/**
+ * `rect.applying(t)` (CGRectApplyAffineTransform): the bounding box of the
+ * transformed corners — always standardized (identity too); CGRect.null
+ * stays null.
+ */
+export function rectApplying(r: Rect, t: AffineTransform): Rect {
+  if (isNullRect(r)) return r;
+  const s = standardized(r);
+  const corners = [
+    applyTransform(t, { x: s.x, y: s.y }),
+    applyTransform(t, { x: s.x + s.width, y: s.y }),
+    applyTransform(t, { x: s.x, y: s.y + s.height }),
+    applyTransform(t, { x: s.x + s.width, y: s.y + s.height }),
+  ];
+  const x0 = Math.min(...corners.map((c) => c.x));
+  const y0 = Math.min(...corners.map((c) => c.y));
+  return { x: x0, y: y0, width: Math.max(...corners.map((c) => c.x)) - x0, height: Math.max(...corners.map((c) => c.y)) - y0 };
+}
+
 /** `t1.concatenating(t2)` (CGAffineTransformConcat: apply t1, then t2). */
 export function concatTransform(t1: AffineTransform, t2: AffineTransform): AffineTransform {
   return {
