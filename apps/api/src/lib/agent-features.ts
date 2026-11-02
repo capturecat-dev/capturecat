@@ -21,11 +21,14 @@ import { planForEntitlement, type PlanRecord } from "./plans";
 
 export const AGENT_FEATURES = ["agentAccess", "agentWebhooks", "agentEditing"] as const;
 export type AgentFeature = (typeof AGENT_FEATURES)[number];
+/** Every feature a route or tool answers `upgrade_required` for. */
+export type GatedFeature = AgentFeature | "viewerAnalytics";
 
-const FEATURE_NAME: Record<AgentFeature, string> = {
+const FEATURE_NAME: Record<GatedFeature, string> = {
   agentAccess: "Agent access (agent tokens, connectors and the remote MCP server)",
   agentWebhooks: "Webhooks",
   agentEditing: "Agent editing of cloud projects",
+  viewerAnalytics: "Viewer analytics",
 };
 
 export const UPGRADE_URL = "https://app.capturecat.so/billing";
@@ -52,12 +55,12 @@ export function agentFeatureFlags(plan: PlanRecord): Record<AgentFeature, boolea
 }
 
 /** One sentence an agent or a person can act on. */
-export function featureUnavailableMessage(feature: AgentFeature, plan: Pick<PlanRecord, "displayName">): string {
+export function featureUnavailableMessage(feature: GatedFeature, plan: Pick<PlanRecord, "displayName">): string {
   return `${FEATURE_NAME[feature]} isn't included in the account's ${plan.displayName} plan. The account owner can upgrade at ${UPGRADE_URL}.`;
 }
 
 /** The 403 body every session route answers when a gate is closed. */
-export function upgradeRequiredBody(feature: AgentFeature, plan: Pick<PlanRecord, "displayName" | "name">) {
+export function upgradeRequiredBody(feature: GatedFeature, plan: Pick<PlanRecord, "displayName" | "name">) {
   return {
     error: featureUnavailableMessage(feature, plan),
     code: "upgrade_required",

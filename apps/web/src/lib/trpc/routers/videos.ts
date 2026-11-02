@@ -391,13 +391,20 @@ export const videosRouter = createTRPCRouter({
       const res = await apiFetch(
         `/api/video/${encodeURIComponent(input.videoId)}/analytics`
       );
+      if (res.status === 403) {
+        // Viewer analytics are a plan feature (Pro): say so, not "error".
+        const body = (await res.json().catch(() => null)) as { code?: string; error?: string } | null;
+        if (body?.code === "upgrade_required") {
+          return { locked: true as const, message: body.error ?? "Viewer analytics are part of Pro." };
+        }
+      }
       if (!res.ok) {
         throw new TRPCError({
           code: res.status === 403 ? "FORBIDDEN" : "NOT_FOUND",
           message: "Could not load analytics",
         });
       }
-      return (await res.json()) as {
+      const analytics = (await res.json()) as {
         videoId: string;
         projectId: string | null;
         durationSeconds: number;
@@ -421,6 +428,7 @@ export const videosRouter = createTRPCRouter({
           createdAt: string;
         }>;
       };
+      return { locked: false as const, ...analytics };
     }),
 
   setPrivacy: authedProcedure

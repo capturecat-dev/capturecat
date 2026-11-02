@@ -9,8 +9,8 @@ import type { DocSection } from "../types";
  * src/routes/attest.ts, src/routes/screenshot.ts, migrations/*), apps/web and
  * apps/admin (wrangler.jsonc, package.json, src/server.ts, lib/api-url.ts,
  * lib/plan-fields.ts), and apps/macos (project.pbxproj, package.json,
- * scripts/*.sh, Services/AuthService.swift). The commercialUse and agent*
- * feature rows: migrations 0034 and 0039, admin lib/plan-fields.ts.
+ * scripts/*.sh, Services/AuthService.swift). The commercialUse, viewerAnalytics
+ * and agent* feature rows: migrations 0034, 0039 and 0040, admin lib/plan-fields.ts.
  *
  * No real ids here: every account, database or zone id is a placeholder.
  */
@@ -77,6 +77,7 @@ UPDATE plan
          '$.commercialUse', json('true'),
          '$.cloudShare', json('true'),
          '$.comments', json('true'),
+         '$.viewerAnalytics', json('true'),
          '$.customStorage', json('true')),
        limits = json_set(limits,
          '$.maxTotalStorageBytes', 21474836480,
@@ -423,6 +424,7 @@ export const SELF_HOSTING: DocSection = {
             ["`commercialUse`", "Commercial use", "Commercial use, and recordings of any length. Without it, the Mac and web recorders stop each recording at 5 minutes. The recorders enforce it themselves and read the flag from `GET /api/me`, so a Mac that is not signed in to your server is always capped.", "Nothing"],
             ["`cloudShare`", "Cloud sharing", "Uploading and share links. Also checked when a share is viewed, so turning it off pauses existing links.", "The R2 secrets"],
             ["`comments`", "Comments", "Viewer comments on shares.", "`cloudShare`"],
+            ["`viewerAnalytics`", "Viewer analytics", "A share's plays, completions, watch heatmap, drop-off, clicks, countries and referrers, for its owner and for agents. Views are recorded on every plan, so turning it on shows the history.", "`cloudShare`"],
             ["`imageUpload`", "Screenshots", "Storing rendered screenshots in the cloud.", "Storage space"],
             ["`webCapture`", "URL capture", "Web page capture from the Mac app.", "`CF_ACCOUNT_ID`, `BROWSER_RENDERING_TOKEN`"],
             ["`screenshotApi`", "Screenshot API", "Screenshot renders requested with an API key.", "`CF_ACCOUNT_ID`, `BROWSER_RENDERING_TOKEN`"],

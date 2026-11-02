@@ -654,6 +654,11 @@ describe("tools", () => {
     expect(errorText(await call(t, "update_share_settings", { video_id: "vid1", cta: { label: "x", url: "http://insecure.test" } }))).toContain("https");
   });
 
+  it("get_video_analytics is refused on a plan without viewerAnalytics (Free)", async () => {
+    const { token: free } = await token(AGENT_SCOPES, OTHER);
+    expect(errorText(await call(free, "get_video_analytics", { video_id: "vid1" }))).toContain("Viewer analytics isn't included");
+  });
+
   it("get_video_analytics: the owner's aggregates", async () => {
     const { token: t } = await token();
     const sc = structured("get_video_analytics", await call(t, "get_video_analytics", { video_id: "vid1" }));

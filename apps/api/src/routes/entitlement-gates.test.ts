@@ -40,6 +40,7 @@ vi.stubGlobal(
 const { aiRoutes } = await import("./ai");
 const { videoRoutes } = await import("./video");
 const { uploadRoutes } = await import("./upload");
+const { analyticsRoutes } = await import("./analytics");
 
 class MemoryBucket {
   objects = new Map<string, Uint8Array>();
@@ -86,6 +87,7 @@ beforeEach(() => {
   app.route("/api", aiRoutes);
   app.route("/api", videoRoutes);
   app.route("/api", uploadRoutes);
+  app.route("/api", analyticsRoutes);
 
   const now = new Date().toISOString();
   // PRO and MEMBER are testers (→ the pro plan row); BIZ pays for Business.
@@ -185,6 +187,24 @@ describe("a lapsed Pro owner's links, now that Free has a small cloud allowance 
     expect((await call(null, "GET", "/video/v2")).status).toBe(200);
     db.query(`UPDATE "user" SET tester = 0 WHERE id = ?`, PRO);
     expect((await call(null, "GET", "/video/v2")).status).toBe(403);
+  });
+});
+
+describe("viewer analytics are a Pro feature (0040)", () => {
+  it("the owner on Pro gets them; on Free the same request says upgrade", async () => {
+    db.query(
+      `INSERT INTO shared_videos (video_id, uid, file_name, r2_key, url, is_private, status, created_at, file_size_bytes)
+       VALUES ('v4', ?, 'demo.mp4', 'videos/v4.mp4', 'https://capturecat.so/share/v4', 0, 'ready', ?, 100)`,
+      PRO, new Date().toISOString(),
+    );
+    const pro = await call(PRO, "GET", "/video/v4/analytics");
+    expect(pro.status).toBe(200);
+    expect(((await pro.json()) as { views: number }).views).toBe(0);
+    // Same owner, now on Free (Free has share links since 0039).
+    db.query(`UPDATE "user" SET tester = 0 WHERE id = ?`, PRO);
+    const free = await call(PRO, "GET", "/video/v4/analytics");
+    expect(free.status).toBe(403);
+    expect(await free.json()).toMatchObject({ code: "upgrade_required", feature: "viewerAnalytics", plan: "free" });
   });
 });
 

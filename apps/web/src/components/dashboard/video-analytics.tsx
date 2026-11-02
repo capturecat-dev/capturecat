@@ -20,6 +20,7 @@ import {
   Section,
   Sections,
   StatStrip,
+  UpgradeNote,
 } from "@/components/dashboard/studio";
 import { CCIcon } from "@/editor/ui/kit/ccIcon";
 import { AnalyticsArt, CommentsArt } from "@/components/dashboard/empty-art";
@@ -247,24 +248,49 @@ export function VideoAnalytics({ videoId }: { videoId: string }) {
     );
   }
 
+  const header = (
+    <PageHeader
+      back={{ to: "/app", label: "Library" }}
+      eyebrow="Video"
+      title="Analytics"
+      description="Who watched, where they stopped, and what they did."
+      actions={
+        <Button variant="outline" size="sm" asChild>
+          <Link to="/app/videos/$videoId" params={{ videoId }}>
+            <CCIcon name="sliders" data-icon="inline-start" /> Settings
+          </Link>
+        </Button>
+      }
+    />
+  );
+
+  // A plan without viewer analytics (Free): views are still counted, so
+  // the history is there the moment the account upgrades.
+  if (data.locked) {
+    return (
+      <div className="min-w-0 space-y-6">
+        {header}
+        <Sections>
+          <Section icon={<Activity />} title="Viewer analytics" description="Plays, drop-off, the watch heatmap, clicks, countries and referrers.">
+            <EmptyStage
+              compact
+              art={<AnalyticsArt />}
+              title="Viewer analytics are part of Pro."
+              description="Views of this video are still being counted, so upgrading shows the whole history."
+            />
+            <UpgradeNote plan="pro">See who watched, where they stopped and what they clicked with Pro.</UpgradeNote>
+          </Section>
+        </Sections>
+      </div>
+    );
+  }
+
   const completionRate = data.plays > 0 ? Math.round((data.completions / data.plays) * 100) : 0;
   const biggestDrop = [...data.dropOff].sort((a, b) => b.sessions - a.sessions)[0];
 
   return (
     <div className="min-w-0 space-y-6">
-      <PageHeader
-        back={{ to: "/app", label: "Library" }}
-        eyebrow="Video"
-        title="Analytics"
-        description="Who watched, where they stopped, and what they did."
-        actions={
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/app/videos/$videoId" params={{ videoId }}>
-              <CCIcon name="sliders" data-icon="inline-start" /> Settings
-            </Link>
-          </Button>
-        }
-      />
+      {header}
 
       <StatStrip
         items={[

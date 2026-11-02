@@ -18,6 +18,7 @@ export const FEATURE_FIELDS: ReadonlyArray<{ key: string; label: string; hint: s
   { key: "imageUpload", label: "Screenshots", hint: "Upload stills, not just recordings" },
   { key: "webCapture", label: "URL capture", hint: "Capture a web page by address" },
   { key: "comments", label: "Comments", hint: "Viewers can comment on a shared video" },
+  { key: "viewerAnalytics", label: "Viewer analytics", hint: "Plays, drop-off, heatmap, clicks, countries and referrers per video" },
   { key: "removeWatermark", label: "No watermark", hint: "Export without the CaptureCat mark" },
   { key: "customDomain", label: "Custom domain", hint: "Share pages on the customer's own CNAME" },
   { key: "aiSummaries", label: "AI summaries", hint: "Server-side titles/summaries/chapters" },

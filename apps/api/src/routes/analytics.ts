@@ -14,7 +14,8 @@
 import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import { isValidUnlockToken } from "./video";
-import { fixedWindowAllow } from "../lib/entitlement";
+import { fixedWindowAllow, planForUser } from "../lib/entitlement";
+import { upgradeRequiredBody } from "../lib/agent-features";
 import { getSharedVideo, listVideoComments } from "../lib/db";
 import { requireAuth } from "../middleware/auth";
 import { generateId } from "../lib/id";
@@ -153,6 +154,10 @@ analyticsRoutes.get("/video/:videoId/analytics", requireAuth, async (c) => {
   const doc = await getSharedVideo(c.env.DB, c.req.param("videoId"));
   if (!doc) return c.json({ error: "Video not found" }, 404);
   if (doc.uid !== c.get("user").uid) return c.json({ error: "Forbidden" }, 403);
+  // A plan feature (Pro): Free shares are still counted, so upgrading shows
+  // the history.
+  const plan = await planForUser(c.env, doc.uid);
+  if (!plan.features.viewerAnalytics) return c.json(upgradeRequiredBody("viewerAnalytics", plan), 403);
 
   const db = c.env.DB;
   const analytics = await videoAnalytics(db, doc);

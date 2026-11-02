@@ -267,19 +267,23 @@ export interface DashboardVideo {
   commentsEnabled: boolean;
 }
 
+export interface VideoAnalyticsView {
+  locked?: false;
+  views: number;
+  plays: number;
+  completions: number;
+  avgWatchedSeconds: number;
+  durationSeconds: number;
+  countries: Array<{ country: string; count: number }>;
+  referrers: Array<{ referrer: string; count: number }>;
+  comments: Array<{ authorName: string; body: string; videoTime: number; createdAt: string }>;
+}
+
 export interface DashboardDeps {
   listVideos: () => Promise<{ videos: DashboardVideo[]; storageUsedBytes: number; storageLimitBytes: number }>;
   searchTranscripts: (q: string) => Promise<{ results: Array<{ videoId: string; segments: Array<{ start: number; end: number; text: string }> }> }>;
-  videoAnalytics: (videoId: string) => Promise<{
-    views: number;
-    plays: number;
-    completions: number;
-    avgWatchedSeconds: number;
-    durationSeconds: number;
-    countries: Array<{ country: string; count: number }>;
-    referrers: Array<{ referrer: string; count: number }>;
-    comments: Array<{ authorName: string; body: string; videoTime: number; createdAt: string }>;
-  }>;
+  /** `locked`: the plan has no viewer analytics (Free) — the API's upgrade message. */
+  videoAnalytics: (videoId: string) => Promise<{ locked: true; message: string } | VideoAnalyticsView>;
   account: () => Promise<{ email: string; tier: string }>;
   setPrivacy: (videoId: string, isPrivate: boolean) => Promise<unknown>;
   navigate: (path: string) => void;
@@ -353,6 +357,7 @@ export function dashboardTools(deps: DashboardDeps): PageTool[] {
       readOnly: true,
       execute: async (input) => {
         const a = await deps.videoAnalytics(str(input, "videoId"));
+        if (a.locked) return { error: a.message };
         return {
           views: a.views,
           plays: a.plays,

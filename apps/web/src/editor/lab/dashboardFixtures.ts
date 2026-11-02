@@ -340,8 +340,13 @@ function trpcData(path: string, input: unknown, o: LabOptions): unknown {
     case "videos.versions":
       return versionsFor((input as { videoId?: string })?.videoId ?? "lab-video-1");
     case "videos.analytics":
+      // Viewer analytics are Pro's (API 0040): Free gets the upgrade answer.
+      if (o.tier === "free") {
+        return { locked: true, message: "Viewer analytics isn't included in the account's Free plan." };
+      }
       return empty
         ? {
+            locked: false,
             ...makeAnalytics((input as { videoId?: string })?.videoId ?? "lab-video-1"),
             views: 0,
             plays: 0,
@@ -356,7 +361,7 @@ function trpcData(path: string, input: unknown, o: LabOptions): unknown {
             referrers: [],
             comments: [],
           }
-        : makeAnalytics((input as { videoId?: string })?.videoId ?? "lab-video-1");
+        : { locked: false, ...makeAnalytics((input as { videoId?: string })?.videoId ?? "lab-video-1") };
     case "videos.domains":
       return {
         enabled: o.tier === "paid",

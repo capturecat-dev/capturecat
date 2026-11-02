@@ -52,6 +52,11 @@ import type { EntitlementTier } from "../types";
  *   commercialUse   Commercial use, and recordings of any length. Without it
  *                   the Mac and web recorders stop each recording at
  *                   FREE_RECORDING_SECONDS; they read it from GET /api/me.
+ *   viewerAnalytics A shared video's viewer analytics: plays, completions, the
+ *                   watch heatmap, drop-off, clicks, countries, referrers
+ *                   (GET /video/:id/analytics, MCP get_video_analytics).
+ *                   Viewing is still recorded without it, so an upgrade
+ *                   shows the history.
  */
 export const FEATURE_KEYS = [
   "webCapture",
@@ -69,6 +74,7 @@ export const FEATURE_KEYS = [
   "agentWebhooks",
   "agentEditing",
   "commercialUse",
+  "viewerAnalytics",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 

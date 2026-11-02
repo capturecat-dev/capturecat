@@ -14,12 +14,12 @@
  */
 
 import type { PlanRecord } from "../lib/plans";
-import { featureUnavailableMessage, type AgentFeature } from "../lib/agent-features";
+import { featureUnavailableMessage, type GatedFeature } from "../lib/agent-features";
 import { ToolError, type ToolContext } from "./tool";
 
 /** The plan, if it includes `feature`; otherwise a ToolError the agent can
  *  read ("… isn't included in the account's Free plan …"). */
-export async function requireAgentFeature(ctx: ToolContext, feature: AgentFeature): Promise<PlanRecord> {
+export async function requireAgentFeature(ctx: ToolContext, feature: GatedFeature): Promise<PlanRecord> {
   const { plan } = await ctx.entitlement();
   if (plan.features[feature] !== true) throw new ToolError(featureUnavailableMessage(feature, plan));
   return plan;

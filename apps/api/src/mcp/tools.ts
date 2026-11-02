@@ -69,7 +69,7 @@ import {
   listWebhookEndpoints,
 } from "../lib/webhooks";
 import { ApprovalIdSchema, approveUrl, withApproval } from "./approval-gate";
-import { requireAgentWebhooks } from "./gates";
+import { requireAgentFeature, requireAgentWebhooks } from "./gates";
 import { AGENT_SCOPES } from "../lib/agent-tokens";
 import { PROJECT_TOOLS } from "./project-tools";
 import {
@@ -862,6 +862,7 @@ const getVideoAnalytics = defineTool({
     untrusted: Untrusted,
   }),
   async run(args, ctx) {
+    await requireAgentFeature(ctx, "viewerAnalytics");
     const doc = await videoFor(ctx, args.video_id, "owner");
     const a = await videoAnalytics(ctx.env.DB, doc);
     const { projectId: _projectId, ...rest } = a;
