@@ -53,7 +53,14 @@ final class DeepLinkHandler {
             handleOpenProject(params: params)
         case "browse-projects":
             appState?.openProjectBrowser()
-            NSApplication.shared.activate(ignoringOtherApps: true)
+            appState?.bringToFront()
+        case "open-app":
+            // The sign-in "done" page's Open CaptureCat (apps/web routes/
+            // connect.mac_.done.tsx): a click in the browser, so macOS lets the
+            // app come forward. Whatever is open stays; with nothing open, the
+            // project browser.
+            if appState?.authPresentationWindow() == nil { appState?.openProjectBrowser() }
+            appState?.bringToFront()
         default:
             print("[DeepLink] Unknown command: \(command)")
         }
@@ -196,7 +203,7 @@ final class DeepLinkHandler {
 
         if let seek { appState.pendingSeekOutputTime = seek }
         appState.openEditor(with: project)
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        appState.bringToFront()
         print("[DeepLink] Opened project: \(project.name)")
     }
 

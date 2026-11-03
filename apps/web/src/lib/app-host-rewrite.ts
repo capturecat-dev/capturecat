@@ -28,6 +28,9 @@ export function appHostInput(url: URL): URL | undefined {
     // The OAuth consent page is a root route on every host
     // (routes/oauth.authorize.tsx) — the API sends clients there.
     path.startsWith("/oauth/") ||
+    // So is the Mac app's sign-in consent (routes/connect.mac.tsx and its
+    // done page) — the API and the app's loopback send the browser there.
+    path.startsWith("/connect/") ||
     ROOT_FILES.has(path) ||
     // Discovery documents (src/server/agent-discovery.ts answers the ones
     // that exist before the router runs); anything else is a real 404, not

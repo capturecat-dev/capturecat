@@ -44,6 +44,7 @@ import { Route as ChangelogIndexRouteImport } from './routes/changelog.index'
 import { Route as ChangelogSlugRouteImport } from './routes/changelog.$slug'
 import { Route as CompareIndexRouteImport } from './routes/compare.index'
 import { Route as CompareSlugRouteImport } from './routes/compare.$slug'
+import { Route as ConnectMacRouteImport } from './routes/connect.mac'
 import { Route as DocsIndexRouteImport } from './routes/docs.index'
 import { Route as DocsSplatRouteImport } from './routes/docs.$'
 import { Route as EmbedVideoIdRouteImport } from './routes/embed.$videoId'
@@ -57,6 +58,7 @@ import { Route as ShareVideoIdRouteImport } from './routes/share.$videoId'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc.$'
 import { Route as AppApprovalsIdRouteImport } from './routes/app/approvals.$id'
 import { Route as AppEditorProjectIdRouteImport } from './routes/app_.editor.$projectId'
+import { Route as ConnectMacDoneRouteImport } from './routes/connect.mac_.done'
 import { Route as AppVideosVideoIdIndexRouteImport } from './routes/app/videos.$videoId.index'
 import { Route as AppVideosVideoIdAnalyticsRouteImport } from './routes/app/videos.$videoId.analytics'
 
@@ -236,6 +238,11 @@ const CompareSlugRoute = CompareSlugRouteImport.update({
   path: '/compare/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConnectMacRoute = ConnectMacRouteImport.update({
+  id: '/connect/mac',
+  path: '/connect/mac',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsIndexRoute = DocsIndexRouteImport.update({
   id: '/docs/',
   path: '/docs/',
@@ -301,6 +308,11 @@ const AppEditorProjectIdRoute = AppEditorProjectIdRouteImport.update({
   path: '/$projectId',
   getParentRoute: () => AppEditorRoute,
 } as any)
+const ConnectMacDoneRoute = ConnectMacDoneRouteImport.update({
+  id: '/connect/mac_/done',
+  path: '/connect/mac/done',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppVideosVideoIdIndexRoute = AppVideosVideoIdIndexRouteImport.update({
   id: '/videos/$videoId/',
   path: '/videos/$videoId/',
@@ -345,6 +357,7 @@ export interface FileRoutesByFullPath {
   '/best/$slug': typeof BestSlugRoute
   '/changelog/$slug': typeof ChangelogSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
+  '/connect/mac': typeof ConnectMacRoute
   '/docs/$': typeof DocsSplatRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/guides/$slug': typeof GuidesSlugRoute
@@ -362,6 +375,7 @@ export interface FileRoutesByFullPath {
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/app/approvals/$id': typeof AppApprovalsIdRoute
   '/app/editor/$projectId': typeof AppEditorProjectIdRoute
+  '/connect/mac/done': typeof ConnectMacDoneRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
   '/app/videos/$videoId/': typeof AppVideosVideoIdIndexRoute
 }
@@ -396,6 +410,7 @@ export interface FileRoutesByTo {
   '/best/$slug': typeof BestSlugRoute
   '/changelog/$slug': typeof ChangelogSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
+  '/connect/mac': typeof ConnectMacRoute
   '/docs/$': typeof DocsSplatRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/guides/$slug': typeof GuidesSlugRoute
@@ -413,6 +428,7 @@ export interface FileRoutesByTo {
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/app/approvals/$id': typeof AppApprovalsIdRoute
   '/app/editor/$projectId': typeof AppEditorProjectIdRoute
+  '/connect/mac/done': typeof ConnectMacDoneRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
   '/app/videos/$videoId': typeof AppVideosVideoIdIndexRoute
 }
@@ -449,6 +465,7 @@ export interface FileRoutesById {
   '/best/$slug': typeof BestSlugRoute
   '/changelog/$slug': typeof ChangelogSlugRoute
   '/compare/$slug': typeof CompareSlugRoute
+  '/connect/mac': typeof ConnectMacRoute
   '/docs/$': typeof DocsSplatRoute
   '/embed/$videoId': typeof EmbedVideoIdRoute
   '/guides/$slug': typeof GuidesSlugRoute
@@ -466,6 +483,7 @@ export interface FileRoutesById {
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/app/approvals/$id': typeof AppApprovalsIdRoute
   '/app_/editor/$projectId': typeof AppEditorProjectIdRoute
+  '/connect/mac_/done': typeof ConnectMacDoneRoute
   '/app/videos/$videoId/analytics': typeof AppVideosVideoIdAnalyticsRoute
   '/app/videos/$videoId/': typeof AppVideosVideoIdIndexRoute
 }
@@ -503,6 +521,7 @@ export interface FileRouteTypes {
     | '/best/$slug'
     | '/changelog/$slug'
     | '/compare/$slug'
+    | '/connect/mac'
     | '/docs/$'
     | '/embed/$videoId'
     | '/guides/$slug'
@@ -520,6 +539,7 @@ export interface FileRouteTypes {
     | '/api/trpc/$'
     | '/app/approvals/$id'
     | '/app/editor/$projectId'
+    | '/connect/mac/done'
     | '/app/videos/$videoId/analytics'
     | '/app/videos/$videoId/'
   fileRoutesByTo: FileRoutesByTo
@@ -554,6 +574,7 @@ export interface FileRouteTypes {
     | '/best/$slug'
     | '/changelog/$slug'
     | '/compare/$slug'
+    | '/connect/mac'
     | '/docs/$'
     | '/embed/$videoId'
     | '/guides/$slug'
@@ -571,6 +592,7 @@ export interface FileRouteTypes {
     | '/api/trpc/$'
     | '/app/approvals/$id'
     | '/app/editor/$projectId'
+    | '/connect/mac/done'
     | '/app/videos/$videoId/analytics'
     | '/app/videos/$videoId'
   id:
@@ -606,6 +628,7 @@ export interface FileRouteTypes {
     | '/best/$slug'
     | '/changelog/$slug'
     | '/compare/$slug'
+    | '/connect/mac'
     | '/docs/$'
     | '/embed/$videoId'
     | '/guides/$slug'
@@ -623,6 +646,7 @@ export interface FileRouteTypes {
     | '/api/trpc/$'
     | '/app/approvals/$id'
     | '/app_/editor/$projectId'
+    | '/connect/mac_/done'
     | '/app/videos/$videoId/analytics'
     | '/app/videos/$videoId/'
   fileRoutesById: FileRoutesById
@@ -654,6 +678,7 @@ export interface RootRouteChildren {
   BestSlugRoute: typeof BestSlugRoute
   ChangelogSlugRoute: typeof ChangelogSlugRoute
   CompareSlugRoute: typeof CompareSlugRoute
+  ConnectMacRoute: typeof ConnectMacRoute
   DocsSplatRoute: typeof DocsSplatRoute
   EmbedVideoIdRoute: typeof EmbedVideoIdRoute
   GuidesSlugRoute: typeof GuidesSlugRoute
@@ -668,6 +693,7 @@ export interface RootRouteChildren {
   DocsIndexRoute: typeof DocsIndexRoute
   GuidesIndexRoute: typeof GuidesIndexRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
+  ConnectMacDoneRoute: typeof ConnectMacDoneRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -917,6 +943,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CompareSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/connect/mac': {
+      id: '/connect/mac'
+      path: '/connect/mac'
+      fullPath: '/connect/mac'
+      preLoaderRoute: typeof ConnectMacRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs/': {
       id: '/docs/'
       path: '/docs'
@@ -1008,6 +1041,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEditorProjectIdRouteImport
       parentRoute: typeof AppEditorRoute
     }
+    '/connect/mac_/done': {
+      id: '/connect/mac_/done'
+      path: '/connect/mac/done'
+      fullPath: '/connect/mac/done'
+      preLoaderRoute: typeof ConnectMacDoneRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/videos/$videoId/': {
       id: '/app/videos/$videoId/'
       path: '/videos/$videoId'
@@ -1092,6 +1132,7 @@ const rootRouteChildren: RootRouteChildren = {
   BestSlugRoute: BestSlugRoute,
   ChangelogSlugRoute: ChangelogSlugRoute,
   CompareSlugRoute: CompareSlugRoute,
+  ConnectMacRoute: ConnectMacRoute,
   DocsSplatRoute: DocsSplatRoute,
   EmbedVideoIdRoute: EmbedVideoIdRoute,
   GuidesSlugRoute: GuidesSlugRoute,
@@ -1106,6 +1147,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocsIndexRoute: DocsIndexRoute,
   GuidesIndexRoute: GuidesIndexRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
+  ConnectMacDoneRoute: ConnectMacDoneRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

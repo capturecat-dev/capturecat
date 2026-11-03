@@ -33,6 +33,25 @@ extension CaptureCatAPI {
     nonisolated static func webEditorURL(projectID: UUID) -> URL {
         URL(string: "\(webEditorBaseURL)/\(projectID.uuidString)")!
     }
+
+    /// The web app's origin (scheme + host + port of `webEditorBaseURL`):
+    /// app.capturecat.so, or the local dev server in Debug.
+    nonisolated static var webAppOrigin: String {
+        guard let url = URL(string: webEditorBaseURL), let scheme = url.scheme, let host = url.host else {
+            return "https://app.capturecat.so"
+        }
+        return url.port.map { "\(scheme)://\(host):\($0)" } ?? "\(scheme)://\(host)"
+    }
+
+    /// Where the sign-in browser tab ends (apps/web routes/connect.mac_.done.tsx):
+    /// the loopback answers the callback with a redirect here, so the
+    /// 127.0.0.1 hop is never the page anyone looks at.
+    nonisolated static func signInDoneURL(result: String, detail: String? = nil) -> URL {
+        var components = URLComponents(string: "\(webAppOrigin)/connect/mac/done")!
+        components.queryItems = [URLQueryItem(name: "result", value: result)]
+            + (detail.map { [URLQueryItem(name: "detail", value: String($0.prefix(300)))] } ?? [])
+        return components.url!
+    }
 }
 
 // MARK: - Logical paths (mirror of apps/api/src/lib/cloud-projects.ts)

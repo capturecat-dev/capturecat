@@ -262,6 +262,8 @@ final class AuthService: NSObject {
         }
 
         if let providerError = callback.error {
+            // Cancel on the consent page (app.capturecat.so/connect/mac).
+            if providerError == "access_denied" { throw AuthError.signInCancelled }
             throw AuthError.providerRejected(callback.errorDescription ?? providerError)
         }
         // Constant-time: never let the echoed state be probed byte by byte.

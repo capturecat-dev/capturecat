@@ -17,6 +17,8 @@ describe("app.capturecat.so clean URLs", () => {
     expect(input("https://app.capturecat.so/api/trpc")).toBeNull();
     expect(input("https://app.capturecat.so/login")).toBeNull();
     expect(input("https://app.capturecat.so/oauth/authorize")).toBeNull();
+    expect(input("https://app.capturecat.so/connect/mac?rid=1")).toBeNull();
+    expect(input("https://app.capturecat.so/connect/mac/done")).toBeNull();
     expect(input("https://capturecat.so/approvals/apr_123")).toBeNull();
   });
   it("leaves the files crawlers and agents read at the root alone", () => {

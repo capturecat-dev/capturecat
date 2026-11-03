@@ -8,6 +8,7 @@ import { storageRouter } from "./storage";
 import { agentTokensRouter } from "./agent-tokens";
 import { agentApprovalsRouter } from "./agent-approvals";
 import { oauthRouter } from "./oauth";
+import { desktopConnectRouter } from "./desktop-connect";
 import { webhooksRouter } from "./webhooks";
 
 export const appRouter = createTRPCRouter({
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   agentTokens: agentTokensRouter,
   agentApprovals: agentApprovalsRouter,
   oauth: oauthRouter,
+  desktopConnect: desktopConnectRouter,
   webhooks: webhooksRouter,
 });
 

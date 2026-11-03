@@ -254,8 +254,19 @@ nonisolated enum AuthSelfTest {
             port: port,
             path: "/capturecat-auth/callback?code=CODE-123&state=STATE-abc&code=attacker"
         )
-        report.check("callback responds 200", hit?.status == 200, describe(hit))
-        report.check("callback page tells the user to return to CaptureCat", hit?.body.contains("signed in") == true)
+        // The tab never shows this page: a 303 sends it to CaptureCat's own
+        // done page (apps/web routes/connect.mac_.done.tsx); the body is only
+        // for a client that ignores redirects.
+        report.check("callback redirects (303) to the done page", hit?.status == 303, describe(hit))
+        let done = hit?.location.flatMap(URLComponents.init(string:))
+        report.check(
+            "done page is CaptureCat's, result=ok",
+            done?.path == "/connect/mac/done"
+                && done?.host == URL(string: CaptureCatAPI.webAppOrigin)?.host
+                && done?.queryItems?.first(where: { $0.name == "result" })?.value == "ok",
+            hit?.location ?? "no Location"
+        )
+        report.check("fallback body still says signed in", hit?.body.contains("signed in") == true)
 
         do {
             let callback = try await pending
@@ -482,7 +493,9 @@ nonisolated enum AuthSelfTest {
 
     // MARK: - Helpers
 
-    private static func httpGet(port: UInt16, path: String) async -> (status: Int, body: String)? {
+    /// GET against the loopback listener WITHOUT following redirects — the
+    /// callback's 303 must be seen, not chased out to the live site.
+    private static func httpGet(port: UInt16, path: String) async -> (status: Int, body: String, location: String?)? {
         guard let url = URL(string: "http://127.0.0.1:\(port)\(path)") else { return nil }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 5
@@ -492,15 +505,24 @@ nonisolated enum AuthSelfTest {
         defer { session.invalidateAndCancel() }
 
         do {
-            let (data, response) = try await session.data(from: url)
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            return (status, String(data: data, encoding: .utf8) ?? "")
+            let (data, response) = try await session.data(from: url, delegate: NoRedirects())
+            let http = response as? HTTPURLResponse
+            return (http?.statusCode ?? 0, String(data: data, encoding: .utf8) ?? "", http?.value(forHTTPHeaderField: "Location"))
         } catch {
             return nil
         }
     }
 
-    private static func describe(_ result: (status: Int, body: String)?) -> String {
+    private final class NoRedirects: NSObject, URLSessionTaskDelegate {
+        func urlSession(
+            _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void
+        ) {
+            completionHandler(nil)
+        }
+    }
+
+    private static func describe(_ result: (status: Int, body: String, location: String?)?) -> String {
         guard let result else { return "no response" }
         return "status \(result.status)"
     }

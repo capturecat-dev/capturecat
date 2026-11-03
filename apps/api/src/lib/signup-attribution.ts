@@ -43,7 +43,12 @@ export function signupAttributionFrom(
     typeof cf?.country === "string" && /^[A-Z]{2}$/.test(cf.country) ? cf.country : null;
 
   const callbackURL = typeof state?.callbackURL === "string" ? state.callbackURL : "";
-  const via = callbackURL.includes("/api/desktop/complete") ? "desktop" : "web";
+  // The Mac app signs people up through its loopback bridge (/api/desktop/
+  // complete) or, since the consent page, through /login?next=/connect/mac.
+  const via =
+    callbackURL.includes("/api/desktop/complete") || /\/connect\/mac(\?|$|%3F)/.test(callbackURL) || callbackURL.includes("%2Fconnect%2Fmac")
+      ? "desktop"
+      : "web";
 
   const source = tag(state?.ccUtmSource);
   const medium = tag(state?.ccUtmMedium);

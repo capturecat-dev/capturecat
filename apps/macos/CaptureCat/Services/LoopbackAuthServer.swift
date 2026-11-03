@@ -328,13 +328,22 @@ nonisolated final class LoopbackAuthServer: @unchecked Sendable {
         }
 
         let callback = Callback(query: request.query)
-        // Flush the "you can close this window" page BEFORE tearing the
-        // listener down, otherwise the browser shows a connection error on a
-        // sign-in that actually succeeded.
+        // Send the browser on to CaptureCat's own "done" page (signed in /
+        // cancelled / failed) — the tab never shows this 127.0.0.1 page. The
+        // redirect is flushed BEFORE the listener goes down, otherwise the
+        // browser shows a connection error on a sign-in that succeeded. The
+        // HTML body is only for a client that ignores the redirect.
+        let done: URL
+        switch callback.error {
+        case nil: done = CaptureCatAPI.signInDoneURL(result: "ok")
+        case "access_denied": done = CaptureCatAPI.signInDoneURL(result: "denied")
+        case let error?: done = CaptureCatAPI.signInDoneURL(result: "error", detail: callback.errorDescription ?? error)
+        }
         respond(
             on: connection,
-            status: "200 OK",
+            status: "303 See Other",
             html: callback.error == nil ? Self.successHTML : Self.providerErrorHTML(callback.errorDescription ?? callback.error ?? ""),
+            location: done,
             then: { [weak self] in self?.completeLocked(.success(callback)) }
         )
     }
@@ -343,18 +352,21 @@ nonisolated final class LoopbackAuthServer: @unchecked Sendable {
         on connection: NWConnection,
         status: String,
         html: String,
+        location: URL? = nil,
         then completion: (() -> Void)? = nil
     ) {
         let body = Data(html.utf8)
-        let header = """
-        HTTP/1.1 \(status)\r
-        Content-Type: text/html; charset=utf-8\r
-        Content-Length: \(body.count)\r
-        Cache-Control: no-store\r
-        Connection: close\r
-        \r
-
-        """
+        // `location` is built by URLComponents (query values percent-encoded),
+        // so it can never carry a CR/LF into the header block.
+        let lines = ["HTTP/1.1 \(status)"]
+            + (location.map { ["Location: \($0.absoluteString)"] } ?? [])
+            + [
+                "Content-Type: text/html; charset=utf-8",
+                "Content-Length: \(body.count)",
+                "Cache-Control: no-store",
+                "Connection: close",
+            ]
+        let header = lines.joined(separator: "\r\n") + "\r\n\r\n"
         var payload = Data(header.utf8)
         payload.append(body)
 

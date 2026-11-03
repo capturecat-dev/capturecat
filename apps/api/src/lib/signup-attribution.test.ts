@@ -14,6 +14,8 @@ describe("signupAttributionFrom", () => {
     const state = { callbackURL: "https://api.capturecat.so/api/desktop/complete?rid=abc" };
     expect(signupAttributionFrom(req("US"), state).via).toBe("desktop");
     expect(signupAttributionFrom(req("US"), { callbackURL: "https://capturecat.so/app" }).via).toBe("web");
+    // Signing up on the Mac consent page (login → back to /connect/mac).
+    expect(signupAttributionFrom(req("US"), { callbackURL: "https://app.capturecat.so/connect/mac?rid=abc" }).via).toBe("desktop");
   });
 
   it("re-validates the landing data a browser put in the state", () => {

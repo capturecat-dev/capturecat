@@ -31,7 +31,9 @@ import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import { getAuth, hasAppleConfig, hasGoogleConfig } from "../lib/auth";
 import { requireAuth } from "../middleware/auth";
-import { resolveEntitlement } from "../lib/entitlement";
+import { refuseAgentCredentials } from "../middleware/session-only";
+import { resolveEntitlement, userRateLimit } from "../lib/entitlement";
+import { appBaseURL } from "../lib/origins";
 import { planForEntitlement } from "../lib/plans";
 
 export const desktopRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -49,20 +51,6 @@ const PROVIDERS = new Set(["apple", "google", "sso"]);
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Whether any verified SSO provider exists — decides if the chooser shows
- *  the work-email door at all. Cheap and edge-cached is not worth it: one
- *  indexed COUNT per desktop sign-in start. */
-async function ssoProvidersExist(db: D1Database): Promise<boolean> {
-  try {
-    const row = await db
-      .prepare('SELECT COUNT(*) AS n FROM "ssoProvider" WHERE "domainVerified" = 1')
-      .first<{ n: number }>();
-    return (row?.n ?? 0) > 0;
-  } catch {
-    return false;
-  }
-}
 
 function nowSec(): number {
   return Math.floor(Date.now() / 1000);
@@ -143,87 +131,35 @@ function errorPage(message: string) {
 }
 
 /**
- * Provider chooser, served when the desktop app starts a flow WITHOUT naming a
- * provider — which is now what it always does. The app ships one "Sign In"
- * button and the choice is made here, so adding or retiring a provider is a
- * server deploy rather than a macOS release.
- *
- * Each button re-enters `/desktop/authorize` with the SAME PKCE challenge,
- * redirect URI and state, so choosing a provider is just the second half of one
- * flow — no extra server state, no schema change, and every parameter is
- * re-validated on the way through. Carrying the challenge in these URLs is
- * fine: `code_challenge` is the public SHA-256 half of PKCE, and the verifier
- * never leaves the app.
+ * Record one validated authorization request and return its id (null when
+ * the write failed). Nothing else sweeps this table, so expired rows are
+ * dropped here, where a write is already happening.
  */
-function chooserPage(params: {
-  redirectUri: string;
-  codeChallenge: string;
-  method: string;
-  clientState: string | null;
-  providers: Array<{ id: string; label: string; mark: string }>;
-  /** Show the SSO email form. */
-  sso?: boolean;
-}): string {
-  const escape = (text: string) =>
-    text.replace(/[&<>"']/g, (ch) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] as string,
-    );
-  const href = (provider: string) => {
-    const query = new URLSearchParams({
-      provider,
-      redirect_uri: params.redirectUri,
-      code_challenge: params.codeChallenge,
-      code_challenge_method: params.method,
-    });
-    if (params.clientState !== null) query.set("state", params.clientState);
-    return escape(`/api/desktop/authorize?${query.toString()}`);
-  };
-  const buttons = params.providers
-    .map(
-      (p) =>
-        `<a class="btn" href="${href(p.id)}"><span class="mark">${p.mark}</span>${escape(p.label)}</a>`,
-    )
-    .join("\n");
-  // Enterprise SSO: same authorize endpoint, provider=sso plus the work email
-  // (a GET form so the validated PKCE params ride along as hidden fields).
-  const hidden = (name: string, value: string) =>
-    `<input type="hidden" name="${name}" value="${escape(value)}">`;
-  const ssoForm = `<details class="sso"><summary>Use single sign-on (SSO)</summary>
-<form method="get" action="/api/desktop/authorize">
-${hidden("provider", "sso")}${hidden("redirect_uri", params.redirectUri)}${hidden("code_challenge", params.codeChallenge)}${hidden("code_challenge_method", params.method)}${params.clientState !== null ? hidden("state", params.clientState) : ""}
-<input class="field" type="email" name="email" placeholder="you@company.com" required autocomplete="email">
-<button class="btn go" type="submit">Continue</button>
-</form></details>`;
-  return `<!doctype html><html><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sign in to CaptureCat</title><style>
-:root{color-scheme:light dark}
-body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-font:400 15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f7;color:#1d1d1f}
-@media(prefers-color-scheme:dark){body{background:#1c1c1e;color:#f5f5f7}
-.btn{background:#2c2c2e;border-color:#3a3a3c;color:#f5f5f7}}
-.card{text-align:center;padding:40px 48px;max-width:320px}
-h1{font-size:19px;margin:0 0 8px;font-weight:600}
-p{margin:0 0 24px;opacity:.65}
-.sso{margin-top:18px;font-size:13px}
-.sso summary{cursor:pointer;opacity:.65;list-style:none}
-.sso summary:hover{opacity:1}
-.sso form{display:flex;gap:8px;margin-top:10px}
-.field{flex:1;min-width:0;border:1px solid #d2d2d7;border-radius:10px;padding:10px 12px;font:inherit;background:transparent;color:inherit}
-@media(prefers-color-scheme:dark){.field{border-color:#3a3a3c}}
-.btn.go{margin:0;padding:10px 14px}
-.btn{display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;
-background:#fff;border:1px solid #d2d2d7;border-radius:10px;padding:11px 16px;margin-bottom:10px;
-color:#1d1d1f;font-weight:500;font-size:14px}
-.btn:hover{border-color:#86868b}
-.mark{font-size:16px;line-height:1}
-</style></head><body><div class="card">
-<h1>Sign in to CaptureCat</h1><p>${
-    params.providers.length > 1 ? "Choose how you&#39;d like to continue." : "Continue to your account."
-  }</p>
-${buttons}
-${params.sso ? ssoForm : ""}
-</div></body></html>`;
+async function recordRequest(
+  db: D1Database,
+  r: { codeChallenge: string; redirectUri: string; clientState: string | null; provider: string },
+): Promise<string | null> {
+  const rid = crypto.randomUUID();
+  const created = nowSec();
+  try {
+    await db.prepare(`DELETE FROM desktop_auth_requests WHERE expires_at < ?`).bind(created).run();
+  } catch (err) {
+    console.error("desktop: sweep failed", err);
+  }
+  try {
+    await db
+      .prepare(
+        `INSERT INTO desktop_auth_requests
+           (id, code_challenge, redirect_uri, client_state, provider, consumed, created_at, expires_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7)`,
+      )
+      .bind(rid, r.codeChallenge, r.redirectUri, r.clientState, r.provider, created, created + REQUEST_TTL_SEC)
+      .run();
+  } catch (err) {
+    console.error("desktop: could not record authorization request", err);
+    return null;
+  }
+  return rid;
 }
 
 /**
@@ -274,40 +210,16 @@ desktopRoutes.get("/desktop/authorize", async (c) => {
     return c.html(errorPage("Malformed state."), 400);
   }
 
-  // Every parameter is validated by this point, so the chooser can safely echo
-  // them back into its links. Nothing is written to the database until a
-  // provider is actually picked — an abandoned chooser leaves no row behind.
+  // An EMPTY provider is what the app sends: its one "Sign In" button. The
+  // browser goes to the consent page on app.capturecat.so ("Allow CaptureCat
+  // for Mac to use your account?"), signing in there first if needed, and the
+  // page acts only on this recorded, validated request. Every page the user
+  // sees is CaptureCat's own; the loopback hop at the end is invisible (the
+  // app answers it with a redirect to the page's "done" screen).
   if (provider === "") {
-    // Only offer what is actually configured. `socialProviders` is registered
-    // conditionally (a half-configured environment must still boot), so an
-    // unconditional chooser would show a button that 502s — which is the normal
-    // state while setting the second provider up, and exactly when a confusing
-    // error is least welcome.
-    const available = [
-      hasAppleConfig(c.env) ? { id: "apple", label: "Continue with Apple", mark: "&#63743;" } : null,
-      hasGoogleConfig(c.env) ? { id: "google", label: "Continue with Google", mark: "G" } : null,
-    ].filter((p): p is { id: string; label: string; mark: string } => p !== null);
-
-    if (available.length === 0) {
-      return c.html(errorPage("No sign-in providers are configured."), 503);
-    }
-    // Exactly one configured provider and no SSO: skip the chooser entirely
-    // rather than asking someone to "choose" from a list of one. With SSO
-    // the chooser is the only place to enter a work email, so it stays.
-    const ssoAvailable = await ssoProvidersExist(c.env.DB);
-    if (available.length === 1 && !ssoAvailable) {
-      const query = new URLSearchParams({
-        provider: available[0].id,
-        redirect_uri: redirectUri,
-        code_challenge: codeChallenge,
-        code_challenge_method: method,
-      });
-      if (clientState !== null) query.set("state", clientState);
-      return c.redirect(`/api/desktop/authorize?${query.toString()}`, 302);
-    }
-    return c.html(
-      chooserPage({ redirectUri, codeChallenge, method, clientState, providers: available, sso: ssoAvailable }),
-    );
+    const rid = await recordRequest(c.env.DB, { codeChallenge, redirectUri, clientState, provider: "consent" });
+    if (!rid) return c.html(errorPage("Could not start sign-in. Please try again."), 500);
+    return c.redirect(`${appBaseURL(c.env)}/connect/mac?rid=${rid}`, 302);
   }
 
   // SSO: the email's domain picks the identity provider. Validated here so a
@@ -328,31 +240,8 @@ desktopRoutes.get("/desktop/authorize", async (c) => {
 
   const auth = getAuth(c.env);
   const origin = new URL(c.env.BETTER_AUTH_URL).origin;
-  const rid = crypto.randomUUID();
-  const created = nowSec();
-
-  // Nothing else sweeps this table — do it opportunistically here, where the
-  // write is already happening.
-  try {
-    await c.env.DB.prepare(`DELETE FROM desktop_auth_requests WHERE expires_at < ?`)
-      .bind(created)
-      .run();
-  } catch (err) {
-    console.error("desktop: sweep failed", err);
-  }
-
-  try {
-    await c.env.DB.prepare(
-      `INSERT INTO desktop_auth_requests
-         (id, code_challenge, redirect_uri, client_state, provider, consumed, created_at, expires_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7)`,
-    )
-      .bind(rid, codeChallenge, redirectUri, clientState, provider, created, created + REQUEST_TTL_SEC)
-      .run();
-  } catch (err) {
-    console.error("desktop: could not record authorization request", err);
-    return c.html(errorPage("Could not start sign-in. Please try again."), 500);
-  }
+  const rid = await recordRequest(c.env.DB, { codeChallenge, redirectUri, clientState, provider });
+  if (!rid) return c.html(errorPage("Could not start sign-in. Please try again."), 500);
 
   let result: { headers: Headers; response: unknown };
   try {
@@ -400,6 +289,108 @@ desktopRoutes.get("/desktop/authorize", async (c) => {
   }
   return redirect;
 });
+
+// ---------------------------------------------------------------------------
+// The consent page's API (SESSION ONLY): app.capturecat.so/connect/mac
+//   GET  /desktop/connect/:rid            what the page shows
+//   POST /desktop/connect/:rid/decision   { approve } -> { redirect }
+// ---------------------------------------------------------------------------
+
+/** The loopback redirect that hands the app its answer (code or error). */
+function loopbackRedirect(redirectUri: string, params: Record<string, string | null>): string {
+  const target = new URL(redirectUri);
+  for (const [k, v] of Object.entries(params)) if (v !== null) target.searchParams.set(k, v);
+  return target.toString();
+}
+
+type OpenRequest = { redirect_uri: string; client_state: string | null; expires_at: number };
+
+/** A request the page may still answer: recorded, unexpired, unanswered. */
+async function openRequest(db: D1Database, rid: string): Promise<OpenRequest | { error: string; description: string }> {
+  const row = await db
+    .prepare(`SELECT redirect_uri, client_state, ott_hash, consumed, expires_at FROM desktop_auth_requests WHERE id = ?`)
+    .bind(rid)
+    .first<OpenRequest & { ott_hash: string | null; consumed: number }>();
+  if (!row) return { error: "unknown_request", description: "This sign-in request is unknown. Start again from CaptureCat for Mac." };
+  if (row.expires_at <= nowSec()) {
+    return { error: "expired", description: "This sign-in request expired. Start again from CaptureCat for Mac." };
+  }
+  if (row.ott_hash || row.consumed) {
+    return { error: "answered", description: "This sign-in request was already answered. Start again from CaptureCat for Mac." };
+  }
+  return row;
+}
+
+desktopRoutes.get("/desktop/connect/:rid", refuseAgentCredentials, requireAuth, async (c) => {
+  const open = await openRequest(c.env.DB, c.req.param("rid"));
+  if ("error" in open) return c.json(open, 400);
+  return c.json({ app: { name: "CaptureCat for Mac" }, expiresAt: open.expires_at });
+});
+
+desktopRoutes.post(
+  "/desktop/connect/:rid/decision",
+  refuseAgentCredentials,
+  requireAuth,
+  userRateLimit({ limit: 30, windowSec: 60, scope: "desktop-consent" }),
+  async (c) => {
+    let approve: unknown;
+    try {
+      approve = ((await c.req.json()) as { approve?: unknown }).approve;
+    } catch {
+      return c.json({ error: "invalid_request" }, 400);
+    }
+    if (typeof approve !== "boolean") return c.json({ error: "invalid_request" }, 400);
+    const rid = c.req.param("rid");
+    const open = await openRequest(c.env.DB, rid);
+    if ("error" in open) return c.json(open, 400);
+
+    if (!approve) {
+      // Burn it, then tell the app: it stays quiet on access_denied.
+      await c.env.DB.prepare(`UPDATE desktop_auth_requests SET consumed = 1 WHERE id = ? AND ott_hash IS NULL`)
+        .bind(rid)
+        .run();
+      return c.json({
+        redirect: loopbackRedirect(open.redirect_uri, {
+          error: "access_denied",
+          error_description: "You cancelled signing in.",
+          state: open.client_state,
+        }),
+      });
+    }
+
+    // The Mac gets a session of its OWN, not this browser's: signing out of
+    // one never signs out the other. The code is minted against it (the
+    // bearer plugin turns the header into that session), so the token the
+    // app redeems at /desktop/token is the new session's.
+    const auth = getAuth(c.env);
+    const ctx = await auth.$context;
+    let sessionToken: string;
+    let code: string;
+    try {
+      sessionToken = (await ctx.internalAdapter.createSession(c.get("user").uid)).token;
+      code = (await auth.api.generateOneTimeToken({ headers: new Headers({ Authorization: `Bearer ${sessionToken}` }) })).token;
+    } catch (err) {
+      console.error("desktop: consent could not mint a code", err);
+      return c.json({ error: "server_error", description: "Could not finish signing in. Please try again." }, 500);
+    }
+    // Bind the code to this PKCE request, atomically: a second Allow (another
+    // tab) loses the race, changes nothing and drops its session.
+    const bind = await c.env.DB.prepare(
+      `UPDATE desktop_auth_requests SET ott_hash = ?1
+        WHERE id = ?2 AND ott_hash IS NULL AND consumed = 0 AND expires_at > ?3`,
+    )
+      .bind(await sha256Base64Url(code), rid, nowSec())
+      .run();
+    if (!bind.meta.changes) {
+      await ctx.internalAdapter.deleteSession(sessionToken).catch(() => {});
+      return c.json(
+        { error: "answered", description: "This sign-in request was already answered. Start again from CaptureCat for Mac." },
+        400,
+      );
+    }
+    return c.json({ redirect: loopbackRedirect(open.redirect_uri, { code, state: open.client_state }) });
+  },
+);
 
 // ---------------------------------------------------------------------------
 // GET /desktop/complete — provider callback landed, mint the code

@@ -379,7 +379,7 @@ final class CloudSyncController {
     func continueFromWeb(project: Project, appState: AppState, seek: Double? = nil) {
         if let seek { appState.pendingSeekOutputTime = seek }
         appState.openEditor(with: project)
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        appState.bringToFront()
         guard task == nil else { return }
         pullWebEdits(project: project, appState: appState, window: nil, quiet: true)
     }
@@ -389,11 +389,15 @@ final class CloudSyncController {
     /// it with everything the cloud holds into a new project folder
     /// (`CloudProjectSync.clone`), lists it, and opens the editor.
     func openFromCloud(projectID: UUID, appState: AppState, seek: Double? = nil) {
-        guard task == nil else { return }
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard task == nil else {
+            // Already bringing it in (a second click): just show where.
+            appState.bringToFront()
+            return
+        }
         // A deep link can arrive with no window open (menu bar app): the
         // project browser hosts the sign-in prompt and the progress dialog.
         if appState.authPresentationWindow() == nil { appState.openProjectBrowser() }
+        appState.bringToFront()
         guard let window = appState.authPresentationWindow() else { return }
         guard ensureSignedIn(
             appState: appState, window: window,
@@ -428,6 +432,9 @@ final class CloudSyncController {
                         }
                         if let seek { appState.pendingSeekOutputTime = seek }
                         appState.openEditor(with: project)
+                        // Minutes may have passed (sign-in in the browser, the
+                        // download): bring the editor up over the browser.
+                        appState.bringToFront()
                         self.announce(projectID)
                     }
                 case .noCloudCopy:
@@ -445,6 +452,7 @@ final class CloudSyncController {
                 self?.finish {
                     if let project = appState.projectStore.adopt(projectAt: directory) {
                         appState.openEditor(with: project)
+                        appState.bringToFront()
                     }
                 }
             } catch {

@@ -534,6 +534,21 @@ final class AppState {
         presentEditorWindow()
     }
 
+    /// Bring the app and its front window forward after something outside it
+    /// asked — a browser link, a finished download, a finished sign-in.
+    /// `activate()` is only a request: macOS can refuse it while another app
+    /// (the browser that sent the link) is in front, which left a handed-off
+    /// project open BEHIND Safari. So the window is also ordered above every
+    /// app regardless — visible either way, one click from focus.
+    func bringToFront() {
+        NSApplication.shared.activate()
+        let window = NSApplication.shared.windows.first {
+            $0.identifier?.rawValue == "editor" && $0.isVisible && !$0.isMiniaturized
+        } ?? authPresentationWindow()
+        window?.orderFrontRegardless()
+        window?.makeKey()
+    }
+
     func closeEditor() {
         if let project = currentProject {
             projectStore.saveIfDirty(project)
