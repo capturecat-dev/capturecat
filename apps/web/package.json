@@ -10,7 +10,8 @@
     "deploy": "vite build && wrangler deploy",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:vectors": "vitest run src/editor/core"
+    "test:vectors": "vitest run src/editor/core",
+    "skills:sync": "UPDATE_SKILL_FILES=1 vitest run src/lib/agent-skills.test.ts"
   },
   "dependencies": {
     "@better-auth/sso": "^1.6.23",

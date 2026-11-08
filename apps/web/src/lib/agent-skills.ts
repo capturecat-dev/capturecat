@@ -9,6 +9,11 @@
  *
  * Facts here mirror the /agents page (site-content.ts) and the API routes
  * (apps/api/src/routes/screenshot.ts, apps/api/src/mcp/); change them together.
+ *
+ * The repo-root skills/ folder holds a byte-for-byte copy of each SKILL.md so
+ * `npx skills add capturecat-dev/capturecat` (and skills.sh) can find them.
+ * After editing a skill, run `npm run skills:sync` in apps/web;
+ * agent-skills.test.ts fails while a copy is stale.
  */
 import { SITE_URL } from "./site-url";
 import { SCREENSHOT_API_SKILL } from "./screenshot-api-skill";

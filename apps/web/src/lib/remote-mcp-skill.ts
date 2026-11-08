@@ -8,7 +8,7 @@ import { MCP_ENDPOINT, MCP_TOOLS, claudeMcpAddCommand } from "./agent-access";
 import { SITE_URL } from "./site-url";
 
 const description =
-  "Work with a CaptureCat account's screen recordings from a cloud agent over MCP: list shared videos, read transcripts, summaries, comments and analytics, post comments, change share settings, manage playlists, take screenshots, and edit cloud projects (zooms, cuts, trims, speed, blur, annotations, style, version history) without the editor open.";
+  "Work with a CaptureCat account's screen recordings from a cloud agent over MCP. List shared videos, read transcripts, summaries, comments and analytics, post comments, change share settings, manage playlists, take screenshots, and edit cloud projects (zooms, cuts, trims, speed, blur, annotations, style, version history) without the editor open.";
 
 const toolLines = MCP_TOOLS.map((t) => `- \`${t.name}\` (\`${t.scope}\`): ${t.summary}`).join("\n");
 

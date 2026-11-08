@@ -21,8 +21,23 @@ apps/
   admin/     → Admin console (TanStack Start)
 assets/      → Brand artwork (logos, icon sources)
 docs/        → Roadmap and migration notes
+skills/      → Agent skills (SKILL.md) for the MCP servers and Screenshot API
 tools/       → MCP bundle build scripts
 ```
+
+## Agent Skills
+
+`skills/` holds SKILL.md files that teach AI agents to use CaptureCat: the Mac
+app's local MCP server, the remote MCP server at `mcp.capturecat.so`, and the
+Screenshot API. Install them into Claude Code, Codex, Cursor and other agents:
+
+```bash
+npx skills add capturecat-dev/capturecat
+```
+
+They are generated from `apps/web/src/lib/agent-skills.ts` (the same files are
+served at `capturecat.so/.well-known/agent-skills/`). Edit them there, then run
+`npm run skills:sync` in `apps/web`.
 
 ## Development
 
