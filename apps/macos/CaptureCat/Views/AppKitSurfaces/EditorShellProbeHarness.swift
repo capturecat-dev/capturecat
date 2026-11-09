@@ -121,6 +121,10 @@ enum EditorShellProbeHarness {
         // Behaviours a screenshot cannot show.
         await behaviourChecks(shell: native, window: nativeWindow)
 
+        // Timeline lane accordion: motion sequence + label lockstep, in the
+        // real shell (the label column and panel sizing are the app's own).
+        await laneAccordionProbe(shell: native, project: nativeProject, window: nativeWindow, outDir: outDir)
+
         // ── In-place editor probe ─────────────────────────────────────────
         // The editor must REPLACE the drawn label (Chrome.editingID), sit on
         // the exact label rect, and the drawn twin must not peek out anywhere.
@@ -130,6 +134,260 @@ enum EditorShellProbeHarness {
         await annotateScrollProbe(shell: native, project: nativeProject)
 
         print("SHELLSHOT outDir \(outDir.path)")
+    }
+
+    /// Timeline lane accordion: the overlay lanes (EFFECTS / FOCUS / ANNOTATE)
+    /// rest as strips; hovering one opens it (growing down, pushing the lanes
+    /// below), moving off springs it shut. Probed in the REAL shell, sampled
+    /// as a SEQUENCE (a settled frame can't tell a spring from a snap — §3),
+    /// with the label column measured against the canvas lanes every sample.
+    /// Defect injections that must FAIL: `--inject accordion-snap` (no
+    /// motion) and `--inject accordion-labels` (label column frozen).
+    private static func laneAccordionProbe(
+        shell: EditorShellViewController, project: Project, window: NSWindow, outDir: URL
+    ) async {
+        typealias M = TimelineCanvasMetrics
+        let args = CommandLine.arguments
+        var failures = 0
+        func check(_ name: String, _ pass: Bool, _ detail: String) {
+            if !pass { failures += 1 }
+            print("ACCORDION \(pass ? "PASS" : "FAIL") \(name) — \(detail)")
+            if !pass, let canvas = findSubview(ofType: TimelineCanvasView.self, in: shell.view) {
+                print("ACCORDION   state: \(canvas.probeHoverState) open=\(canvas.openOverlayLane)")
+            }
+        }
+        guard let canvas = findSubview(ofType: TimelineCanvasView.self, in: shell.view),
+              let panel = findSubview(ofType: TimelineRootView.self, in: shell.view),
+              let content = window.contentView else {
+            print("ACCORDION FAIL no timeline canvas in shell")
+            return
+        }
+        let accordion = canvas.laneAccordion
+        accordion.probeReduceMotion = false
+        // The "parked off the desktop" window is clamped onto a real screen
+        // on multi-display setups (it landed at x = -1920 on a left monitor),
+        // so the user's cursor crossing it fed REAL mouseMoved / mouseExited
+        // into the canvas between the synthetic ones — a flaky red. Detach
+        // the canvas's tracking areas for the probe; only synthetic events
+        // reach it (re-detached every step: AppKit re-adds them on any
+        // visible-rect change). Restored at the end.
+        func detachTracking() { canvas.trackingAreas.forEach(canvas.removeTrackingArea) }
+        detachTracking()
+        defer { canvas.updateTrackingAreas() }
+        if args.contains("accordion-snap") { accordion.probeForceSnap = true }
+        if args.contains("accordion-labels") { canvas.onLaneLayoutChange = nil }
+
+        func send(_ type: NSEvent.EventType, at point: CGPoint) {
+            detachTracking()
+            let windowPoint = canvas.convert(point, to: nil)
+            let event: NSEvent?
+            if type == .mouseExited {
+                event = NSEvent.enterExitEvent(
+                    with: .mouseExited, location: windowPoint, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber, context: nil,
+                    eventNumber: 0, trackingNumber: 0, userData: nil)
+            } else {
+                event = NSEvent.mouseEvent(
+                    with: type, location: windowPoint, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber, context: nil,
+                    eventNumber: 0, clickCount: 0, pressure: 0)
+            }
+            guard let event else { return }
+            if type == .mouseExited { canvas.mouseExited(with: event) } else { canvas.mouseMoved(with: event) }
+        }
+        func centre(of lane: TimelineOverlayLane) -> CGPoint {
+            let layout = canvas.laneLayout
+            return CGPoint(x: canvas.visibleRect.midX,
+                           y: layout.laneY(lane) + layout.laneHeight(lane) / 2)
+        }
+        /// Label row vs canvas lane, in window space: worst |Δtop| / |Δheight|.
+        func labelDrift() -> CGFloat {
+            let layout = canvas.laneLayout
+            var worst: CGFloat = 0
+            for (lane, name) in [(TimelineOverlayLane.effects, "EFFECTS"), (.focus, "FOCUS"), (.annotate, "ANNOTATE")] {
+                guard let label = findLabel(name, in: panel), let row = label.superview else { return .infinity }
+                let rowRect = row.convert(row.bounds, to: nil)
+                let laneRect = canvas.convert(layout.laneRect(lane, width: canvas.bounds.width), to: nil)
+                worst = max(worst, abs(rowRect.maxY - laneRect.maxY), abs(rowRect.height - laneRect.height))
+            }
+            return worst
+        }
+        struct Sample {
+            var t: Double; var open: [CGFloat]; var band: CGFloat; var drift: CGFloat
+            var bottom: CGFloat; var focusTop: CGFloat; var effectsHeight: CGFloat
+        }
+        /// Samples the accordion for `seconds` after an event, ~every 12 ms.
+        func record(_ seconds: Double) async -> [Sample] {
+            var samples: [Sample] = []
+            let began = CACurrentMediaTime()
+            while CACurrentMediaTime() - began < seconds {
+                try? await Task.sleep(for: .milliseconds(12))
+                detachTracking()
+                content.layoutSubtreeIfNeeded()
+                let layout = canvas.laneLayout
+                samples.append(Sample(
+                    t: CACurrentMediaTime() - began, open: layout.openness,
+                    band: layout.tracksBottom - M.effectsLaneY, drift: labelDrift(),
+                    bottom: layout.tracksBottom, focusTop: layout.laneY(.focus),
+                    effectsHeight: layout.laneHeight(.effects)))
+            }
+            return samples
+        }
+        func fmt(_ v: CGFloat) -> String { String(format: "%.3f", v) }
+        func spread(_ values: [CGFloat]) -> CGFloat { (values.max() ?? 0) - (values.min() ?? 0) }
+        func heights(_ layout: TimelineLaneLayout) -> String {
+            "E/F/A = \(layout.laneHeight(.effects))/\(layout.laneHeight(.focus))/\(layout.laneHeight(.annotate))"
+        }
+        let strip = TimelineLaneLayout.compactRowHeight
+        func allStrips(_ layout: TimelineLaneLayout) -> Bool {
+            TimelineOverlayLane.allCases.allSatisfy { abs(layout.laneHeight($0) - strip) < 0.5 }
+        }
+
+        // ── Rest: cursor off the timeline → EVERY overlay lane is a strip.
+        shell.selection.selectedAnnotationID = nil
+        shell.selection.selectedZoomID = nil
+        send(.mouseExited, at: .zero)
+        await settle(0.8)
+        content.layoutSubtreeIfNeeded()
+        let rest = canvas.laneLayout
+        check("rest-all-strips", canvas.openOverlayLane == nil && allStrips(rest),
+              "open=\(String(describing: canvas.openOverlayLane)) \(heights(rest))")
+        check("labels-rest", labelDrift() < 0.75, "drift \(fmt(labelDrift()))pt")
+        // The spare room an opening lane grows into must not itself open one.
+        let spareY = rest.tracksBottom + 8
+        check("spare-room-inert", rest.hoverLane(atY: spareY) == nil,
+              "y=\(spareY) below the strips → \(String(describing: rest.hoverLane(atY: spareY)))")
+        let panelHeightBefore = panel.frame.height
+
+        // ── Hover FOCUS: it grows DOWN on the growth bounce; only the lanes
+        // below it move (the pushed edge), nothing above it shifts.
+        send(.mouseMoved, at: centre(of: .focus))
+        let opening = await record(0.65)
+        let focusOpen = opening.map { $0.open[TimelineOverlayLane.focus.rawValue] }
+        let midFlight = focusOpen.filter { $0 > 0.08 && $0 < 0.92 }
+        check("open-midflight", midFlight.count >= 2,
+              "\(midFlight.count) samples strictly between strip and open (\(focusOpen.prefix(8).map(fmt).joined(separator: " ")) …)")
+        let peak = focusOpen.max() ?? 0
+        check("open-bounce", peak > 1.02 && peak < 1.25, "peak openness \(fmt(peak)) (house bounce overshoots ~10%)")
+        let pinned = max(spread(opening.map(\.focusTop)), spread(opening.map(\.effectsHeight)))
+        check("pushed-edge-only", pinned < 0.5,
+              "FOCUS top / EFFECTS height moved \(fmt(pinned))pt mid-flight (only the edge FOCUS pushes may move)")
+        let worstDrift = opening.map(\.drift).max() ?? .infinity
+        check("labels-midflight", worstDrift < 0.75, "label rows vs lanes worst drift \(fmt(worstDrift))pt across \(opening.count) samples")
+        let deepest = opening.map(\.bottom).max() ?? 0
+        check("fits-panel", deepest <= canvas.bounds.height,
+              "lanes reach y=\(fmt(deepest)) incl. overshoot; canvas is \(canvas.bounds.height)pt (no clipping)")
+        let opened = canvas.laneLayout
+        check("open-settled",
+              canvas.openOverlayLane == .focus
+                && abs(opened.laneHeight(.focus) - M.trackHeight) < 0.5
+                && abs(opened.laneHeight(.effects) - strip) < 0.5
+                && abs(opened.laneHeight(.annotate) - strip) < 0.5,
+              heights(opened))
+        check("panel-fixed", abs(panel.frame.height - panelHeightBefore) < 0.5,
+              "timeline panel \(panelHeightBefore) → \(panel.frame.height) (a hover must never re-lay out the stage)")
+
+        // Crossing an inter-lane gap must not drop the hover (flicker).
+        let gapYs = [opened.laneY(.focus) - M.trackSpacing / 2, opened.laneY(.annotate) - M.trackSpacing / 2]
+        let gapLanes = gapYs.map { opened.hoverLane(atY: $0) }
+        check("gap-continuity", gapLanes.allSatisfy { $0 != nil }, "gap hover lanes \(gapLanes)")
+
+        // ── Lane to lane: FOCUS hands off to ANNOTATE — one gives exactly
+        // what the other takes, so the band holds its height.
+        send(.mouseMoved, at: centre(of: .annotate))
+        let handoff = await record(0.65)
+        let handoffSpread = spread(handoff.map(\.band))
+        check("handoff-band-constant", handoffSpread < 0.5 && canvas.openOverlayLane == .annotate,
+              "band varies \(fmt(handoffSpread))pt FOCUS→ANNOTATE; open=\(String(describing: canvas.openOverlayLane))")
+
+        // ── Move off the canvas: ANNOTATE springs back to a strip.
+        send(.mouseExited, at: .zero)
+        let closing = await record(0.65)
+        let annotateShut = closing.map { $0.open[TimelineOverlayLane.annotate.rawValue] }
+        check("close-midflight", annotateShut.contains { $0 > 0.08 && $0 < 0.92 },
+              "\(annotateShut.prefix(8).map(fmt).joined(separator: " ")) …")
+        check("close-settled", canvas.openOverlayLane == nil && allStrips(canvas.laneLayout),
+              "open=\(String(describing: canvas.openOverlayLane)) \(heights(canvas.laneLayout))")
+
+        // ── Moving off WITHIN the canvas (onto VIDEO) also springs back.
+        send(.mouseMoved, at: centre(of: .effects))
+        await settle(0.6)
+        let effectsOpened = canvas.openOverlayLane == .effects
+        send(.mouseMoved, at: CGPoint(x: canvas.visibleRect.midX, y: M.videoLaneY + M.trackHeight / 2))
+        await settle(0.6)
+        check("move-off-to-video", effectsOpened && canvas.openOverlayLane == nil && allStrips(canvas.laneLayout),
+              "effects opened=\(effectsOpened), after VIDEO hover open=\(String(describing: canvas.openOverlayLane))")
+
+        // ── A selection does NOT hold a lane open: all strips by default.
+        if let annotation = project.annotations.first {
+            shell.selection.selectedAnnotationID = annotation.id
+            await settle(0.8)
+            let held = canvas.openOverlayLane
+            shell.selection.selectedAnnotationID = nil
+            await settle(0.3)
+            check("selection-stays-strip", held == nil,
+                  "selected annotation → open=\(String(describing: held))")
+        }
+
+        // ── Reduce Motion: a short glide, never an overshoot.
+        accordion.probeReduceMotion = true
+        send(.mouseMoved, at: centre(of: .focus))
+        let reduced = await record(0.4)
+        let reducedPeak = reduced.map { $0.open[TimelineOverlayLane.focus.rawValue] }.max() ?? 0
+        check("reduce-motion", reducedPeak <= 1.0001 && canvas.openOverlayLane == .focus
+                && abs(canvas.laneLayout.openness(.focus) - 1) < 0.001,
+              "peak \(fmt(reducedPeak)), settled within 0.4s")
+        accordion.probeReduceMotion = false
+        send(.mouseExited, at: .zero)
+        await settle(0.8)
+
+        // ── Pictures (after every numeric check — a capture costs a frame
+        // budget): rest, the opening sequence, settled, and closing.
+        let frameRect: CGRect = {
+            let r = panel.convert(panel.bounds, to: content)
+            return CGRect(x: r.minX, y: content.bounds.height - r.maxY, width: r.width, height: r.height)
+        }()
+        func shoot(_ name: String) {
+            content.layoutSubtreeIfNeeded()
+            canvas.displayIfNeeded()
+            guard let image = capture(window: window).flatMap(flipVertically),
+                  let crop = image.cropping(to: frameRect) else {
+                print("ACCORDION capture \(name) FAILED")
+                return
+            }
+            let url = outDir.appendingPathComponent("accordion-\(name).png")
+            try? NSBitmapImageRep(cgImage: crop).representation(using: .png, properties: [:])?.write(to: url)
+        }
+        shoot("0-rest")
+        // ANNOTATE holds the fixture's text block, so the picture shows a
+        // real block growing out of its strip while the zoom block tucks.
+        send(.mouseMoved, at: centre(of: .annotate))
+        let shotStart = CACurrentMediaTime()
+        for _ in 1...5 {
+            // Always yield at least a frame: a capture costs ~100 ms, and a
+            // loop that never returns to the run loop starves the 120 Hz
+            // driver — every "mid-flight" shot would show the same instant.
+            try? await Task.sleep(for: .milliseconds(16))
+            shoot(String(format: "1-open-%03dms", Int((CACurrentMediaTime() - shotStart) * 1000)))
+        }
+        await settle(0.4)
+        shoot("2-annotate-open")
+        send(.mouseExited, at: .zero)
+        try? await Task.sleep(for: .milliseconds(90))
+        shoot("3-closing")
+        await settle(0.6)
+        shoot("4-back-to-rest")
+        print("ACCORDION \(failures == 0 ? "ALL PASS" : "\(failures) FAILED") — shots in \(outDir.path)/accordion-*.png")
+    }
+
+    private static func findLabel(_ text: String, in root: NSView) -> NSTextField? {
+        if let field = root as? NSTextField, field.stringValue == text { return field }
+        for sub in root.subviews {
+            if let hit = findLabel(text, in: sub) { return hit }
+        }
+        return nil
     }
 
     /// Stacked annotations grow the timeline canvas past its viewport; the

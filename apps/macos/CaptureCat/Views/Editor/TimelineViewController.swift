@@ -114,7 +114,10 @@ final class TimelineViewController: NSViewController {
     private let timelineBottomInset: CGFloat = 12
     /// Updated when EFFECTS sub-rows appear/disappear (dynamic lane height).
     private var canvasAreaHeightConstraint: NSLayoutConstraint?
-    private var effectsLabelHeightConstraint: NSLayoutConstraint?
+    /// EFFECTS / FOCUS / ANNOTATE label rows — driven every accordion frame
+    /// from the canvas's `TimelineLaneLayout` so labels track their lanes.
+    private var overlayLabelHeightConstraints: [TimelineOverlayLane: NSLayoutConstraint] = [:]
+    private var overlayLabelViews: [TimelineOverlayLane: NSView] = [:]
 
     // MARK: Views
 
@@ -284,7 +287,12 @@ final class TimelineViewController: NSViewController {
         let width = scaledTrackWidth
         // Annotate sub-rows make the DOCUMENT taller than the panel — the
         // panel keeps its height and the extra rows scroll vertically.
-        let height = timelineCanvasHeight + canvas.annotateExtraHeight
+        let height = max(
+            timelineCanvasHeight,
+            TimelineLaneLayout.maxTracksBottom(
+                effectsRows: effectsLaneRowCount, annotateRows: canvas.annotateRowCount)
+                + timelineBottomInset
+        )
         if canvas.frame.size != CGSize(width: width, height: height) {
             canvas.frame = CGRect(x: 0, y: 0, width: width, height: height)
         }
@@ -303,8 +311,11 @@ final class TimelineViewController: NSViewController {
         gutter.widthAnchor.constraint(equalToConstant: labelWidth).isActive = true
         labelColumn.addArrangedSubview(gutter)
 
+        let overlayLanes: [String: TimelineOverlayLane] = [
+            "EFFECTS": .effects, "FOCUS": .focus, "ANNOTATE": .annotate,
+        ]
         for (index, name) in ["VIDEO", "VOICE", "EFFECTS", "FOCUS", "ANNOTATE"].enumerated() {
-            let label = makeTrackLabel(name, storeHeightAs: name == "EFFECTS")
+            let label = makeTrackLabel(name, storeHeightAs: overlayLanes[name])
             labelColumn.addArrangedSubview(label)
             if index > 0 {
                 labelColumn.setCustomSpacing(trackSpacing, after: labelColumn.arrangedSubviews[index])
@@ -341,11 +352,23 @@ final class TimelineViewController: NSViewController {
         ])
 
         canvas.onFocusRequested = { [weak self] in self?.focusTimeline() }
+        canvas.onLaneLayoutChange = { [weak self] layout in self?.applyLaneLabelLayout(layout) }
+    }
+
+    /// Lane accordion frame: each overlay label row takes its lane's current
+    /// height (same layout object the canvas drew with), and a closed lane's
+    /// label recedes a little with it.
+    private func applyLaneLabelLayout(_ layout: TimelineLaneLayout) {
+        for lane in TimelineOverlayLane.allCases {
+            overlayLabelHeightConstraints[lane]?.constant = layout.laneHeight(lane)
+            let open = min(1, max(0, layout.openness(lane)))
+            overlayLabelViews[lane]?.alphaValue = 0.7 + 0.3 * open
+        }
     }
 
     /// `kerning: 0.6` has no NSTextField property — it has to go on the
     /// attributed string.
-    private func makeTrackLabel(_ text: String, storeHeightAs storesHeight: Bool = false) -> NSView {
+    private func makeTrackLabel(_ text: String, storeHeightAs lane: TimelineOverlayLane? = nil) -> NSView {
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
         let label = NSTextField(labelWithAttributedString: NSAttributedString(
@@ -359,7 +382,10 @@ final class TimelineViewController: NSViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(label)
         let heightConstraint = container.heightAnchor.constraint(equalToConstant: trackHeight)
-        if storesHeight { effectsLabelHeightConstraint = heightConstraint }
+        if let lane {
+            overlayLabelHeightConstraints[lane] = heightConstraint
+            overlayLabelViews[lane] = container
+        }
         NSLayoutConstraint.activate([
             container.widthAnchor.constraint(equalToConstant: labelWidth),
             heightConstraint,
@@ -369,15 +395,14 @@ final class TimelineViewController: NSViewController {
         return container
     }
 
-    /// EFFECTS lane height changed (sub-rows added/removed): resize the label
-    /// container, the canvas area, the document view, and the panel's
-    /// intrinsic height so the stage re-lays out around the taller timeline.
+    /// EFFECTS lane height changed (sub-rows added/removed): resize the canvas
+    /// area, the document view, and the panel's intrinsic height so the stage
+    /// re-lays out around the taller timeline. (The label row follows through
+    /// the canvas's lane-layout callback.)
     private func applyEffectsLaneRowCount(_ rowCount: Int) {
         let clamped = max(1, min(TimelineCanvasMetrics.maxEffectsRows, rowCount))
         guard clamped != effectsLaneRowCount else { return }
         effectsLaneRowCount = clamped
-        let extra = CGFloat(clamped - 1) * TimelineCanvasMetrics.subRowPitch
-        effectsLabelHeightConstraint?.constant = trackHeight + extra
         canvasAreaHeightConstraint?.constant = timelineCanvasHeight
         layoutCanvasDocument()
         view.invalidateIntrinsicContentSize()
@@ -1123,13 +1148,12 @@ final class TimelineViewController: NSViewController {
     /// canvas rebuild; the same shared row math the canvas draws with.
     private var effectsLaneRowCount = 1
 
-    private var totalTracksHeight: CGFloat {
-        5 * trackHeight + 4 * trackSpacing
-            + CGFloat(effectsLaneRowCount - 1) * TimelineCanvasMetrics.subRowPitch
-    }
-
+    /// Ruler + every lane, sized for the TALLEST accordion state (whichever
+    /// overlay lane is open), so hovering lanes never re-lays out the stage —
+    /// the lanes animate inside a fixed panel. ANNOTATE sub-rows scroll in
+    /// the document instead of growing the panel (see `layoutCanvasDocument`).
     private var timelineTrackAreaHeight: CGFloat {
-        rulerHeight + rulerBottomSpacing + totalTracksHeight
+        TimelineLaneLayout.maxTracksBottom(effectsRows: effectsLaneRowCount, annotateRows: 1)
     }
 
     private var timelineCanvasHeight: CGFloat {

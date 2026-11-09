@@ -222,8 +222,80 @@ final class TimelineCanvasView: NSView {
         trimStartOutput: 0,
         trimEndOutput: 0,
         sliceArmed: false
-    )
+    ) {
+        didSet {
+            committedEffectsRows = Self.effectsRowCount(snapshot: snapshot)
+            committedAnnotateRows = annotateRowLayout.values.map(\.rows).max() ?? 1
+        }
+    }
     var callbacks: TimelineCanvasCallbacks?
+
+    // MARK: Lane accordion
+
+    /// Hover-to-open accordion over EFFECTS / FOCUS / ANNOTATE — see
+    /// `TimelineLaneAccordion.swift`. Geometry below reads `laneLayout`.
+    let laneAccordion = TimelineLaneAccordion()
+    /// Every lane-geometry change (each animation frame, row-count changes)
+    /// goes out here so the controller's label column moves in lockstep.
+    var onLaneLayoutChange: ((TimelineLaneLayout) -> Void)? {
+        didSet {
+            reportedLaneLayout = nil
+            reportLaneLayout()
+        }
+    }
+    private var reportedLaneLayout: TimelineLaneLayout?
+    /// Committed sub-row counts, cached from the snapshot (geometry reads them
+    /// many times per draw).
+    private var committedEffectsRows = 1
+    private var committedAnnotateRows = 1
+    /// The overlay lane under the cursor — the ONLY open lane (nil = all
+    /// strips). Frozen while a gesture owns the mouse so a drag never
+    /// collapses the lane it is editing.
+    private var hoverOverlayLane: TimelineOverlayLane? {
+        didSet { if hoverOverlayLane != oldValue { retargetLaneAccordion() } }
+    }
+
+    var laneLayout: TimelineLaneLayout {
+        TimelineLaneLayout(
+            openness: laneAccordion.openness,
+            effectsRows: committedEffectsRows,
+            annotateRows: committedAnnotateRows
+        )
+    }
+
+    /// Committed ANNOTATE sub-row count — the controller sizes the scroll
+    /// document from it.
+    var annotateRowCount: Int { committedAnnotateRows }
+
+    private func retargetLaneAccordion() {
+        laneAccordion.setTarget(hoverOverlayLane, animated: window != nil)
+    }
+
+    private func laneAccordionDidChange() {
+        // Only the overlay band moves — VIDEO / VOICE above it never redraw.
+        setNeedsDisplay(CGRect(
+            x: 0, y: M.effectsLaneY - M.trackSpacing,
+            width: bounds.width, height: max(0, bounds.height - M.effectsLaneY + M.trackSpacing)))
+        overlay.needsDisplay = true
+        reportLaneLayout()
+    }
+
+    private func reportLaneLayout() {
+        let layout = laneLayout
+        guard layout != reportedLaneLayout else { return }
+        reportedLaneLayout = layout
+        onLaneLayoutChange?(layout)
+    }
+
+    /// Harness seam: the lane the accordion is opening (or holds open);
+    /// nil = every lane a strip.
+    var openOverlayLane: TimelineOverlayLane? { laneAccordion.target }
+    /// Harness seam: hover lane + whether a gesture owns the mouse.
+    var probeHoverState: String {
+        let idle: Bool
+        if case .idle = mouseState { idle = true } else { idle = false }
+        return "hover=\(hoverOverlayLane.map { "\($0)" } ?? "nil") idle=\(idle)"
+    }
 
     // MARK: Slice tool
 
@@ -359,6 +431,7 @@ final class TimelineCanvasView: NSView {
         wantsLayer = true
         overlay.canvas = self
         addSubview(overlay)
+        laneAccordion.onChange = { [weak self] in self?.laneAccordionDidChange() }
     }
 
     @available(*, unavailable)
@@ -407,6 +480,8 @@ final class TimelineCanvasView: NSView {
             self.snapshot = snapshot
             overlay.snapshot = snapshot
             needsDisplay = true
+            // New sub-rows change the label column's heights.
+            reportLaneLayout()
         }
     }
 
@@ -483,8 +558,10 @@ final class TimelineCanvasView: NSView {
         return fraction * snapshot.outputDuration
     }
 
-    private func laneRect(atY laneY: CGFloat) -> CGRect {
-        CGRect(x: 0, y: laneY, width: trackWidth, height: M.trackHeight)
+    /// The full (multi-row) band of an overlay lane at its CURRENT animated
+    /// height — hit tests, hover, hints.
+    private func overlayLaneRect(_ lane: TimelineOverlayLane) -> CGRect {
+        laneLayout.laneRect(lane, width: trackWidth)
     }
 
     private func blockWidth(start: TimeInterval, end: TimeInterval) -> CGFloat {
@@ -492,13 +569,17 @@ final class TimelineCanvasView: NSView {
         return max(M.minBlockWidth, trackWidth * CGFloat((end - start) / snapshot.outputDuration))
     }
 
-    /// Committed (model) rect for a span on a lane.
-    private func blockRect(start: TimeInterval, end: TimeInterval, laneY: CGFloat) -> CGRect {
-        CGRect(
+    /// Committed (model) rect for a span in one sub-row of an overlay lane,
+    /// at the lane's current animated row height.
+    private func blockRect(
+        start: TimeInterval, end: TimeInterval, lane: TimelineOverlayLane, row: Int = 0
+    ) -> CGRect {
+        let layout = laneLayout
+        return CGRect(
             x: x(forOutputTime: start),
-            y: laneY + M.blockInset,
+            y: layout.rowY(lane, row: row) + M.blockInset,
             width: blockWidth(start: start, end: end),
-            height: M.trackHeight - M.blockInset * 2
+            height: max(2, layout.rowHeight(lane) - M.blockInset * 2)
         )
     }
 
@@ -556,14 +637,12 @@ final class TimelineCanvasView: NSView {
     /// Committed rect for an annotation — full lane height when alone,
     /// its sub-row slice when overlapping others.
     private func annotateRect(for item: TimelineAnnotateItem) -> CGRect {
-        let full = blockRect(start: item.startTime, end: item.endTime, laneY: annotateLaneY)
-        guard let slot = annotateRowLayout[item.id], slot.rows > 1 else { return full }
+        guard let slot = annotateRowLayout[item.id], slot.rows > 1 else {
+            return blockRect(start: item.startTime, end: item.endTime, lane: .annotate)
+        }
         // Full-height sub-rows — the lane band grows instead of the bars
-        // shrinking (annotateExtraHeight), and the timeline scrolls.
-        return blockRect(
-            start: item.startTime, end: item.endTime,
-            laneY: annotateLaneY + CGFloat(slot.row) * M.subRowPitch
-        )
+        // shrinking (see `TimelineLaneLayout.rows`), and the timeline scrolls.
+        return blockRect(start: item.startTime, end: item.endTime, lane: .annotate, row: slot.row)
     }
 
     private func isSelected(_ item: EffectBlockItem) -> Bool {
@@ -876,57 +955,28 @@ final class TimelineCanvasView: NSView {
         Self.effectsRowAssignment(spans: liveEffectsSpans()).rows
     }
 
-    /// Committed row count — geometry (lane height, lane Ys below) keys off
-    /// the SNAPSHOT so nothing jumps mid-drag; live rows are capped into it.
-    private var effectsRowCountCommitted: Int {
-        Self.effectsRowCount(snapshot: snapshot)
-    }
-
-    private var effectsExtraHeight: CGFloat {
-        CGFloat(effectsRowCountCommitted - 1) * M.subRowPitch
-    }
-
-    private func effectsRowY(_ row: Int) -> CGFloat {
-        M.effectsLaneY + CGFloat(max(0, min(row, effectsRowCountCommitted - 1))) * M.subRowPitch
-    }
+    // Lane geometry — committed row counts key off the SNAPSHOT so nothing
+    // jumps mid-drag (live rows are capped into them); heights and Ys come
+    // from the accordion's CURRENT layout, so every lane below an opening
+    // lane rides along frame by frame. ANNOTATE grows the same way EFFECTS
+    // does: every stacked row keeps its block height and the canvas gets
+    // taller (the timeline scroll view absorbs it).
 
     /// The full multi-row EFFECTS lane band (hit tests, hover, empty hint).
-    private var effectsLaneRect: CGRect {
-        CGRect(x: 0, y: M.effectsLaneY, width: trackWidth,
-               height: M.trackHeight + effectsExtraHeight)
-    }
-
-    // Lanes BELOW the effects lane shift down as sub-rows appear.
-    private var focusLaneY: CGFloat { M.focusLaneY + effectsExtraHeight }
-    private var annotateLaneY: CGFloat { M.annotateLaneY + effectsExtraHeight }
-    private var tracksBottom: CGFloat { M.tracksBottom + effectsExtraHeight + annotateExtraHeight }
-
-    // ANNOTATE grows the same way EFFECTS does: every stacked row keeps the
-    // full block height and the canvas gets taller (the timeline scroll view
-    // absorbs it) — no more squashed micro-bars in deep stacks.
-    private var annotateRowCountCommitted: Int {
-        annotateRowLayout.values.map(\.rows).max() ?? 1
-    }
-
-    /// Read by TimelineViewController: the document view must be sized taller
-    /// than the (fixed) panel by exactly this so the extra rows SCROLL.
-    var annotateExtraHeight: CGFloat {
-        CGFloat(annotateRowCountCommitted - 1) * M.subRowPitch
-    }
-
+    private var effectsLaneRect: CGRect { overlayLaneRect(.effects) }
+    private var focusLaneRect: CGRect { overlayLaneRect(.focus) }
     /// The full multi-row ANNOTATE band (hit tests, hover, empty hint).
-    private var annotateLaneRect: CGRect {
-        CGRect(x: 0, y: annotateLaneY, width: trackWidth,
-               height: M.trackHeight + annotateExtraHeight)
-    }
+    private var annotateLaneRect: CGRect { overlayLaneRect(.annotate) }
+    /// Bottom of the last lane right now (mid-animation included).
+    var tracksBottom: CGFloat { laneLayout.tracksBottom }
 
     private func effectItem(at point: CGPoint) -> EffectBlockItem? {
         guard effectsLaneRect.contains(point) else { return nil }
         let rows = effectsRows()
         // Later items draw on top (tilt-only last), so hit test in reverse.
         for item in snapshot.effectItems.reversed() {
-            let laneY = effectsRowY(rows[effectsSpanKey(item)] ?? 0)
-            if blockRect(start: item.startTime, end: item.endTime, laneY: laneY)
+            if blockRect(start: item.startTime, end: item.endTime,
+                         lane: .effects, row: rows[effectsSpanKey(item)] ?? 0)
                 .insetBy(dx: 0, dy: -M.blockInset)
                 .contains(point) {
                 return item
@@ -936,11 +986,11 @@ final class TimelineCanvasView: NSView {
     }
 
     private func focusItem(at point: CGPoint) -> TimelineFocusItem? {
-        guard laneRect(atY: focusLaneY).contains(point) else { return nil }
+        guard focusLaneRect.contains(point) else { return nil }
         // Highlights draw after blurs, so they hit-test first.
         let ordered = snapshot.focusItems.filter(\.isHighlight) + snapshot.focusItems.filter { !$0.isHighlight }
         for item in ordered {
-            if blockRect(start: item.startTime, end: item.endTime, laneY: focusLaneY)
+            if blockRect(start: item.startTime, end: item.endTime, lane: .focus)
                 .insetBy(dx: 0, dy: -M.blockInset)
                 .contains(point) {
                 return item
@@ -1105,7 +1155,7 @@ final class TimelineCanvasView: NSView {
         if effectsLaneRect.contains(point) {
             callbacks?.selectEffect(nil, nil)
             mouseState = .scrubbing
-        } else if laneRect(atY: focusLaneY).contains(point) {
+        } else if focusLaneRect.contains(point) {
             callbacks?.selectFocus(nil, false)
             mouseState = .scrubbing
         } else if annotateLaneRect.contains(point) {
@@ -1279,6 +1329,9 @@ final class TimelineCanvasView: NSView {
             needsDisplay = true
         }
         mouseState = .idle
+        // The hover lane was frozen for the gesture — re-resolve it where the
+        // mouse came up (outside the canvas = moving off → spring back).
+        hoverOverlayLane = bounds.contains(point) ? laneLayout.hoverLane(atY: point.y) : nil
     }
 
     // MARK: Slice tool
@@ -1470,6 +1523,11 @@ final class TimelineCanvasView: NSView {
         guard case .idle = mouseState else { return }
         let point = convert(event.locationInWindow, from: nil)
 
+        // Lane accordion: the overlay lane under the cursor opens; anywhere
+        // else (ruler, VIDEO, VOICE) it springs back. Bands are contiguous,
+        // so crossing an inter-lane gap never flickers it shut.
+        hoverOverlayLane = laneLayout.hoverLane(atY: point.y)
+
         // Slice tool owns the VIDEO lane while armed — before any block or
         // playhead hover, exactly as the SwiftUI overlay sat above the row.
         if snapshot.sliceArmed, videoModel != nil {
@@ -1487,7 +1545,7 @@ final class TimelineCanvasView: NSView {
         // Empty-lane "+" hints.
         if effectsLaneRect.contains(point) {
             hoveredLane = .effects
-        } else if laneRect(atY: focusLaneY).contains(point) {
+        } else if focusLaneRect.contains(point) {
             hoveredLane = .focus
         } else if annotateLaneRect.contains(point) {
             hoveredLane = .annotate
@@ -1566,6 +1624,9 @@ final class TimelineCanvasView: NSView {
     }
 
     override func mouseExited(with event: NSEvent) {
+        // A drag that leaves the canvas keeps its lane open; mouseUp
+        // re-resolves the hover once the gesture ends.
+        if case .idle = mouseState { hoverOverlayLane = nil }
         hoveredLane = nil
         hoveredBlockKey = nil
         videoIsHovering = false
@@ -1650,7 +1711,7 @@ final class TimelineCanvasView: NSView {
                 ("Add Zoom Region", false, { [weak self] in self?.callbacks?.addZoomAt(time) }),
                 ("Add Tilt Region", false, { [weak self] in self?.callbacks?.addTiltAt(time) }),
             ])
-        } else if laneRect(atY: focusLaneY).contains(point) {
+        } else if focusLaneRect.contains(point) {
             let time = outputTime(atX: point.x)
             menu = makeMenu([
                 ("Add Highlight", false, { [weak self] in self?.callbacks?.addHighlightAt(time) }),
@@ -1753,7 +1814,9 @@ final class TimelineCanvasView: NSView {
 
         drawRuler(in: context)
         drawSeparators(in: context)
-        if let model = videoModel {
+        // Accordion frames dirty only the overlay band (120 Hz while it
+        // moves) — skip the filmstrip and waveforms unless they're dirty.
+        if let model = videoModel, needsToDraw(videoLaneRect.insetBy(dx: -24, dy: -28)) {
             if let anim = snipAnimation {
                 // Strip separation: the two clip halves lean away from the
                 // cut while the blades pass, then breathe shut onto the real
@@ -1778,7 +1841,9 @@ final class TimelineCanvasView: NSView {
                 drawVideoLane(in: context, model: model)
             }
         }
-        if let model = voiceModel { drawVoiceLane(in: context, model: model) }
+        if let model = voiceModel, needsToDraw(voiceLaneRect.insetBy(dx: 0, dy: -4)) {
+            drawVoiceLane(in: context, model: model)
+        }
         drawEffectsLane(in: context)
         drawFocusLane(in: context)
         drawAnnotateLane(in: context)
@@ -1789,12 +1854,13 @@ final class TimelineCanvasView: NSView {
 
     private func drawSeparators(in context: CGContext) {
         context.setFillColor(EditorThemeKit.hairline.cgColor)
-        // FOCUS/ANNOTATE separators ride below the (dynamic) EFFECTS lane.
+        // FOCUS/ANNOTATE separators ride the accordion (and EFFECTS sub-rows).
+        let layout = laneLayout
         let ys = [
             M.voiceLaneY - M.trackSpacing,
             M.effectsLaneY - M.trackSpacing,
-            focusLaneY - M.trackSpacing,
-            annotateLaneY - M.trackSpacing,
+            layout.laneY(.focus) - M.trackSpacing,
+            layout.laneY(.annotate) - M.trackSpacing,
         ]
         for y in ys {
             context.fill(CGRect(x: 0, y: y, width: trackWidth, height: 1))
@@ -1911,27 +1977,27 @@ final class TimelineCanvasView: NSView {
     /// The dragged block's display geometry, if `key` is mid-drag.
     /// Move mode follows the cursor with a pixel clamp (no snap preview),
     /// resize modes show the resolved edge live — same as the SwiftUI blocks.
-    private func dragDisplay(forKey key: String) -> (rect: CGRect, laneY: CGFloat, dimmed: Bool)? {
+    private func dragDisplay(forKey key: String) -> (rect: CGRect, dimmed: Bool)? {
         guard case .draggingBlock(let drag) = mouseState else { return nil }
-        let (dragKey, laneY): (String, CGFloat)
+        let (dragKey, lane, row): (String, TimelineOverlayLane, Int)
         switch drag.target {
         case .effect(let item):
-            (dragKey, laneY) = (effectKey(item),
-                                effectsRowY(effectsRows()[effectsSpanKey(item)] ?? 0))
-        case .focus(let item): (dragKey, laneY) = (focusKey(item), focusLaneY)
-        case .annotate(let item): (dragKey, laneY) = (annotateKey(item), annotateLaneY)
+            (dragKey, lane, row) = (effectKey(item), .effects,
+                                    effectsRows()[effectsSpanKey(item)] ?? 0)
+        case .focus(let item): (dragKey, lane, row) = (focusKey(item), .focus, 0)
+        case .annotate(let item): (dragKey, lane, row) = (annotateKey(item), .annotate, 0)
         }
         guard dragKey == key else { return nil }
 
         switch drag.mode {
         case .move:
-            let committed = blockRect(start: drag.initialStart, end: drag.initialEnd, laneY: laneY)
+            let committed = blockRect(start: drag.initialStart, end: drag.initialEnd, lane: lane, row: row)
             let maxX = max(0, trackWidth - committed.width)
             let clampedX = min(max(committed.minX + drag.translationX, 0), maxX)
-            return (committed.offsetBy(dx: clampedX - committed.minX, dy: 0), laneY, drag.didDrag)
+            return (committed.offsetBy(dx: clampedX - committed.minX, dy: 0), drag.didDrag)
         case .resizeLeft, .resizeRight:
             let resolved = resolvedTimes(for: drag)
-            return (blockRect(start: resolved.start, end: resolved.end, laneY: laneY), laneY, drag.didDrag)
+            return (blockRect(start: resolved.start, end: resolved.end, lane: lane, row: row), drag.didDrag)
         }
     }
 
@@ -1939,14 +2005,21 @@ final class TimelineCanvasView: NSView {
     private var introChipRect: CGRect? {
         guard let end = snapshot.introChipEnd, end > snapshot.introChipStart else { return nil }
         return blockRect(start: snapshot.introChipStart, end: end,
-                         laneY: effectsRowY(effectsRows()["intro-chip"] ?? 0))
+                         lane: .effects, row: effectsRows()["intro-chip"] ?? 0)
     }
 
     /// The Curtain chip's rect, nil when the curtain is off.
     private var curtainChipRect: CGRect? {
         guard let end = snapshot.curtainChipEnd, end > snapshot.curtainChipStart else { return nil }
         return blockRect(start: snapshot.curtainChipStart, end: end,
-                         laneY: effectsRowY(effectsRows()["curtain-chip"] ?? 0))
+                         lane: .effects, row: effectsRows()["curtain-chip"] ?? 0)
+    }
+
+    /// Opacity of a block's content (icon, label, grips) at its current
+    /// height: fully legible on an open lane, gone on a closed strip, and a
+    /// smooth fade in between so nothing pops while the accordion moves.
+    private static func contentAlpha(forBlockHeight height: CGFloat) -> CGFloat {
+        min(1, max(0, (height - 16) / 16))
     }
 
     /// Draws a settings-backed chip (Slide / Curtain) in the effect-block
@@ -1965,31 +2038,44 @@ final class TimelineCanvasView: NSView {
             isSelected: isSelected,
             isHovering: hoveredBlockKey == hoverKey
         )
-        let content = NSMutableAttributedString()
-        if let image = Self.tintedSymbol(
-            icon, pointSize: 9, weight: .semibold,
-            color: EditorThemeKit.blockContent) {
-            let attachment = NSTextAttachment()
-            attachment.image = image
-            attachment.bounds = CGRect(
-                x: 0, y: -2, width: image.size.width, height: image.size.height)
-            content.append(NSAttributedString(attachment: attachment))
+        drawBlockContent(in: context, rect: rect) {
+            let content = NSMutableAttributedString()
+            if let image = Self.tintedSymbol(
+                icon, pointSize: 9, weight: .semibold,
+                color: EditorThemeKit.blockContent) {
+                let attachment = NSTextAttachment()
+                attachment.image = image
+                attachment.bounds = CGRect(
+                    x: 0, y: -2, width: image.size.width, height: image.size.height)
+                content.append(NSAttributedString(attachment: attachment))
+            }
+            if rect.width > 52 {
+                content.append(NSAttributedString(
+                    string: "  \(label)",
+                    attributes: [
+                        .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+                        .foregroundColor: EditorThemeKit.blockContent,
+                    ]))
+            }
+            let size = content.size()
+            content.draw(at: CGPoint(
+                x: rect.midX - size.width / 2,
+                y: rect.midY - size.height / 2))
+            drawGrips(in: context, rect: rect,
+                      visible: isSelected || hoveredBlockKey == hoverKey)
         }
-        if rect.width > 52 {
-            content.append(NSAttributedString(
-                string: "  \(label)",
-                attributes: [
-                    .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
-                    .foregroundColor: EditorThemeKit.blockContent,
-                ]))
-        }
-        let size = content.size()
-        content.draw(at: CGPoint(
-            x: rect.midX - size.width / 2,
-            y: rect.midY - size.height / 2))
-        drawGrips(in: context, rect: rect,
-                  visible: isSelected || hoveredBlockKey == hoverKey)
         context.endTransparencyLayer()
+        context.restoreGState()
+    }
+
+    /// Draws a block's icon/label/grips at the accordion's content opacity —
+    /// skipped entirely on a closed strip.
+    private func drawBlockContent(in context: CGContext, rect: CGRect, _ body: () -> Void) {
+        let alpha = Self.contentAlpha(forBlockHeight: rect.height)
+        guard alpha > 0.01 else { return }
+        context.saveGState()
+        context.setAlpha(alpha)
+        body()
         context.restoreGState()
     }
 
@@ -2008,30 +2094,32 @@ final class TimelineCanvasView: NSView {
                 isHovering: hoveredBlockKey == "intro-chip"
             )
             // Same icon+value label style as every other effect block.
-            let content = NSMutableAttributedString()
-            if let image = Self.tintedSymbol(
-                snapshot.introChipIcon, pointSize: 9, weight: .semibold,
-                color: EditorThemeKit.blockContent) {
-                let attachment = NSTextAttachment()
-                attachment.image = image
-                attachment.bounds = CGRect(
-                    x: 0, y: -2, width: image.size.width, height: image.size.height)
-                content.append(NSAttributedString(attachment: attachment))
+            drawBlockContent(in: context, rect: rect) {
+                let content = NSMutableAttributedString()
+                if let image = Self.tintedSymbol(
+                    snapshot.introChipIcon, pointSize: 9, weight: .semibold,
+                    color: EditorThemeKit.blockContent) {
+                    let attachment = NSTextAttachment()
+                    attachment.image = image
+                    attachment.bounds = CGRect(
+                        x: 0, y: -2, width: image.size.width, height: image.size.height)
+                    content.append(NSAttributedString(attachment: attachment))
+                }
+                if rect.width > 52 {
+                    content.append(NSAttributedString(
+                        string: "  \(snapshot.introChipLabel)",
+                        attributes: [
+                            .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+                            .foregroundColor: EditorThemeKit.blockContent,
+                        ]))
+                }
+                let size = content.size()
+                content.draw(at: CGPoint(
+                    x: rect.midX - size.width / 2,
+                    y: rect.midY - size.height / 2))
+                drawGrips(in: context, rect: rect,
+                          visible: snapshot.introChipSelected || hoveredBlockKey == "intro-chip")
             }
-            if rect.width > 52 {
-                content.append(NSAttributedString(
-                    string: "  \(snapshot.introChipLabel)",
-                    attributes: [
-                        .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
-                        .foregroundColor: EditorThemeKit.blockContent,
-                    ]))
-            }
-            let size = content.size()
-            content.draw(at: CGPoint(
-                x: rect.midX - size.width / 2,
-                y: rect.midY - size.height / 2))
-            drawGrips(in: context, rect: rect,
-                      visible: snapshot.introChipSelected || hoveredBlockKey == "intro-chip")
             context.endTransparencyLayer()
             context.restoreGState()
         }
@@ -2049,7 +2137,7 @@ final class TimelineCanvasView: NSView {
             let display = dragDisplay(forKey: key)
             let rect = display?.rect
                 ?? blockRect(start: item.startTime, end: item.endTime,
-                             laneY: effectsRowY(effectsRows()[effectsSpanKey(item)] ?? 0))
+                             lane: .effects, row: effectsRows()[effectsSpanKey(item)] ?? 0)
             context.saveGState()
             if display?.dimmed == true { context.setAlpha(0.8) }
             context.beginTransparencyLayer(auxiliaryInfo: nil)
@@ -2061,8 +2149,10 @@ final class TimelineCanvasView: NSView {
                 isSelected: isSelected(item),
                 isHovering: hoveredBlockKey == key
             )
-            drawEffectLabel(for: item, in: rect)
-            drawGrips(in: context, rect: rect, visible: isSelected(item) || hoveredBlockKey == key)
+            drawBlockContent(in: context, rect: rect) {
+                drawEffectLabel(for: item, in: rect)
+                drawGrips(in: context, rect: rect, visible: isSelected(item) || hoveredBlockKey == key)
+            }
             context.endTransparencyLayer()
             context.restoreGState()
         }
@@ -2075,7 +2165,7 @@ final class TimelineCanvasView: NSView {
             let key = focusKey(item)
             let display = dragDisplay(forKey: key)
             let rect = display?.rect
-                ?? blockRect(start: item.startTime, end: item.endTime, laneY: focusLaneY)
+                ?? blockRect(start: item.startTime, end: item.endTime, lane: .focus)
             let top = item.isHighlight ? EditorThemeKit.highlightBlockTop : EditorThemeKit.blurBlockTop
             let bottom = item.isHighlight ? EditorThemeKit.highlightBlockBottom : EditorThemeKit.blurBlockBottom
             context.saveGState()
@@ -2089,8 +2179,10 @@ final class TimelineCanvasView: NSView {
                 isSelected: item.isSelected,
                 isHovering: hoveredBlockKey == key
             )
-            drawCenteredLabel(item.label, in: rect.insetBy(dx: 8, dy: 0))
-            drawGrips(in: context, rect: rect, visible: item.isSelected || hoveredBlockKey == key)
+            drawBlockContent(in: context, rect: rect) {
+                drawCenteredLabel(item.label, in: rect.insetBy(dx: 8, dy: 0))
+                drawGrips(in: context, rect: rect, visible: item.isSelected || hoveredBlockKey == key)
+            }
             context.endTransparencyLayer()
             context.restoreGState()
         }
@@ -2112,10 +2204,12 @@ final class TimelineCanvasView: NSView {
                 isSelected: item.isSelected,
                 isHovering: hoveredBlockKey == key
             )
-            drawAnnotateLabel(for: item, in: rect)
-            // Grips don't fit on slim sub-rows — edge-resize still works.
-            if rect.height >= 16 {
-                drawGrips(in: context, rect: rect, visible: item.isSelected || hoveredBlockKey == key)
+            drawBlockContent(in: context, rect: rect) {
+                drawAnnotateLabel(for: item, in: rect)
+                // Grips don't fit on slim sub-rows — edge-resize still works.
+                if rect.height >= 16 {
+                    drawGrips(in: context, rect: rect, visible: item.isSelected || hoveredBlockKey == key)
+                }
             }
             context.endTransparencyLayer()
             context.restoreGState()
@@ -2169,10 +2263,13 @@ final class TimelineCanvasView: NSView {
         // rounded bar, not a lit slab.
         let topColor = Self.brightened(top, by: brightness + 0.025)
         let bottomColor = Self.brightened(bottom, by: brightness - 0.015)
+        // Closed accordion strips are ~12pt tall: the radius follows the bar
+        // down to a capsule (CGPath traps if a corner exceeds half the rect).
+        let radius = min(M.blockCornerRadius, rect.width / 2, rect.height / 2)
         let path = CGPath(
             roundedRect: rect,
-            cornerWidth: min(M.blockCornerRadius, rect.width / 2),
-            cornerHeight: M.blockCornerRadius,
+            cornerWidth: radius,
+            cornerHeight: radius,
             transform: nil
         )
 
@@ -2215,10 +2312,12 @@ final class TimelineCanvasView: NSView {
         context.restoreGState()
 
         if isSelected {
+            let inner = rect.insetBy(dx: 1, dy: 1)
+            let innerRadius = max(0, min(M.blockCornerRadius - 1, inner.width / 2, inner.height / 2))
             let borderPath = CGPath(
-                roundedRect: rect.insetBy(dx: 1, dy: 1),
-                cornerWidth: min(M.blockCornerRadius - 1, rect.width / 2),
-                cornerHeight: M.blockCornerRadius - 1,
+                roundedRect: inner,
+                cornerWidth: innerRadius,
+                cornerHeight: innerRadius,
                 transform: nil
             )
             context.addPath(borderPath)
@@ -2314,12 +2413,17 @@ final class TimelineCanvasView: NSView {
     }
 
     private func drawEmptyLaneHints() {
-        let hints: [(HoveredLane, CGFloat, Bool)] = [
-            (.effects, M.effectsLaneY, snapshot.effectItems.isEmpty),
-            (.focus, focusLaneY, snapshot.focusItems.isEmpty),
-            (.annotate, annotateLaneY, snapshot.annotateItems.isEmpty),
+        let hints: [(HoveredLane, TimelineOverlayLane, Bool)] = [
+            (.effects, .effects, snapshot.effectItems.isEmpty),
+            (.focus, .focus, snapshot.focusItems.isEmpty),
+            (.annotate, .annotate, snapshot.annotateItems.isEmpty),
         ]
-        for (lane, laneY, isEmpty) in hints where hoveredLane == lane && isEmpty {
+        let layout = laneLayout
+        for (hovered, lane, isEmpty) in hints where hoveredLane == hovered && isEmpty {
+            // The "+" grows in with its lane: invisible on a strip, full on
+            // an open lane.
+            let alpha = Self.contentAlpha(forBlockHeight: layout.rowHeight(lane) - M.blockInset * 2)
+            guard alpha > 0.01 else { continue }
             if let image = Self.tintedSymbol(
                 "plus",
                 pointSize: 14,
@@ -2327,13 +2431,18 @@ final class TimelineCanvasView: NSView {
                 // Empty-lane hint sits on the panel background → theme ink.
                 color: (CCTheme.isDark ? NSColor.white : NSColor.black).withAlphaComponent(0.25)
             ) {
-                let rect = laneRect(atY: laneY)
-                image.draw(in: CGRect(
-                    x: rect.midX - image.size.width / 2,
-                    y: rect.midY - image.size.height / 2,
-                    width: image.size.width,
-                    height: image.size.height
-                ))
+                let rect = CGRect(x: 0, y: layout.laneY(lane), width: trackWidth,
+                                  height: layout.rowHeight(lane))
+                image.draw(
+                    in: CGRect(
+                        x: rect.midX - image.size.width / 2,
+                        y: rect.midY - image.size.height / 2,
+                        width: image.size.width,
+                        height: image.size.height
+                    ),
+                    from: .zero, operation: .sourceOver, fraction: alpha,
+                    respectFlipped: true, hints: nil
+                )
             }
         }
     }
@@ -2402,12 +2511,10 @@ private final class TimelinePlayheadOverlayView: NSView {
         return bounds.width * CGFloat(snapshot.playheadOutputTime / snapshot.outputDuration)
     }
 
-    /// Tracks-bottom including the EFFECTS lane's dynamic sub-rows — same
-    /// shared row math the canvas and controller size with.
+    /// Tracks-bottom right now — EFFECTS sub-rows and the lane accordion
+    /// included, read from the canvas's one `TimelineLaneLayout`.
     private var tracksBottom: CGFloat {
-        guard let snapshot else { return M.tracksBottom }
-        return M.tracksBottom
-            + CGFloat(TimelineCanvasView.effectsRowCount(snapshot: snapshot) - 1) * M.subRowPitch
+        canvas?.tracksBottom ?? M.tracksBottom
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
