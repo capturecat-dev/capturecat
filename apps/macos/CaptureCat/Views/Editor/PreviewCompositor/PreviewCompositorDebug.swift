@@ -1,9 +1,10 @@
-import AppKit
+import Foundation
 import QuartzCore
 
-// Debug-only geometry readbacks on the compositor, used by the parity gate.
+// Debug-only geometry readbacks on the compositor, used by the parity gate
+// (`PreviewCompositorView` forwards them).
 
-extension PreviewCompositorView {
+extension PreviewCompositorCore {
     /// The video's aspect-fitted rect inside the canvas — parity harness only.
     /// Paired with `debugWarpedCursorCenter()` so the gate can assert the
     /// cursor lands at the same FRACTION of the video that it occupies in the

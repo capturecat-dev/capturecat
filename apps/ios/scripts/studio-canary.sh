@@ -68,6 +68,15 @@ DEPS=(
   Services/SpeedTimeMap.swift           # speed regions source<->output time
   Services/HighlightRenderLogger.swift  # highlight render diagnostics
   Services/EasingFunctions.swift        # Easing curves
+
+  # Compositor core, split from its NSView host (1c).
+  Views/Editor/PreviewCompositor/PreviewCompositorCore.swift  # layers, caches, render, springs, video driver
+  Views/Editor/PreviewCompositor/PreviewCompositorDebug.swift # probe readbacks (cursor hotspot in canvas space)
+
+  # Pure dependencies of the compositor core (1c).
+  Services/PreviewMotionModel.swift     # zoom/focal/tilt springs the preview steps
+  Services/SelectionChromeKit.swift     # selection outline + value pill (StudioChromeTheme, SymbolImage)
+  Views/Editor/RegionHandleChrome.swift # pill geometry shared with the hit zones (pure)
 )
 
 # Mac-only files inside otherwise-shared folders.

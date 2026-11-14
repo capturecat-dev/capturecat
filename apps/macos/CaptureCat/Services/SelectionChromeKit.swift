@@ -1,5 +1,5 @@
-import AppKit
 import CoreGraphics
+import Foundation
 
 /// THE one selection chrome for every on-canvas selectable region — accent
 /// outline, eight resize dots, and the floating value pill — in pure
@@ -18,7 +18,9 @@ import CoreGraphics
 /// hover to capture either.
 ///
 /// Geometry constants come from `RegionHandleChrome` / `RegionPillPlacement`
-/// so the chrome and the hit zones stay defined in one place.
+/// so the chrome and the hit zones stay defined in one place. Theme inks come
+/// from the host's `StudioChromeTheme` (read at image() time) and the SF
+/// Symbols through `SymbolImage`, so the kit itself is platform-neutral.
 enum SelectionChromeKit {
     /// Idle sizes — see `RegionHandleDot` / `InspectorSliderTrack`.
     private static let dotSize = RegionHandleChrome.dotSize
@@ -42,7 +44,8 @@ enum SelectionChromeKit {
         size: CGSize,
         regions allRegions: [Region],
         containerRect: CGRect,
-        scale: CGFloat
+        scale: CGFloat,
+        theme: any StudioChromeTheme
     ) -> CGImage? {
         // Selected-only, enforced HERE: whatever a caller passes, unselected
         // objects get zero chrome.
@@ -60,12 +63,14 @@ enum SelectionChromeKit {
         ctx.translateBy(x: 0, y: size.height)
         ctx.scaleBy(x: 1, y: -1)
         for region in regions {
-            draw(region, in: ctx, containerRect: containerRect)
+            draw(region, in: ctx, containerRect: containerRect, theme: theme)
         }
         return ctx.makeImage()
     }
 
-    private static func draw(_ region: Region, in ctx: CGContext, containerRect: CGRect) {
+    private static func draw(
+        _ region: Region, in ctx: CGContext, containerRect: CGRect, theme: any StudioChromeTheme
+    ) {
         let norm = region.rect
         let r = CGRect(
             x: containerRect.minX + norm.minX * containerRect.width,
@@ -79,8 +84,7 @@ enum SelectionChromeKit {
         ctx.addPath(ContinuousRoundedRect.path(
             rect: r.insetBy(dx: 1, dy: 1),
             cornerRadius: max(0, region.cornerRadius - 1)))
-        ctx.setStrokeColor(NSColor.controlAccentColor
-            .usingColorSpace(.sRGB)?.cgColor
+        ctx.setStrokeColor(theme.controlAccent
             ?? SRGBA(white: 1, alpha: 0.9).cgColor)
         ctx.setLineWidth(2)
         ctx.strokePath()
@@ -95,7 +99,7 @@ enum SelectionChromeKit {
             drawDot(in: ctx, center: CGPoint(x: cx, y: cy))
         }
 
-        drawPill(region, in: ctx, regionRect: r, containerRect: containerRect)
+        drawPill(region, in: ctx, regionRect: r, containerRect: containerRect, theme: theme)
     }
 
     /// White 90% with a 1pt black 40% inner ring.
@@ -112,7 +116,8 @@ enum SelectionChromeKit {
     }
 
     private static func drawPill(
-        _ region: Region, in ctx: CGContext, regionRect r: CGRect, containerRect: CGRect
+        _ region: Region, in ctx: CGContext, regionRect r: CGRect, containerRect: CGRect,
+        theme: any StudioChromeTheme
     ) {
         let sliderWidth = min(max(90, r.width - 60), 150)
         // `pillWidth` is what the placement math is clamped against — the same
@@ -137,55 +142,53 @@ enum SelectionChromeKit {
 
         let capsule = ContinuousRoundedRect.circularPath(rect: pill, cornerRadius: pillHeight / 2)
         ctx.addPath(capsule)
-        ctx.setFillColor(EditorThemeKit.panelElevated.cgColor)
+        ctx.setFillColor(theme.panelElevated)
         ctx.fillPath()
         ctx.addPath(ContinuousRoundedRect.circularPath(
             rect: pill.insetBy(dx: 0.5, dy: 0.5), cornerRadius: pillHeight / 2 - 0.5))
-        ctx.setStrokeColor(EditorThemeKit.hairline.cgColor)
+        ctx.setStrokeColor(theme.hairline)
         ctx.setLineWidth(1)
         ctx.strokePath()
 
         // Contents: icon, slider track, icon — 8pt apart inside 8pt padding.
         let contentLeft = pill.minX + 8
         symbol(region.leadingIcon, in: ctx,
-               center: CGPoint(x: contentLeft + leading.width / 2, y: pill.midY))
+               center: CGPoint(x: contentLeft + leading.width / 2, y: pill.midY), theme: theme)
         let trackX = contentLeft + leading.width + pillSpacing
         drawSliderTrack(in: ctx,
                         rect: CGRect(x: trackX, y: pill.midY - (knobIdle + 2) / 2,
                                      width: sliderWidth, height: knobIdle + 2),
-                        value: region.sliderValue, range: region.sliderRange)
+                        value: region.sliderValue, range: region.sliderRange, theme: theme)
         symbol(region.trailingIcon, in: ctx,
                center: CGPoint(x: trackX + sliderWidth + pillSpacing + trailing.width / 2,
-                               y: pill.midY))
+                               y: pill.midY), theme: theme)
     }
 
     /// SwiftUI lays `Image(systemName:)` out from the FONT, and AppKit's
     /// point-size symbol configuration lands on the same frame (measured to
     /// within the 0.5pt raster resolution at 9pt for every icon used here).
     private static func symbolSize(_ name: String) -> CGSize {
-        guard let image = NSImage(systemSymbolName: name, accessibilityDescription: nil),
-              let configured = image.withSymbolConfiguration(
-                  NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular))
-        else { return CGSize(width: iconSize, height: iconSize) }
-        return configured.size
+        SymbolImage.size(name, pointSize: iconSize) ?? CGSize(width: iconSize, height: iconSize)
     }
 
     /// The slider sits INSIDE the pill's panelElevated fill — an editor panel,
     /// not the video — so its inks track the theme (white chrome on a light
     /// pill would vanish). All colors here are read at image() time, and
     /// CCTheme.apply invalidates every window, so a theme flip re-renders.
+    /// (`theme.isDark` is the Mac's `CCTheme.isDark`.)
     ///
     /// Drawn in CCSlider's language — faint tick marks with a vertical bar
     /// thumb (idle metrics) — so the on-canvas pill reads as the SAME control
     /// as the properties panel's sliders, not a second slider design.
     private static func drawSliderTrack(
-        in ctx: CGContext, rect: CGRect, value: Double, range: ClosedRange<Double>
+        in ctx: CGContext, rect: CGRect, value: Double, range: ClosedRange<Double>,
+        theme: any StudioChromeTheme
     ) {
         let span = range.upperBound - range.lowerBound
         let clamped = min(max(value, range.lowerBound), range.upperBound)
         let fraction = span > 0 ? CGFloat((clamped - range.lowerBound) / span) : 0
         // Ink = the theme's hard-contrast chrome white/black, same alphas.
-        let ink: CGFloat = CCTheme.isDark ? 1 : 0
+        let ink: CGFloat = theme.isDark ? 1 : 0
 
         // Ticks: 1×8pt, ~18pt apart, thinned out exactly like CCSlider.layout.
         let visibleTicks = rect.width < 54 ? 0 : min(9, Int(rect.width / 18))
@@ -207,29 +210,29 @@ enum SelectionChromeKit {
                          width: barWidth, height: barHeight)
         ctx.saveGState()
         SwiftUIShadow.apply(to: ctx, radius: 3, dy: 0, color: SRGBA(white: 0, alpha: 0.35))
-        ctx.setFillColor(SRGBA(white: ink, alpha: CCTheme.isDark ? 1 : 0.85).cgColor)
+        ctx.setFillColor(SRGBA(white: ink, alpha: theme.isDark ? 1 : 0.85).cgColor)
         ctx.addPath(ContinuousRoundedRect.path(rect: bar, cornerRadius: 2))
         ctx.fillPath()
         ctx.restoreGState()
     }
 
-    /// SF Symbol via AppKit — `NSImage(systemSymbolName:)` is the same glyph
-    /// source `Image(systemName:)` draws from.
-    private static func symbol(_ name: String, in ctx: CGContext, center: CGPoint) {
-        guard let image = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return }
-        let config = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .regular)
-        guard let configured = image.withSymbolConfiguration(config) else { return }
-        let size = configured.size
+    /// SF Symbol through `SymbolImage` — on the Mac `NSImage(systemSymbolName:)`,
+    /// the same glyph source `Image(systemName:)` draws from.
+    private static func symbol(
+        _ name: String, in ctx: CGContext, center: CGPoint, theme: any StudioChromeTheme
+    ) {
+        guard let symbol = SymbolImage.raster(name, pointSize: iconSize) else { return }
+        let size = symbol.size
         let box = CGRect(x: center.x - size.width / 2, y: center.y - size.height / 2,
                          width: size.width, height: size.height)
-        guard let cg = configured.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        let cg = symbol.image
         ctx.saveGState()
         // Tint: clip to the glyph's alpha and flood it with the label colour.
         ctx.translateBy(x: box.minX, y: box.maxY)
         ctx.scaleBy(x: 1, y: -1)
         let local = CGRect(origin: .zero, size: box.size)
         ctx.clip(to: local, mask: cg)
-        ctx.setFillColor(EditorThemeKit.textSecondary.cgColor)
+        ctx.setFillColor(theme.textSecondary)
         ctx.fill(local)
         ctx.restoreGState()
     }

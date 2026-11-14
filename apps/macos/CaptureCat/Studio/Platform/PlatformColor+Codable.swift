@@ -5,6 +5,17 @@ import UIKit
 #endif
 
 extension CodableColor {
+    /// The stored triple as a platform colour, sRGB — `nsColor` on the Mac
+    /// (`NSColor(srgbRed:green:blue:alpha:)`).
+    var platformColor: PlatformColor {
+        #if canImport(AppKit)
+        return nsColor
+        #else
+        // UIColor(red:green:blue:alpha:) is sRGB.
+        return UIColor(red: red, green: green, blue: blue, alpha: opacity)
+        #endif
+    }
+
     /// sRGB to match the `nsColor` accessor in `CodableColor+AppKit`, so a
     /// colour survives a round trip unchanged.
     init(_ color: PlatformColor) {

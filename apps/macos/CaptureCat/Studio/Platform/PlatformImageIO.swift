@@ -14,6 +14,15 @@ enum PlatformImageIO {
         image.size
     }
 
+    /// Loads an image file: `NSImage(contentsOf: url)`.
+    static func image(contentsOf url: URL) -> PlatformImage? {
+        #if canImport(AppKit)
+        return NSImage(contentsOf: url)
+        #else
+        return UIImage(contentsOfFile: url.path)
+        #endif
+    }
+
     /// A CGImage of an in-memory image:
     /// `image.cgImage(forProposedRect: nil, context: nil, hints: nil)`.
     static func cgImage(of image: PlatformImage) -> CGImage? {

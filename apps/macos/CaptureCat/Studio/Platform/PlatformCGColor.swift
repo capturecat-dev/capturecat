@@ -21,9 +21,34 @@ enum PlatformCGColor {
         PlatformColor.black.withAlphaComponent(alpha).cgColor
     }
 
+    /// `NSColor.white.withAlphaComponent(alpha).cgColor`
+    static func white(alpha: CGFloat) -> CGColor {
+        PlatformColor.white.withAlphaComponent(alpha).cgColor
+    }
+
     /// `NSColor(red:green:blue:alpha:).cgColor`
     static func rgb(red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) -> CGColor {
         PlatformColor(red: red, green: green, blue: blue, alpha: alpha).cgColor
+    }
+
+    /// `NSColor(srgbRed:green:blue:alpha:).cgColor`
+    static func srgb(red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) -> CGColor {
+        #if canImport(AppKit)
+        return NSColor(srgbRed: red, green: green, blue: blue, alpha: alpha).cgColor
+        #else
+        // UIColor(red:green:blue:alpha:) is sRGB.
+        return UIColor(red: red, green: green, blue: blue, alpha: alpha).cgColor
+        #endif
+    }
+
+    /// A platform colour the studio already holds: `color.cgColor`.
+    static func of(_ color: PlatformColor) -> CGColor {
+        color.cgColor
+    }
+
+    /// `color.withAlphaComponent(alpha).cgColor`
+    static func withAlpha(_ color: PlatformColor, _ alpha: CGFloat) -> CGColor {
+        color.withAlphaComponent(alpha).cgColor
     }
 
     /// The colour converted to sRGB first: `(color.usingColorSpace(.sRGB) ?? color).cgColor`.

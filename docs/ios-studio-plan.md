@@ -14,12 +14,17 @@ against a snapshot of the pre-change commit, and pass `run-gates.sh` plus the ex
 | 1a | Pure edit math out of AppKit files (voice/video track math + commits, `VideoSliceMath`, `KeystrokeRecording`, `CursorRecording.load`); exporter + Auto Zoom read recordings through the models; import swaps | baseline identical; 14 + 10 gates pass |
 | 1b-i | `Studio/Platform/` seam layer; `Models/` + `Extensions/` compile without AppKit | baseline identical; canary PASS (35 files) |
 | 1b-ii | renderers + exporter through Platform (`PlatformText`, `PlatformCGColor`, `PlatformImageIO`, `PlatformFonts`, `MenuBarArt`, `CursorArt`, …); frozen fonts table (decision 5, `--font-table-test`) | baseline identical; 15 + 10 gates pass; canary PASS (80 files) |
-| 1c–1g | compositor core/host split, hit math, timeline edits, `git mv` into `Studio/`, iOS target builds it | — |
+| 1c | `PreviewCompositorCore` (AppKit-free; adopts the host's backing layer as its root — same layer tree) + `PreviewCompositorView` NSView host; `StudioChromeTheme`, `LayerContents`, `SymbolImage` | every output byte-identical to a base-binary variant (below); 15 + 12 gates pass; canary PASS (90 files) |
+| 1d–1g | hit math, timeline edits, `git mv` into `Studio/`, iOS target builds it | — |
 
-Audio is the one category with run-to-run noise (AVFoundation's mix, Phase 0 §1). One 1b-ii
-snapshot put `a4-muted-dense` at 1.38e-5 from base; the same binary rerun 4× gave 5.96e-8 every
-time, and a regenerated audio category compared identical. If an audio fixture ever goes over,
-rerun it (`ONLY=web-audio`) before concluding anything — and never raise the tolerance.
+**Two-state noise in the base code itself (measured 2026-11-14).** The pre-Phase-1 base binary,
+compared against its own earlier snapshot, gives `a4-muted-dense/mix.f32` either ~6e-8 or exactly
+1.38e-5 (3 of 3 base reruns hit the 1.38e-5 mode), and `motion-tilt-t0.60-ca.png` either 2 px or a
+3 px variant (bbox x106–282 y45–160; 1 of 3 base reruns). Phase 0's five runs missed both variants,
+so `compare` can report DIFFERS on an unchanged binary. When it does: rerun the category on the new
+build AND on a fresh base build (`ONLY=preview-parity,web-audio`), and accept only if every new
+output is byte-identical (audio: ≤1e-6) to an output the base binary also produces — that is how
+1b-ii and 1c were cleared. Never raise a tolerance or refreeze to make it pass.
 
 iOS-side approximations so far (not parity-gated until Phase 2/3): the Hand cursor uses the
 drawn arrow; menu-bar calibrated colours become sRGB; images decode through ImageIO without EXIF
