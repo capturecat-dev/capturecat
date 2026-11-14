@@ -42,6 +42,11 @@ final class RecordingPanelViewController: NSViewController {
 
     private let cameraFloatPreview = CameraFloatPreviewController()
     private var deviceMonitorPanel: NSPanel?
+    /// What the open monitor shows ("cable" / "wifi:<id>") — a mid-take
+    /// switch between the two rebuilds it.
+    private var deviceMonitorSource: String?
+    /// Last Wi-Fi phone list seen by the observation pass.
+    private var lastWirelessEntries: [WirelessDeviceListing.Entry] = []
     private var notificationObservers: [NSObjectProtocol] = []
 
     // MARK: - Change tracking (stands in for SwiftUI `.onChange`)
@@ -349,6 +354,8 @@ final class RecordingPanelViewController: NSViewController {
         observation = SurfaceObservation { [weak self] in
             self?.observeAppState()
         }
+        // iPhone over Wi-Fi: relist the account's phones while the bar is up.
+        WirelessDeviceHub.shared.panelDidOpen()
     }
 
     /// `.onDisappear` — tears the side panels down and releases the camera
@@ -371,7 +378,10 @@ final class RecordingPanelViewController: NSViewController {
         hideDeviceMonitor()
         if !appState.recordingSession.isRecording && !appState.recordingSession.isPaused {
             appState.cameraManager.stop()
+            // Nobody is left to see a "Tap Start Broadcast" prompt.
+            WirelessDeviceHub.shared.cancelPending(message: nil)
         }
+        WirelessDeviceHub.shared.panelDidClose()
     }
 
     /// Routes a single hover target for the flat, non-tab controls. A single
@@ -473,6 +483,13 @@ final class RecordingPanelViewController: NSViewController {
         _ = appState.captureSystemAudio
         _ = appState.currentSourceLabel
         _ = appState.deviceRecorder.isRecording
+        let wirelessRecording = appState.wirelessRecorder.isRecording
+        let wireless = WirelessDeviceHub.shared
+        let wirelessEntries = wireless.entries
+        _ = wireless.pending
+        _ = wireless.notice
+        _ = appState.isSignedIn
+        _ = wireless.signedInOverride
         _ = appState.recordingDurationLimit
         _ = appState.licence
         _ = appState.recordingCountdownSeconds
@@ -488,6 +505,16 @@ final class RecordingPanelViewController: NSViewController {
         if cameraEnabled != lastCameraEnabled {
             lastCameraEnabled = cameraEnabled
             handleCameraPreviewState()
+        }
+        // A mid-take switch between a cabled and a Wi-Fi phone (or between
+        // phones) changes what the monitor shows without a phase change.
+        if (wirelessRecording || appState.deviceRecorder.isRecording) != (deviceMonitorPanel != nil)
+            || (deviceMonitorPanel != nil && deviceMonitorSource != currentMonitorSource) {
+            handleDeviceMonitorState()
+        }
+        if wirelessEntries != lastWirelessEntries {
+            lastWirelessEntries = wirelessEntries
+            reconcileDeviceSelection()
         }
         if cameraDeviceID != lastCameraDeviceID {
             lastCameraDeviceID = cameraDeviceID
@@ -572,7 +599,10 @@ final class RecordingPanelViewController: NSViewController {
         areaDisplayChip.title = areaDisplay.map(displayTitle) ?? "Choose Display"
         areaPickChip.update(title: areaSelectionLabel, symbol: "rectangle.dashed")
         areaPickChip.isEnabled = areaDisplay != nil && !isSelectingArea
-        deviceChip.title = selectedCaptureDevice?.localizedName ?? "Choose Device"
+        deviceChip.setTitle(deviceChipTitle, animated: true)
+        // Quiet inline failure ("Open CaptureCat on your iPhone to stream").
+        deviceChip.setError(sourceTab == .device ? WirelessDeviceHub.shared.notice : nil,
+                            fallbackToolTip: WirelessDeviceHub.shared.pending?.prompt)
 
         devicesChip.title = deviceSummaryTitle
         devicesChip.setIndicator(
@@ -594,8 +624,10 @@ final class RecordingPanelViewController: NSViewController {
         webDeviceChip.isEnabled = !urlBusy
         webOptionsChip.isEnabled = !urlBusy
         urlChip.setError(urlBusy ? nil : urlErrorMessage)
-        spinnerChip.isHidden = !(isLoadingSources || urlBusy)
-        spinnerChip.setSpinning(isLoadingSources || urlBusy)
+        // …and a third duty: waiting for an iPhone to start broadcasting.
+        let wirelessWaiting = sourceTab == .device && WirelessDeviceHub.shared.pending != nil
+        spinnerChip.isHidden = !(isLoadingSources || urlBusy || wirelessWaiting)
+        spinnerChip.setSpinning(isLoadingSources || urlBusy || wirelessWaiting)
         warningChip.isHidden = isLoadingSources || errorMessage == nil
         warningChip.toolTip = "Retry source loading. \(errorMessage ?? "")"
         recordChip.isHidden = !canStart
@@ -620,7 +652,16 @@ final class RecordingPanelViewController: NSViewController {
         } else {
             timerChip.update(text: timerText, live: appState.recordingSession.isRecording)
         }
-        sourceChip.update(label: appState.currentSourceLabel, isDevice: appState.deviceRecorder.isRecording)
+        let recordingDevice = appState.deviceRecorder.isRecording || appState.wirelessRecorder.isRecording
+        if let pending = WirelessDeviceHub.shared.pending {
+            // Still recording the current source while the phone is asked.
+            sourceChip.update(label: pending.prompt, isDevice: true,
+                              toolTip: "\(pending.prompt) — recording \(appState.currentSourceLabel) until it starts")
+        } else if let notice = WirelessDeviceHub.shared.notice {
+            sourceChip.update(label: notice, isDevice: recordingDevice, toolTip: notice)
+        } else {
+            sourceChip.update(label: appState.currentSourceLabel, isDevice: recordingDevice)
+        }
 
         let paused = appState.recordingSession.isPaused
         pauseChip.setSymbol(paused ? "play.fill" : "pause.fill")
@@ -715,17 +756,131 @@ final class RecordingPanelViewController: NSViewController {
         // open instead, so the list is current by the time it appears.
         refreshCaptureDevices()
         let devices = availableCaptureDevices
+        // iPhones over Wi-Fi follow the cabled devices: streaming, then
+        // "start on iPhone" (app open), then "not open" (push).
+        let signedIn = wirelessRowsVisible
+        let wireless = signedIn ? WirelessDeviceHub.shared.entries : []
+        var options: [CCCombobox.Option] = devices.map { .init(title: $0.localizedName) }
+        options += wireless.map { .init(title: $0.title, subtitle: $0.subtitle) }
+        let selectedIndex = devices.firstIndex { $0.uniqueID == selectedCaptureDeviceUID }
+            ?? wireless.firstIndex { Self.wirelessSelectionKey($0.key) == selectedCaptureDeviceUID }.map { $0 + devices.count }
+        var actions: [RecordingMenuChip.OptionList.Action] = []
+        if !signedIn {
+            actions.append(.init(
+                option: .init(title: "Sign in to use your iPhone over Wi-Fi", subtitle: "or connect it with a cable"),
+                run: { NSApp.sendAction(#selector(StatusMenuActions.signIn(_:)), to: nil, from: nil) }
+            ))
+        } else if !wireless.isEmpty || WirelessDeviceHub.shared.cloudDevices.contains(where: { $0.platform == "ios" }) {
+            // Only for an account that has an iPhone to forget.
+            actions.append(.init(
+                option: .init(title: "Forget my devices…"),
+                run: { [weak self] in self?.confirmForgetDevices() }
+            ))
+        }
         return .init(
-            options: devices.map { .init(title: $0.localizedName) },
-            selectedIndex: devices.firstIndex { $0.uniqueID == selectedCaptureDeviceUID },
+            options: options,
+            selectedIndex: selectedIndex,
             emptyText: "Connect an iPhone or iPad via USB, unlock it, and tap “Trust”.",
             onSelect: { [weak self] index in
-                guard let self, devices.indices.contains(index) else { return }
-                let device = devices[index]
-                self.selectedCaptureDeviceUID = device.uniqueID
-                self.refresh()
-            }
+                guard let self else { return }
+                if devices.indices.contains(index) {
+                    WirelessDeviceHub.shared.cancelPending(message: nil)
+                    self.selectedCaptureDeviceUID = devices[index].uniqueID
+                    self.refresh()
+                } else if wireless.indices.contains(index - devices.count) {
+                    self.selectWireless(wireless[index - devices.count])
+                }
+            },
+            actions: actions
         )
+    }
+
+    // MARK: - iPhone over Wi-Fi
+
+    private static let wirelessPrefix = "wifi:"
+
+    /// Signed in (or the harness says so): Wi-Fi rows instead of "Sign in…".
+    private var wirelessRowsVisible: Bool {
+        WirelessDeviceHub.shared.showsWirelessRows(appSignedIn: appState.isSignedIn)
+    }
+
+    static func wirelessSelectionKey(_ key: String) -> String { wirelessPrefix + WirelessIdentity.key(key) }
+
+    /// The selected Wi-Fi phone's id, when the device pick is one.
+    private var selectedWirelessKey: String? {
+        guard let uid = selectedCaptureDeviceUID, uid.hasPrefix(Self.wirelessPrefix) else { return nil }
+        return String(uid.dropFirst(Self.wirelessPrefix.count))
+    }
+
+    private var selectedWirelessEntry: WirelessDeviceListing.Entry? {
+        guard let key = selectedWirelessKey else { return nil }
+        return WirelessDeviceHub.shared.entries.first { $0.key == key }
+    }
+
+    private var deviceChipTitle: String {
+        if let key = selectedWirelessKey {
+            if let pending = WirelessDeviceHub.shared.pending, pending.key == key { return pending.prompt }
+            return selectedWirelessEntry?.title ?? "iPhone · Wi-Fi"
+        }
+        return selectedCaptureDevice?.localizedName ?? "Choose Device"
+    }
+
+    /// Pick a Wi-Fi phone. Streaming: ready to record. Otherwise ask it to
+    /// broadcast (LAN control when its app is open, a notification when it
+    /// isn't) and wait; on failure or timeout the previous pick comes back
+    /// and the chip shows a quiet notice.
+    private func selectWireless(_ entry: WirelessDeviceListing.Entry) {
+        let previous = selectedCaptureDeviceUID
+        let key = Self.wirelessSelectionKey(entry.key)
+        selectedCaptureDeviceUID = key
+        WirelessDeviceHub.shared.clearNotice()
+        refresh()
+        guard entry.availability != .streaming else { return }
+        Task { [weak self] in
+            let streaming = await WirelessDeviceHub.shared.requestBroadcast(entry.key)
+            guard let self else { return }
+            if !streaming, self.selectedCaptureDeviceUID == key, previous != key {
+                self.selectedCaptureDeviceUID = previous
+            }
+            self.refresh()
+        }
+    }
+
+    /// Keep the device pick valid as phones come and go: a vanished Wi-Fi
+    /// phone falls back to the first cabled device or streaming phone.
+    private func reconcileDeviceSelection() {
+        let wireless = wirelessRowsVisible ? WirelessDeviceHub.shared.entries : []
+        if let key = selectedWirelessKey {
+            if wireless.contains(where: { $0.key == key }) { return }
+            if WirelessDeviceHub.shared.pending?.key == key { return }
+            selectedCaptureDeviceUID = nil
+        }
+        if selectedCaptureDeviceUID == nil || (selectedWirelessKey == nil && selectedCaptureDevice == nil) {
+            selectedCaptureDeviceUID = availableCaptureDevices.first?.uniqueID
+                ?? wireless.first { $0.availability == .streaming }.map { Self.wirelessSelectionKey($0.key) }
+        }
+    }
+
+    /// "Forget my devices…": rotate the account's link key after a CCAlert
+    /// confirmation. Every phone and Mac must refetch it to connect again.
+    private func confirmForgetDevices() {
+        guard let window = view.window else { return }
+        let alert = CCAlert(
+            title: "Forget your devices?",
+            message: "Every iPhone and Mac on your account stops connecting over Wi-Fi until it fetches the new link. Ones still signed in do that on their own; sign a lost device out of your account to keep it out."
+        )
+        alert.addButton("Forget Devices", role: .destructive)
+        alert.addButton("Cancel")
+        alert.beginSheet(for: window) { index in
+            guard index == 0 else { return }
+            Task { @MainActor in
+                do {
+                    try await WirelessDeviceHub.shared.forgetDevices()
+                } catch {
+                    WirelessDeviceHub.shared.showNotice("Couldn't forget devices: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
     private func devicesMenu() -> NSMenu {
@@ -847,12 +1002,21 @@ final class RecordingPanelViewController: NSViewController {
         }
         menu.addItem(.sectionHeader(title: "iPhone / iPad"))
         let devices = DeviceRecorder.availableDevices
-        if devices.isEmpty {
+        let wireless = wirelessRowsVisible ? WirelessDeviceHub.shared.entries : []
+        if devices.isEmpty && wireless.isEmpty {
             menu.addItem(disabledItem("No devices connected"))
         }
         for device in devices {
             menu.addItem(actionItem(device.localizedName) { [weak self] in
                 self?.appState.switchRecordingSource(to: .iosDevice(device))
+            })
+        }
+        // Wi-Fi phones: a streaming one switches now; an open or known one is
+        // asked to broadcast first while the current source keeps recording.
+        for entry in wireless {
+            let title = entry.subtitle.map { "\(entry.title) — \($0)" } ?? entry.title
+            menu.addItem(actionItem(title) { [weak self] in
+                self?.appState.switchRecordingSource(to: .wirelessDevice(entry.key))
             })
         }
         return menu
@@ -1283,7 +1447,11 @@ final class RecordingPanelViewController: NSViewController {
         case .display: return selectedDisplay != nil
         case .window: return selectedWindow != nil
         case .area: return areaDisplay != nil && selectedAreaRect != nil
-        case .device: return selectedCaptureDevice != nil
+        case .device:
+            if selectedCaptureDevice != nil { return true }
+            guard let key = selectedWirelessKey else { return false }
+            let hub = WirelessDeviceHub.shared
+            return hub.isStreaming(key) && hub.pending == nil
         // URL capture is not a recording: it has no Start button and is driven
         // by Return in the URL field, so nothing here can "start".
         case .url: return false
@@ -1789,9 +1957,7 @@ final class RecordingPanelViewController: NSViewController {
         let apply = { [weak self] in
             guard let self else { return }
             self.availableCaptureDevices = DeviceRecorder.availableDevices
-            if self.selectedCaptureDeviceUID == nil || self.selectedCaptureDevice == nil {
-                self.selectedCaptureDeviceUID = self.availableCaptureDevices.first?.uniqueID
-            }
+            self.reconcileDeviceSelection()
             self.refresh()
         }
         apply()
@@ -1928,6 +2094,7 @@ final class RecordingPanelViewController: NSViewController {
             guard let display = areaDisplay, let rect = selectedAreaRect else { return nil }
             return .area(display, rect)
         case .device:
+            if let key = selectedWirelessKey { return .wirelessDevice(key) }
             guard let device = selectedCaptureDevice else { return nil }
             return .iosDevice(device)
         }
@@ -2038,9 +2205,20 @@ final class RecordingPanelViewController: NSViewController {
 
     // MARK: - Live device monitor
 
+    /// "cable" / "wifi:<id>" for the segment being recorded, nil for screen.
+    private var currentMonitorSource: String? {
+        if appState.wirelessRecorder.isRecording, let key = appState.wirelessRecorder.phoneKey {
+            return Self.wirelessSelectionKey(key)
+        }
+        return appState.deviceRecorder.isRecording ? "cable" : nil
+    }
+
     private func handleDeviceMonitorState() {
-        let shouldShow = isRecordingOrPaused && appState.deviceRecorder.isRecording
-        if shouldShow {
+        let source = isRecordingOrPaused ? currentMonitorSource : nil
+        if deviceMonitorPanel != nil, deviceMonitorSource != source {
+            hideDeviceMonitor()
+        }
+        if source != nil {
             showDeviceMonitor()
         } else {
             hideDeviceMonitor()
@@ -2048,11 +2226,25 @@ final class RecordingPanelViewController: NSViewController {
     }
 
     private func showDeviceMonitor() {
-        guard deviceMonitorPanel == nil,
-              let session = appState.deviceRecorder.captureSession else { return }
+        guard deviceMonitorPanel == nil else { return }
+        let content: NSView
+        if appState.wirelessRecorder.isRecording, let key = appState.wirelessRecorder.phoneKey,
+           let server = WirelessDeviceHub.shared.server {
+            // The Wi-Fi phone's decoded frames on a sample-buffer layer.
+            content = WirelessMonitorContentView(server: server, phone: key)
+        } else if let session = appState.deviceRecorder.captureSession {
+            let preview = CameraPreviewNSView()
+            preview.mirrored = false
+            preview.gravity = .resizeAspect
+            preview.attach(session: session)
+            content = preview
+        } else {
+            return
+        }
+        deviceMonitorSource = currentMonitorSource
 
         let size = NSSize(width: 250, height: 520)
-        let monitor = DeviceMonitorNSView(session: session)
+        let monitor = DeviceMonitorNSView(content: content)
         monitor.frame = NSRect(origin: .zero, size: size)
         monitor.autoresizingMask = [.width, .height]
 
@@ -2081,11 +2273,17 @@ final class RecordingPanelViewController: NSViewController {
             let visible = screen.visibleFrame
             panel.setFrameOrigin(NSPoint(x: visible.minX + 16, y: visible.midY - size.height / 2))
         }
+        // Arrives with the house glide (fade) instead of popping in.
+        panel.alphaValue = 0
         panel.orderFrontRegardless()
+        CCMotion.run(duration: 0.22, curve: CCMotion.glide) {
+            panel.animator().alphaValue = 1
+        }
         deviceMonitorPanel = panel
     }
 
     private func hideDeviceMonitor() {
+        deviceMonitorSource = nil
         deviceMonitorPanel?.orderOut(nil)
         deviceMonitorPanel?.contentView = nil
         deviceMonitorPanel?.close()
@@ -2143,6 +2341,22 @@ final class RecordingPanelViewController: NSViewController {
             ("switch-source", switchSourceMenu()),
         ]
     }
+
+    // MARK: Wi-Fi harness seams (`--wireless-device-test`)
+
+    /// The device picker exactly as a press builds it (options + actions).
+    func debugDeviceOptionList() -> RecordingMenuChip.OptionList { deviceCaptureOptions() }
+
+    /// The device row's visible state.
+    var debugDeviceChipState: (title: String, error: String?, spinnerVisible: Bool, canStart: Bool, titleSwapInFlight: Bool) {
+        (deviceChip.title, deviceChip.debugErrorMessage, !spinnerChip.isHiddenOrHasHiddenAncestor,
+         canStart, deviceChip.debugTitleSwapInFlight)
+    }
+
+    var debugSelectedDeviceUID: String? { selectedCaptureDeviceUID }
+    var debugDeviceTitleLayerInfo: String { deviceChip.debugTitleLayerInfo }
+    var debugSourceChipLabel: String { sourceChip.debugLabel }
+    var debugDeviceMonitorPanel: NSPanel? { deviceMonitorPanel }
 
     /// The four source pickers, now house combobox popups rather than menus —
     /// built exactly as a real press builds them, for harness enumeration.

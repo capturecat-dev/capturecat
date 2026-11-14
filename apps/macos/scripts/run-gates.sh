@@ -44,6 +44,7 @@ GATES=(
   --inspector-probe
   --recording-panel-shot
   --cloud-sync-test
+  --wireless-device-test
   --history-panel-shot
 )
 

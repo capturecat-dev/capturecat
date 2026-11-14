@@ -14,6 +14,10 @@ final class CloudSyncController {
     private var task: Task<Void, Never>?
     private var progress: CloudSyncProgressDialog?
     private var reviewDialog: MergeReviewDialog?
+    /// The project `openFromCloud` is bringing to this Mac — mirrored into
+    /// `CloudLibrary.cloning` so the browser's Cloud section hides it while
+    /// it downloads (and shows it again if the clone fails).
+    private var cloningProjectID: UUID?
     /// One toaster per window (merge results land in the window that asked).
     private var toasters: [ObjectIdentifier: (window: () -> NSWindow?, toaster: CCToaster)] = [:]
 
@@ -388,7 +392,11 @@ final class CloudSyncController {
     /// one recorded or built in the web app. Signs in if needed, downloads
     /// it with everything the cloud holds into a new project folder
     /// (`CloudProjectSync.clone`), lists it, and opens the editor.
-    func openFromCloud(projectID: UUID, appState: AppState, seek: Double? = nil) {
+    ///
+    /// `title`: the progress card's heading — the browser's Cloud section
+    /// opens projects made on the iPhone too, not only on the web.
+    func openFromCloud(projectID: UUID, appState: AppState, seek: Double? = nil,
+                       title: String = "Opening from the Web") {
         guard task == nil else {
             // Already bringing it in (a second click): just show where.
             appState.bringToFront()
@@ -403,16 +411,18 @@ final class CloudSyncController {
             appState: appState, window: window,
             title: "Sign in to open this project",
             message: "It was made in the CaptureCat web app. Sign in with the same account to bring it to this Mac.",
-            then: { [weak self] in self?.openFromCloud(projectID: projectID, appState: appState, seek: seek) }
+            then: { [weak self] in self?.openFromCloud(projectID: projectID, appState: appState, seek: seek, title: title) }
         ) else { return }
 
-        let dialog = CloudSyncProgressDialog(title: "Opening from the Web", subtitle: "Bringing your project to this Mac")
+        let dialog = CloudSyncProgressDialog(title: title, subtitle: "Bringing your project to this Mac")
         dialog.onCancel = { [weak self] in self?.task?.cancel() }
         dialog.present(over: window)
         progress = dialog
 
         let sync = CloudProjectSync(transport: HTTPCloudProjectTransport())
         let directory = Project.directory(for: projectID)
+        cloningProjectID = projectID
+        CloudLibrary.shared.setCloning(projectID, true)
         task = Task { [weak self] in
             do {
                 let outcome = try await sync.clone(projectID: projectID, into: directory) { step in
@@ -514,10 +524,19 @@ final class CloudSyncController {
         task = nil
         let dialog = progress
         progress = nil
-        if let dialog {
-            dialog.dismiss(completion: then)
-        } else {
+        // The clone is over either way: release its Cloud-section slot AFTER
+        // `then` ran, so a success has already adopted the project (it is
+        // local now) and the card never flickers back for a frame.
+        let cloned = cloningProjectID
+        cloningProjectID = nil
+        let done = {
             then()
+            if let cloned { CloudLibrary.shared.setCloning(cloned, false) }
+        }
+        if let dialog {
+            dialog.dismiss(completion: done)
+        } else {
+            done()
         }
     }
 

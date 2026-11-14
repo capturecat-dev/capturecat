@@ -81,7 +81,7 @@ final class ScreenRecorder: NSObject {
             return .window
         case .area:
             return .area
-        case .iosDevice:
+        case .iosDevice, .wirelessDevice:
             return .device
         case .display, .none:
             return .display
@@ -167,7 +167,7 @@ final class ScreenRecorder: NSObject {
         switch source {
         case .display, .area:
             shareableContent = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-        case .window, .iosDevice:
+        case .window, .iosDevice, .wirelessDevice:
             shareableContent = nil
         }
 
@@ -214,7 +214,7 @@ final class ScreenRecorder: NSObject {
             captureWidth = max(2, Int(rect.width * displayScale))
             captureHeight = max(2, Int(rect.height * displayScale))
 
-        case .iosDevice:
+        case .iosDevice, .wirelessDevice:
             // Device capture goes through DeviceRecorder, never SCK.
             throw NSError(domain: "ScreenRecorder", code: 10, userInfo: [
                 NSLocalizedDescriptionKey: "iOS devices are recorded by DeviceRecorder."
@@ -397,7 +397,7 @@ final class ScreenRecorder: NSObject {
         switch source {
         case .display(let d): display = d
         case .area(let d, _): display = d
-        case .window, .iosDevice: return // No display exclusions needed
+        case .window, .iosDevice, .wirelessDevice: return // No display exclusions needed
         }
         guard let display else { return }
 

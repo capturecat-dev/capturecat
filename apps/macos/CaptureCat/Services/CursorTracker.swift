@@ -269,7 +269,7 @@ final class CursorTracker {
                 )
             }
 
-        case .iosDevice:
+        case .iosDevice, .wirelessDevice:
             // No Mac cursor on an iOS device screen — never record events.
             targetWindowPID = 0
             targetWindowID = 0

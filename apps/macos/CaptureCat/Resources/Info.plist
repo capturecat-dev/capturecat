@@ -35,6 +35,12 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>CaptureCat runs the one-line setup command in Terminal when you connect an AI agent (Claude Code or Codex) from Connect AI Agents.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_ccwireless._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>CaptureCat receives your iPhone’s screen over Wi-Fi when you record it from the CaptureCat iPhone app. The stream stays on your local network and is encrypted with a key only your own devices have.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>CaptureCat needs camera access for webcam overlay in recordings.</string>
 	<key>NSMicrophoneUsageDescription</key>

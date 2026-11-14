@@ -500,6 +500,27 @@ class RecordingMenuChip: RecordingGlassChip {
         var searchable = false
         var emptyText = "No options"
         var onSelect: (Int) -> Void
+        /// Trailing rows that run an action instead of picking a value
+        /// ("Sign in to use your iPhone over Wi-Fi", "Forget my devices…").
+        /// Listed after `options`; `onSelect` only ever sees option indices.
+        var actions: [Action] = []
+
+        struct Action {
+            var option: CCCombobox.Option
+            var run: () -> Void
+        }
+
+        /// What the popup shows: the options, then the action rows.
+        var presentedOptions: [CCCombobox.Option] { options + actions.map(\.option) }
+
+        /// Route a pick from the presented list.
+        func pick(_ index: Int) {
+            if index < options.count {
+                onSelect(index)
+            } else if actions.indices.contains(index - options.count) {
+                actions[index - options.count].run()
+            }
+        }
     }
 
     var optionsProvider: (() -> OptionList)?
@@ -508,12 +529,12 @@ class RecordingMenuChip: RecordingGlassChip {
         guard isEnabled else { return }
         if let list = optionsProvider?() {
             CCComboboxPopup.present(
-                options: list.options,
+                options: list.presentedOptions,
                 selectedIndex: list.selectedIndex,
                 from: self,
                 searchable: list.searchable,
                 emptyText: list.emptyText,
-                onSelect: list.onSelect
+                onSelect: { list.pick($0) }
             )
             return
         }
@@ -645,6 +666,41 @@ final class RecordingMenuFieldChip: RecordingMenuChip {
     var title: String {
         get { titleField.stringValue }
         set { titleField.stringValue = newValue }
+    }
+
+    /// Title change that crossfades (state changes — e.g. a Wi-Fi phone
+    /// going from "start on iPhone" to waiting to streaming — never snap).
+    /// `--wireless-device-test --inject-defect`: titles snap (the motion
+    /// probe must catch it).
+    static var debugInjectSnap = false
+
+    func setTitle(_ newValue: String, animated: Bool) {
+        guard titleField.stringValue != newValue else { return }
+        if animated, !Self.debugInjectSnap { CCMotion.fadeContentSwap(titleField) }
+        titleField.stringValue = newValue
+    }
+
+    /// Quiet inline failure, the URL field's language: a red hairline and
+    /// the message as the tooltip (crossfaded in and out).
+    func setError(_ message: String?, fallbackToolTip: String? = nil) {
+        let stroke: NSColor? = message == nil ? nil : NSColor.systemRed.withAlphaComponent(0.6)
+        if (strokeColor == nil) != (stroke == nil) { CCMotion.fadeContentSwap(self) }
+        strokeColor = stroke
+        toolTip = message ?? fallbackToolTip
+        debugErrorMessage = message
+    }
+
+    private(set) var debugErrorMessage: String?
+    /// The title crossfade is on the layer right now (motion probe).
+    /// (Core Animation files every CATransition under `kCATransition`,
+    /// whatever key the caller passed.)
+    var debugTitleSwapInFlight: Bool {
+        guard let layer = titleField.layer else { return false }
+        let transition = (layer.animation(forKey: kCATransition) ?? layer.animation(forKey: "capmotion.contentSwap")) as? CATransition
+        return transition?.type == .fade
+    }
+    var debugTitleLayerInfo: String {
+        "layer=\(titleField.layer != nil) window=\(titleField.window != nil) keys=\(titleField.layer?.animationKeys() ?? [])"
     }
 
     var symbolName: String = "" {
@@ -930,11 +986,18 @@ final class RecordingSourceChip: RecordingGlassChip {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
-    func update(label: String, isDevice: Bool) {
-        nameField.stringValue = label
+    func update(label: String, isDevice: Bool, toolTip explicitToolTip: String? = nil) {
+        if nameField.stringValue != label {
+            // A waiting prompt or a quiet notice replacing the source name
+            // crossfades rather than snapping (first fill is instant).
+            if !nameField.stringValue.isEmpty { CCMotion.fadeContentSwap(nameField) }
+            nameField.stringValue = label
+        }
         iconView.image = RecordingPanelMetrics.symbol(isDevice ? "iphone" : "display", size: 11, weight: .semibold)
-        toolTip = "Currently recording: \(label)"
+        toolTip = explicitToolTip ?? "Currently recording: \(label)"
     }
+
+    var debugLabel: String { nameField.stringValue }
 }
 
 /// Short labels for a recording duration limit (the gear menu, the

@@ -557,7 +557,7 @@ if CommandLine.arguments.contains("--notes-test") {
         "doc.on.clipboard", "exclamationmark.circle.fill", "exclamationmark.octagon.fill",
         "exclamationmark.triangle.fill", "externaldrive", "externaldrive.fill", "eye.slash", "figure.walk.motion", "film", "film.stack", "folder",
         "forward.end.fill", "gauge.with.needle", "gearshape", "gearshape.fill", "globe",
-        "hand.raised.fill", "hand.tap", "highlighter", "icloud.and.arrow.up",
+        "hand.raised.fill", "hand.tap", "highlighter", "icloud", "icloud.and.arrow.down", "icloud.and.arrow.up",
         "info.circle.fill", "ipad.landscape", "iphone", "laptopcomputer", "link", "macwindow",
         "magnifyingglass", "mic", "mic.fill", "mic.slash", "minus", "minus.magnifyingglass",
         "note.text", "oval", "paintbrush.fill", "paintpalette", "pause.fill",
@@ -796,6 +796,15 @@ if CommandLine.arguments.contains("--export-formats-test") {
 // internet, no real projects. Never reached in a normal launch.
 if CommandLine.arguments.contains("--cloud-sync-test") {
     MainActor.assumeIsolated { CloudSyncHarness.run() }
+}
+
+// iPhone over Wi-Fi gate: the real TLS-PSK listener + hub on loopback
+// with a test link (never the account's), fake iPhones speaking the wire
+// contract (VideoToolbox H.264), the real recorder/stitcher, the API
+// listing merge, and the real recording panel's device rows + monitor.
+// No LAN, no Keychain, no network. Never reached in a normal launch.
+if CommandLine.arguments.contains("--wireless-device-test") {
+    MainActor.assumeIsolated { WirelessDeviceHarness.run() }
 }
 
 // Project history pane gate: the real editor shell (hosted through the

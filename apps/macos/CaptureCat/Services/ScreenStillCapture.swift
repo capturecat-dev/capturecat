@@ -36,7 +36,7 @@ enum ScreenStillCapture {
             width = display.width
             height = display.height
             cropRect = rect
-        case .iosDevice:
+        case .iosDevice, .wirelessDevice:
             // A connected iPhone is a live CoreMediaIO stream, not a shareable
             // display, so ScreenCaptureKit cannot photograph it. The panel
             // already steers away from this tab in screenshot mode; returning

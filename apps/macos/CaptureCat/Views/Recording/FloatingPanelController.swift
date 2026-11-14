@@ -6,6 +6,8 @@ final class FloatingPanelController: NSObject {
     /// Live panel content. Held here because this controller drives its
     /// `start()`/`teardown()` explicitly.
     private var recordingController: RecordingPanelViewController?
+    /// The live panel content (harness probes drive the real hosting chain).
+    var debugRecordingController: RecordingPanelViewController? { recordingController }
 
     func show(size: NSSize) {
         if let panel {

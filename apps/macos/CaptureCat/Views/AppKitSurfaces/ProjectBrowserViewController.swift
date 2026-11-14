@@ -49,15 +49,20 @@ final class ProjectBrowserViewController: NSViewController {
         case all
         case pinned
         case shared
+        /// Projects only the cloud holds — made on the iPhone or in the web
+        /// app (CloudLibrary). Listed only while signed in.
+        case cloud
         case folder(UUID)
     }
 
     static let projectIDPasteboardType = NSPasteboard.PasteboardType("so.capturecat.project-id")
 
-    /// One grid slot — video projects and text notes share the browser.
+    /// One grid slot — video projects and text notes share the browser;
+    /// the Cloud section shows cloud-only projects.
     enum BrowserEntry {
         case project(Project)
         case note(Note)
+        case cloud(CloudLibraryItem)
     }
 
     private var searchText = ""
@@ -107,6 +112,19 @@ final class ProjectBrowserViewController: NSViewController {
     private let emptyIcon = NSImageView()
     /// Width the grid was last laid out against — see `viewDidLayout`.
     private var lastGridWidth: CGFloat = 0
+
+    // MARK: Cloud library (CloudLibrary.shared)
+
+    /// Card art arriving for visible cloud cards — applied in place, never a
+    /// grid reload (see `applyCloudPreviews`).
+    private var cloudPreviewObservation: SurfaceObservation?
+    /// Re-lists every 60 s while the browser is on screen.
+    private var cloudRefreshTimer: Timer?
+    private var cloudFocusObserver: NSObjectProtocol?
+    /// Seconds between Cloud re-lists while visible.
+    static let cloudRefreshInterval: TimeInterval = 60
+    /// Cloud cards classified Images at the last snapshot (type counts).
+    private var cloudImageIDs: Set<UUID> = []
 
     init(appState: AppState) {
         self.appState = appState
@@ -161,6 +179,12 @@ final class ProjectBrowserViewController: NSViewController {
             _ = self.appState.captureTextIndex.records
             // Account row tracks sign-in state.
             _ = self.appState.authStateRevision
+            // Cloud section: the listing, in-flight clones, sign-in.
+            let cloud = CloudLibrary.shared
+            _ = cloud.items
+            _ = cloud.cloning
+            _ = cloud.hasListed
+            self.syncCloudAccount()
             let user = self.appState.authService.currentUser
             let stored = AuthKeychain.load()
             self.sidebar.accountRow.configure(
@@ -171,6 +195,21 @@ final class ProjectBrowserViewController: NSViewController {
             self.rebuildSidebarRows()
             self.applySnapshot(projects: projects, hasCurrentProject: hasCurrent)
         }
+        cloudPreviewObservation = SurfaceObservation { [weak self] in
+            guard let self else { return }
+            let previews = CloudLibrary.shared.previews
+            self.applyCloudPreviews(previews)
+        }
+    }
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        startCloudRefreshing()
+    }
+
+    override func viewDidDisappear() {
+        super.viewDidDisappear()
+        stopCloudRefreshing()
     }
 
     /// Controller-level chrome colors — one path for init and theme changes.
@@ -351,6 +390,15 @@ final class ProjectBrowserViewController: NSViewController {
                   icon: SidebarIconRenderer.icon("link"),
                   isSelected: filter == .shared),
         ]
+        // Signed out there is no Cloud row at all (and nothing to fetch).
+        if cloudSignedIn {
+            rows.append(.init(id: .cloud, title: "Cloud",
+                              icon: SidebarIconRenderer.icon("icloud"),
+                              isSelected: filter == .cloud))
+        } else if filter == .cloud {
+            filter = .all
+            rows[0].isSelected = true
+        }
         for folder in library.folders {
             rows.append(.init(
                 id: .folder(folder.id), title: folder.name,
@@ -760,6 +808,10 @@ final class ProjectBrowserViewController: NSViewController {
             NoteCardItem.self,
             forItemWithIdentifier: NoteCardItem.identifier
         )
+        collectionView.register(
+            CloudCardItem.self,
+            forItemWithIdentifier: CloudCardItem.identifier
+        )
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.documentView = collectionView
@@ -822,6 +874,9 @@ final class ProjectBrowserViewController: NSViewController {
             return projects.filter { library.isPinned($0.id) }
         case .shared:
             return projects.filter { library.isShared($0.id) }
+        case .cloud:
+            // Cloud cards are not local projects (see applyCloudSnapshot).
+            return []
         case .folder(let folderID):
             guard let folder = library.folders.first(where: { $0.id == folderID }) else { return [] }
             return folder.projectIDs.compactMap { id in projects.first { $0.id == id } }
@@ -830,6 +885,10 @@ final class ProjectBrowserViewController: NSViewController {
 
     private func applySnapshot(projects: [Project], hasCurrentProject: Bool) {
         backButton.isHidden = !hasCurrentProject
+        if filter == .cloud {
+            applyCloudSnapshot(projects: projects)
+            return
+        }
         var scoped = self.projects(matching: filter, in: projects)
 
         // Notes live in "All Captures" (they have no pins/shares/folders),
@@ -905,8 +964,11 @@ final class ProjectBrowserViewController: NSViewController {
         emptyStateView.isHidden = !filterEmpty
         if noProjectsAtAll {
             emptyTitle.stringValue = "No Captures Yet"
-            emptySubtitle.stringValue =
-                "Start a new recording from the menu bar to create your first capture."
+            let waiting = cloudSignedIn
+                ? CloudLibrary.shared.cloudOnly(signedIn: true, localIDs: localProjectIDs(projects)).count : 0
+            emptySubtitle.stringValue = waiting > 0
+                ? "Your \(waiting == 1 ? "cloud project is" : "\(waiting) cloud projects are") under Cloud in the sidebar."
+                : "Start a new recording from the menu bar to create your first capture."
         } else {
             switch filter {
             case .all:
@@ -918,6 +980,8 @@ final class ProjectBrowserViewController: NSViewController {
             case .shared:
                 emptyTitle.stringValue = "Nothing Shared"
                 emptySubtitle.stringValue = "Captures appear here after you share them."
+            case .cloud:
+                break // applyCloudSnapshot owns its copy
             case .folder:
                 emptyTitle.stringValue = "Empty Folder"
                 emptySubtitle.stringValue = "Drag captures here, or right-click one and choose Add to Folder."
@@ -948,6 +1012,7 @@ final class ProjectBrowserViewController: NSViewController {
         switch entry {
         case .project(let project): return order[project.id] ?? .max
         case .note(let note): return order[note.id] ?? .max
+        case .cloud(let item): return order[item.projectID] ?? .max
         }
     }
 
@@ -955,6 +1020,7 @@ final class ProjectBrowserViewController: NSViewController {
         switch entry {
         case .project(let project): return project.createdAt
         case .note(let note): return note.createdAt
+        case .cloud(let item): return item.date ?? .distantPast
         }
     }
 
@@ -1018,6 +1084,196 @@ final class ProjectBrowserViewController: NSViewController {
     }
 }
 
+// MARK: - Cloud section
+
+/// Projects only the cloud holds (made on the iPhone or in the web app),
+/// from `CloudLibrary.shared`. Signed out: no sidebar row, no request, no
+/// message. Signed in: listed when the browser appears, when its window
+/// becomes key, and every 60 s while it is on screen; a card click runs the
+/// existing clone path (`CloudSyncController.openFromCloud`, progress
+/// dialog included), after which the project is local and leaves the
+/// section on its own (the store lists it; the merge drops it).
+extension ProjectBrowserViewController {
+    /// Signed in, as far as the Cloud section is concerned (the harness
+    /// override first, then the real session).
+    var cloudSignedIn: Bool {
+        CloudLibrary.shared.signedInOverride ?? (appState.authService.currentUser != nil)
+    }
+
+    /// Who the listing belongs to — a different account (or none) clears it.
+    private var cloudAccount: String? {
+        if let override = CloudLibrary.shared.signedInOverride { return override ? "probe" : nil }
+        return appState.authService.currentUser?.uid
+    }
+
+    /// Called from the observation pass: sign-in, sign-out or an account
+    /// switch re-binds the library (side effects hop out of the tracking
+    /// pass so they re-arm it instead of re-entering it).
+    fileprivate func syncCloudAccount() {
+        let account = cloudAccount
+        guard CloudLibrary.shared.boundAccount != account else { return }
+        Task { @MainActor [weak self] in
+            let library = CloudLibrary.shared
+            guard library.boundAccount != account else { return }
+            library.bind(account: account)
+            if account != nil, self?.view.window != nil { library.refresh(force: true) }
+        }
+    }
+
+    fileprivate func startCloudRefreshing() {
+        if cloudSignedIn { CloudLibrary.shared.refresh(force: true) }
+        cloudRefreshTimer?.invalidate()
+        cloudRefreshTimer = Timer.scheduledTimer(withTimeInterval: Self.cloudRefreshInterval, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self else {
+                    timer.invalidate()
+                    return
+                }
+                // Only while the browser is actually on screen.
+                guard let window = self.view.window, window.isVisible,
+                      window.occlusionState.contains(.visible), self.cloudSignedIn else { return }
+                CloudLibrary.shared.refresh(force: true)
+            }
+        }
+        if cloudFocusObserver == nil, let window = view.window {
+            cloudFocusObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.cloudSignedIn else { return }
+                    CloudLibrary.shared.refresh()
+                }
+            }
+        }
+    }
+
+    fileprivate func stopCloudRefreshing() {
+        cloudRefreshTimer?.invalidate()
+        cloudRefreshTimer = nil
+        if let cloudFocusObserver { NotificationCenter.default.removeObserver(cloudFocusObserver) }
+        cloudFocusObserver = nil
+    }
+
+    /// Everything this Mac already holds: the store's projects plus any
+    /// listed project whose folder has a project.json (a clone that just
+    /// landed, a copy the store hasn't picked up yet).
+    fileprivate func localProjectIDs(_ projects: [Project]) -> Set<UUID> {
+        var ids = Set(projects.map(\.id))
+        let fm = FileManager.default
+        for item in CloudLibrary.shared.items where !ids.contains(item.projectID) {
+            let doc = Project.directory(for: item.projectID).appendingPathComponent("project.json")
+            if fm.fileExists(atPath: doc.path) { ids.insert(item.projectID) }
+        }
+        return ids
+    }
+
+    fileprivate func cloudIsImage(_ item: CloudLibraryItem) -> Bool {
+        CloudLibrary.shared.previews[item.projectID]?.kind.isImage ?? false
+    }
+
+    fileprivate func applyCloudSnapshot(projects: [Project]) {
+        let library = CloudLibrary.shared
+        var items = library.cloudOnly(signedIn: cloudSignedIn, localIDs: localProjectIDs(projects))
+        // Art + tags for the whole section (the type counts need the kinds).
+        library.requestPreviews(for: items)
+
+        searchSnippets = [:]
+        if !searchText.isEmpty {
+            let ranked = CaptureSearchRanking.rank(
+                query: searchText,
+                candidates: items.map { CaptureSearchRanking.Candidate(id: $0.projectID, title: $0.name, text: "") }
+            )
+            var order: [UUID: Int] = [:]
+            for (position, match) in ranked.enumerated() { order[match.candidate.id] = position }
+            items = items.filter { order[$0.projectID] != nil }
+                .sorted { (order[$0.projectID] ?? .max) < (order[$1.projectID] ?? .max) }
+        }
+        let imageIDs = Set(items.filter(cloudIsImage).map(\.projectID))
+        cloudImageIDs = imageIDs
+        updateTypeChipCounts(all: items.count, videos: items.count - imageIDs.count,
+                             images: imageIDs.count, notes: 0)
+        items = items.filter { typeFilter.includes(isNote: false, isImage: imageIDs.contains($0.projectID)) }
+        entries = items.map(BrowserEntry.cloud)
+
+        emptyStateView.isHidden = !entries.isEmpty
+        if entries.isEmpty {
+            if !library.hasListed {
+                emptyTitle.stringValue = "Checking the Cloud…"
+                emptySubtitle.stringValue = "Looking for projects from your iPhone and the web app."
+            } else if !searchText.isEmpty {
+                emptyTitle.stringValue = "No Matches"
+                emptySubtitle.stringValue = "No cloud projects match your search."
+            } else if typeFilter != .all {
+                emptyTitle.stringValue = "No \(typeFilter.title)"
+                emptySubtitle.stringValue = "No cloud \(typeFilter.title.lowercased()) match the current filters."
+            } else {
+                emptyTitle.stringValue = "Nothing in the Cloud"
+                emptySubtitle.stringValue =
+                    "Projects you make on your iPhone or in the CaptureCat web app appear here, ready to open on this Mac."
+            }
+        }
+        searchRow.isHidden = false
+        collectionView.reloadData()
+    }
+
+    /// Previews landed: hand them to the visible cards in place (the art
+    /// fades in, the tag pops). Only a change that moves a card between
+    /// Videos and Images while one of them is filtered rebuilds the grid.
+    fileprivate func applyCloudPreviews(_ previews: [UUID: CloudLibraryPreview]) {
+        guard filter == .cloud, let collectionView else { return }
+        for case let card as CloudCardItem in collectionView.visibleItems() {
+            guard let id = card.projectID else { continue }
+            card.apply(preview: previews[id], animated: true)
+        }
+        let items = CloudLibrary.shared.cloudOnly(
+            signedIn: cloudSignedIn, localIDs: localProjectIDs(appState.projectStore.projects))
+        let imageIDs = Set(items.filter(cloudIsImage).map(\.projectID))
+        guard imageIDs != cloudImageIDs else { return }
+        if typeFilter == .all && searchText.isEmpty {
+            cloudImageIDs = imageIDs
+            updateTypeChipCounts(all: items.count, videos: items.count - imageIDs.count,
+                                 images: imageIDs.count, notes: 0)
+        } else {
+            applySnapshot(projects: appState.projectStore.projects,
+                          hasCurrentProject: appState.currentProject != nil)
+        }
+    }
+
+    fileprivate func openCloud(_ item: CloudLibraryItem) {
+        CloudLibrary.shared.open(item.projectID, appState: appState)
+    }
+
+    fileprivate func cloudCardItem(for item: CloudLibraryItem, at indexPath: IndexPath) -> NSCollectionViewItem {
+        let made = collectionView.makeItem(withIdentifier: CloudCardItem.identifier, for: indexPath)
+        guard let card = made as? CloudCardItem else { return made }
+        card.configure(with: item, preview: CloudLibrary.shared.previews[item.projectID])
+        card.onOpen = { [weak self] in self?.openCloud(item) }
+        card.onOpenInWebEditor = {
+            NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: item.projectID))
+        }
+        return card
+    }
+
+    // MARK: Harness seams (`--cloud-sync-test`)
+
+    var harnessFilter: SidebarFilter { filter }
+    func harnessSidebarRow(_ filter: SidebarFilter) -> NSView? { sidebar.rowView(for: filter) }
+    var harnessCloudCards: [CloudCardItem] {
+        collectionView.visibleItems().compactMap { $0 as? CloudCardItem }
+    }
+    var harnessEmptyTitle: String? { emptyStateView.isHidden ? nil : emptyTitle.stringValue }
+    func harnessSelectTypeFilter(_ kind: CaptureTypeFilter) { selectTypeFilter(kind) }
+    var harnessTypeFilter: CaptureTypeFilter { typeFilter }
+    /// The cloud cards in grid order.
+    var harnessCloudEntryIDs: [UUID] {
+        entries.compactMap { if case .cloud(let item) = $0 { return item.projectID } else { return nil } }
+    }
+    var harnessCloudTimerInterval: TimeInterval? {
+        guard let cloudRefreshTimer, cloudRefreshTimer.isValid else { return nil }
+        return cloudRefreshTimer.timeInterval
+    }
+}
+
 // MARK: - Collection data source / delegate
 
 extension ProjectBrowserViewController: NSCollectionViewDataSource, NSCollectionViewDelegateFlowLayout {
@@ -1037,6 +1293,8 @@ extension ProjectBrowserViewController: NSCollectionViewDataSource, NSCollection
             return noteCardItem(for: note, at: indexPath)
         case .project(let project):
             return projectCardItem(for: project, at: indexPath)
+        case .cloud(let item):
+            return cloudCardItem(for: item, at: indexPath)
         }
     }
 
@@ -1258,6 +1516,8 @@ extension ProjectBrowserViewController: NSCollectionViewDataSource, NSCollection
             open(project)
         case .note(let note):
             NoteViewerWindowController.present(note: note, appState: appState)
+        case .cloud(let item):
+            openCloud(item)
         }
     }
 
@@ -1272,6 +1532,7 @@ extension ProjectBrowserViewController: NSCollectionViewDataSource, NSCollection
             switch entry {
             case .project(let project): projects.append(project)
             case .note(let note): notes.append(note)
+            case .cloud: break // nothing local to delete
             }
         }
         let count = projects.count + notes.count
@@ -2597,9 +2858,10 @@ fileprivate final class ReminderBadgeLabel: NSView {
 }
 
 /// Shared card hover treatment: wash + hairline plus a subtle lift (1.02
-/// scale, soft shadow) over 0.15s — identical for project and note cards.
+/// scale, soft shadow) over 0.15s — identical for project, note and cloud
+/// cards (CloudLibraryCard.swift).
 @MainActor
-private func applyCardHover(_ container: NSView, hovered: Bool) {
+func applyCardHover(_ container: NSView, hovered: Bool) {
     // Ink-relative wash — reads on both the dark and light window ground.
     let ink: NSColor = CCTheme.isDark ? .white : .black
     container.layer?.backgroundColor = (hovered
@@ -2638,7 +2900,7 @@ private func applyCardHover(_ container: NSView, hovered: Bool) {
 }
 
 /// Card root view — routes right-click to the item's context menu.
-private final class CardBackdropView: NSView {
+final class CardBackdropView: NSView {
     private let menuProvider: () -> NSMenu?
 
     init(menuProvider: @escaping () -> NSMenu?) {

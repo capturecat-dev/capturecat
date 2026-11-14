@@ -422,6 +422,8 @@ enum CloudSyncHarness {
             try await cloneChecks(checks, apiBase: apiBase)
             try await secondMacChecks(checks, apiBase: apiBase)
             await httpDownloadChecks(checks)
+            // ── 14b. Cloud library: phone/web projects in the Mac browser
+            await libraryChecks(checks)
 
             // ── 15b. Project history: merge base, three-way merges, Merge
             //         Review in a real window, attribution, history client
@@ -429,6 +431,7 @@ enum CloudSyncHarness {
 
             // ── 15. UI: the real top bar + progress dialog, real windows ────
             await probeUI(checks, project: fixture.project)
+            await libraryUIChecks(checks)
         } catch {
             checks.failures.append("unexpected error: \(error)")
             print("  ✘ unexpected error: \(error)")

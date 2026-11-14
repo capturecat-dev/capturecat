@@ -198,7 +198,18 @@ final class DeviceMonitorNSView: NSView {
     private let clip = NSView()
     private var themeObservation: CCThemeObservation?
 
-    init(session: AVCaptureSession) {
+    /// The cabled phone: the capture session's own preview.
+    convenience init(session: AVCaptureSession) {
+        let preview = CameraPreviewNSView()
+        preview.mirrored = false
+        preview.gravity = .resizeAspect
+        preview.attach(session: session)
+        self.init(content: preview)
+    }
+
+    /// Any feed — the Wi-Fi phone passes a `WirelessMonitorContentView`.
+    /// Same chassis either way: black letterbox well, rounded clip, shadow.
+    init(content preview: NSView) {
         super.init(frame: .zero)
         wantsLayer = true
 
@@ -219,11 +230,6 @@ final class DeviceMonitorNSView: NSView {
         clip.layer?.cornerCurve = .continuous
         clip.layer?.masksToBounds = true
         clip.layer?.borderWidth = 2
-
-        let preview = CameraPreviewNSView()
-        preview.mirrored = false
-        preview.gravity = .resizeAspect
-        preview.attach(session: session)
 
         for sub in [shadowHost, clip, preview] { sub.translatesAutoresizingMaskIntoConstraints = false }
         addSubview(shadowHost)

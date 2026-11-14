@@ -136,6 +136,10 @@ final class AuthService: NSObject {
     // MARK: - State
 
     var onAuthStateChange: (() -> Void)?
+    /// Fires on the main actor just before sign-out clears the session,
+    /// with the bearer token that is about to go (for best-effort cleanup
+    /// calls such as unregistering this Mac's device row).
+    var onWillSignOut: ((String) -> Void)?
     /// Non-nil only when the client is misconfigured in a way that makes
     /// sign-in impossible. The old "missing config plist" failure mode is gone
     /// (nothing has to be bundled any more), so in practice this stays nil —
@@ -385,6 +389,9 @@ final class AuthService: NSObject {
     /// must not be blockable by a flaky network.
     func signOut() throws {
         let token = AuthKeychain.load()?.token
+        // Last chance to make an authenticated call (the Mac's device
+        // registration is removed with it) — the Keychain is cleared next.
+        if let token { onWillSignOut?(token) }
         AuthKeychain.clear()
         activeServer?.cancel()
         activeServer = nil

@@ -130,6 +130,10 @@ final class AppState {
 
     let recorder = ScreenRecorder()
     let deviceRecorder = DeviceRecorder()
+    /// The Wi-Fi twin of `deviceRecorder`: an iPhone streaming from the iOS
+    /// app's broadcast extension (WirelessDeviceHub), recorded as a `.device`
+    /// segment exactly like a cabled one.
+    let wirelessRecorder = WirelessDeviceRecorder()
     let cursorTracker = CursorTracker()
     let keystrokeTracker = KeystrokeTracker()
     /// ONE clock per take, handed to BOTH trackers. Timeline origin and pause
@@ -137,8 +141,11 @@ final class AppState {
     /// are on the same timeline by construction — not by two call sites
     /// happening to pass matching numbers.
     let recordingClock = RecordingClock()
-    /// True while the active take records an iPhone/iPad instead of the screen.
-    private var isDeviceTake = false
+    /// What the ACTIVE segment records: the screen (ScreenRecorder), a
+    /// cabled iPhone/iPad (DeviceRecorder) or an iPhone over Wi-Fi
+    /// (WirelessDeviceRecorder). Both device kinds finalize as `.device`.
+    private enum ActiveSegment { case screen, cabledDevice, wirelessDevice }
+    private var activeSegment: ActiveSegment = .screen
 
     /// Finished segment files from mid-recording source switches, in order.
     struct RecordingSegment {
@@ -169,6 +176,37 @@ final class AppState {
             return "Area"
         case .iosDevice(let device):
             return device.localizedName
+        case .wirelessDevice(let key):
+            let hub = WirelessDeviceHub.shared
+            let name = hub.phone(key)?.name ?? hub.entries.first { $0.key == WirelessIdentity.key(key) }?.name ?? "iPhone"
+            return "\(name) · Wi-Fi"
+        }
+    }
+
+    /// Finalize the active segment into `recordedSegments` (stop, source
+    /// switch). A Wi-Fi segment whose phone never sent a frame (it dropped
+    /// before the first keyframe) leaves no file and is skipped — the take's
+    /// other segments stand, exactly like a cable pulled mid-take.
+    private func finalizeActiveSegment() async {
+        switch activeSegment {
+        case .cabledDevice:
+            await deviceRecorder.stopRecording()
+            if let url = deviceRecorder.outputURL {
+                recordedSegments.append(RecordingSegment(url: url, kind: .device))
+            }
+        case .wirelessDevice:
+            // Only a segment that actually started (a failed start must not
+            // re-append the previous segment's file).
+            let wasRecording = wirelessRecorder.isRecording
+            await wirelessRecorder.stopRecording()
+            if wasRecording, let url = wirelessRecorder.outputURL {
+                recordedSegments.append(RecordingSegment(url: url, kind: wirelessRecorder.recordingSourceKind))
+            }
+        case .screen:
+            try? await recorder.stopRecording()
+            if let url = recorder.outputURL {
+                recordedSegments.append(RecordingSegment(url: url, kind: recorder.recordingSourceKind))
+            }
         }
     }
 
@@ -270,9 +308,17 @@ final class AppState {
             Task { @MainActor [weak self] in
                 self?.authStateRevision += 1
                 self?.refreshLicence(force: true)
+                if WirelessDeviceHub.liveEnabled, !MCPServer.isMCP, let self {
+                    WirelessDeviceHub.shared.authDidChange(userID: self.authService.currentUser?.uid)
+                }
             }
         }
         authService.configureIfNeeded()
+        // iPhone over Wi-Fi: link by account, listen for the account's phones
+        // (plain app launches only — never --mcp siblings or harness runs).
+        if WirelessDeviceHub.liveEnabled, !MCPServer.isMCP {
+            WirelessDeviceHub.shared.attach(authService: authService)
+        }
         licence = Self.planChecksEnabled ? authService.cachedLicence() : .personal
         applyDurationLimit()
         refreshLicence()
@@ -681,9 +727,17 @@ final class AppState {
             // take would anchor a mid-recording camera enable to the wrong time.
             cameraManager.sharedOriginHostTime = recordingSession.isCameraEnabled ? sharedOrigin : nil
 
-            if case .iosDevice(let device) = source {
+            if case .wirelessDevice(let key) = source {
+                // iPhone over Wi-Fi — same shape as the cabled branch below.
+                activeSegment = .wirelessDevice
+                try startWirelessSegment(phone: key, origin: sharedOrigin)
+                if recordingSession.isCameraEnabled {
+                    cameraManager.startRecording()
+                }
+                await wirelessRecorder.waitForSessionStart()
+            } else if case .iosDevice(let device) = source {
                 // iPhone/iPad take — recorded via AVCapture, no SCK, no cursor.
-                isDeviceTake = true
+                activeSegment = .cabledDevice
                 if AVCaptureDevice.authorizationStatus(for: .video) != .authorized {
                     _ = await AVCaptureDevice.requestAccess(for: .video)
                 }
@@ -699,7 +753,7 @@ final class AppState {
                 }
                 await deviceRecorder.waitForSessionStart()
             } else {
-                isDeviceTake = false
+                activeSegment = .screen
                 try await recorder.startRecording(
                     source: source,
                     excludingWindows: excludeWindows,
@@ -779,12 +833,14 @@ final class AppState {
                 if isPaused && !wasPaused {
                     recorder.pause()
                     deviceRecorder.pause()
+                    wirelessRecorder.pause()
                     cursorTracker.pause()
                     keystrokeTracker.pause()
                     cameraManager.pause()
                 } else if !isPaused && wasPaused {
                     recorder.resume()
                     deviceRecorder.resume()
+                    wirelessRecorder.resume()
                     cursorTracker.resume()
                     keystrokeTracker.resume()
                     cameraManager.resume()
@@ -848,17 +904,8 @@ final class AppState {
                 cameraManager.stop()
             }
             // Finalize the active segment into the ordered list.
-            if isDeviceTake {
-                await deviceRecorder.stopRecording()
-                if let url = deviceRecorder.outputURL {
-                    recordedSegments.append(RecordingSegment(url: url, kind: .device))
-                }
-            } else {
-                try? await recorder.stopRecording()
-                if let url = recorder.outputURL {
-                    recordedSegments.append(RecordingSegment(url: url, kind: recorder.recordingSourceKind))
-                }
-            }
+            await finalizeActiveSegment()
+            WirelessDeviceHub.shared.cancelPending(message: nil)
             let segments = recordedSegments
             recordedSegments = []
 
@@ -1074,9 +1121,40 @@ final class AppState {
     /// Segments are stitched into one movie when the recording stops.
     func switchRecordingSource(to newSource: CaptureSource) {
         guard recordingSession.isRecording, !isSwitchingSource else { return }
+        if case .wirelessDevice(let key) = newSource, !WirelessDeviceHub.shared.isStreaming(key) {
+            // An iPhone that is only open (or only known to the account):
+            // ask it to broadcast and KEEP recording the current source while
+            // the user taps Start Broadcast. Switch once its first keyframe
+            // decodes; on timeout/failure nothing changes (the hub shows a
+            // quiet notice).
+            Task { @MainActor in
+                let streaming = await WirelessDeviceHub.shared.requestBroadcast(key)
+                guard streaming, self.recordingSession.isRecording || self.recordingSession.isPaused else { return }
+                await self.performSourceSwitch(to: newSource)
+            }
+            return
+        }
         Task { @MainActor in
             await performSourceSwitch(to: newSource)
         }
+    }
+
+    /// Start a Wi-Fi segment on the hub's live server. Throws when the phone
+    /// isn't streaming (it dropped between the pick and now).
+    @MainActor
+    private func startWirelessSegment(phone key: String, origin: CMTime) throws {
+        let hub = WirelessDeviceHub.shared
+        guard let server = hub.server, hub.isStreaming(key) else {
+            throw WirelessDeviceRecorder.RecorderError.notStreaming
+        }
+        wirelessRecorder.sharedOriginHostTime = origin
+        try wirelessRecorder.startRecording(
+            phone: key,
+            server: server,
+            sharedOrigin: origin,
+            microphoneDeviceID: selectedMicrophoneDeviceID,
+            captureMicrophone: recordingSession.isMicEnabled
+        )
     }
 
     @MainActor
@@ -1093,17 +1171,7 @@ final class AppState {
         keystrokeTracker.pause()
 
         // Finalize the active segment.
-        if isDeviceTake {
-            await deviceRecorder.stopRecording()
-            if let url = deviceRecorder.outputURL {
-                recordedSegments.append(RecordingSegment(url: url, kind: .device))
-            }
-        } else {
-            try? await recorder.stopRecording()
-            if let url = recorder.outputURL {
-                recordedSegments.append(RecordingSegment(url: url, kind: recorder.recordingSourceKind))
-            }
-        }
+        await finalizeActiveSegment()
 
         // Cursor coordinate mapping is bound to the original source — stop
         // collecting after the first switch (only segment 1 gets cursor FX).
@@ -1115,8 +1183,12 @@ final class AppState {
         // Roll into the next segment on a fresh clock origin.
         let origin = CMClockGetTime(CMClockGetHostTimeClock())
         do {
-            if case .iosDevice(let device) = newSource {
-                isDeviceTake = true
+            if case .wirelessDevice(let key) = newSource {
+                activeSegment = .wirelessDevice
+                try startWirelessSegment(phone: key, origin: origin)
+                await wirelessRecorder.waitForSessionStart()
+            } else if case .iosDevice(let device) = newSource {
+                activeSegment = .cabledDevice
                 if AVCaptureDevice.authorizationStatus(for: .video) != .authorized {
                     _ = await AVCaptureDevice.requestAccess(for: .video)
                 }
@@ -1129,7 +1201,7 @@ final class AppState {
                 )
                 await deviceRecorder.waitForSessionStart()
             } else {
-                isDeviceTake = false
+                activeSegment = .screen
                 recorder.sharedOriginHostTime = origin
                 let excludeWindows = await excludedWindows()
                 try await recorder.startRecording(
@@ -1156,7 +1228,7 @@ final class AppState {
             return NSScreen.screens.first {
                 ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) == display.displayID
             } ?? NSScreen.main
-        case .window, .iosDevice:
+        case .window, .iosDevice, .wirelessDevice:
             return NSScreen.main
         }
     }
