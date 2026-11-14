@@ -275,14 +275,30 @@ function decodeKey(raw: string | undefined): Uint8Array | null {
   return bytes.byteLength === 32 ? bytes : null;
 }
 
+/**
+ * The raw 32 bytes of STORAGE_CREDENTIALS_KEY, or null when it is unset or
+ * malformed. Bucket credentials use these bytes directly (ciphertexts
+ * written since 0029 depend on that); any OTHER secret kept at rest must
+ * derive its own key from them (HKDF with a distinct info label, as
+ * lib/wireless-link.ts does) — never reuse the raw key for a second purpose.
+ */
+export function storageCredentialsKeyBytes(env: Env): Uint8Array | null {
+  try {
+    return decodeKey(env.STORAGE_CREDENTIALS_KEY);
+  } catch {
+    return null;
+  }
+}
+
 async function credentialsKey(env: Env): Promise<CryptoKey> {
   const raw = decodeKey(env.STORAGE_CREDENTIALS_KEY);
   if (!raw) throw new StorageUnavailableError("Custom storage is not configured on this server.");
   return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
-export async function encryptSecret(env: Env, plaintext: string, aad: string): Promise<string> {
-  const key = await credentialsKey(env);
+/** AES-GCM seal under `key` (fresh 96-bit IV, `aad` bound in):
+ *  base64(iv || ciphertext). */
+export async function sealSecret(key: CryptoKey, plaintext: string, aad: string): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const sealed = new Uint8Array(
     await crypto.subtle.encrypt(
@@ -299,8 +315,8 @@ export async function encryptSecret(env: Env, plaintext: string, aad: string): P
   return btoa(binary);
 }
 
-export async function decryptSecret(env: Env, ciphertext: string, aad: string): Promise<string> {
-  const key = await credentialsKey(env);
+/** The inverse of sealSecret; throws when the key or `aad` is wrong. */
+export async function openSecret(key: CryptoKey, ciphertext: string, aad: string): Promise<string> {
   const bytes = Uint8Array.from(atob(ciphertext), (ch) => ch.charCodeAt(0));
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: bytes.slice(0, 12), additionalData: new TextEncoder().encode(aad) },
@@ -308,4 +324,12 @@ export async function decryptSecret(env: Env, ciphertext: string, aad: string): 
     bytes.slice(12)
   );
   return new TextDecoder().decode(plain);
+}
+
+export async function encryptSecret(env: Env, plaintext: string, aad: string): Promise<string> {
+  return sealSecret(await credentialsKey(env), plaintext, aad);
+}
+
+export async function decryptSecret(env: Env, ciphertext: string, aad: string): Promise<string> {
+  return openSecret(await credentialsKey(env), ciphertext, aad);
 }

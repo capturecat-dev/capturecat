@@ -82,6 +82,13 @@ ATTEST_MODE = "report"
 #                      The PUBLIC site key is NOT here; it lives in the web app
 #                      as NEXT_PUBLIC_TURNSTILE_SITE_KEY. Set via
 #                      `wrangler secret put TURNSTILE_SECRET`.
+#   APNS_KEY / APNS_KEY_ID / APNS_TEAM_ID
+#                    — optional; APNs token auth for "wake this phone" pushes
+#                      (POST /api/devices/:id/request-broadcast, lib/apns.ts).
+#                      APNS_KEY = full .p8 contents: `cat AuthKey_X.p8 |
+#                      npx wrangler secret put APNS_KEY`. Without all three
+#                      that endpoint answers 503 push_not_configured.
+#                      Optional var APNS_TOPIC (default "so.capturecat.ios").
 #   CF_SAAS_API_TOKEN — Cloudflare API token, "SSL and Certificates: Edit" on the
 #                      capturecat.so zone, for custom share domains (custom
 #                      hostnames). See scripts/setup-saas.sh.

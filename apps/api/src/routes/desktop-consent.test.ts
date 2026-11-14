@@ -107,12 +107,13 @@ function req(method: string, path: string, init: { as?: string; body?: unknown }
 }
 
 /** The app's "Sign In": authorize → the consent page's rid. */
-async function startSignIn(): Promise<string> {
+async function startSignIn(extra: Record<string, string> = {}): Promise<string> {
   const q = new URLSearchParams({
     redirect_uri: REDIRECT,
     code_challenge: await challengeFor(VERIFIER),
     code_challenge_method: "S256",
     state: "app-state-1",
+    ...extra,
   });
   const res = await req("GET", `/api/desktop/authorize?${q}`);
   expect(res.status).toBe(302);
@@ -225,5 +226,72 @@ describe("Mac sign-in consent", () => {
     // No session: refused (the cookie-CSRF gate answers before requireAuth's 401).
     expect([401, 403]).toContain((await req("POST", `/api/desktop/connect/${rid}/decision`, { body: { approve: true } })).status);
     expect(fake.sessions.size).toBe(0);
+  });
+});
+
+describe("iPhone and iPad sign-in (client=ios)", () => {
+  const IOS_APP = { name: "CaptureCat for iPhone and iPad", platform: "ios" };
+  const MAC_APP = { name: "CaptureCat for Mac", platform: "mac" };
+
+  it("records the client and the consent page names the app that asked", async () => {
+    const ios = await startSignIn({ client: "ios" });
+    expect(db.query(`SELECT client FROM desktop_auth_requests WHERE id = ?`, ios)[0]).toEqual({ client: "ios" });
+    expect(await (await req("GET", `/api/desktop/connect/${ios}`, { as: USER })).json()).toMatchObject({ app: IOS_APP });
+
+    // No client (every Mac build so far) and an explicit client=mac are the Mac.
+    for (const extra of [{}, { client: "mac" }] as Record<string, string>[]) {
+      const rid = await startSignIn(extra);
+      expect(db.query(`SELECT client FROM desktop_auth_requests WHERE id = ?`, rid)[0]).toEqual({ client: "mac" });
+      expect(await (await req("GET", `/api/desktop/connect/${rid}`, { as: USER })).json()).toMatchObject({ app: MAC_APP });
+    }
+  });
+
+  it("rejects any other client before recording anything", async () => {
+    for (const client of ["android", "IOS", "web"]) {
+      const q = new URLSearchParams({
+        redirect_uri: REDIRECT,
+        code_challenge: await challengeFor(VERIFIER),
+        code_challenge_method: "S256",
+        client,
+      });
+      expect((await req("GET", `/api/desktop/authorize?${q}`)).status).toBe(400);
+    }
+    expect(db.query(`SELECT COUNT(*) AS n FROM desktop_auth_requests`)[0]).toMatchObject({ n: 0 });
+  });
+
+  it("errors name the iPhone app; the Mac's wording is unchanged", async () => {
+    const ios = await startSignIn({ client: "ios" });
+    db.query(`UPDATE desktop_auth_requests SET expires_at = 1 WHERE id = ?`, ios);
+    expect(await (await req("GET", `/api/desktop/connect/${ios}`, { as: USER })).json()).toEqual({
+      error: "expired",
+      description: "This sign-in request expired. Start again from CaptureCat for iPhone and iPad.",
+      app: IOS_APP,
+    });
+
+    const iosAnswered = await startSignIn({ client: "ios" });
+    expect((await decide(iosAnswered, false)).status).toBe(200);
+    const again = await decide(iosAnswered, true);
+    expect(await again.json()).toMatchObject({
+      error: "answered",
+      description: "This sign-in request was already answered. Start again from CaptureCat for iPhone and iPad.",
+    });
+
+    const mac = await startSignIn();
+    db.query(`UPDATE desktop_auth_requests SET expires_at = 1 WHERE id = ?`, mac);
+    expect(await (await req("GET", `/api/desktop/connect/${mac}`, { as: USER })).json()).toMatchObject({
+      error: "expired",
+      description: "This sign-in request expired. Start again from CaptureCat for Mac.",
+    });
+  });
+
+  it("an iPhone sign-in completes exactly like the Mac's: a code for a new session", async () => {
+    const rid = await startSignIn({ client: "ios" });
+    const back = new URL(((await (await decide(rid, true)).json()) as { redirect: string }).redirect);
+    expect(`${back.origin}${back.pathname}`).toBe(REDIRECT);
+    const token = await req("POST", "/api/desktop/token", {
+      body: { code: back.searchParams.get("code"), code_verifier: VERIFIER, redirect_uri: REDIRECT },
+    });
+    expect(token.status).toBe(200);
+    expect(((await token.json()) as { token: string }).token).toMatch(/^desktop-session-/);
   });
 });

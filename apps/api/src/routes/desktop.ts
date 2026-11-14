@@ -25,6 +25,10 @@
  *   4. bound to the exact `redirect_uri` (including port) that requested it;
  *   5. two-minute lifetime;
  *   6. `state` is verified by the client before redemption.
+ *
+ * CaptureCat for iPhone and iPad signs in through this same bridge (its app
+ * also binds a 127.0.0.1 loopback listener); `client=ios` on /authorize only
+ * changes how the consent page and its errors name the app.
  */
 
 import { Hono } from "hono";
@@ -47,6 +51,23 @@ const CALLBACK_PATH = "/capturecat-auth/callback";
 // "sso" is the enterprise door: the chooser collects a work email and the
 // SSO plugin resolves the identity provider by its domain.
 const PROVIDERS = new Set(["apple", "google", "sso"]);
+
+/**
+ * Which native app is signing in. Both use this same loopback + PKCE bridge
+ * (the iOS app also listens on 127.0.0.1); the client only changes what the
+ * consent page and its errors call the app. Stored per request (migration
+ * 0042, `desktop_auth_requests.client`); absent = "mac", as before.
+ */
+export type DesktopClient = "mac" | "ios";
+const CLIENTS: Record<DesktopClient, { name: string; platform: DesktopClient }> = {
+  mac: { name: "CaptureCat for Mac", platform: "mac" },
+  ios: { name: "CaptureCat for iPhone and iPad", platform: "ios" },
+};
+
+/** The app a stored request names; anything unexpected reads as the Mac. */
+function clientApp(client: string | null | undefined): { name: string; platform: DesktopClient } {
+  return client === "ios" ? CLIENTS.ios : CLIENTS.mac;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -137,7 +158,7 @@ function errorPage(message: string) {
  */
 async function recordRequest(
   db: D1Database,
-  r: { codeChallenge: string; redirectUri: string; clientState: string | null; provider: string },
+  r: { codeChallenge: string; redirectUri: string; clientState: string | null; provider: string; client: DesktopClient },
 ): Promise<string | null> {
   const rid = crypto.randomUUID();
   const created = nowSec();
@@ -150,10 +171,10 @@ async function recordRequest(
     await db
       .prepare(
         `INSERT INTO desktop_auth_requests
-           (id, code_challenge, redirect_uri, client_state, provider, consumed, created_at, expires_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7)`,
+           (id, code_challenge, redirect_uri, client_state, provider, consumed, created_at, expires_at, client)
+         VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7, ?8)`,
       )
-      .bind(rid, r.codeChallenge, r.redirectUri, r.clientState, r.provider, created, created + REQUEST_TTL_SEC)
+      .bind(rid, r.codeChallenge, r.redirectUri, r.clientState, r.provider, created, created + REQUEST_TTL_SEC, r.client)
       .run();
   } catch (err) {
     console.error("desktop: could not record authorization request", err);
@@ -188,6 +209,14 @@ desktopRoutes.get("/desktop/authorize", async (c) => {
   const codeChallenge = c.req.query("code_challenge") ?? "";
   const method = c.req.query("code_challenge_method") ?? "";
   const clientState = c.req.query("state") ?? null;
+  const clientParam = c.req.query("client") ?? "";
+
+  // Which app is asking: "mac" (the default, and every Mac build so far) or
+  // "ios". Anything else means a hand-built URL.
+  if (clientParam !== "" && clientParam !== "mac" && clientParam !== "ios") {
+    return c.html(errorPage("Unsupported client."), 400);
+  }
+  const client: DesktopClient = clientParam === "ios" ? "ios" : "mac";
 
   // An EMPTY provider is the normal case now — the app has a single "Sign In"
   // button and the choice happens on the chooser page below. A NON-empty but
@@ -217,7 +246,7 @@ desktopRoutes.get("/desktop/authorize", async (c) => {
   // sees is CaptureCat's own; the loopback hop at the end is invisible (the
   // app answers it with a redirect to the page's "done" screen).
   if (provider === "") {
-    const rid = await recordRequest(c.env.DB, { codeChallenge, redirectUri, clientState, provider: "consent" });
+    const rid = await recordRequest(c.env.DB, { codeChallenge, redirectUri, clientState, provider: "consent", client });
     if (!rid) return c.html(errorPage("Could not start sign-in. Please try again."), 500);
     return c.redirect(`${appBaseURL(c.env)}/connect/mac?rid=${rid}`, 302);
   }
@@ -240,7 +269,7 @@ desktopRoutes.get("/desktop/authorize", async (c) => {
 
   const auth = getAuth(c.env);
   const origin = new URL(c.env.BETTER_AUTH_URL).origin;
-  const rid = await recordRequest(c.env.DB, { codeChallenge, redirectUri, clientState, provider });
+  const rid = await recordRequest(c.env.DB, { codeChallenge, redirectUri, clientState, provider, client });
   if (!rid) return c.html(errorPage("Could not start sign-in. Please try again."), 500);
 
   let result: { headers: Headers; response: unknown };
@@ -292,6 +321,7 @@ desktopRoutes.get("/desktop/authorize", async (c) => {
 
 // ---------------------------------------------------------------------------
 // The consent page's API (SESSION ONLY): app.capturecat.so/connect/mac
+// (the same page for both native apps; it names the one that asked)
 //   GET  /desktop/connect/:rid            what the page shows
 //   POST /desktop/connect/:rid/decision   { approve } -> { redirect }
 // ---------------------------------------------------------------------------
@@ -303,20 +333,25 @@ function loopbackRedirect(redirectUri: string, params: Record<string, string | n
   return target.toString();
 }
 
-type OpenRequest = { redirect_uri: string; client_state: string | null; expires_at: number };
+type OpenRequest = { redirect_uri: string; client_state: string | null; expires_at: number; client: string };
+type ClosedRequest = { error: string; description: string; app?: { name: string; platform: DesktopClient } };
 
 /** A request the page may still answer: recorded, unexpired, unanswered. */
-async function openRequest(db: D1Database, rid: string): Promise<OpenRequest | { error: string; description: string }> {
+async function openRequest(db: D1Database, rid: string): Promise<OpenRequest | ClosedRequest> {
   const row = await db
-    .prepare(`SELECT redirect_uri, client_state, ott_hash, consumed, expires_at FROM desktop_auth_requests WHERE id = ?`)
+    .prepare(
+      `SELECT redirect_uri, client_state, ott_hash, consumed, expires_at, client FROM desktop_auth_requests WHERE id = ?`,
+    )
     .bind(rid)
     .first<OpenRequest & { ott_hash: string | null; consumed: number }>();
+  // Unknown: there is no row to say which app asked, so the Mac's wording stays.
   if (!row) return { error: "unknown_request", description: "This sign-in request is unknown. Start again from CaptureCat for Mac." };
+  const app = clientApp(row.client);
   if (row.expires_at <= nowSec()) {
-    return { error: "expired", description: "This sign-in request expired. Start again from CaptureCat for Mac." };
+    return { error: "expired", description: `This sign-in request expired. Start again from ${app.name}.`, app };
   }
   if (row.ott_hash || row.consumed) {
-    return { error: "answered", description: "This sign-in request was already answered. Start again from CaptureCat for Mac." };
+    return { error: "answered", description: `This sign-in request was already answered. Start again from ${app.name}.`, app };
   }
   return row;
 }
@@ -324,7 +359,7 @@ async function openRequest(db: D1Database, rid: string): Promise<OpenRequest | {
 desktopRoutes.get("/desktop/connect/:rid", refuseAgentCredentials, requireAuth, async (c) => {
   const open = await openRequest(c.env.DB, c.req.param("rid"));
   if ("error" in open) return c.json(open, 400);
-  return c.json({ app: { name: "CaptureCat for Mac" }, expiresAt: open.expires_at });
+  return c.json({ app: clientApp(open.client), expiresAt: open.expires_at });
 });
 
 desktopRoutes.post(
@@ -358,10 +393,10 @@ desktopRoutes.post(
       });
     }
 
-    // The Mac gets a session of its OWN, not this browser's: signing out of
-    // one never signs out the other. The code is minted against it (the
-    // bearer plugin turns the header into that session), so the token the
-    // app redeems at /desktop/token is the new session's.
+    // The app (Mac or iPhone) gets a session of its OWN, not this browser's:
+    // signing out of one never signs out the other. The code is minted
+    // against it (the bearer plugin turns the header into that session), so
+    // the token the app redeems at /desktop/token is the new session's.
     const auth = getAuth(c.env);
     const ctx = await auth.$context;
     let sessionToken: string;
@@ -383,8 +418,9 @@ desktopRoutes.post(
       .run();
     if (!bind.meta.changes) {
       await ctx.internalAdapter.deleteSession(sessionToken).catch(() => {});
+      const app = clientApp(open.client);
       return c.json(
-        { error: "answered", description: "This sign-in request was already answered. Start again from CaptureCat for Mac." },
+        { error: "answered", description: `This sign-in request was already answered. Start again from ${app.name}.`, app },
         400,
       );
     }

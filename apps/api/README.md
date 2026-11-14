@@ -229,6 +229,94 @@ subscriber in dunning that this API still treats as paid.
 `POST /api/desktop/revoke` (bearer) signs the session out server-side; the app
 clears the Keychain first so revocation can never be blocked by a flaky network.
 
+## iPhone over Wi-Fi (devices, link key, APNs)
+
+CaptureCat for iPhone and iPad (bundle id `so.capturecat.ios`) streams the
+iPhone screen to CaptureCat for Mac over the local network. It signs in
+through the loopback + PKCE bridge above, adding `client=ios` to
+`/api/desktop/authorize` (absent or `mac` = the Mac; anything else is a 400):
+the consent page and its errors then name "CaptureCat for iPhone and iPad".
+`GET /api/desktop/connect/:rid` returns `app: { name, platform }`.
+
+Routes: `src/routes/devices.ts`; schema: `migrations/0042_devices_wireless.sql`;
+the clients' wire contract: `apps/macos/CaptureCat/Shared/WirelessDeviceProtocol.swift`.
+
+| Endpoint | What |
+|---|---|
+| `GET /api/wireless/link` | `{ key, keyId, createdAt }` — the account's device link key (base64url, 32 bytes, no padding), created on first call; concurrent first calls converge on one key |
+| `POST /api/wireless/link/rotate` | same shape, fresh key ("Forget my devices") |
+| `PUT /api/devices/:deviceId` | register/refresh this device (`deviceId` = UUID, stored lowercase): `{ platform: "ios"\|"mac", name, model?, systemVersion?, appVersion?, apnsToken?, apnsEnvironment? }` → the public device |
+| `GET /api/devices` | `{ devices: [{ deviceId, platform, name, model, systemVersion, appVersion, canPush, lastSeenAt }] }`, newest first |
+| `DELETE /api/devices/:deviceId` | `{ deleted: true }` (404 `not_found` if absent) — the app calls it on sign-out |
+| `POST /api/devices/:deviceId/request-broadcast` | `{ macId, macName }` → APNs alert to that phone → `{ sent: true }` |
+
+- **Native apps only.** Every route chains `requireBearer` →
+  `refuseAgentCredentials` → `requireAuth`. A request without
+  `Authorization: Bearer …` is 401 `bearer_required`, and the `Cookie` header
+  is stripped before the session lookup — Better Auth's bearer plugin falls
+  back to the cookie when a bearer value does not verify, so without that an
+  XSS on a web origin could send `Bearer junk` plus the browser's cookie and
+  read the link key. Agent tokens are 403. Not plan-gated (Free included).
+- **Link key at rest.** AES-GCM (lib/storage.ts `sealSecret`) under a key
+  HKDF-SHA256-derived from `STORAGE_CREDENTIALS_KEY` with info
+  `capturecat-wireless-link-v1/at-rest` — never the raw key, which bucket
+  credentials use — with the user id as additional data. Without that secret
+  both link routes answer 503 `wireless_unavailable`; nothing is stored in
+  clear. `keyId` = lowercase hex of the first 8 bytes of
+  SHA-256("capturecat-wireless-link-v1" ‖ key) (`WirelessLink.keyID(for:)`;
+  key bytes 0x00…0x1f → `8f40509a77686376`). A row that no longer opens (the
+  secret was replaced) is swapped for a fresh key, which devices treat as a
+  rotation.
+- **APNs tokens are write-only.** No response contains one. `apnsToken`
+  absent = keep the stored token, `null` = forget it, 64–200 hex = replace it
+  (then `apnsEnvironment` `sandbox`\|`production` is required; iOS only). A
+  token is held by one device row at a time. `canPush` = iOS + a token + APNs
+  configured on this server. The newest 50 devices per account are kept.
+- **request-broadcast.** The device must be the caller's (else 404
+  `not_found`). 503 `push_not_configured` without the APNs secrets; 409
+  `push_unavailable` when the device has no token, or when APNs answers 410 /
+  `BadDeviceToken` / `Unregistered` (the token is then forgotten); 502
+  `push_failed` for anything else, transport errors included — retryable,
+  the token is kept. The alert: title "Stream to <macName>", body "Tap to
+  share your screen with CaptureCat on <macName>.", category
+  `CC_BROADCAST_REQUEST`, `interruption-level: time-sensitive`,
+  `apns-push-type: alert`, priority 10, expiry now + 120 s, collapse id
+  `broadcast-request`, custom key `cc: { type: "requestBroadcast", macId, macName }`
+  (`macName` cleaned of control/bidi characters, ≤ 60 characters; `macId`
+  lowercased).
+- **APNs client** (`lib/apns.ts`): token auth, an ES256 JWT (`kid` =
+  `APNS_KEY_ID`, `iss` = `APNS_TEAM_ID`, `iat`) signed with WebCrypto and
+  reused for 50 minutes; `api.push.apple.com` for production device tokens,
+  `api.sandbox.push.apple.com` for development builds. APNs is HTTP/2 only:
+  a deployed Worker negotiates it, local workerd on macOS does not
+  (cloudflare/workerd#4841), so pushes cannot be tried from `wrangler dev`.
+- **Limits.** Per uid: 30/min for the link and device routes, 10/min for
+  request-broadcast. Per IP: 60/min on `/api/wireless/*`, 120/min on
+  `/api/devices/*`.
+- **Account deletion.** `wireless_links` and `user_devices` reference
+  `user(id) ON DELETE CASCADE`.
+
+Go-live, in this order:
+
+1. `npx wrangler d1 migrations apply capturecat --remote` (0042) **before**
+   deploying: `/api/desktop/authorize` writes the new
+   `desktop_auth_requests.client` column, so every sign-in — the Mac's
+   included — fails on a Worker that runs ahead of the migration.
+2. `npm run deploy`. `STORAGE_CREDENTIALS_KEY` is already required for custom
+   storage; the link routes are 503 without it.
+3. The owner adds the APNs secrets (an APNs auth key from the Apple developer
+   account, team E52HU87CX9). Until then request-broadcast answers 503
+   `push_not_configured` and `canPush` is false; everything else works.
+
+   ```bash
+   cat AuthKey_XXXXXXXXXX.p8 | npx wrangler secret put APNS_KEY
+   npx wrangler secret put APNS_KEY_ID      # the 10 chars from the .p8 filename
+   npx wrangler secret put APNS_TEAM_ID     # E52HU87CX9
+   ```
+
+   `APNS_TOPIC` (a var, default `so.capturecat.ios`) only needs setting if
+   the iOS bundle id ever changes.
+
 ## Security layers (added 2026-08-02)
 
 Three layers protect paid features and metered resources:

@@ -35,6 +35,7 @@ import { mcpRoutes } from "./mcp/routes";
 import { AGENT_AUDIT_RETENTION_DAYS } from "./lib/agent-tokens";
 import { agentApprovalRoutes } from "./routes/agent-approvals";
 import { webhookRoutes } from "./routes/webhooks";
+import { devicesRoutes } from "./routes/devices";
 import { changelogRoutes } from "./routes/changelog";
 import { oauthRoutes } from "./routes/oauth";
 import { SITE_DOCUMENTS, frontDoorRoutes } from "./routes/front-door";
@@ -313,6 +314,11 @@ app.use("/api/agent-tokens/*", rateLimit({ limit: 60, windowSec: 60, prefix: "ag
 app.use("/api/agent-approvals/*", rateLimit({ limit: 60, windowSec: 60, prefix: "agentapprovals" }));
 app.use("/api/webhooks/*", rateLimit({ limit: 60, windowSec: 60, prefix: "webhooks" }));
 app.use("/api/oauth/*", rateLimit({ limit: 60, windowSec: 60, prefix: "oauthapi" }));
+// Native devices + the account's wireless link key (bearer only): the per-uid
+// D1 limits inside the router are the real bound; this is the cheap outer one.
+// `/*` also matches the bare `/api/devices` (the list).
+app.use("/api/devices/*", rateLimit({ limit: 120, windowSec: 60, prefix: "devices" }));
+app.use("/api/wireless/*", rateLimit({ limit: 60, windowSec: 60, prefix: "wireless" }));
 // OAuth: only the consent redirect is limited per IP — it is a browser
 // navigation from the user's own address. /oauth/token, /oauth/revoke and
 // /oauth/register are called server-to-server by Claude.ai, ChatGPT & co.
@@ -406,6 +412,11 @@ app.route("/api", agentTokenRoutes);
 app.route("/api", agentApprovalRoutes);
 // Webhook endpoints (session only; agents use the MCP tools).
 app.route("/api", webhookRoutes);
+// "iPhone over Wi-Fi": the account's native devices (APNs registry, the Mac's
+// "wake this phone" push) and the device link key they share. Native apps
+// only — bearer sessions, never cookies or agent tokens. See
+// src/routes/devices.ts and migration 0042.
+app.route("/api", devicesRoutes);
 // OAuth 2.1 for the MCP server: discovery, /oauth/*, and the consent page's
 // session API under /api/oauth/*.
 app.route("/", oauthRoutes);

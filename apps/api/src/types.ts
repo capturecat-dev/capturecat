@@ -89,8 +89,22 @@ export interface Env {
    *  key for the secret access keys of user-connected storage buckets
    *  (lib/storage.ts). Without it custom storage reports itself unavailable.
    *  Rotating it makes every connected bucket unreadable until reconnected —
-   *  treat as permanent, like BETTER_AUTH_SECRET. */
+   *  treat as permanent, like BETTER_AUTH_SECRET. The account device link
+   *  keys (lib/wireless-link.ts, migration 0042) are sealed under a key
+   *  HKDF-derived from it (own info label); without it /api/wireless/* is 503
+   *  `wireless_unavailable`. */
   STORAGE_CREDENTIALS_KEY?: string;
+
+  /** Secrets — Apple Push Notification service, token-based auth
+   *  (lib/apns.ts). APNS_KEY is the full .p8 contents (BEGIN/END lines
+   *  included) of an APNs auth key; APNS_KEY_ID its 10-character key id;
+   *  APNS_TEAM_ID the Apple developer team id. Without all three,
+   *  POST /api/devices/:id/request-broadcast answers 503 push_not_configured. */
+  APNS_KEY?: string;
+  APNS_KEY_ID?: string;
+  APNS_TEAM_ID?: string;
+  /** Var — the iOS app's bundle id, sent as apns-topic. Default "so.capturecat.ios". */
+  APNS_TOPIC?: string;
 }
 
 export interface AuthUser {

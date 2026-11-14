@@ -5,24 +5,31 @@ import { authedProcedure, createTRPCRouter } from "@/lib/trpc/init";
 import { fail } from "./agent-tokens";
 
 /**
- * The Mac app's sign-in consent (routes/connect.mac.tsx → apps/api/src/
+ * The native apps' sign-in consent — CaptureCat for Mac and CaptureCat for
+ * iPhone and iPad share it (routes/connect.mac.tsx → apps/api/src/
  * routes/desktop.ts, /api/desktop/connect/*). The API decides everything —
- * whether the request is still open, the new session, the loopback redirect
- * — this router only relays the signed-in browser's calls.
+ * whether the request is still open, which app asked, the new session, the
+ * loopback redirect — this router only relays the signed-in browser's calls.
  */
 const Rid = z.string().uuid();
 
+/** Which native app asked. An API older than migration 0042 sends no
+ *  `platform`: that is the Mac. */
+export type ConnectApp = { name: string; platform?: "mac" | "ios" };
+
 export type MacConnectInfo =
-  | { ok: true; app: { name: string }; expiresAt: number }
-  | { ok: false; error: string; description: string };
+  | { ok: true; app: ConnectApp; expiresAt: number }
+  | { ok: false; error: string; description: string; app?: ConnectApp };
 
 export const desktopConnectRouter = createTRPCRouter({
   /** What the consent page shows, or why the request can't go on. */
   info: authedProcedure.input(z.object({ rid: Rid })).query(async ({ input }): Promise<MacConnectInfo> => {
     const res = await apiFetch(`/api/desktop/connect/${input.rid}`);
-    if (res.status === 400) return { ok: false, ...((await res.json()) as { error: string; description: string }) };
+    if (res.status === 400) {
+      return { ok: false, ...((await res.json()) as { error: string; description: string; app?: ConnectApp }) };
+    }
     if (!res.ok) return fail(res, "Could not load this sign-in request");
-    return { ok: true, ...((await res.json()) as { app: { name: string }; expiresAt: number }) };
+    return { ok: true, ...((await res.json()) as { app: ConnectApp; expiresAt: number }) };
   }),
 
   /** Allow or Cancel → where to send the browser (the app's loopback). */

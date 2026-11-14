@@ -6,10 +6,12 @@ import { MacConnectPage } from "@/components/oauth/mac-connect-page";
 
 /**
  * "Sign in to CaptureCat for Mac" — the consent page the API sends the
- * browser to when the Mac app's Sign In starts (apps/api/src/routes/
- * desktop.ts, /desktop/authorize). Signed out → /login, then back here;
- * signed in → who is asking, what it may do, Allow / Cancel. The API owns
- * the request (rid) and re-checks it on every call — nothing here is trusted.
+ * browser to when a native app's Sign In starts (apps/api/src/routes/
+ * desktop.ts, /desktop/authorize): CaptureCat for Mac, or CaptureCat for
+ * iPhone and iPad (`client=ios`), which the page names once the API says so.
+ * Signed out → /login, then back here; signed in → who is asking, what it may
+ * do, Allow / Cancel. The API owns the request (rid) and re-checks it on
+ * every call — nothing here is trusted.
  */
 const searchSchema = z.object({ rid: z.string().uuid().optional().catch(undefined) });
 

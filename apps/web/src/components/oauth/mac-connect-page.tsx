@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc/client";
@@ -8,16 +8,24 @@ import { Spinner } from "@/components/ui/spinner";
 import { CCIcon } from "@/editor/ui/kit/ccIcon";
 
 /**
- * "Allow CaptureCat for Mac to use your account?" — the Mac app's sign-in
- * consent (routes/connect.mac.tsx). The app's Sign In opens the browser on
- * api.capturecat.so/api/desktop/authorize, which records the request (PKCE,
- * loopback redirect) and sends the browser here; Allow gives the Mac a
- * session of its own and the API hands the browser back to the app's
- * loopback, which answers with routes/connect.mac_.done.tsx. Same card as the
- * agent consent page (components/oauth/consent-page.tsx).
+ * "Allow CaptureCat for Mac to use your account?" — the native apps' sign-in
+ * consent (routes/connect.mac.tsx). CaptureCat for Mac and CaptureCat for
+ * iPhone and iPad both land here: the app's Sign In opens the browser on
+ * api.capturecat.so/api/desktop/authorize (the iPhone app adds client=ios),
+ * which records the request (PKCE, loopback redirect, which app) and sends
+ * the browser here; Allow gives the app a session of its own and the API
+ * hands the browser back to the app's loopback, which answers with
+ * routes/connect.mac_.done.tsx. The API says which app asked
+ * (`app.platform`); the Mac's copy is the default. Same card as the agent
+ * consent page (components/oauth/consent-page.tsx).
  */
 export function MacConnectPage({ rid, email, name }: { rid: string; email: string; name: string | null }) {
   const info = trpc.desktopConnect.info.useQuery({ rid }, { retry: false, refetchOnWindowFocus: false });
+  const platform = connectPlatform(info.data?.app?.platform);
+  useEffect(() => {
+    // The route's <title> is the Mac's; name the app that actually asked.
+    if (platform === "ios") document.title = CONNECT_COPY.ios.heading;
+  }, [platform]);
   return (
     <MacConnectShell>
       {info.isLoading ? (
@@ -26,14 +34,21 @@ export function MacConnectPage({ rid, email, name }: { rid: string; email: strin
           <Skeleton className="h-40 w-full" />
         </div>
       ) : info.error ? (
-        <Stopped title="Can't sign in right now" description={info.error.message} />
+        <Stopped title="Can't sign in right now" description={info.error.message} platform={platform} />
       ) : info.data && !info.data.ok ? (
-        <Stopped title="This sign-in link has ended" description={info.data.description} />
+        <Stopped title="This sign-in link has ended" description={info.data.description} platform={platform} />
       ) : info.data ? (
-        <MacConsentCard rid={rid} email={email} name={name} />
+        <MacConsentCard rid={rid} email={email} name={name} platform={platform} />
       ) : null}
     </MacConnectShell>
   );
+}
+
+/** Which native app is signing in. Anything but "ios" is the Mac. */
+export type ConnectPlatform = "mac" | "ios";
+
+export function connectPlatform(value: string | null | undefined): ConnectPlatform {
+  return value === "ios" ? "ios" : "mac";
 }
 
 export function MacConnectShell({ children }: { children: React.ReactNode }) {
@@ -52,36 +67,89 @@ export function MacConnectShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** The Mac app's icon with a small laptop badge — "CaptureCat for Mac". */
-export function MacAppMark({ className = "size-14" }: { className?: string }) {
+/**
+ * The app's icon with a small device badge: a laptop for "CaptureCat for
+ * Mac", a phone for "CaptureCat for iPhone and iPad".
+ */
+export function MacAppMark({ className = "size-14", platform = "mac" }: { className?: string; platform?: ConnectPlatform }) {
+  const copy = CONNECT_COPY[platform];
   return (
     <span className={`relative inline-grid shrink-0 place-items-center ${className}`}>
-      <img src="/icon.png" alt="CaptureCat for Mac" className="size-full rounded-[22%] shadow-lg shadow-black/30" />
+      <img src="/icon.png" alt={copy.appName} className="size-full rounded-[22%] shadow-lg shadow-black/30" />
       <span className="absolute -bottom-1 -right-1 grid size-6 place-items-center rounded-full border border-white/15 bg-background text-muted-foreground">
-        <CCIcon name="laptop" size={13} />
+        <CCIcon name={copy.badge} size={13} />
       </span>
     </span>
   );
 }
 
-function Stopped({ title, description }: { title: string; description: string }) {
+function Stopped({ title, description, platform }: { title: string; description: string; platform: ConnectPlatform }) {
   return (
     <div className="space-y-4 text-center">
       <CCIcon name="warning-fill" className="mx-auto size-6 text-cc-amber-text" />
       <h1 className="text-lg font-semibold">{title}</h1>
       <p className="text-sm text-muted-foreground">{description}</p>
-      <p className="text-xs text-muted-foreground">In CaptureCat for Mac, choose Sign In again. You can close this tab.</p>
+      <p className="text-xs text-muted-foreground">{CONNECT_COPY[platform].tryAgain}</p>
     </div>
   );
 }
 
-const ABILITIES = [
+const MAC_ABILITIES = [
   { icon: "cloud-upload", title: "Upload your recordings and make share links", detail: "Only the ones you choose to share" },
   { icon: "sync", title: "Sync projects with the web editor", detail: "Continue on Mac and Open in Web Editor, both ways" },
   { icon: "sparkles", title: "Use your plan", detail: "Your recording length, features and storage" },
 ] as const;
 
-export function MacConsentCard({ rid, email, name }: { rid: string; email: string; name: string | null }) {
+const IOS_ABILITIES = [
+  {
+    icon: "screen-record",
+    title: "Stream your screen to CaptureCat for Mac",
+    detail: "Over your Wi-Fi, only to Macs signed in to this account",
+  },
+  {
+    icon: "bell",
+    title: "Get asked to start streaming",
+    detail: "A notification when one of your Macs asks to record this screen",
+  },
+] as const;
+
+/** Everything the consent screens say that depends on which app asked. The
+ *  Mac's strings are the page's original copy, unchanged. */
+export const CONNECT_COPY = {
+  mac: {
+    appName: "CaptureCat for Mac",
+    heading: "Sign in to CaptureCat for Mac",
+    asker: "The Mac app",
+    badge: "laptop",
+    abilities: MAC_ABILITIES,
+    staysSignedIn:
+      "It stays signed in on this Mac until you sign out in the app. CaptureCat never sees your Google or Apple password, and signing out here doesn't sign the Mac out.",
+    tryAgain: "In CaptureCat for Mac, choose Sign In again. You can close this tab.",
+  },
+  ios: {
+    appName: "CaptureCat for iPhone and iPad",
+    heading: "Sign in to CaptureCat for iPhone and iPad",
+    asker: "The iPhone and iPad app",
+    badge: "iphone",
+    abilities: IOS_ABILITIES,
+    staysSignedIn:
+      "It stays signed in on this iPhone or iPad until you sign out in the app. CaptureCat never sees your Google or Apple password, and signing out here doesn't sign the app out.",
+    tryAgain: "In CaptureCat on your iPhone or iPad, choose Sign In again. You can close this tab.",
+  },
+} as const;
+
+export function MacConsentCard({
+  rid,
+  email,
+  name,
+  platform = "mac",
+}: {
+  rid: string;
+  email: string;
+  name: string | null;
+  platform?: ConnectPlatform;
+}) {
+  const copy = CONNECT_COPY[platform];
   const [leaving, setLeaving] = useState<"allow" | "cancel" | "switch" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const decide = trpc.desktopConnect.decide.useMutation({
@@ -115,7 +183,7 @@ export function MacConsentCard({ rid, email, name }: { rid: string; email: strin
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-center gap-4">
-        <MacAppMark />
+        <MacAppMark platform={platform} />
         <span className="flex items-center gap-1.5 text-muted-foreground" aria-hidden>
           <span className="size-1.5 rounded-full bg-current opacity-30" />
           <span className="size-1.5 rounded-full bg-current opacity-60" />
@@ -127,9 +195,9 @@ export function MacConsentCard({ rid, email, name }: { rid: string; email: strin
       </div>
 
       <div className="text-center">
-        <h1 className="text-xl font-semibold tracking-[-0.01em]">Sign in to CaptureCat for Mac</h1>
+        <h1 className="text-xl font-semibold tracking-[-0.01em]">{copy.heading}</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          The Mac app wants to use your CaptureCat account
+          {copy.asker} wants to use your CaptureCat account
           {name ? (
             <>
               , <span className="text-foreground">{name}</span>
@@ -154,7 +222,7 @@ export function MacConsentCard({ rid, email, name }: { rid: string; email: strin
       <div className="space-y-2">
         <span className="studio-eyebrow block">It will be able to</span>
         <ul className="cc-well divide-y divide-white/5 rounded-[0.875rem]">
-          {ABILITIES.map((a) => (
+          {copy.abilities.map((a) => (
             <li key={a.title} className="flex items-start gap-3 px-3.5 py-3">
               <CCIcon name={a.icon} size={16} className="mt-0.5 shrink-0 text-foreground" />
               <span className="min-w-0">
@@ -166,10 +234,7 @@ export function MacConsentCard({ rid, email, name }: { rid: string; email: strin
         </ul>
         <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
           <CCIcon name="seal-check" size={14} className="mt-px shrink-0 text-cc-green-text" />
-          <span>
-            It stays signed in on this Mac until you sign out in the app. CaptureCat never sees your Google or Apple
-            password, and signing out here doesn't sign the Mac out.
-          </span>
+          <span>{copy.staysSignedIn}</span>
         </p>
       </div>
 
