@@ -217,7 +217,8 @@ enum ExportFormatsHarness {
         }
 
         // The camera-layout key string (String(format:) rounding + "-0").
-        func resolved(_ rect: CGRect?, _ camOp: Double, _ chrome: Double, _ scale: CGFloat, _ tx: CGFloat) -> CameraLayoutMath.Resolved {
+        func resolved(_ rect: CGRect?, _ camOp: Double, _ chrome: Double, _ scale: CGFloat, _ tx: CGFloat,
+                      _ ty: CGFloat = 0) -> CameraLayoutMath.Resolved {
             var l = CameraLayoutMath.resolve(
                 at: 0, regions: [], videoRect: CGRect(x: 0, y: 0, width: 100, height: 100),
                 bubbleRect: CGRect(x: 0, y: 0, width: 10, height: 10), bubbleCornerRadius: 0, cardCornerRadius: 0,
@@ -227,11 +228,13 @@ enum ExportFormatsHarness {
             l.chromeOpacity = chrome
             l.cardScale = scale
             l.cardTranslationX = tx
+            l.cardTranslationY = ty
             return l
         }
         let layouts = [
             resolved(nil, 1, 1, 1, 0),
-            resolved(CGRect(x: 12.5, y: 30.49, width: 240.5, height: 179.5), 0.99949, 0.0005, 0.99995, -0.04),
+            // A vertical-stack Y translation (docs/camera-cutout.md §12.12) rides the key too.
+            resolved(CGRect(x: 12.5, y: 30.49, width: 240.5, height: 179.5), 0.99949, 0.0005, 0.99995, -0.04, -37.3),
             resolved(CGRect(x: -0.4, y: -0.6, width: 1.5, height: 2.5), 0.12345, 0.9876, 1.23456, 12.25),
             resolved(CGRect(x: 1919.5, y: 0.5, width: 0.5, height: 1080.5), 0.0015, 0.0025, 0.00005, -0.05),
         ]
@@ -247,11 +250,16 @@ enum ExportFormatsHarness {
             if let c = l.cameraRect { rect = ["x": Double(c.minX), "y": Double(c.minY), "width": Double(c.width), "height": Double(c.height)] }
             return ["cameraRect": rect, "cameraOpacity": l.cameraOpacity, "chromeOpacity": l.chromeOpacity,
                     "cardScale": Double(l.cardScale), "cardTranslationX": Double(l.cardTranslationX),
+                    "cardTranslationY": Double(l.cardTranslationY),
                     "cutout": w.cutout, "popOut": w.popOut,
                     "key": StaticSpanCollapse.cameraLayoutKey(l, looks: w)]
         }
-        expect(layoutKeys.allSatisfy { ($0["key"] as? String)?.split(separator: ",").count == 10 },
-               "camera-layout key: 10 fields (two look weights appended)")
+        // 4 rect + camera/chrome opacity + scale + translation X and Y (Y since
+        // the vertical stack, §12.12) + the two look weights (§11).
+        expect(layoutKeys.allSatisfy { ($0["key"] as? String)?.split(separator: ",").count == 11 },
+               "camera-layout key: 11 fields (cardTranslationY, then two look weights)")
+        expect((layoutKeys[1]["key"] as? String)?.split(separator: ",").dropFirst(8).first == "-37.3",
+               "camera-layout key carries cardTranslationY after cardTranslationX")
         expect((layoutKeys[0]["key"] as? String)?.hasSuffix(",0.000,0.000") == true,
                "camera-layout key without a look ends in ,0.000,0.000")
 
