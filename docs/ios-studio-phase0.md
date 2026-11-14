@@ -295,8 +295,10 @@ product notes:
 
 ## 6. Found along the way (not fixed here)
 
-- `--export-formats-test` fails one check on `main` (`f8cc6f0`): "camera-layout key: 10 fields
-  (two look weights appended)". The same single failure appears with and without this branch.
+- `--export-formats-test` failed one check on `main` (`f8cc6f0`): "camera-layout key: 10 fields".
+  The vertical stack (`4fd6da2`) had deliberately added `cardTranslationY` to the key, and only the
+  harness lagged. **Fixed on this branch (`38acbc6`); the gate passes.** The committed web golden
+  still has the older 10-field keys, which its test tolerates; refresh it when `apps/web` is free.
 - **Exported audio is not bit-reproducible** (§1). With speed regions, the sped-up stretch differs
   between two exports of the same project. This is presumably inaudible (time-domain splice
   points), but it means preview↔export audio can only ever be gated with a tolerance.
