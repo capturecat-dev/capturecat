@@ -1,6 +1,6 @@
-import AppKit
 import CoreGraphics
 import CoreText
+import Foundation
 
 /// Every annotation type, drawn in pure CoreGraphics.
 ///
@@ -669,9 +669,9 @@ enum AnnotationRenderer {
                 size: a.fontSize * scale,
                 weight: a.fontWeight.nsWeight
             )
-            attributed = NSAttributedString(string: a.displayText, attributes: [.font: font])
-            size = attributed.size()
-            baselineFromTop = font.ascender.rounded()
+            attributed = PlatformText.string(a.displayText, font: font)
+            size = PlatformText.size(of: attributed)
+            baselineFromTop = PlatformText.ascender(of: font).rounded()
         }
 
         /// Draws centred on `center` in a Y-DOWN context.
@@ -684,13 +684,7 @@ enum AnnotationRenderer {
         /// scale is not the raster scale and the grid would be the wrong one.
         func draw(in ctx: CGContext, center: CGPoint, color: SRGBA, snapToPixels: Bool = true) {
             guard attributed.length > 0 else { return }
-            let colored = NSMutableAttributedString(attributedString: attributed)
-            colored.addAttribute(
-                .foregroundColor,
-                value: NSColor(srgbRed: color.red, green: color.green,
-                               blue: color.blue, alpha: color.alpha),
-                range: NSRange(location: 0, length: colored.length)
-            )
+            let colored = PlatformText.colored(attributed, color)
             let line = CTLineCreateWithAttributedString(colored)
             ctx.saveGState()
             // CoreText draws baseline-up; the context is y-down, so flip about

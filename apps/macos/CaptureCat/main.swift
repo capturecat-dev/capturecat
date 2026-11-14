@@ -84,6 +84,13 @@ if CommandLine.arguments.contains("--keystroke-overlay-test") {
     KeystrokeOverlayHarness.run()
 }
 
+// Frozen font table gate: every FontFaceTable entry is still the face
+// NSFontManager resolves live on this Mac, the routed FontCatalog path agrees,
+// and injected wrong entries are caught. Never reached in a normal launch.
+if CommandLine.arguments.contains("--font-table-test") {
+    FontTableHarness.run()
+}
+
 // CCKit gallery probe: every component's topology, live dark/light theme
 // swap, and toggle motion mid-flight. Never reached in a normal launch.
 if CommandLine.arguments.contains("--capkit-shot") {

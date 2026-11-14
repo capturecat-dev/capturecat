@@ -1,5 +1,5 @@
-import AppKit
 import CoreImage
+import Foundation
 
 /// Shared camera-bubble styling math — the single source of truth for the
 /// color adjustments, filter presets, ring light, shape corner radius, and
@@ -220,8 +220,8 @@ enum CameraStyleMath {
     // MARK: - Border
 
     /// Effective border stroke color: nil setting = the historical white 30%.
-    static func borderNSColor(_ settings: ProjectSettings) -> NSColor {
-        settings.cameraBorderColor?.nsColor ?? NSColor(white: 1, alpha: 0.3)
+    static func borderNSColor(_ settings: ProjectSettings) -> PlatformColor {
+        CameraStylePlatform.borderColor(settings.cameraBorderColor)
     }
 
     // MARK: - Ring light
@@ -344,9 +344,9 @@ enum CameraStyleMath {
         var subFontSize: CGFloat
     }
 
-    private static func tagFont(named name: String?, size: CGFloat) -> NSFont {
-        if let name, let custom = NSFont(name: name, size: size) { return custom }
-        return NSFont.systemFont(ofSize: size, weight: .semibold)
+    /// The named font when it exists, else system semibold.
+    private static func tagFont(named name: String?, size: CGFloat) -> PlatformFont {
+        CameraStylePlatform.tagFont(named: name, size: size)
     }
 
     /// Measure the pill for the given settings at a bubble width. Nil when the
@@ -358,17 +358,13 @@ enum CameraStyleMath {
         let subSize = max(7, fontSize * tagSubtextFontScale)
         let sub = s.cameraTagSubtext.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let main = NSAttributedString(
-            string: text, attributes: [.font: tagFont(named: s.cameraTagFontName, size: fontSize)]
-        )
-        var textW = ceil(main.size().width)
-        var textH = ceil(main.size().height)
+        let main = PlatformText.string(text, font: tagFont(named: s.cameraTagFontName, size: fontSize))
+        var textW = ceil(PlatformText.size(of: main).width)
+        var textH = ceil(PlatformText.size(of: main).height)
         if !sub.isEmpty {
-            let subLine = NSAttributedString(
-                string: sub, attributes: [.font: tagFont(named: s.cameraTagFontName, size: subSize)]
-            )
-            textW = max(textW, ceil(subLine.size().width))
-            textH += ceil(subLine.size().height)
+            let subLine = PlatformText.string(sub, font: tagFont(named: s.cameraTagFontName, size: subSize))
+            textW = max(textW, ceil(PlatformText.size(of: subLine).width))
+            textH += ceil(PlatformText.size(of: subLine).height)
         }
         let hPad = fontSize * tagHPaddingFactor
         let vPad = fontSize * tagVPaddingFactor
@@ -431,49 +427,13 @@ enum CameraStyleMath {
 
         let rect = CGRect(origin: .zero, size: pill)
         let radius = pill.height / 2
-        let bg = s.cameraTagBackgroundColor.nsColor.usingColorSpace(.sRGB) ?? .black
+        let bg = CameraStylePlatform.tagBackgroundCGColor(s.cameraTagBackgroundColor)
         ctx.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
-        ctx.setFillColor(CGColor(
-            srgbRed: bg.redComponent, green: bg.greenComponent,
-            blue: bg.blueComponent, alpha: bg.alphaComponent
-        ))
+        ctx.setFillColor(bg)
         ctx.fillPath()
 
-        // Text via NSGraphicsContext (unflipped — CG bottom-up, which is what
-        // both NSImage layer contents and CIImage(cgImage:) expect upright).
-        let ns = NSGraphicsContext(cgContext: ctx, flipped: false)
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = ns
-
-        let textColor = s.cameraTagTextColor.nsColor
-        let para = NSMutableParagraphStyle()
-        para.alignment = .center
-
-        let text = s.cameraTagText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let sub = s.cameraTagSubtext.trimmingCharacters(in: .whitespacesAndNewlines)
-        let mainLine = NSAttributedString(string: text, attributes: [
-            .font: tagFont(named: s.cameraTagFontName, size: layout.fontSize),
-            .foregroundColor: textColor,
-            .paragraphStyle: para,
-        ])
-        let subLine: NSAttributedString? = sub.isEmpty ? nil : NSAttributedString(
-            string: sub, attributes: [
-                .font: tagFont(named: s.cameraTagFontName, size: layout.subFontSize),
-                .foregroundColor: textColor.withAlphaComponent(textColor.alphaComponent * 0.75),
-                .paragraphStyle: para,
-            ]
-        )
-        let mainH = ceil(mainLine.size().height)
-        let subH = subLine.map { ceil($0.size().height) } ?? 0
-        let totalH = mainH + subH
-        let topY = (pill.height + totalH) / 2   // Y-up: top edge of the text block
-        let inset = layout.fontSize * 0.3
-        // Main line sits above the subtext (Y-up drawing).
-        mainLine.draw(in: CGRect(x: inset, y: topY - mainH, width: pill.width - 2 * inset, height: mainH))
-        if let subLine {
-            subLine.draw(in: CGRect(x: inset, y: topY - mainH - subH, width: pill.width - 2 * inset, height: subH))
-        }
-        NSGraphicsContext.restoreGraphicsState()
+        // Text: platform drawing over the same y-up context.
+        CameraStylePlatform.drawTagText(in: ctx, settings: s, layout: layout, pill: pill)
 
         guard let image = ctx.makeImage() else { return nil }
         return (image, pill)

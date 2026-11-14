@@ -1,7 +1,33 @@
 # CaptureCat Studio on iOS/iPadOS — plan
 
-Status: **proposed, awaiting owner approval** (2026-11-14). Read-only analysis of the
-committed Mac code at f8cc6f0; nothing below has been implemented.
+Status: **approved 2026-11-14** — the phased plan and all six Phase 0 recommendations
+(`docs/ios-studio-phase0.md` §5). Phase 0 done; Phase 1 in progress (see Progress).
+
+## Progress
+
+Every Phase 1 slice must leave `apps/macos/scripts/render-baseline.sh compare` IDENTICAL
+against a snapshot of the pre-change commit, and pass `run-gates.sh` plus the extra gates
+(§ Proof). `apps/ios/scripts/studio-canary.sh` typechecks the extracted set for iOS.
+
+| Slice | What | Proof |
+|---|---|---|
+| 1a | Pure edit math out of AppKit files (voice/video track math + commits, `VideoSliceMath`, `KeystrokeRecording`, `CursorRecording.load`); exporter + Auto Zoom read recordings through the models; import swaps | baseline identical; 14 + 10 gates pass |
+| 1b-i | `Studio/Platform/` seam layer; `Models/` + `Extensions/` compile without AppKit | baseline identical; canary PASS (35 files) |
+| 1b-ii | renderers + exporter through Platform (`PlatformText`, `PlatformCGColor`, `PlatformImageIO`, `PlatformFonts`, `MenuBarArt`, `CursorArt`, …); frozen fonts table (decision 5, `--font-table-test`) | baseline identical; 15 + 10 gates pass; canary PASS (80 files) |
+| 1c–1g | compositor core/host split, hit math, timeline edits, `git mv` into `Studio/`, iOS target builds it | — |
+
+Audio is the one category with run-to-run noise (AVFoundation's mix, Phase 0 §1). One 1b-ii
+snapshot put `a4-muted-dense` at 1.38e-5 from base; the same binary rerun 4× gave 5.96e-8 every
+time, and a regenerated audio category compared identical. If an audio fixture ever goes over,
+rerun it (`ONLY=web-audio`) before concluding anything — and never raise the tolerance.
+
+iOS-side approximations so far (not parity-gated until Phase 2/3): the Hand cursor uses the
+drawn arrow; menu-bar calibrated colours become sRGB; images decode through ImageIO without EXIF
+rotation; non-curated font families use UIKit's weight matching; system hue defaults are UIKit's.
+
+The Mac target builds with member import visibility: a file that doesn't import AppKit
+can't name `NSColor.white` or `.semibold` at all, so every AppKit member access lives in
+`Studio/Platform/`, whose macOS branch is the exact expression the code used before.
 
 Goal: the full Mac editor ("studio") on iPhone and iPad — every feature — at
 preview ↔ export parity with the Mac. Constraint from CLAUDE.md: preview must equal

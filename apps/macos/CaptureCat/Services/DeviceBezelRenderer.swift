@@ -40,6 +40,11 @@ enum DeviceBezelRenderer {
     nonisolated(unsafe) static var rasterCount = 0
     nonisolated(unsafe) static var rasterTotal: Double = 0
 
+    /// `CAPTURECAT_RENDER_TIMING=1` — the same switch as
+    /// `PreviewCompositorView.renderTiming`, read here so the renderer the
+    /// exporter shares doesn't reach into the preview view.
+    static let renderTiming = ProcessInfo.processInfo.environment["CAPTURECAT_RENDER_TIMING"] != nil
+
     // MARK: - Entry points
 
     static func image(
@@ -61,12 +66,12 @@ enum DeviceBezelRenderer {
                       | CGBitmapInfo.byteOrder32Little.rawValue
               ) else { return nil }
         ctx.scaleBy(x: scale, y: scale)
-        let t0 = PreviewCompositorView.renderTiming ? CFAbsoluteTimeGetCurrent() : 0
+        let t0 = renderTiming ? CFAbsoluteTimeGetCurrent() : 0
         draw(in: ctx, size: size, videoRect: videoRect,
              shadowRadius: shadowRadius, shadowOpacity: shadowOpacity,
              pitchDegrees: pitchDegrees, yawDegrees: yawDegrees, yUp: true)
         let image = ctx.makeImage()
-        if PreviewCompositorView.renderTiming {
+        if renderTiming {
             rasterCount += 1
             rasterTotal += CFAbsoluteTimeGetCurrent() - t0
         }
@@ -126,11 +131,11 @@ enum DeviceBezelRenderer {
                       | CGBitmapInfo.byteOrder32Little.rawValue
               ) else { return nil }
         ctx.scaleBy(x: scale, y: scale)
-        let t0 = PreviewCompositorView.renderTiming ? CFAbsoluteTimeGetCurrent() : 0
+        let t0 = renderTiming ? CFAbsoluteTimeGetCurrent() : 0
         withYDown(ctx, height: size.height) { body($0) }
         let image = ctx.makeImage()
         rasterCount += 1
-        if PreviewCompositorView.renderTiming { rasterTotal += CFAbsoluteTimeGetCurrent() - t0 }
+        if renderTiming { rasterTotal += CFAbsoluteTimeGetCurrent() - t0 }
         return image
     }
 

@@ -15,4 +15,11 @@ extension ProjectSettings.SubtitleWeight {
         case .heavy: return .heavy
         }
     }
+
+    /// The case whose `nsWeight` is `weight`; nil for the weights the five
+    /// cases don't cover (FontFaceTable is keyed by these cases).
+    init?(nsWeight weight: PlatformFont.Weight) {
+        guard let match = Self.allCases.first(where: { $0.nsWeight == weight }) else { return nil }
+        self = match
+    }
 }

@@ -13,10 +13,13 @@ import AppKit
 typealias PlatformColor = NSColor
 typealias PlatformFont = NSFont
 typealias PlatformImage = NSImage
+/// Nested types are members, so studio code can't spell `PlatformFont.Weight`.
+typealias PlatformFontWeight = NSFont.Weight
 #else
 import UIKit
 
 typealias PlatformColor = UIColor
 typealias PlatformFont = UIFont
 typealias PlatformImage = UIImage
+typealias PlatformFontWeight = UIFont.Weight
 #endif

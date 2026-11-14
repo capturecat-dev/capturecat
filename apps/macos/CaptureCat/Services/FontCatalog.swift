@@ -1,4 +1,5 @@
-import AppKit
+import CoreGraphics
+import Foundation
 
 /// Typeface selection shared by subtitles and annotations.
 ///
@@ -6,7 +7,9 @@ import AppKit
 /// system font, which is the historical behaviour and stays the default so
 /// existing projects render unchanged. Resolution lives here so the preview
 /// compositor and the exporter can never disagree about which face they drew —
-/// same input, same `NSFont`.
+/// same input, same font. Curated families at the five subtitle weights come
+/// from the frozen `FontFaceTable`, so the Mac and iOS draw the same faces;
+/// everything else resolves live (`PlatformFonts.liveFont`).
 enum FontCatalog {
     /// Label shown for the system default.
     static let systemName = "System"
@@ -25,9 +28,9 @@ enum FontCatalog {
 
     /// Menu contents: "System" + available curated faces + the rest, deduped.
     static let menuNames: [String] = {
-        let installed = Set(NSFontManager.shared.availableFontFamilies)
+        let installed = Set(PlatformFonts.availableFamilies())
         let available = curated.filter { installed.contains($0) }
-        let rest = NSFontManager.shared.availableFontFamilies
+        let rest = PlatformFonts.availableFamilies()
             .filter { !available.contains($0) }
             .sorted()
         return [systemName] + available + rest
@@ -36,38 +39,17 @@ enum FontCatalog {
     /// Resolve a stored name + size + weight to a concrete font.
     /// Falls back to the system face whenever the stored family is missing
     /// (e.g. the project moved to a Mac without that font installed).
-    static func font(named name: String?, size: CGFloat, weight: NSFont.Weight) -> NSFont {
-        let fallback = NSFont.systemFont(ofSize: size, weight: weight)
-        guard let name, name != systemName, !name.isEmpty else { return fallback }
-
-        // Ask the font manager for the family member closest to the requested
-        // weight, so the weight chips keep working for non-system faces.
-        let traits: NSFontTraitMask = weight >= .bold ? .boldFontMask : []
-        let weightIndex = appKitWeight(for: weight)
-        if let f = NSFontManager.shared.font(
-            withFamily: name,
-            traits: traits,
-            weight: weightIndex,
-            size: size
-        ) {
-            return f
+    static func font(named name: String?, size: CGFloat, weight: PlatformFontWeight) -> PlatformFont {
+        // The frozen face for a curated family at one of the five weights…
+        if let name,
+           let tableWeight = ProjectSettings.SubtitleWeight(nsWeight: weight),
+           let face = FontFaceTable.face(family: name, weight: tableWeight),
+           let font = PlatformFonts.tableFont(for: face, size: size, weight: weight) {
+            return font
         }
-        return NSFont(name: name, size: size) ?? fallback
-    }
-
-    /// Maps SwiftUI-style weights onto AppKit's 0…15 font-manager scale.
-    private static func appKitWeight(for weight: NSFont.Weight) -> Int {
-        switch weight {
-        case .ultraLight, .thin: return 2
-        case .light: return 3
-        case .regular: return 5
-        case .medium: return 6
-        case .semibold: return 8
-        case .bold: return 9
-        case .heavy: return 11
-        case .black: return 13
-        default: return 5
-        }
+        // …otherwise ask the platform for the family member closest to the
+        // requested weight, so the weight chips keep working for any face.
+        return PlatformFonts.liveFont(named: name, size: size, weight: weight)
     }
 
     /// Index of a stored name in `menuNames`, for driving a menu control.

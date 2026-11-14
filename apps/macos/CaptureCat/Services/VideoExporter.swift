@@ -2,7 +2,6 @@ import Foundation
 import AVFoundation
 import CoreImage
 import Metal
-import AppKit
 import VideoToolbox
 
 /// Serialises PTS-ordered appends to the writer and provides async backpressure
@@ -1070,9 +1069,9 @@ final class VideoExporter {
                 clock: settings.menuBarClock,
                 width: Int(vr.width.rounded()),
                 height: Int(barH.rounded())
-            )), let cg = bar.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+            )), let cg = PlatformImageIO.cgImage(of: bar) else { return nil }
             var ci = CIImage(cgImage: cg)
-            // NSImage may rasterize at 2× — normalize to the exact target size.
+            // The image may rasterize at 2× — normalize to the exact target size.
             let sx = vr.width / max(1, ci.extent.width)
             let sy = barH / max(1, ci.extent.height)
             ci = ci.transformed(by: CGAffineTransform(scaleX: sx, y: sy))
@@ -1281,10 +1280,9 @@ final class VideoExporter {
         // CurtainUnveilMath.coverStyle the preview also consumes.
         let curtainLogoCG: CGImage? = {
             guard settings.curtainUnveilCorner != .off,
-                  let url = project.curtainLogoImageURL,
-                  let nsImage = NSImage(contentsOf: url)
+                  let url = project.curtainLogoImageURL
             else { return nil }
-            return nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            return PlatformImageIO.cgImage(contentsOf: url)
         }()
         let curtainStyle = CurtainUnveilMath.coverStyle(settings: settings, logo: curtainLogoCG)
 
@@ -1296,10 +1294,7 @@ final class VideoExporter {
         let cameraPosterCI: CIImage? = {
             guard cameraReader != nil,
                   let posterURL = project.cameraPosterURL,
-                  let nsImage = NSImage(contentsOf: posterURL),
-                  let tiff = nsImage.tiffRepresentation,
-                  let bitmap = NSBitmapImageRep(data: tiff),
-                  let cgImage = bitmap.cgImage
+                  let cgImage = PlatformImageIO.bitmapCGImage(contentsOf: posterURL)
             else {
                 print("[Export Camera] poster: not available")
                 return nil
@@ -2887,7 +2882,7 @@ final class VideoExporter {
             width: dimRect.width,
             height: dimRect.height
         )
-        context.setFillColor(NSColor.white.cgColor)
+        context.setFillColor(PlatformCGColor.white)
         context.fill(adjustedDimRect)
 
         let adjustedHoleRect = CGRect(
@@ -2903,7 +2898,7 @@ final class VideoExporter {
             transform: nil
         )
         context.addPath(holePath)
-        context.setFillColor(NSColor.black.cgColor)
+        context.setFillColor(PlatformCGColor.black)
         context.fillPath()
 
         guard let cgImage = context.makeImage() else { return nil }
@@ -2966,10 +2961,10 @@ final class VideoExporter {
             return nil
         }
 
-        let baseColor: NSColor = inverted ? .white : .black
-        let cutoutColor: NSColor = inverted ? .black : .white
+        let baseColor: CGColor = inverted ? PlatformCGColor.white : PlatformCGColor.black
+        let cutoutColor: CGColor = inverted ? PlatformCGColor.black : PlatformCGColor.white
 
-        context.setFillColor(baseColor.cgColor)
+        context.setFillColor(baseColor)
         context.fill(CGRect(origin: .zero, size: CGSize(width: width, height: height)))
 
         let adjustedRect = CGRect(
@@ -2984,7 +2979,7 @@ final class VideoExporter {
             frameShape: frameShape
         )
         context.addPath(path)
-        context.setFillColor(cutoutColor.cgColor)
+        context.setFillColor(cutoutColor)
         context.fillPath()
 
         guard let cgImage = context.makeImage() else { return nil }
@@ -3032,7 +3027,7 @@ final class VideoExporter {
               )
         else { return nil }
 
-        context.setFillColor(NSColor.black.cgColor)
+        context.setFillColor(PlatformCGColor.black)
         context.fill(CGRect(origin: .zero, size: CGSize(width: width, height: height)))
 
         let adjusted = CGRect(
@@ -3041,7 +3036,7 @@ final class VideoExporter {
             width: rect.width, height: rect.height
         )
         context.addPath(cameraShapeCGPath(rect: adjusted, shape: shape, cornerRadius: cornerRadius, scale: scale))
-        context.setFillColor(NSColor.white.cgColor)
+        context.setFillColor(PlatformCGColor.white)
         context.fillPath()
 
         guard let cgImage = context.makeImage() else { return nil }
@@ -3059,7 +3054,7 @@ final class VideoExporter {
         cornerRadius: Double,
         scale: CGFloat,
         lineWidth: CGFloat,
-        strokeColor: NSColor
+        strokeColor: PlatformColor
     ) -> CIImage? {
         guard lineWidth > 0 else { return nil }
         let width = Int(ceil(extent.width))
@@ -3082,8 +3077,7 @@ final class VideoExporter {
             width: rect.width, height: rect.height
         )
         context.addPath(cameraShapeCGPath(rect: adjusted, shape: shape, cornerRadius: cornerRadius, scale: scale))
-        let srgbStroke = strokeColor.usingColorSpace(.sRGB) ?? strokeColor
-        context.setStrokeColor(srgbStroke.cgColor)
+        context.setStrokeColor(PlatformCGColor.sRGB(strokeColor))
         context.setLineWidth(lineWidth)
         context.strokePath()
 
@@ -3738,7 +3732,7 @@ final class VideoExporter {
                 height: -CursorOverlayLayout.shadowOffset.height * canvasScale
             ),
             blur: CursorOverlayLayout.shadowBlurRadius * canvasScale,
-            color: NSColor.black.withAlphaComponent(CursorOverlayLayout.shadowOpacity).cgColor
+            color: PlatformCGColor.black(alpha: CursorOverlayLayout.shadowOpacity)
         )
         if let cursorCGImage = cursorAsset.cgImage {
             ctx.draw(cursorCGImage, in: drawRect)
@@ -3756,7 +3750,7 @@ final class VideoExporter {
     ) -> CursorAsset {
         let asset = CursorStyleProvider.asset(for: style)
         let cursorImage = asset.image
-        let imageSize = cursorImage.size
+        let imageSize = PlatformImageIO.pointSize(of: cursorImage)
         let hotSpot = asset.hotSpot
         if imageSize.width > 0,
            imageSize.height > 0,
@@ -3800,11 +3794,11 @@ final class VideoExporter {
         path.closeSubpath()
 
         ctx.addPath(path)
-        ctx.setFillColor(NSColor.white.cgColor)
+        ctx.setFillColor(PlatformCGColor.white)
         ctx.fillPath()
 
         ctx.addPath(path)
-        ctx.setStrokeColor(NSColor.black.withAlphaComponent(0.9).cgColor)
+        ctx.setStrokeColor(PlatformCGColor.black(alpha: 0.9))
         ctx.setLineWidth(max(1, rect.width * 0.08))
         ctx.strokePath()
     }
@@ -3883,60 +3877,10 @@ final class VideoExporter {
         //   • Karaoke spaces inherit the same font so kerning matches.
         let fontSize = max(1, settings.subtitleFontSize * canvasScale)
         let font = FontCatalog.font(named: settings.subtitleFontName, size: fontSize, weight: settings.subtitleWeight.nsWeight)
-        // Uppercase style — must transform the SAME strings the preview does.
-        let transform: (String) -> String = settings.subtitleUppercase ? { $0.uppercased() } : { $0 }
-
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-
-        let textColor = NSColor(
-            red: settings.subtitleColor.red,
-            green: settings.subtitleColor.green,
-            blue: settings.subtitleColor.blue,
-            alpha: settings.subtitleColor.opacity
+        // Karaoke colouring, uppercase and centring: platform text code.
+        let attrString = SubtitleText.attributedString(
+            subtitle: subtitle, at: currentTime, font: font, settings: settings
         )
-
-        let attrString: NSAttributedString
-        if settings.highlightWords && !subtitle.words.isEmpty {
-            let highlightColor = NSColor(
-                red: settings.subtitleHighlightColor.red,
-                green: settings.subtitleHighlightColor.green,
-                blue: settings.subtitleHighlightColor.blue,
-                alpha: settings.subtitleHighlightColor.opacity
-            )
-            let dimColor = NSColor(
-                red: textColor.redComponent,
-                green: textColor.greenComponent,
-                blue: textColor.blueComponent,
-                alpha: textColor.alphaComponent * 0.4
-            )
-            let spaceAttrs: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .paragraphStyle: paragraphStyle,
-                .foregroundColor: textColor,
-            ]
-            let mutable = NSMutableAttributedString()
-            for (i, word) in subtitle.words.enumerated() {
-                if i > 0 {
-                    mutable.append(NSAttributedString(string: " ", attributes: spaceAttrs))
-                }
-                let isActive = currentTime >= word.startTime
-                let wordAttrs: [NSAttributedString.Key: Any] = [
-                    .font: font,
-                    .paragraphStyle: paragraphStyle,
-                    .foregroundColor: isActive ? highlightColor : dimColor,
-                ]
-                mutable.append(NSAttributedString(string: transform(word.text), attributes: wordAttrs))
-            }
-            attrString = mutable
-        } else {
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .paragraphStyle: paragraphStyle,
-                .foregroundColor: textColor,
-            ]
-            attrString = NSAttributedString(string: transform(subtitle.text), attributes: attributes)
-        }
 
         // Geometry — every constant matches PreviewView's modifiers.
         let pillHPad = 12 * canvasScale
@@ -3944,12 +3888,12 @@ final class VideoExporter {
         let pillCorner = 6 * canvasScale
         let outerEdgePad = 20 * canvasScale
 
-        let textSize = attrString.boundingRect(
-            with: CGSize(
+        let textSize = PlatformText.boundingRect(
+            of: attrString,
+            size: CGSize(
                 width: max(1, outputSize.width - 2 * (outerEdgePad + pillHPad)),
                 height: .greatestFiniteMagnitude
-            ),
-            options: [.usesLineFragmentOrigin, .usesFontLeading]
+            )
         )
         let bgWidth = textSize.width + pillHPad * 2
         let bgHeight = textSize.height + pillVPad * 2
@@ -3988,13 +3932,13 @@ final class VideoExporter {
         ) else { return image }
 
         if settings.subtitleStyle == .background {
-            let bgColor = NSColor(
+            let bgColor = PlatformCGColor.rgb(
                 red: settings.subtitleBackgroundColor.red,
                 green: settings.subtitleBackgroundColor.green,
                 blue: settings.subtitleBackgroundColor.blue,
                 alpha: 0.75
             )
-            ctx.setFillColor(bgColor.cgColor)
+            ctx.setFillColor(bgColor)
             let bgRect = CGRect(x: xPosition, y: yPosition, width: bgWidth, height: bgHeight)
             let bgPath = CGPath(
                 roundedRect: bgRect,
@@ -4011,10 +3955,7 @@ final class VideoExporter {
             width: textSize.width,
             height: textSize.height
         )
-        let nsCtx = NSGraphicsContext(cgContext: ctx, flipped: false)
-        NSGraphicsContext.current = nsCtx
-        attrString.draw(in: textRect)
-        NSGraphicsContext.current = nil
+        PlatformText.draw(attrString, in: textRect, of: ctx)
 
         guard let cgImage = ctx.makeImage() else { return image }
         let subtitleImage = CIImage(cgImage: cgImage)

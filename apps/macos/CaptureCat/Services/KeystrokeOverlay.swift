@@ -1,5 +1,6 @@
-import AppKit
+import CoreGraphics
 import CoreText
+import Foundation
 
 /// Timing + phrasing for the on-screen keyboard-shortcut pill ("⌘⇧S",
 /// subtitle-style). Pure functions of the timeline clock — never a wall
@@ -179,7 +180,7 @@ enum KeystrokeOverlayRenderer {
     /// All pt values below multiply by `scale` (preview canvas: 1; export:
     /// output-width / reference-canvas-width) and by the user size knob.
     static func pillSize(text: String, size: Double, scale: CGFloat) -> CGSize {
-        let line = makeLine(text: text, size: size, scale: scale, color: .white)
+        let line = makeLine(text: text, size: size, scale: scale)
         var ascent: CGFloat = 0, descent: CGFloat = 0
         let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, nil))
         let padH = 14 * CGFloat(size) * scale
@@ -242,7 +243,7 @@ enum KeystrokeOverlayRenderer {
         ctx.strokePath()
 
         // CTLine draws in y-up text space: flip locally around the text rect.
-        let line = makeLine(text: text, size: size, scale: scale, color: .white)
+        let line = makeLine(text: text, size: size, scale: scale)
         var ascent: CGFloat = 0, descent: CGFloat = 0
         let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, nil))
         ctx.saveGState()
@@ -316,13 +317,10 @@ enum KeystrokeOverlayRenderer {
         return ctx.makeImage()
     }
 
-    private static func makeLine(text: String, size: Double, scale: CGFloat, color: NSColor) -> CTLine {
-        let font = NSFont.systemFont(ofSize: 17 * CGFloat(size) * scale, weight: .semibold)
-        let attributed = NSAttributedString(string: text, attributes: [
-            .font: font,
-            .foregroundColor: color,
-            .kern: 1.2 * CGFloat(size) * scale,
-        ])
+    /// System semibold, white, kerned — built by the platform (the font and
+    /// attribute keys are AppKit/UIKit API).
+    private static func makeLine(text: String, size: Double, scale: CGFloat) -> CTLine {
+        let attributed = PlatformText.keystrokePill(text, size: size, scale: scale)
         return CTLineCreateWithAttributedString(attributed)
     }
 }

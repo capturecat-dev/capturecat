@@ -1,5 +1,4 @@
 import AVFoundation
-import AppKit
 import Foundation
 
 /// Exports one composed frame of a project as a PNG.
@@ -87,8 +86,7 @@ enum StillImageExporter {
         try await exporter.export(project: clone, to: temp)
 
         let cgImage = try await lastFrame(of: temp)
-        let rep = NSBitmapImageRep(cgImage: cgImage)
-        guard let png = rep.representation(using: .png, properties: [:]) else {
+        guard let png = PlatformImageIO.pngData(cgImage) else {
             throw StillExportError.pngEncodeFailed
         }
         try png.write(to: url, options: .atomic)
