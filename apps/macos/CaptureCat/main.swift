@@ -178,6 +178,13 @@ if CommandLine.arguments.contains("--annotation-drag-probe") {
     MainActor.assumeIsolated { AnnotationDragProbe.run() }
 }
 
+// On-canvas gesture freeze: every interaction family driven through the real
+// compositor, compared with a transcript frozen from the pre-extraction view.
+// Never reached in a normal launch.
+if CommandLine.arguments.contains("--preview-gesture-test") {
+    MainActor.assumeIsolated { PreviewGestureHarness.run() }
+}
+
 // VIDEO-track editing-math acceptance test: shared VideoTrackEditMath vs a
 // verbatim oracle of the pre-extraction in-view code. Gate for the native
 // canvas row port. Never reached in a normal launch.

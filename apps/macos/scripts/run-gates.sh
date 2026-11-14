@@ -41,6 +41,7 @@ GATES=(
   --plan-gate-test
   --playback-observer-test
   --raster-golden
+  --preview-gesture-test
   --editor-shell-shot
   --inspector-probe
   --recording-panel-shot
