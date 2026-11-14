@@ -81,6 +81,17 @@ DEPS=(
   # Hit math + gesture state machine, split from the Mac interaction view (1d).
   Views/Editor/PreviewCompositor/PreviewHitMath.swift     # targets, drag mapping, clamps (pure)
   Views/Editor/PreviewCompositor/PreviewGestureCore.swift # press → drag → release cascade
+
+  # Timeline edit operations, split from TimelineViewController (1e).
+  Views/Editor/TimelineEdits.swift      # every lane add/delete/commit/split/speed/duplicate + undo
+  Views/Editor/EditorShellSelection.swift # the shell's shared selection state
+  Views/Editor/InspectorTab.swift       # the inspector pane enum the selection names
+  Views/Editor/VideoTrackEditMath.swift # clip spans (slice rule)
+  Views/Editor/VideoSliceMath.swift     # where the VIDEO lane may be sliced
+  Views/Editor/TimelineSnap.swift       # snapping the clip math uses
+  Services/AutoZoomApplier.swift        # Auto Zoom (shared with MCP + record-stop)
+  Services/AutoZoomGenerator.swift      # the generator Auto Zoom runs
+  Services/StillMotionComposer.swift    # Motion for image captures
 )
 
 # Mac-only files inside otherwise-shared folders.
