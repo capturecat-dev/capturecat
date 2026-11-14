@@ -236,7 +236,7 @@ enum CameraSettleHarness {
 
         var worst: CGFloat = 0
         for q in [CGPoint(x: 100, y: 80), CGPoint(x: 360, y: 202.5), CGPoint(x: 650, y: 380)] {
-            let back = PreviewInteractionView.inverseCameraPoint(
+            let back = PreviewHitMath.inverseCameraPoint(
                 forward(q), zoom: zoom, anchor: anchor, cardOffset: off, canvas: canvas)
             worst = max(worst, max(abs(back.x - q.x), abs(back.y - q.y)))
         }
@@ -246,7 +246,7 @@ enum CameraSettleHarness {
         // Gate power: the PRE-FIX formula (no cardOffset term) must be caught
         // — it misses by |off·canvas|/zoom, ~81 px here.
         let q = CGPoint(x: 360, y: 202.5)
-        let old = PreviewInteractionView.inverseCameraPoint(
+        let old = PreviewHitMath.inverseCameraPoint(
             forward(q), zoom: zoom, anchor: anchor, cardOffset: .zero, canvas: canvas)
         let miss = max(abs(old.x - q.x), abs(old.y - q.y))
         expect(miss > 50,

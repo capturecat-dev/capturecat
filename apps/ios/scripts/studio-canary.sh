@@ -77,6 +77,10 @@ DEPS=(
   Services/PreviewMotionModel.swift     # zoom/focal/tilt springs the preview steps
   Services/SelectionChromeKit.swift     # selection outline + value pill (StudioChromeTheme, SymbolImage)
   Views/Editor/RegionHandleChrome.swift # pill geometry shared with the hit zones (pure)
+
+  # Hit math + gesture state machine, split from the Mac interaction view (1d).
+  Views/Editor/PreviewCompositor/PreviewHitMath.swift     # targets, drag mapping, clamps (pure)
+  Views/Editor/PreviewCompositor/PreviewGestureCore.swift # press → drag → release cascade
 )
 
 # Mac-only files inside otherwise-shared folders.

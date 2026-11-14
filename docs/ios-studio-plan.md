@@ -15,7 +15,8 @@ against a snapshot of the pre-change commit, and pass `run-gates.sh` plus the ex
 | 1b-i | `Studio/Platform/` seam layer; `Models/` + `Extensions/` compile without AppKit | baseline identical; canary PASS (35 files) |
 | 1b-ii | renderers + exporter through Platform (`PlatformText`, `PlatformCGColor`, `PlatformImageIO`, `PlatformFonts`, `MenuBarArt`, `CursorArt`, …); frozen fonts table (decision 5, `--font-table-test`) | baseline identical; 15 + 10 gates pass; canary PASS (80 files) |
 | 1c | `PreviewCompositorCore` (AppKit-free; adopts the host's backing layer as its root — same layer tree) + `PreviewCompositorView` NSView host; `StudioChromeTheme`, `LayerContents`, `SymbolImage` | every output byte-identical to a base-binary variant (below); 15 + 12 gates pass; canary PASS (90 files) |
-| 1d–1g | hit math, timeline edits, `git mv` into `Studio/`, iOS target builds it | — |
+| 1d | `PreviewHitMath` (targets, drag mapping, clamps, inline-edit geometry — pure) + `PreviewGestureCore` (the press → drag → release cascade) behind `PreviewGestureHost`; `PreviewInteractionView` is the mouse front end (NSCursor, marquee, notch hover, undo manager, NSTextField). New `--preview-gesture-test`: 58 gestures through the real compositor, transcript frozen from the 1c view BEFORE the extraction (commit a4f6f50) | gesture transcript byte-identical; flagged baseline outputs byte-identical to base-binary variants; 16 + 12 gates pass; canary PASS (92 files); gate power proven (a 4 pt pill-width change fails it) |
+| 1e–1g | timeline edits, `git mv` into `Studio/`, iOS target builds it | — |
 
 **Two-state noise in the base code itself (measured 2026-11-14).** The pre-Phase-1 base binary,
 compared against its own earlier snapshot, gives `a4-muted-dense/mix.f32` either ~6e-8 or exactly
@@ -24,7 +25,7 @@ compared against its own earlier snapshot, gives `a4-muted-dense/mix.f32` either
 so `compare` can report DIFFERS on an unchanged binary. When it does: rerun the category on the new
 build AND on a fresh base build (`ONLY=preview-parity,web-audio`), and accept only if every new
 output is byte-identical (audio: ≤1e-6) to an output the base binary also produces — that is how
-1b-ii and 1c were cleared. Never raise a tolerance or refreeze to make it pass.
+1b-ii, 1c and 1d were cleared. Never raise a tolerance or refreeze to make it pass.
 
 iOS-side approximations so far (not parity-gated until Phase 2/3): the Hand cursor uses the
 drawn arrow; menu-bar calibrated colours become sRGB; images decode through ImageIO without EXIF
@@ -83,7 +84,10 @@ not a reimplementation. UIKit only on iOS (never SwiftUI), house kit, no system 
   `SymbolImage`, `StudioChromeTheme`.
 - The compositor splits into `PreviewCompositorCore` (layers, render, caches; takes canvas
   size + raster scale) and ~100-line NSView / UIView hosts. `PreviewInteractionView`'s hit
-  math becomes pure `PreviewHitMath`; mouse vs touch front ends stay per platform.
+  math becomes pure `PreviewHitMath`, and its press → drag → release cascade becomes
+  `PreviewGestureCore` (done in 1d), so a tap and a click grab the same target and write the
+  same values; only the event front ends (mouse + NSCursor + NSTextField vs touch + UIKit
+  editor) stay per platform, behind `PreviewGestureHost`.
 - Shared math that today lives inside AppKit view files is split out first
   (`VoiceTrackEditMath`, `VideoSliceMath`/`VideoTrackCommits`, `KeystrokeEvent`,
   `CursorRecording.load`, ~1,950 lines of edit ops from `TimelineViewController`).
