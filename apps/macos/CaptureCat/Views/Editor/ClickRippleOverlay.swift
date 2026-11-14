@@ -1,4 +1,5 @@
-import AppKit
+import CoreGraphics
+import Foundation
 
 /// Deterministic timing for the looping tap-indicator annotation: the same
 /// (currentTime − startTime) always yields the same ripple phase, so preview

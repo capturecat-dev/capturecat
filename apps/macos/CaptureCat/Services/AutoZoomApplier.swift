@@ -18,7 +18,7 @@ enum AutoZoomApplier {
     @discardableResult
     static func apply(to project: Project, zoomLevel: Double? = nil) -> Int {
         guard let cursorURL = project.cursorDataURL,
-              var cursorEvents = try? CursorTracker.load(from: cursorURL),
+              var cursorEvents = try? CursorRecording.load(from: cursorURL).events,
               !cursorEvents.isEmpty else { return 0 }
 
         // Mirrors the preview exactly: smoothing is applied here from the
@@ -40,7 +40,7 @@ enum AutoZoomApplier {
         }
 
         let keystrokes = project.keystrokeDataURL
-            .flatMap { try? KeystrokeTracker.loadRecording(from: $0).events } ?? []
+            .flatMap { try? KeystrokeRecording.load(from: $0).events } ?? []
 
         let manualRegions = project.zoomRegions.filter { $0.isAuto != true }
         let regions = AutoZoomGenerator.generateZoomRegions(

@@ -110,20 +110,7 @@ final class CursorTracker {
     }
 
     static func loadRecording(from url: URL) throws -> CursorRecording {
-        let data = try Data(contentsOf: url)
-        do {
-            return try JSONDecoder().decode(CursorRecording.self, from: data)
-        } catch {
-            if let events = try? JSONDecoder().decode([CursorEvent].self, from: data) {
-                return CursorRecording(
-                    version: 1,
-                    coordinateWidth: 0,
-                    coordinateHeight: 0,
-                    events: events
-                )
-            }
-            throw error
-        }
+        try CursorRecording.load(from: url)
     }
 
     private func recordCurrentPosition(atHostTime hostTime: Double = RecordingClock.now()) {

@@ -138,7 +138,7 @@ final class VideoExporter {
         var cursorEvents: [CursorEvent] = []
         var cursorCoordinateSize: CGSize = .zero
         if let cursorURL = project.cursorDataURL {
-            let recording = try? CursorTracker.loadRecording(from: cursorURL)
+            let recording = try? CursorRecording.load(from: cursorURL)
             cursorEvents = recording?.events ?? []
             cursorCoordinateSize = recording?.hasValidCoordinateSpace == true ? recording?.coordinateSize ?? .zero : .zero
             if settings.smoothCursor {
@@ -163,17 +163,17 @@ final class VideoExporter {
             ? ClickRippleOverlay.discreteClickTimes(from: cursorEvents, coordinateSize: cursorCoordinateSize)
             : []
         let scrollTimes: [TimeInterval] = project.keystrokeDataURL
-            .flatMap { try? KeystrokeTracker.loadRecording(from: $0).events }?
+            .flatMap { try? KeystrokeRecording.load(from: $0).events }?
             .filter { $0.category == .scroll }.map(\.timestamp).sorted() ?? []
         let keystrokes: [KeystrokeEvent] = settings.keySoundEnabled
-            ? (project.keystrokeDataURL.flatMap { try? KeystrokeTracker.loadRecording(from: $0).events } ?? [])
+            ? (project.keystrokeDataURL.flatMap { try? KeystrokeRecording.load(from: $0).events } ?? [])
             : []
         // Shortcut-overlay display list (precomputed once; per-frame lookups
         // are pure functions of the timeline clock).
         let keystrokeDisplayEvents: [KeystrokeOverlayMath.DisplayEvent] = settings.showKeystrokes
             ? KeystrokeOverlayMath.displayEvents(
                 from: project.keystrokeDataURL
-                    .flatMap { try? KeystrokeTracker.loadRecording(from: $0).events } ?? [],
+                    .flatMap { try? KeystrokeRecording.load(from: $0).events } ?? [],
                 scopedTo: project)
             : []
         // A GIF has no soundtrack — its temp movie skips the audio track.
