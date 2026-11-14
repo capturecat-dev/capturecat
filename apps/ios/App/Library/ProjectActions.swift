@@ -60,6 +60,47 @@ enum ProjectActions {
         )
     }
 
+    enum HandoffError: LocalizedError {
+        case noMac
+        var errorDescription: String? { "Still can't find your Mac. Is CaptureCat open on it?" }
+    }
+
+    /// "Continue on Mac": the connected Mac opens this project in its editor
+    /// (cloning it if needed). With no Mac on the local network, explain the
+    /// two other ways — Handoff from the Dock, or the web editor.
+    static func continueOnMac(projectID: String, name: String, from presenter: UIViewController) {
+        let progress = AppToaster.shared.show(title: "Opening on your Mac…", message: name, symbol: "desktop")
+        Task { @MainActor in
+            let result = await AppEnvironment.shared.capture.continueOnMac(projectID: projectID, name: name)
+            progress?.dismiss()
+            switch result {
+            case let .opened(macName):
+                CCHaptics.success()
+                AppToaster.shared.show(title: "Opened on \(macName)", message: name, variant: .success, symbol: "desktop")
+            case .refused:
+                AppToaster.shared.show(title: "Your Mac couldn't open it", message: "Try again, or open it in the web editor.", variant: .warning)
+            case .noMac, .signedOut:
+                presentNoMac(projectID: projectID, name: name, from: presenter)
+            }
+        }
+    }
+
+    private static func presentNoMac(projectID: String, name: String, from presenter: UIViewController) {
+        let alert = CCAlert(
+            title: "Couldn't reach your Mac",
+            message: "Open CaptureCat on your Mac — same Wi-Fi, same account — and try again. Or use Handoff: while this project is open here, CaptureCat shows up in your Mac's Dock."
+        )
+        alert.addButton("Try again", role: .primary) {
+            let result = await AppEnvironment.shared.capture.continueOnMac(projectID: projectID, name: name)
+            guard case let .opened(macName) = result else { throw HandoffError.noMac }
+            CCHaptics.success()
+            AppToaster.shared.show(title: "Opened on \(macName)", message: name, variant: .success, symbol: "desktop")
+        }
+        alert.addButton("Open in web editor") { openInWebEditor(projectID: projectID) }
+        alert.addButton("Cancel", role: .cancel)
+        alert.present(from: presenter)
+    }
+
     static func confirmDelete(projectID: String, name: String, from presenter: UIViewController, done: (() -> Void)? = nil) {
         CCAlert.confirm(
             title: "Delete “\(name)”?",
@@ -83,7 +124,7 @@ enum ProjectActions {
     static func confirmDiscard(_ take: PendingTake, from presenter: UIViewController) {
         CCAlert.confirm(
             title: "Discard this take?",
-            message: "“\(take.name)” hasn't uploaded yet. Discarding deletes it from this iPhone.",
+            message: "“\(take.name)” hasn't uploaded yet. Discarding deletes it from this \(ThisDevice.noun).",
             confirmTitle: "Discard",
             destructive: true,
             from: presenter

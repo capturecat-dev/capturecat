@@ -55,6 +55,11 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
         guard !isUtilityRun else { return }
         // Restore the persisted appearance (default: follow the system).
         CCTheme.bootFromDefaults()
+        // "Continue on Mac" from the iPhone app over the Wi-Fi link.
+        NotificationCenter.default.addObserver(forName: .ccContinueProjectOnMac, object: nil, queue: .main) { [weak self] note in
+            guard let id = note.userInfo?["id"] as? String else { return }
+            MainActor.assumeIsolated { self?.continueProjectFromPhone(id) }
+        }
         NSApp.mainMenu = buildMainMenu()
         installStatusItem()
         // MCP → GUI command channel (start/stop recording). GUI instance only.
@@ -110,6 +115,32 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidBecomeActive(_ notification: Notification) {
         handleActivation(hasVisibleWindows: NSApplication.shared.windows.contains { $0.isVisible && !$0.isMiniaturized })
+    }
+
+    // MARK: - Handoff from the iPhone app
+
+    /// The iPhone app's project screen advertises this activity (Apple
+    /// Handoff); clicking CaptureCat in the Dock continues it here.
+    static let continueProjectActivity = "so.capturecat.openProject"
+
+    func application(_ application: NSApplication, willContinueUserActivityWithType userActivityType: String) -> Bool {
+        !isUtilityRun && userActivityType == Self.continueProjectActivity
+    }
+
+    func application(_ application: NSApplication, continue userActivity: NSUserActivity,
+                     restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void) -> Bool {
+        guard !isUtilityRun, userActivity.activityType == Self.continueProjectActivity,
+              let id = userActivity.userInfo?["projectId"] as? String else { return false }
+        continueProjectFromPhone(id)
+        return true
+    }
+
+    /// Both iPhone paths (Wi-Fi link, Handoff) land here and take the deep
+    /// link's road: clone if not on disk, else open + pull, then come forward.
+    private func continueProjectFromPhone(_ id: String) {
+        guard !isUtilityRun, UUID(uuidString: id) != nil,
+              let url = URL(string: "capturecat://open-project?id=\(id.uppercased())&from=ios") else { return }
+        handleIncomingURL(url)
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {

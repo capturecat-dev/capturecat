@@ -71,6 +71,8 @@ protocol CaptureFeed: AnyObject {
     func pickScreenshots(from presenter: UIViewController)
     func pickVideos(from presenter: UIViewController)
     func dismissRequest()
+    /// "Continue on Mac" for a cloud project.
+    func continueOnMac(projectID: String, name: String) async -> MacPresence.HandoffResult
 }
 
 final class AppEnvironment {
@@ -194,4 +196,7 @@ final class LiveCaptureFeed: CaptureFeed {
     func pickScreenshots(from presenter: UIViewController) { model.pickScreenshots(from: presenter) }
     func pickVideos(from presenter: UIViewController) { model.pickVideos(from: presenter) }
     func dismissRequest() { model.dismissRequest() }
+    func continueOnMac(projectID: String, name: String) async -> MacPresence.HandoffResult {
+        await presence.openOnMac(projectID: projectID, name: name)
+    }
 }

@@ -1,5 +1,14 @@
 import UIKit
 
+/// What this device is called in copy that talks about it ("this iPhone",
+/// "Record on iPad"). Content labels (a project's "iPhone" badge) describe
+/// the recording, not this device, and don't use it.
+@MainActor
+enum ThisDevice {
+    static var noun: String { UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone" }
+    static var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+}
+
 /// Text the screens show for times, sizes and dates.
 enum Format {
     /// "2:14", "1:02:05".
@@ -56,7 +65,10 @@ final class AppToaster {
         didSet { toaster?.bottomInset = bottomInset }
     }
 
-    func show(title: String, message: String? = nil, variant: CCToast.Variant = .default, symbol: String? = nil, action: CCToast.Action? = nil) {
+    /// Returns the toast so a progress toast ("Opening…") can be dismissed
+    /// when its result arrives instead of lingering in the stack behind it.
+    @discardableResult
+    func show(title: String, message: String? = nil, variant: CCToast.Variant = .default, symbol: String? = nil, action: CCToast.Action? = nil) -> CCToast? {
         toaster?.show(title: title, message: message, variant: variant, symbol: symbol, action: action)
     }
 

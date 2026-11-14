@@ -103,7 +103,33 @@ final class ProjectDetailViewController: DetailPageViewController {
 
     private var switchRow: UIView?
 
+    // MARK: Handoff
+
+    /// Apple Handoff: while this project is on screen, the Mac shows CaptureCat
+    /// in its Dock to continue it there (CaptureCatAppDelegate on the Mac);
+    /// a device without the app opens the web editor instead.
+    static let handoffActivityType = "so.capturecat.openProject"
+
+    private func advertiseHandoff() {
+        guard let project = LibraryStore.shared.project(projectID) else { return }
+        let activity = userActivity ?? NSUserActivity(activityType: Self.handoffActivityType)
+        activity.title = project.name
+        activity.userInfo = ["projectId": projectID.uppercased()]
+        activity.webpageURL = CaptureCatAPI.webEditorURL(projectID: projectID)
+        activity.isEligibleForHandoff = true
+        activity.isEligibleForSearch = false
+        activity.isEligibleForPublicIndexing = false
+        userActivity = activity
+        activity.becomeCurrent()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        advertiseHandoff()
+    }
+
     override func viewWillDisappear(_ animated: Bool) {
+        userActivity?.resignCurrent()
         super.viewWillDisappear(animated)
         if isMovingFromParent || navigationController == nil { playerCard.player.pause() }
     }
@@ -172,6 +198,10 @@ final class ProjectDetailViewController: DetailPageViewController {
             : "The shared video, exactly as exported."
 
         var actions: [ActionListCard.Action] = [
+            .init(title: "Continue on Mac", symbol: "desktop") { [weak self] _ in
+                guard let self, let project = LibraryStore.shared.project(self.projectID) else { return }
+                ProjectActions.continueOnMac(projectID: self.projectID, name: project.name, from: self)
+            },
             .init(title: "Rename", symbol: "pencil") { [weak self] _ in
                 guard let self, let project = LibraryStore.shared.project(self.projectID) else { return }
                 ProjectActions.promptRename(projectID: self.projectID, currentName: project.name, from: self)

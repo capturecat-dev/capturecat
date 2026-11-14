@@ -195,7 +195,9 @@ final class DeepLinkHandler {
 
         // &from=web — the web app's "Continue on Mac": open it AND bring in
         // what the web changed since this Mac last synced.
-        if params["from"] == "web" {
+        // &from=ios — the iPhone app's "Continue on Mac" (Wi-Fi link or
+        // Handoff): same thing, the phone may have renamed it.
+        if params["from"] == "web" || params["from"] == "ios" {
             CloudSyncController.shared.continueFromWeb(project: project, appState: appState, seek: seek)
             print("[DeepLink] Continuing from the web: \(project.name)")
             return

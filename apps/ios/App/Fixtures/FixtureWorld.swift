@@ -400,5 +400,10 @@ final class FixtureCapture: CaptureFeed {
     }
 
     func dismissRequest() { lastRequest = nil }
+    func continueOnMac(projectID: String, name: String) async -> MacPresence.HandoffResult {
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        if case let .connected(macName) = presenceStatus { return .opened(macName: macName) }
+        return .noMac
+    }
 }
 #endif

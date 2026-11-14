@@ -122,10 +122,10 @@ final class CaptureHubViewController: UIViewController {
     }
 
     private func buildHero() {
-        let eyebrow = ccLabel("iPhone over Wi-Fi", font: CCFont.captionMedium, color: CCTheme.color.mutedForeground)
+        let eyebrow = ccLabel("\(ThisDevice.noun) over Wi-Fi", font: CCFont.captionMedium, color: CCTheme.color.mutedForeground)
         let title = ccLabel("Stream to your Mac", font: CCFont.title, color: CCTheme.color.foreground, lines: 2)
         title.accessibilityTraits = .header
-        let pitch = ccLabel("Your Mac records this screen like a plugged-in iPhone — with the device frame. No cable.",
+        let pitch = ccLabel("Your Mac records this screen like a plugged-in \(ThisDevice.noun) — with the device frame. No cable.",
                             font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0)
 
         statusDot.translatesAutoresizingMaskIntoConstraints = false
@@ -187,7 +187,7 @@ final class CaptureHubViewController: UIViewController {
     private func buildRecordCard() -> UIView {
         let card = CCCard(radius: .lg)
         let tile = CCIconTile(symbol: "record")
-        let title = ccLabel("Record on iPhone", font: CCFont.header, color: CCTheme.color.foreground, lines: 2)
+        let title = ccLabel("Record on \(ThisDevice.noun)", font: CCFont.header, color: CCTheme.color.foreground, lines: 2)
         title.accessibilityTraits = .header
         let body = ccLabel("Saves to your library when you stop. Control Center's record button works too — pick CaptureCat in the list.",
                            font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
@@ -240,7 +240,7 @@ final class CaptureHubViewController: UIViewController {
         importStatusRow.alignment = .center
         importStatusRow.isHidden = true
         importError.isHidden = true
-        let hint = ccLabel("Screenshots open on your Mac and the web with the iPhone frame around them.",
+        let hint = ccLabel(ThisDevice.isPad ? "Screenshots open on your Mac and the web, ready to edit." : "Screenshots open on your Mac and the web with the iPhone frame around them.",
                            font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
         let stack = UIStackView(arrangedSubviews: [label, row, importStatusRow, importError, hint])
         stack.axis = .vertical
@@ -281,11 +281,11 @@ final class CaptureHubViewController: UIViewController {
         switch status {
         case .signedOut:
             title = "Signed out"
-            detail = "Sign in to stream this iPhone to your Mac."
+            detail = "Sign in to stream this \(ThisDevice.noun) to your Mac."
             canStream = false
         case .unavailable(let message):
             dot = colors.destructive
-            title = "Can't link this iPhone"
+            title = "Can't link this \(ThisDevice.noun)"
             detail = message
         case .searching:
             dot = colors.warning
@@ -296,7 +296,7 @@ final class CaptureHubViewController: UIViewController {
         case .connected(let macName):
             dot = colors.success
             title = "Connected to \(macName)"
-            detail = "Ready. Start streaming, then pick this iPhone as the source on your Mac."
+            detail = "Ready. Start streaming, then pick this \(ThisDevice.noun) as the source on your Mac."
             linkState = .connected
         }
         let key = "\(title)|\(detail)"
@@ -444,7 +444,7 @@ final class PresenceStrip: UIView {
         didSet { if state != oldValue { refresh() } }
     }
 
-    private let phone = CCIconTile(symbol: "iphone", side: 48)
+    private let phone = CCIconTile(symbol: ThisDevice.isPad ? "ipad" : "iphone", side: 48)
     private let mac = CCIconTile(symbol: "laptop", side: 48)
     private var dots: [UIView] = []
 

@@ -76,5 +76,9 @@
 	<true/>
 	<key>SUAutomaticallyUpdate</key>
 	<true/>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>so.capturecat.openProject</string>
+	</array>
 </dict>
 </plist>

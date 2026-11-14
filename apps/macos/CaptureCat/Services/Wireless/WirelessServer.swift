@@ -51,6 +51,9 @@ nonisolated final class WirelessServer: @unchecked Sendable {
     var onPhonesChanged: (@Sendable ([WirelessPhoneSnapshot]) -> Void)?
     /// Server queue. Listener ready (port) / failed (nil).
     var onListenerState: (@Sendable (UInt16?) -> Void)?
+    /// Server queue. A phone asked to continue a cloud project on this Mac
+    /// ("Continue on Mac"): the uppercase project id and the phone's name.
+    var onOpenProject: (@Sendable (_ projectID: String, _ phoneName: String) -> Void)?
 
     private var listener: NWListener?
     private var peers: [ObjectIdentifier: Peer] = [:]
@@ -313,6 +316,15 @@ nonisolated final class WirelessServer: @unchecked Sendable {
             if let sink = phone.sink, let local = phone.clock.localTime(forRemote: chunk.pts) {
                 sink.wirelessDidReceiveAudio(chunk, format: format, hostTime: CMTime(value: local, timescale: 1_000_000_000))
             }
+        case .openProject:
+            // "Continue on Mac". Answer at once (the clone may take a while;
+            // the phone only needs to know this Mac took it), then hand the id
+            // to the app, which runs the same path as capturecat://open-project.
+            guard let request = WirelessJSON.decode(WirelessOpenProject.self, from: payload) else { break }
+            let id = request.projectId.uppercased()
+            let valid = UUID(uuidString: id) != nil
+            peer.connection.sendWireless(.control, WirelessJSON.encode(WirelessControl.opened(projectId: id, ok: valid)))
+            if valid { onOpenProject?(id, phone.hello?.deviceName ?? "iPhone") }
         case .bye:
             peer.connection.cancel()
             return false

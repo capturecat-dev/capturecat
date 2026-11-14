@@ -57,6 +57,11 @@
 //                              "state" tells the phone whether it is recording;
 //                              "requestBroadcast" to an "app" connection asks
 //                              the phone to offer the Start Broadcast sheet)
+//  iPhone → Mac   openProject  JSON WirelessOpenProject      ("Continue on Mac":
+//                              open this cloud project in the Mac editor — it
+//                              clones it if needed and comes to the front;
+//                              sent on the "app" connection)
+//  Mac → iPhone   control      "openedProject" + projectId + ok (the answer)
 //  either way     bye          JSON WirelessBye              (orderly close)
 //
 //  Frames are UPRIGHT (the sender rotates ReplayKit buffers before encoding),
@@ -202,6 +207,7 @@ nonisolated enum WirelessMessageType: UInt32, Sendable {
     case audioPCM = 6
     case control = 7
     case bye = 8
+    case openProject = 9
 }
 
 /// Type + length framing over the TLS stream (the shape of Apple's
@@ -419,14 +425,28 @@ nonisolated struct WirelessAudioChunk: Equatable, Sendable {
 
 /// Mac → iPhone.
 nonisolated struct WirelessControl: Codable, Equatable, Sendable {
-    /// "keyframe" (send an IDR now), "state" (see `recording`), or
-    /// "requestBroadcast" (to an "app" connection: offer Start Broadcast).
+    /// "keyframe" (send an IDR now), "state" (see `recording`),
+    /// "requestBroadcast" (to an "app" connection: offer Start Broadcast), or
+    /// "openedProject" (the answer to `openProject`: see `projectId`, `ok`).
     var command: String
     var recording: Bool?
+    var projectId: String? = nil
+    var ok: Bool? = nil
 
     static let keyframe = WirelessControl(command: "keyframe", recording: nil)
     static let requestBroadcast = WirelessControl(command: "requestBroadcast", recording: nil)
+    static func opened(projectId: String, ok: Bool) -> WirelessControl {
+        WirelessControl(command: "openedProject", recording: nil, projectId: projectId, ok: ok)
+    }
     static func state(recording: Bool) -> WirelessControl { WirelessControl(command: "state", recording: recording) }
+}
+
+/// iPhone → Mac: "Continue on Mac" — open this cloud project (an uppercase
+/// UUID, as the API and project.json store it) in the Mac editor.
+nonisolated struct WirelessOpenProject: Codable, Equatable, Sendable {
+    var projectId: String
+    /// For the Mac's progress UI only; the Mac reads the real name from the cloud.
+    var name: String?
 }
 
 /// Either way, before closing.

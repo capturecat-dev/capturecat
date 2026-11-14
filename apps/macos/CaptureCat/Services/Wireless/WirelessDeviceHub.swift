@@ -265,6 +265,12 @@ final class WirelessDeviceHub {
         server.onListenerState = { [weak self] port in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.listenerPort = port } }
         }
+        server.onOpenProject = { projectID, phoneName in
+            DispatchQueue.main.async {
+                hubLogger.info("continue on Mac: \(projectID, privacy: .public) from \(phoneName, privacy: .public)")
+                NotificationCenter.default.post(name: .ccContinueProjectOnMac, object: nil, userInfo: ["id": projectID])
+            }
+        }
         do {
             try server.start(advertise: advertises, loopbackOnly: loopbackOnly)
             self.server = server
@@ -387,4 +393,11 @@ final class WirelessDeviceHub {
         noticeTask?.cancel()
         notice = nil
     }
+}
+
+extension Notification.Name {
+    /// An iPhone on this account asked to continue a cloud project here
+    /// ("Continue on Mac" over the Wi-Fi link). userInfo["id"] = project UUID.
+    /// The app delegate routes it through capturecat://open-project.
+    static let ccContinueProjectOnMac = Notification.Name("so.capturecat.continueProjectOnMac")
 }

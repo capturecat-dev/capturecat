@@ -252,7 +252,7 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
         }
         dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
             let view = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: LibrarySectionHeader.reuse, for: indexPath) as! LibrarySectionHeader
-            view.label.text = "Uploading from this iPhone"
+            view.label.text = "Uploading from this \(ThisDevice.noun)"
             return view
         }
     }
@@ -421,10 +421,10 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
             switch filter {
             case .all:
                 empty = CCEmptyState(symbol: "film-stack", title: "Nothing here yet",
-                                     message: "Recordings and screenshots from this iPhone, your Mac and the web all land here.",
+                                     message: "Recordings and screenshots from this \(ThisDevice.noun), your Mac and the web all land here.",
                                      primary: CCButton(title: "Start capturing", symbol: "record", style: .primary) { [weak self] in self?.coordinator?.openCapture?() })
             case .videos:
-                empty = CCEmptyState(symbol: "film", title: "No videos yet", message: "Record on this iPhone or on your Mac — they show up here.")
+                empty = CCEmptyState(symbol: "film", title: "No videos yet", message: "Record on this \(ThisDevice.noun) or on your Mac — they show up here.")
             case .images:
                 empty = CCEmptyState(symbol: "photo", title: "No images yet", message: "Import screenshots from Photos in the Capture tab.")
             case .shares:

@@ -128,8 +128,8 @@ final class AccountViewController: UIViewController {
 
     private func makeDevicesCard() -> UIView {
         let icon = CCIconView("wifi", pointSize: 17, weight: .medium, tint: CCTheme.color.mutedForeground)
-        let title = ccLabel("Your iPhone and Macs stream to each other over Wi-Fi", font: CCFont.labelSemibold, color: CCTheme.color.foreground, lines: 0)
-        let detail = ccLabel("Every device signed in to this account is linked automatically. Forgetting them unlinks every Mac and iPhone until they reconnect.",
+        let title = ccLabel("Your \(ThisDevice.noun) and Macs stream to each other over Wi-Fi", font: CCFont.labelSemibold, color: CCTheme.color.foreground, lines: 0)
+        let detail = ccLabel("Every device signed in to this account is linked automatically. Forgetting them unlinks every Mac, iPhone and iPad until they reconnect.",
                              font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
         let text = UIStackView(arrangedSubviews: [title, detail])
         text.axis = .vertical
@@ -214,7 +214,7 @@ final class AccountViewController: UIViewController {
     private func confirmForget() {
         CCAlert.confirm(
             title: "Forget my devices?",
-            message: "This unlinks every Mac and iPhone on your account from Wi-Fi streaming. Each one reconnects by itself the next time CaptureCat opens on it while signed in.",
+            message: "This unlinks every Mac, iPhone and iPad on your account from Wi-Fi streaming. Each one reconnects by itself the next time CaptureCat opens on it while signed in.",
             confirmTitle: "Forget devices",
             destructive: true,
             from: self,
@@ -230,7 +230,7 @@ final class AccountViewController: UIViewController {
     private func confirmSignOut() {
         CCAlert.confirm(
             title: "Sign out?",
-            message: "Uploads still waiting on this iPhone stay here and finish after you sign back in.",
+            message: "Uploads still waiting on this \(ThisDevice.noun) stay here and finish after you sign back in.",
             confirmTitle: "Sign out",
             destructive: false,
             from: self,

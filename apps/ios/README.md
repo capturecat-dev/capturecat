@@ -25,6 +25,15 @@ views through `withObservationTracking` loops over `@Observable` stores.
 - **Screenshots** — "Save to CaptureCat" in the share sheet, or Import in the app: each
   screenshot becomes a still-capture project (the Mac's 8-second still movie), with the
   iPhone bezel on Mac and web.
+- **Continue on Mac** — from a project, ask the Mac on the same account and Wi-Fi to open it
+  in its editor (message `openProject` on the presence link, acked with control
+  `openedProject`); the Mac clones it if it's cloud-only and comes to the front. The detail
+  screen also advertises Handoff (`so.capturecat.openProject`, falling back to the web
+  editor). No Mac answering → offer the web editor.
+
+Copy that talks about this device ("this iPhone", "Record on iPhone") follows the device
+(`ThisDevice.noun`); content badges ("iPhone" on a phone-shaped capture) describe the
+recording.
 
 ## Layout
 
@@ -65,11 +74,16 @@ Bundle ids: `so.capturecat.ios`, `.broadcast`, `.share`; App Group `group.so.cap
     apps/ios/scripts/core-selftest.sh       # lossless JSON, project docs, link-key vector
     apps/ios/scripts/upload-e2e.sh          # sign-in, publish, conflict/rebase, download — vs Tests/mock_api.py
     apps/ios/scripts/wireless-loopback.sh   # real iOS sender ↔ test Mac listener: Bonjour, TLS-PSK, H.264 decode, rotation, wrong key refused
-    apps/ios/scripts/mac-interop.sh         # real iOS sender ↔ the REAL Mac receiver (WirelessServer): presence, requestBroadcast, one phone, keyframe-on-record, 70/70 frames, clock mapping, rotation
+    apps/ios/scripts/mac-interop.sh         # real iOS sender ↔ the REAL Mac receiver (WirelessServer): presence, requestBroadcast, one phone, keyframe-on-record, 70/70 frames, clock mapping, rotation, openProject ack
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production
 bucket, so upload tests run against the local mock instead.
+
+Driving the app in the Simulator by hand:
+
+    python3 apps/ios/Tests/mock_api.py 8791                 # the API (sign-in works; test-only /__seed, /__share, /__rename, /__bump, /__state)
+    apps/ios/scripts/fake-mac.sh <out-dir> [--request-after S] # a stand-in Mac (the real WirelessServer): presence, Continue on Mac, requestBroadcast
 
 Debug builds can point at another API: launch with `-apiBaseURL http://127.0.0.1:8799`
 (https or loopback only); the app copies it to the App Group so the extensions follow.

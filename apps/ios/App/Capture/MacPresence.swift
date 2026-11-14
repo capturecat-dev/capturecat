@@ -26,6 +26,49 @@ final class MacPresence {
 
     private var client: WirelessMacClient?
     private var refreshedLink = false
+    /// Waiting "Continue on Mac" requests by project id (nil = timed out).
+    private var pendingOpens: [String: CheckedContinuation<Bool?, Never>] = [:]
+
+    enum HandoffResult: Equatable {
+        case opened(macName: String)
+        /// The Mac answered but refused (not a project id it can open).
+        case refused
+        /// No Mac on this account answered on the local network.
+        case noMac
+        case signedOut
+    }
+
+    /// "Continue on Mac": ask the connected Mac to open this cloud project in
+    /// its editor (it clones if needed and comes to the front). Starts the
+    /// presence link if it isn't up — the user just asked for the Mac.
+    func openOnMac(projectID: String, name: String) async -> HandoffResult {
+        guard SessionStore.load() != nil else { return .signedOut }
+        if client == nil { await start() }
+        let deadline = Date().addingTimeInterval(4)
+        while connectedMacID == nil, client != nil, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        guard let client, connectedMacID != nil, case let .connected(macName) = status else { return .noMac }
+        let id = projectID.uppercased()
+        client.send(.openProject, WirelessJSON.encode(WirelessOpenProject(projectId: id, name: name)))
+        let answer: Bool? = await withCheckedContinuation { continuation in
+            pendingOpens.removeValue(forKey: id)?.resume(returning: nil)
+            pendingOpens[id] = continuation
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 6_000_000_000)
+                MacPresence.shared.pendingOpens.removeValue(forKey: id)?.resume(returning: nil)
+            }
+        }
+        switch answer {
+        case true?: return .opened(macName: macName)
+        case false?: return .refused
+        case nil: return .noMac
+        }
+    }
+
+    private func resolveOpen(projectID: String, ok: Bool) {
+        pendingOpens.removeValue(forKey: projectID.uppercased())?.resume(returning: ok)
+    }
 
     /// Start (or keep) presence. Asks for Local Network access the first time
     /// — so call it when the user is looking at streaming, not at launch.
@@ -33,7 +76,7 @@ final class MacPresence {
         guard SessionStore.load() != nil else { status = .signedOut; return }
         guard client == nil else { return }
         guard let link = await WirelessLinkStore.current() else {
-            status = .unavailable("Couldn't reach CaptureCat to link this iPhone. Check your connection.")
+            status = .unavailable("Couldn't reach CaptureCat to link this \(ThisDevice.noun). Check your connection.")
             return
         }
         begin(with: link)
@@ -62,6 +105,11 @@ final class MacPresence {
             Task { @MainActor in MacPresence.shared.apply(state) }
         }
         client.onControl = { control in
+            if control.command == "openedProject", let id = control.projectId {
+                let ok = control.ok ?? false
+                Task { @MainActor in MacPresence.shared.resolveOpen(projectID: id, ok: ok) }
+                return
+            }
             guard control.command == WirelessControl.requestBroadcast.command else { return }
             Task { @MainActor in
                 let presence = MacPresence.shared

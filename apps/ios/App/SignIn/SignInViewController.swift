@@ -10,7 +10,7 @@ final class SignInViewController: UIViewController {
     private let markHost = CCSurface(.raised, tint: .black, radius: .lg)
     private let eyebrow = UILabel()
     private let titleLabel = ccLabel("Sign in to your library", font: CCFont.scaled(28, .semibold, .title1, max: 38), color: CCTheme.color.foreground, lines: 0)
-    private let body = ccLabel("Your recordings from your Mac and the web, on your iPhone — watch them, share them, and capture new ones that open straight in the editor.",
+    private let body = ccLabel("Your recordings from your Mac and the web, on your \(ThisDevice.noun) — watch them, share them, and capture new ones that open straight in the editor.",
                                font: CCFont.body, color: CCTheme.color.mutedForeground, lines: 0)
     private let signInButton = CCButton(title: "Sign in", style: .primary, size: .lg, radius: .lg)
     private let errorLabel = ccLabel("", font: CCFont.label, color: CCTheme.color.destructive, lines: 0)
@@ -44,7 +44,7 @@ final class SignInViewController: UIViewController {
 
         let features = UIStackView(arrangedSubviews: [
             feature("cloud-upload", "Projects sync with your Mac and the web"),
-            feature("wifi", "Stream this iPhone to your Mac — no cable"),
+            feature("wifi", "Stream this \(ThisDevice.noun) to your Mac — no cable"),
             feature("link", "Share links with time-pinned comments"),
         ])
         features.axis = .vertical

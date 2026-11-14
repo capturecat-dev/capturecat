@@ -59,7 +59,13 @@ nonisolated func run() async {
     // ── 1. The app is open: presence connection.
     let app = WirelessMacClient(role: WirelessDevice.roleApp, hello: { hello(WirelessDevice.roleApp) })
     nonisolated(unsafe) var gotRequest = false
-    app.onControl = { if $0.command == WirelessControl.requestBroadcast.command { gotRequest = true } }
+    nonisolated(unsafe) var openAcks: [WirelessControl] = []
+    app.onControl = { control in
+        if control.command == WirelessControl.requestBroadcast.command { gotRequest = true }
+        if control.command == "openedProject" { openAcks.append(control) }
+    }
+    nonisolated(unsafe) var opened: [(String, String)] = []
+    server.onOpenProject = { id, name in opened.append((id, name)) }
     app.start(link: link, preferredMacID: macID)
     check(await waitUntil(15) { server.snapshots().first?.hasApp == true }, "Mac lists the phone as soon as the app is open (role app)")
     let snap = server.snapshots().first
@@ -68,6 +74,16 @@ nonisolated func run() async {
     // ── 2. The Mac user picks it → requestBroadcast reaches the app.
     check(server.requestBroadcast(from: deviceID), "Mac sends requestBroadcast on the app connection")
     check(await waitUntil(5) { gotRequest }, "iPhone app receives requestBroadcast")
+
+    // ── 2b. "Continue on Mac": the phone asks the Mac to open a cloud project.
+    let projectID = "6f1e2d3c-4b5a-4978-8695-a4b3c2d1e0f9"
+    app.send(.openProject, WirelessJSON.encode(WirelessOpenProject(projectId: projectID, name: "Q4 demo")))
+    check(await waitUntil(5) { !openAcks.isEmpty }, "Mac answers openProject")
+    check(openAcks.first?.ok == true && openAcks.first?.projectId == projectID.uppercased(), "answer is ok=true for the (uppercased) project id")
+    check(opened.first?.0 == projectID.uppercased() && opened.first?.1 == "Interop iPhone", "Mac hands the id + phone name to the app (→ capturecat://open-project&from=ios)")
+    app.send(.openProject, WirelessJSON.encode(WirelessOpenProject(projectId: "not-a-uuid", name: nil)))
+    check(await waitUntil(5) { openAcks.count == 2 }, "Mac answers a bad request too")
+    check(openAcks.last?.ok == false && opened.count == 1, "a non-UUID id is refused and never reaches the app")
 
     // ── 3. The broadcast extension connects: same phone, now streaming.
     let encoder = StreamEncoder()

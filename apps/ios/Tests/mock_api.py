@@ -18,6 +18,9 @@ devices,video}.ts closely enough to exercise every client path:
   /api/wireless/link, /api/devices[...]
   /__state                 test introspection (JSON of what was stored)
   /__bump/<id>             simulate a save from another device (revision + 1)
+  /__share                 test-only: publish a share of a seeded project's video
+                           ({projectId, videoId?, fileName?, isPrivate?}); it lists
+                           in /api/videos and streams from /api/video/:id
 
 Usage: python3 mock_api.py [port]   (binds 127.0.0.1 only)
 """
@@ -44,6 +47,7 @@ projects = {}  # ID -> {name, revision, document, files, staged, finalize_calls,
 comments = {"V1": [{"commentId": "C1", "parentId": None, "authorName": "Alex", "authorImage": None, "isOwner": False,
                     "body": "Love the zoom here", "videoTime": 3.2, "createdAt": "2026-11-12T10:00:00.000Z"}]}
 devices = {}
+shares = {}  # videoId -> {row (GET /api/videos shape), sha}
 LINK_KEY = bytes(range(32))
 
 
@@ -151,7 +155,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(200, {**self.summary(pid, p), "access": "owner", "document": p["document"],
                                             "files": files, "urlsExpireAt": expires}, {"ETag": f'"{p["revision"]}"'})
         if path == "/api/videos":
-            return self.send_json(200, {"videos": [], "storageUsedBytes": 0, "storageLimitBytes": 107374182400})
+            with LOCK:
+                rows = sorted((s["row"] for s in shares.values()), key=lambda r: r["createdAt"], reverse=True)
+                used = sum(r["fileSizeBytes"] for r in rows)
+            return self.send_json(200, {"videos": rows, "storageUsedBytes": used, "storageLimitBytes": 107374182400})
+        m = re.match(r"^/api/video/([^/]+)$", path)
+        if m:
+            share = shares.get(m.group(1))
+            if not share:
+                return self.send_json(404, {"error": "Video not found"})
+            return self.serve_file(share["sha"])
         m = re.match(r"^/api/video/([^/]+)/comments$", path)
         if m:
             return self.send_json(200, {"comments": comments.get(m.group(1), []), "viewer": None})
@@ -202,6 +215,23 @@ class Handler(BaseHTTPRequestHandler):
                 p["revision"] += 1
                 p["updated"] = now_iso()
                 return self.send_json(200, {"revision": p["revision"]})
+        if path == "/__share":
+            # Test-only: a share exported from a seeded project (its first video file).
+            data = json.loads(raw or b"{}")
+            pid = data["projectId"].upper()
+            vid = data.get("videoId") or uuid.uuid4().hex[:12]
+            with LOCK:
+                p = projects[pid]
+                f = next(f for f in p["files"] if f["contentType"].startswith("video/"))
+                row = {"videoId": vid, "fileName": data.get("fileName", p["name"] + ".mp4"), "contentType": "video/mp4",
+                       "fileSizeBytes": f["bytes"], "durationSeconds": data.get("durationSeconds", 2.0),
+                       "isPrivate": bool(data.get("isPrivate", False)), "createdAt": now_iso(),
+                       "url": f"https://capturecat.so/share/{vid}", "projectId": pid, "allowDownload": True,
+                       "hasPassword": bool(data.get("hasPassword", False)), "expiresAt": None, "maxViews": None,
+                       "commentsEnabled": data.get("commentsEnabled", True), "profileVisible": False,
+                       "thumbnailType": None, "thumbnailUrl": None, "removed": None}
+                shares[vid] = {"row": row, "sha": f["sha256"]}
+            return self.send_json(200, {"videoId": vid})
         if path.startswith("/__bump/"):
             pid = path.split("/")[2].upper()
             with LOCK:
