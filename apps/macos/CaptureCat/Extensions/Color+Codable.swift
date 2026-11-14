@@ -1,4 +1,4 @@
-import AppKit
+import Foundation
 
 /// A colour as four stored sRGB doubles.
 ///
@@ -13,22 +13,13 @@ import AppKit
 /// initialiser stored `.deviceRGB` components while the `nsColor` accessor
 /// reads them back as sRGB, so a colour picked on a wide-gamut display was
 /// written in one space and read in another. Every caller now goes through the
-/// `NSColor` initialiser below, which is sRGB on both sides.
+/// platform-colour initialiser (`Studio/Platform/PlatformColor+Codable.swift`),
+/// which is sRGB on both sides.
 struct CodableColor: Codable, Sendable {
     var red: Double
     var green: Double
     var blue: Double
     var opacity: Double
-
-    /// sRGB to match the `nsColor` accessor in `CodableColor+AppKit`, so a
-    /// colour survives a round trip unchanged.
-    init(_ nsColor: NSColor) {
-        let rgb = nsColor.usingColorSpace(.sRGB) ?? nsColor
-        self.red = Double(rgb.redComponent)
-        self.green = Double(rgb.greenComponent)
-        self.blue = Double(rgb.blueComponent)
-        self.opacity = Double(rgb.alphaComponent)
-    }
 
     /// Parses "#RRGGBB" or "#RRGGBBAA" (leading "#" optional) — the MCP
     /// tool's color input format. nil on malformed input.
@@ -54,4 +45,10 @@ struct CodableColor: Codable, Sendable {
         self.opacity = opacity
     }
 
+    var srgba: SRGBA { SRGBA(self) }
+
+    /// Stable identity for render caches — replaces `Color.description`.
+    var cacheKey: String {
+        String(format: "%.4f,%.4f,%.4f,%.4f", red, green, blue, opacity)
+    }
 }

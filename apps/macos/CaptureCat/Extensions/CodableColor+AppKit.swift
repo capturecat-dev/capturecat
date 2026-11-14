@@ -9,11 +9,4 @@ extension CodableColor {
     var nsColor: NSColor {
         NSColor(srgbRed: red, green: green, blue: blue, alpha: opacity)
     }
-
-    var srgba: SRGBA { SRGBA(self) }
-
-    /// Stable identity for render caches — replaces `Color.description`.
-    var cacheKey: String {
-        String(format: "%.4f,%.4f,%.4f,%.4f", red, green, blue, opacity)
-    }
 }

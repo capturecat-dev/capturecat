@@ -1,6 +1,5 @@
 import Foundation
 import CoreGraphics
-import AppKit
 
 // Codable, Sendable wrapper for CGPoint stored in normalized video space (0–1)
 struct CodablePoint: Codable, Sendable, Hashable {
@@ -211,7 +210,7 @@ struct Annotation: Identifiable, Codable, Sendable {
         self.text = "Label"
         self.fontSize = 18
         self.showBackground = true
-        self.color = CodableColor(NSColor.white)
+        self.color = SystemColorDefaults.white
         self.backgroundColor = CodableColor(red: 0, green: 0, blue: 0, opacity: 0.55)
         self.lineWidth = 4
         self.drawingStrokes = []
@@ -288,7 +287,7 @@ extension Annotation {
         case .rectangle, .ellipse:
             x = 0.35; y = 0.375
             arrowEndX = 0.65; arrowEndY = 0.625
-            color = CodableColor(NSColor.white)
+            color = SystemColorDefaults.white
             backgroundColor = CodableColor(red: 1, green: 1, blue: 1, opacity: 0.25)
             showBackground = false
             lineWidth = 4

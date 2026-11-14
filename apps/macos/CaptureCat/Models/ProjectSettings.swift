@@ -1,12 +1,13 @@
-import AppKit
+import Foundation
+import Observation
 
 @Observable
 final class ProjectSettings: Codable {
     // Background
     var backgroundType: BackgroundType = .gradient
-    var gradientStartColor: CodableColor = CodableColor(NSColor.systemPurple)
-    var gradientEndColor: CodableColor = CodableColor(NSColor.systemBlue)
-    var solidColor: CodableColor = CodableColor(NSColor.black)
+    var gradientStartColor: CodableColor = SystemColorDefaults.systemPurple
+    var gradientEndColor: CodableColor = SystemColorDefaults.systemBlue
+    var solidColor: CodableColor = SystemColorDefaults.black
     var backgroundImagePath: String?
     var backgroundPadding: Double = 48
     var videoPlacement: VideoPlacement = .center
@@ -122,7 +123,7 @@ final class ProjectSettings: Codable {
     /// RECORDED app, hiding ones typed into other apps mid-recording. Applied
     /// at render time (KeystrokeOverlayMath.scopedEvents) so it's reversible.
     var keystrokeOverlayScopeToRecordedApp: Bool = true
-    var clickRippleColor: CodableColor = CodableColor(NSColor.white)
+    var clickRippleColor: CodableColor = SystemColorDefaults.white
     var clickRippleSize: Double = 40
 
     // Camera
@@ -211,7 +212,7 @@ final class ProjectSettings: Codable {
     var cameraTagSubtext: String = ""
     /// nil = system semibold (see CameraStyleMath.tagFont).
     var cameraTagFontName: String?
-    var cameraTagTextColor: CodableColor = CodableColor(NSColor.white)
+    var cameraTagTextColor: CodableColor = SystemColorDefaults.white
     var cameraTagBackgroundColor: CodableColor = CodableColor(red: 0, green: 0, blue: 0, opacity: 0.55)
     var cameraTagPosition: CameraTagPosition = .below
     /// Draw the recording inside a realistic device bezel (iPhone/iPad takes).
@@ -310,10 +311,10 @@ final class ProjectSettings: Codable {
     /// Typeface family; nil = system font (see FontCatalog).
     var subtitleFontName: String?
     var subtitleUppercase: Bool = false
-    var subtitleColor: CodableColor = CodableColor(NSColor.white)
-    var subtitleBackgroundColor: CodableColor = CodableColor(NSColor.black)
+    var subtitleColor: CodableColor = SystemColorDefaults.white
+    var subtitleBackgroundColor: CodableColor = SystemColorDefaults.black
     var highlightWords: Bool = false
-    var subtitleHighlightColor: CodableColor = CodableColor(NSColor.systemYellow)
+    var subtitleHighlightColor: CodableColor = SystemColorDefaults.systemYellow
 
     // Aspect Ratio
     var aspectRatio: AspectRatio = .widescreen
@@ -414,16 +415,6 @@ final class ProjectSettings: Codable {
         case semibold = "Semibold"
         case bold = "Bold"
         case heavy = "Heavy"
-
-        var nsWeight: NSFont.Weight {
-            switch self {
-            case .regular: return .regular
-            case .medium: return .medium
-            case .semibold: return .semibold
-            case .bold: return .bold
-            case .heavy: return .heavy
-            }
-        }
     }
 
     enum VideoPlacement: String, CaseIterable, Codable, Sendable {
@@ -584,7 +575,7 @@ final class ProjectSettings: Codable {
         keystrokeOverlayPosition = ((try? c.decodeIfPresent(KeystrokeOverlayPosition.self, forKey: .keystrokeOverlayPosition)) ?? .bottomCenter) ?? .bottomCenter
         keystrokeOverlayAnimation = ((try? c.decodeIfPresent(KeystrokeOverlayAnimation.self, forKey: .keystrokeOverlayAnimation)) ?? .slideUp) ?? .slideUp
         keystrokeOverlayScopeToRecordedApp = try c.decodeIfPresent(Bool.self, forKey: .keystrokeOverlayScopeToRecordedApp) ?? true
-        clickRippleColor = try c.decodeIfPresent(CodableColor.self, forKey: .clickRippleColor) ?? CodableColor(NSColor.white)
+        clickRippleColor = try c.decodeIfPresent(CodableColor.self, forKey: .clickRippleColor) ?? SystemColorDefaults.white
         clickRippleSize = try c.decodeIfPresent(Double.self, forKey: .clickRippleSize) ?? 40
         showCamera = try c.decode(Bool.self, forKey: .showCamera)
         cameraPosition = try c.decode(CameraPosition.self, forKey: .cameraPosition)
@@ -640,7 +631,7 @@ final class ProjectSettings: Codable {
         cameraTagText = try c.decodeIfPresent(String.self, forKey: .cameraTagText) ?? ""
         cameraTagSubtext = try c.decodeIfPresent(String.self, forKey: .cameraTagSubtext) ?? ""
         cameraTagFontName = try c.decodeIfPresent(String.self, forKey: .cameraTagFontName)
-        cameraTagTextColor = try c.decodeIfPresent(CodableColor.self, forKey: .cameraTagTextColor) ?? CodableColor(NSColor.white)
+        cameraTagTextColor = try c.decodeIfPresent(CodableColor.self, forKey: .cameraTagTextColor) ?? SystemColorDefaults.white
         cameraTagBackgroundColor = try c.decodeIfPresent(CodableColor.self, forKey: .cameraTagBackgroundColor) ?? CodableColor(red: 0, green: 0, blue: 0, opacity: 0.55)
         cameraTagPosition = ((try? c.decodeIfPresent(CameraTagPosition.self, forKey: .cameraTagPosition)) ?? .some(.below)) ?? .below
         showDeviceFrame = try c.decodeIfPresent(Bool.self, forKey: .showDeviceFrame) ?? true
@@ -692,10 +683,10 @@ final class ProjectSettings: Codable {
         subtitleWeight = ((try? c.decodeIfPresent(SubtitleWeight.self, forKey: .subtitleWeight)) ?? .bold) ?? .bold
         subtitleUppercase = try c.decodeIfPresent(Bool.self, forKey: .subtitleUppercase) ?? false
         subtitleFontName = try c.decodeIfPresent(String.self, forKey: .subtitleFontName)
-        subtitleColor = try c.decodeIfPresent(CodableColor.self, forKey: .subtitleColor) ?? CodableColor(NSColor.white)
-        subtitleBackgroundColor = try c.decodeIfPresent(CodableColor.self, forKey: .subtitleBackgroundColor) ?? CodableColor(NSColor.black)
+        subtitleColor = try c.decodeIfPresent(CodableColor.self, forKey: .subtitleColor) ?? SystemColorDefaults.white
+        subtitleBackgroundColor = try c.decodeIfPresent(CodableColor.self, forKey: .subtitleBackgroundColor) ?? SystemColorDefaults.black
         highlightWords = try c.decodeIfPresent(Bool.self, forKey: .highlightWords) ?? false
-        subtitleHighlightColor = try c.decodeIfPresent(CodableColor.self, forKey: .subtitleHighlightColor) ?? CodableColor(NSColor.systemYellow)
+        subtitleHighlightColor = try c.decodeIfPresent(CodableColor.self, forKey: .subtitleHighlightColor) ?? SystemColorDefaults.systemYellow
         aspectRatio = try c.decode(AspectRatio.self, forKey: .aspectRatio)
         muteRecordedAudio = try c.decodeIfPresent(Bool.self, forKey: .muteRecordedAudio) ?? false
         exportSettings = try c.decode(ExportSettings.self, forKey: .exportSettings)
