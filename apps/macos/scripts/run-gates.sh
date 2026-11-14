@@ -42,6 +42,7 @@ GATES=(
   --playback-observer-test
   --raster-golden
   --preview-gesture-test
+  --timeline-edits-test
   --editor-shell-shot
   --inspector-probe
   --recording-panel-shot

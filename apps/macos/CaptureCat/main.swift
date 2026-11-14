@@ -185,6 +185,13 @@ if CommandLine.arguments.contains("--preview-gesture-test") {
     MainActor.assumeIsolated { PreviewGestureHarness.run() }
 }
 
+// Timeline edit freeze: every edit op through the real timeline controller,
+// then the whole undo stack unwound, against a pre-extraction transcript.
+// Never reached in a normal launch.
+if CommandLine.arguments.contains("--timeline-edits-test") {
+    MainActor.assumeIsolated { TimelineEditsHarness.run() }
+}
+
 // VIDEO-track editing-math acceptance test: shared VideoTrackEditMath vs a
 // verbatim oracle of the pre-extraction in-view code. Gate for the native
 // canvas row port. Never reached in a normal launch.

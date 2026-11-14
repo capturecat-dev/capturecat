@@ -80,16 +80,16 @@ final class TimelineViewController: NSViewController {
     /// exactly like Depth Focus — including selection exclusivity, without
     /// which a layout block and an EFFECTS block showed drag handles at the
     /// same time.
-    private var selectedCameraLayoutID: UUID? {
+    var selectedCameraLayoutID: UUID? {
         didSet { applySelectionExclusivity(.cameraLayout, selectedCameraLayoutID); rebuildCanvas() }
     }
-    private var selectedVoiceOverID: UUID? {
+    var selectedVoiceOverID: UUID? {
         didSet { applySelectionExclusivity(.voiceOver, selectedVoiceOverID); rebuildCanvas(); refreshTransport() }
     }
-    private var selectedSpeedID: UUID? {
+    var selectedSpeedID: UUID? {
         didSet { applySelectionExclusivity(.speed, selectedSpeedID); rebuildCanvas(); refreshTransport() }
     }
-    private var selectedClipID: UUID? {
+    var selectedClipID: UUID? {
         didSet { applySelectionExclusivity(.clip, selectedClipID); rebuildCanvas(); refreshTransport() }
     }
     private var sliceMode = false { didSet { rebuildCanvas() } }
@@ -727,7 +727,7 @@ final class TimelineViewController: NSViewController {
 
     /// Showcase: the "reference look" as one click — modest push-in with a
     /// pitch-back skew, Slow Glide, eased back to a flat centred card.
-    private func addShowcaseBlock() {
+    func addShowcaseBlock() {
         let desiredStart = max(0, min(currentTime, project.duration))
         let desiredEnd = min(desiredStart + 3, project.duration)
         var (start, end) = findNonOverlappingSlot(
@@ -759,7 +759,7 @@ final class TimelineViewController: NSViewController {
 
     /// Scale Down: the card shrinks toward centre for the span, then eases
     /// back — zoom below 1 is a scale effect on the same lane.
-    private func addScaleDownBlock() {
+    func addScaleDownBlock() {
         let desiredStart = max(0, min(currentTime, project.duration))
         let desiredEnd = min(desiredStart + 3, project.duration)
         var (start, end) = findNonOverlappingSlot(
@@ -787,7 +787,7 @@ final class TimelineViewController: NSViewController {
 
     /// Intro Slide entry point: turns the entrance on (Bottom by default) and
     /// opens the Motion pane where direction and length live.
-    private func enableIntroSlide() {
+    func enableIntroSlide() {
         if project.settings.introSlideStyle == .off {
             project.settings.introSlideStyle = .bottom
         }
@@ -801,7 +801,7 @@ final class TimelineViewController: NSViewController {
 
     /// Curtain Unveil entry point: turns the peel on (Top Left by default)
     /// and opens the Effects pane where corner and length live.
-    private func enableCurtainUnveil() {
+    func enableCurtainUnveil() {
         if project.settings.curtainUnveilCorner == .off {
             project.settings.curtainUnveilCorner = .topLeft
         }
@@ -2007,7 +2007,7 @@ final class TimelineViewController: NSViewController {
         CCIcon.has(name) ? name : fallback
     }
 
-    private func addCameraLayoutRegion(
+    func addCameraLayoutRegion(
         mode: CameraLayoutMode, look: CameraBubbleLook? = nil, side: CameraSide? = nil, split: CameraSplitStyle? = nil
     ) {
         // Playhead near the start = "this is my intro": snap to 0 so the
@@ -2167,7 +2167,7 @@ final class TimelineViewController: NSViewController {
 
     // MARK: - Zoom regions
 
-    private func autoZoom() {
+    func autoZoom() {
         // Shared with the MCP tool and the record-stop hook (AutoZoomApplier):
         // regenerating replaces only earlier AUTO regions; the user's
         // hand-placed blocks stay and the generator routes around them.
@@ -2204,7 +2204,7 @@ final class TimelineViewController: NSViewController {
         }
     }
 
-    private func runStillMotion() {
+    func runStillMotion() {
         let previousZooms = project.zoomRegions
         let previousTilts = project.tiltRegions
         guard StillMotionApplier.apply(to: project) > 0 else { return }
@@ -2534,7 +2534,7 @@ final class TimelineViewController: NSViewController {
     }
 
     /// Depth Focus: sharp region, graduated blur outside (FocusMath).
-    private func addDepthFocusRegion(at startTime: TimeInterval? = nil) {
+    func addDepthFocusRegion(at startTime: TimeInterval? = nil) {
         let desiredStart = max(0, min(startTime ?? currentTime, project.duration))
         let desiredEnd = min(desiredStart + 3, project.duration)
         // Shares the FOCUS lane with blur + highlight.
