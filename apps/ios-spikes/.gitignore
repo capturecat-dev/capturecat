@@ -1,0 +1,5 @@
+# Generated synthetic media (mac/make-media.sh) — large, reproducible.
+Spikes/Media/
+build/
+results/mac/d-frames/
+results/*/build.log

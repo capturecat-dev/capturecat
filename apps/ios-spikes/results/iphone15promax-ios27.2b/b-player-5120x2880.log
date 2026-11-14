@@ -1,0 +1,5 @@
+SPIKE-LOG SPIKE-START b/player
+SPIKE-RESULT {"accessLogDroppedFrames":-1,"accessLogStalls":-1,"codec":"hvc1","device":{"cores":6,"lowPower":false,"machine":"iPhone16,2","maxFPS":120,"model":"iPhone","physicalMemoryMB":7655.5,"screenPoints":"430x932@3.0","simulator":false,"system":"iOS 27.2","thermal":"nominal"},"duration":10,"file":"screen-5120x2880-60.mov","firstFrameMs":26.670708000000001,"fps":60,"framesDue":591,"framesObtained":593,"hwHEVCDecodeSupported":true,"isDecodable":true,"isPlayable":true,"memory":{"endFootprintMB":8.3000000000000007,"minAvailableMB":3310.6999999999998,"processPeakFootprintMB":65.299999999999997,"sampledPeakFootprintMB":65.299999999999997,"startFootprintMB":7.2000000000000002,"thermalAtEnd":"nominal"},"mode":"AVPlayer 1x + AVPlayerItemVideoOutput BGRA on CADisplayLink 60Hz","playedSeconds":9.8607750000000003,"readySeconds":0.023356999999999999,"size":"5120x2880","sourceFramesSkipped":0,"spike":"b","variant":"player","wallSeconds":10.134674}
+Launched application with so.capturecat.spikes bundle identifier.
+Waiting for the application to terminate...
+The app terminated with the exit code 0.

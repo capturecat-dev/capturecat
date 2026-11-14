@@ -1,0 +1,40 @@
+{
+ "clockDriftSeconds": 2e-06,
+ "decodeFailures": 0,
+ "device": {
+  "cores": 14,
+  "lowPower": false,
+  "machine": "arm64",
+  "maxFPS": 60,
+  "model": "iPhone",
+  "physicalMemoryMB": 36864,
+  "screenPoints": "402x874@3.0",
+  "simulator": true,
+  "system": "iOS 26.2",
+  "thermal": "nominal"
+ },
+ "driver": "AVSampleBufferDisplayLayer + AVSampleBufferRenderSynchronizer (compressed samples)",
+ "file": "screen-3456x2234-60.mov",
+ "memory": {
+  "endFootprintMB": 76.6,
+  "minAvailableMB": -1,
+  "processPeakFootprintMB": 83,
+  "sampledPeakFootprintMB": 79.2,
+  "startFootprintMB": 16.1,
+  "thermalAtEnd": "nominal"
+ },
+ "note": "pacing is owned by the render server; no per-frame presentation API while rate != 0 (copyDisplayedPixelBuffer returns nil)",
+ "onScreenCheck": {
+  "litFraction": 0.601441,
+  "ok": true
+ },
+ "requiresFlushToResumeDecoding": false,
+ "samplesEnqueued": 430,
+ "seconds": 5,
+ "setupToStartSeconds": 0.222958,
+ "spike": "a",
+ "stagePoints": "337x189",
+ "status": "ok",
+ "variant": "sbdl",
+ "wallSeconds": 5.284923
+}

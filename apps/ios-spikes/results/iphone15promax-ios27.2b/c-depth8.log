@@ -1,0 +1,6 @@
+SPIKE-LOG cooling down 60 s (thermal nominal)
+SPIKE-LOG SPIKE-START c/depth8
+SPIKE-RESULT {"depth":8,"device":{"cores":6,"lowPower":false,"machine":"iPhone16,2","maxFPS":120,"model":"iPhone","physicalMemoryMB":7655.5,"screenPoints":"430x932@3.0","simulator":false,"system":"iOS 27.2","thermal":"nominal"},"exportFPS":44.892552999999999,"fps":30,"framesWritten":300,"graphBuildMs":{"max":0.89600000000000002,"mean":0.15132599999999999,"min":0.026207999999999999,"n":300,"p50":0.111042,"p95":0.33520899999999998,"p99":0.52275000000000005,"sd":0.113055},"memory":{"endFootprintMB":15.800000000000001,"minAvailableMB":1844.7,"processPeakFootprintMB":1590.4000000000001,"sampledPeakFootprintMB":1531.3,"startFootprintMB":7,"thermalAtEnd":"nominal"},"outputBytes":43493567,"outputSize":"3840x2160","perSecondFPS":[57.759867999999997,50.891226000000003,43.923414000000001,41.180985,45.445022999999999,45.269723999999997],"poolFailures":0,"realtimeFactor":1.496418,"renderWaitMs":{"max":108.803375,"mean":32.795963,"min":4.199166,"n":300,"p50":24.025625000000002,"p95":74.049042,"p99":93.422207999999998,"sd":24.958603},"seconds":6.6826230000000004,"spike":"c","variant":"depth8","wallSeconds":6.8314849999999998}
+Launched application with so.capturecat.spikes bundle identifier.
+Waiting for the application to terminate...
+The app terminated with the exit code 0.

@@ -1,0 +1,59 @@
+{
+ "device": {
+  "cores": 14,
+  "lowPower": false,
+  "machine": "arm64",
+  "maxFPS": 60,
+  "model": "iPhone",
+  "physicalMemoryMB": 36864,
+  "screenPoints": "402x874@3.0",
+  "simulator": true,
+  "system": "iOS 26.2",
+  "thermal": "nominal"
+ },
+ "driver": "CAMetalLayer blit, CADisplayLink 60Hz, addPresentedHandler timestamps",
+ "encodeMs": {
+  "max": 2.271333,
+  "mean": 0.560256,
+  "min": 0.235125,
+  "n": 299,
+  "p50": 0.501,
+  "p95": 0.941083,
+  "p99": 1.0885,
+  "sd": 0.219279
+ },
+ "file": "screen-3456x2234-60.mov",
+ "framesPresented": 299,
+ "intervalsOver25ms": 1,
+ "memory": {
+  "endFootprintMB": 31.3,
+  "minAvailableMB": -1,
+  "processPeakFootprintMB": 68.6,
+  "sampledPeakFootprintMB": 68.6,
+  "startFootprintMB": 16.3,
+  "thermalAtEnd": "nominal"
+ },
+ "onScreenCheck": {
+  "litFraction": 0.601344,
+  "ok": true
+ },
+ "presentIntervalMs": {
+  "max": 32.163542,
+  "mean": 16.717381,
+  "min": 15.077458,
+  "n": 298,
+  "p50": 16.726417,
+  "p95": 17.232792,
+  "p99": 17.491042,
+  "sd": 0.98421
+ },
+ "presentedPerSecond": 59.8,
+ "seconds": 5,
+ "spike": "a",
+ "stagePoints": "337x189",
+ "ticks": 300,
+ "ticksWithoutDrawable": 0,
+ "ticksWithoutNewFrame": 1,
+ "variant": "metal",
+ "wallSeconds": 5.226669
+}

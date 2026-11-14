@@ -1,0 +1,15 @@
+TOPOLOGY compositor superviewFlipped=true geometryFlipped=false contentsFlipped=true
+CAPTUREDIR /var/folders/c0/mycd6nps2z12zvknz3f_tdgc0000gn/T/capturecat-parity-A5FD77
+DEBUGWINDOW saved
+SPIKE-D blur-s0.5-t0.10 zoom=1.049 stripped=1 naive-vs-mac ["worst": 148.0, "fracOver8": 0.017705761316872428, "meanAbs": 0.5240843621399177, "pixels": 291600.0] fp=3.0
+SPIKE-D blur-s0.5-t0.15 zoom=1.112 stripped=1 naive-vs-mac ["fracOver8": 0.024979423868312756, "pixels": 291600.0, "meanAbs": 0.9079789666209419, "worst": 151.0] fp=5.0
+SPIKE-D blur-s0.5-t0.20 zoom=1.149 stripped=1 naive-vs-mac ["pixels": 291600.0, "meanAbs": 1.1984693644261546, "worst": 154.0, "fracOver8": 0.03709533607681756] fp=7.0
+SPIKE-D blur-s0.5-t0.30 zoom=1.272 stripped=1 naive-vs-mac ["fracOver8": 0.059149519890260634, "worst": 152.0, "meanAbs": 1.387732053040695, "pixels": 291600.0] fp=9.0
+SPIKE-D blur-s1.0-t0.10 zoom=1.049 stripped=1 naive-vs-mac ["worst": 155.0, "meanAbs": 0.6492455418381344, "fracOver8": 0.02102880658436214, "pixels": 291600.0] fp=5.0
+SPIKE-D blur-s1.0-t0.15 zoom=1.112 stripped=1 naive-vs-mac ["worst": 153.0, "fracOver8": 0.04268518518518519, "pixels": 291600.0, "meanAbs": 1.2468347050754458] fp=6.0
+SPIKE-D blur-s1.0-t0.20 zoom=1.149 stripped=1 naive-vs-mac ["pixels": 291600.0, "meanAbs": 1.639849108367627, "worst": 161.0, "fracOver8": 0.06482853223593964] fp=7.0
+SPIKE-D blur-s1.0-t0.30 zoom=1.272 stripped=1 naive-vs-mac ["pixels": 291600.0, "meanAbs": 2.339038637402835, "fracOver8": 0.12293895747599451, "worst": 186.0] fp=19.0
+SPIKE-D look-mid0.25 w=0.104 mac~lerp ["worst": 188.0, "fracOver8": 0.0052646866603732485, "meanAbs": 0.6665819475709825, "pixels": 27542.0] naive~lerp ["fracOver8": 0.05003267736547818, "pixels": 27542.0, "meanAbs": 1.3737927528865006, "worst": 188.0] plusL~lerp ["pixels": 27542.0, "worst": 188.0, "fracOver8": 0.0052646866603732485, "meanAbs": 0.6710962650981531]
+SPIKE-D look-mid0.50 w=0.500 mac~lerp ["meanAbs": 0.740287560816208, "pixels": 27542.0, "worst": 186.0, "fracOver8": 0.005300994844237891] naive~lerp ["meanAbs": 2.6914288480623534, "worst": 186.0, "fracOver8": 0.18902040519933194, "pixels": 27542.0] plusL~lerp ["pixels": 27542.0, "worst": 186.0, "fracOver8": 0.005300994844237891, "meanAbs": 0.7370803379081645]
+SPIKE-D look-mid0.75 w=0.896 mac~lerp ["fracOver8": 0.005627768499019679, "worst": 187.0, "meanAbs": 0.4457313678503135, "pixels": 27542.0] naive~lerp ["fracOver8": 0.050686224675041754, "pixels": 27542.0, "worst": 187.0, "meanAbs": 1.1602038099387602] plusL~lerp ["fracOver8": 0.005627768499019679, "pixels": 27542.0, "meanAbs": 0.4544574347057827, "worst": 187.0]
+SPIKE-D report /var/folders/c0/mycd6nps2z12zvknz3f_tdgc0000gn/T/capturecat-parity-A5FD77/spike-d.json

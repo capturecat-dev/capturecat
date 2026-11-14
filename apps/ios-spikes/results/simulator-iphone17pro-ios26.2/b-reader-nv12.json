@@ -1,0 +1,48 @@
+{
+ "codec": "hvc1",
+ "decodeFPS": 585.567041,
+ "device": {
+  "cores": 14,
+  "lowPower": false,
+  "machine": "arm64",
+  "maxFPS": 60,
+  "model": "iPhone",
+  "physicalMemoryMB": 36864,
+  "screenPoints": "402x874@3.0",
+  "simulator": true,
+  "system": "iOS 26.2",
+  "thermal": "nominal"
+ },
+ "duration": 10,
+ "file": "screen-3456x2234-60.mov",
+ "firstFrameMs": 17.615042,
+ "fps": 60,
+ "frameMs": {
+  "max": 42.312833,
+  "mean": 1.670574,
+  "min": 0.007292,
+  "n": 599,
+  "p50": 0.522208,
+  "p95": 5.14875,
+  "p99": 8.123167,
+  "sd": 2.610198
+ },
+ "frames": 600,
+ "hwHEVCDecodeSupported": false,
+ "isDecodable": true,
+ "isPlayable": true,
+ "memory": {
+  "endFootprintMB": 22.4,
+  "minAvailableMB": -1,
+  "processPeakFootprintMB": 68.1,
+  "sampledPeakFootprintMB": 68.1,
+  "startFootprintMB": 16.6,
+  "thermalAtEnd": "nominal"
+ },
+ "mode": "AVAssetReader NV12",
+ "seconds": 1.024648,
+ "size": "3456x2234",
+ "spike": "b",
+ "variant": "reader-nv12",
+ "wallSeconds": 1.05833
+}
