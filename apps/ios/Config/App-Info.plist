@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>so.capturecat.ios</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>capturecat</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_ccwireless._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>CaptureCat finds your Mac on this Wi-Fi so it can record your iPhone screen without a cable.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>CaptureCat records video from your camera when you start a camera take.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>CaptureCat records your voice with screen and camera takes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CaptureCat imports the screenshots and screen recordings you choose and saves them to your projects.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>
