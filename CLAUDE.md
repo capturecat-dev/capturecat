@@ -78,6 +78,15 @@ Also: a mean pixel-diff is blind to small structural defects. A duplicated Dynam
 1.846/255 (passing) while visibly wrong. When a defect is structural, add a structural assertion
 (blob/centroid counts) and prove the gate works by injecting the defect.
 
+**Refactors that must not change behaviour: `apps/macos/scripts/render-baseline.sh`.** Run
+`snapshot <dir>` on `main` and again on your branch, then `compare <a> <b>`. It must print
+`RENDER-BASELINE IDENTICAL`. The script builds its own unsandboxed Debug copy (~8 min). A snapshot
+holds the web vectors, the exporter's lossless tap frames and camera paths, the cursor sprites, the
+audio fixtures and the `--preview-parity` / `--raster-golden` artifacts. A difference means
+behaviour changed, so find out why; there is no reference to refreeze. Audio is the only category
+compared with a tolerance, because AVFoundation's mix isn't bit-reproducible; the script header
+explains why.
+
 ## 4. Practical
 
 Build: `cd apps/macos && xcodebuild -project CaptureCat.xcodeproj -scheme CaptureCat -configuration Debug build`
