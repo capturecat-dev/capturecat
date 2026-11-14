@@ -1,0 +1,207 @@
+{
+  "dissolve" : [
+    {
+      "compositingFiltersSeen" : 2,
+      "macVsLerp" : {
+        "fracOver8" : 0.0052646866603732485,
+        "meanAbs" : 0.66658194757098255,
+        "pixels" : 27542,
+        "worst" : 188
+      },
+      "naiveVsLerp" : {
+        "fracOver8" : 0.05003267736547818,
+        "meanAbs" : 1.3737927528865006,
+        "pixels" : 27542,
+        "worst" : 188
+      },
+      "naiveVsMac" : {
+        "fracOver8" : 0.044840607072834215,
+        "meanAbs" : 0.79836855227168202,
+        "pixels" : 27542,
+        "worst" : 14
+      },
+      "plusLVsLerp" : {
+        "fracOver8" : 0.0052646866603732485,
+        "meanAbs" : 0.67109626509815312,
+        "pixels" : 27542,
+        "worst" : 188
+      },
+      "plusLVsMac" : {
+        "fracOver8" : 0,
+        "meanAbs" : 0.014148088979255924,
+        "pixels" : 27542,
+        "worst" : 1
+      },
+      "state" : "look-mid0.25",
+      "w" : 0.1035156249999996
+    },
+    {
+      "compositingFiltersSeen" : 2,
+      "macVsLerp" : {
+        "fracOver8" : 0.0053009948442378912,
+        "meanAbs" : 0.74028756081620795,
+        "pixels" : 27542,
+        "worst" : 186
+      },
+      "naiveVsLerp" : {
+        "fracOver8" : 0.18902040519933194,
+        "meanAbs" : 2.6914288480623534,
+        "pixels" : 27542,
+        "worst" : 186
+      },
+      "naiveVsMac" : {
+        "fracOver8" : 0.19947716215234915,
+        "meanAbs" : 2.1837315130830488,
+        "pixels" : 27542,
+        "worst" : 38
+      },
+      "plusLVsLerp" : {
+        "fracOver8" : 0.0053009948442378912,
+        "meanAbs" : 0.73708033790816452,
+        "pixels" : 27542,
+        "worst" : 186
+      },
+      "plusLVsMac" : {
+        "fracOver8" : 0,
+        "meanAbs" : 0.03360927553070462,
+        "pixels" : 27542,
+        "worst" : 2
+      },
+      "state" : "look-mid0.50",
+      "w" : 0.50000000000000044
+    },
+    {
+      "compositingFiltersSeen" : 2,
+      "macVsLerp" : {
+        "fracOver8" : 0.0056277684990196789,
+        "meanAbs" : 0.44573136785031348,
+        "pixels" : 27542,
+        "worst" : 187
+      },
+      "naiveVsLerp" : {
+        "fracOver8" : 0.050686224675041754,
+        "meanAbs" : 1.1602038099387602,
+        "pixels" : 27542,
+        "worst" : 187
+      },
+      "naiveVsMac" : {
+        "fracOver8" : 0.044913223440563504,
+        "meanAbs" : 0.80429888896957369,
+        "pixels" : 27542,
+        "worst" : 14
+      },
+      "plusLVsLerp" : {
+        "fracOver8" : 0.0056277684990196789,
+        "meanAbs" : 0.4544574347057827,
+        "pixels" : 27542,
+        "worst" : 187
+      },
+      "plusLVsMac" : {
+        "fracOver8" : 0,
+        "meanAbs" : 0.057379033234090965,
+        "pixels" : 27542,
+        "worst" : 2
+      },
+      "state" : "look-mid0.75",
+      "w" : 0.89648437499999956
+    }
+  ],
+  "motionBlur" : [
+    {
+      "filtersStripped" : 1,
+      "naiveVsMac" : {
+        "fracOver8" : 0.017705761316872428,
+        "meanAbs" : 0.52408436213991771,
+        "pixels" : 291600,
+        "worst" : 148
+      },
+      "naiveVsMacFingerprintCell" : 3,
+      "state" : "blur-s0.5-t0.10",
+      "zoom" : 1.0485751362211235
+    },
+    {
+      "filtersStripped" : 1,
+      "naiveVsMac" : {
+        "fracOver8" : 0.024979423868312756,
+        "meanAbs" : 0.90797896662094191,
+        "pixels" : 291600,
+        "worst" : 151
+      },
+      "naiveVsMacFingerprintCell" : 5,
+      "state" : "blur-s0.5-t0.15",
+      "zoom" : 1.1121046962166818
+    },
+    {
+      "filtersStripped" : 1,
+      "naiveVsMac" : {
+        "fracOver8" : 0.037095336076817559,
+        "meanAbs" : 1.1984693644261546,
+        "pixels" : 291600,
+        "worst" : 154
+      },
+      "naiveVsMacFingerprintCell" : 7,
+      "state" : "blur-s0.5-t0.20",
+      "zoom" : 1.1492986215819621
+    },
+    {
+      "filtersStripped" : 1,
+      "naiveVsMac" : {
+        "fracOver8" : 0.059149519890260634,
+        "meanAbs" : 1.3877320530406949,
+        "pixels" : 291600,
+        "worst" : 152
+      },
+      "naiveVsMacFingerprintCell" : 9,
+      "state" : "blur-s0.5-t0.30",
+      "zoom" : 1.2715367252590761
+    },
+    {
+      "filtersStripped" : 1,
+      "naiveVsMac" : {
+        "fracOver8" : 0.021028806584362139,
+        "meanAbs" : 0.64924554183813443,
+        "pixels" : 291600,
+        "worst" : 155
+      },
+      "naiveVsMacFingerprintCell" : 5,
+      "state" : "blur-s1.0-t0.10",
+      "zoom" : 1.0485751362211235
+    },
+    {
+      "filtersStripped" : 1,
+      "naiveVsMac" : {
+        "fracOver8" : 0.042685185185185187,
+        "meanAbs" : 1.2468347050754458,
+        "pixels" : 291600,
+        "worst" : 153
+      },
+      "naiveVsMacFingerprintCell" : 6,
+      "state" : "blur-s1.0-t0.15",
+      "zoom" : 1.1121046962166818
+    },
+    {
+      "filtersStripped" : 1,
+      "naiveVsMac" : {
+        "fracOver8" : 0.064828532235939637,
+        "meanAbs" : 1.639849108367627,
+        "pixels" : 291600,
+        "worst" : 161
+      },
+      "naiveVsMacFingerprintCell" : 7,
+      "state" : "blur-s1.0-t0.20",
+      "zoom" : 1.1492986215819621
+    },
+    {
+      "filtersStripped" : 1,
+      "naiveVsMac" : {
+        "fracOver8" : 0.12293895747599451,
+        "meanAbs" : 2.3390386374028349,
+        "pixels" : 291600,
+        "worst" : 186
+      },
+      "naiveVsMacFingerprintCell" : 19,
+      "state" : "blur-s1.0-t0.30",
+      "zoom" : 1.2715367252590761
+    }
+  ]
+}

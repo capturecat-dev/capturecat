@@ -1,0 +1,263 @@
+diff -ruN pristine/apps/macos/CaptureCat/Views/AppKitSurfaces/EditorShellProbeHarness.swift patched/apps/macos/CaptureCat/Views/AppKitSurfaces/EditorShellProbeHarness.swift
+--- pristine/apps/macos/CaptureCat/Views/AppKitSurfaces/EditorShellProbeHarness.swift	2026-11-09 16:26:35
++++ patched/apps/macos/CaptureCat/Views/AppKitSurfaces/EditorShellProbeHarness.swift	2026-11-14 08:35:44
+@@ -21,7 +21,12 @@
+ 
+     /// Kept at the size the two-shell comparison used, so frame reports stay
+     /// comparable against previously captured baselines.
+-    static let windowSize = NSSize(width: 1400, height: 800)
++    // SPIKE (Phase 0 (h), scratch only): SPIKE_SHELL_SIZE=WxH overrides the probe window.
++    static let windowSize: NSSize = {
++        if let v = ProcessInfo.processInfo.environment["SPIKE_SHELL_SIZE"]?.split(separator: "x").compactMap({ Double($0) }),
++           v.count == 2 { return NSSize(width: v[0], height: v[1]) }
++        return NSSize(width: 1400, height: 800)
++    }()
+ 
+     static func run() -> Never {
+         setbuf(stdout, nil)
+@@ -837,6 +842,9 @@
+             ))
+         } else {
+             print("BEHAVIOUR FAIL card-top-alignment — cards not found")
++        }
++        if let scroll = findSubview(ofType: ZoomScrollView.self, in: content) {
++            print("SPIKE-H window=\(Int(windowSize.width))x\(Int(windowSize.height)) card=\(fmt(scroll.bounds)) canvas=\(fmt(scroll.documentView?.frame ?? .zero))")
+         }
+         for key in ["preview", "inspector", "timelineCanvas", "zoomPill"] {
+             if let rect = found[key] {
+diff -ruN pristine/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness+CameraLooks.swift patched/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness+CameraLooks.swift
+--- pristine/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness+CameraLooks.swift	2026-11-09 16:26:35
++++ patched/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness+CameraLooks.swift	2026-11-14 08:35:44
+@@ -90,6 +90,8 @@
+             await settle(0.3)
+             compositor.schedule(compositorInput(fixture))
+             await settle(0.3)
++            let spikeRestore = spikeStripRequested ? spikeStripFilters(container.layer).1 : nil
++            defer { spikeRestore?() }
+             guard let layer = container.layer,
+                   let image = CARendererSnapshot.render(layer: layer, size: container.bounds.size, scale: 1),
+                   let px = HarnessPixels.rgba(image) else { return nil }
+diff -ruN pristine/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness+SpikeD.swift patched/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness+SpikeD.swift
+--- pristine/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness+SpikeD.swift	1970-01-01 01:00:00
++++ patched/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness+SpikeD.swift	2026-11-14 08:35:44
+@@ -0,0 +1,193 @@
++import AppKit
++import QuartzCore
++
++// Phase 0 spike (d) — THROWAWAY. Never compiled into the product: mac/run-scratch-spikes.sh
++// copies this file into a `git archive` scratch copy of apps/macos and applies
++// scratch.patch (two hooks in PreviewParityHarness) there.
++//
++// Measures, on the REAL compositor and the REAL --preview-parity fixture, what
++// iOS CoreAnimation would show for the two effects it cannot render — iOS
++// ignores CALayer.filters / compositingFilter / backgroundFilters — against
++// what the Mac shows:
++//   • CIMotionBlur on zoomGroup (motionBlur on, strengths 0.5 and 1.0) at
++//     mid-flight captures of the --preview-parity motion-zoom sequence;
++//   • the bubble → cutout camera-look cross-dissolve (CIAdditionCompositing)
++//     at its midpoint, against the gate's own reference — the per-pixel
++//     lerp of the two settled frames.
++// Variants: "mac" (as shipped), "naive" (every filter stripped = iOS today),
++// "plusL" (additive dissolve via the undocumented CAFilter string iOS
++// honours; blur still stripped).
++extension PreviewParityHarness {
++    static var spikeStripRequested: Bool { ProcessInfo.processInfo.environment["SPIKE_D_STRIP"] != nil }
++
++    /// Strip (or replace) every filter in the tree; returns (count, restore).
++    @discardableResult
++    static func spikeStripFilters(_ root: CALayer?, additionReplacement: Any? = nil) -> (Int, () -> Void) {
++        var saved: [(CALayer, [Any]?, Any?, [Any]?)] = []
++        func walk(_ l: CALayer) {
++            if l.filters != nil || l.compositingFilter != nil || l.backgroundFilters != nil {
++                saved.append((l, l.filters, l.compositingFilter, l.backgroundFilters))
++                l.filters = nil
++                l.backgroundFilters = nil
++                l.compositingFilter = (l.compositingFilter != nil) ? additionReplacement : nil
++            }
++            l.sublayers?.forEach(walk)
++        }
++        CATransaction.begin(); CATransaction.setDisableActions(true)
++        if let root { walk(root) }
++        CATransaction.commit()
++        return (saved.count, {
++            CATransaction.begin(); CATransaction.setDisableActions(true)
++            for (l, f, c, b) in saved { l.filters = f; l.compositingFilter = c; l.backgroundFilters = b }
++            CATransaction.commit()
++        })
++    }
++
++    struct SpikeRGBA {
++        let w: Int, h: Int, px: [UInt8]
++        init?(_ img: CGImage) {
++            w = img.width; h = img.height
++            var buf = [UInt8](repeating: 0, count: img.width * img.height * 4)
++            let ok = buf.withUnsafeMutableBytes { raw -> Bool in
++                guard let ctx = CGContext(data: raw.baseAddress, width: img.width, height: img.height, bitsPerComponent: 8,
++                                          bytesPerRow: img.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
++                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
++                ctx.draw(img, in: CGRect(x: 0, y: 0, width: img.width, height: img.height))
++                return true
++            }
++            guard ok else { return nil }
++            px = buf
++        }
++    }
++
++    /// Stats of |a − b| over pixels in `mask` (or all), RGB only.
++    static func spikeStats(_ a: SpikeRGBA, _ b: SpikeRGBA, mask: [Bool]? = nil) -> [String: Double] {
++        var sum = 0.0, n = 0, over8 = 0, worst = 0
++        for i in 0..<(a.w * a.h) where mask?[i] ?? true {
++            var m = 0
++            for c in 0..<3 { let d = abs(Int(a.px[i * 4 + c]) - Int(b.px[i * 4 + c])); sum += Double(d); m = max(m, d) }
++            worst = max(worst, m); if m > 8 { over8 += 1 }; n += 1
++        }
++        return ["meanAbs": n > 0 ? sum / Double(n * 3) : 0, "worst": Double(worst),
++                "fracOver8": n > 0 ? Double(over8) / Double(n) : 0, "pixels": Double(n)]
++    }
++
++    static func spikeD(fixture: Fixture, compositor: PreviewCompositorView, container: NSView,
++                       t0: TimeInterval, artifacts: URL, reset: ((ProjectSettings) -> Void) -> Void) async {
++        var report: [String: Any] = [:]
++        func grab(_ name: String) async -> CGImage? {
++            await settle(0.15)
++            guard let layer = container.layer else { return nil }
++            _ = CARendererSnapshot.render(layer: layer, size: container.bounds.size, scale: 1)
++            guard let img = CARendererSnapshot.render(layer: layer, size: container.bounds.size, scale: 1) else { return nil }
++            savePNG(img, artifacts.appendingPathComponent("spiked-\(name).png"))
++            return img
++        }
++        func fingerprintDelta(_ a: CGImage, _ b: CGImage) -> Double {
++            guard let fa = RasterFingerprint.make(a), let fb = RasterFingerprint.make(b) else { return -1 }
++            return RasterFingerprint.worstDelta(fa, fb) ?? -1
++        }
++
++        // ── A. Motion blur ───────────────────────────────────────────────
++        var blurRows: [[String: Any]] = []
++        for strength in [0.5, 1.0] {
++            reset { s in s.motionBlur = true; s.motionBlurStrength = strength }
++            fixture.project.zoomRegions = [ZoomRegion(startTime: t0 + 0.4, endTime: t0 + 4, zoomLevel: 2.0,
++                                                      focalPoint: CGPoint(x: 0.5, y: 0.5))]
++            let seqStart = t0 + 0.4
++            fixture.currentTime = seqStart - 0.8
++            await settle(0.4)
++            compositor.schedule(compositorInput(fixture))
++            await settle(0.2)
++            var t = seqStart - 0.8
++            for offset in [0.1, 0.15, 0.2, 0.3] {
++                while t + 1.0 / 60 < seqStart + offset {
++                    t += 1.0 / 30
++                    fixture.currentTime = t
++                    compositor.schedule(compositorInput(fixture))
++                    await settle(0.05)
++                }
++                let name = String(format: "blur-s%.1f-t%.2f", strength, offset)
++                guard let mac = await grab("\(name)-mac") else { continue }
++                let (stripped, restore) = spikeStripFilters(container.layer)
++                let naive = await grab("\(name)-naive")
++                restore()
++                guard let naive, let a = SpikeRGBA(mac), let b = SpikeRGBA(naive) else { continue }
++                var row: [String: Any] = ["state": name, "zoom": compositor.motion.zoom, "filtersStripped": stripped]
++                row["naiveVsMac"] = spikeStats(a, b)
++                row["naiveVsMacFingerprintCell"] = fingerprintDelta(mac, naive)
++                blurRows.append(row)
++                print("SPIKE-D \(name) zoom=\(String(format: "%.3f", compositor.motion.zoom)) stripped=\(stripped) naive-vs-mac \(spikeStats(a, b)) fp=\(fingerprintDelta(mac, naive))")
++            }
++        }
++        report["motionBlur"] = blurRows
++
++        // ── B. Camera-look dissolve ──────────────────────────────────────
++        reset { s in
++            s.showCamera = true; s.cameraShape = .roundedRect; s.cameraSize = 340; s.cameraBorderWidth = 0
++        }
++        fixture.project.zoomRegions = []
++        fixture.cameraMask = syntheticSilhouetteMask(aspect: Double(fixture.cameraAspect))
++        let edge = t0 + 0.2
++        let D = CameraLayoutMath.transitionDuration
++        fixture.project.cameraLayoutRegions = [CameraLayoutRegion(startTime: edge, endTime: edge + 5, mode: .bubble, look: .cutout)]
++        func at(_ time: TimeInterval) async {
++            fixture.currentTime = time
++            compositor.schedule(compositorInput(fixture)); await settle(0.3)
++            compositor.schedule(compositorInput(fixture)); await settle(0.3)
++        }
++        await at(edge - 0.4)
++        let bubble = await grab("look-bubble")
++        await at(edge + D + 0.4)
++        let cutout = await grab("look-cutout")
++        var lookRows: [[String: Any]] = []
++        for frac in [0.25, 0.5, 0.75] {
++            await at(edge + D * frac)
++            let w = compositor.debugCameraLookWeights().cutout
++            let tag = String(format: "look-mid%.2f", frac)
++            guard let mac = await grab("\(tag)-mac") else { continue }
++            let (n1, r1) = spikeStripFilters(container.layer)
++            let naive = await grab("\(tag)-naive"); r1()
++            let (_, r2) = spikeStripFilters(container.layer, additionReplacement: "plusL")
++            let plusL = await grab("\(tag)-plusL"); r2()
++            guard let bubble, let cutout, let naive, let plusL,
++                  let B = SpikeRGBA(bubble), let C = SpikeRGBA(cutout), let M = SpikeRGBA(mac),
++                  let N = SpikeRGBA(naive), let P = SpikeRGBA(plusL) else { continue }
++            // Reference = the gate's own definition of a true dissolve.
++            var lerp = M.px
++            var mask = [Bool](repeating: false, count: M.w * M.h)
++            for i in 0..<(M.w * M.h) {
++                var changed = false
++                for c in 0..<3 {
++                    let v = Double(B.px[i * 4 + c]) * (1 - w) + Double(C.px[i * 4 + c]) * w
++                    lerp[i * 4 + c] = UInt8(max(0, min(255, v.rounded())))
++                    if B.px[i * 4 + c] != C.px[i * 4 + c] || M.px[i * 4 + c] != N.px[i * 4 + c] { changed = true }
++                }
++                mask[i] = changed
++            }
++            let L = SpikeRGBA(w: M.w, h: M.h, px: lerp)
++            let row: [String: Any] = [
++                "state": tag, "w": w, "compositingFiltersSeen": n1,
++                "macVsLerp": spikeStats(M, L, mask: mask),
++                "naiveVsLerp": spikeStats(N, L, mask: mask),
++                "plusLVsLerp": spikeStats(P, L, mask: mask),
++                "naiveVsMac": spikeStats(N, M, mask: mask),
++                "plusLVsMac": spikeStats(P, M, mask: mask),
++            ]
++            lookRows.append(row)
++            print("SPIKE-D \(tag) w=\(String(format: "%.3f", w)) mac~lerp \(row["macVsLerp"]!) naive~lerp \(row["naiveVsLerp"]!) plusL~lerp \(row["plusLVsLerp"]!)")
++        }
++        report["dissolve"] = lookRows
++        fixture.project.cameraLayoutRegions = []
++        fixture.cameraMask = nil
++
++        if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {
++            try? data.write(to: artifacts.appendingPathComponent("spike-d.json"))
++        }
++        print("SPIKE-D report \(artifacts.appendingPathComponent("spike-d.json").path)")
++    }
++}
++
++extension PreviewParityHarness.SpikeRGBA {
++    init(w: Int, h: Int, px: [UInt8]) { self.w = w; self.h = h; self.px = px }
++}
+diff -ruN pristine/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness.swift patched/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness.swift
+--- pristine/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness.swift	2026-11-09 16:26:35
++++ patched/apps/macos/CaptureCat/Views/Editor/PreviewCompositor/PreviewParityHarness.swift	2026-11-14 08:35:44
+@@ -187,6 +187,9 @@
+             compositor.schedule(compositorInput(fixture))
+             await settle(0.35)
+ 
++            // SPIKE (Phase 0 (d), scratch only): SPIKE_D_STRIP=1 renders what iOS CA would.
++            let spikeRestore = spikeStripRequested ? spikeStripFilters(container.layer).1 : nil
++            defer { spikeRestore?() }
+             guard let containerLayer = container.layer,
+                   let frame = CARendererSnapshot.render(
+                       layer: containerLayer, size: container.bounds.size, scale: 1
+@@ -368,6 +371,13 @@
+            let whole = CARendererSnapshot.render(layer: containerLayer, size: container.bounds.size, scale: 1) {
+             savePNG(whole, fixtureDir.appendingPathComponent("debug-window.png"))
+             emit("DEBUGWINDOW saved")
++        }
++
++        // SPIKE (Phase 0 (d), scratch only): measure motion blur + dissolve without CA filters.
++        if ProcessInfo.processInfo.environment["SPIKE_D"] != nil {
++            await spikeD(fixture: fixture, compositor: compositor, container: container,
++                         t0: t0, artifacts: fixtureDir, reset: reset)
++            exit(0)
+         }
+ 
+         // 1 — flat

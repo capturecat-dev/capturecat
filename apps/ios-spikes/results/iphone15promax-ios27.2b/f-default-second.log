@@ -1,0 +1,10 @@
+SPIKE-LOG cooling down 20 s (thermal nominal)
+SPIKE-LOG SPIKE-START f/default
+SPIKE-LOG model at openai_whisper-base.en
+SPIKE-LOG loaded
+SPIKE-LOG run 1: 2.21s
+SPIKE-LOG run 2: 2.23s
+SPIKE-RESULT {"device":{"cores":6,"lowPower":false,"machine":"iPhone16,2","maxFPS":120,"model":"iPhone","physicalMemoryMB":7655.5,"screenPoints":"430x932@3.0","simulator":false,"system":"iOS 27.2","thermal":"nominal"},"downloadOrCacheSeconds":2.4044780000000001,"loadAndPrewarmSeconds":0.32702700000000001,"memory":{"endFootprintMB":181.59999999999999,"minAvailableMB":3162.3000000000002,"processPeakFootprintMB":215.59999999999999,"sampledPeakFootprintMB":213.69999999999999,"startFootprintMB":7.2000000000000002,"thermalAtEnd":"nominal"},"model":"base.en","modelBytes":146707731,"runs":[{"audioSeconds":44.317312999999999,"decodingLoopSeconds":2.2092299999999998,"encodingSeconds":0.054951,"realtimeFactor":20.019798999999999,"run":1,"seconds":2.2136740000000001,"textPrefix":"Welcome to this short walkthrough of the editor. First, open the project browser and choose the recording you made this morning. The timeline at the bottom show","wer":0.020407999999999999,"words":146},{"audioSeconds":44.317312999999999,"decodingLoopSeconds":2.227465,"encodingSeconds":0.060433000000000001,"realtimeFactor":19.859801000000001,"run":2,"seconds":2.2315079999999998,"textPrefix":"Welcome to this short walkthrough of the editor. First, open the project browser and choose the recording you made this morning. The timeline at the bottom show","wer":0.020407999999999999,"words":146}],"spike":"f","variant":"default","wallSeconds":7.1896899999999997,"whisperKit":"0.15.0"}
+Launched application with so.capturecat.spikes bundle identifier.
+Waiting for the application to terminate...
+The app terminated with the exit code 0.

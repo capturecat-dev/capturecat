@@ -1,0 +1,319 @@
+{
+ "device": {
+  "cores": 6,
+  "lowPower": false,
+  "machine": "iPhone16,2",
+  "maxFPS": 120,
+  "model": "iPhone",
+  "physicalMemoryMB": 7655.5,
+  "screenPoints": "430x932@3.0",
+  "simulator": false,
+  "system": "iOS 27.2",
+  "thermal": "nominal"
+ },
+ "events": [
+  "0.00 registered=true",
+  "0.00 submitted gpu=false",
+  "0.00 handler started",
+  "20.01 export finished"
+ ],
+ "export": {
+  "exportFPS": 45.056939,
+  "fps": 30,
+  "framesWritten": 900,
+  "graphBuildMs": {
+   "max": 23.362083,
+   "mean": 0.496209,
+   "min": 0.030875,
+   "n": 900,
+   "p50": 0.314,
+   "p95": 1.186042,
+   "p99": 3.714833,
+   "sd": 1.133895
+  },
+  "outputSize": "3840x2160",
+  "perSecondFPS": [
+   57.252844,
+   47.294407,
+   43.230016,
+   45.573781,
+   38.395018,
+   45.659277,
+   45.653977,
+   44.995921,
+   44.566384,
+   45.016394,
+   45.603153,
+   45.836403,
+   44.711487,
+   45.372578,
+   45.118234,
+   45.567138,
+   45.422829,
+   45.392405,
+   44.026959
+  ],
+  "poolFailures": 0,
+  "realtimeFactor": 1.501898,
+  "renderWaitMs": {
+   "max": 64.39575,
+   "mean": 13.592088,
+   "min": 1.104834,
+   "n": 900,
+   "p50": 10.715417,
+   "p95": 38.166292,
+   "p99": 52.619958,
+   "sd": 10.954602
+  },
+  "seconds": 19.974726
+ },
+ "memory": {
+  "endFootprintMB": 129,
+  "minAvailableMB": 2163.3,
+  "processPeakFootprintMB": 1271.8,
+  "sampledPeakFootprintMB": 1212.7,
+  "startFootprintMB": 7.6,
+  "thermalAtEnd": "nominal"
+ },
+ "requestedGPU": false,
+ "spike": "g",
+ "supportedResources": [],
+ "timeline": [
+  {
+   "frames": 33,
+   "state": "active",
+   "t": 0.502361,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 56,
+   "state": "active",
+   "t": 1.00321,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 80,
+   "state": "active",
+   "t": 1.50338,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 102,
+   "state": "active",
+   "t": 2.003178,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 126,
+   "state": "active",
+   "t": 2.503345,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 148,
+   "state": "active",
+   "t": 3.003455,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 169,
+   "state": "active",
+   "t": 3.503292,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 194,
+   "state": "inactive",
+   "t": 4.002768,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 216,
+   "state": "background",
+   "t": 4.559088,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 229,
+   "state": "background",
+   "t": 5.004275,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 258,
+   "state": "background",
+   "t": 5.590333,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 281,
+   "state": "background",
+   "t": 6.090383,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 306,
+   "state": "background",
+   "t": 6.592416,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 323,
+   "state": "background",
+   "t": 7.095435,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 348,
+   "state": "background",
+   "t": 7.589452,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 372,
+   "state": "background",
+   "t": 8.090763,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 395,
+   "state": "background",
+   "t": 8.590837,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 416,
+   "state": "background",
+   "t": 9.089857,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 439,
+   "state": "background",
+   "t": 9.589994,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 463,
+   "state": "background",
+   "t": 10.098806,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 482,
+   "state": "background",
+   "t": 10.592802,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 508,
+   "state": "background",
+   "t": 11.091512,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 531,
+   "state": "background",
+   "t": 11.592513,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 550,
+   "state": "background",
+   "t": 12.04853,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 575,
+   "state": "background",
+   "t": 12.59194,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 598,
+   "state": "background",
+   "t": 13.092025,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 622,
+   "state": "background",
+   "t": 13.59382,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 644,
+   "state": "background",
+   "t": 14.09469,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 667,
+   "state": "background",
+   "t": 14.593785,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 689,
+   "state": "background",
+   "t": 15.09339,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 710,
+   "state": "background",
+   "t": 15.591354,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 735,
+   "state": "background",
+   "t": 16.09118,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 757,
+   "state": "background",
+   "t": 16.596431,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 778,
+   "state": "background",
+   "t": 17.091273,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 803,
+   "state": "background",
+   "t": 17.59684,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 824,
+   "state": "background",
+   "t": 18.091666,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 848,
+   "state": "background",
+   "t": 18.595505,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 867,
+   "state": "background",
+   "t": 19.0506,
+   "thermal": "nominal"
+  },
+  {
+   "frames": 893,
+   "state": "background",
+   "t": 19.598153,
+   "thermal": "nominal"
+  }
+ ],
+ "variant": "export-nogpu",
+ "wallSeconds": 20.136598
+}

@@ -1,0 +1,978 @@
+{
+  "families" : [
+    {
+      "family" : "SF Pro",
+      "installed" : false,
+      "members" : [
+
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 832.1953125,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFont",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 856.06227493286133,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontMedium",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 873.41428756713867,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontDemi",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 897.28125,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontBold",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 931.99322032928467,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontHeavy",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "SF Pro Rounded",
+      "installed" : false,
+      "members" : [
+
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 832.1953125,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFont",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 856.06227493286133,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontMedium",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 873.41428756713867,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontDemi",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 897.28125,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontBold",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 931.99322032928467,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontHeavy",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "New York",
+      "installed" : false,
+      "members" : [
+
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 832.1953125,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFont",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 856.06227493286133,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontMedium",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 873.41428756713867,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontDemi",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 897.28125,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontBold",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 931.99322032928467,
+          "ascender" : 46.40625,
+          "descender" : -10.125,
+          "fellBack" : true,
+          "postScriptName" : ".AppleSystemUIFontHeavy",
+          "resolvedFamily" : ".AppleSystemUIFont",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Helvetica Neue",
+      "installed" : true,
+      "members" : [
+        "HelveticaNeue",
+        "HelveticaNeue-Italic",
+        "HelveticaNeue-UltraLight",
+        "HelveticaNeue-UltraLightItalic",
+        "HelveticaNeue-Thin",
+        "HelveticaNeue-ThinItalic",
+        "HelveticaNeue-Light",
+        "HelveticaNeue-LightItalic",
+        "HelveticaNeue-Medium",
+        "HelveticaNeue-MediumItalic",
+        "HelveticaNeue-Bold",
+        "HelveticaNeue-BoldItalic",
+        "HelveticaNeue-CondensedBold",
+        "HelveticaNeue-CondensedBlack"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 861.69600000000003,
+          "ascender" : 45.69580078125,
+          "descender" : -10.223876953125,
+          "fellBack" : false,
+          "postScriptName" : "HelveticaNeue",
+          "resolvedFamily" : "Helvetica Neue",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 880.41599999999994,
+          "ascender" : 46.80029296875,
+          "descender" : -10.415771484375,
+          "fellBack" : false,
+          "postScriptName" : "HelveticaNeue-Medium",
+          "resolvedFamily" : "Helvetica Neue",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 899.71199999999965,
+          "ascender" : 46.80029296875,
+          "descender" : -10.415771484375,
+          "fellBack" : false,
+          "postScriptName" : "HelveticaNeue-Bold",
+          "resolvedFamily" : "Helvetica Neue",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 899.71199999999965,
+          "ascender" : 46.80029296875,
+          "descender" : -10.415771484375,
+          "fellBack" : false,
+          "postScriptName" : "HelveticaNeue-Bold",
+          "resolvedFamily" : "Helvetica Neue",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 802.03200000000049,
+          "ascender" : 46.656005859375,
+          "descender" : -10.896240234375,
+          "fellBack" : false,
+          "postScriptName" : "HelveticaNeue-CondensedBlack",
+          "resolvedFamily" : "Helvetica Neue",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Avenir Next",
+      "installed" : true,
+      "members" : [
+        "AvenirNext-Regular",
+        "AvenirNext-Italic",
+        "AvenirNext-UltraLight",
+        "AvenirNext-UltraLightItalic",
+        "AvenirNext-Medium",
+        "AvenirNext-MediumItalic",
+        "AvenirNext-DemiBold",
+        "AvenirNext-DemiBoldItalic",
+        "AvenirNext-Bold",
+        "AvenirNext-BoldItalic",
+        "AvenirNext-Heavy",
+        "AvenirNext-HeavyItalic"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 879.74400000000026,
+          "ascender" : 48,
+          "descender" : -17.56787109375,
+          "fellBack" : false,
+          "postScriptName" : "AvenirNext-Regular",
+          "resolvedFamily" : "Avenir Next",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 891.64799999999946,
+          "ascender" : 48,
+          "descender" : -17.56787109375,
+          "fellBack" : false,
+          "postScriptName" : "AvenirNext-Medium",
+          "resolvedFamily" : "Avenir Next",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 903.64799999999968,
+          "ascender" : 48,
+          "descender" : -17.56787109375,
+          "fellBack" : false,
+          "postScriptName" : "AvenirNext-DemiBold",
+          "resolvedFamily" : "Avenir Next",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 952.36800000000039,
+          "ascender" : 48,
+          "descender" : -17.56787109375,
+          "fellBack" : false,
+          "postScriptName" : "AvenirNext-Bold",
+          "resolvedFamily" : "Avenir Next",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 1025.712,
+          "ascender" : 48,
+          "descender" : -17.56787109375,
+          "fellBack" : false,
+          "postScriptName" : "AvenirNext-Heavy",
+          "resolvedFamily" : "Avenir Next",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Futura",
+      "installed" : true,
+      "members" : [
+        "Futura-Medium",
+        "Futura-MediumItalic",
+        "Futura-Bold",
+        "Futura-CondensedMedium",
+        "Futura-CondensedExtraBold"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 882.7734375,
+          "ascender" : 49.8515625,
+          "descender" : -12.46875,
+          "fellBack" : false,
+          "postScriptName" : "Futura-Medium",
+          "resolvedFamily" : "Futura",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 882.7734375,
+          "ascender" : 49.8515625,
+          "descender" : -12.46875,
+          "fellBack" : false,
+          "postScriptName" : "Futura-Medium",
+          "resolvedFamily" : "Futura",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 1039.4880000000003,
+          "ascender" : 49.8720703125,
+          "descender" : -12.479736328125,
+          "fellBack" : false,
+          "postScriptName" : "Futura-Bold",
+          "resolvedFamily" : "Futura",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 1039.4880000000003,
+          "ascender" : 49.8720703125,
+          "descender" : -12.479736328125,
+          "fellBack" : false,
+          "postScriptName" : "Futura-Bold",
+          "resolvedFamily" : "Futura",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 871.4296875,
+          "ascender" : 48.1640625,
+          "descender" : -12.9609375,
+          "fellBack" : false,
+          "postScriptName" : "Futura-CondensedExtraBold",
+          "resolvedFamily" : "Futura",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Gill Sans",
+      "installed" : true,
+      "members" : [
+        "GillSans",
+        "GillSans-Italic",
+        "GillSans-Light",
+        "GillSans-LightItalic",
+        "GillSans-SemiBold",
+        "GillSans-SemiBoldItalic",
+        "GillSans-Bold",
+        "GillSans-BoldItalic",
+        "GillSans-UltraBold"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 786.84375,
+          "ascender" : 44.0625,
+          "descender" : -11.0625,
+          "fellBack" : false,
+          "postScriptName" : "GillSans",
+          "resolvedFamily" : "Gill Sans",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 786.84375,
+          "ascender" : 44.0625,
+          "descender" : -11.0625,
+          "fellBack" : false,
+          "postScriptName" : "GillSans",
+          "resolvedFamily" : "Gill Sans",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 839.203125,
+          "ascender" : 45.2578125,
+          "descender" : -12,
+          "fellBack" : false,
+          "postScriptName" : "GillSans-SemiBold",
+          "resolvedFamily" : "Gill Sans",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 960.8671875,
+          "ascender" : 44.296875,
+          "descender" : -11.2734375,
+          "fellBack" : false,
+          "postScriptName" : "GillSans-Bold",
+          "resolvedFamily" : "Gill Sans",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 1242.421875,
+          "ascender" : 47.71875,
+          "descender" : -12.09375,
+          "fellBack" : false,
+          "postScriptName" : "GillSans-UltraBold",
+          "resolvedFamily" : "Gill Sans",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Georgia",
+      "installed" : true,
+      "members" : [
+        "Georgia",
+        "Georgia-Italic",
+        "Georgia-Bold",
+        "Georgia-BoldItalic"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 851.6484375,
+          "ascender" : 44.015625,
+          "descender" : -10.5234375,
+          "fellBack" : false,
+          "postScriptName" : "Georgia",
+          "resolvedFamily" : "Georgia",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 851.6484375,
+          "ascender" : 44.015625,
+          "descender" : -10.5234375,
+          "fellBack" : false,
+          "postScriptName" : "Georgia",
+          "resolvedFamily" : "Georgia",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 981.3046875,
+          "ascender" : 44.015625,
+          "descender" : -10.5234375,
+          "fellBack" : false,
+          "postScriptName" : "Georgia-Bold",
+          "resolvedFamily" : "Georgia",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 981.3046875,
+          "ascender" : 44.015625,
+          "descender" : -10.5234375,
+          "fellBack" : false,
+          "postScriptName" : "Georgia-Bold",
+          "resolvedFamily" : "Georgia",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 981.3046875,
+          "ascender" : 44.015625,
+          "descender" : -10.5234375,
+          "fellBack" : false,
+          "postScriptName" : "Georgia-Bold",
+          "resolvedFamily" : "Georgia",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Times New Roman",
+      "installed" : true,
+      "members" : [
+        "TimesNewRomanPSMT",
+        "TimesNewRomanPS-ItalicMT",
+        "TimesNewRomanPS-BoldMT",
+        "TimesNewRomanPS-BoldItalicMT"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 785.25,
+          "ascender" : 42.7734375,
+          "descender" : -10.3828125,
+          "fellBack" : false,
+          "postScriptName" : "TimesNewRomanPSMT",
+          "resolvedFamily" : "Times New Roman",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 785.25,
+          "ascender" : 42.7734375,
+          "descender" : -10.3828125,
+          "fellBack" : false,
+          "postScriptName" : "TimesNewRomanPSMT",
+          "resolvedFamily" : "Times New Roman",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 819.2578125,
+          "ascender" : 42.7734375,
+          "descender" : -10.3828125,
+          "fellBack" : false,
+          "postScriptName" : "TimesNewRomanPS-BoldMT",
+          "resolvedFamily" : "Times New Roman",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 819.2578125,
+          "ascender" : 42.7734375,
+          "descender" : -10.3828125,
+          "fellBack" : false,
+          "postScriptName" : "TimesNewRomanPS-BoldMT",
+          "resolvedFamily" : "Times New Roman",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 819.2578125,
+          "ascender" : 42.7734375,
+          "descender" : -10.3828125,
+          "fellBack" : false,
+          "postScriptName" : "TimesNewRomanPS-BoldMT",
+          "resolvedFamily" : "Times New Roman",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Palatino",
+      "installed" : true,
+      "members" : [
+        "Palatino-Roman",
+        "Palatino-Italic",
+        "Palatino-Bold",
+        "Palatino-BoldItalic"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 835.6875,
+          "ascender" : 39.4921875,
+          "descender" : -13.3125,
+          "fellBack" : false,
+          "postScriptName" : "Palatino-Roman",
+          "resolvedFamily" : "Palatino",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 835.6875,
+          "ascender" : 39.4921875,
+          "descender" : -13.3125,
+          "fellBack" : false,
+          "postScriptName" : "Palatino-Roman",
+          "resolvedFamily" : "Palatino",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 862.5703125,
+          "ascender" : 39.4921875,
+          "descender" : -13.3125,
+          "fellBack" : false,
+          "postScriptName" : "Palatino-Bold",
+          "resolvedFamily" : "Palatino",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 862.5703125,
+          "ascender" : 39.4921875,
+          "descender" : -13.3125,
+          "fellBack" : false,
+          "postScriptName" : "Palatino-Bold",
+          "resolvedFamily" : "Palatino",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 862.5703125,
+          "ascender" : 39.4921875,
+          "descender" : -13.3125,
+          "fellBack" : false,
+          "postScriptName" : "Palatino-Bold",
+          "resolvedFamily" : "Palatino",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Menlo",
+      "installed" : true,
+      "members" : [
+        "Menlo-Regular",
+        "Menlo-Italic",
+        "Menlo-Bold",
+        "Menlo-BoldItalic"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 1040.34375,
+          "ascender" : 44.5546875,
+          "descender" : -11.3203125,
+          "fellBack" : false,
+          "postScriptName" : "Menlo-Regular",
+          "resolvedFamily" : "Menlo",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 1040.34375,
+          "ascender" : 44.5546875,
+          "descender" : -11.3203125,
+          "fellBack" : false,
+          "postScriptName" : "Menlo-Regular",
+          "resolvedFamily" : "Menlo",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 1040.34375,
+          "ascender" : 44.5546875,
+          "descender" : -11.3203125,
+          "fellBack" : false,
+          "postScriptName" : "Menlo-Bold",
+          "resolvedFamily" : "Menlo",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 1040.34375,
+          "ascender" : 44.5546875,
+          "descender" : -11.3203125,
+          "fellBack" : false,
+          "postScriptName" : "Menlo-Bold",
+          "resolvedFamily" : "Menlo",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 1040.34375,
+          "ascender" : 44.5546875,
+          "descender" : -11.3203125,
+          "fellBack" : false,
+          "postScriptName" : "Menlo-Bold",
+          "resolvedFamily" : "Menlo",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "SF Mono",
+      "installed" : true,
+      "members" : [
+        "SFMono-Regular",
+        "SFMono-RegularItalic",
+        "SFMono-Light",
+        "SFMono-LightItalic",
+        "SFMono-Medium",
+        "SFMono-MediumItalic",
+        "SFMono-Semibold",
+        "SFMono-SemiboldItalic",
+        "SFMono-Bold",
+        "SFMono-BoldItalic",
+        "SFMono-Heavy",
+        "SFMono-HeavyItalic"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 1068.1875,
+          "ascender" : 45.703125,
+          "descender" : -11.578125,
+          "fellBack" : false,
+          "postScriptName" : "SFMono-Regular",
+          "resolvedFamily" : "SF Mono",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 1068.1875,
+          "ascender" : 45.703125,
+          "descender" : -11.578125,
+          "fellBack" : false,
+          "postScriptName" : "SFMono-Medium",
+          "resolvedFamily" : "SF Mono",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 1068.1875,
+          "ascender" : 45.703125,
+          "descender" : -11.578125,
+          "fellBack" : false,
+          "postScriptName" : "SFMono-Semibold",
+          "resolvedFamily" : "SF Mono",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 1068.1875,
+          "ascender" : 45.703125,
+          "descender" : -11.578125,
+          "fellBack" : false,
+          "postScriptName" : "SFMono-Bold",
+          "resolvedFamily" : "SF Mono",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 1068.1875,
+          "ascender" : 45.703125,
+          "descender" : -11.578125,
+          "fellBack" : false,
+          "postScriptName" : "SFMono-Heavy",
+          "resolvedFamily" : "SF Mono",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Courier New",
+      "installed" : true,
+      "members" : [
+        "CourierNewPSMT",
+        "CourierNewPS-ItalicMT",
+        "CourierNewPS-BoldMT",
+        "CourierNewPS-BoldItalicMT"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 1036.96875,
+          "ascender" : 39.9609375,
+          "descender" : -14.4140625,
+          "fellBack" : false,
+          "postScriptName" : "CourierNewPSMT",
+          "resolvedFamily" : "Courier New",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 1036.96875,
+          "ascender" : 39.9609375,
+          "descender" : -14.4140625,
+          "fellBack" : false,
+          "postScriptName" : "CourierNewPSMT",
+          "resolvedFamily" : "Courier New",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 1036.96875,
+          "ascender" : 39.9609375,
+          "descender" : -14.4140625,
+          "fellBack" : false,
+          "postScriptName" : "CourierNewPS-BoldMT",
+          "resolvedFamily" : "Courier New",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 1036.96875,
+          "ascender" : 39.9609375,
+          "descender" : -14.4140625,
+          "fellBack" : false,
+          "postScriptName" : "CourierNewPS-BoldMT",
+          "resolvedFamily" : "Courier New",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 1036.96875,
+          "ascender" : 39.9609375,
+          "descender" : -14.4140625,
+          "fellBack" : false,
+          "postScriptName" : "CourierNewPS-BoldMT",
+          "resolvedFamily" : "Courier New",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Impact",
+      "installed" : true,
+      "members" : [
+        "Impact"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 769.1484375,
+          "ascender" : 48.421875,
+          "descender" : -10.125,
+          "fellBack" : false,
+          "postScriptName" : "Impact",
+          "resolvedFamily" : "Impact",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 769.1484375,
+          "ascender" : 48.421875,
+          "descender" : -10.125,
+          "fellBack" : false,
+          "postScriptName" : "Impact",
+          "resolvedFamily" : "Impact",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 769.1484375,
+          "ascender" : 48.421875,
+          "descender" : -10.125,
+          "fellBack" : false,
+          "postScriptName" : "Impact",
+          "resolvedFamily" : "Impact",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 769.1484375,
+          "ascender" : 48.421875,
+          "descender" : -10.125,
+          "fellBack" : false,
+          "postScriptName" : "Impact",
+          "resolvedFamily" : "Impact",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 769.1484375,
+          "ascender" : 48.421875,
+          "descender" : -10.125,
+          "fellBack" : false,
+          "postScriptName" : "Impact",
+          "resolvedFamily" : "Impact",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "Copperplate",
+      "installed" : true,
+      "members" : [
+        "Copperplate",
+        "Copperplate-Light",
+        "Copperplate-Bold"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 966.62399999999946,
+          "ascender" : 36.6240234375,
+          "descender" : -11.904052734375,
+          "fellBack" : false,
+          "postScriptName" : "Copperplate",
+          "resolvedFamily" : "Copperplate",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 966.62399999999946,
+          "ascender" : 36.6240234375,
+          "descender" : -11.904052734375,
+          "fellBack" : false,
+          "postScriptName" : "Copperplate",
+          "resolvedFamily" : "Copperplate",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 979.8239999999995,
+          "ascender" : 36.81591796875,
+          "descender" : -11.904052734375,
+          "fellBack" : false,
+          "postScriptName" : "Copperplate-Bold",
+          "resolvedFamily" : "Copperplate",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 979.8239999999995,
+          "ascender" : 36.81591796875,
+          "descender" : -11.904052734375,
+          "fellBack" : false,
+          "postScriptName" : "Copperplate-Bold",
+          "resolvedFamily" : "Copperplate",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 979.8239999999995,
+          "ascender" : 36.81591796875,
+          "descender" : -11.904052734375,
+          "fellBack" : false,
+          "postScriptName" : "Copperplate-Bold",
+          "resolvedFamily" : "Copperplate",
+          "weight" : "Heavy"
+        }
+      ]
+    },
+    {
+      "family" : "American Typewriter",
+      "installed" : true,
+      "members" : [
+        "AmericanTypewriter",
+        "AmericanTypewriter-Light",
+        "AmericanTypewriter-Semibold",
+        "AmericanTypewriter-Bold",
+        "AmericanTypewriter-Condensed",
+        "AmericanTypewriter-CondensedLight",
+        "AmericanTypewriter-CondensedBold"
+      ],
+      "weights" : [
+        {
+          "advanceWidth" : 926.40000000000009,
+          "ascender" : 43.392333984375,
+          "descender" : -12,
+          "fellBack" : false,
+          "postScriptName" : "AmericanTypewriter",
+          "resolvedFamily" : "American Typewriter",
+          "weight" : "Regular"
+        },
+        {
+          "advanceWidth" : 926.40000000000009,
+          "ascender" : 43.392333984375,
+          "descender" : -12,
+          "fellBack" : false,
+          "postScriptName" : "AmericanTypewriter",
+          "resolvedFamily" : "American Typewriter",
+          "weight" : "Medium"
+        },
+        {
+          "advanceWidth" : 926.40000000000009,
+          "ascender" : 43.392333984375,
+          "descender" : -12,
+          "fellBack" : false,
+          "postScriptName" : "AmericanTypewriter-Semibold",
+          "resolvedFamily" : "American Typewriter",
+          "weight" : "Semibold"
+        },
+        {
+          "advanceWidth" : 971.52000000000044,
+          "ascender" : 45.50390625,
+          "descender" : -13.343994140625,
+          "fellBack" : false,
+          "postScriptName" : "AmericanTypewriter-Bold",
+          "resolvedFamily" : "American Typewriter",
+          "weight" : "Bold"
+        },
+        {
+          "advanceWidth" : 971.52000000000044,
+          "ascender" : 45.50390625,
+          "descender" : -13.343994140625,
+          "fellBack" : false,
+          "postScriptName" : "AmericanTypewriter-Bold",
+          "resolvedFamily" : "American Typewriter",
+          "weight" : "Heavy"
+        }
+      ]
+    }
+  ],
+  "macOS" : "Version 26.7.1 (Build 25G241)",
+  "pointSize" : 48,
+  "sample" : "The quick brown fox jumps 0123456789",
+  "system" : [
+    {
+      "advanceWidth" : 832.1953125,
+      "ascender" : 46.40625,
+      "descender" : -10.125,
+      "postScriptName" : ".AppleSystemUIFont",
+      "weight" : "Regular"
+    },
+    {
+      "advanceWidth" : 856.06227493286133,
+      "ascender" : 46.40625,
+      "descender" : -10.125,
+      "postScriptName" : ".AppleSystemUIFontMedium",
+      "weight" : "Medium"
+    },
+    {
+      "advanceWidth" : 873.41428756713867,
+      "ascender" : 46.40625,
+      "descender" : -10.125,
+      "postScriptName" : ".AppleSystemUIFontDemi",
+      "weight" : "Semibold"
+    },
+    {
+      "advanceWidth" : 897.28125,
+      "ascender" : 46.40625,
+      "descender" : -10.125,
+      "postScriptName" : ".AppleSystemUIFontBold",
+      "weight" : "Bold"
+    },
+    {
+      "advanceWidth" : 931.99322032928467,
+      "ascender" : 46.40625,
+      "descender" : -10.125,
+      "postScriptName" : ".AppleSystemUIFontHeavy",
+      "weight" : "Heavy"
+    }
+  ]
+}

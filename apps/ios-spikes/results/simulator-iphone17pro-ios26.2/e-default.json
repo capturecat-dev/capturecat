@@ -1,0 +1,1150 @@
+{
+ "device": {
+  "cores": 14,
+  "lowPower": false,
+  "machine": "arm64",
+  "maxFPS": 60,
+  "model": "iPhone",
+  "physicalMemoryMB": 36864,
+  "screenPoints": "402x874@3.0",
+  "simulator": true,
+  "system": "iOS 26.2",
+  "thermal": "nominal"
+ },
+ "families": [
+  {
+   "family": "SF Pro",
+   "installed": false,
+   "members": [],
+   "weights": [
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "SF Pro Rounded",
+   "installed": false,
+   "members": [],
+   "weights": [
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "New York",
+   "installed": false,
+   "members": [],
+   "weights": [
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Helvetica Neue",
+   "installed": true,
+   "members": [
+    "HelveticaNeue",
+    "HelveticaNeue-Italic",
+    "HelveticaNeue-UltraLight",
+    "HelveticaNeue-UltraLightItalic",
+    "HelveticaNeue-Thin",
+    "HelveticaNeue-ThinItalic",
+    "HelveticaNeue-Light",
+    "HelveticaNeue-LightItalic",
+    "HelveticaNeue-Medium",
+    "HelveticaNeue-MediumItalic",
+    "HelveticaNeue-Bold",
+    "HelveticaNeue-BoldItalic",
+    "HelveticaNeue-CondensedBold",
+    "HelveticaNeue-CondensedBlack"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 861.696,
+     "ascender": 45.696,
+     "descender": -10.224,
+     "fellBack": false,
+     "lineHeight": 55.92,
+     "postScriptName": "HelveticaNeue",
+     "resolvedFamily": "Helvetica Neue",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 880.416,
+     "ascender": 46.800000000000004,
+     "descender": -10.416,
+     "fellBack": false,
+     "lineHeight": 57.21600000000001,
+     "postScriptName": "HelveticaNeue-Medium",
+     "resolvedFamily": "Helvetica Neue",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 880.416,
+     "ascender": 46.800000000000004,
+     "descender": -10.416,
+     "fellBack": false,
+     "lineHeight": 57.21600000000001,
+     "postScriptName": "HelveticaNeue-Medium",
+     "resolvedFamily": "Helvetica Neue",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 899.712,
+     "ascender": 46.800000000000004,
+     "descender": -10.416,
+     "fellBack": false,
+     "lineHeight": 57.21600000000001,
+     "postScriptName": "HelveticaNeue-Bold",
+     "resolvedFamily": "Helvetica Neue",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 899.712,
+     "ascender": 46.800000000000004,
+     "descender": -10.416,
+     "fellBack": false,
+     "lineHeight": 57.21600000000001,
+     "postScriptName": "HelveticaNeue-Bold",
+     "resolvedFamily": "Helvetica Neue",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Avenir Next",
+   "installed": true,
+   "members": [
+    "AvenirNext-Regular",
+    "AvenirNext-Italic",
+    "AvenirNext-UltraLight",
+    "AvenirNext-UltraLightItalic",
+    "AvenirNext-Medium",
+    "AvenirNext-MediumItalic",
+    "AvenirNext-DemiBold",
+    "AvenirNext-DemiBoldItalic",
+    "AvenirNext-Bold",
+    "AvenirNext-BoldItalic",
+    "AvenirNext-Heavy",
+    "AvenirNext-HeavyItalic"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 879.744,
+     "ascender": 48,
+     "descender": -17.568,
+     "fellBack": false,
+     "lineHeight": 65.568,
+     "postScriptName": "AvenirNext-Regular",
+     "resolvedFamily": "Avenir Next",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 891.648,
+     "ascender": 48,
+     "descender": -17.568,
+     "fellBack": false,
+     "lineHeight": 65.568,
+     "postScriptName": "AvenirNext-Medium",
+     "resolvedFamily": "Avenir Next",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 903.648,
+     "ascender": 48,
+     "descender": -17.568,
+     "fellBack": false,
+     "lineHeight": 65.568,
+     "postScriptName": "AvenirNext-DemiBold",
+     "resolvedFamily": "Avenir Next",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 952.368,
+     "ascender": 48,
+     "descender": -17.568,
+     "fellBack": false,
+     "lineHeight": 65.568,
+     "postScriptName": "AvenirNext-Bold",
+     "resolvedFamily": "Avenir Next",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 1025.712,
+     "ascender": 48,
+     "descender": -17.568,
+     "fellBack": false,
+     "lineHeight": 65.568,
+     "postScriptName": "AvenirNext-Heavy",
+     "resolvedFamily": "Avenir Next",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Futura",
+   "installed": true,
+   "members": [
+    "Futura-Medium",
+    "Futura-MediumItalic",
+    "Futura-Bold",
+    "Futura-CondensedMedium",
+    "Futura-CondensedExtraBold"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 882.773438,
+     "ascender": 49.8515625,
+     "descender": -12.46875,
+     "fellBack": false,
+     "lineHeight": 62.3203125,
+     "postScriptName": "Futura-Medium",
+     "resolvedFamily": "Futura",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 1039.488,
+     "ascender": 49.872,
+     "descender": -12.48,
+     "fellBack": false,
+     "lineHeight": 62.352000000000004,
+     "postScriptName": "Futura-Bold",
+     "resolvedFamily": "Futura",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 1039.488,
+     "ascender": 49.872,
+     "descender": -12.48,
+     "fellBack": false,
+     "lineHeight": 62.352000000000004,
+     "postScriptName": "Futura-Bold",
+     "resolvedFamily": "Futura",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 1039.488,
+     "ascender": 49.872,
+     "descender": -12.48,
+     "fellBack": false,
+     "lineHeight": 62.352000000000004,
+     "postScriptName": "Futura-Bold",
+     "resolvedFamily": "Futura",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 1039.488,
+     "ascender": 49.872,
+     "descender": -12.48,
+     "fellBack": false,
+     "lineHeight": 62.352000000000004,
+     "postScriptName": "Futura-Bold",
+     "resolvedFamily": "Futura",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Gill Sans",
+   "installed": true,
+   "members": [
+    "GillSans",
+    "GillSans-Italic",
+    "GillSans-Light",
+    "GillSans-LightItalic",
+    "GillSans-SemiBold",
+    "GillSans-SemiBoldItalic",
+    "GillSans-Bold",
+    "GillSans-BoldItalic",
+    "GillSans-UltraBold"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 786.84375,
+     "ascender": 44.0625,
+     "descender": -11.0625,
+     "fellBack": false,
+     "lineHeight": 55.125,
+     "postScriptName": "GillSans",
+     "resolvedFamily": "Gill Sans",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 839.203125,
+     "ascender": 45.2578125,
+     "descender": -12,
+     "fellBack": false,
+     "lineHeight": 57.2578125,
+     "postScriptName": "GillSans-SemiBold",
+     "resolvedFamily": "Gill Sans",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 839.203125,
+     "ascender": 45.2578125,
+     "descender": -12,
+     "fellBack": false,
+     "lineHeight": 57.2578125,
+     "postScriptName": "GillSans-SemiBold",
+     "resolvedFamily": "Gill Sans",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 960.867188,
+     "ascender": 44.296875,
+     "descender": -11.2734375,
+     "fellBack": false,
+     "lineHeight": 55.5703125,
+     "postScriptName": "GillSans-Bold",
+     "resolvedFamily": "Gill Sans",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 1242.421875,
+     "ascender": 47.71875,
+     "descender": -12.09375,
+     "fellBack": false,
+     "lineHeight": 59.8125,
+     "postScriptName": "GillSans-UltraBold",
+     "resolvedFamily": "Gill Sans",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Georgia",
+   "installed": true,
+   "members": [
+    "Georgia",
+    "Georgia-Italic",
+    "Georgia-Bold",
+    "Georgia-BoldItalic"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 851.648438,
+     "ascender": 44.015625,
+     "descender": -10.5234375,
+     "fellBack": false,
+     "lineHeight": 54.5390625,
+     "postScriptName": "Georgia",
+     "resolvedFamily": "Georgia",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 981.304688,
+     "ascender": 44.015625,
+     "descender": -10.5234375,
+     "fellBack": false,
+     "lineHeight": 54.5390625,
+     "postScriptName": "Georgia-Bold",
+     "resolvedFamily": "Georgia",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 981.304688,
+     "ascender": 44.015625,
+     "descender": -10.5234375,
+     "fellBack": false,
+     "lineHeight": 54.5390625,
+     "postScriptName": "Georgia-Bold",
+     "resolvedFamily": "Georgia",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 981.304688,
+     "ascender": 44.015625,
+     "descender": -10.5234375,
+     "fellBack": false,
+     "lineHeight": 54.5390625,
+     "postScriptName": "Georgia-Bold",
+     "resolvedFamily": "Georgia",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 981.304688,
+     "ascender": 44.015625,
+     "descender": -10.5234375,
+     "fellBack": false,
+     "lineHeight": 54.5390625,
+     "postScriptName": "Georgia-Bold",
+     "resolvedFamily": "Georgia",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Times New Roman",
+   "installed": true,
+   "members": [
+    "TimesNewRomanPSMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-BoldItalicMT"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 785.25,
+     "ascender": 42.7734375,
+     "descender": -10.3828125,
+     "fellBack": false,
+     "lineHeight": 53.15625,
+     "postScriptName": "TimesNewRomanPSMT",
+     "resolvedFamily": "Times New Roman",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 819.257813,
+     "ascender": 42.7734375,
+     "descender": -10.3828125,
+     "fellBack": false,
+     "lineHeight": 53.15625,
+     "postScriptName": "TimesNewRomanPS-BoldMT",
+     "resolvedFamily": "Times New Roman",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 819.257813,
+     "ascender": 42.7734375,
+     "descender": -10.3828125,
+     "fellBack": false,
+     "lineHeight": 53.15625,
+     "postScriptName": "TimesNewRomanPS-BoldMT",
+     "resolvedFamily": "Times New Roman",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 819.257813,
+     "ascender": 42.7734375,
+     "descender": -10.3828125,
+     "fellBack": false,
+     "lineHeight": 53.15625,
+     "postScriptName": "TimesNewRomanPS-BoldMT",
+     "resolvedFamily": "Times New Roman",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 819.257813,
+     "ascender": 42.7734375,
+     "descender": -10.3828125,
+     "fellBack": false,
+     "lineHeight": 53.15625,
+     "postScriptName": "TimesNewRomanPS-BoldMT",
+     "resolvedFamily": "Times New Roman",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Palatino",
+   "installed": true,
+   "members": [
+    "Palatino-Roman",
+    "Palatino-Italic",
+    "Palatino-Bold",
+    "Palatino-BoldItalic"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 835.6875,
+     "ascender": 39.4921875,
+     "descender": -13.3125,
+     "fellBack": false,
+     "lineHeight": 52.8046875,
+     "postScriptName": "Palatino-Roman",
+     "resolvedFamily": "Palatino",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 862.570313,
+     "ascender": 39.4921875,
+     "descender": -13.3125,
+     "fellBack": false,
+     "lineHeight": 52.8046875,
+     "postScriptName": "Palatino-Bold",
+     "resolvedFamily": "Palatino",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 862.570313,
+     "ascender": 39.4921875,
+     "descender": -13.3125,
+     "fellBack": false,
+     "lineHeight": 52.8046875,
+     "postScriptName": "Palatino-Bold",
+     "resolvedFamily": "Palatino",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 862.570313,
+     "ascender": 39.4921875,
+     "descender": -13.3125,
+     "fellBack": false,
+     "lineHeight": 52.8046875,
+     "postScriptName": "Palatino-Bold",
+     "resolvedFamily": "Palatino",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 862.570313,
+     "ascender": 39.4921875,
+     "descender": -13.3125,
+     "fellBack": false,
+     "lineHeight": 52.8046875,
+     "postScriptName": "Palatino-Bold",
+     "resolvedFamily": "Palatino",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Menlo",
+   "installed": true,
+   "members": [
+    "Menlo-Regular",
+    "Menlo-Italic",
+    "Menlo-Bold",
+    "Menlo-BoldItalic"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 1040.34375,
+     "ascender": 44.5546875,
+     "descender": -11.3203125,
+     "fellBack": false,
+     "lineHeight": 55.875,
+     "postScriptName": "Menlo-Regular",
+     "resolvedFamily": "Menlo",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 1040.34375,
+     "ascender": 44.5546875,
+     "descender": -11.3203125,
+     "fellBack": false,
+     "lineHeight": 55.875,
+     "postScriptName": "Menlo-Bold",
+     "resolvedFamily": "Menlo",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 1040.34375,
+     "ascender": 44.5546875,
+     "descender": -11.3203125,
+     "fellBack": false,
+     "lineHeight": 55.875,
+     "postScriptName": "Menlo-Bold",
+     "resolvedFamily": "Menlo",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 1040.34375,
+     "ascender": 44.5546875,
+     "descender": -11.3203125,
+     "fellBack": false,
+     "lineHeight": 55.875,
+     "postScriptName": "Menlo-Bold",
+     "resolvedFamily": "Menlo",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 1040.34375,
+     "ascender": 44.5546875,
+     "descender": -11.3203125,
+     "fellBack": false,
+     "lineHeight": 55.875,
+     "postScriptName": "Menlo-Bold",
+     "resolvedFamily": "Menlo",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "SF Mono",
+   "installed": false,
+   "members": [],
+   "weights": [
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 851.203125,
+     "ascender": 44.1609375,
+     "descender": -11.0390625,
+     "fellBack": true,
+     "lineHeight": 55.2,
+     "postScriptName": "Helvetica",
+     "resolvedFamily": "Helvetica",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Courier New",
+   "installed": true,
+   "members": [
+    "CourierNewPSMT",
+    "CourierNewPS-ItalicMT",
+    "CourierNewPS-BoldMT",
+    "CourierNewPS-BoldItalicMT"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 1036.96875,
+     "ascender": 39.9609375,
+     "descender": -14.4140625,
+     "fellBack": false,
+     "lineHeight": 54.375,
+     "postScriptName": "CourierNewPSMT",
+     "resolvedFamily": "Courier New",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 1036.96875,
+     "ascender": 39.9609375,
+     "descender": -14.4140625,
+     "fellBack": false,
+     "lineHeight": 54.375,
+     "postScriptName": "CourierNewPS-BoldMT",
+     "resolvedFamily": "Courier New",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 1036.96875,
+     "ascender": 39.9609375,
+     "descender": -14.4140625,
+     "fellBack": false,
+     "lineHeight": 54.375,
+     "postScriptName": "CourierNewPS-BoldMT",
+     "resolvedFamily": "Courier New",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 1036.96875,
+     "ascender": 39.9609375,
+     "descender": -14.4140625,
+     "fellBack": false,
+     "lineHeight": 54.375,
+     "postScriptName": "CourierNewPS-BoldMT",
+     "resolvedFamily": "Courier New",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 1036.96875,
+     "ascender": 39.9609375,
+     "descender": -14.4140625,
+     "fellBack": false,
+     "lineHeight": 54.375,
+     "postScriptName": "CourierNewPS-BoldMT",
+     "resolvedFamily": "Courier New",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Impact",
+   "installed": true,
+   "members": [
+    "Impact"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 769.148438,
+     "ascender": 48.421875,
+     "descender": -10.125,
+     "fellBack": false,
+     "lineHeight": 58.546875,
+     "postScriptName": "Impact",
+     "resolvedFamily": "Impact",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 769.148438,
+     "ascender": 48.421875,
+     "descender": -10.125,
+     "fellBack": false,
+     "lineHeight": 58.546875,
+     "postScriptName": "Impact",
+     "resolvedFamily": "Impact",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 769.148438,
+     "ascender": 48.421875,
+     "descender": -10.125,
+     "fellBack": false,
+     "lineHeight": 58.546875,
+     "postScriptName": "Impact",
+     "resolvedFamily": "Impact",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 769.148438,
+     "ascender": 48.421875,
+     "descender": -10.125,
+     "fellBack": false,
+     "lineHeight": 58.546875,
+     "postScriptName": "Impact",
+     "resolvedFamily": "Impact",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 769.148438,
+     "ascender": 48.421875,
+     "descender": -10.125,
+     "fellBack": false,
+     "lineHeight": 58.546875,
+     "postScriptName": "Impact",
+     "resolvedFamily": "Impact",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "Copperplate",
+   "installed": true,
+   "members": [
+    "Copperplate",
+    "Copperplate-Light",
+    "Copperplate-Bold"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 966.624,
+     "ascender": 36.624,
+     "descender": -11.904,
+     "fellBack": false,
+     "lineHeight": 48.528000000000006,
+     "postScriptName": "Copperplate",
+     "resolvedFamily": "Copperplate",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 979.824,
+     "ascender": 36.816,
+     "descender": -11.904,
+     "fellBack": false,
+     "lineHeight": 48.72,
+     "postScriptName": "Copperplate-Bold",
+     "resolvedFamily": "Copperplate",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 979.824,
+     "ascender": 36.816,
+     "descender": -11.904,
+     "fellBack": false,
+     "lineHeight": 48.72,
+     "postScriptName": "Copperplate-Bold",
+     "resolvedFamily": "Copperplate",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 979.824,
+     "ascender": 36.816,
+     "descender": -11.904,
+     "fellBack": false,
+     "lineHeight": 48.72,
+     "postScriptName": "Copperplate-Bold",
+     "resolvedFamily": "Copperplate",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 979.824,
+     "ascender": 36.816,
+     "descender": -11.904,
+     "fellBack": false,
+     "lineHeight": 48.72,
+     "postScriptName": "Copperplate-Bold",
+     "resolvedFamily": "Copperplate",
+     "weight": "Heavy"
+    }
+   ]
+  },
+  {
+   "family": "American Typewriter",
+   "installed": true,
+   "members": [
+    "AmericanTypewriter",
+    "AmericanTypewriter-Light",
+    "AmericanTypewriter-Semibold",
+    "AmericanTypewriter-Bold",
+    "AmericanTypewriter-Condensed",
+    "AmericanTypewriter-CondensedLight",
+    "AmericanTypewriter-CondensedBold"
+   ],
+   "weights": [
+    {
+     "advanceWidth": 926.4,
+     "ascender": 43.392,
+     "descender": -12,
+     "fellBack": false,
+     "lineHeight": 55.392,
+     "postScriptName": "AmericanTypewriter",
+     "resolvedFamily": "American Typewriter",
+     "weight": "Regular"
+    },
+    {
+     "advanceWidth": 926.4,
+     "ascender": 43.392,
+     "descender": -12,
+     "fellBack": false,
+     "lineHeight": 55.392,
+     "postScriptName": "AmericanTypewriter-Semibold",
+     "resolvedFamily": "American Typewriter",
+     "weight": "Medium"
+    },
+    {
+     "advanceWidth": 926.4,
+     "ascender": 43.392,
+     "descender": -12,
+     "fellBack": false,
+     "lineHeight": 55.392,
+     "postScriptName": "AmericanTypewriter-Semibold",
+     "resolvedFamily": "American Typewriter",
+     "weight": "Semibold"
+    },
+    {
+     "advanceWidth": 971.52,
+     "ascender": 45.504,
+     "descender": -13.344,
+     "fellBack": false,
+     "lineHeight": 58.848,
+     "postScriptName": "AmericanTypewriter-Bold",
+     "resolvedFamily": "American Typewriter",
+     "weight": "Bold"
+    },
+    {
+     "advanceWidth": 971.52,
+     "ascender": 45.504,
+     "descender": -13.344,
+     "fellBack": false,
+     "lineHeight": 58.848,
+     "postScriptName": "AmericanTypewriter-Bold",
+     "resolvedFamily": "American Typewriter",
+     "weight": "Heavy"
+    }
+   ]
+  }
+ ],
+ "installedFamilyCount": 86,
+ "memory": {
+  "endFootprintMB": 18.4,
+  "minAvailableMB": -1,
+  "processPeakFootprintMB": 18.4,
+  "sampledPeakFootprintMB": 17.6,
+  "startFootprintMB": 16.1,
+  "thermalAtEnd": "nominal"
+ },
+ "pointSize": 48,
+ "sample": "The quick brown fox jumps 0123456789",
+ "spike": "e",
+ "system": [
+  {
+   "advanceWidth": 832.195313,
+   "ascender": 45.703125,
+   "descender": -11.578125,
+   "lineHeight": 57.28125,
+   "postScriptName": ".SFUI-Regular",
+   "weight": "Regular"
+  },
+  {
+   "advanceWidth": 856.062275,
+   "ascender": 45.703125,
+   "descender": -11.578125,
+   "lineHeight": 57.28125,
+   "postScriptName": ".SFUI-Medium",
+   "weight": "Medium"
+  },
+  {
+   "advanceWidth": 873.414288,
+   "ascender": 45.703125,
+   "descender": -11.578125,
+   "lineHeight": 57.28125,
+   "postScriptName": ".SFUI-Semibold",
+   "weight": "Semibold"
+  },
+  {
+   "advanceWidth": 897.28125,
+   "ascender": 45.703125,
+   "descender": -11.578125,
+   "lineHeight": 57.28125,
+   "postScriptName": ".SFUI-Bold",
+   "weight": "Bold"
+  },
+  {
+   "advanceWidth": 931.99322,
+   "ascender": 45.703125,
+   "descender": -11.578125,
+   "lineHeight": 57.28125,
+   "postScriptName": ".SFUI-Heavy",
+   "weight": "Heavy"
+  }
+ ],
+ "systemDesigns": {
+  "monospaced": [
+   {
+    "advanceWidth": 1068.1875,
+    "postScriptName": ".AppleSystemUIFontMonospaced-Regular",
+    "weight": "Regular"
+   },
+   {
+    "advanceWidth": 1068.1875,
+    "postScriptName": ".AppleSystemUIFontMonospaced-Medium",
+    "weight": "Medium"
+   },
+   {
+    "advanceWidth": 1068.1875,
+    "postScriptName": ".AppleSystemUIFontMonospaced-Semibold",
+    "weight": "Semibold"
+   },
+   {
+    "advanceWidth": 1068.1875,
+    "postScriptName": ".AppleSystemUIFontMonospaced-Bold",
+    "weight": "Bold"
+   },
+   {
+    "advanceWidth": 1068.1875,
+    "postScriptName": ".AppleSystemUIFontMonospaced-Heavy",
+    "weight": "Heavy"
+   }
+  ],
+  "rounded": [
+   {
+    "advanceWidth": 832.6875,
+    "postScriptName": ".AppleSystemUIFontRounded-Regular",
+    "weight": "Regular"
+   },
+   {
+    "advanceWidth": 856.505593,
+    "postScriptName": ".AppleSystemUIFontRounded-Medium",
+    "weight": "Medium"
+   },
+   {
+    "advanceWidth": 874.766939,
+    "postScriptName": ".AppleSystemUIFontRounded-Semibold",
+    "weight": "Semibold"
+   },
+   {
+    "advanceWidth": 898.851563,
+    "postScriptName": ".AppleSystemUIFontRounded-Bold",
+    "weight": "Bold"
+   },
+   {
+    "advanceWidth": 933.783151,
+    "postScriptName": ".AppleSystemUIFontRounded-Heavy",
+    "weight": "Heavy"
+   }
+  ],
+  "serif": [
+   {
+    "advanceWidth": 825.822859,
+    "postScriptName": ".NewYork-Regular",
+    "weight": "Regular"
+   },
+   {
+    "advanceWidth": 853.663336,
+    "postScriptName": ".NewYork-Medium",
+    "weight": "Medium"
+   },
+   {
+    "advanceWidth": 874.556971,
+    "postScriptName": ".NewYork-Semibold",
+    "weight": "Semibold"
+   },
+   {
+    "advanceWidth": 905.297277,
+    "postScriptName": ".NewYork-Bold",
+    "weight": "Bold"
+   },
+   {
+    "advanceWidth": 944.747689,
+    "postScriptName": ".NewYork-Heavy",
+    "weight": "Heavy"
+   }
+  ]
+ },
+ "variant": "default",
+ "wallSeconds": 0.093213
+}

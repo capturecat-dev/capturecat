@@ -1,0 +1,5 @@
+ERROR: An unknown error occurred. (com.apple.dt.CoreDeviceError error -1 (0xFFFFFFFF))
+       ----------------------------------------
+           Failed to allocate RSD device. (com.apple.mobiledevice error -402653181 (0xE8000003))
+           LineNumber = 484
+           FunctionName = _AMDeviceCreateWithRemoteDeviceUUIDAndTypeWithError

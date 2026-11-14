@@ -1,0 +1,61 @@
+{
+ "copyAndCommitMs": {
+  "max": 2.310042,
+  "mean": 1.115659,
+  "min": 0.329917,
+  "n": 298,
+  "p50": 1.098292,
+  "p95": 1.884875,
+  "p99": 2.143042,
+  "sd": 0.438674
+ },
+ "device": {
+  "cores": 14,
+  "lowPower": false,
+  "machine": "arm64",
+  "maxFPS": 60,
+  "model": "iPhone",
+  "physicalMemoryMB": 36864,
+  "screenPoints": "402x874@3.0",
+  "simulator": true,
+  "system": "iOS 26.2",
+  "thermal": "nominal"
+ },
+ "displayedPerSecond": 59.6,
+ "driver": "Timer 60Hz (Mac VideoFrameLayerDriver)",
+ "file": "screen-3456x2234-60.mov",
+ "framesDisplayed": 298,
+ "intervalsOver1_5Frames": 1,
+ "memory": {
+  "endFootprintMB": 30.2,
+  "minAvailableMB": -1,
+  "processPeakFootprintMB": 73.8,
+  "sampledPeakFootprintMB": 71.8,
+  "startFootprintMB": 16.1,
+  "thermalAtEnd": "nominal"
+ },
+ "onScreenCheck": {
+  "litFraction": 0.601422,
+  "ok": true
+ },
+ "seconds": 5,
+ "sourceFPS": 60,
+ "sourceFramesSkipped": 0,
+ "sourceFramesSpanned": 298,
+ "spike": "a",
+ "stagePoints": "337x189",
+ "ticks": 300,
+ "ticksWithoutNewFrame": 2,
+ "updateIntervalMs": {
+  "max": 50.532,
+  "mean": 16.780686,
+  "min": 14.152417,
+  "n": 297,
+  "p50": 16.695458,
+  "p95": 18.247167,
+  "p99": 18.781167,
+  "sd": 2.147462
+ },
+ "variant": "timer",
+ "wallSeconds": 5.278913
+}

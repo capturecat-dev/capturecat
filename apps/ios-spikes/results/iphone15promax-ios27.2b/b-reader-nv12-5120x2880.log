@@ -1,0 +1,5 @@
+SPIKE-LOG SPIKE-START b/reader-nv12
+SPIKE-RESULT {"codec":"hvc1","decodeFPS":107.101204,"device":{"cores":6,"lowPower":false,"machine":"iPhone16,2","maxFPS":120,"model":"iPhone","physicalMemoryMB":7655.5,"screenPoints":"430x932@3.0","simulator":false,"system":"iOS 27.2","thermal":"nominal"},"duration":10,"file":"screen-5120x2880-60.mov","firstFrameMs":30.647375,"fps":60,"frameMs":{"max":29.802042,"mean":9.3004090000000001,"min":0.171208,"n":599,"p50":7.7028749999999997,"p95":27.961749999999999,"p99":28.512042000000001,"sd":10.004455999999999},"frames":600,"hwHEVCDecodeSupported":true,"isDecodable":true,"isPlayable":true,"memory":{"endFootprintMB":7.4000000000000004,"minAvailableMB":3346.8000000000002,"processPeakFootprintMB":29.199999999999999,"sampledPeakFootprintMB":29.199999999999999,"startFootprintMB":7.0999999999999996,"thermalAtEnd":"nominal"},"mode":"AVAssetReader NV12","seconds":5.6021780000000003,"size":"5120x2880","spike":"b","variant":"reader-nv12","wallSeconds":5.6547299999999998}
+Launched application with so.capturecat.spikes bundle identifier.
+Waiting for the application to terminate...
+The app terminated with the exit code 0.

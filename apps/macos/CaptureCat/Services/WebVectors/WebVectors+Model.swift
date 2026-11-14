@@ -430,12 +430,40 @@ extension WebVectors {
             let text = input.serialized()
             let output: WV
             if let project = try? JSONDecoder().decode(Project.self, from: Data(text.utf8)) {
-                output = WV.encoded(project)
+                output = pinMintedRegionIDs(WV.encoded(project), input: json, caseIndex: i)
             } else {
                 output = ["error": true]
             }
             cases.append(vcase(["json": input, "mutations": .arr(applied.map { .str($0) })], output))
         }
         return cases
+    }
+
+    /// `CameraLayoutRegion.init(from:)` mints a fresh `UUID()` for a region
+    /// whose input has no id (product behaviour, unchanged). The web suite
+    /// already ignores that field (model.test.ts), but a random value made
+    /// this file differ on every run, which breaks render-baseline.sh's
+    /// byte-exact compare. Replace only ids that appear nowhere in the input
+    /// with a UUID seeded by case and region index.
+    private static func pinMintedRegionIDs(_ output: WV, input: Any, caseIndex: Int) -> WV {
+        guard case .obj(var pairs) = output,
+              let k = pairs.firstIndex(where: { $0.0 == "cameraLayoutRegions" }),
+              case .arr(var regions) = pairs[k].1 else { return output }
+        let inputRegions = ((input as? [String: Any])?["cameraLayoutRegions"] as? [Any]) ?? []
+        let inputIDs = Set(inputRegions.compactMap { ($0 as? [String: Any])?["id"] as? String }.map { $0.uppercased() })
+        var changed = false
+        for (r, region) in regions.enumerated() {
+            guard case .obj(var fields) = region,
+                  let f = fields.firstIndex(where: { $0.0 == "id" }),
+                  case .str(let id) = fields[f].1,
+                  !inputIDs.contains(id.uppercased()) else { continue }
+            var rng = WVRandom(seed: "projectDecode-minted-\(caseIndex)-\(r)")
+            fields[f].1 = .str(rng.uuid().uuidString)
+            regions[r] = .obj(fields)
+            changed = true
+        }
+        guard changed else { return output }
+        pairs[k].1 = .arr(regions)
+        return .obj(pairs)
     }
 }

@@ -1,0 +1,163 @@
+TOPOLOGY compositor superviewFlipped=true geometryFlipped=false contentsFlipped=true
+CAPTUREDIR /var/folders/c0/mycd6nps2z12zvknz3f_tdgc0000gn/T/capturecat-parity-E4DC46
+DEBUGWINDOW saved
+STATE flat cell=0/255 lum=147.0 PASS
+STATE tilt-20-0-0 cell=0/255 lum=148.0 PASS
+STATE tilt-0--17-6 cell=0/255 lum=147.3 PASS
+STATE zoom-2 cell=0/255 lum=130.2 PASS
+STATE zoom+tilt cell=0/255 lum=130.4 PASS
+STATE menubar-dark cell=0/255 lum=145.8 PASS
+STATE hidden-crop cell=0/255 lum=146.0 PASS
+STATE subtitle-glow cell=0/255 lum=148.8 PASS
+STATE watermark cell=1/255 lum=148.6 PASS
+STATE camera-custom cell=0/255 lum=147.2 PASS
+CAMERA-STYLE identity-passthrough defaults must not touch the image PASS
+CAMERA-STYLE saturation-0-greys rgb=(100,100,100) PASS
+CAMERA-STYLE brightness-lifts blue 51 -> 153 PASS
+CAMERA-STYLE filter-mono-greys rgb=(102,102,102) PASS
+CAMERA-STYLE ring-off-is-nil  PASS
+CAMERA-STYLE ring-raster-padded raster=124x124 pad=12 PASS
+CAMERA-STYLE ring-outside-not-inside centre=0 inside=0 outside=47 corner=0 PASS
+CAMERA-STYLE ring-smooth-decay trace=[98, 79, 61, 47, 34, 24, 16, 10, 6, 4, 2, 1] PASS
+CAMERA-STYLE squircle-bulges-past-arc point=(181.0, 181.0) PASS
+CAMERA-STYLE squircle-differs-from-legacy point=(189.0, 189.0) PASS
+CAMERA-STYLE squircle-follows-aspect  PASS
+CAMERA-STYLE orientation-truth-table vertical=0.8 PASS
+CAMERA-STYLE tag-empty-hidden  PASS
+CAMERA-STYLE tag-renders pill=(113.12, 55.456) PASS
+CAMERA-STYLE tag-positions below=279 above=80 overlapMid=260 PASS
+CAMERA-STYLE tag-yup-mirrors belowUp.maxY=80 bubble.minY=100 PASS
+CAMERA-STYLE border-color-honoured strokeColor=Optional(sRGB IEC61966-2.1 colorspace 1 0 0 1) PASS
+CAMERA-STYLE border-width-honoured lineWidth=6.0 PASS
+CAMERA-STYLE ring-layer-live  PASS
+CAMERA-STYLE tag-layer-live  PASS
+CAMERA-STYLE group-opacity opacity=0.5 PASS
+CAMERA-STYLE tilt-identity-at-rest  PASS
+CAMERA-STYLE tilt-uses-shared-math m14=0.0013138863794733401 want=0.0013138863794733401 m24=-0.0019101420193526548 want=-0.0019101420193526548 PASS
+CAMERA-STYLE tilt-changes-raster camera-crop diff=7.28/255 PASS
+CAMERA-STYLE vertical-rect-portrait rect=63x79 ratio=0.800 PASS
+CAMERA-STYLE wide-rect-landscape rect=79x66 PASS
+CAMERA-STYLE defaults-restore-legacy-border color=Optional(sRGB IEC61966-2.1 colorspace 1 1 1 0.3) width=2.0 PASS
+CAMERA-LOOK crossfade-midflight ticks=20 mid=10 stacks track weights=true monotonic=true PASS
+CAMERA-LOOK capture-orientation bubble rows 28…131 vs rect y 272…399 → flipped=true PASS
+CAMERA-LOOK cutout-weights settled cutout draws only the cutout stack PASS
+CAMERA-LOOK cutout-silhouette inside n=1515 ==bubble 1.000 · outside n=2102 ==bare 1.000 PASS
+CAMERA-LOOK selftest-unmasked-defect-fails injected unmasked look → inside n=1515 ==bubble 1.000 · outside n=2102 ==bare 0.108 PASS
+CAMERA-LOOK whole-video-cutout no regions · weights (1.00, 0.00) · inside n=1515 ==bubble 1.000 · outside n=2102 ==bare 1.000 · == region cutout 1.000 PASS
+CAMERA-LOOK crossfade-true-dissolve w=0.500 px == lerp(bubble, cutout): 0.657 of 3617 (source-over would miss 1253 inside px) FAIL
+CAMERA-LOOK popout-weights settled pop-out draws only the card stack PASS
+CAMERA-LOOK popout-person person n=1515 ==bubble 1.000 PASS
+CAMERA-LOOK popout-headroom-clear headroom beside the head n=207 ==bare 1.000 PASS
+CAMERA-LOOK popout-card-fill card behind the person n=656 covered 1.000 PASS
+CAMERA-LOOK popout-head-rises head above the card n=91 drawn 1.000 PASS
+CAMERA-LOOK popout-gradient-orientation top rgb (228, 136, 115) bottom rgb (133, 95, 217) PASS
+CAMERA-LOOK style-popout-amount card top y: amount 0 → 272, default → 300, 1 → 327 (B 273…399) PASS
+CAMERA-LOOK style-camera-fill card == camera bg 1.000 (gradient defect 0.000, n=481) · headroom clear 1.000 · person 1.000 PASS
+CAMERA-LOOK style-background-blur edge energy inside the card 436.7 → 0.0 at blur 1 PASS
+CAMERA-LOOK style-border-ring ring w=7.9 gold 1.00 (no-border defect 0.00) PASS
+CAMERA-LOOK style-edge-inset inner edge band clear 1.000 (plain 0.032, n=124) PASS
+CAMERA-LOOK style-edge-softness outer edge band covered 1.000 (plain 0.000, n=84) PASS
+CAMERA-LOOK style-camera-side leading tile midX 204.3 · trailing 515.7 · canvas mid 360.0 PASS
+CAMERA-LOOK split-full-columns screen column fills the top band 1.000 · camera 1.000 · screen in the gutter 0.000 (n=182) · mask=on · heights 309/309/309 PASS
+CAMERA-LOOK selftest-split-unclipped-defect-fails injected unclipped split → screen in the gutter 1.000 PASS
+CAMERA-LOOK split-riders-follow-card cursor {419.32799999999997, 227.22} → {296.71680000000003, 217.33199999999999} (want {296.71679999999998, 217.33199999999999}, err 0.00 px, moved 123.0 px) PASS
+CAMERA-LOOK stack-rows camera row filled 1.000 · screen row filled to its bottom 1.000 · screen beside its row 0.000 (n=864) · camera {{48, 48}, {309, 256.83839999999998}} PASS
+CAMERA-LOOK selftest-stack-unclipped-defect-fails injected unclipped stack → screen beside its row 0.791 PASS
+CAMERA-LOOK stack-popout headroom n=814 ==bare 1.000 · card n=1572 on the gradient 1.000 · head n=444 drawn 1.000 · card top rgb(219,132,125) bottom rgb(128,93,222) PASS
+CAMERA-LOOK selftest-stack-popout-off-fails plain stacked row → headroom n=814 ==bare 0.000 · card n=1572 on the gradient 0.000 · head n=444 drawn 1.000 · card top rgb(51,170,238) bottom rgb(69,155,244) PASS
+CAMERA-LOOK stack-zoom zoom 2.400 · camera row 192.6 of 256.8 (yield 0.750) · padding covered 0.000 · screen beside its row 0.000 · camera filled 1.000 · screen filled 1.000 PASS
+CAMERA-LOOK selftest-stack-zoom-outside-fails whole stack zoomed → zoom 2.400 · camera row 256.8 of 256.8 (yield 1.000) · padding covered 0.915 · screen beside its row 0.318 · camera filled 1.000 · screen filled 1.000 PASS
+CAMERA-LOOK stack-zoom-glide ticks=49 mid-glide=9 monotonic=yes height tracks the zoom=yes · first 256.8 last 192.6 (full 256.8) PASS
+CAMERA-LOOK stack-joined rows touch yes · old gap band covered 0.995 (n=630) · seam corners square: screen yes camera yes · outer corners round: screen yes camera yes PASS
+CAMERA-LOOK selftest-stack-joined-round-fails seam shapes ignored → rows touch yes · old gap band covered 0.995 (n=630) · seam corners square: screen no camera no · outer corners round: screen yes camera yes PASS
+STATE device-flat cell=0/255 lum=141.2 PASS
+BLOBS device-flat n=1 [2268@239,93] OK
+STATE device+tilt cell=0/255 lum=137.7 PASS
+BLOBS device+tilt n=1 [2545@238,90] OK
+STATE device-phone-flat cell=0/255 lum=159.8 PASS
+BLOBS device-phone-flat n=2 [693@322,83 448@358,340] OK
+STATE device-phone+tilt cell=0/255 lum=160.9 PASS
+BLOBS device-phone+tilt n=2 [654@329,78 343@357,340] OK
+STATE device-segment-flat cell=0/255 lum=162.3 PASS
+BLOBS device-segment-flat n=1 [323@358,332] OK
+STATE device-segment+tilt cell=0/255 lum=162.9 PASS
+BLOBS device-segment+tilt n=1 [253@357,331] OK
+STATE blur-feather cell=0/255 lum=147.1 PASS
+STATE highlight cell=0/255 lum=110.6 PASS
+STATE annotations cell=0/255 lum=145.0 PASS
+STATE tap-ripple cell=0/255 lum=147.0 PASS
+STATE motion-zoom-t0.05 cell=0/255 lum=145.6 PASS
+SEQ motion-zoom+0.15 midflight=1.112 OK
+STATE motion-zoom-t0.15 cell=0/255 lum=141.8 PASS
+SEQ motion-zoom+0.3 midflight=1.272 OK
+STATE motion-zoom-t0.30 cell=0/255 lum=134.3 PASS
+STATE motion-zoom-t0.60 cell=0/255 lum=130.3 PASS
+STATE motion-tilt-t0.05 cell=0/255 lum=146.9 PASS
+SEQ motion-tilt+0.15 midflight=2.242 OK
+STATE motion-tilt-t0.15 cell=0/255 lum=146.8 PASS
+SEQ motion-tilt+0.3 midflight=5.431 OK
+STATE motion-tilt-t0.30 cell=0/255 lum=146.5 PASS
+STATE motion-tilt-t0.60 cell=0/255 lum=147.0 PASS
+TILT-AT-HEAD trim=0.17333333333333334 after-pretrim frame0=(pitch: 39.0, yaw: -26.0, roll: -4.0) firstTick=(pitch: 39.0, yaw: -26.0, roll: -4.0) PASS
+TILT-HEAD-BLOCK full@0=20.00 full@1=20.00 ramp@2=6.13 end=3.63→1.50 mid@2=6.13 PASS
+SCRUB-MOTION backward midflight zoom=1.095 PASS
+STATE annotation-pop-enter cell=0/255 lum=146.0 PASS
+STATE annotation-explode-exit cell=0/255 lum=145.2 PASS
+BACKDROP video-dim=204 hole=0 canvas=0 PASS
+STATE cursor-pin cell=0/255 lum=131.2 PASS
+TILT-MOTION spans 0.04..5.62 moving=true midFlight=true PASS
+TILT-RASTERS 0 across 40 animating frames PASS
+CURSOR-SMOOTH no lag under motion worst deviation 9.4px over a 1440px sweep PASS
+CURSOR-SMOOTH timestamps preserved  PASS
+CURSOR-SMOOTH clicks preserved click position must remain raw PASS
+CURSOR-SMOOTH factor 0 is a passthrough  PASS
+CURSOR-MAP (0.25,0.25) want=(238.8,125.2) got=(238.8,125.2) d=(0.00,0.00) PASS
+CURSOR-MAP (0.50,0.50) want=(360.0,202.5) got=(360.0,202.5) d=(0.00,0.00) PASS
+CURSOR-MAP (0.75,0.40) want=(481.2,171.6) got=(481.2,171.6) d=(0.00,0.00) PASS
+CURSOR-MAP (0.40,0.80) want=(311.5,295.2) got=(311.5,295.2) d=(0.00,0.00) PASS
+CURSOR-PHYSICS rest=identity moving(rot=0.201 dx=-8.06 stretch=1.192) tip-drift=0.00000 PASS
+CURSOR-SPRING deterministic=yes settled=600.0 overshoot=yes click-pinned=yes PASS
+CURSOR-SIZE-PIN 0.5x...3.0x drift=0.0000px PASS
+CURSOR-SIZE-SCALES 0.5x->3.0x ratio=6.000 PASS
+CURSOR-CONTENTS present PASS
+WINDOW-GEOMETRY chrome crop want=(123.0, 46.0, 1369.0, 872.0) got=Optional((123.0, 46.0, 1369.0, 872.0)) PASS
+WINDOW-GEOMETRY crop orientation want=(123.0, 30.0, 1369.0, 872.0) got=(123.0, 30.0, 1369.0, 872.0) PASS
+WINDOW-GEOMETRY padding trim transparent got=(20.0, 20.0, 160.0, 120.0) PASS
+WINDOW-GEOMETRY padding trim black got=(14.0, 14.0, 172.0, 132.0) PASS
+WINDOW-GEOMETRY dark UI not trimmed got=(0.0, 0.0, 200.0, 160.0) PASS
+WINDOW-GEOMETRY tilt inverse round-trip worst=0.00000 forward-agrees=yes PASS
+WINDOW-GEOMETRY cover zoom z=3.708 covers=yes continuous=yes noTilt=yes PASS
+WINDOW-GEOMETRY intro slide offscreen=true mid=true overshoot=true settled=true off=true anywhere=true PASS
+WINDOW-GEOMETRY curtain unveil cover=true mid=true perp=true shadow=true done=true off=true reflect=true PASS
+WINDOW-GEOMETRY curtain flick sweep monotonic=yes lands=yes late=0.476 early=0.136 PASS
+WINDOW-GEOMETRY curtain flap release whipRises=yes releases=yes midExc=0.0279 op92=0.67 op97=0.25 PASS
+WINDOW-GEOMETRY curtain shadow breathes w(0.5)=0.0849 w(0.05)=0.0383 s(0.5)=0.600 s(0.05)=0.937 s(0.85)=1.166 s(0.7)=0.676 s(1)=0.000 PASS
+WINDOW-GEOMETRY curtain logo raster differs=true PASS
+WINDOW-GEOMETRY curtain card clip clippedCornerAlpha=0 squareCornerAlpha=255 PASS
+WINDOW-GEOMETRY legacy bokeh keys ignored decoded=true PASS
+WINDOW-GEOMETRY depth focus profile inside=true corner=true monotone=true mid=true falloff=true tilt=true mask=true PASS
+WINDOW-GEOMETRY depth focus corner radius sharp=true capsule=true masksDiffer=true default=true PASS
+WINDOW-GEOMETRY blur styles blurMono=true pixMono=true legacy=true jitter=true structural=true PASS
+WINDOW-GEOMETRY unified selection chrome unselectedNil=true selectedDrawn=true PASS
+WINDOW-GEOMETRY tilt boundary smooth smooth=yes omegaCont=yes zoomEnv=yes worstΔvel=0.892°/s (Cinematic) PASS
+WINDOW-GEOMETRY zoom styles + parallax held=true order=true parallax=true PASS
+WINDOW-GEOMETRY custom placement centre+off-canvas mid=(300.0, 150.0) edge=(-200.0, -150.0) off=(1200.0, 150.0) PASS
+WINDOW-GEOMETRY click 1:1 want=(616.0500000000001, 549.36) got=(616.0500000000001, 549.36) PASS
+WINDOW-GEOMETRY late metadata normalized=(0.45000000000000007,0.63) PASS
+WINDOW-GEOMETRY moved/resized click want=(616.0500000000001, 549.36) got=(616.05, 549.36) PASS
+DIP peak-at-boundary phase=1.0000 PASS
+DIP anticipates-cut phase(-0.10s)=0.6412 PASS
+DIP symmetric 0.527292 vs 0.527292 PASS
+DIP smooth-at-peak |d/dt|=0.0000 PASS
+DIP curvature-continuous -78.543 vs -78.543 PASS
+DIP decays phase(0.45s)=0.000123 PASS
+MOTIONBLUR quiet-off radius=0.0 PASS
+MOTIONBLUR below-threshold v=0.030 PASS
+MOTIONBLUR monotonic r(max)=0.02500 PASS
+MOTIONBLUR caps r=0.02500 cap=0.02500 PASS
+MOTIONBLUR strength-scales r=0.01250 PASS
+MOTIONBLUR angle-ydown angle=1.5708 PASS
+MOTIONBLUR zoom-engages r=0.00678 PASS
+ARTIFACTS /var/folders/c0/mycd6nps2z12zvknz3f_tdgc0000gn/T/capturecat-parity-E4DC46
+WORST watermark 1/255
+PARITY FAIL count=1

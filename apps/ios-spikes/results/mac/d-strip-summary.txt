@@ -1,0 +1,65 @@
+STATE flat cell=0/255 lum=147.0 PASS
+STATE tilt-20-0-0 cell=0/255 lum=148.0 PASS
+STATE tilt-0--17-6 cell=0/255 lum=147.3 PASS
+STATE zoom-2 cell=0/255 lum=130.2 PASS
+STATE zoom+tilt cell=0/255 lum=130.4 PASS
+STATE menubar-dark cell=0/255 lum=145.8 PASS
+STATE hidden-crop cell=0/255 lum=146.0 PASS
+STATE subtitle-glow cell=0/255 lum=148.8 PASS
+STATE watermark cell=1/255 lum=148.6 PASS
+STATE camera-custom cell=0/255 lum=147.2 PASS
+CAMERA-LOOK crossfade-midflight ticks=20 mid=10 stacks track weights=true monotonic=true PASS
+CAMERA-LOOK capture-orientation bubble rows 28…131 vs rect y 272…399 → flipped=true PASS
+CAMERA-LOOK cutout-weights settled cutout draws only the cutout stack PASS
+CAMERA-LOOK cutout-silhouette inside n=1515 ==bubble 1.000 · outside n=2102 ==bare 1.000 PASS
+CAMERA-LOOK selftest-unmasked-defect-fails injected unmasked look → inside n=1515 ==bubble 1.000 · outside n=2102 ==bare 0.108 PASS
+CAMERA-LOOK whole-video-cutout no regions · weights (1.00, 0.00) · inside n=1515 ==bubble 1.000 · outside n=2102 ==bare 1.000 · == region cutout 1.000 PASS
+CAMERA-LOOK crossfade-true-dissolve w=0.500 px == lerp(bubble, cutout): 0.657 of 3617 (source-over would miss 1253 inside px) FAIL
+CAMERA-LOOK popout-weights settled pop-out draws only the card stack PASS
+CAMERA-LOOK popout-person person n=1515 ==bubble 1.000 PASS
+CAMERA-LOOK popout-headroom-clear headroom beside the head n=207 ==bare 1.000 PASS
+CAMERA-LOOK popout-card-fill card behind the person n=656 covered 1.000 PASS
+CAMERA-LOOK popout-head-rises head above the card n=91 drawn 1.000 PASS
+CAMERA-LOOK popout-gradient-orientation top rgb (228, 136, 115) bottom rgb (133, 95, 217) PASS
+CAMERA-LOOK style-popout-amount card top y: amount 0 → 272, default → 300, 1 → 327 (B 273…399) PASS
+CAMERA-LOOK style-camera-fill card == camera bg 1.000 (gradient defect 0.000, n=481) · headroom clear 1.000 · person 1.000 PASS
+CAMERA-LOOK style-background-blur edge energy inside the card 436.7 → 0.0 at blur 1 PASS
+CAMERA-LOOK style-border-ring ring w=7.9 gold 1.00 (no-border defect 0.00) PASS
+CAMERA-LOOK style-edge-inset inner edge band clear 1.000 (plain 0.032, n=124) PASS
+CAMERA-LOOK style-edge-softness outer edge band covered 1.000 (plain 0.000, n=84) PASS
+CAMERA-LOOK style-camera-side leading tile midX 204.3 · trailing 515.7 · canvas mid 360.0 PASS
+CAMERA-LOOK split-full-columns screen column fills the top band 1.000 · camera 1.000 · screen in the gutter 0.000 (n=182) · mask=on · heights 309/309/309 PASS
+CAMERA-LOOK selftest-split-unclipped-defect-fails injected unclipped split → screen in the gutter 1.000 PASS
+CAMERA-LOOK split-riders-follow-card cursor {419.32799999999997, 227.22} → {296.71680000000003, 217.33199999999999} (want {296.71679999999998, 217.33199999999999}, err 0.00 px, moved 123.0 px) PASS
+CAMERA-LOOK stack-rows camera row filled 1.000 · screen row filled to its bottom 1.000 · screen beside its row 0.000 (n=864) · camera {{48, 48}, {309, 256.83839999999998}} PASS
+CAMERA-LOOK selftest-stack-unclipped-defect-fails injected unclipped stack → screen beside its row 0.791 PASS
+CAMERA-LOOK stack-popout headroom n=814 ==bare 1.000 · card n=1572 on the gradient 1.000 · head n=444 drawn 1.000 · card top rgb(219,132,125) bottom rgb(128,93,222) PASS
+CAMERA-LOOK selftest-stack-popout-off-fails plain stacked row → headroom n=814 ==bare 0.000 · card n=1572 on the gradient 0.000 · head n=444 drawn 1.000 · card top rgb(51,170,238) bottom rgb(69,155,244) PASS
+CAMERA-LOOK stack-zoom zoom 2.400 · camera row 192.6 of 256.8 (yield 0.750) · padding covered 0.000 · screen beside its row 0.000 · camera filled 1.000 · screen filled 1.000 PASS
+CAMERA-LOOK selftest-stack-zoom-outside-fails whole stack zoomed → zoom 2.400 · camera row 256.8 of 256.8 (yield 1.000) · padding covered 0.915 · screen beside its row 0.318 · camera filled 1.000 · screen filled 1.000 PASS
+CAMERA-LOOK stack-zoom-glide ticks=49 mid-glide=9 monotonic=yes height tracks the zoom=yes · first 256.8 last 192.6 (full 256.8) PASS
+CAMERA-LOOK stack-joined rows touch yes · old gap band covered 0.995 (n=630) · seam corners square: screen yes camera yes · outer corners round: screen yes camera yes PASS
+CAMERA-LOOK selftest-stack-joined-round-fails seam shapes ignored → rows touch yes · old gap band covered 0.995 (n=630) · seam corners square: screen no camera no · outer corners round: screen yes camera yes PASS
+STATE device-flat cell=0/255 lum=141.2 PASS
+STATE device+tilt cell=0/255 lum=137.7 PASS
+STATE device-phone-flat cell=0/255 lum=159.8 PASS
+STATE device-phone+tilt cell=0/255 lum=160.9 PASS
+STATE device-segment-flat cell=0/255 lum=162.3 PASS
+STATE device-segment+tilt cell=0/255 lum=162.9 PASS
+STATE blur-feather cell=0/255 lum=147.1 PASS
+STATE highlight cell=0/255 lum=110.6 PASS
+STATE annotations cell=0/255 lum=145.0 PASS
+STATE tap-ripple cell=0/255 lum=147.0 PASS
+STATE motion-zoom-t0.05 cell=0/255 lum=145.6 PASS
+STATE motion-zoom-t0.15 cell=0/255 lum=141.8 PASS
+STATE motion-zoom-t0.30 cell=0/255 lum=134.3 PASS
+STATE motion-zoom-t0.60 cell=0/255 lum=130.3 PASS
+STATE motion-tilt-t0.05 cell=0/255 lum=146.9 PASS
+STATE motion-tilt-t0.15 cell=0/255 lum=146.8 PASS
+STATE motion-tilt-t0.30 cell=0/255 lum=146.5 PASS
+STATE motion-tilt-t0.60 cell=0/255 lum=147.0 PASS
+STATE annotation-pop-enter cell=0/255 lum=146.0 PASS
+STATE annotation-explode-exit cell=0/255 lum=145.2 PASS
+STATE cursor-pin cell=0/255 lum=131.2 PASS
+WORST watermark 1/255
+PARITY FAIL count=1

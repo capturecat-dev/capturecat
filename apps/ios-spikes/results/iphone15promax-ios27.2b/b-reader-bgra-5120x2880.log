@@ -1,0 +1,5 @@
+SPIKE-LOG SPIKE-START b/reader-bgra
+SPIKE-RESULT {"codec":"hvc1","decodeFPS":105.217144,"device":{"cores":6,"lowPower":false,"machine":"iPhone16,2","maxFPS":120,"model":"iPhone","physicalMemoryMB":7655.5,"screenPoints":"430x932@3.0","simulator":false,"system":"iOS 27.2","thermal":"nominal"},"duration":10,"file":"screen-5120x2880-60.mov","firstFrameMs":41.218291999999998,"fps":60,"frameMs":{"max":30.823917000000002,"mean":9.4503260000000004,"min":0.170708,"n":599,"p50":7.5577079999999999,"p95":28.49475,"p99":29.235582999999998,"sd":10.226761},"frames":600,"hwHEVCDecodeSupported":true,"isDecodable":true,"isPlayable":true,"memory":{"endFootprintMB":7.5,"minAvailableMB":3311.6999999999998,"processPeakFootprintMB":64.299999999999997,"sampledPeakFootprintMB":64.299999999999997,"startFootprintMB":7.0999999999999996,"thermalAtEnd":"nominal"},"mode":"AVAssetReader BGRA","seconds":5.7024929999999996,"size":"5120x2880","spike":"b","variant":"reader-bgra","wallSeconds":5.755071}
+Launched application with so.capturecat.spikes bundle identifier.
+Waiting for the application to terminate...
+The app terminated with the exit code 0.

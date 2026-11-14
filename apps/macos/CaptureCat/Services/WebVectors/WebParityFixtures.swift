@@ -3,6 +3,7 @@ import AVFoundation
 import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
+import VideoToolbox
 
 /// `CaptureCat --web-parity-fixtures <dir> [--only name1,name2]` — reference
 /// frames for the WEB renderer's parity gate.
@@ -434,6 +435,15 @@ enum SyntheticMovie {
             AVVideoHeightKey: height,
             AVVideoColorPropertiesKey: VideoColorTags.colorProperties(p3: false),
             AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: 12_000_000],
+            // Software encoder. The hardware H.264 encoder intermittently
+            // encoded identical input differently across full fixture runs
+            // (decoded sources differed from frame 1 on, frame 0 never;
+            // isolated runs never reproduced it), so fixtures and their
+            // reference frames were not reproducible, and
+            // render-baseline.sh needs byte-equal frames.
+            AVVideoEncoderSpecificationKey: [
+                kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder as String: false,
+            ],
         ])
         input.expectsMediaDataInRealTime = false
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [

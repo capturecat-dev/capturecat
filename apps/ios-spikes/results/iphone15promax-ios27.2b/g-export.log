@@ -1,0 +1,6 @@
+SPIKE-LOG cooling down 5 s (thermal nominal)
+SPIKE-LOG SPIKE-START g/export
+SPIKE-RESULT {"device":{"cores":6,"lowPower":false,"machine":"iPhone16,2","maxFPS":120,"model":"iPhone","physicalMemoryMB":7655.5,"screenPoints":"430x932@3.0","simulator":false,"system":"iOS 27.2","thermal":"nominal"},"memory":{"endFootprintMB":7.2999999999999998,"minAvailableMB":3368.5999999999999,"processPeakFootprintMB":7.5,"sampledPeakFootprintMB":7.4000000000000004,"startFootprintMB":7.4000000000000004,"thermalAtEnd":"nominal"},"note":"device does not support background GPU; submitting without .gpu would be the control","spike":"g","supportedResources":[],"variant":"export","wallSeconds":0.0054159999999999998}
+Launched application with so.capturecat.spikes bundle identifier.
+Waiting for the application to terminate...
+The app terminated with the exit code 0.

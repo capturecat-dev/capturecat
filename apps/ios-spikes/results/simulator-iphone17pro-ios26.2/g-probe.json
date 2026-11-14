@@ -1,0 +1,26 @@
+{
+ "device": {
+  "cores": 14,
+  "lowPower": false,
+  "machine": "arm64",
+  "maxFPS": 60,
+  "model": "iPhone",
+  "physicalMemoryMB": 36864,
+  "screenPoints": "402x874@3.0",
+  "simulator": true,
+  "system": "iOS 26.2",
+  "thermal": "nominal"
+ },
+ "memory": {
+  "endFootprintMB": 15.9,
+  "minAvailableMB": -1,
+  "processPeakFootprintMB": 17.8,
+  "sampledPeakFootprintMB": 15.9,
+  "startFootprintMB": 15.9,
+  "thermalAtEnd": "nominal"
+ },
+ "spike": "g",
+ "supportedResources": [],
+ "variant": "probe",
+ "wallSeconds": 0.000359
+}

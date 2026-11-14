@@ -1,0 +1,57 @@
+{
+ "compositingFilter": {
+  "CIAdditionCompositing": {
+   "additive": false,
+   "rgb": [
+    128,
+    64,
+    0
+   ]
+  },
+  "none(source-over)": {
+   "additive": false,
+   "rgb": [
+    128,
+    64,
+    0
+   ]
+  },
+  "plusL(string, undocumented)": {
+   "additive": true,
+   "rgb": [
+    128,
+    128,
+    0
+   ]
+  }
+ },
+ "device": {
+  "cores": 14,
+  "lowPower": false,
+  "machine": "arm64",
+  "maxFPS": 60,
+  "model": "iPhone",
+  "physicalMemoryMB": 36864,
+  "screenPoints": "402x874@3.0",
+  "simulator": true,
+  "system": "iOS 26.2",
+  "thermal": "nominal"
+ },
+ "expect": "additive red50%+green50% \u2192 ~(128,128,0); source-over \u2192 ~(128,64,0)",
+ "memory": {
+  "endFootprintMB": 23.9,
+  "minAvailableMB": -1,
+  "processPeakFootprintMB": 30.2,
+  "sampledPeakFootprintMB": 23.3,
+  "startFootprintMB": 16.2,
+  "thermalAtEnd": "nominal"
+ },
+ "motionBlurFilter": {
+  "applied": false,
+  "maxEdgeStepPlain": 255,
+  "maxEdgeStepWithCIMotionBlur": 255
+ },
+ "spike": "d",
+ "variant": "behaviour",
+ "wallSeconds": 0.346354
+}

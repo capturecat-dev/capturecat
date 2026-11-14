@@ -1,0 +1,6 @@
+SPIKE-LOG cooling down 20 s (thermal nominal)
+SPIKE-LOG SPIKE-START g/probe
+SPIKE-RESULT {"device":{"cores":6,"lowPower":false,"machine":"iPhone16,2","maxFPS":120,"model":"iPhone","physicalMemoryMB":7655.5,"screenPoints":"430x932@3.0","simulator":false,"system":"iOS 27.2","thermal":"nominal"},"memory":{"endFootprintMB":7.0999999999999996,"minAvailableMB":3368.8000000000002,"processPeakFootprintMB":7.5,"sampledPeakFootprintMB":7.2000000000000002,"startFootprintMB":7.2000000000000002,"thermalAtEnd":"nominal"},"spike":"g","supportedResources":[],"variant":"probe","wallSeconds":0.010089000000000001}
+Launched application with so.capturecat.spikes bundle identifier.
+Waiting for the application to terminate...
+The app terminated with the exit code 0.
