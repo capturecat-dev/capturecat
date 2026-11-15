@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { CreditCard, Heart } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { API_URL } from "@/lib/api-url";
 import { toast } from "sonner";
 
@@ -105,8 +105,7 @@ export function BillingStatus({ success }: { success: boolean }) {
               <CCIcon name="check"  />
             </IconKey>
             <span className="pt-1">
-              Payment successful — your account is on Pro. Thank you: $5 of your
-              subscription goes directly to people in need.
+              Payment successful — your account is on Pro. Thank you for supporting CaptureCat.
             </span>
           </p>
         </Panel>
@@ -211,23 +210,6 @@ export function BillingStatus({ success }: { success: boolean }) {
           </Section>
         )}
 
-        {isPaid && (
-          <Section icon={<Heart className="fill-red-500 text-red-500" />} title="Your impact">
-          <p className="text-sm text-muted-foreground">
-            50% of your subscription ($5/mo) goes directly to people living in
-            extreme poverty via{" "}
-            <a
-              href="https://www.givedirectly.org/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-foreground underline underline-offset-4"
-            >
-              GiveDirectly
-            </a>
-            . Thank you for making a difference.
-          </p>
-          </Section>
-        )}
       </Sections>
     </div>
   );
