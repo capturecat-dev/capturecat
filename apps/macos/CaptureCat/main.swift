@@ -29,6 +29,10 @@ if CommandLine.arguments.contains("--web-parity-fixtures") {
 }
 // Export parity (Studio Phase 3): those fixtures re-exported by THIS binary
 // through the shared ExportParityHarness — the control for the iOS run.
+// Preview ↔ export (Studio 3c): the Mac control of the iOS gate.
+if CommandLine.arguments.contains("--preview-export-parity") {
+    MainActor.assumeIsolated { PreviewExportParityRunner.run() }
+}
 // Export tuning (Studio 3b): the pipeline-depth policy, pure.
 if CommandLine.arguments.contains("--export-tuning-test") {
     ExportTuningHarness.run()

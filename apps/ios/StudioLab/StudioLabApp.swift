@@ -76,6 +76,19 @@ final class LabViewController: UIViewController {
             }
             return
         }
+        if let i = arguments.firstIndex(of: "--ios-preview-export-parity"), arguments.indices.contains(i + 1) {
+            let fixture = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
+            func value(_ name: String) -> String? {
+                arguments.firstIndex(of: name).flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
+            }
+            let out = value("--out").map { URL(fileURLWithPath: $0, isDirectory: true) }
+                ?? fixture.deletingLastPathComponent().appendingPathComponent("preview-export-ios", isDirectory: true)
+            let reference = value("--reference").map { URL(fileURLWithPath: $0) }
+            PreviewExportParityHarness.injectExportDefect = arguments.contains("--inject")
+            stage.isHidden = true
+            Task { @MainActor in await PreviewExportLab.run(in: view, fixture: fixture, out: out, reference: reference) }
+            return
+        }
         if let options = ExportParityHarness.options(from: arguments, flag: "--ios-export-parity") {
             stage.isHidden = true
             Task { @MainActor in await ExportLab.run(options) }
@@ -96,6 +109,42 @@ final class LabViewController: UIViewController {
             let dir = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
             Task { @MainActor in await LabSmoke.run(stage: stage, fixtureDir: dir) }
         }
+    }
+}
+
+/// `--ios-preview-export-parity <fixtureDir> [--out <dir>] [--reference <mac results.json>]`
+/// (Studio 3c): the iOS preview — a PreviewStageView at exactly the fixture
+/// canvas (magnification 1) in this real window, captured through the render
+/// server at 2× — against the iOS export of the same frame, through the shared
+/// PreviewExportParityHarness; judged against the Mac control's results.
+@MainActor
+enum PreviewExportLab {
+    final class Stage: PreviewExportStage {
+        let view: PreviewStageView
+        init(view: PreviewStageView) { self.view = view }
+        func render(_ input: PreviewCompositorCore.FrameInput) { view.schedule(input) }
+        func capture() async -> CGImage? { LabCapture.view(view, scale: PreviewExportParityHarness.scale) }
+        var core: PreviewCompositorCore { view.core }
+    }
+
+    static func run(in root: UIView, fixture: URL, out: URL, reference: URL?) async {
+        guard let data = try? Data(contentsOf: fixture.appendingPathComponent(ParityFixtureFile.fileName)),
+              let file = try? JSONDecoder().decode(ParityFixtureFile.self, from: data) else {
+            print("PREVIEW-EXPORT-PARITY FAIL fixture unreadable"); exit(1)
+        }
+        let stageView = PreviewStageView(frame: CGRect(origin: CGPoint(x: 0, y: 80), size: file.canvas))
+        stageView.virtualCanvasSize = file.canvas
+        stageView.rasterScaleOverride = PreviewExportParityHarness.scale
+        root.addSubview(stageView)
+        await LabTime.settle(0.3)
+        let results = await PreviewExportParityHarness.run(
+            fixtureDir: fixture, out: out, stage: Stage(view: stageView), reference: reference) { print($0) }
+        let refs = reference.flatMap { try? Data(contentsOf: $0) }
+            .flatMap { try? JSONDecoder().decode([PreviewExportParityHarness.CaseResult].self, from: $0) } ?? []
+        let pass = !results.isEmpty && results.allSatisfy { r in
+            PreviewExportParityHarness.judge(r, reference: refs.first { $0.name == r.name }).pass
+        }
+        exit(pass ? 0 : 1)
     }
 }
 
