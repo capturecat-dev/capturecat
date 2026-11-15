@@ -218,6 +218,7 @@ enum AnnotationRendererOracle {
         ])
         let line = CTLineCreateWithAttributedString(attributed)
         ctx.saveGState()
+        PlatformText.disableFontSmoothing(ctx)  // studio text is drawn unsmoothed (2c)
         ctx.textMatrix = .identity
         ctx.translateBy(x: WVReplay.num(op["originX"]), y: WVReplay.num(op["baselineY"]))
         ctx.scaleBy(x: 1, y: -1)

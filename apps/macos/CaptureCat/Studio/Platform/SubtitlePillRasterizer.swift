@@ -86,6 +86,7 @@ enum SubtitlePillRasterizer {
               ) else { return nil }
         ctx.scaleBy(x: scale, y: scale)
 
+        PlatformText.disableFontSmoothing(ctx)
         let nsContext = NSGraphicsContext(cgContext: ctx, flipped: false)
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = nsContext

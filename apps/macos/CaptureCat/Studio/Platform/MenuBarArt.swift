@@ -19,6 +19,7 @@ enum MenuBarArt {
         let textColor = isDark ? NSColor.white : NSColor.black
 
         let image = NSImage(size: size, flipped: false) { rect in
+            if let cg = NSGraphicsContext.current?.cgContext { PlatformText.disableFontSmoothing(cg) }
             barColor.setFill()
             rect.fill()
 

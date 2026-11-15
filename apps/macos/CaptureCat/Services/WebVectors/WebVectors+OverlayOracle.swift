@@ -110,6 +110,7 @@ enum KeystrokeOverlayOracle {
         let y = rect.midY + (ascent - descent) / 2
         let real = ctx.ctx
         real.saveGState()
+        PlatformText.disableFontSmoothing(real)
         real.textMatrix = .identity
         real.translateBy(x: x, y: y)
         real.scaleBy(x: 1, y: -1)
@@ -132,6 +133,7 @@ enum KeystrokeOverlayOracle {
         let line = makeLine(text: WVReplay.str(op["text"]) ?? "", size: Double(WVReplay.num(op["size"])),
                             scale: WVReplay.num(op["scale"]), color: .white)
         ctx.saveGState()
+        PlatformText.disableFontSmoothing(ctx)  // studio text is drawn unsmoothed (2c)
         ctx.textMatrix = .identity
         ctx.translateBy(x: WVReplay.num(op["x"]), y: WVReplay.num(op["y"]))
         ctx.scaleBy(x: 1, y: -1)

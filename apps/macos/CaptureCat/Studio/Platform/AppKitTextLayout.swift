@@ -126,6 +126,7 @@ enum AppKitTextLayout {
             }
         }
         ctx.saveGState()
+        PlatformText.disableFontSmoothing(ctx)
         ctx.textMatrix = .identity
         var baseline = rect.maxY - box.ascent
         for line in lines(attributed, width: rect.width) {

@@ -698,6 +698,7 @@ enum AnnotationRenderer {
                     originX = (originX * deviceScale).rounded() / deviceScale
                 }
             }
+            PlatformText.disableFontSmoothing(ctx)
             ctx.textMatrix = .identity
             ctx.translateBy(x: originX, y: baselineY)
             ctx.scaleBy(x: 1, y: -1)

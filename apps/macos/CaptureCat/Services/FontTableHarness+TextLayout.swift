@@ -99,6 +99,9 @@ extension FontTableHarness {
 
     /// An sRGB RGBA raster of `body` drawn into a y-up context sized to `rect`
     /// (+ a margin), through NSGraphicsContext when `body` takes no context.
+    /// Font smoothing is off, as in every studio text raster
+    /// (`PlatformText.disableFontSmoothing`) — so the AppKit reference is the
+    /// text the studio actually draws.
     private static func raster(rect: CGRect, _ body: () -> Void) -> [UInt8] {
         raster(rect: rect) { (_: CGContext) in body() }
     }
@@ -108,6 +111,7 @@ extension FontTableHarness {
         guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
                                   space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return [] }
+        PlatformText.disableFontSmoothing(ctx)
         let previous = NSGraphicsContext.current
         NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
         body(ctx)

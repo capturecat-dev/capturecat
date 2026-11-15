@@ -74,9 +74,20 @@ enum PlatformText {
         #endif
     }
 
+    /// Studio text is drawn at its glyphs' true weight on every platform.
+    /// macOS bitmap contexts smooth fonts by default — stems dilated, ~28% more
+    /// coverage — while iOS never does, so every studio text raster (preview
+    /// and export) turns smoothing off. Owner decision, 2026-11-15 (Studio 2c):
+    /// the same project's text renders the same on the Mac and on iOS.
+    static func disableFontSmoothing(_ ctx: CGContext) {
+        ctx.setAllowsFontSmoothing(false)
+        ctx.setShouldSmoothFonts(false)
+    }
+
     /// Draws `attributed` into `rect` of a y-UP CGContext, glyphs upright —
     /// AppKit's unflipped NSGraphicsContext over the CG context.
     static func draw(_ attributed: NSAttributedString, in rect: CGRect, of ctx: CGContext) {
+        disableFontSmoothing(ctx)
         #if canImport(AppKit)
         let nsCtx = NSGraphicsContext(cgContext: ctx, flipped: false)
         NSGraphicsContext.current = nsCtx

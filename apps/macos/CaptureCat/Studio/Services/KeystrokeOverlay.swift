@@ -247,6 +247,7 @@ enum KeystrokeOverlayRenderer {
         let bounds = PlatformText.typographicBounds(line)
         let width = bounds.width, ascent = bounds.ascent, descent = bounds.descent
         ctx.saveGState()
+        PlatformText.disableFontSmoothing(ctx)
         ctx.textMatrix = .identity
         ctx.translateBy(x: rect.midX - width / 2, y: rect.midY + (ascent - descent) / 2)
         ctx.scaleBy(x: 1, y: -1)

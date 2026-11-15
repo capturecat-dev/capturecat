@@ -23,6 +23,7 @@ against a snapshot of the pre-change commit, and pass `run-gates.sh` plus the ex
 | 2a | iOS compositor host `PreviewStageView` (apps/ios/StudioUI/, shared by the app and the harness): the core renders at a VIRTUAL canvas and the view magnifies it to fit (screen scale × magnification for rasters); **StudioLab**, a non-shipping iOS harness app (gen-xcodeproj, own scheme) hosting it in a real UIWindow; `--preview-parity-fixtures` dumps the Mac's parity fixture as data (StudioHarness/ParityFixtureFile — Mac-resolved project JSON + the Mac's own rasters) so iOS inputs are the Mac's bit for bit. Core fix: the video poster went through `LayerContents` (iOS layers ignore a UIImage) | smoke render on iOS 27: card, shadow, background, cursor and ripple at the Mac's geometry (videoRect identical); orientation matches the Mac's real window (the Mac gate's CARenderer captures are Y-flipped — iOS captures flip into that row order to score); Mac preview-parity + gesture/timeline freezes + shell shot pass |
 | 2b | `apps/ios/scripts/ios-preview-parity.sh`: the Mac's preview-parity SCRIPT (moved to StudioHarness/ with HarnessPixels, RasterFingerprint, PreviewGoldens; AppKit setup/rasters/recorder checks behind `#if canImport(AppKit)`) runs in StudioLab against the shipping PreviewStageView in a real UIWindow (iPad, 720×405 at magnification 1) and scores against the Mac's frozen goldens with the Mac's bar; iOS captures go through `drawHierarchy`, flipped into CARenderer's row order. Mid-script `makeFixtureProject()` returns the Mac's dumped construction on iOS | iOS: **22/31 fingerprint states pass**, every mid-flight motion assert, every camera-style and camera-look structural probe incl. injected-defect self-tests; 9 open (below). Mac: render-baseline identical but for the two known base variants (byte-identical), 17 + 12 gates |
 | 2c (part 1) | Text on the Mac's rules: `AppKitTextLayout` (Studio/Platform) holds the one frozen row that differs — the Mac system designs' metrics (ascent 1980/2048, descent 432/2048; iOS reports 1950/494; named families and New York are identical) — and AppKit's layout rules, measured: line box `round(a)+round(d)`, wrapped `boundingRect` n·(that + leading), `draw(in:)` first baseline `round(a)` below the top and lines `round(a)+round(d)` apart (no leading). PlatformText's iOS branches, the subtitle pill, camera tag, keystroke pill and the menu bar's iOS twin measure and draw through it. Two iOS-only bugs fixed: the menu bar never drew (a platform image assigned as raw layer contents — same class as 2a's poster) and the preview cursor was a stretched fixed-scale raster (iOS now redraws the vector art at the layer's pixel grid, as CA does with the Mac's NSImage) | `--font-table-test` + 328 text-layout cases on the Mac: the frozen row == live macOS fonts, and the emulation == AppKit exactly (size, wrapped bounds, pixel-identical draws) across 8 font configs × 6 sizes × left/centre; iOS parity `menubar-dark` 60 → 3/255, `subtitle-glow` 5 → 4. Mac: render-baseline identical but for base variants (audio within 1.5e-7 of base runs), 17 + 12 gates |
+| 2c (part 2) | **Font smoothing off** in every studio text raster (owner decision, below) — `PlatformText.disableFontSmoothing` at each text draw, both platforms; the recipe vectors' oracle and replays follow it | iOS parity: **every text state passes** — `menubar-dark` 3 → 2/255, `subtitle-glow` 4 → 2, `annotations` 8 → 2, `annotation-pop-enter` 6 → 2; 26/31 pass, 5 open (below). Mac (deliberate change): render-baseline moves ONLY text — 4 preview-parity text states, 12 `anno-*` raster entries, 17 web-parity frames in the annotation + subtitle scenes; every other output identical (motion-tilt and a4 audio = the known base variants); web-vectors 140/140 identical to base (`rasterMatchesReal` holds); goldens refrozen for those text entries only; 17 + 12 gates; font table 328/328; iOS vectors 0 failing |
 
 **Two-state noise in the base code itself (measured 2026-11-14).** The pre-Phase-1 base binary,
 compared against its own earlier snapshot, gives `a4-muted-dense/mix.f32` either ~6e-8 or exactly
@@ -37,18 +38,34 @@ iOS-side approximations so far (not parity-gated until Phase 2/3): the Hand curs
 drawn arrow; menu-bar calibrated colours become sRGB; images decode through ImageIO without EXIF
 rotation; non-curated font families use UIKit's weight matching; system hue defaults are UIKit's.
 
-**Font smoothing (found in 2c, owner decision):** macOS bitmap contexts smooth fonts by default —
-glyph stems are dilated (~28% more coverage for the same string); nothing in the studio turns it
-off, so every Mac text raster (preview AND export) is drawn heavier than the glyphs' true weight.
-iOS has no font smoothing. With metrics and placement now the Mac's, this is what the remaining
-text states (`annotations` 8/255, `annotation-pop-enter` 6, `subtitle-glow` 4, menu bar 3) measure.
+**Font smoothing — OFF in every studio text raster (owner decision, 2c part 2).** macOS bitmap
+contexts smooth fonts by default: glyph stems are dilated (~28% more coverage for the same
+string), so every Mac text raster (preview AND export) was drawn heavier than the glyphs' true
+weight — and iOS has no font smoothing to match it with. Owner: "Yes, turn it off".
+`PlatformText.disableFontSmoothing(_:)` now runs at the top of every studio text raster —
+`PlatformText.draw`, `AppKitTextLayout.draw`, the subtitle pill, the camera tag, the menu bar art,
+the keystroke pill and the annotation renderer — on both platforms. Editor UI text and the MCP
+server's renders keep AppKit's default. A deliberate output change on the Mac: the frozen
+references were refrozen for the text entries ONLY (PreviewGoldens `menubar-dark`,
+`subtitle-glow`, `annotations`, `annotation-pop-enter`; RasterGoldens' 12 `anno-*` text
+entries), after reading the artifacts (same glyph positions, thinner stems) — every non-text
+state stayed at its old score. `--font-table-test`'s AppKit reference raster turns smoothing off
+too, so it compares the studio's actual text.
 
-**Open on `ios-preview-parity` (2b → 2c/2d):** text (`subtitle-glow` 5/255, `annotations` 8,
-`annotation-pop-enter` 5, `menubar-dark` 60, `hidden-crop` 3 — iOS system-font vertical metrics,
-and the menu bar's glyphs/colours) → 2c: freeze ascent/descent/leading in the shared font table
-(Mac reads back its live values, provably unchanged); `cursor-pin` 3 → 2c: bundle the Mac's cursor
-rasters; `motion-zoom-t0.05/0.30` 3 (iOS CA ignores the CIMotionBlur filter) and
-`crossfade-true-dissolve` (iOS ignores additive compositing) → 2d: the approved CI passes.
+**Card-edge anti-aliasing (measured 2c part 2).** `flat` (2/255, passes) and `hidden-crop`
+(3/255) miss on iOS by the same mechanism: the core sets `allowsEdgeAntialiasing` on the card
+groups (for warped borders under tilt), and iOS's render server feathers the card's
+axis-aligned edges by ~½ px (outermost row/column ~60% covered) where the Mac's CARenderer
+leaves them crisp; the poster's internal tile seams resample within ±8. Geometry is identical
+(`videoRect` matches). `cursor-pin` (3/255) is the same class: its >24/255 pixels sit on the
+warped grid line and ripple edge under zoom + tilt, not in the cursor art (byte-identical
+rasters). Fix candidates for 2d: edge AA only while the card is non-rectilinear, then re-measure
+on iOS and on the Mac's real window (not only CARenderer).
+
+**Open on `ios-preview-parity` (after 2c):** 5 of 31 — `motion-zoom-t0.05/0.30` 3/255 (iOS CA
+ignores the CIMotionBlur filter) and `crossfade-true-dissolve` (iOS ignores additive
+compositing) → 2d: the approved CI passes; `hidden-crop` 3 and `cursor-pin` 3 → card-edge
+anti-aliasing (above). Text is closed: metrics and layout (part 1) + no font smoothing (part 2).
 
 **Measured by `ios-vectors.sh` (1g)** — what the same Studio code produces differently on iOS:
 - **System font metrics.** iOS resolves the system face to SF UI (`.SFUI-*`), the Mac to

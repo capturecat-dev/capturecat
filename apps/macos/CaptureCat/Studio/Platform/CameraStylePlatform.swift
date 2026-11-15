@@ -53,6 +53,7 @@ enum CameraStylePlatform {
         #if canImport(AppKit)
         // Text via NSGraphicsContext (unflipped — CG bottom-up, which is what
         // both NSImage layer contents and CIImage(cgImage:) expect upright).
+        PlatformText.disableFontSmoothing(ctx)
         let ns = NSGraphicsContext(cgContext: ctx, flipped: false)
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = ns
