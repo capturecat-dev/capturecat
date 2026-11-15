@@ -27,6 +27,11 @@ if CommandLine.arguments.contains("--web-roundtrip-check") {
 if CommandLine.arguments.contains("--web-parity-fixtures") {
     MainActor.assumeIsolated { WebParityFixtures.run() }
 }
+// Export parity (Studio Phase 3): those fixtures re-exported by THIS binary
+// through the shared ExportParityHarness — the control for the iOS run.
+if CommandLine.arguments.contains("--export-parity") || CommandLine.arguments.contains("--decode-probe") {
+    MainActor.assumeIsolated { ExportParityRunner.run() }
+}
 if CommandLine.arguments.contains("--web-cursor-sprites") {
     MainActor.assumeIsolated { WebCursorSprites.run() }
 }

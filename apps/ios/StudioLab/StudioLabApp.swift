@@ -13,6 +13,11 @@ import UIKit
 ///                           run the Mac's preview-parity matrix (the same script,
 ///                           StudioHarness/PreviewParityHarness) against the
 ///                           Mac's frozen goldens
+///   --ios-export-parity <fixturesDir> [--out <dir>] [--only a,b] [--inject padding]
+///                           re-export the Mac's render-parity fixtures with the
+///                           iOS VideoExporter and score them against the Mac's
+///                           taps (StudioHarness/ExportParityHarness;
+///                           apps/ios/scripts/ios-export-parity.sh)
 @main
 final class StudioLabAppDelegate: UIResponder, UIApplicationDelegate {
     func application(
@@ -60,6 +65,22 @@ final class LabViewController: UIViewController {
     }
 
     func start(arguments: [String]) {
+        if let i = arguments.firstIndex(of: "--decode-probe"), arguments.indices.contains(i + 1) {
+            let video = URL(fileURLWithPath: arguments[i + 1])
+            let index = arguments.firstIndex(of: "--index").flatMap { arguments.indices.contains($0 + 1) ? Int(arguments[$0 + 1]) : nil } ?? 0
+            let out = arguments.firstIndex(of: "--out").map { URL(fileURLWithPath: arguments[$0 + 1]) }
+                ?? video.deletingLastPathComponent().appendingPathComponent("decode-probe-ios")
+            Task { @MainActor in
+                await ExportParityHarness.decodeProbe(video: video, index: index, out: out) { print($0) }
+                exit(0)
+            }
+            return
+        }
+        if let options = ExportParityHarness.options(from: arguments, flag: "--ios-export-parity") {
+            stage.isHidden = true
+            Task { @MainActor in await ExportLab.run(options) }
+            return
+        }
         if let i = arguments.firstIndex(of: "--ios-preview-parity"), arguments.indices.contains(i + 1) {
             let dir = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
             stage.isHidden = true
@@ -75,6 +96,22 @@ final class LabViewController: UIViewController {
             let dir = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
             Task { @MainActor in await LabSmoke.run(stage: stage, fixtureDir: dir) }
         }
+    }
+}
+
+/// `--ios-export-parity <fixturesDir> [--out <dir>] [--only a,b] [--inject padding]`
+/// (Studio 3a): the Mac's render-parity fixtures re-exported by the iOS
+/// VideoExporter through the shared ExportParityHarness, scored against the
+/// Mac's lossless taps and camera path. Exits 0 when every fixture passes.
+@MainActor
+enum ExportLab {
+    static func run(_ options: ExportParityHarness.Options) async {
+        print("EXPORT-PARITY fixtures=\(options.fixtures.path) out=\(options.out.path)"
+              + (options.inject.map { " inject=\($0.rawValue)" } ?? "")
+              + (options.sourceYUV ? " source=yuv" : "")
+              + (options.reference.map { " reference=\($0.path)" } ?? ""))
+        let results = await ExportParityHarness.run(options) { print($0) }
+        exit(!results.isEmpty && results.allSatisfy(\.pass) ? 0 : 1)
     }
 }
 

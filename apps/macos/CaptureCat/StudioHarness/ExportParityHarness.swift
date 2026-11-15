@@ -1,4 +1,11 @@
+#if canImport(AppKit)
+import AppKit
+#else
+import UIKit
+#endif
+import AVFoundation
 import CoreGraphics
+import CoreVideo
 import Foundation
 import ImageIO
 
@@ -48,10 +55,52 @@ enum ExportParityHarness {
 
     enum Inject: String { case padding }
 
+    struct Options {
+        var fixtures: URL
+        var out: URL
+        var only: Set<String>?
+        var inject: Inject?
+        /// Decode sources to raw 4:2:0 and convert in Core Image
+        /// (`VideoExporter.sourcePixelFormat`), taking VideoToolbox's
+        /// platform-specific YUV→RGB conversion out of the comparison.
+        var sourceYUV = false
+        /// Compare against `<reference>/<fixture>/tap/NNNN.png` (another
+        /// platform's run) instead of the fixture's own frames.
+        var reference: URL?
+    }
+
+    /// `<flag> <fixturesDir> [--out <dir>] [--only a,b] [--inject padding]` —
+    /// the same arguments on the Mac (`--export-parity`) and in StudioLab
+    /// (`--ios-export-parity`). Default out: `<fixturesDir>/../export-parity-out`.
+    static func options(from args: [String], flag: String) -> Options? {
+        guard let i = args.firstIndex(of: flag), args.indices.contains(i + 1), !args[i + 1].hasPrefix("--") else {
+            return nil
+        }
+        let fixtures = URL(fileURLWithPath: (args[i + 1] as NSString).expandingTildeInPath, isDirectory: true)
+        func value(_ name: String) -> String? {
+            guard let j = args.firstIndex(of: name), args.indices.contains(j + 1) else { return nil }
+            return args[j + 1]
+        }
+        let out = value("--out").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath, isDirectory: true) }
+            ?? fixtures.deletingLastPathComponent().appendingPathComponent("export-parity-out", isDirectory: true)
+        return Options(fixtures: fixtures, out: out,
+                       only: value("--only").map { Set($0.split(separator: ",").map(String.init)) },
+                       inject: value("--inject").flatMap(Inject.init(rawValue:)),
+                       sourceYUV: args.contains("--source-yuv"),
+                       reference: value("--reference").map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath, isDirectory: true) })
+    }
+
     /// Runs every fixture in `fixtures` (or those named in `only`), writing this
     /// platform's taps under `out`. `log` receives one line per frame/fixture.
     @MainActor
+    static func run(_ options: Options, log: (String) -> Void) async -> [FixtureResult] {
+        await run(fixtures: options.fixtures, out: options.out, only: options.only, inject: options.inject,
+                  sourceYUV: options.sourceYUV, reference: options.reference, log: log)
+    }
+
+    @MainActor
     static func run(fixtures: URL, out: URL, only: Set<String>? = nil, inject: Inject? = nil,
+                    sourceYUV: Bool = false, reference: URL? = nil,
                     log: (String) -> Void) async -> [FixtureResult] {
         let fm = FileManager.default
         try? fm.createDirectory(at: out, withIntermediateDirectories: true)
@@ -66,7 +115,10 @@ enum ExportParityHarness {
             guard let name = entry["name"] as? String, let dirName = entry["dir"] as? String else { continue }
             if let only, !only.contains(name) { continue }
             let result = await runFixture(name: name, dir: fixtures.appendingPathComponent(dirName),
-                                          out: out.appendingPathComponent(dirName), inject: inject)
+                                          out: out.appendingPathComponent(dirName), inject: inject,
+                                          sourceYUV: sourceYUV,
+                                          reference: reference?.appendingPathComponent(dirName)
+                                              .appendingPathComponent("tap", isDirectory: true))
             for f in result.frames {
                 log(String(format: "EXPORT %@ frame %04d mean %.3f max %d over8 %.3f%% %@",
                            name, f.index, f.mean, f.maxDelta, f.over8 * 100, f.pass ? "PASS" : "FAIL"))
@@ -89,7 +141,8 @@ enum ExportParityHarness {
     }
 
     @MainActor
-    private static func runFixture(name: String, dir: URL, out: URL, inject: Inject?) async -> FixtureResult {
+    private static func runFixture(name: String, dir: URL, out: URL, inject: Inject?,
+                                   sourceYUV: Bool, reference: URL?) async -> FixtureResult {
         var result = FixtureResult(name: name)
         let fm = FileManager.default
         try? fm.removeItem(at: out)
@@ -110,10 +163,12 @@ enum ExportParityHarness {
         setenv("CAPTURECAT_EXPORT_FRAME_TAP", tap.path, 1)
         setenv("CAPTURECAT_EXPORT_FRAME_TAP_INDICES", indices.map(String.init).joined(separator: ","), 1)
         setenv("CAPTURECAT_DUMP_CAMERA", cameraDump.path, 1)
+        if sourceYUV { setenv("CAPTURECAT_EXPORT_SOURCE_YUV", "1", 1) }
         defer {
             unsetenv("CAPTURECAT_EXPORT_FRAME_TAP")
             unsetenv("CAPTURECAT_EXPORT_FRAME_TAP_INDICES")
             unsetenv("CAPTURECAT_DUMP_CAMERA")
+            unsetenv("CAPTURECAT_EXPORT_SOURCE_YUV")
         }
         let movie = out.appendingPathComponent("export.mp4")
         do {
@@ -127,7 +182,7 @@ enum ExportParityHarness {
         for index in indices.sorted() {
             let file = String(format: "%04d.png", index)
             guard let here = loadRGBA(tap.appendingPathComponent(file)),
-                  let mac = loadRGBA(dir.appendingPathComponent("frames").appendingPathComponent(file)) else {
+                  let mac = loadRGBA((reference ?? dir.appendingPathComponent("frames")).appendingPathComponent(file)) else {
                 result.frames.append(FrameScore(index: index, mean: 255, maxDelta: 255, over8: 1))
                 continue
             }
@@ -149,6 +204,59 @@ enum ExportParityHarness {
             result.cameraMaxDelta = worst
         }
         return result
+    }
+
+    /// Decode probe: frame `index` of `video` read the way the exporter reads
+    /// its source (`AVAssetReaderTrackOutput`, BGRA — VideoToolbox converts
+    /// YUV→RGB) and as the decoder's raw 4:2:0 planes (420v), written to `out`
+    /// as `bgra-<index>.raw` / `yuv-<index>.raw` (tightly packed). Comparing
+    /// the files across platforms separates "decoded differently" from
+    /// "converted to RGB differently".
+    static func decodeProbe(video: URL, index: Int, out: URL, log: (String) -> Void) async {
+        try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        for (name, format) in [("bgra", kCVPixelFormatType_32BGRA),
+                               ("yuv", kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange)] {
+            do {
+                let asset = AVURLAsset(url: video)
+                guard let track = try await asset.loadTracks(withMediaType: .video).first else {
+                    log("DECODE-PROBE \(name) no video track"); continue
+                }
+                let reader = try AVAssetReader(asset: asset)
+                let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+                    kCVPixelBufferPixelFormatTypeKey as String: format,
+                ])
+                reader.add(output)
+                reader.startReading()
+                var buffer: CVPixelBuffer?
+                for _ in 0...index { buffer = output.copyNextSampleBuffer().flatMap(CMSampleBufferGetImageBuffer) }
+                reader.cancelReading()
+                guard let pb = buffer else { log("DECODE-PROBE \(name) no frame \(index)"); continue }
+                CVPixelBufferLockBaseAddress(pb, .readOnly)
+                defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
+                var data = Data()
+                let planes = CVPixelBufferIsPlanar(pb) ? CVPixelBufferGetPlaneCount(pb) : 1
+                for plane in 0..<planes {
+                    let planar = CVPixelBufferIsPlanar(pb)
+                    guard let base = planar ? CVPixelBufferGetBaseAddressOfPlane(pb, plane) : CVPixelBufferGetBaseAddress(pb)
+                    else { continue }
+                    let rows = planar ? CVPixelBufferGetHeightOfPlane(pb, plane) : CVPixelBufferGetHeight(pb)
+                    let stride = planar ? CVPixelBufferGetBytesPerRowOfPlane(pb, plane) : CVPixelBufferGetBytesPerRow(pb)
+                    let width = planar ? CVPixelBufferGetWidthOfPlane(pb, plane) : CVPixelBufferGetWidth(pb)
+                    let bytesPerPixel = planar ? (plane == 0 ? 1 : 2) : 4
+                    for row in 0..<rows {
+                        data.append(base.advanced(by: row * stride).assumingMemoryBound(to: UInt8.self),
+                                    count: width * bytesPerPixel)
+                    }
+                }
+                let url = out.appendingPathComponent("\(name)-\(index).raw")
+                try data.write(to: url)
+                let attachments = (CVBufferCopyAttachments(pb, .shouldPropagate) as? [String: Any]) ?? [:]
+                let matrix = attachments[kCVImageBufferYCbCrMatrixKey as String] as? String ?? "–"
+                log("DECODE-PROBE \(name) \(CVPixelBufferGetWidth(pb))x\(CVPixelBufferGetHeight(pb)) bytes \(data.count) matrix \(matrix) → \(url.path)")
+            } catch {
+                log("DECODE-PROBE \(name) failed: \(error)")
+            }
+        }
     }
 
     /// `CAM t=… z=… fx=… fy=… ox=… oy=… p=… yw=… r=…` → 9 values, rounded the

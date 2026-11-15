@@ -36,7 +36,7 @@ UNITS=(
   WebVectors+Regions WebVectors+Style WebVectors+StyleBackground WebVectors+StyleOracle
   WebVectors+StyleGeometry WebVectors+Model WebVectors+Cursor WebVectors+CursorOracle
   WebVectors+Overlay WebVectors+OverlayAnnotation WebVectors+OverlayDraw
-  WebVectors+OverlayOracle WebVectors+OverlayRecorder
+  WebVectors+OverlayOracle WebVectors+OverlayRecorder WebVectors+ReferenceCanvas
 )
 files=()
 while IFS= read -r f; do files+=("$f"); done < <(find "$MAC/Studio" -name '*.swift' | sort)

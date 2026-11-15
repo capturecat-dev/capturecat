@@ -191,7 +191,7 @@ final class VideoExporter {
             // measured no throughput change on --export-bench and shifts the
             // YUV→RGB matrix from VideoToolbox into the CI graph, which risks
             // one-LSB color drift against the frozen goldens. BGRA stays.
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+            kCVPixelBufferPixelFormatTypeKey as String: Self.sourcePixelFormat
         ]
 
         // Match the source's color space instead of silently converting to
@@ -776,15 +776,17 @@ final class VideoExporter {
         let exportCIContext: CIContext = {
             // Prefer shared-queue init so CI and our command buffers share the GPU timeline
             if let queue = exportCommandQueue {
-                return CIContext(mtlCommandQueue: queue, options: [
+                return CIContext(mtlCommandQueue: queue, options: Self.platformPinnedContextOptions.merging([
                     .workingColorSpace: renderSpace,
                     .cacheIntermediates: false,  // each frame is unique; no caching benefit
-                ])
+                ]) { $1 })
             }
             if let device = exportMetalDevice {
-                return CIContext(mtlDevice: device, options: [.workingColorSpace: renderSpace])
+                return CIContext(mtlDevice: device, options: Self.platformPinnedContextOptions.merging(
+                    [.workingColorSpace: renderSpace]) { $1 })
             }
-            return CIContext(options: [.workingColorSpace: renderSpace, .useSoftwareRenderer: false])
+            return CIContext(options: Self.platformPinnedContextOptions.merging(
+                [.workingColorSpace: renderSpace, .useSoftwareRenderer: false]) { $1 })
         }()
 
         // Log color pipeline info once so we can verify the chain is correct.
@@ -4066,6 +4068,32 @@ final class VideoExporter {
         var tiltPitch: Double = 0
         var tiltYaw: Double = 0
         var tiltRoll: Double = 0
+    }
+
+    /// Core Image context options whose DEFAULTS differ between macOS and iOS,
+    /// pinned to the Mac's values so an export renders the same on both
+    /// (Studio 3a). `highQualityDownsample` defaults to true on macOS and false
+    /// on iOS — it decides how every downscaled source is filtered (the camera
+    /// video and its person mask in the bubble, the cursor raster). Pinning a
+    /// Mac default changes nothing on the Mac (the export-parity control stays
+    /// byte-identical to the fixtures' taps).
+    static let platformPinnedContextOptions: [CIContextOption: Any] = [
+        .highQualityDownsample: true,
+        .workingFormat: CIFormat.RGBAh,
+    ]
+
+    /// The pixel format sources are decoded to: BGRA (VideoToolbox converts
+    /// YUV→RGB). Harness seam, never set in normal use:
+    /// `CAPTURECAT_EXPORT_SOURCE_YUV=1` reads the decoder's raw 4:2:0 planes
+    /// instead (420v — bit-identical on every Apple platform) and lets Core
+    /// Image convert them in the graph. VideoToolbox's own YUV→BGRA conversion
+    /// differs between the Mac and iOS (measured, Studio 3a: ±1 in flat areas,
+    /// up to 91/255 on chroma edges), so the cross-platform export-parity gate
+    /// uses this to compare everything CaptureCat renders on identical pixels.
+    static var sourcePixelFormat: OSType {
+        ProcessInfo.processInfo.environment["CAPTURECAT_EXPORT_SOURCE_YUV"] == nil
+            ? kCVPixelFormatType_32BGRA
+            : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
     }
 
     /// Writer failures surface as a bare "operation could not be completed" —
