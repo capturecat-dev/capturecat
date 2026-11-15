@@ -67,6 +67,44 @@ final class VideoExporter {
     private var cachedSubtitleOverlay: CIImage?
     private var cachedHighlightMasks: [String: CIImage] = [:]
 
+    // MARK: Render-only mode (the agent's `render_frames`)
+
+    /// Render only the frames a full export shows at these OUTPUT times.
+    /// Every frame still walks the timeline exactly as a full export does —
+    /// the same readers, the same precomputed camera and cursor paths — but
+    /// frames nobody asked for are neither composited nor encoded, and no
+    /// audio is prepared. The requested frames go through the full export's
+    /// own render path and arrive as its lossless pre-encode frames (the
+    /// frame tap's PNGs) in `renderOnlyDirectory`: byte-identical to the same
+    /// frames of a full export (`--render-only-test`). Both must be set.
+    var renderOnlyOutputTimes: [Double]?
+    var renderOnlyDirectory: URL?
+
+    struct RenderedFrame {
+        /// The OUTPUT time that was asked for.
+        let requestedTime: Double
+        /// The export frame shown at that time, and its own OUTPUT time.
+        let frameIndex: Int
+        let outputTime: Double
+        let url: URL
+    }
+
+    /// Filled by a render-only export, in the order of `renderOnlyOutputTimes`.
+    private(set) var renderedFrames: [RenderedFrame] = []
+
+    /// The frame a full export shows at OUTPUT time `t`: the last frame on
+    /// the export grid at or before it (clamped to the export).
+    static func frameIndex(atOutputTime t: Double, in frameTimes: [CMTime]) -> Int {
+        guard !frameTimes.isEmpty else { return 0 }
+        var lo = 0, hi = frameTimes.count - 1
+        if t <= frameTimes[0].seconds { return 0 }
+        while lo < hi {
+            let mid = (lo + hi + 1) / 2
+            if frameTimes[mid].seconds <= t + 1e-9 { lo = mid } else { hi = mid - 1 }
+        }
+        return lo
+    }
+
     private struct CursorAsset {
         let cgImage: CGImage?
         let baseSize: CGSize
@@ -176,8 +214,11 @@ final class VideoExporter {
                     .flatMap { try? KeystrokeTracker.loadRecording(from: $0).events } ?? [],
                 scopedTo: project)
             : []
-        // A GIF has no soundtrack — its temp movie skips the audio track.
-        let preparedAudio = writesGIF
+        // A GIF has no soundtrack — its temp movie skips the audio track; nor
+        // does a render-only pass (nobody hears it).
+        let renderOnly = renderOnlyOutputTimes != nil && renderOnlyDirectory != nil
+        renderedFrames = []
+        let preparedAudio = writesGIF || renderOnly
             ? ProjectAudioMix.PreparedAudio(asset: asset, tracks: [], audioMix: nil)
             : try await ProjectAudioMix.prepare(
                 for: asset, project: project, clickTimes: clickTimes, keystrokes: keystrokes
@@ -656,7 +697,19 @@ final class VideoExporter {
             }
         }
 
+        // Render-only: the requested frames, in timeline order. Only these are
+        // composited and appended, so the k-th appended (tapped) frame is the
+        // k-th of them.
+        let renderOnlySorted: [Int]? = renderOnly ? Array(Set((renderOnlyOutputTimes ?? []).map {
+            Self.frameIndex(atOutputTime: $0, in: outputFrameTimes)
+        })).sorted() : nil
+        let renderOnlySet = renderOnlySorted.map(Set.init)
+
         let frameTap: (dir: URL, indices: Set<Int>?)? = {
+            if renderOnly, let dir = renderOnlyDirectory {
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                return useBGRAOutput ? (dir, nil) : nil
+            }
             let env = ProcessInfo.processInfo.environment
             guard useBGRAOutput, let path = env["CAPTURECAT_EXPORT_FRAME_TAP"], !path.isEmpty else { return nil }
             let dir = URL(fileURLWithPath: path, isDirectory: true)
@@ -672,10 +725,52 @@ final class VideoExporter {
         // We consume each sample once and the next call replaces the buffer
         // reference, so no need for the reader to memcpy the pixel data first.
         readerOutput2.alwaysCopiesSampleData = false
+
+        // Render-only: decode just the source a requested frame shows. Each
+        // requested frame gets its own short reader whose time range starts AT
+        // the frame's source time; a reader starts with the sample on screen
+        // at its range start — exactly the sample a full export is holding
+        // there (the last one at or before that time; screen recordings are
+        // variable frame rate, so nothing earlier is assumed). The advance
+        // loop below then hands every requested frame the same sample a full
+        // export would. Only for a timeline that never runs backwards (a full
+        // export only ever reads forward too); anything else reads the whole
+        // track, exactly as before.
+        var videoWindows: [CMTimeRange] = []
+        if let renderOnlySorted {
+            let allTimes = sourceFrameTimes.compactMap { $0 }
+            if zip(allTimes, allTimes.dropFirst()).allSatisfy({ $0 <= $1 }) {
+                let span = CMTime(value: 1, timescale: 600)
+                videoWindows = renderOnlySorted.compactMap { index in
+                    sourceFrameTimes[index].map { CMTimeRange(start: $0, duration: span) }
+                }
+            }
+        }
+        if let first = videoWindows.first {
+            reader2.timeRange = first
+            videoWindows.removeFirst()
+        }
         reader2.add(readerOutput2)
         reader2.startReading()
+        var activeVideoReader = reader2
+        var activeVideoOutput = readerOutput2
+        /// The next source sample — across the render-only windows when set.
+        func nextVideoSample() -> CMSampleBuffer? {
+            while true {
+                if let sample = activeVideoOutput.copyNextSampleBuffer() { return sample }
+                guard !videoWindows.isEmpty, let reader = try? AVAssetReader(asset: asset) else { return nil }
+                let output = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: readerOutputSettings)
+                output.alwaysCopiesSampleData = false
+                reader.timeRange = videoWindows.removeFirst()
+                reader.add(output)
+                reader.startReading()
+                activeVideoReader = reader
+                activeVideoOutput = output
+            }
+        }
+        _ = activeVideoReader
 
-        guard let initialSampleBuffer = readerOutput2.copyNextSampleBuffer(),
+        guard let initialSampleBuffer = nextVideoSample(),
               let initialPixelBuffer = CMSampleBufferGetImageBuffer(initialSampleBuffer) else {
             throw ExportError.writeFailed("Unable to read source video frames")
         }
@@ -1265,7 +1360,7 @@ final class VideoExporter {
         var appendIndex = 0
         var currentPixelBuffer = initialPixelBuffer
         var currentVideoSampleTime = CMSampleBufferGetPresentationTimeStamp(initialSampleBuffer)
-        var nextSampleBuffer: CMSampleBuffer? = readerOutput2.copyNextSampleBuffer()
+        var nextSampleBuffer: CMSampleBuffer? = nextVideoSample()
 
         // Camera frame state — advanced in lockstep with source-time below.
         var currentCameraPixelBuffer: CVPixelBuffer? = nil
@@ -1316,7 +1411,7 @@ final class VideoExporter {
         // one value type the web exporter ports 1:1 (golden vectors from
         // `--export-formats-test`). GIF exports never collapse.
         var staticCollapse = StaticSpanCollapse(
-            enabled: exportSettings.collapseStaticSpans && !writesGIF,
+            enabled: exportSettings.collapseStaticSpans && !writesGIF && !renderOnly,
             project: project,
             transitionDuration: transitionDuration,
             keystrokeDisplayEvents: keystrokeDisplayEvents,
@@ -1342,7 +1437,7 @@ final class VideoExporter {
                         currentPixelBuffer = pixelBuffer
                         currentVideoSampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
                     }
-                    nextSampleBuffer = readerOutput2.copyNextSampleBuffer()
+                    nextSampleBuffer = nextVideoSample()
                 }
             }
 
@@ -1478,6 +1573,20 @@ final class VideoExporter {
                     .cropped(to: outputRect)
                     .composited(over: image)
                     .cropped(to: outputRect)
+            }
+
+            // Render-only: every per-frame input above has advanced exactly as
+            // in a full export; a frame nobody asked for stops here — the
+            // same point the static-span collapse skips at.
+            if let renderOnlySet, !renderOnlySet.contains(frameIndex) {
+                let p = Double(frameIndex + 1) / Double(outputFrameTimes.count)
+                let progressElapsed = CMTimeGetSeconds(CMTimeSubtract(
+                    CMClockGetTime(CMClockGetHostTimeClock()), lastProgressHostTime))
+                if progressElapsed >= 0.1 {
+                    lastProgressHostTime = CMClockGetTime(CMClockGetHostTimeClock())
+                    Task { @MainActor in self.progress = max(self.progress, p) }
+                }
+                continue
             }
 
             // Static-span collapse: identical inputs → the previous appended
@@ -2477,6 +2586,24 @@ final class VideoExporter {
                         wallClock, frameCount, outputWidth, outputHeight, exportSettings.fps,
                         fpsOut, totalSeconds / max(0.001, wallClock), staticCollapse.collapsedFrameCount).utf8)
         )
+
+        // Render-only: tapped file k is the k-th requested frame (the only
+        // frames appended, in timeline order). Every one must be there.
+        if let renderOnlySorted, let dir = renderOnlyDirectory, let times = renderOnlyOutputTimes {
+            var urlByIndex: [Int: URL] = [:]
+            for (k, index) in renderOnlySorted.enumerated() {
+                let url = dir.appendingPathComponent(String(format: "%04d.png", k))
+                guard FileManager.default.fileExists(atPath: url.path) else {
+                    throw ExportError.writeFailed("render-only frame \(index) was not rendered")
+                }
+                urlByIndex[index] = url
+            }
+            renderedFrames = times.map { t in
+                let index = Self.frameIndex(atOutputTime: t, in: outputFrameTimes)
+                return RenderedFrame(requestedTime: t, frameIndex: index,
+                                     outputTime: outputFrameTimes[index].seconds, url: urlByIndex[index]!)
+            }
+        }
 
         progress = 1.0
     }

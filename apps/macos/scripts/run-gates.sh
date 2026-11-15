@@ -45,6 +45,7 @@ GATES=(
   --recording-panel-shot
   --cloud-sync-test
   --history-panel-shot
+  --render-only-test
 )
 
 failed=0

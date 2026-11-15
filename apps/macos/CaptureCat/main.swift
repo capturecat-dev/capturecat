@@ -776,6 +776,16 @@ if CommandLine.arguments.contains("--cursor-export-parity") {
 // Export throughput benchmark: synthetic fixture → full VideoExporter pass →
 // wall time / encoded fps / ×realtime. For comparing two builds on the same
 // machine, not for quoting absolute numbers. Never reached in a normal launch.
+// Editor playback benchmark: fps / render cost / stutter per effect
+// variant for a given project.json. Never reached in a normal launch.
+// Render-only gate: render_frames' frames-only export == the full export's
+// frames, byte for byte. Never reached in a normal launch.
+if CommandLine.arguments.contains("--render-only-test") {
+    MainActor.assumeIsolated { RenderOnlyTestHarness.run() }
+}
+if CommandLine.arguments.contains("--editor-bench") {
+    MainActor.assumeIsolated { EditorBenchHarness.run() }
+}
 if CommandLine.arguments.contains("--export-bench") {
     ExportBenchHarness.run()
 }

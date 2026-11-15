@@ -726,7 +726,7 @@ enum EditorShellProbeHarness {
     /// split items then resolved different safe-area insets than in the real
     /// app, and the inspector-vs-preview top misalignment never reproduced
     /// (CLAUDE.md §3, wrong topology).
-    private final class ProbeContentViewController: NSViewController {
+    final class ProbeContentViewController: NSViewController {
         let shell: EditorShellViewController
         init(shell: EditorShellViewController) {
             self.shell = shell
@@ -759,7 +759,7 @@ enum EditorShellProbeHarness {
     /// Window configured exactly like EditorWindowController's real editor
     /// window — same styleMask, transparent titlebar, hidden title. Any config
     /// this probe skips is a topology the checks silently stop covering.
-    private static func makeWindow(content: NSViewController, title: String, x: CGFloat) -> NSWindow {
+    static func makeWindow(content: NSViewController, title: String, x: CGFloat) -> NSWindow {
         // `--pane-shots` grows the window past the screen to capture whole
         // panes; a stock window clamps its frame to the screen height.
         let window: NSWindow = CommandLine.arguments.contains("--pane-shots")
