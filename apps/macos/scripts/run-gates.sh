@@ -46,6 +46,7 @@ GATES=(
   --cloud-sync-test
   --history-panel-shot
   --render-only-test
+  --audio-role-test
 )
 
 failed=0

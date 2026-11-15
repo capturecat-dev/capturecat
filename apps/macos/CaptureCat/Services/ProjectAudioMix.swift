@@ -52,9 +52,11 @@ enum ProjectAudioMix {
                 return PreparedAudio(asset: asset, tracks: [], audioMix: nil)
             }
 
+            let channels = await channelCounts(tracks)
             let parameters = tracks.enumerated().map { index, track in
                 let input = AVMutableAudioMixInputParameters(track: track)
-                input.setVolume(baseVolume(for: index, settings: project.settings), at: .zero)
+                let role = recordedTrackRole(index: index, trackCount: tracks.count, channels: channels[index])
+                input.setVolume(baseVolume(for: role, settings: project.settings), at: .zero)
                 return input
             }
 
@@ -95,6 +97,7 @@ enum ProjectAudioMix {
         }
 
         // Audio — same piecewise insertion, with volume + pitch-preserving algorithm.
+        let audioChannels = await channelCounts(audioTracks)
         for (index, audioTrack) in audioTracks.enumerated() {
             guard let compositionTrack = composition.addMutableTrack(
                 withMediaType: .audio,
@@ -107,7 +110,8 @@ enum ProjectAudioMix {
                 clipSegments: clipSegments
             )
             let input = AVMutableAudioMixInputParameters(track: compositionTrack)
-            input.setVolume(baseVolume(for: index, settings: project.settings), at: .zero)
+            let role = recordedTrackRole(index: index, trackCount: audioTracks.count, channels: audioChannels[index])
+            input.setVolume(baseVolume(for: role, settings: project.settings), at: .zero)
             if hasSpeedRegions {
                 input.audioTimePitchAlgorithm = .timeDomain
             }
@@ -243,10 +247,36 @@ enum ProjectAudioMix {
         return PreparedAudio(asset: composition, tracks: preparedTracks, audioMix: preparedTracks.isEmpty ? nil : mix)
     }
 
-    private static func baseVolume(for trackIndex: Int, settings: ProjectSettings) -> Float {
+    /// Which volume slider a recorded audio track follows. The recorder
+    /// writes system audio first (stereo) and the microphone after it (mono),
+    /// so normally the index decides. A take recorded with the mic but
+    /// without system audio has ONE track — the mono mic — at index 0, and
+    /// the index sent it to System Audio: the Microphone slider did nothing.
+    /// A recording whose only audio track is mono is that mic-only take.
+    /// Ported 1:1 by the web (core/audio/mixPlan.ts `recordedTrackRole`).
+    enum RecordedTrackRole: Equatable { case systemAudio, microphone }
+
+    static func recordedTrackRole(index: Int, trackCount: Int, channels: Int?) -> RecordedTrackRole {
+        if trackCount == 1, channels == 1 { return .microphone }
+        return index == 0 ? .systemAudio : .microphone
+    }
+
+    private static func baseVolume(for role: RecordedTrackRole, settings: ProjectSettings) -> Float {
         if settings.muteRecordedAudio { return 0 }
-        let rawValue = trackIndex == 0 ? settings.systemAudioVolume : settings.microphoneVolume
+        let rawValue = role == .systemAudio ? settings.systemAudioVolume : settings.microphoneVolume
         return Float(max(0, min(1, rawValue)))
+    }
+
+    /// Each track's channel count (nil when its format can't be read).
+    private static func channelCounts(_ tracks: [AVAssetTrack]) async -> [Int?] {
+        var counts: [Int?] = []
+        for track in tracks {
+            let formats = (try? await track.load(.formatDescriptions)) ?? []
+            let channels = formats.first.flatMap { CMAudioFormatDescriptionGetStreamBasicDescription($0)?.pointee }
+                .map { Int($0.mChannelsPerFrame) }
+            counts.append(channels)
+        }
+        return counts
     }
 
     /// Walks the time map's visible clip intersections, inserting each source

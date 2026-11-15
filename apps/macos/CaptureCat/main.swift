@@ -780,6 +780,11 @@ if CommandLine.arguments.contains("--cursor-export-parity") {
 // variant for a given project.json. Never reached in a normal launch.
 // Render-only gate: render_frames' frames-only export == the full export's
 // frames, byte for byte. Never reached in a normal launch.
+// Recorded-track volume roles (mic-only takes follow the Microphone
+// slider). Never reached in a normal launch.
+if CommandLine.arguments.contains("--audio-role-test") {
+    MainActor.assumeIsolated { AudioRoleTestHarness.run() }
+}
 if CommandLine.arguments.contains("--render-only-test") {
     MainActor.assumeIsolated { RenderOnlyTestHarness.run() }
 }

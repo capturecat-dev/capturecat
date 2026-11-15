@@ -4,8 +4,9 @@
  * ProjectStore.moveMediaIntoProjectFolder):
  *
  *   recording.mov      screen video (+ audio: system FIRST, then the mic —
- *                      ProjectAudioMix tells them apart by track index only:
- *                      track 0 = systemAudioVolume, the rest = microphone)
+ *                      ProjectAudioMix tells them apart by track index:
+ *                      track 0 = systemAudioVolume, the rest = microphone;
+ *                      a lone MONO track is a mic-only take → microphone)
  *   camera.mov         webcam, video only, its own file
  *   camera_poster.png  a full-resolution camera still taken at start
  *
