@@ -12,7 +12,7 @@ xcrun --sdk macosx swiftc -swift-version 5 -default-isolation MainActor -target 
   "$IOS/Core/AppGroup.swift" "$IOS/Core/SessionStore.swift" "$IOS/Core/SharedKeychain.swift" \
   "$IOS/Core/CaptureCatAPI.swift" "$IOS/Core/APIClient.swift" "$IOS/Core/Models.swift" \
   "$IOS/Core/CloudUploader.swift" "$IOS/Core/MediaImport.swift" \
-  "$IOS/../macos/CaptureCat/Services/StillMovieWriter.swift" \
+  "$IOS/../macos/CaptureCat/Studio/Services/StillMovieWriter.swift" \
   "$IOS/../macos/CaptureCat/Shared/WirelessDeviceProtocol.swift" \
   -o "$OUT/core-selftest"
 # Bundle.main of a command-line tool is its own directory: put the template there.

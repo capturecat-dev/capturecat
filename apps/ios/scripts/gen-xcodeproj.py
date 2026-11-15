@@ -46,7 +46,7 @@ SYNC = {
 MAC_FILES = {
     "OAuthPKCE": "../macos/CaptureCat/Services/OAuthPKCE.swift",
     "LoopbackAuthServer": "../macos/CaptureCat/Services/LoopbackAuthServer.swift",
-    "StillMovieWriter": "../macos/CaptureCat/Services/StillMovieWriter.swift",
+    "StillMovieWriter": "../macos/CaptureCat/Studio/Services/StillMovieWriter.swift",
     "CCIconSet": "../macos/CaptureCat/Views/Shared/DesignKit/CCIconSet.swift",
 }
 
