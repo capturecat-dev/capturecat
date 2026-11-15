@@ -53,6 +53,7 @@
 		CD9E91E2CA27E982A39E79FA /* CaptureCat.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CaptureCat.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A21D48F4067FFA35C724A86C /* CaptureCatBroadcast.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CaptureCatBroadcast.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A896AB9A01BEA4F326C17375 /* CaptureCatShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CaptureCatShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6920D983DAE4EC6C2BE9B972 /* StudioLab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StudioLab.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		381B37FD93AAD13C67DC1743 /* OAuthPKCE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OAuthPKCE.swift; path = "../macos/CaptureCat/Services/OAuthPKCE.swift"; sourceTree = SOURCE_ROOT; };
 		2FAB168C087A95139429BB2C /* LoopbackAuthServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoopbackAuthServer.swift; path = "../macos/CaptureCat/Services/LoopbackAuthServer.swift"; sourceTree = SOURCE_ROOT; };
 		8F09EE1E5C7EC36359B64811 /* StillMovieWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StillMovieWriter.swift; path = "../macos/CaptureCat/Studio/Services/StillMovieWriter.swift"; sourceTree = SOURCE_ROOT; };
@@ -63,6 +64,7 @@
 		761B5B2AA25943BC767CD734 /* Broadcast.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Broadcast.entitlements"; sourceTree = "<group>"; };
 		2728A17568F171B1D233156D /* Share-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Share-Info.plist"; sourceTree = "<group>"; };
 		31C932E7E1C39C3000DA3659 /* Share.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Share.entitlements"; sourceTree = "<group>"; };
+		3CDC6021D2E4DFC68B44E44F /* Lab-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Lab-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -103,6 +105,22 @@
 			path = "../macos/CaptureCat/Studio";
 			sourceTree = "<group>";
 		};
+		7D1EB2785D17823A595A5076 /* StudioUI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "StudioUI";
+			sourceTree = "<group>";
+		};
+		67D8ECD84E4320DD83C45054 /* StudioLab */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "StudioLab";
+			sourceTree = "<group>";
+		};
+		4854E0004C908A659321E6C7 /* StudioHarness */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = StudioHarness;
+			path = "../macos/CaptureCat/StudioHarness";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +145,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		983675E8FA74C7D7B8810EBB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -140,6 +165,9 @@
 				95E4EBEED3F4A24F5414492D /* ShareExtension */,
 				CD55FDE3D7803DAB714BB484 /* MacShared */,
 				C503F10A943CFCC747EA3E4A /* Studio */,
+				7D1EB2785D17823A595A5076 /* StudioUI */,
+				67D8ECD84E4320DD83C45054 /* StudioLab */,
+				4854E0004C908A659321E6C7 /* StudioHarness */,
 				72F08247BF5820569C2C5F1A /* MacSources */,
 				89B104369EBC5E85E7E43C6B /* Config */,
 				113236722DEE1DC96F378B9D /* Products */,
@@ -152,6 +180,7 @@
 				CD9E91E2CA27E982A39E79FA /* CaptureCat.app */,
 				A21D48F4067FFA35C724A86C /* CaptureCatBroadcast.appex */,
 				A896AB9A01BEA4F326C17375 /* CaptureCatShare.appex */,
+				6920D983DAE4EC6C2BE9B972 /* StudioLab.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -176,6 +205,7 @@
 				761B5B2AA25943BC767CD734 /* Broadcast.entitlements */,
 				2728A17568F171B1D233156D /* Share-Info.plist */,
 				31C932E7E1C39C3000DA3659 /* Share.entitlements */,
+				3CDC6021D2E4DFC68B44E44F /* Lab-Info.plist */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -204,6 +234,7 @@
 				609BBAAC42BACA8CD6EFA6D5 /* Core */,
 				CD55FDE3D7803DAB714BB484 /* MacShared */,
 				C503F10A943CFCC747EA3E4A /* Studio */,
+				7D1EB2785D17823A595A5076 /* StudioUI */,
 			);
 			name = CaptureCat;
 			productName = CaptureCat;
@@ -255,6 +286,29 @@
 			productReference = A896AB9A01BEA4F326C17375 /* CaptureCatShare.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		C6307F4B1797FFF0E39CB608 /* StudioLab */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0388103474AF2AE9397E100B /* Build configuration list for PBXNativeTarget "StudioLab" */;
+			buildPhases = (
+				177ECA36B65049DE023C8767 /* Sources */,
+				983675E8FA74C7D7B8810EBB /* Frameworks */,
+				9A725C3EAB40FE5783A4E774 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				67D8ECD84E4320DD83C45054 /* StudioLab */,
+				7D1EB2785D17823A595A5076 /* StudioUI */,
+				C503F10A943CFCC747EA3E4A /* Studio */,
+				4854E0004C908A659321E6C7 /* StudioHarness */,
+			);
+			name = StudioLab;
+			productName = StudioLab;
+			productReference = 6920D983DAE4EC6C2BE9B972 /* StudioLab.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -272,6 +326,9 @@
 						CreatedOnToolsVersion = 27.0;
 					};
 					7AD1159EA4F64C0A9E257A4E = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					C6307F4B1797FFF0E39CB608 = {
 						CreatedOnToolsVersion = 27.0;
 					};
 				};
@@ -293,6 +350,7 @@
 				9DFA9A26B888B85E27F45E3C /* CaptureCat */,
 				D8BF1D5ABCCC7FF71A018065 /* CaptureCatBroadcast */,
 				7AD1159EA4F64C0A9E257A4E /* CaptureCatShare */,
+				C6307F4B1797FFF0E39CB608 /* StudioLab */,
 			);
 		};
 /* End PBXProject section */
@@ -313,6 +371,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5C6AA56591D462B3C312164F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9A725C3EAB40FE5783A4E774 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -346,6 +411,13 @@
 			files = (
 				49E6F51EA3959AF58A0D79C7 /* StillMovieWriter.swift in Sources */,
 				9F21800022C243ACF970260F /* CCIconSet.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		177ECA36B65049DE023C8767 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -608,6 +680,62 @@
 			};
 			name = Release;
 		};
+		E2786604CC2007BAD22B5409 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = E52HU87CX9;
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Lab-Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = StudioLab;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = so.capturecat.ios.studiolab;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A0B2F22015E26A64E4AB3A80 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = E52HU87CX9;
+				ENABLE_PREVIEWS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Lab-Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = StudioLab;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = so.capturecat.ios.studiolab;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -643,6 +771,15 @@
 			buildConfigurations = (
 				AE6AF18EE499B3917F0A1F5A /* Debug */,
 				D923970DCD0479AE5237D3B2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0388103474AF2AE9397E100B /* Build configuration list for PBXNativeTarget "StudioLab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E2786604CC2007BAD22B5409 /* Debug */,
+				A0B2F22015E26A64E4AB3A80 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

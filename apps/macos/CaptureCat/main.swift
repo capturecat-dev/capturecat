@@ -192,6 +192,12 @@ if CommandLine.arguments.contains("--timeline-edits-test") {
     MainActor.assumeIsolated { TimelineEditsHarness.run() }
 }
 
+// The preview-parity fixture as data, for the iOS harness app (StudioLab).
+// Never reached in a normal launch.
+if CommandLine.arguments.contains("--preview-parity-fixtures") {
+    MainActor.assumeIsolated { PreviewParityHarness.dumpFixtures() }
+}
+
 // VIDEO-track editing-math acceptance test: shared VideoTrackEditMath vs a
 // verbatim oracle of the pre-extraction in-view code. Gate for the native
 // canvas row port. Never reached in a normal launch.

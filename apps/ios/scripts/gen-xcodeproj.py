@@ -44,6 +44,13 @@ SYNC = {
     # The studio core, shared with the Mac app (docs/ios-studio-plan.md).
     # App target only — the extensions take just the files they need below.
     "Studio": ("../macos/CaptureCat/Studio", "Studio"),
+    # The studio's UIKit surfaces (preview stage, …) — the app and StudioLab
+    # share them, so the harness exercises the very views the app ships.
+    "StudioUI": ("StudioUI", None),
+    # Non-shipping harness app: --ios-preview-parity and friends.
+    "StudioLab": ("StudioLab", None),
+    # Harness code shared with the Mac (fixture formats, scoring) — StudioLab only.
+    "StudioHarness": ("../macos/CaptureCat/StudioHarness", "StudioHarness"),
 }
 
 # Individual files compiled from the Mac tree: key -> path (relative to apps/ios)
@@ -61,6 +68,7 @@ CONFIG_FILES = [
     "Config/Broadcast.entitlements",
     "Config/Share-Info.plist",
     "Config/Share.entitlements",
+    "Config/Lab-Info.plist",
 ]
 
 TARGETS = [
@@ -71,7 +79,7 @@ TARGETS = [
         "type": "com.apple.product-type.application",
         "filetype": "wrapper.application",
         "bundle": "so.capturecat.ios",
-        "sync": ["App", "Kit", "Core", "MacShared", "Studio"],
+        "sync": ["App", "Kit", "Core", "MacShared", "Studio", "StudioUI"],
         # StillMovieWriter comes with Studio/ for the app; the extensions still
         # reference it on its own.
         "mac": ["OAuthPKCE", "LoopbackAuthServer", "CCIconSet"],
@@ -125,6 +133,30 @@ TARGETS = [
         },
     },
 ]
+
+# StudioLab: the studio harness app. A separate, non-shipping application —
+# never embedded in the app, never archived — that hosts the shipping
+# StudioUI views in a real UIWindow for the parity gates.
+TARGETS.append({
+    "key": "Lab",
+    "name": "StudioLab",
+    "product": "StudioLab.app",
+    "type": "com.apple.product-type.application",
+    "filetype": "wrapper.application",
+    "bundle": "so.capturecat.ios.studiolab",
+    "sync": ["StudioLab", "StudioUI", "Studio", "StudioHarness"],
+    "mac": [],
+    "plist": "Config/Lab-Info.plist",
+    "entitlements": None,
+    "extra": {
+        "INFOPLIST_KEY_CFBundleDisplayName": "StudioLab",
+        "INFOPLIST_KEY_UILaunchScreen_Generation": "YES",
+        "INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone": '"UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"',
+        "INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad": '"UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"',
+        "LD_RUNPATH_SEARCH_PATHS": ['"$(inherited)"', '"@executable_path/Frameworks"'],
+        "SKIP_INSTALL": "YES",
+    },
+})
 
 COMMON_PROJECT = {
     "ALWAYS_SEARCH_USER_PATHS": "NO",
@@ -228,7 +260,7 @@ def main():
         for key in t["mac"]:
             base = os.path.basename(MAC_FILES[key])
             add("PBXBuildFile", f'\t\t{oid("bf." + t["key"] + "." + key)} /* {base} in Sources */ = {{isa = PBXBuildFile; fileRef = {oid("macfile." + key)} /* {base} */; }};')
-    extensions = [t for t in TARGETS if t["key"] != "App"]
+    extensions = [t for t in TARGETS if "app-extension" in t["type"]]
     for t in extensions:
         add("PBXBuildFile", f'\t\t{oid("embed." + t["key"])} /* {t["product"]} in Embed Foundation Extensions */ = {{isa = PBXBuildFile; fileRef = {oid("product." + t["key"])} /* {t["product"]} */; settings = {{ATTRIBUTES = (RemoveHeadersOnCopy, ); }}; }};')
 
@@ -286,10 +318,11 @@ def main():
         base = {
             **COMMON_TARGET,
             **t["extra"],
-            "CODE_SIGN_ENTITLEMENTS": t["entitlements"],
             "INFOPLIST_FILE": t["plist"],
             "PRODUCT_BUNDLE_IDENTIFIER": t["bundle"],
         }
+        if t["entitlements"]:
+            base["CODE_SIGN_ENTITLEMENTS"] = t["entitlements"]
         config(oid(f"cfg.{t['key']}.Debug"), "Debug", base)
         config(oid(f"cfg.{t['key']}.Release"), "Release", base)
 
@@ -320,78 +353,85 @@ def main():
     with open(os.path.join(OUT, "project.pbxproj"), "w") as f:
         f.write(text)
 
-    # Shared scheme for the app (builds the extensions through its dependencies).
-    scheme_dir = os.path.join(OUT, "xcshareddata", "xcschemes")
-    os.makedirs(scheme_dir, exist_ok=True)
-    app = oid("target.App")
-    ref = f'''<BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "{app}"
-               BuildableName = "CaptureCat.app"
-               BlueprintName = "CaptureCat"
-               ReferencedContainer = "container:CaptureCat.xcodeproj">
-            </BuildableReference>'''
-    scheme = f'''<?xml version="1.0" encoding="UTF-8"?>
-<Scheme
-   LastUpgradeVersion = "2700"
-   version = "1.7">
-   <BuildAction
-      parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES">
-      <BuildActionEntries>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            {ref}
-         </BuildActionEntry>
-      </BuildActionEntries>
-   </BuildAction>
-   <TestAction
-      buildConfiguration = "Debug"
-      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
-      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES">
-   </TestAction>
-   <LaunchAction
-      buildConfiguration = "Debug"
-      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
-      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      launchStyle = "0"
-      useCustomWorkingDirectory = "NO"
-      ignoresPersistentStateOnLaunch = "NO"
-      debugDocumentVersioning = "YES"
-      debugServiceExtension = "internal"
-      allowLocationSimulation = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         {ref}
-      </BuildableProductRunnable>
-   </LaunchAction>
-   <ProfileAction
-      buildConfiguration = "Release"
-      shouldUseLaunchSchemeArgsEnv = "YES"
-      savedToolIdentifier = ""
-      useCustomWorkingDirectory = "NO"
-      debugDocumentVersioning = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         {ref}
-      </BuildableProductRunnable>
-   </ProfileAction>
-   <AnalyzeAction
-      buildConfiguration = "Debug">
-   </AnalyzeAction>
-   <ArchiveAction
-      buildConfiguration = "Release"
-      revealArchiveInOrganizer = "YES">
-   </ArchiveAction>
-</Scheme>
-'''
-    with open(os.path.join(scheme_dir, "CaptureCat.xcscheme"), "w") as f:
-        f.write(scheme)
+    # Shared schemes: the app (builds the extensions through its dependencies)
+    # and StudioLab (the harness app).
+    def write_scheme(key, name, product):
+        scheme_dir = os.path.join(OUT, "xcshareddata", "xcschemes")
+        os.makedirs(scheme_dir, exist_ok=True)
+        app = oid("target." + key)
+        ref = f'''<BuildableReference
+                   BuildableIdentifier = "primary"
+                   BlueprintIdentifier = "{app}"
+                   BuildableName = "{product}"
+                   BlueprintName = "{name}"
+                   ReferencedContainer = "container:CaptureCat.xcodeproj">
+                </BuildableReference>'''
+        scheme = f'''<?xml version="1.0" encoding="UTF-8"?>
+    <Scheme
+       LastUpgradeVersion = "2700"
+       version = "1.7">
+       <BuildAction
+          parallelizeBuildables = "YES"
+          buildImplicitDependencies = "YES">
+          <BuildActionEntries>
+             <BuildActionEntry
+                buildForTesting = "YES"
+                buildForRunning = "YES"
+                buildForProfiling = "YES"
+                buildForArchiving = "YES"
+                buildForAnalyzing = "YES">
+                {ref}
+             </BuildActionEntry>
+          </BuildActionEntries>
+       </BuildAction>
+       <TestAction
+          buildConfiguration = "Debug"
+          selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+          selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+          shouldUseLaunchSchemeArgsEnv = "YES">
+       </TestAction>
+       <LaunchAction
+          buildConfiguration = "Debug"
+          selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+          selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+          launchStyle = "0"
+          useCustomWorkingDirectory = "NO"
+          ignoresPersistentStateOnLaunch = "NO"
+          debugDocumentVersioning = "YES"
+          debugServiceExtension = "internal"
+          allowLocationSimulation = "YES">
+          <BuildableProductRunnable
+             runnableDebuggingMode = "0">
+             {ref}
+          </BuildableProductRunnable>
+       </LaunchAction>
+       <ProfileAction
+          buildConfiguration = "Release"
+          shouldUseLaunchSchemeArgsEnv = "YES"
+          savedToolIdentifier = ""
+          useCustomWorkingDirectory = "NO"
+          debugDocumentVersioning = "YES">
+          <BuildableProductRunnable
+             runnableDebuggingMode = "0">
+             {ref}
+          </BuildableProductRunnable>
+       </ProfileAction>
+       <AnalyzeAction
+          buildConfiguration = "Debug">
+       </AnalyzeAction>
+       <ArchiveAction
+          buildConfiguration = "Release"
+          revealArchiveInOrganizer = "YES">
+       </ArchiveAction>
+    </Scheme>
+    '''
+        # (The XML above sits one level deeper in this function; drop that.)
+        scheme = "\n".join(l[4:] if l.startswith("    ") else l for l in scheme.split("\n"))
+        with open(os.path.join(scheme_dir, name + ".xcscheme"), "w") as f:
+            f.write(scheme)
+
+    write_scheme("App", "CaptureCat", "CaptureCat.app")
+    write_scheme("Lab", "StudioLab", "StudioLab.app")
     print("wrote", OUT)
 
 

@@ -1159,10 +1159,10 @@ final class PreviewCompositorCore {
                 videoDriver = VideoFrameLayerDriver(player: player, layer: videoLayer)
             }
             posterLayer.isHidden = videoDriver?.hasFrame == true
-            posterLayer.contents = input.videoPosterImage
+            posterLayer.contents = LayerContents.contents(input.videoPosterImage)
         } else {
             posterLayer.isHidden = input.videoPosterImage == nil
-            posterLayer.contents = input.videoPosterImage
+            posterLayer.contents = LayerContents.contents(input.videoPosterImage)
         }
 
         // Menu bar replacement (dark/light) — same renderer as the exporter.

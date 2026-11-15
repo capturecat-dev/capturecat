@@ -2555,7 +2555,7 @@ enum PreviewParityHarness {
         return NSImage(cgImage: cg, size: size)
     }
 
-    private static func syntheticCursorEvents(around t0: TimeInterval, size: CGSize) -> [CursorEvent] {
+    static func syntheticCursorEvents(around t0: TimeInterval, size: CGSize) -> [CursorEvent] {
         var events: [CursorEvent] = []
         // Straight glide ending at 62%/58% of the frame, parked before t0 so
         // the interpolated position at t0 is deterministic and static.
@@ -2586,7 +2586,7 @@ enum PreviewParityHarness {
     /// dimensions instead. The colours stay the real system ones; `runMatrix`
     /// pins the app appearance before any fixture is built, which is what makes
     /// them reproducible.
-    private static func gradientPoster(size: CGSize) -> NSImage {
+    static func gradientPoster(size: CGSize) -> NSImage {
         let scale: CGFloat = 2
         let w = Int(size.width * scale), h = Int(size.height * scale)
         guard let space = CGColorSpace(name: CGColorSpace.sRGB),
@@ -2607,7 +2607,7 @@ enum PreviewParityHarness {
         return NSImage(cgImage: cg, size: size)
     }
 
-    private static func writeLogoPNG(to url: URL) throws {
+    static func writeLogoPNG(to url: URL) throws {
         let size = CGSize(width: 280, height: 120)
         let img = NSImage(size: size)
         img.lockFocus()
