@@ -357,6 +357,21 @@ final class VideoExporter {
         let canvasScale = min(outputSize.width / referenceCanvas.width,
                               outputSize.height / referenceCanvas.height)
 
+        // Pipeline depth (Studio 3b, ExportTuning): the Mac keeps 8; iOS picks
+        // by memory and heat, and refuses here — before any frame — when even
+        // the shallow pipe would not fit, rather than being terminated mid-export.
+        let tunedPipelineDepth: Int
+        let tuningInputs = ExportTuning.Inputs(availableMemory: PlatformExportResources.availableMemory(),
+                                               thermal: ProcessInfo.processInfo.thermalState,
+                                               outputPixels: Int(outputSize.width) * Int(outputSize.height),
+                                               isMac: PlatformExportResources.isMac)
+        switch ExportTuning.decide(tuningInputs, override: ExportTuning.environmentOverride) {
+        case .depth(let depth):
+            tunedPipelineDepth = depth
+        case .insufficientMemory(let needed, let available):
+            throw ExportError.insufficientMemory(needed: needed, available: available)
+        }
+
         // Needed both for cursor normalization and for choosing a cursor
         // raster large enough for the final export pixels.
         // (naturalSize is loaded above, before the writer setup.)
@@ -1247,7 +1262,10 @@ final class VideoExporter {
         // the Apple Silicon Media Engine (or Intel Quick Sync) HEVC encoder
         // fed at 4K where each Metal command is heavier and a shallow pipe
         // can starve the encoder.
-        let pipelineDepth = 8
+        var pipelineDepth = tunedPipelineDepth
+        print("[Export] pipeline depth \(pipelineDepth) (available memory "
+              + "\(tuningInputs.availableMemory.map { "\($0 / 1_048_576) MB" } ?? "unlimited"), "
+              + "thermal \(tuningInputs.thermal.rawValue))")
         let exportStartHostTime = CMClockGetTime(CMClockGetHostTimeClock())
         var lastLogHostTime = exportStartHostTime
         var lastProgressHostTime = exportStartHostTime
@@ -2299,8 +2317,15 @@ final class VideoExporter {
             let frameAppendIndex = appendIndex
             appendIndex += 1
 
+            // A device that heats up mid-export drops to the shallow pipe
+            // (iOS only; the Mac's depth never changes).
+            if frameAppendIndex % 30 == 0 {
+                pipelineDepth = ExportTuning.adjusted(depth: pipelineDepth,
+                                                      thermal: ProcessInfo.processInfo.thermalState,
+                                                      isMac: PlatformExportResources.isMac)
+            }
             // Backpressure: keep the inflight window bounded.
-            if frameTasks.count >= pipelineDepth {
+            while frameTasks.count >= pipelineDepth {
                 await frameTasks.removeFirst().value
             }
 
@@ -4134,12 +4159,18 @@ final class VideoExporter {
         case noVideo
         case noVideoTrack
         case writeFailed(String)
+        /// iOS: the export's estimated footprint exceeds what the app may
+        /// still allocate (ExportTuning) — refused before the first frame.
+        case insufficientMemory(needed: UInt64, available: UInt64)
 
         var errorDescription: String? {
             switch self {
             case .noVideo: return "No video file found in project"
             case .noVideoTrack: return "No video track found in recording"
             case .writeFailed(let msg): return "Export failed: \(msg)"
+            case .insufficientMemory(let needed, let available):
+                return "Not enough free memory to export at this size (needs about \(needed / 1_048_576) MB, "
+                    + "\(available / 1_048_576) MB available). Close other apps or export at a lower resolution."
             }
         }
     }

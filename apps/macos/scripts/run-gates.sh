@@ -50,6 +50,7 @@ GATES=(
   --wireless-device-test
   --history-panel-shot
   --reference-canvas-test
+  --export-tuning-test
 )
 
 failed=0
