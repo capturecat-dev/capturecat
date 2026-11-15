@@ -142,6 +142,7 @@ enum WebVectors {
             + regionUnits
             + styleUnits
             + mergeUnits
+            + referenceCanvasUnits
     }
 
     /// One `{input, output}` case.

@@ -358,4 +358,5 @@ export const PROJECT_KEYS = [
   "reminderDate",
   "isStillCapture",
   "stillTreatment",
+  "referenceCanvasSize",
 ] as const;

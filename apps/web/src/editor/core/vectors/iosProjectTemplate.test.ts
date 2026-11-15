@@ -1,8 +1,9 @@
 /**
  * The iOS app creates cloud projects (iPhone screen takes, screenshots) from
  * apps/ios/Core/ProjectTemplate.json: the Mac's `Project(videoURL:…)` defaults
- * as THIS model serializes them (newProject + serializeProjectText — the same
- * path the web recorder publishes with). The iOS app fills in id, name,
+ * as THIS model serializes them, stamped like every NEW project with the
+ * Studio 2e reference canvas (newProject + adoptNewProjectReferenceCanvas +
+ * serializeProjectText — the same path the web recorder publishes with). The iOS app fills in id, name,
  * createdAt, media refs and duration and never invents a default of its own,
  * so a new phone project opens on the Mac and the web exactly like one made
  * there.
@@ -14,6 +15,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { adoptNewProjectReferenceCanvas } from "../math/referenceCanvas";
 import { newProject, serializeProjectText } from "../model";
 
 const TEMPLATE = resolve(__dirname, "../../../../../ios/Core/ProjectTemplate.json");
@@ -31,6 +33,7 @@ function expectedTemplate(): string {
     duration: 0,
     recordingSourceKind: "device",
   });
+  adoptNewProjectReferenceCanvas(project);
   return serializeProjectText(project) + "\n";
 }
 

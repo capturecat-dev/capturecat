@@ -17,6 +17,7 @@
  * their project-relative tail, and the Mac re-bases foreign absolute URLs
  * onto its own project folder by file name when it pulls the project.
  */
+import { adoptNewProjectReferenceCanvas } from "../core/math/referenceCanvas";
 import { newProject, serializeProjectText, type RecordingSourceKind } from "../core/model";
 import {
   CloudApiError,
@@ -76,6 +77,9 @@ export function projectDocumentFor(take: RecordedTake, name?: string, background
     duration: take.duration,
     recordingSourceKind: sourceKindFor(take.surface),
   });
+  // A new project: laid out on the reference canvas (Studio 2e), as AppState
+  // stamps a Mac recording — never by newProject() (= Project.init).
+  adoptNewProjectReferenceCanvas(project);
   // No cursor.json: the cursor overlay has nothing to draw (the system
   // cursor is burned into the frames) — settings stay the Mac's defaults.
   // Wherever the recorder's own UI had to come on screen mid-take, the

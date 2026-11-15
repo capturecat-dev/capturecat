@@ -38,6 +38,7 @@ import { resolve as resolveCameraLayout } from "../../core/math/cameraLayoutMath
 import { deviceSegmentActive, segmentDeviceAssets } from "../../core/math/deviceSegmentDip";
 import { shouldHideCursor } from "../../core/math/exportCursor";
 import { interpolateIfFresh } from "../../core/math/cursorSmoother";
+import { exportReferenceCanvas } from "../../core/math/referenceCanvas";
 import { parseProject } from "../../core/model";
 import type { AudioMixRenderer } from "../audio/mixer";
 import { AudioExport, type AudioExportInfo } from "./audioExport";
@@ -169,7 +170,15 @@ class ExportPipeline {
       workingSpace,
       settings,
       sourceSize,
-      geometry: cardGeometry(sourceSize, out, settings, options.reference ?? null),
+      // Studio 2e: the project's reference canvas at THIS file's aspect (the
+      // Mac's `exportReferenceCanvas`); before 2e the editor's canvas, or the
+      // output itself (scale 1) for a headless export.
+      geometry: cardGeometry(
+        sourceSize,
+        out,
+        settings,
+        exportReferenceCanvas(args.project.referenceCanvasSize, options.reference ?? null, out),
+      ),
       // The Mac renders the export backdrop at scale 1 (createBackground).
       extras: { ...extras, fps, pixelScale: 1 },
     };

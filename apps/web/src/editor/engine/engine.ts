@@ -14,7 +14,7 @@ import { PlaybackClock, wallNow } from "./clock";
 import type { WorkingSpace } from "./color";
 import { renderProjectFromJSON, type RenderMedia, type RenderProject } from "./contract";
 import { configureCanvas, EngineCapabilityError, initGpu, type GpuContext } from "./gpu/device";
-import { cardGeometry, cmTime600, resolvedOutputSize, type Size } from "./layout";
+import { cardGeometry, cmTime600, previewReferenceCanvas, resolvedOutputSize, type Size } from "./layout";
 import { IDENTITY, scaleAbout, type Mat3 } from "./mat3";
 import { disposeSceneAssets, EMPTY_ASSETS, loadSceneAssets, missingSceneAssets, refsOf, type SceneAssets } from "./media/assets";
 import { parseCameraMask, type CameraMaskTrack } from "../core/mask/cameraMaskCodec";
@@ -337,8 +337,12 @@ export class Engine {
 
   private reference(): Size | null {
     const v = this.viewport;
-    if (v.reference !== undefined) return v.reference;
-    return { width: v.cssWidth, height: v.cssHeight };
+    const stage = v.reference !== undefined ? v.reference : { width: v.cssWidth, height: v.cssHeight };
+    // Studio 2e: a reference-canvas project lays out on its own canvas; the
+    // stage (any slot size, any zoom) only magnifies it.
+    if (!this.project?.referenceCanvasSize || !this.media) return stage;
+    const sourceSize = { width: this.media.info.width, height: this.media.info.height };
+    return previewReferenceCanvas(this.project.referenceCanvasSize, this.project.settings, sourceSize, stage);
   }
 
   private rebuildScene(): void {

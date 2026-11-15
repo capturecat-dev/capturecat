@@ -209,5 +209,9 @@
   "recordingSourceKind": "device",
   "sourceSegments": [],
   "isStillCapture": false,
-  "stillTreatment": "image"
+  "stillTreatment": "image",
+  "referenceCanvasSize": [
+    803,
+    330
+  ]
 }

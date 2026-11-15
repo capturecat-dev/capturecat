@@ -22,6 +22,7 @@ import {
   screenCornerRadius,
 } from "../core/math/deviceFrameLayout";
 import { staticLayout } from "../core/math/exportStaticLayout";
+import { projectReferenceCanvas } from "../core/math/referenceCanvas";
 
 export interface Size {
   width: number;
@@ -221,6 +222,27 @@ export function rectYUpToYDown(r: Rect, canvasHeight: number): Rect {
 export function canvasScaleFor(target: Size, reference: Size | null): number {
   const ref = reference && reference.width > 0 && reference.height > 0 ? reference : target;
   return Math.min(target.width / ref.width, target.height / ref.height);
+}
+
+/**
+ * The STAGE's reference canvas (Studio 2e) — the Mac editor's rule: a project
+ * with a reference box lays out on its reference canvas at the OUTPUT's aspect
+ * (`resolvedOutputSize`, the shape the stage is letterboxed to) whatever the
+ * stage size, so the stage only magnifies it; a project from before 2e keeps
+ * the stage's own unmagnified canvas (`stageReference`).
+ */
+export function previewReferenceCanvas(
+  box: Size | null,
+  settings: Pick<RenderSettings, "exportSettings" | "aspectRatio">,
+  sourceSize: Size,
+  stageReference: Size | null,
+): Size | null {
+  if (box) {
+    const out = resolvedOutputSize(settings.exportSettings, settings.aspectRatio, sourceSize);
+    const canvas = projectReferenceCanvas(box, out.width / out.height);
+    if (canvas) return canvas;
+  }
+  return stageReference;
 }
 
 // ── Resolved card geometry (everything the card + shadow passes need) ───────

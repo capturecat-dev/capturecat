@@ -379,6 +379,12 @@ class Encoder {
     if (p.reminderDate !== undefined) out.reminderDate = this.num(p.reminderDate, "reminderDate");
     out.isStillCapture = p.isStillCapture;
     out.stillTreatment = p.stillTreatment;
+    if (p.referenceCanvasSize !== undefined) {
+      out.referenceCanvasSize = [
+        this.num(p.referenceCanvasSize.width, "referenceCanvasSize.width"),
+        this.num(p.referenceCanvasSize.height, "referenceCanvasSize.height"),
+      ];
+    }
     return this.finish(out, p.$extra);
   }
 }

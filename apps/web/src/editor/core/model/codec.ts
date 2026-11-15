@@ -18,8 +18,9 @@
  * - URL (JSONDecoder special case): a string `URL(string:)` accepts (non-empty).
  * - Enum: a JSON string that is one of the raw values, else dataCorrupted.
  * - CGPoint: an unkeyed container `[x, y]` (extra elements ignored).
+ * - CGSize: an unkeyed container `[width, height]` (extra elements ignored).
  */
-import type { ExtraKeys, Point } from "./types";
+import type { ExtraKeys, Point, Size } from "./types";
 
 export class ProjectDecodeError extends Error {
   readonly codingPath: string;
@@ -157,6 +158,14 @@ export const dCGPoint: Decode<Point> = (v, path) => {
   if (!Array.isArray(v)) throw new ProjectDecodeError(path, "expected [x, y]");
   if (v.length < 2) throw new ProjectDecodeError(path, "unkeyed container is at end");
   return { x: dDouble(v[0], `${path}[0]`), y: dDouble(v[1], `${path}[1]`) };
+};
+
+/** CGSize's Codable: unkeyed `[width, height]` (no range check — a zero or
+ * negative size decodes; consumers sanitize, like ReferenceCanvas.sanitized). */
+export const dCGSize: Decode<Size> = (v, path) => {
+  if (!Array.isArray(v)) throw new ProjectDecodeError(path, "expected [width, height]");
+  if (v.length < 2) throw new ProjectDecodeError(path, "unkeyed container is at end");
+  return { width: dDouble(v[0], `${path}[0]`), height: dDouble(v[1], `${path}[1]`) };
 };
 
 export function dArray<T>(element: Decode<T>): Decode<T[]> {

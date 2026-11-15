@@ -496,6 +496,13 @@ export interface Project extends HasExtra {
   reminderDate?: number;
   isStillCapture: boolean;
   stillTreatment: StillTreatment;
+  /**
+   * Studio 2e reference canvas BOX (`[w, h]` on disk; core/math/referenceCanvas):
+   * every renderer lays the project out on the largest canvas of the output's
+   * aspect inside it. Omitted when nil — a project from before 2e, which keeps
+   * the live editor canvas.
+   */
+  referenceCanvasSize?: Size;
 }
 
 // ── Sidecar recordings (not in project.json, referenced by URL) ─────────────

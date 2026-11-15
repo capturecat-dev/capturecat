@@ -14,6 +14,7 @@
  *
  * Sources (Swift → key → default):
  *   Project.trimStart / trimEnd  — decodeIfPresent ?? 0 (0 = "to the end")
+ *   Project.referenceCanvasSize  — decodeIfPresent [w, h] → nil (Studio 2e box; sanitized)
  *   Project.duration             — decode (required)
  *   ProjectSettings.backgroundType        "Gradient" | "Mesh" | "Solid Color" | "Image" | "Wallpaper" | "Transparent"
  *   ProjectSettings.gradientStartColor / gradientEndColor / solidColor  CodableColor {red,green,blue,opacity} (sRGB)
@@ -33,6 +34,8 @@
  *   Derived here: `deviceFrameActive` (recordingSourceKind + showDeviceFrame)
  *     and `menuBarCrop` (Hidden menu bar) — they change the card geometry.
  */
+import { sanitizedReferenceBox } from "../core/math/referenceCanvas";
+import type { Size } from "../core/model/types";
 
 // ── Enum raw values (persistence identity — never rename) ───────────────────
 
@@ -116,6 +119,11 @@ export interface RenderProject {
   trimStart: number;
   trimEnd: number;
   settings: RenderSettings;
+  /**
+   * The Studio 2e reference canvas BOX (core/math/referenceCanvas), sanitized;
+   * null for a project from before 2e (the stage's own canvas decides).
+   */
+  referenceCanvasSize: Size | null;
   /**
    * Features present in the project that this engine does not draw yet.
    * Surfaced in the lab HUD / load result and, in the editor, as a notice over
@@ -236,6 +244,7 @@ export function renderProjectFromJSON(raw: unknown): RenderProject {
     trimStart: num(p.trimStart, 0),
     trimEnd: num(p.trimEnd, 0),
     settings,
+    referenceCanvasSize: referenceBox(p.referenceCanvasSize),
     unsupportedFeatures: detectUnsupported(p, s),
   };
 }
@@ -246,6 +255,12 @@ export function renderProjectFromJSON(raw: unknown): RenderProject {
  * min(0.12, max(0, menuBarHeight / 100)) of the source's top.
  * ProjectSettings defaults: menuBarReplacement "Original", menuBarHeight 3.8.
  */
+/** `[w, h]` (CGSize's Codable; extra elements ignored) → a usable box, else null. */
+function referenceBox(v: unknown): Size | null {
+  if (!Array.isArray(v) || v.length < 2 || typeof v[0] !== "number" || typeof v[1] !== "number") return null;
+  return sanitizedReferenceBox({ width: v[0], height: v[1] });
+}
+
 function hiddenMenuBarCrop(p: Json, s: Json): number {
   if (s.menuBarReplacement !== "Hidden" || p.recordingSourceKind === "device") return 0;
   const segs = Array.isArray(p.sourceSegments) ? (p.sourceSegments as Json[]) : [];

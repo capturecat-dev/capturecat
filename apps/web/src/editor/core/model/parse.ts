@@ -79,6 +79,7 @@ import {
   dArray,
   dBool,
   dCGPoint,
+  dCGSize,
   dDate,
   dDouble,
   dEnum,
@@ -686,6 +687,7 @@ export const decodeProject: Decode<Project> = (v, path) => {
   const reminderDate = c.decodeIfPresent("reminderDate", dDate);
   const isStillCapture = c.decodeIfPresent("isStillCapture", dBool) ?? false;
   const stillTreatment = c.decodeIfPresent("stillTreatment", eStillTreatment) ?? "image";
+  const referenceCanvasSize = c.decodeIfPresent("referenceCanvasSize", dCGSize);
   return withExtra(
     dropUndefined({
       id,
@@ -718,6 +720,7 @@ export const decodeProject: Decode<Project> = (v, path) => {
       reminderDate,
       isStillCapture,
       stillTreatment,
+      referenceCanvasSize,
     }),
     c.extra(),
   );
