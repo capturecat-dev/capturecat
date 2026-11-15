@@ -615,7 +615,11 @@ final class PreviewCompositorCore {
     func render(_ input: FrameInput) {
         let canvas = host?.compositorCanvasSize ?? .zero
         guard canvas.width > 0, canvas.height > 0 else { return }
-        defer { if zoomGroupOnly { hideAllButZoomGroup() } }
+        defer {
+            applyHostStills()
+            if zoomGroupOnly { hideAllButZoomGroup() }
+            if let kind = cameraStackIsolation { isolateCameraStack(kind) }
+        }
         let renderStart = PreviewCompositorCore.renderTiming ? CACurrentMediaTime() : 0
         defer {
             if PreviewCompositorCore.renderTiming {
@@ -809,6 +813,7 @@ final class PreviewCompositorCore {
         }
         zoomGroup.transform = zt
 
+
         // ── Motion blur — SHARED MotionBlurMath on the zoom group ─────────
         // Finite difference of the spring camera across timeline time (works
         // for playback AND scrubbing — motion replays deterministically, so
@@ -941,6 +946,9 @@ final class PreviewCompositorCore {
         for layer in root.sublayers ?? [] where layer !== zoomGroup {
             layer.isHidden = true
         }
+        // The core never hides the zoom group itself, but another twin mode
+        // may have — each mode shows its own target explicitly.
+        zoomGroup.isHidden = false
     }
 
     /// Continue from `other`'s exact motion state — springs, last stepped
@@ -953,38 +961,119 @@ final class PreviewCompositorCore {
         lastBlurSample = other.lastBlurSample
     }
 
-    /// Shown in the zoom group's place (the zoom group hidden), or cleared
-    /// with nil — the iOS stage's exporter-blurred still. Canvas-sized; the
-    /// image may be at any pixel scale (`.resize`). Unused on the Mac, whose
-    /// CoreAnimation draws the blur filter itself.
-    func showZoomGroupStill(_ image: CGImage?) {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        defer { CATransaction.commit() }
-        guard let image, let root = zoomGroup.superlayer else {
-            zoomGroupStill?.isHidden = true
-            zoomGroupStill?.contents = nil
-            zoomGroup.isHidden = false
-            return
-        }
-        let still: CALayer
-        if let existing = zoomGroupStill {
-            still = existing
-        } else {
-            still = CALayer()
-            still.anchorPoint = .zero
-            still.contentsGravity = .resize
-            root.insertSublayer(still, above: zoomGroup)
-            zoomGroupStill = still
-        }
-        still.position = .zero
-        still.bounds = CGRect(origin: .zero, size: root.bounds.size)
-        still.contents = image
-        still.isHidden = false
-        zoomGroup.isHidden = true
-    }
+    /// Host stills (iOS, Studio 2d) — set BEFORE `render`, applied at its end
+    /// in the same transaction, so the screen never shows the frame without
+    /// them. Unused on the Mac, whose CoreAnimation draws both effects.
+    ///
+    /// `hostZoomGroupStill`: the exporter-blurred zoom group, canvas-sized
+    /// (any pixel scale), shown in the zoom group's place.
+    var hostZoomGroupStill: CGImage?
+    /// `hostCameraDissolve`: the camera looks' TRUE cross-dissolve (Σ stack ×
+    /// weight), in `cameraStacksGroup`'s local space at `rect`, shown in
+    /// place of the stacks while they dissolve; `weights` are the ones it
+    /// was summed with (what `debugCameraStackOpacities` then reports).
+    var hostCameraDissolve: (image: CGImage, rect: CGRect, weights: CameraLayoutMath.LookWeights)?
 
     private var zoomGroupStill: CALayer?
+    private var cameraDissolveStill: CALayer?
+    /// The camera drew this render (twin isolation modes hide the layer
+    /// afterwards, so `cameraGroup.isHidden` is not the answer).
+    private var cameraShown = false
+
+    private func applyHostStills() {
+        if let image = hostZoomGroupStill, let root = zoomGroup.superlayer {
+            let still: CALayer
+            if let existing = zoomGroupStill {
+                still = existing
+            } else {
+                still = CALayer()
+                still.anchorPoint = .zero
+                still.contentsGravity = .resize
+                root.insertSublayer(still, above: zoomGroup)
+                zoomGroupStill = still
+            }
+            still.position = .zero
+            still.bounds = CGRect(origin: .zero, size: root.bounds.size)
+            still.contents = image
+            still.isHidden = false
+            zoomGroup.isHidden = true
+        } else if let still = zoomGroupStill {
+            still.isHidden = true
+            still.contents = nil
+            zoomGroup.isHidden = false
+        }
+
+        if let dissolve = hostCameraDissolve, cameraStacksDissolving {
+            let still: CALayer
+            if let existing = cameraDissolveStill {
+                still = existing
+            } else {
+                still = CALayer()
+                still.contentsGravity = .resize
+                cameraStacksGroup.addSublayer(still) // above all three stacks
+                cameraDissolveStill = still
+            }
+            still.frame = dissolve.rect
+            still.contents = dissolve.image
+            still.isHidden = false
+            for stack in [cameraBubbleStack, cameraCutoutStack, cameraPopStack] { stack.isHidden = true }
+        } else if let still = cameraDissolveStill {
+            still.isHidden = true
+            still.contents = nil
+        }
+    }
+
+    /// True while two or more camera-look stacks share the frame — the
+    /// cross-dissolve the Mac composites additively (renderCameraLooks) —
+    /// on the plain-bubble path (the camera group directly in the root).
+    var cameraStacksDissolving: Bool {
+        guard cameraShown, cameraGroup.superlayer === zoomGroup.superlayer else { return false }
+        let w = lastLookWeights
+        return [w.bubble, w.cutout, w.popOut].filter { $0 > 0 }.count > 1
+    }
+
+    /// One camera-look stack.
+    enum CameraStackKind { case bubble, cutout, popOut }
+
+    /// TWIN mode for the iOS dissolve: after each render, ONLY this stack is
+    /// shown — at full weight, plainly composited, the camera group
+    /// untransformed and opaque (the main tree applies tilt, opacity and the
+    /// tag around the dissolve) — so it reads back as the stack itself.
+    var cameraStackIsolation: CameraStackKind?
+
+    private func isolateCameraStack(_ kind: CameraStackKind) {
+        guard let root = zoomGroup.superlayer, cameraGroup.superlayer === root else { return }
+        for layer in root.sublayers ?? [] where layer !== cameraGroup { layer.isHidden = true }
+        cameraGroup.isHidden = false
+        cameraStacksGroup.isHidden = false
+        cameraGroup.transform = CATransform3DIdentity
+        cameraGroup.opacity = 1
+        for layer in cameraGroup.sublayers ?? [] where layer !== cameraStacksGroup { layer.isHidden = true }
+        cameraStacksGroup.shouldRasterize = false
+        cameraDissolveStill?.isHidden = true
+        let stacks: [(CALayer, CameraStackKind)] = [
+            (cameraBubbleStack, .bubble), (cameraCutoutStack, .cutout), (cameraPopStack, .popOut),
+        ]
+        for (stack, k) in stacks {
+            stack.isHidden = k != kind
+            stack.opacity = 1
+            stack.compositingFilter = nil
+        }
+    }
+
+    /// Where the isolated stacks land in the root (for cropping a read-back)
+    /// and the same region in `cameraStacksGroup`'s local space — the stacks'
+    /// bounds grown by `margin` × their larger side (shadows and the pop-out
+    /// head overflow the bubble), kept inside the canvas.
+    func isolatedCameraStackRegion(margin: CGFloat) -> (root: CGRect, local: CGRect)? {
+        guard let root = zoomGroup.superlayer, cameraGroup.superlayer === root else { return nil }
+        let bounds = cameraStacksGroup.bounds
+        let grow = max(bounds.width, bounds.height) * margin
+        let grown = bounds.insetBy(dx: -grow, dy: -grow)
+        let inRoot = cameraStacksGroup.convert(grown, to: root).intersection(root.bounds)
+        guard !inRoot.isNull, inRoot.width > 0, inRoot.height > 0 else { return nil }
+        return (inRoot, root.convert(inRoot, to: cameraStacksGroup))
+    }
 
     // MARK: - Device chrome geometry (ports of PreviewView)
 
@@ -2440,6 +2529,7 @@ final class PreviewCompositorCore {
             && camLayout.cameraOpacity > 0.001
 
         cameraGroup.isHidden = !show
+        cameraShown = show
         cameraSeamShadow.isHidden = true
         lastCameraRect = nil
         guard show else { return }
@@ -3060,7 +3150,11 @@ final class PreviewCompositorCore {
     func debugCameraLookWeights() -> CameraLayoutMath.LookWeights { lastLookWeights }
     /// Opacities of the bubble / cutout / pop-out stacks as rendered.
     func debugCameraStackOpacities() -> (bubble: Float, cutout: Float, popOut: Float) {
-        (cameraBubbleStack.isHidden ? 0 : cameraBubbleStack.opacity,
+        // A host dissolve still draws the stacks (each at its summed weight).
+        if let still = cameraDissolveStill, !still.isHidden, let w = hostCameraDissolve?.weights {
+            return (Float(w.bubble), Float(w.cutout), Float(w.popOut))
+        }
+        return (cameraBubbleStack.isHidden ? 0 : cameraBubbleStack.opacity,
          cameraCutoutStack.isHidden ? 0 : cameraCutoutStack.opacity,
          cameraPopStack.isHidden ? 0 : cameraPopStack.opacity)
     }

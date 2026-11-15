@@ -93,14 +93,28 @@ class PreviewStageView: UIView {
     }
 
     func render(_ input: FrameInput) {
+        // Not re-entrant: the twin's read-backs (drawHierarchy) run a layout
+        // pass, and layoutSubviews would render again mid-render — a nested
+        // twin pass then leaves the twin in ITS last isolation, and the outer
+        // read-back captures the wrong stack. The outer render finishes the
+        // frame; a nested request is dropped (the input is still pending).
+        guard !rendering else { return }
+        rendering = true
+        defer { rendering = false }
         input.project.previewCanvasSize = virtualCanvasSize
+        // The twin first (it steps exactly as the core will), then the core
+        // renders and applies the stills in the same transaction.
+        let stills = twin.prepare(input)
+        core.hostZoomGroupStill = stills.zoomGroup
+        core.hostCameraDissolve = stills.cameraDissolve
         core.render(input)
-        motionBlur.update(after: input)
     }
 
-    /// iOS CoreAnimation ignores the core's CIMotionBlur layer filter; this
-    /// shows the exporter's blur while paused or scrubbing (Studio 2d).
-    private lazy var motionBlur = PreviewStageMotionBlur(stage: self)
+    private var rendering = false
+
+    /// What iOS CoreAnimation cannot draw — paused motion blur and the
+    /// camera-look cross-dissolve — rebuilt from a twin core (Studio 2d).
+    private lazy var twin = PreviewStageTwin(stage: self)
 
     /// Renders now when laid out, otherwise on the next layout pass.
     func schedule(_ input: FrameInput) {
