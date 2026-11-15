@@ -181,8 +181,8 @@ enum KeystrokeOverlayRenderer {
     /// output-width / reference-canvas-width) and by the user size knob.
     static func pillSize(text: String, size: Double, scale: CGFloat) -> CGSize {
         let line = makeLine(text: text, size: size, scale: scale)
-        var ascent: CGFloat = 0, descent: CGFloat = 0
-        let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, nil))
+        let bounds = PlatformText.typographicBounds(line)
+        let width = bounds.width, ascent = bounds.ascent, descent = bounds.descent
         let padH = 14 * CGFloat(size) * scale
         let padV = 8 * CGFloat(size) * scale
         return CGSize(width: ceil(width) + padH * 2, height: ceil(ascent + descent) + padV * 2)
@@ -244,8 +244,8 @@ enum KeystrokeOverlayRenderer {
 
         // CTLine draws in y-up text space: flip locally around the text rect.
         let line = makeLine(text: text, size: size, scale: scale)
-        var ascent: CGFloat = 0, descent: CGFloat = 0
-        let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, nil))
+        let bounds = PlatformText.typographicBounds(line)
+        let width = bounds.width, ascent = bounds.ascent, descent = bounds.descent
         ctx.saveGState()
         ctx.textMatrix = .identity
         ctx.translateBy(x: rect.midX - width / 2, y: rect.midY + (ascent - descent) / 2)

@@ -102,27 +102,41 @@ enum MenuBarArt {
         }
         return image
         #else
-        // UIKit twin. UIKit draws y-down; every vertical position below is
-        // centred, so the y-up numbers above land on the same pixels. The
-        // calibrated Mac colours become sRGB components here.
+        // UIKit twin, drawn so it lands on the Mac's pixels: the calibrated
+        // Mac colours as their exact sRGB conversions (NSColor.usingColorSpace
+        // (.sRGB) on macOS 26), and every string measured and placed with
+        // AppKit's rules (AppKitTextLayout via PlatformText) — `draw(at:)`'s
+        // y-up geometry, the text context flipped locally.
         let size = CGSize(width: spec.width, height: spec.height)
         let h = CGFloat(spec.height)
         let isDark = spec.style == .dark
         let barColor = isDark
-            ? UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
-            : UIColor(red: 0.96, green: 0.96, blue: 0.97, alpha: 1)
+            ? UIColor(red: 0.14652875065803528, green: 0.1469733715057373, blue: 0.16014054417610168, alpha: 1)
+            : UIColor(red: 0.96819955110549927, green: 0.96845060586929321, blue: 0.97619777917861938, alpha: 1)
         let textColor = isDark ? UIColor.white : UIColor.black
         let format = rasterFormat()
 
-        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+        return UIGraphicsImageRenderer(size: size, format: format).image { renderer in
             let rect = CGRect(origin: .zero, size: size)
+            let cg = renderer.cgContext
             barColor.setFill()
             UIRectFill(rect)
 
             let fontSize = h * 0.52
             let pad = h * 0.55
+            func measured(_ s: NSAttributedString) -> CGSize { PlatformText.size(of: s) }
             let baselineRect = { (s: NSAttributedString) -> CGFloat in
-                (rect.height - s.size().height) / 2
+                (rect.height - measured(s).height) / 2
+            }
+            /// AppKit's `draw(at:)` at a y-up point — the line box's
+            /// bottom-left — in this y-down context.
+            func draw(_ s: NSAttributedString, at p: CGPoint) {
+                let box = measured(s)
+                cg.saveGState()
+                cg.translateBy(x: 0, y: rect.height)
+                cg.scaleBy(x: 1, y: -1)
+                PlatformText.draw(s, in: CGRect(x: p.x, y: p.y, width: box.width * 2 + 100, height: box.height), of: cg)
+                cg.restoreGState()
             }
 
             var rightX = rect.width - pad
@@ -134,8 +148,8 @@ enum MenuBarArt {
                         .foregroundColor: textColor,
                     ]
                 )
-                rightX -= clock.size().width
-                clock.draw(at: CGPoint(x: rightX, y: baselineRect(clock)))
+                rightX -= measured(clock).width
+                draw(clock, at: CGPoint(x: rightX, y: baselineRect(clock)))
                 rightX -= fontSize * 0.9
             }
             if spec.showStatusIcons {
@@ -170,8 +184,8 @@ enum MenuBarArt {
                     .foregroundColor: textColor,
                 ]
             )
-            logo.draw(at: CGPoint(x: x, y: baselineRect(logo)))
-            x += logo.size().width + fontSize * 0.7
+            draw(logo, at: CGPoint(x: x, y: baselineRect(logo)))
+            x += measured(logo).width + fontSize * 0.7
 
             if !spec.title.isEmpty {
                 let title = NSAttributedString(
@@ -186,11 +200,11 @@ enum MenuBarArt {
                 case .left:
                     titleX = x
                 case .center:
-                    titleX = (rect.width - title.size().width) / 2
+                    titleX = (rect.width - measured(title).width) / 2
                 case .right:
-                    titleX = rightX - title.size().width
+                    titleX = rightX - measured(title).width
                 }
-                title.draw(at: CGPoint(x: titleX, y: baselineRect(title)))
+                draw(title, at: CGPoint(x: titleX, y: baselineRect(title)))
             }
         }
         #endif

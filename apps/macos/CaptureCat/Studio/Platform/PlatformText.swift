@@ -15,14 +15,22 @@ enum PlatformText {
         NSAttributedString(string: string, attributes: [.font: font])
     }
 
-    /// `attributed.size()`
+    /// `attributed.size()` — on iOS, AppKit's measurement (AppKitTextLayout).
     static func size(of attributed: NSAttributedString) -> CGSize {
-        attributed.size()
+        #if canImport(AppKit)
+        return attributed.size()
+        #else
+        return AppKitTextLayout.size(of: attributed, platformWidth: attributed.size().width)
+        #endif
     }
 
-    /// `font.ascender`
+    /// `font.ascender` — on iOS, the Mac's ascender (AppKitTextLayout).
     static func ascender(of font: PlatformFont) -> CGFloat {
-        font.ascender
+        #if canImport(AppKit)
+        return font.ascender
+        #else
+        return AppKitTextLayout.metrics(of: font as CTFont).ascent
+        #endif
     }
 
     /// A copy of `attributed` with an sRGB `.foregroundColor` over its whole
@@ -57,11 +65,12 @@ enum PlatformText {
             options: [.usesLineFragmentOrigin, .usesFontLeading]
         )
         #else
-        return attributed.boundingRect(
+        let platform = attributed.boundingRect(
             with: size,
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             context: nil
         )
+        return AppKitTextLayout.boundingRect(of: attributed, size: size, platformWidth: platform.width)
         #endif
     }
 
@@ -74,15 +83,21 @@ enum PlatformText {
         attributed.draw(in: rect)
         NSGraphicsContext.current = nil
         #else
-        // UIKit draws y-down: mirror the context about the rect's horizontal
-        // centre line so the rect maps onto itself with its top edge at maxY.
-        ctx.saveGState()
-        ctx.translateBy(x: 0, y: rect.minY + rect.maxY)
-        ctx.scaleBy(x: 1, y: -1)
-        UIGraphicsPushContext(ctx)
-        attributed.draw(in: rect)
-        UIGraphicsPopContext()
-        ctx.restoreGState()
+        // AppKit's layout (AppKitTextLayout), drawn with CoreText — glyphs
+        // upright in the y-up context, baselines where the Mac puts them.
+        AppKitTextLayout.draw(attributed, in: rect, of: ctx)
+        #endif
+    }
+
+    /// `CTLineGetTypographicBounds(line, &ascent, &descent, nil)` — on iOS with
+    /// the Mac's system-face metrics (AppKitTextLayout).
+    static func typographicBounds(_ line: CTLine) -> (width: CGFloat, ascent: CGFloat, descent: CGFloat) {
+        #if canImport(AppKit)
+        var ascent: CGFloat = 0, descent: CGFloat = 0
+        let width = CGFloat(CTLineGetTypographicBounds(line, &ascent, &descent, nil))
+        return (width, ascent, descent)
+        #else
+        return AppKitTextLayout.typographicBounds(line)
         #endif
     }
 

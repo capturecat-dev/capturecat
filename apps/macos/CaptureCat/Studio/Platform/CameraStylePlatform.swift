@@ -106,8 +106,8 @@ enum CameraStylePlatform {
                 .paragraphStyle: para,
             ]
         )
-        let mainH = ceil(mainLine.size().height)
-        let subH = subLine.map { ceil($0.size().height) } ?? 0
+        let mainH = ceil(PlatformText.size(of: mainLine).height)
+        let subH = subLine.map { ceil(PlatformText.size(of: $0).height) } ?? 0
         let totalH = mainH + subH
         let topY = (pill.height + totalH) / 2   // Y-up: top edge of the text block
         let inset = layout.fontSize * 0.3

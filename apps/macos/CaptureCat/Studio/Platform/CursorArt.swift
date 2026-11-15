@@ -33,6 +33,37 @@ enum CursorArt {
         drawnDot(filled: filled)
     }
 
+    /// The preview cursor layer's contents: `image` shown at `size` points at
+    /// `contentsScale`. The Mac hands Core Animation the vector NSImage, which
+    /// CA re-renders at size × scale every time the layer resizes; iOS draws
+    /// the same vector art (`rasterize`, byte-identical to the Mac's rasters)
+    /// at that pixel grid, so a scaled cursor is as crisp as the Mac's.
+    static func layerContents(
+        _ image: PlatformImage,
+        style: ProjectSettings.CursorStyle,
+        size: CGSize,
+        contentsScale: CGFloat
+    ) -> Any? {
+        #if canImport(AppKit)
+        return image
+        #else
+        let w = max(1, Int((size.width * contentsScale).rounded(.up)))
+        let h = max(1, Int((size.height * contentsScale).rounded(.up)))
+        let key = "\(style.rawValue)|\(w)x\(h)"
+        if let cached = layerContentsCache[key] { return cached }
+        guard let raster = rasterize(image, style: style, pixelWidth: w, pixelHeight: h) else {
+            return image.cgImage
+        }
+        if layerContentsCache.count > 32 { layerContentsCache.removeAll() }
+        layerContentsCache[key] = raster
+        return raster
+        #endif
+    }
+
+    #if !canImport(AppKit)
+    private static var layerContentsCache: [String: CGImage] = [:]
+    #endif
+
     /// Rasterizes `image` (the artwork of `style`) onto an exact
     /// `pixelWidth` × `pixelHeight` grid, upright, RGBA premultiplied.
     static func rasterize(

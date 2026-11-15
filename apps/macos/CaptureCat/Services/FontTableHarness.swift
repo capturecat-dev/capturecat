@@ -97,8 +97,10 @@ enum FontTableHarness {
                   "injected wrong entry is caught: \(family) \(weight.rawValue) as \(face)")
         }
 
+        let textCases = textLayoutChecks(check)
+
         print(failures.isEmpty
-              ? "FONTTABLE PASS \(entries) entries × \(sizes.count) sizes"
+              ? "FONTTABLE PASS \(entries) entries × \(sizes.count) sizes + \(textCases) text-layout cases"
               : "FONTTABLE FAIL \(failures.count): \(failures.joined(separator: " | "))")
         exit(failures.isEmpty ? 0 : 1)
     }

@@ -1181,7 +1181,7 @@ final class PreviewCompositorCore {
                 height: Int(barH.rounded())
             )) {
                 menuBarLayer.isHidden = false
-                menuBarLayer.contents = bar
+                menuBarLayer.contents = LayerContents.contents(bar)
                 menuBarLayer.frame = CGRect(x: 0, y: 0, width: videoRect.width, height: barH)
             } else {
                 menuBarLayer.isHidden = true
@@ -1974,7 +1974,9 @@ final class PreviewCompositorCore {
             // CGImage/anchorPoint rewrite passed the offscreen harness but
             // rendered mirrored and ignored resizes in the real window chain.
             cursorLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            cursorLayer.contents = LayerContents.contents(asset.image)
+            cursorLayer.contents = CursorArt.layerContents(
+                asset.image, style: s.cursorStyle,
+                size: layout.imageRect.size, contentsScale: cursorLayer.contentsScale)
             let hotspotInLayer = CGPoint(
                 x: layout.hotspotPoint.x - layout.imageRect.minX,
                 y: layout.hotspotPoint.y - layout.imageRect.minY
