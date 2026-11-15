@@ -786,6 +786,8 @@ enum RecordingPanelHarness {
     private static var clickFailures = 0
 
     private static func build(appState: AppState, plainDark: Bool = false) {
+        // Gates never touch ScreenCaptureKit (see harnessSkipsSourceProbe).
+        RecordingPanelViewController.harnessSkipsSourceProbe = !CommandLine.arguments.contains("--panel-live-capture")
         let setupSize = RecordingPanelMetrics.setupPanelSize()
         let root = GradientBackdropView()
         root.plainDark = plainDark
@@ -1100,7 +1102,7 @@ enum RecordingPanelHarness {
     private static func capture(_ name: String) async {
         guard let window else { return }
         let url = outputDirectory.appendingPathComponent("capturecat-recording-panel-\(name).png")
-        guard let image = await windowImage(window) else {
+        guard let image = layerImage(window) else {
             print("SHOT \(name) FAILED")
             return
         }
@@ -1109,6 +1111,30 @@ enum RecordingPanelHarness {
         print("SHOT \(name) \(url.path) \(image.width)x\(image.height)")
     }
 
+    /// The window's own layer tree through CARenderer — no Screen Recording
+    /// permission involved, so the static shots never prompt (see
+    /// RecordingPanelViewController.harnessSkipsSourceProbe).
+    private static func layerImage(_ window: NSWindow) -> CGImage? {
+        guard let content = window.contentView else { return nil }
+        content.wantsLayer = true
+        guard let layer = content.layer else { return nil }
+        // The first pass over a fresh tree can come back empty; the second is
+        // the capture. CARenderer frames are 1× and Y-flipped — turned upright
+        // here so the shots read like the window.
+        _ = CARendererSnapshot.render(layer: layer, size: content.bounds.size, scale: 1)
+        guard let shot = CARendererSnapshot.render(layer: layer, size: content.bounds.size, scale: 1),
+              let ctx = CGContext(data: nil, width: shot.width, height: shot.height, bitsPerComponent: 8,
+                                  bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.translateBy(x: 0, y: CGFloat(shot.height))
+        ctx.scaleBy(x: 1, y: -1)
+        ctx.draw(shot, in: CGRect(x: 0, y: 0, width: shot.width, height: shot.height))
+        return ctx.makeImage()
+    }
+
+    /// Real screen capture — ONLY for `--panel-live-capture` (a manual probe,
+    /// not a gate): the window server's composite including in-flight
+    /// animations. Needs Screen Recording for the build that runs it.
     private static func windowImage(_ window: NSWindow) async -> CGImage? {
         let id = CGWindowID(window.windowNumber)
         guard let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true),
