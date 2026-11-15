@@ -1,9 +1,13 @@
+#if canImport(AppKit)
 import AppKit
+import ScreenCaptureKit
+#else
+import UIKit  // StudioLab: the iOS run of this same script (--ios-preview-parity)
+#endif
 import AVFoundation
 import Metal
 import Observation
 import QuartzCore
-import ScreenCaptureKit
 
 /// Preview compositor regression gate. Run:
 ///
@@ -46,6 +50,10 @@ enum PreviewParityHarness {
     private static var refreezing = false
     private static var refrozen: [String] = []
     private static var refrozenBlobs: [String] = []
+#if !canImport(AppKit)
+    /// The iOS run's window, stage and fixture (StudioLab sets it).
+    static var lab: ParityLab?
+#endif
 
     // Fixture state driving the compositor.
     @Observable
@@ -56,8 +64,8 @@ enum PreviewParityHarness {
         var coordinateSize: CGSize = .zero
         var videoSize: CGSize = .zero
         var player: AVPlayer?
-        var cameraPoster: NSImage?
-        var videoPoster: NSImage?
+        var cameraPoster: PlatformImage?
+        var videoPoster: PlatformImage?
         var cameraAspect: CGFloat = 4.0 / 3.0
         /// Person mask for the camera-look probes (nil everywhere else).
         var cameraMask: CameraMaskTrack?
@@ -69,6 +77,7 @@ enum PreviewParityHarness {
         init(project: Project) { self.project = project }
     }
 
+#if canImport(AppKit)
     static func run() -> Never {
         setbuf(stdout, nil) // line-live output for the external capture driver
         let app = NSApplication.shared
@@ -86,6 +95,21 @@ enum PreviewParityHarness {
         app.run()
         exit(0)
     }
+#else
+    /// iOS entry (StudioLab): the same matrix, in the Lab's window, on the
+    /// Mac-dumped fixture (`--preview-parity-fixtures`).
+    static func runInLab(_ lab: ParityLab) async -> Int32 {
+        refreezing = false
+        Self.lab = lab
+        do {
+            try await runMatrix()
+            return 0
+        } catch {
+            print("PARITY ERROR \(error)")
+            return 2
+        }
+    }
+#endif
 
     private static func emit(_ s: String) { print(s) }
 
@@ -101,6 +125,7 @@ enum PreviewParityHarness {
         // colours are already baked. Dark is the appearance the goldens were
         // frozen under — pinning light here moved EIGHTEEN states by 18/255,
         // which is precisely the evidence that this was never pinned at all.
+#if canImport(AppKit)
         NSApp.appearance = NSAppearance(named: .darkAqua)
 
         let fixtureDir = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -167,6 +192,36 @@ enum PreviewParityHarness {
 
         await settle(0.3)
         emit("TOPOLOGY compositor superviewFlipped=\(compositor.superview?.isFlipped ?? false) geometryFlipped=\(compositor.layer?.isGeometryFlipped ?? false) contentsFlipped=\(compositor.layer?.contentsAreFlipped() ?? false)")
+#else
+        // iOS: the Lab's window and stage (the shipping PreviewStageView,
+        // via StudioLab's PreviewCompositorView shim) and the Mac's fixture as
+        // data — the project carries the Mac's darkAqua-resolved colours and
+        // the rasters are the Mac's own, so every input is the Mac's.
+        guard let lab = Self.lab else { throw NSError(domain: "parity", code: 3) }
+        let fixtureDir = lab.fixtureDir
+        let loaded = try ParityLabFixture.load(from: fixtureDir)
+        let project = loaded.project
+        let fixture = Fixture(project: project)
+        let naturalSize = loaded.videoSize
+        fixture.videoSize = loaded.videoSize
+        fixture.coordinateSize = loaded.coordinateSize
+        fixture.player = nil
+        fixture.videoPoster = loaded.videoPoster
+        let t0 = loaded.currentTime
+        fixture.currentTime = t0
+        fixture.cursorEvents = loaded.cursorEvents
+        fixture.cameraPoster = loaded.cameraPoster
+        fixture.cameraAspect = loaded.cameraAspect
+        let logoName = ParityFixtureFile.logo
+        _ = naturalSize
+        let container = lab.container
+        let compositor = lab.compositor
+        compositor.suppressImplicitAnimation = true
+        compositor.rasterScaleOverride = 2
+
+        await settle(0.3)
+        emit("TOPOLOGY compositor ios-uiwindow magnification=\(compositor.magnification) canvas=\(compositor.virtualCanvasSize)")
+#endif
 
         await settle(0.3)
 
@@ -187,7 +242,7 @@ enum PreviewParityHarness {
             compositor.schedule(compositorInput(fixture))
             await settle(0.35)
 
-            guard let containerLayer = container.layer,
+            guard let containerLayer = container.harnessLayer,
                   let frame = CARendererSnapshot.render(
                       layer: containerLayer, size: container.bounds.size, scale: 1
                   ) else {
@@ -364,7 +419,7 @@ enum PreviewParityHarness {
         await settle(0.45)
         compositor.schedule(compositorInput(fixture))
         await settle(0.35)
-        if let containerLayer = container.layer,
+        if let containerLayer = container.harnessLayer,
            let whole = CARendererSnapshot.render(layer: containerLayer, size: container.bounds.size, scale: 1) {
             savePNG(whole, fixtureDir.appendingPathComponent("debug-window.png"))
             emit("DEBUGWINDOW saved")
@@ -663,7 +718,7 @@ enum PreviewParityHarness {
             // EXACTLY the shared TiltMath projection (same function the
             // exporter's CIPerspectiveTransform corners come from), and a
             // non-zero pitch must visibly change the rendered raster.
-            let untiltedFrame = container.layer.flatMap {
+            let untiltedFrame = container.harnessLayer.flatMap {
                 CARendererSnapshot.render(layer: $0, size: container.bounds.size, scale: 1)
             }
             expect("tilt-identity-at-rest",
@@ -689,7 +744,7 @@ enum PreviewParityHarness {
                 expect("tilt-uses-shared-math", matches,
                        "m14=\(got.m14) want=\(want.m14) m24=\(got.m24) want=\(want.m24)")
                 if let before = untiltedFrame,
-                   let after = container.layer.flatMap({
+                   let after = container.harnessLayer.flatMap({
                        CARendererSnapshot.render(layer: $0, size: container.bounds.size, scale: 1)
                    }) {
                     let crop = rect.insetBy(dx: -30, dy: -30)
@@ -1488,6 +1543,9 @@ enum PreviewParityHarness {
                 if !ok { geometryFailures += 1 }
             }
 
+            // Mac capture pipeline (ScreenRecorder / CursorTracker), not the
+            // preview — the iOS run of this script skips it.
+            #if canImport(AppKit)
             // SCK reports bounding/content geometry in surface points. This
             // Retina frame's 2x metadata must become the measured pixel box.
             let crop = ScreenRecorder.windowSurfaceCropRectForTesting(
@@ -1546,6 +1604,7 @@ enum PreviewParityHarness {
                 let tight = ScreenRecorder.tightenCropToOpaqueContent(dark, within: fullRect)
                 expect("dark UI not trimmed", tight == fullRect, "got=\(tight)")
             }
+            #endif
 
             // The tilt homography inverse must round-trip: project a point
             // forward (exactly what the compositor renders with), invert it,
@@ -2242,6 +2301,9 @@ enum PreviewParityHarness {
                    centered && edgeHalfOff && overhangs,
                    "mid=\(oMid) edge=\(oEdge) off=\(oOff)")
 
+            // Mac capture pipeline (ScreenRecorder / CursorTracker), not the
+            // preview — the iOS run of this script skips it.
+            #if canImport(AppKit)
             // A click is saved in the cropped coordinate space, not in the
             // padded IOSurface. Assert an arbitrary point and a resized/moved
             // live window to catch both constant offsets and scale drift.
@@ -2288,6 +2350,7 @@ enum PreviewParityHarness {
             )
             expect("moved/resized click", hypot(movedMapped.x - wanted.x, movedMapped.y - wanted.y) < 0.001,
                    "want=\(wanted) got=\(movedMapped)")
+            #endif
 
             failures += geometryFailures
         }
@@ -2468,6 +2531,12 @@ enum PreviewParityHarness {
     /// Everything below is generated, so the only thing that can move a pixel
     /// is the compositor.
     static func makeFixtureProject(duration: TimeInterval = 12) -> Project {
+        #if !canImport(AppKit)
+        // iOS run: the Mac's own construction, from the dump — its defaults
+        // hold system colours resolved under darkAqua, which UIKit cannot
+        // reproduce (the phone/segment states build a fresh project here).
+        if duration == 12, let project = lab?.freshFixtureProject() { return project }
+        #endif
         // A fixed UUID keeps any id-derived value (legacy clip IDs, cache keys)
         // stable across runs.
         let project = Project(
@@ -2578,6 +2647,9 @@ enum PreviewParityHarness {
         return events
     }
 
+    // Mac-only fixture rasters (NSGradient, lockFocus). The iOS run loads the
+    // Mac's own PNGs instead (--preview-parity-fixtures).
+#if canImport(AppKit)
     /// Deterministic camera poster.
     ///
     /// Was `NSImage.lockFocus`, which rasterises at the CURRENT SCREEN's
@@ -2623,6 +2695,7 @@ enum PreviewParityHarness {
         }
         try png.write(to: url)
     }
+#endif
 
     // MARK: - Offscreen capture + diff
 
@@ -2698,7 +2771,11 @@ enum PreviewParityHarness {
     }
 
     static func savePNG(_ image: CGImage, _ url: URL) {
+        #if canImport(AppKit)
         let rep = NSBitmapImageRep(cgImage: image)
         try? rep.representation(using: .png, properties: [:])?.write(to: url)
+        #else
+        try? UIImage(cgImage: image).pngData()?.write(to: url)
+        #endif
     }
 }

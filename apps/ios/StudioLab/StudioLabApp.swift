@@ -9,6 +9,10 @@ import UIKit
 ///
 ///   --smoke <fixtureDir>    render the Mac-dumped parity fixture once and
 ///                           write what the window shows to <fixtureDir>/ios-smoke.png
+///   --ios-preview-parity <fixtureDir>
+///                           run the Mac's preview-parity matrix (the same script,
+///                           StudioHarness/PreviewParityHarness) against the
+///                           Mac's frozen goldens
 @main
 final class StudioLabAppDelegate: UIResponder, UIApplicationDelegate {
     func application(
@@ -56,6 +60,12 @@ final class LabViewController: UIViewController {
     }
 
     func start(arguments: [String]) {
+        if let i = arguments.firstIndex(of: "--ios-preview-parity"), arguments.indices.contains(i + 1) {
+            let dir = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
+            stage.isHidden = true
+            Task { @MainActor in await ParityLab.run(in: view, fixtureDir: dir) }
+            return
+        }
         if let i = arguments.firstIndex(of: "--smoke"), arguments.indices.contains(i + 1) {
             let dir = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
             Task { @MainActor in await LabSmoke.run(stage: stage, fixtureDir: dir) }
@@ -69,7 +79,7 @@ enum LabSmoke {
     static func run(stage: PreviewStageView, fixtureDir: URL) async {
         print("LAB SMOKE fixture=\(fixtureDir.path)")
         do {
-            let fixture = try LabFixture.load(from: fixtureDir)
+            let fixture = try ParityLabFixture.load(from: fixtureDir)
             stage.virtualCanvasSize = fixture.canvas
             stage.rasterScaleOverride = 2
             await LabTime.settle(0.3)

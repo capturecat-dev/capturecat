@@ -19,7 +19,7 @@ import UIKit
 /// `canvasLayer`, a plain sublayer sized to the virtual canvas and scaled
 /// about its top-left corner; rasters are drawn at
 /// `screen scale × magnification`, so the magnified preview stays sharp.
-final class PreviewStageView: UIView {
+class PreviewStageView: UIView {
     /// Everything one frame needs (see `PreviewCompositorCore.FrameInput`).
     typealias FrameInput = PreviewCompositorCore.FrameInput
 

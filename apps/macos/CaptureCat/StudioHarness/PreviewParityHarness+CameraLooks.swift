@@ -1,4 +1,8 @@
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit
+#endif
 import QuartzCore
 
 /// `--preview-parity` section 10c — camera LOOKS on the real compositor, in
@@ -62,7 +66,7 @@ extension PreviewParityHarness {
     static func cameraLookChecks(
         fixture: Fixture,
         compositor: PreviewCompositorView,
-        container: NSView,
+        container: HarnessView,
         t0: TimeInterval,
         artifacts: URL,
         reset: ((ProjectSettings) -> Void) -> Void
@@ -90,7 +94,7 @@ extension PreviewParityHarness {
             await settle(0.3)
             compositor.schedule(compositorInput(fixture))
             await settle(0.3)
-            guard let layer = container.layer,
+            guard let layer = container.harnessLayer,
                   let image = CARendererSnapshot.render(layer: layer, size: container.bounds.size, scale: 1),
                   let px = HarnessPixels.rgba(image) else { return nil }
             savePNG(image, artifacts.appendingPathComponent("look-\(name)-ca.png"))

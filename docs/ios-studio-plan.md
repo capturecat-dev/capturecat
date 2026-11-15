@@ -21,6 +21,7 @@ against a snapshot of the pre-change commit, and pass `run-gates.sh` plus the ex
 | 1g | iOS App target compiles `Studio/` (synchronized folder via `gen-xcodeproj.py`; Studio builds at the companion's iOS 18 floor with zero errors, so the studio screens can be `#available`-gated rather than split into a framework); no type collisions — the predicted `CloudRemoteFile`/`CaptureCatAPI` clashes live in the sync core, which arrives in Phase 5. `apps/ios/scripts/ios-vectors.sh`: the Mac's own `--web-vectors` unit files built for the iOS Simulator and run inside it (`simctl spawn`), compared with the Mac's output (see below) | iOS app builds + launches; 106/140 units replay on iOS — 92 byte-identical, 4 equal but for −0.0/0.0, 1 equal but for ±1 GPU samples, 9 known iOS differences, 0 failing; gate power proven (a 1e-7 easing change fails it); Mac vectors byte-identical after the harness's import guards; render-baseline: only the known motion-tilt frame, byte-identical to a base-binary variant; 17 + 12 gates; core selftest; canary PASS |
 | **Phase 1** | **done** — the studio core is one shared folder, compiled by both apps, Mac behaviour proven unchanged slice by slice | |
 | 2a | iOS compositor host `PreviewStageView` (apps/ios/StudioUI/, shared by the app and the harness): the core renders at a VIRTUAL canvas and the view magnifies it to fit (screen scale × magnification for rasters); **StudioLab**, a non-shipping iOS harness app (gen-xcodeproj, own scheme) hosting it in a real UIWindow; `--preview-parity-fixtures` dumps the Mac's parity fixture as data (StudioHarness/ParityFixtureFile — Mac-resolved project JSON + the Mac's own rasters) so iOS inputs are the Mac's bit for bit. Core fix: the video poster went through `LayerContents` (iOS layers ignore a UIImage) | smoke render on iOS 27: card, shadow, background, cursor and ripple at the Mac's geometry (videoRect identical); orientation matches the Mac's real window (the Mac gate's CARenderer captures are Y-flipped — iOS captures flip into that row order to score); Mac preview-parity + gesture/timeline freezes + shell shot pass |
+| 2b | `apps/ios/scripts/ios-preview-parity.sh`: the Mac's preview-parity SCRIPT (moved to StudioHarness/ with HarnessPixels, RasterFingerprint, PreviewGoldens; AppKit setup/rasters/recorder checks behind `#if canImport(AppKit)`) runs in StudioLab against the shipping PreviewStageView in a real UIWindow (iPad, 720×405 at magnification 1) and scores against the Mac's frozen goldens with the Mac's bar; iOS captures go through `drawHierarchy`, flipped into CARenderer's row order. Mid-script `makeFixtureProject()` returns the Mac's dumped construction on iOS | iOS: **22/31 fingerprint states pass**, every mid-flight motion assert, every camera-style and camera-look structural probe incl. injected-defect self-tests; 9 open (below). Mac: render-baseline identical but for the two known base variants (byte-identical), 17 + 12 gates |
 
 **Two-state noise in the base code itself (measured 2026-11-14).** The pre-Phase-1 base binary,
 compared against its own earlier snapshot, gives `a4-muted-dense/mix.f32` either ~6e-8 or exactly
@@ -34,6 +35,13 @@ output is byte-identical (audio: ≤1e-6) to an output the base binary also prod
 iOS-side approximations so far (not parity-gated until Phase 2/3): the Hand cursor uses the
 drawn arrow; menu-bar calibrated colours become sRGB; images decode through ImageIO without EXIF
 rotation; non-curated font families use UIKit's weight matching; system hue defaults are UIKit's.
+
+**Open on `ios-preview-parity` (2b → 2c/2d):** text (`subtitle-glow` 5/255, `annotations` 8,
+`annotation-pop-enter` 5, `menubar-dark` 60, `hidden-crop` 3 — iOS system-font vertical metrics,
+and the menu bar's glyphs/colours) → 2c: freeze ascent/descent/leading in the shared font table
+(Mac reads back its live values, provably unchanged); `cursor-pin` 3 → 2c: bundle the Mac's cursor
+rasters; `motion-zoom-t0.05/0.30` 3 (iOS CA ignores the CIMotionBlur filter) and
+`crossfade-true-dissolve` (iOS ignores additive compositing) → 2d: the approved CI passes.
 
 **Measured by `ios-vectors.sh` (1g)** — what the same Studio code produces differently on iOS:
 - **System font metrics.** iOS resolves the system face to SF UI (`.SFUI-*`), the Mac to
