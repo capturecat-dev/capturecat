@@ -323,7 +323,8 @@ enum PreviewParityHarness {
             captureOffsets: [TimeInterval],
             midFlightAt: Set<Int>,
             midFlightRange: ClosedRange<Double>? = nil,
-            midFlight: (() -> Double)? = nil
+            midFlight: (() -> Double)? = nil,
+            cropTo: CGRect? = nil
         ) async {
             // Rewind well before the region so both models settle at rest
             // (backwards jump snaps both via the dt guard — deterministic).
@@ -355,7 +356,7 @@ enum PreviewParityHarness {
                             failures += 1
                         }
                     }
-                    await capture("\(name)-t\(String(format: "%.2f", captureOffsets[captureIndex]))")
+                    await capture("\(name)-t\(String(format: "%.2f", captureOffsets[captureIndex]))", cropTo: cropTo)
                     captureIndex += 1
                 }
             }
@@ -1039,12 +1040,19 @@ enum PreviewParityHarness {
             s.animationSpeed = .rapid
             fixture.project.zoomRegions = motionBlurPanRegions(at: t0 + 0.4)
         }
+        // Scored INSIDE an edge band of 2 × the largest blur radius: the
+        // exporter crops the zoomed card to the frame and CLAMPS before it
+        // blurs (iOS does the same); CoreAnimation filters cannot clamp, so
+        // the Mac preview's smear at the frame edge pulls in the card's real
+        // content beyond it — a measured CA limit, not a parity target.
+        let blurEdge = MotionBlurMath.maxRadiusFraction * 2 * container.bounds.width
         await checkSequence(
             "motionblur-pan", seqStart: t0 + 0.4,
             captureOffsets: [0.1, 0.2, 0.3],
             midFlightAt: [0, 1, 2],
             midFlightRange: 0.32...0.68,
-            midFlight: { compositor.motion.focalX }
+            midFlight: { compositor.motion.focalX },
+            cropTo: container.bounds.insetBy(dx: blurEdge, dy: blurEdge)
         )
         // …and drawn the exporter's way (screen-space radius), proven in
         // pixels with an injected-defect self-test.

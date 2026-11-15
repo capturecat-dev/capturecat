@@ -615,6 +615,7 @@ final class PreviewCompositorCore {
     func render(_ input: FrameInput) {
         let canvas = host?.compositorCanvasSize ?? .zero
         guard canvas.width > 0, canvas.height > 0 else { return }
+        defer { if zoomGroupOnly { hideAllButZoomGroup() } }
         let renderStart = PreviewCompositorCore.renderTiming ? CACurrentMediaTime() : 0
         defer {
             if PreviewCompositorCore.renderTiming {
@@ -926,6 +927,64 @@ final class PreviewCompositorCore {
             tiltDistance: distance
         ))
     }
+
+    // MARK: - Zoom-group still (iOS paused motion blur, Studio 2d)
+
+    /// TWIN mode: everything but the zoom group is hidden after each render,
+    /// so the root shows exactly the subtree the Mac's CIMotionBlur filters.
+    /// The iOS stage renders a twin core this way, off-screen, and reads it
+    /// back through the render server (PreviewStageMotionBlur).
+    var zoomGroupOnly = false
+
+    private func hideAllButZoomGroup() {
+        guard let root = zoomGroup.superlayer else { return }
+        for layer in root.sublayers ?? [] where layer !== zoomGroup {
+            layer.isHidden = true
+        }
+    }
+
+    /// Continue from `other`'s exact motion state — springs, last stepped
+    /// time, reset signature, blur sample — so rendering the same input
+    /// draws the same frame and steps nothing.
+    func adoptMotionState(from other: PreviewCompositorCore) {
+        motion.copyState(from: other.motion)
+        lastMotionTime = other.lastMotionTime
+        lastResetSignature = other.lastResetSignature
+        lastBlurSample = other.lastBlurSample
+    }
+
+    /// Shown in the zoom group's place (the zoom group hidden), or cleared
+    /// with nil — the iOS stage's exporter-blurred still. Canvas-sized; the
+    /// image may be at any pixel scale (`.resize`). Unused on the Mac, whose
+    /// CoreAnimation draws the blur filter itself.
+    func showZoomGroupStill(_ image: CGImage?) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        guard let image, let root = zoomGroup.superlayer else {
+            zoomGroupStill?.isHidden = true
+            zoomGroupStill?.contents = nil
+            zoomGroup.isHidden = false
+            return
+        }
+        let still: CALayer
+        if let existing = zoomGroupStill {
+            still = existing
+        } else {
+            still = CALayer()
+            still.anchorPoint = .zero
+            still.contentsGravity = .resize
+            root.insertSublayer(still, above: zoomGroup)
+            zoomGroupStill = still
+        }
+        still.position = .zero
+        still.bounds = CGRect(origin: .zero, size: root.bounds.size)
+        still.contents = image
+        still.isHidden = false
+        zoomGroup.isHidden = true
+    }
+
+    private var zoomGroupStill: CALayer?
 
     // MARK: - Device chrome geometry (ports of PreviewView)
 

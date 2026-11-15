@@ -95,7 +95,12 @@ class PreviewStageView: UIView {
     func render(_ input: FrameInput) {
         input.project.previewCanvasSize = virtualCanvasSize
         core.render(input)
+        motionBlur.update(after: input)
     }
+
+    /// iOS CoreAnimation ignores the core's CIMotionBlur layer filter; this
+    /// shows the exporter's blur while paused or scrubbing (Studio 2d).
+    private lazy var motionBlur = PreviewStageMotionBlur(stage: self)
 
     /// Renders now when laid out, otherwise on the next layout pass.
     func schedule(_ input: FrameInput) {

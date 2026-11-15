@@ -66,6 +66,11 @@ final class LabViewController: UIViewController {
             Task { @MainActor in await ParityLab.run(in: view, fixtureDir: dir) }
             return
         }
+        if let i = arguments.firstIndex(of: "--renderin-probe"), arguments.indices.contains(i + 1) {
+            let dir = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
+            Task { @MainActor in await RenderInProbe.run(stage: stage, fixtureDir: dir) }
+            return
+        }
         if let i = arguments.firstIndex(of: "--smoke"), arguments.indices.contains(i + 1) {
             let dir = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
             Task { @MainActor in await LabSmoke.run(stage: stage, fixtureDir: dir) }

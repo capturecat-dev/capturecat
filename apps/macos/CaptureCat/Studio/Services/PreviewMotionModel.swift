@@ -66,6 +66,25 @@ final class PreviewMotionModel {
 
     var focal: CGPoint { CGPoint(x: focalX, y: focalY) }
 
+    /// Takes `other`'s complete spring state (every value and velocity, the
+    /// region and tilt-style memories, the last stepped time), so this model
+    /// continues exactly where `other` is — the iOS stage's twin compositor
+    /// renders the same frame as the main one without stepping (Studio 2d).
+    func copyState(from other: PreviewMotionModel) {
+        zoom = other.zoom; zoomVel = other.zoomVel
+        focalX = other.focalX; focalY = other.focalY
+        focalVelX = other.focalVelX; focalVelY = other.focalVelY
+        regionMemory = other.regionMemory
+        cardOffsetX = other.cardOffsetX; cardOffsetVelX = other.cardOffsetVelX
+        cardOffsetY = other.cardOffsetY; cardOffsetVelY = other.cardOffsetVelY
+        tiltStyleMemory = other.tiltStyleMemory
+        tilt = other.tilt; tiltVel = other.tiltVel
+        regionPitch = other.regionPitch; regionPitchVel = other.regionPitchVel
+        regionYaw = other.regionYaw; regionYawVel = other.regionYawVel
+        regionRoll = other.regionRoll; regionRollVel = other.regionRollVel
+        lastTime = other.lastTime
+    }
+
     /// Snap to current target instantly (seek, region edit, etc.)
     /// Two-pass: fix zoom first, THEN compute the focal blend — the blend
     /// depends on the current zoom, so a single pass bakes the PRIOR spring
