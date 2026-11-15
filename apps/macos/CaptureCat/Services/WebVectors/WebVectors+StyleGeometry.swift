@@ -1,4 +1,8 @@
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit  // the iOS replay of these vectors (apps/ios/scripts/ios-vectors.sh)
+#endif
 import CoreGraphics
 import CoreMedia
 
@@ -8,7 +12,7 @@ import CoreMedia
 // RecordingClock.
 extension WebVectors {
     static var styleGeometryUnits: [WebVectorUnit] {
-        [
+        var units = [
             WebVectorUnit(
                 name: "cgPathPrimitives",
                 notes: "CoreGraphics CGPath(rect:transform:nil), CGPath(ellipseIn:transform:nil), CGPath(roundedRect:cornerWidth:cornerHeight:transform:nil) — element-for-element (move/line/curve/close + points), the primitives CameraStyleMath.clipPath / VideoExporter.frameShapeCGPath / ContinuousRoundedRect emit",
@@ -21,6 +25,11 @@ extension WebVectors {
                 name: "swiftUIShadow",
                 notes: "Services/SwiftUIShadow.swift apply(to:radius:dy:color:) — setShadow(offset:blur:color:) parameters from the REAL context CTM (verbatim oracle: CGContext has no shadow getter; CROSS-CHECKED by rendering a shape with the real apply() vs setShadow(oracle params), byte-for-byte)",
                 build: swiftUIShadowCases),
+        ]
+        // RecordingClock is Mac capture timing (CGEventTimestamp) — not part
+        // of the iOS studio, so these two stay out of the iOS replay.
+        #if canImport(AppKit)
+        units += [
             WebVectorUnit(
                 name: "recordingClockSequences",
                 notes: "Services/RecordingClock.swift — a REAL RecordingClock driven through restart/pause/resume/timelineTime(forHostTime:) sequences with explicit host times (the nil → now() defaults are not vectored); state after every op",
@@ -30,6 +39,8 @@ extension WebVectors {
                 notes: "Services/RecordingClock.swift — hostTimeSeconds(forEventTimestamp:now:) (mach-units vs nanoseconds plausibility window) and eventTimestamp(forHostTimeSeconds:); CGEventTimestamp travels as a decimal string; the machine's mach timebase is in every case's input",
                 build: recordingClockEventTimestampCases),
         ]
+        #endif
+        return units
     }
 
     // MARK: CGPath encoding
@@ -161,6 +172,7 @@ extension WebVectors {
         return cases + styleOracleSentinel(unit)
     }
 
+    #if canImport(AppKit)
     // MARK: RecordingClock
 
     private static func recordingClockSequenceCases() -> [WV] {
@@ -254,4 +266,5 @@ extension WebVectors {
         }
         return cases
     }
+    #endif
 }

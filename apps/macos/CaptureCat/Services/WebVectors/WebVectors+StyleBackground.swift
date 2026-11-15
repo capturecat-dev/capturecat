@@ -1,4 +1,8 @@
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit  // the iOS replay of these vectors (apps/ios/scripts/ios-vectors.sh)
+#endif
 import CoreGraphics
 import CoreImage
 

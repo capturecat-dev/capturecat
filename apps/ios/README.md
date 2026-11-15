@@ -45,7 +45,9 @@ recording.
 | `Broadcast/` | broadcast extension | ReplayKit: stream to Mac (H.264) or record locally |
 | `ShareExtension/` | share extension | "Save to CaptureCat" |
 | `../macos/CaptureCat/Shared/` | all three | files that must build for macOS AND iOS — the Wi-Fi wire protocol |
-| a few Mac files by reference | see `scripts/gen-xcodeproj.py` | `OAuthPKCE`, `LoopbackAuthServer`, `StillMovieWriter`, `CCIconSet` |
+| `../macos/CaptureCat/Studio/` | app | the studio core shared with the Mac app — models, renderers, exporter, compositor, timeline edits (docs/ios-studio-plan.md) |
+| a few Mac files by reference | see `scripts/gen-xcodeproj.py` | `OAuthPKCE`, `LoopbackAuthServer`, `CCIconSet`; the extensions also take `StillMovieWriter` |
+| `StudioVectors/` | none (script-built) | the iOS runner for `ios-vectors.sh` — never in a shipping target |
 
 The Xcode project is generated — never hand-edit it:
 
@@ -75,6 +77,8 @@ Bundle ids: `so.capturecat.ios`, `.broadcast`, `.share`; App Group `group.so.cap
     apps/ios/scripts/upload-e2e.sh          # sign-in, publish, conflict/rebase, download — vs Tests/mock_api.py
     apps/ios/scripts/wireless-loopback.sh   # real iOS sender ↔ test Mac listener: Bonjour, TLS-PSK, H.264 decode, rotation, wrong key refused
     apps/ios/scripts/mac-interop.sh         # real iOS sender ↔ the REAL Mac receiver (WirelessServer): presence, requestBroadcast, one phone, keyframe-on-record, 70/70 frames, clock mapping, rotation, openProject ack
+    apps/ios/scripts/studio-canary.sh       # Studio/ typechecks for iOS on its own (fast)
+    apps/ios/scripts/ios-vectors.sh         # the Mac's golden vectors run INSIDE the iOS Simulator vs the Mac's output (exact / ≤1e-12; known iOS differences listed)
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production

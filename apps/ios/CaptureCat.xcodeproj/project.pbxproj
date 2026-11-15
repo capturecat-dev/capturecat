@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		795E5776E0E7F0FC5C30EF59 /* OAuthPKCE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381B37FD93AAD13C67DC1743 /* OAuthPKCE.swift */; };
 		93037B569A519E102E41DC95 /* LoopbackAuthServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FAB168C087A95139429BB2C /* LoopbackAuthServer.swift */; };
-		D483F907FAC686F208D2B22E /* StillMovieWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F09EE1E5C7EC36359B64811 /* StillMovieWriter.swift */; };
 		27CFBD5786DA7D5D1E02C8CF /* CCIconSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD2697ABA359FDCB7873A9 /* CCIconSet.swift */; };
 		ED1F31F9268EA4FB84ECAC55 /* StillMovieWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F09EE1E5C7EC36359B64811 /* StillMovieWriter.swift */; };
 		49E6F51EA3959AF58A0D79C7 /* StillMovieWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F09EE1E5C7EC36359B64811 /* StillMovieWriter.swift */; };
@@ -98,6 +97,12 @@
 			path = "../macos/CaptureCat/Shared";
 			sourceTree = "<group>";
 		};
+		C503F10A943CFCC747EA3E4A /* Studio */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = Studio;
+			path = "../macos/CaptureCat/Studio";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,6 +139,7 @@
 				A3127BDF9DF3C920DE148719 /* Broadcast */,
 				95E4EBEED3F4A24F5414492D /* ShareExtension */,
 				CD55FDE3D7803DAB714BB484 /* MacShared */,
+				C503F10A943CFCC747EA3E4A /* Studio */,
 				72F08247BF5820569C2C5F1A /* MacSources */,
 				89B104369EBC5E85E7E43C6B /* Config */,
 				113236722DEE1DC96F378B9D /* Products */,
@@ -197,6 +203,7 @@
 				74CBCF1117CD7C0DAE8EF3CA /* Kit */,
 				609BBAAC42BACA8CD6EFA6D5 /* Core */,
 				CD55FDE3D7803DAB714BB484 /* MacShared */,
+				C503F10A943CFCC747EA3E4A /* Studio */,
 			);
 			name = CaptureCat;
 			productName = CaptureCat;
@@ -321,7 +328,6 @@
 			files = (
 				795E5776E0E7F0FC5C30EF59 /* OAuthPKCE.swift in Sources */,
 				93037B569A519E102E41DC95 /* LoopbackAuthServer.swift in Sources */,
-				D483F907FAC686F208D2B22E /* StillMovieWriter.swift in Sources */,
 				27CFBD5786DA7D5D1E02C8CF /* CCIconSet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -9,8 +9,8 @@
 # mode, default MainActor isolation, member import visibility). No app, no
 # simulator.
 #
-# Phase 1g adds the folder to the iOS App target (gen-xcodeproj.py); this
-# stays as the fast check.
+# Since Phase 1g the iOS App target compiles the folder too (gen-xcodeproj.py);
+# this stays as the fast check, and ios-vectors.sh runs the vectors on iOS.
 #
 #   apps/ios/scripts/studio-canary.sh            # PASS / FAIL
 set -euo pipefail

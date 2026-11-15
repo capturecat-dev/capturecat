@@ -16,6 +16,7 @@ Folders (synchronized — new .swift files compile with no project edit):
   Broadcast/      CaptureCatBroadcast        ReplayKit broadcast upload extension
   ShareExtension/ CaptureCatShare            "Save to CaptureCat" share extension
   ../macos/CaptureCat/Shared/   all three        files that MUST build on iOS
+  ../macos/CaptureCat/Studio/   CaptureCat (app) the studio core, shared with the Mac app
 """
 import hashlib
 import os
@@ -40,6 +41,9 @@ SYNC = {
     "Broadcast": ("Broadcast", None),
     "ShareExtension": ("ShareExtension", None),
     "MacShared": ("../macos/CaptureCat/Shared", "MacShared"),
+    # The studio core, shared with the Mac app (docs/ios-studio-plan.md).
+    # App target only — the extensions take just the files they need below.
+    "Studio": ("../macos/CaptureCat/Studio", "Studio"),
 }
 
 # Individual files compiled from the Mac tree: key -> path (relative to apps/ios)
@@ -67,8 +71,10 @@ TARGETS = [
         "type": "com.apple.product-type.application",
         "filetype": "wrapper.application",
         "bundle": "so.capturecat.ios",
-        "sync": ["App", "Kit", "Core", "MacShared"],
-        "mac": ["OAuthPKCE", "LoopbackAuthServer", "StillMovieWriter", "CCIconSet"],
+        "sync": ["App", "Kit", "Core", "MacShared", "Studio"],
+        # StillMovieWriter comes with Studio/ for the app; the extensions still
+        # reference it on its own.
+        "mac": ["OAuthPKCE", "LoopbackAuthServer", "CCIconSet"],
         "plist": "Config/App-Info.plist",
         "entitlements": "Config/App.entitlements",
         "extra": {

@@ -318,11 +318,11 @@ extension WebVectors {
             return q
         }
         // 0 — THE contract fixture (≥ 40 frames, 64×36, moving then still, kfi 8).
-        let fixture = CameraLayoutHarness.syntheticMaskFrames(width: 64, height: 36, count: 48)
+        let fixture = CameraMaskFixtures.syntheticMaskFrames(width: 64, height: 36, count: 48)
         // 1 — every frame a key (keyframeInterval 1).
-        let keysOnly = CameraLayoutHarness.syntheticMaskFrames(width: 32, height: 18, count: 12)
+        let keysOnly = CameraMaskFixtures.syntheticMaskFrames(width: 32, height: 18, count: 12)
         // 2 — one frame, odd size; 3 — noise (deltas never win), uneven times.
-        let single = CameraLayoutHarness.syntheticMaskFrames(width: 17, height: 9, count: 1)
+        let single = CameraMaskFixtures.syntheticMaskFrames(width: 17, height: 9, count: 1)
         var noise: [(time: Double, alpha: [UInt8])] = []
         var t = 0.25
         for _ in 0..<10 {

@@ -1,7 +1,11 @@
 import Foundation
 import CoreGraphics
 import CoreImage
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit  // the iOS replay of these vectors (apps/ios/scripts/ios-vectors.sh)
+#endif
 
 /// VERBATIM ORACLES for the cursor cluster's golden vectors — private or
 /// inline Swift that the harness cannot call:
@@ -646,6 +650,7 @@ enum CursorOracle {
         }
     }
 
+    #if canImport(AppKit)
     /// Draws `artwork` with the provider's exact AppKit calls. The arrow path
     /// is rebuilt per op exactly like drawnArrow's single NSBezierPath (same
     /// move/line/close sequence, round joins).
@@ -730,6 +735,7 @@ enum CursorOracle {
         NSGraphicsContext.restoreGraphicsState()
         return bitmap.cgImage
     }
+    #endif
 
     /// Raw pixel bytes of a CGImage (for byte-equality self-checks).
     static func bytes(_ image: CGImage) -> Data? {

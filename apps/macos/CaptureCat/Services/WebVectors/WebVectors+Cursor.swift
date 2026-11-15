@@ -1,7 +1,11 @@
 import Foundation
 import CoreGraphics
 import CoreImage
+#if canImport(AppKit)
 import AppKit
+#else
+import UIKit  // the iOS replay of these vectors (apps/ios/scripts/ios-vectors.sh)
+#endif
 
 // Golden-vector units for the CURSOR cluster (see WebVectorsHarness.swift):
 // the shared cursor chain (smooth → spring → end behaviour), CursorSpringMath,
@@ -735,6 +739,9 @@ extension WebVectors {
         for style in allStyles {
             let asset = CursorStyleProvider.asset(for: style)
             let art = CursorOracle.artwork(for: style)
+            // (Mac only: the oracle draws with AppKit. iOS rasterizes its own
+            // arrow art, so this self-check has nothing to compare there.)
+            #if canImport(AppKit)
             // Self-check the oracle geometry against the real raster.
             if let art {
                 let image = CursorOracle.image(for: art)
@@ -753,6 +760,7 @@ extension WebVectors {
                     }
                 }
             }
+            #endif
             // Raster pixel grids (real rasterizedCGImage dimensions).
             var sizes: [CGSize] = [
                 asset.image.size, CGSize(width: 0, height: 0), CGSize(width: 0.5, height: 0.5),
