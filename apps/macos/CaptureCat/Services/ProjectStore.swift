@@ -164,6 +164,9 @@ final class ProjectStore {
         )
         dup.createdAt = copy.createdAt
         dup.settings = copy.settings
+        // The copy keeps the original's canvas (nil stays nil: a pre-2e
+        // project's duplicate renders exactly like the original).
+        dup.referenceCanvasSize = copy.referenceCanvasSize
         dup.zoomRegions = copy.zoomRegions
         dup.blurRegions = copy.blurRegions
         dup.highlightRegions = copy.highlightRegions

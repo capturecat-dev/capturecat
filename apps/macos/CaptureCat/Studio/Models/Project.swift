@@ -103,6 +103,16 @@ final class Project: Identifiable, Codable {
     /// Image | Video tab, the timeless timeline presentation and the export
     /// sheet's PNG option. Meaningless (and ignored) for real recordings.
     var stillTreatment: StillTreatment
+    /// The reference canvas BOX this project's point-sized settings
+    /// (padding, corners, shadow, cursor, text, camera) are authored against
+    /// — Studio 2e, see `ReferenceCanvas`. Every renderer lays the project out
+    /// on the largest canvas of the output's aspect inside it, so the Mac
+    /// editor at any window size, the iOS stage, headless/MCP exports and the
+    /// Mac exporter agree. Stamped on new projects
+    /// (`adoptNewProjectReferenceCanvas`); nil = a project from before 2e,
+    /// which keeps the live editor canvas (`previewCanvasSize`) exactly as
+    /// before. Persisted only when set, so old files re-save unchanged.
+    var referenceCanvasSize: CGSize?
 
     /// Set by PreviewView so the exporter can scale spatial settings to match.
     @ObservationIgnored var previewCanvasSize: CGSize = .zero
@@ -293,6 +303,7 @@ final class Project: Identifiable, Codable {
         case reminderDate
         case isStillCapture
         case stillTreatment
+        case referenceCanvasSize
     }
 
     required init(from decoder: Decoder) throws {
@@ -330,6 +341,7 @@ final class Project: Identifiable, Codable {
         reminderDate = try c.decodeIfPresent(Date.self, forKey: .reminderDate)
         isStillCapture = try c.decodeIfPresent(Bool.self, forKey: .isStillCapture) ?? false
         stillTreatment = try c.decodeIfPresent(StillTreatment.self, forKey: .stillTreatment) ?? .image
+        referenceCanvasSize = try c.decodeIfPresent(CGSize.self, forKey: .referenceCanvasSize)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -364,6 +376,7 @@ final class Project: Identifiable, Codable {
         try c.encodeIfPresent(reminderDate, forKey: .reminderDate)
         try c.encode(isStillCapture, forKey: .isStillCapture)
         try c.encode(stillTreatment, forKey: .stillTreatment)
+        try c.encodeIfPresent(referenceCanvasSize, forKey: .referenceCanvasSize)
     }
 }
 

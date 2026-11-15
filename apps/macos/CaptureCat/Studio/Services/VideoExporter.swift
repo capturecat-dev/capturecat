@@ -346,15 +346,14 @@ final class VideoExporter {
 
         // Compute scale factor so spatial settings (padding, corner radius, shadow)
         // match the preview's proportions at the export resolution.
-        // Headless exports (CLI/MCP) never had an editor window, so
-        // previewCanvasSize is zero — the output canvas itself is then the
-        // reference (scale 1). With a live editor the letterboxed canvas has
-        // the SAME aspect as the output, so this min() is a uniform factor.
-        let referenceCanvas: CGSize = {
-            let previewSize = project.previewCanvasSize
-            guard previewSize.width > 0, previewSize.height > 0 else { return outputSize }
-            return previewSize
-        }()
+        // The canvas is the project's REFERENCE canvas (Studio 2e) — the same
+        // one every editor draws and magnifies, whatever the window size or
+        // device, and the same for headless (CLI/MCP) exports. A project from
+        // before 2e keeps the old rule: the live editor canvas, or for a
+        // headless export (previewCanvasSize zero) the output itself, scale 1.
+        // Either way the canvas has the SAME aspect as the output, so this
+        // min() is a uniform factor.
+        let referenceCanvas = project.exportReferenceCanvas(outputSize: outputSize)
         let canvasScale = min(outputSize.width / referenceCanvas.width,
                               outputSize.height / referenceCanvas.height)
 

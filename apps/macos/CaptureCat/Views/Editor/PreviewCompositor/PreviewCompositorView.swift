@@ -22,6 +22,22 @@ final class PreviewCompositorView: NSView {
     /// (before the view has a size) aren't lost.
     var pendingInput: FrameInput?
 
+    /// How much the editor's scroll view magnifies this canvas to fill the
+    /// card at 100% (Studio 2e: a reference-canvas project renders at its
+    /// reference canvas and is magnified to the window — see
+    /// `ZoomScrollView.fitMagnification`). Rasters are drawn this much denser
+    /// so text and the cursor stay sharp at any window size. 1 for a project
+    /// from before 2e, whose canvas is the card itself.
+    var canvasMagnification: CGFloat = 1 {
+        didSet {
+            guard canvasMagnification != oldValue else { return }
+            core.refreshContentsScale()
+            if let input = pendingInput, bounds.width > 1, bounds.height > 1 {
+                render(input)
+            }
+        }
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         // Required for CIFilters on sublayers (motion blur on zoomGroup) —
@@ -223,7 +239,7 @@ final class PreviewCompositorView: NSView {
 
 extension PreviewCompositorView: PreviewCompositorHost {
     var compositorCanvasSize: CGSize { bounds.size }
-    var compositorDisplayScale: CGFloat? { window?.backingScaleFactor }
+    var compositorDisplayScale: CGFloat? { window.map { $0.backingScaleFactor * canvasMagnification } }
     var compositorIsDraggingOnCanvas: Bool { interactionView?.isActivelyDragging == true }
     var compositorInlineEditingID: UUID? { interactionView?.inlineEditingID }
 

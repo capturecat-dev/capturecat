@@ -1040,16 +1040,23 @@ final class EditorStageViewController: NSViewController {
         scroll.documentView = previewSurface
         scroll.canvasAspectProvider = { [weak self] in
             guard let self else { return nil }
-            let settings = self.project.settings
-            let output = settings.exportSettings.resolvedOutputSize(
-                for: settings.aspectRatio, sourceSize: self.playback.videoSize)
-            guard output.width > 0, output.height > 0 else { return nil }
-            return output.width / output.height
+            return ReferenceCanvas.outputAspect(
+                settings: self.project.settings, sourceSize: self.playback.videoSize)
         }
-        // Re-letterbox when the aspect setting, export resolution or the
-        // source size changes.
+        // Reference canvas (Studio 2e): the canvas is the project's, magnified
+        // to the card — window size no longer changes the layout or the export.
+        scroll.referenceBoxProvider = { [weak self] in
+            guard let self, !ReferenceCanvas.debugIgnoreReference else { return nil }
+            return ReferenceCanvas.sanitized(self.project.referenceCanvasSize)
+        }
+        scroll.onFitMagnificationChange = { [weak compositorView] fit in
+            compositorView?.canvasMagnification = fit
+        }
+        // Re-letterbox when the aspect setting, export resolution, the
+        // source size or the reference canvas changes.
         aspectObservation = SurfaceObservation { [weak self] in
             guard let self else { return }
+            _ = self.project.referenceCanvasSize
             _ = self.project.settings.aspectRatio
             _ = self.project.settings.exportSettings.resolution
             _ = self.project.settings.exportSettings.customWidth
@@ -1177,7 +1184,7 @@ final class EditorStageViewController: NSViewController {
         zoomObservation = SurfaceObservation { [weak self] in
             guard let self else { return }
             let zoom = self.selection.previewZoom
-            self.scroll.magnification = zoom
+            self.scroll.userZoom = zoom
             self.scroll.hasHorizontalScroller = zoom > 1
             self.scroll.hasVerticalScroller = zoom > 1
             self.scroll.scrollingEnabled = zoom > 1
@@ -1324,6 +1331,31 @@ final class ZoomScrollView: NSScrollView {
     /// nil = fill the card (pre-aspect behavior, used only when unset).
     var canvasAspectProvider: (() -> CGFloat?)?
 
+    /// The project's reference canvas box (Studio 2e, `ReferenceCanvas`), or
+    /// nil for a project from before 2e. With a box the document — the
+    /// compositor, whose bounds ARE `project.previewCanvasSize` — is sized to
+    /// the REFERENCE canvas whatever the window, and magnified to fill the
+    /// card's letterbox (`fitMagnification`), so the editor shows exactly
+    /// what every export and every other device lays out. Without one the
+    /// document is the letterbox itself, as before.
+    var referenceBoxProvider: (() -> CGSize?)?
+
+    /// The user's preview zoom (pill, ⌘±, reset): the scroll view's
+    /// magnification is this times `fitMagnification`.
+    var userZoom: CGFloat = 1 {
+        didSet { applyMagnification() }
+    }
+
+    /// Card letterbox ÷ reference canvas — how much a reference-canvas
+    /// project is magnified to fill the card at 100%. Exactly 1 for a pre-2e
+    /// project, whose canvas IS the letterbox (and at the default window,
+    /// whose card the reference box was measured from).
+    private(set) var fitMagnification: CGFloat = 1
+
+    /// Fired when `fitMagnification` changes, so the compositor rasters at
+    /// the magnified density (sharp text and cursor at any window size).
+    var onFitMagnificationChange: ((CGFloat) -> Void)?
+
     override func scrollWheel(with event: NSEvent) {
         guard scrollingEnabled else { return }
         super.scrollWheel(with: event)
@@ -1332,16 +1364,39 @@ final class ZoomScrollView: NSScrollView {
     override func layout() {
         super.layout()
         guard let document = documentView, bounds.width > 0, bounds.height > 0 else { return }
-        let size: CGSize
-        if let aspect = canvasAspectProvider?() {
-            size = AspectRatio.letterboxRect(
+        let aspect = canvasAspectProvider?()
+        let letterbox: CGSize
+        if let aspect {
+            letterbox = AspectRatio.letterboxRect(
                 in: CGRect(origin: .zero, size: bounds.size), aspect: aspect).size
         } else {
-            size = bounds.size
+            letterbox = bounds.size
+        }
+        var size = letterbox
+        var fit: CGFloat = 1
+        if let aspect, let box = referenceBoxProvider?() {
+            let canvas = ReferenceCanvas.canvas(box: box, aspect: aspect)
+            if canvas.width > 0, canvas.height > 0 {
+                size = canvas
+                fit = letterbox.width / canvas.width
+            }
         }
         if document.frame.size != size {
             document.setFrameSize(size)
         }
+        if fit != fitMagnification {
+            fitMagnification = fit
+            applyMagnification()
+            onFitMagnificationChange?(fit)
+        }
+    }
+
+    /// Magnification = fit × the user's zoom; the pinch range scales with
+    /// the fit so 25%…400% keep meaning the same thing.
+    private func applyMagnification() {
+        minMagnification = 0.25 * fitMagnification
+        maxMagnification = 4.0 * fitMagnification
+        magnification = fitMagnification * userZoom
     }
 }
 

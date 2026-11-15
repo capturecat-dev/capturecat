@@ -1013,6 +1013,8 @@ final class AppState {
                 recordingSourceKind: sourceKind
             )
             project.keystrokeDataURL = keystrokeURL
+            // A new project: laid out on the reference canvas (Studio 2e).
+            project.adoptNewProjectReferenceCanvas()
             if sourceKind == .window {
                 project.recordedAppBundleID = activeRecordingAppBundleID
             }
@@ -1099,6 +1101,8 @@ final class AppState {
         }
         // Still capture — classified as "Image" in the browser.
         project.isStillCapture = true
+        // A new project: laid out on the reference canvas (Studio 2e).
+        project.adoptNewProjectReferenceCanvas()
         // A page screenshot has no cursor track and no camera, and a device
         // frame around a desktop-width page would be nonsense.
         project.settings.showCamera = false

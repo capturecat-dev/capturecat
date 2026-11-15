@@ -29,8 +29,10 @@ class PreviewStageView: UIView {
     private(set) var core: PreviewCompositorCore!
 
     /// The canvas the project renders against (points). Changing it
-    /// re-renders at the new size on the next layout.
-    var virtualCanvasSize: CGSize = CGSize(width: 586.7, height: 330) {
+    /// re-renders at the new size on the next layout. A studio screen sets it
+    /// from the project (`virtualCanvas(for:sourceSize:)`); harnesses pin it.
+    var virtualCanvasSize: CGSize = PreviewStageView.virtualCanvas(
+        box: ReferenceCanvas.newProjectBox, aspect: 16.0 / 9.0) {
         didSet {
             guard virtualCanvasSize != oldValue else { return }
             setNeedsLayout()
@@ -63,6 +65,23 @@ class PreviewStageView: UIView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    /// The canvas `project` lays out on (Studio 2e): its reference canvas at
+    /// the output's aspect — the canvas the Mac editor draws (at any window
+    /// size) and the exporter scales against, so the iOS preview frames the
+    /// project exactly as they do. A project from before 2e (no reference)
+    /// gets the new-project box's canvas: iOS has no window size to inherit,
+    /// and that is the canvas most of those projects' exports used.
+    static func virtualCanvas(for project: Project, sourceSize: CGSize) -> CGSize {
+        let aspect = ReferenceCanvas.outputAspect(settings: project.settings, sourceSize: sourceSize)
+            ?? 16.0 / 9.0
+        return project.referenceCanvas(aspect: aspect)
+            ?? virtualCanvas(box: ReferenceCanvas.newProjectBox, aspect: aspect)
+    }
+
+    private static func virtualCanvas(box: CGSize, aspect: CGFloat) -> CGSize {
+        ReferenceCanvas.canvas(box: box, aspect: aspect)
+    }
 
     /// Magnification from the virtual canvas to the view (fit, centred).
     var magnification: CGFloat {

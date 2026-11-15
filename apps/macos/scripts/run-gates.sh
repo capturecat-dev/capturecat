@@ -49,6 +49,7 @@ GATES=(
   --cloud-sync-test
   --wireless-device-test
   --history-panel-shot
+  --reference-canvas-test
 )
 
 failed=0

@@ -754,6 +754,13 @@ if CommandLine.arguments.contains("--export-geometry-test") {
     ExportGeometryHarness.run()
 }
 
+// Reference-canvas gate (Studio 2e): model, canvas math, real exports at
+// several window sizes, and the real editor shell magnifying the reference
+// canvas. Never reached in a normal launch.
+if CommandLine.arguments.contains("--reference-canvas-test") {
+    MainActor.assumeIsolated { ReferenceCanvasHarness.run() }
+}
+
 // Image | Video treatment gate for still captures: stillTreatment Codable
 // round-trip + legacy default, the timeless-timeline derivation and pinned
 // scale, full-span VIDEO block geometry, and a real headless PNG export of a
