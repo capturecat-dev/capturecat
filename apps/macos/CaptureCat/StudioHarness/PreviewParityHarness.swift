@@ -377,6 +377,8 @@ enum PreviewParityHarness {
             s.backgroundPixelate = 0; s.backgroundHalftone = 0; s.backgroundNoise = 0
             s.backgroundContrast = 1; s.backgroundHue = 0
             s.screenTiltMode = .off
+            s.motionBlur = false; s.motionBlurStrength = 0.5
+            s.animationSpeed = .mellow
             s.showCamera = false
             s.cameraCustomX = nil; s.cameraCustomY = nil
             s.cameraBrightness = 0; s.cameraContrast = 1
@@ -821,6 +823,24 @@ enum PreviewParityHarness {
             fixture: fixture, compositor: compositor, container: container,
             t0: t0, artifacts: fixtureDir, reset: reset)
         fixture.project.cameraLayoutRegions = []
+
+        // 10d — mid-dissolve, FROZEN (Studio 2d): bubble → cutout half-way
+        // through the look transition. The structural check above compares
+        // a dissolve with the same renderer's settled frames; this pins the
+        // Mac's pixels so another renderer (iOS) is scored against them.
+        reset { s in
+            s.showCamera = true
+            s.cameraShape = .roundedRect
+            s.cameraSize = 340
+            s.cameraBorderWidth = 0
+        }
+        fixture.cameraMask = syntheticSilhouetteMask(aspect: Double(fixture.cameraAspect))
+        let dissolveEdge = t0 + 0.2
+        fixture.project.cameraLayoutRegions = [
+            CameraLayoutRegion(startTime: dissolveEdge, endTime: dissolveEdge + 5, mode: .bubble, look: .cutout),
+        ]
+        await check("look-dissolve-mid", at: dissolveEdge + CameraLayoutMath.transitionDuration / 2)
+        fixture.project.cameraLayoutRegions = []
         fixture.cameraMask = nil
 
         // 12 — device take, flat (bezel + seam; pad-style for the 16:10 fixture)
@@ -1008,6 +1028,29 @@ enum PreviewParityHarness {
             midFlightRange: 0.5...19.5,
             midFlight: { compositor.motion.regionPitch }
         )
+
+        // 19b — MOTION BLUR (Studio 2d): a fast pan between two adjacent 2×
+        // zooms with blur ON at full strength — frozen mid-pan blur states.
+        // Nothing covered blur before (Phase 0: every state passed with all
+        // CA filters stripped); a renderer that drops the blur fails these.
+        reset { s in
+            s.motionBlur = true
+            s.motionBlurStrength = 1
+            s.animationSpeed = .rapid
+            fixture.project.zoomRegions = motionBlurPanRegions(at: t0 + 0.4)
+        }
+        await checkSequence(
+            "motionblur-pan", seqStart: t0 + 0.4,
+            captureOffsets: [0.1, 0.2, 0.3],
+            midFlightAt: [0, 1, 2],
+            midFlightRange: 0.32...0.68,
+            midFlight: { compositor.motion.focalX }
+        )
+        // …and drawn the exporter's way (screen-space radius), proven in
+        // pixels with an injected-defect self-test.
+        failures += await motionBlurPixelChecks(
+            fixture: fixture, compositor: compositor, container: container,
+            t0: t0, artifacts: fixtureDir, reset: reset)
 
         // A tilt block that begins at the project head has no pre-roll in
         // which to animate from flat. Frame zero and the first playing tick

@@ -120,6 +120,34 @@ final class PreviewCompositorCore {
     /// installed once, then mutated via setValue(forKeyPath:) per render so
     /// the filter pipeline isn't rebuilt every frame.
     private var motionBlurFilterInstalled = false
+    /// The installed chain is the bare (linear-light) blur — the injected
+    /// `.linearLight` defect only.
+    private var motionBlurFilterIsLinear = false
+    /// The blur the last render applied, in SCREEN terms (radius as a
+    /// fraction of canvas width, the exporter's convention) — `.none` when
+    /// off. Hosts whose CoreAnimation ignores layer filters (iOS) apply it
+    /// themselves; harnesses read it.
+    private(set) var appliedMotionBlur = MotionBlurMath.Blur.none
+    /// The smear the screen shows: radius as a fraction of canvas width and
+    /// angle in Y-down screen space — `appliedMotionBlur`'s, unless a defect
+    /// below is injected. A host that blurs for itself (iOS) uses these.
+    private(set) var motionBlurScreenRadius: Double = 0
+    private(set) var motionBlurScreenAngle: Double = 0
+
+    /// The three ways the pre-2d preview blur differed from the exporter's.
+    enum MotionBlurDefect {
+        /// Radius set in the zoom group's LOCAL space — the zoom magnified it.
+        case localSpace
+        /// Angle negated as for a Y-up CIImage — on the Y-down layer tree the
+        /// smear ran vertically mirrored.
+        case mirroredAngle
+        /// Blurred in CoreAnimation's LINEAR working space; the exporter blurs
+        /// gamma-encoded values (its working space is the source's).
+        case linearLight
+    }
+    /// Defect injection for `--preview-parity`'s motion-blur self-tests: each
+    /// must make the preview-vs-exporter pixel check fail.
+    static var debugMotionBlurDefect: MotionBlurDefect?
     /// Tilt homography happens here; its coordinate space = the padded
     /// content area, exactly the GeometryEffect's local space in SwiftUI.
     private let contentGroup = CALayer()
@@ -3119,7 +3147,28 @@ final class PreviewCompositorCore {
     /// Motion blur on the zoom group — the CALayer twin of the exporter's
     /// CIMotionBlur over the composited card. Same MotionBlurMath, same
     /// CIMotionBlur kernel; radius converted to pixels with the canvas width
-    /// (the exporter uses its output width, so fractions agree by design).
+    /// (the exporter uses its output width, so the fractions agree).
+    ///
+    /// Three CoreAnimation facts, each measured (Studio 2d) — before 2d the
+    /// preview got all three wrong and did NOT equal the export:
+    ///
+    /// 1. **Space.** CA applies a layer's filters in the layer's LOCAL space,
+    ///    so the zoom group's own transform scales the smear (a radius-10
+    ///    filter ramps 32 px at scale 1, 65 px at scale 2). The exporter
+    ///    blurs AFTER the zoom, in output space → divide by the group's scale.
+    /// 2. **Angle.** CA reads a filter's angle in the layer's own geometry.
+    ///    The compositor's tree is Y-DOWN (flipped NSView; UIKit), the same
+    ///    space as MotionBlurMath's angle → pass it AS IS. (The exporter
+    ///    negates it only because its CIImage is Y-up; negating here smeared
+    ///    diagonal motion vertically mirrored.)
+    /// 3. **Light.** CA runs layer filters in LINEAR light; the exporter's
+    ///    working space is the source's gamma-encoded one → wrap the blur in
+    ///    linear→sRGB / sRGB→linear tone curves so CA blurs encoded values.
+    ///    (CA + this chain == CI in a non-linear space, Δ 0.000, measured.)
+    ///
+    /// `--preview-parity` (MOTIONBLUR-PIXELS) compares the preview's blurred
+    /// frame with the exporter's CIMotionBlur of the same frame, crisp, and
+    /// injects each defect to prove the check sees it.
     private func renderMotionBlur(_ input: FrameInput, s: ProjectSettings, canvas: CGSize, stacking: Bool) {
         // The zoom this stage actually applies (§12.13) — a zoom the layout
         // owns stays out of the blur, so it never smears the camera.
@@ -3143,6 +3192,14 @@ final class PreviewCompositorCore {
         if lastBlurSample?.time != input.currentTime {
             lastBlurSample = (sample, input.currentTime)
         }
+        // The group's linear scale (zoom × intro scale): the affine part's
+        // area factor, square-rooted — uniform scale on both axes here.
+        let t = zoomGroup.transform
+        let groupScale = max(0.01, sqrt(abs(Double(t.m11 * t.m22 - t.m12 * t.m21))))
+        let defect = Self.debugMotionBlurDefect
+        appliedMotionBlur = blur
+        motionBlurScreenRadius = blur.radius * (defect == .localSpace ? groupScale : 1)
+        motionBlurScreenAngle = defect == .mirroredAngle ? -blur.angle : blur.angle
         guard blur.active else {
             if motionBlurFilterInstalled {
                 zoomGroup.filters = nil
@@ -3150,18 +3207,24 @@ final class PreviewCompositorCore {
             }
             return
         }
-        if !motionBlurFilterInstalled {
+        if !motionBlurFilterInstalled || motionBlurFilterIsLinear != (defect == .linearLight) {
             if let filter = CIFilter(name: "CIMotionBlur") {
                 filter.name = "motionBlur"
-                zoomGroup.filters = [filter]
+                if defect == .linearLight {
+                    zoomGroup.filters = [filter]
+                } else if let encode = CIFilter(name: "CILinearToSRGBToneCurve"),
+                          let decode = CIFilter(name: "CISRGBToneCurveToLinear") {
+                    encode.name = "encode"
+                    decode.name = "decode"
+                    zoomGroup.filters = [encode, filter, decode]
+                }
                 motionBlurFilterInstalled = true
+                motionBlurFilterIsLinear = defect == .linearLight
             }
         }
-        // MotionBlurMath's angle is Y-down (preview space); the layer's
-        // backing store is rendered in CA's native Y-up space, the same
-        // convention Core Image uses in the exporter — negate identically.
-        zoomGroup.setValue(blur.radius * canvas.width, forKeyPath: "filters.motionBlur.inputRadius")
-        zoomGroup.setValue(-blur.angle, forKeyPath: "filters.motionBlur.inputAngle")
+        zoomGroup.setValue(motionBlurScreenRadius * canvas.width / groupScale,
+                           forKeyPath: "filters.motionBlur.inputRadius")
+        zoomGroup.setValue(motionBlurScreenAngle, forKeyPath: "filters.motionBlur.inputAngle")
     }
 
     private func zoomAnchor(
