@@ -1,5 +1,5 @@
 /**
- * Port of Services/CameraCardStyle.swift — the camera styles of
+ * Port of Studio/Services/CameraCardStyle.swift — the camera styles of
  * docs/camera-cutout.md §12, resolved from the project settings with every
  * default applied and every number clamped: the ONE place the renderer and
  * the camera pane read them from, so nothing clamps or defaults differently.

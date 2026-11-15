@@ -1,5 +1,5 @@
 /**
- * Port of Services/CursorSpringMath.swift `CursorEndBehaviorMath.apply(
+ * Port of Studio/Services/CursorSpringMath.swift `CursorEndBehaviorMath.apply(
  * events:trimEnd:loopToStart:stopAtEnd:)` — end-of-clip cursor behaviours,
  * applied AFTER smoothing + fluid movement (see ./cursorChain.ts):
  *

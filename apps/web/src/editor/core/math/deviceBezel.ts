@@ -1,9 +1,9 @@
 /**
  * The iPhone 16 Pro chrome as a DRAW RECIPE (numbers only) — port of
- * apps/macos/CaptureCat/Services/DeviceBezelRenderer.swift (drawSideButtons
+ * apps/macos/CaptureCat/Studio/Services/DeviceBezelRenderer.swift (drawSideButtons
  * 171-209, drawSideSlab 215-228, drawBody 233-320, drawIsland 323-362,
  * fillVertical 367-387) and the exporter's layer split in
- * Services/DeviceFrameRenderer.swift (34-78).
+ * Studio/Services/DeviceFrameRenderer.swift (34-78).
  *
  * Golden-vector unit: `deviceBezelRecipe` (verbatim oracle over the REAL
  * DeviceFrameLayout.metrics), plus deviceFrameLayout.ts's units.

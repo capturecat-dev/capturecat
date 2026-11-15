@@ -87,7 +87,7 @@ export interface Rect {
   height: number;
 }
 
-/** Extensions/Color+Codable.swift — four stored sRGB doubles. */
+/** Studio/Extensions/Color+Codable.swift — four stored sRGB doubles. */
 export interface CodableColor extends HasExtra {
   red: number;
   green: number;
@@ -500,7 +500,7 @@ export interface Project extends HasExtra {
 
 // ── Sidecar recordings (not in project.json, referenced by URL) ─────────────
 
-/** Models/CursorEvent.swift (synthesized Codable). Coordinates are the
+/** Studio/Models/CursorEvent.swift (synthesized Codable). Coordinates are the
  * recording's coordinate space (points, Y-down). */
 export interface CursorEvent {
   timestamp: number;
@@ -509,7 +509,7 @@ export interface CursorEvent {
   isClick: boolean;
 }
 
-/** Models/CursorRecording.swift — cursor.json */
+/** Studio/Models/CursorRecording.swift — cursor.json */
 export interface CursorRecording {
   version: number;
   coordinateWidth: number;

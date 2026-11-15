@@ -1,5 +1,5 @@
 /**
- * Port of Services/ZoomFocalMath.swift (`enum ZoomFocalMath`) — ALL of it:
+ * Port of Studio/Services/ZoomFocalMath.swift (`enum ZoomFocalMath`) — ALL of it:
  * cardOffsetLimit, clampCardOffset, RegionTargets, RegionMemory, returnOmega,
  * restSnapZoomEpsilon / restSnapVelocityEpsilon / restLandingBand,
  * settleTowardRest, settleTowardZero, parallaxScale, regionTargets,

@@ -1,5 +1,5 @@
 /**
- * Port of Services/CameraLayoutMath.swift — dynamic camera layouts (bubble /
+ * Port of Studio/Services/CameraLayoutMath.swift — dynamic camera layouts (bubble /
  * camera-only / side-by-side / screen-only), interpolated across mode
  * boundaries with a smootherstep morph so a switch reads as a morph, not a
  * cut. Shared by the preview compositor and the exporter (each passes its OWN

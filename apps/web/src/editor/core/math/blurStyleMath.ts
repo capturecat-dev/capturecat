@@ -1,5 +1,5 @@
 /**
- * Port of apps/macos/CaptureCat/Services/BlurStyleMath.swift — blur-region
+ * Port of apps/macos/CaptureCat/Studio/Services/BlurStyleMath.swift — blur-region
  * style math shared by the Mac preview patch pipeline and the exporter: the
  * strength → mosaic block size mapping and the animated-censor grid jitter.
  *

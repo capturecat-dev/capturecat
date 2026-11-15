@@ -1,8 +1,8 @@
 /**
  * Auto Zoom + Motion as PURE edits on a mutable (draft) project — ports of
  *
- *   - Services/AutoZoomApplier.swift   `AutoZoomApplier.apply(to:zoomLevel:)`
- *   - Services/StillMotionComposer.swift `StillMotionApplier.install / apply`
+ *   - Studio/Services/AutoZoomApplier.swift   `AutoZoomApplier.apply(to:zoomLevel:)`
+ *   - Studio/Services/StillMotionComposer.swift `StillMotionApplier.install / apply`
  *   - Services/MCPServer+Edits.swift   `opAutoZoom` (the routing the MCP
  *     `auto_zoom` tool uses: image captures → Motion, else Auto Zoom)
  *   - Services/CursorTracker.swift     `CursorTracker.load(from:)` (cursor.json)

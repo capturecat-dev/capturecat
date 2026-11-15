@@ -1,5 +1,5 @@
 /**
- * Port of Services/EasingFunctions.swift (`enum Easing`) — easeInOutCubic,
+ * Port of Studio/Services/EasingFunctions.swift (`enum Easing`) — easeInOutCubic,
  * smootherStep, easeOutCubic, easeInCubic, easeOutQuart, easeOutExpo, spring,
  * regionEnvelope, zoomEnvelope, zoomLevel.
  *

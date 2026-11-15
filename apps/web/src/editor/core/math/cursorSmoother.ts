@@ -1,5 +1,5 @@
 /**
- * Port of Services/CursorSmoother.swift — the zero-lag symmetric cursor path
+ * Port of Studio/Services/CursorSmoother.swift — the zero-lag symmetric cursor path
  * smoother plus the bracketing interpolation every cursor consumer uses
  * (exporter camera follow, cursor overlay, click chain).
  *

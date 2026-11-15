@@ -1,5 +1,5 @@
 /**
- * Port of Views/Editor/VideoTrackEditMath.swift — the VIDEO track's drag
+ * Port of Studio/Editor/VideoTrackEditMath.swift — the VIDEO track's drag
  * resolution (whole-track trim/slip + multi-clip move/resize). All times are
  * OUTPUT time. Locked by the `videoTrackEditMath` golden vectors.
  */

@@ -2,11 +2,11 @@
  * On-canvas editing chrome — the web twin of the Mac preview's editor-only
  * decoration, drawn into the stage overlay's 2D canvas (canvas backing px):
  *
- * - `SelectionChromeKit` (Services/SelectionChromeKit.swift): the ONE region
+ * - `SelectionChromeKit` (Studio/Services/SelectionChromeKit.swift): the ONE region
  *   selection chrome for blur / highlight / depth focus — 2pt accent outline
  *   inside the box, eight 8pt resize dots, the floating value pill (icons +
  *   CCSlider-style ticks and bar thumb). Selected region only.
- * - `AnnotationRenderer.Chrome` (Services/AnnotationRenderer.swift): the
+ * - `AnnotationRenderer.Chrome` (Studio/Services/AnnotationRenderer.swift): the
  *   accent selection ring (1.5pt, 3pt off the shape), round grab handles
  *   (10pt white discs; unselected annotations' handles at 0.55), the tap's
  *   dashed ring. Paused only (`showsHandles = !isPlaying`).

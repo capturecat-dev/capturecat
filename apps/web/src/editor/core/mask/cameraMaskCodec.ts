@@ -8,7 +8,7 @@
  * decoded bytes. The format is lossless, so decoded masks are bit-identical
  * no matter which encoder produced the compressed bytes.
  *
- * Twin: apps/macos/CaptureCat/Services/CameraMaskTrack.swift — keep the two
+ * Twin: apps/macos/CaptureCat/Studio/Services/CameraMaskTrack.swift — keep the two
  * byte-for-byte compatible (the --web-vectors harness writes a fixture the
  * vitest suite decodes).
  *

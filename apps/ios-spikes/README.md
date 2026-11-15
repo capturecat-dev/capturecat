@@ -15,7 +15,7 @@ UIKit only (no SwiftUI), like the rest of CaptureCat.
 | `Spikes/Media/` | Synthetic media from `mac/make-media.sh` (gitignored). Never user media. |
 | `run-device.sh` | Build, install and run every spike on a physical device: `./run-device.sh <udid> <label>`. |
 | `mac/make-hevc.swift`, `mac/make-media.sh` | Synthetic screen-like HEVC (3456×2234 and 5120×2880 at 60 fps) and 60 s of `say` speech. |
-| `mac/font-report-mac.sh` | Spike (e), Mac side: compiles the REAL `Services/FontCatalog.swift` and records what the Mac resolves. |
+| `mac/font-report-mac.sh` | Spike (e), Mac side: compiles the REAL `Studio/Services/FontCatalog.swift` and records what the Mac resolves. |
 | `mac/merge-font-report.py` | Spike (e): diff the Mac and iOS resolutions. |
 | `mac/scratch/scratch.patch`, `mac/run-scratch-spikes.sh` | Spikes (d) and (h) on the REAL Mac compositor / editor shell: applied to a `git archive` scratch copy of `apps/macos`, never to the product tree. |
 | `results/` | Measured outputs, one folder per device. |

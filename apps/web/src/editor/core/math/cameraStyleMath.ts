@@ -1,5 +1,5 @@
 /**
- * Port of Services/CameraStyleMath.swift — camera-bubble styling shared by the
+ * Port of Studio/Services/CameraStyleMath.swift — camera-bubble styling shared by the
  * Mac preview compositor and exporter: colour adjustments + filter presets,
  * shape corner radius / clip path (circle, squircle superellipse, rounded
  * rect, square), border colour, ring light recipe, and the name-tag layout.

@@ -1,6 +1,6 @@
 /**
  * The Mac exporter's PRIVATE cursor pipeline, as numbers — ports of
- * Services/VideoExporter.swift (commit da569841c7b63175bffa46d897457f157224774d):
+ * Studio/Services/VideoExporter.swift (commit da569841c7b63175bffa46d897457f157224774d):
  *
  *   - `export` locals ≈ lines 331–408: `canvasScale`, `fullCursorCoordinateSize`,
  *     `sourceToOutputScale`, `maximumZoom`, `cursorRasterScale` (+ the

@@ -1,14 +1,14 @@
 /**
  * Region geometry — ports of the region models' math:
  *
- * - Models/BlurRegion.swift: `rectInViewSpace(in:)`, `rectInImageSpace(in:)`,
+ * - Studio/Models/BlurRegion.swift: `rectInViewSpace(in:)`, `rectInImageSpace(in:)`,
  *   `blurRadius(in:)`, `duration`, `previewCornerRadius`;
- * - Models/BlurRegion+Feather.swift: `featherRadius(in:)`, `featherSigma(in:)`
+ * - Studio/Models/BlurRegion+Feather.swift: `featherRadius(in:)`, `featherSigma(in:)`
  *   and the feather constants;
- * - Models/HighlightRegion.swift: `rectInViewSpace`, `rectInImageSpace`,
+ * - Studio/Models/HighlightRegion.swift: `rectInViewSpace`, `rectInImageSpace`,
  *   `cornerRadius(for:in:)` (static), `cornerRadius(in:)`, `dimOpacity`,
  *   `duration`, `previewCornerRadius`, `cornerRadiusRatio`;
- * - Models/FocusRegion.swift: `rectInViewSpace(in:)`, `duration`.
+ * - Studio/Models/FocusRegion.swift: `rectInViewSpace(in:)`, `duration`.
  *
  * Golden-vector units: `blurRegionGeometry`, `highlightRegionGeometry`,
  * `focusRegionGeometry`, `regionConstants` (core/vectors/regions.test.ts).

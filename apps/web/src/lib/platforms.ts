@@ -90,7 +90,7 @@ export const PLATFORM_ROWS: PlatformRow[] = [
     label: "Export",
     mac: "MP4, MOV, or GIF, up to 4K at 60 fps",
     web: "MP4, MOV, or GIF, up to 4K at 60 fps",
-    sources: ["apps/macos/CaptureCat/Models/ExportSettings.swift", "apps/web/src/editor/ui/export/exportProject.ts (EXPORT_FORMATS, EXPORT_RESOLUTIONS)"],
+    sources: ["apps/macos/CaptureCat/Studio/Models/ExportSettings.swift", "apps/web/src/editor/ui/export/exportProject.ts (EXPORT_FORMATS, EXPORT_RESOLUTIONS)"],
   },
   {
     label: "Where projects live",

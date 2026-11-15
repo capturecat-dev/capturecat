@@ -2,8 +2,8 @@
  * Hit geometry + drag math of the stage's editing surface — a literal port of
  * `Views/Editor/PreviewCompositor/PreviewInteractionView.swift` (hit zones,
  * drag deltas, clamps, magnetism) plus the shared chrome metrics of
- * `Views/Editor/RegionHandleChrome.swift` (`RegionHandleChrome`,
- * `RegionPillPlacement`) and `Services/SelectionChromeKit.swift` (pill
+ * `Studio/Editor/RegionHandleChrome.swift` (`RegionHandleChrome`,
+ * `RegionPillPlacement`) and `Studio/Services/SelectionChromeKit.swift` (pill
  * layout). Pure — the DOM/state machine lives in StageInteraction.ts.
  *
  * Units: everything is in CARD px (the engine's pre-camera canvas px,

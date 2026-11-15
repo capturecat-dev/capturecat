@@ -1,5 +1,5 @@
 /**
- * TimelineSnap (Views/Editor/TimelineSnap.swift) + the ruler's time format
+ * TimelineSnap (Studio/Editor/TimelineSnap.swift) + the ruler's time format
  * (TimelineCanvasView.formatRulerTime) and the block drag resolution
  * (TimelineCanvasView.resolvedTimes) — byte-for-byte ports.
  *

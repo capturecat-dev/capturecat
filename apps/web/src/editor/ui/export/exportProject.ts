@@ -16,7 +16,7 @@ import type { AspectRatio } from "../../core/model/enums";
 import type { EngineClient } from "../../engine/client";
 import type { ExportResult } from "../../engine/protocol";
 
-/** `ExportSettings` (Models/ExportSettings.swift) — raw values are persistence identity. */
+/** `ExportSettings` (Studio/Models/ExportSettings.swift) — raw values are persistence identity. */
 export interface SheetExportSettings {
   format: "MP4" | "MOV" | "GIF";
   resolution: "720p" | "1080p" | "4K" | "Custom";

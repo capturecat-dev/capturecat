@@ -1,6 +1,6 @@
 /**
  * Animated-GIF output policy — the port of `GIFExportPolicy`
- * (apps/macos/CaptureCat/Services/ExportFormats.swift), locked to the Swift by
+ * (apps/macos/CaptureCat/Studio/Services/ExportFormats.swift), locked to the Swift by
  * the `gifPolicy` golden vectors (`CaptureCat --export-formats-test`,
  * ./golden/exportFormats.golden.json). The Mac's documented choice, verbatim:
  *

@@ -1,5 +1,5 @@
 /**
- * Port of Views/Editor/TimelineSnap.swift — the timeline's snap grid and
+ * Port of Studio/Editor/TimelineSnap.swift — the timeline's snap grid and
  * candidate snapping (shared by every track's drag math).
  * Locked to Swift by the `timelineSnap` golden vectors.
  */

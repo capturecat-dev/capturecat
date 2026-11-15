@@ -1,5 +1,5 @@
 /**
- * Web twin of Services/FontCatalog.swift `font(named:size:weight:)` + the
+ * Web twin of Studio/Services/FontCatalog.swift `font(named:size:weight:)` + the
  * CoreText text metrics `AnnotationRenderer.TextLine` reads
  * (`NSAttributedString.size()`, `round(font.ascender)`), for Canvas2D in the
  * render worker.

@@ -2,7 +2,7 @@ import AppKit
 import CoreGraphics
 import CoreImage
 
-// Style cluster — CameraStyleMath (Services/CameraStyleMath.swift).
+// Style cluster — CameraStyleMath (Studio/Services/CameraStyleMath.swift).
 extension WebVectors {
     static var styleCameraUnits: [WebVectorUnit] {
         [

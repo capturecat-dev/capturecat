@@ -1,5 +1,5 @@
 /**
- * Port of Services/PlacementMath.swift — the nine-way video placement grid
+ * Port of Studio/Services/PlacementMath.swift — the nine-way video placement grid
  * and the freeform (drag-anywhere) card position. Fractions are normalized
  * and Y-DOWN (preview convention). Locked by the `placementMath` vectors.
  */

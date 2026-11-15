@@ -1,5 +1,5 @@
 /**
- * Port of Services/CursorStyleProvider.swift — the cursor artwork every
+ * Port of Studio/Services/CursorStyleProvider.swift — the cursor artwork every
  * renderer uses: per-style point size + hotspot (`asset(for:)`), the raster
  * pixel grid (`rasterizedCGImage(for:pixelSize:)`), and the vector geometry of
  * the drawn styles (private `drawnArrow` / `drawnDot`) as plain draw ops.

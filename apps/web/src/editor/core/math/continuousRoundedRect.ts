@@ -1,5 +1,5 @@
 /**
- * Port of Services/ContinuousRoundedRect.swift — Apple's continuous-corner
+ * Port of Studio/Services/ContinuousRoundedRect.swift — Apple's continuous-corner
  * ("squircle") rounded rectangle as CGPath elements, element-for-element
  * (three cubics per corner, per-axis reach capped at half the edge), plus the
  * circular-corner `circularPath`. `DeviceFrameLayout.continuousRoundedPath`

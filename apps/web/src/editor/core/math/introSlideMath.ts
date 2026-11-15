@@ -1,5 +1,5 @@
 /**
- * Port of Services/IntroSlideMath.swift — `IntroSlideStyle.vector` (as
+ * Port of Studio/Services/IntroSlideMath.swift — `IntroSlideStyle.vector` (as
  * `introSlideVector`; the persisted enum itself lives in ../model/enums) and
  * `enum IntroSlideMath`: State, travel / startScale / depthStartScale /
  * depthStartPitch, `state(style:at:startTime:duration:bounce:depth:speed:)`,

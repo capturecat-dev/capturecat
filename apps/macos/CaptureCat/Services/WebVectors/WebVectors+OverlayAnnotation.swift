@@ -2,13 +2,13 @@ import AppKit
 import CoreGraphics
 import CoreText
 
-// VERBATIM ORACLE of Services/AnnotationRenderer.swift at commit
+// VERBATIM ORACLE of Studio/Services/AnnotationRenderer.swift at commit
 // da569841c7b63175bffa46d897457f157224774d — the private drawing functions
 // (selectionRing 84–91, image 95–122, draw 126–149, drawBackdrop 182–228,
 // draw(_:) 232–284, drawText 288–313, drawArrow 317–349, drawCallout
 // 353–403, drawDrawing 447–478, drawShape 482–522, drawTap 526–596, point
 // 600–603, handle 607–622, TextLine.draw 685–713) plus SwiftUIShadow.apply
-// (Services/SwiftUIShadow.swift 20–28). The internal helpers the originals
+// (Studio/Services/SwiftUIShadow.swift 20–28). The internal helpers the originals
 // call (labelRect, trimmedStrokes, boxEdgeIntersection, TextLine,
 // OklabGradient, TapRippleMath) are called for REAL. Drawing goes through
 // WVRecCtx: the real CGContext draws the same pixels while the ops are

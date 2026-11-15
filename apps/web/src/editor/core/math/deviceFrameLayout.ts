@@ -1,5 +1,5 @@
 /**
- * Port of apps/macos/CaptureCat/Services/DeviceFrameLayout.swift — the shared
+ * Port of apps/macos/CaptureCat/Studio/Services/DeviceFrameLayout.swift — the shared
  * geometry + materials for the iPhone 16 Pro bezel (a CLAUDE.md "shared
  * source of truth": the preview compositor and the exporter both read it).
  *

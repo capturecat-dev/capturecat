@@ -1,5 +1,5 @@
 /**
- * Port of Models/Annotation.swift — `AnnotationEffectMath` (Phase, duration,
+ * Port of Studio/Models/Annotation.swift — `AnnotationEffectMath` (Phase, duration,
  * drawOnDuration, effectDuration, phase(effect:progress:),
  * combined(enter:exit:start:end:at:)) plus the `Annotation` helpers both
  * renderers read: `effectAnchor`, `displayText`, `effectPhase(at:)`, `duration`.

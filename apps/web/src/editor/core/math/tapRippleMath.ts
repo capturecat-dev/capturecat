@@ -1,7 +1,7 @@
 /**
- * Port of Views/Editor/ClickRippleOverlay.swift `TapRippleMath` — the looping
+ * Port of Studio/Editor/ClickRippleOverlay.swift `TapRippleMath` — the looping
  * tap-indicator annotation's deterministic phase (consumed by
- * Services/AnnotationRenderer.swift with `elapsed = currentTime − a.startTime`,
+ * Studio/Services/AnnotationRenderer.swift with `elapsed = currentTime − a.startTime`,
  * SOURCE seconds, never a wall clock — so scrubbing and export agree).
  *
  * Locked to Swift by the `tapRippleProgress` golden vectors. Swift

@@ -68,7 +68,7 @@ choice for the whole video, not only a timeline block.
 
 The shared source of truth for "where is the person". Format and codec:
 `apps/web/src/editor/core/mask/cameraMaskCodec.ts` (spec in its header) and its
-twin `apps/macos/CaptureCat/Services/CameraMaskTrack.swift`.
+twin `apps/macos/CaptureCat/Studio/Services/CameraMaskTrack.swift`.
 
 - Lossless: per-frame 8-bit alpha, raw DEFLATE, key frames + XOR deltas (the
   encoder keeps whichever is smaller; a key at least every `keyframeInterval`).
@@ -566,7 +566,7 @@ C, exactly where §5 draws today's gradient.
 
 ### 12.4 Edge softness and inset — `CameraMaskEdge`
 
-One integer algorithm, byte-identical in Swift (`Services/CameraMaskEdge.swift`)
+One integer algorithm, byte-identical in Swift (`Studio/Services/CameraMaskEdge.swift`)
 and TS (`core/mask/maskEdge.ts`), applied to every decoded mask frame
 (including frame 0 under the poster) before it is used as alpha, wherever a
 look draws. It changes the person's edge for BOTH looks.

@@ -1,5 +1,5 @@
 /**
- * Port of Services/PreviewMotionModel.swift (`final class PreviewMotionModel`)
+ * Port of Studio/Services/PreviewMotionModel.swift (`final class PreviewMotionModel`)
  * — the preview's camera-motion state machine: zoom / focal / card-offset /
  * tilt springs. `reset(env:)`, `step(env:)`, `scrub(env:from:)`,
  * `effectiveTiltAmount(...)`, `effectiveTiltAngles(...)`, and the private

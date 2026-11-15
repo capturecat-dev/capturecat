@@ -1,5 +1,5 @@
 /**
- * Port of Services/CurtainUnveilMath.swift — the Curtain Unveil page peel:
+ * Port of Studio/Services/CurtainUnveilMath.swift — the Curtain Unveil page peel:
  * `CurtainUnveilCorner.point`, motion curves (sweepEase, flapOverfoldRadians,
  * flapReleaseOffset, flapOpacityValue, shadowWidthFraction,
  * shadowStrengthValue), `state(corner:at:startTime:duration:)`, the

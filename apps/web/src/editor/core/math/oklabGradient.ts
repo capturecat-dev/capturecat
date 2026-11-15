@@ -1,5 +1,5 @@
 /**
- * Port of Services/OklabGradient.swift — `SRGBA` plus the Oklab ramp every
+ * Port of Studio/Services/OklabGradient.swift — `SRGBA` plus the Oklab ramp every
  * native gradient in the app uses (SwiftUI-compatible: stops interpolate in
  * Oklab, alpha-weighted, alpha itself linear).
  *

@@ -13,7 +13,7 @@ import CoreGraphics
 typealias WebCameraKey = WebCameraPathOracle.WebCameraKey
 
 /// VERBATIM oracle of the exporter's per-frame camera path:
-/// Services/VideoExporter.swift lines 410–614 (the spring state vars,
+/// Studio/Services/VideoExporter.swift lines 410–614 (the spring state vars,
 /// `tiltSpringTarget`, `tiltRegionTarget`, `combinedTiltKey` and the
 /// `cameraPath` map) + `private struct CameraKey` (line 3922), at
 /// da569841c7b63175bffa46d897457f157224774d.
@@ -296,10 +296,10 @@ fileprivate extension Double {
 // MARK: - Private-helper oracles
 
 /// VERBATIM oracles of `private` helpers that the TS ports export:
-/// - `ZoomFocalMath.smoothstep(_:_:_:)` — Services/ZoomFocalMath.swift 238–243
+/// - `ZoomFocalMath.smoothstep(_:_:_:)` — Studio/Services/ZoomFocalMath.swift 238–243
 /// - `IntroSlideMath.easeOutBack(_:bounce:)`, `pulling(_:_:bounce:)`,
-///   `arriving(_:_:startScale:startPitch:)` — Services/IntroSlideMath.swift 127–164
-/// - `MotionBlurMath.mappedCenter(_:)` — Services/MotionBlurMath.swift 63–68
+///   `arriving(_:_:startScale:startPitch:)` — Studio/Services/IntroSlideMath.swift 127–164
+/// - `MotionBlurMath.mappedCenter(_:)` — Studio/Services/MotionBlurMath.swift 63–68
 /// all at da569841c7b63175bffa46d897457f157224774d.
 enum CameraMotionHelperOracle {
     static func smoothstep(_ edge0: Double, _ edge1: Double, _ x: Double) -> CGFloat {

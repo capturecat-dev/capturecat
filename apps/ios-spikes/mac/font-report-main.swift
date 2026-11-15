@@ -1,5 +1,5 @@
 // Mac half of spike (e): resolves FontCatalog.curated × SubtitleWeight with the
-// REAL Services/FontCatalog.swift (compiled alongside this file by
+// REAL Studio/Services/FontCatalog.swift (compiled alongside this file by
 // font-report-mac.sh) and prints JSON in the same shape SpikeE writes on iOS.
 import AppKit
 

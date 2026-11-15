@@ -1,5 +1,5 @@
 /**
- * Port of Services/CameraCutoutMath.swift — the geometry of the two camera
+ * Port of Studio/Services/CameraCutoutMath.swift — the geometry of the two camera
  * looks (docs/camera-cutout.md §3) and the mask-track rules both renderers
  * share (§2): mask resolution, staleness.
  *

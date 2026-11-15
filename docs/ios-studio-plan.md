@@ -17,7 +17,8 @@ against a snapshot of the pre-change commit, and pass `run-gates.sh` plus the ex
 | 1c | `PreviewCompositorCore` (AppKit-free; adopts the host's backing layer as its root — same layer tree) + `PreviewCompositorView` NSView host; `StudioChromeTheme`, `LayerContents`, `SymbolImage` | every output byte-identical to a base-binary variant (below); 15 + 12 gates pass; canary PASS (90 files) |
 | 1d | `PreviewHitMath` (targets, drag mapping, clamps, inline-edit geometry — pure) + `PreviewGestureCore` (the press → drag → release cascade) behind `PreviewGestureHost`; `PreviewInteractionView` is the mouse front end (NSCursor, marquee, notch hover, undo manager, NSTextField). New `--preview-gesture-test`: 58 gestures through the real compositor, transcript frozen from the 1c view BEFORE the extraction (commit a4f6f50) | gesture transcript byte-identical; flagged baseline outputs byte-identical to base-binary variants; 16 + 12 gates pass; canary PASS (92 files); gate power proven (a 4 pt pill-width change fails it) |
 | 1e | `TimelineEditing` protocol extension (`TimelineEdits.swift`): every lane add/delete/commit/split/speed/duplicate, slot search and undo registration, moved verbatim out of `TimelineViewController` (−1,360 lines), plus the FOCUS/EFFECTS/chip routing the canvas callbacks did inline; seams `timelineEditRefused()` (NSSound) and `timelineEditNeedsCameraMask()`; `EditorShellSelection` in its own file. New `--timeline-edits-test`: 96 edits through the real controller (lane callbacks, ⌘D/⌘B/Delete, FOCUS menu rows, menu actions) + the whole undo stack unwound, frozen BEFORE the move (commit b2039ce) | timeline transcript byte-identical; the one flagged baseline frame byte-identical to a base-binary variant; 17 + 12 gates pass; canary PASS (101 files, incl. Auto Zoom + Motion generators); gate power proven (an undo that appends instead of re-inserting fails it) |
-| 1f–1g | `git mv` into `Studio/`, iOS target builds it | — |
+| 1f | `git mv` of the 86 shared files into `Studio/` (`Models/`, `Extensions/`, `Services/`, `Editor/`, `Compositor/`, beside `Platform/`) — all R100; iOS project / scripts follow the paths; canary typechecks `Studio/` ALONE (103 files → self-contained); comment + doc path references updated separately (vector `notes` strings left as frozen output) | debug-dylib symbol table identical but for 2 equivalent closure manglings (one `setActionName` expression; same overload, same text); flagged baseline audio byte-identical to a base-binary variant; 17 + 12 gates; iOS app builds; core selftest PASS |
+| 1g | iOS App target compiles `Studio/` (collisions `CloudRemoteFile`/`CaptureCatAPI`, `--ios-vectors`) | — |
 
 **Two-state noise in the base code itself (measured 2026-11-14).** The pre-Phase-1 base binary,
 compared against its own earlier snapshot, gives `a4-muted-dense/mix.f32` either ~6e-8 or exactly
@@ -26,7 +27,7 @@ compared against its own earlier snapshot, gives `a4-muted-dense/mix.f32` either
 so `compare` can report DIFFERS on an unchanged binary. When it does: rerun the category on the new
 build AND on a fresh base build (`ONLY=preview-parity,web-audio`), and accept only if every new
 output is byte-identical (audio: ≤1e-6) to an output the base binary also produces — that is how
-1b-ii, 1c, 1d and 1e were cleared. Never raise a tolerance or refreeze to make it pass.
+1b-ii, 1c, 1d, 1e and 1f were cleared. Never raise a tolerance or refreeze to make it pass.
 
 iOS-side approximations so far (not parity-gated until Phase 2/3): the Hand cursor uses the
 drawn arrow; menu-bar calibrated colours become sRGB; images decode through ImageIO without EXIF
@@ -153,7 +154,7 @@ on iOS (uploaded wallpapers travel as project media).
    `Models/` edits with the iPhone-over-Wi-Fi work.
 
 Critical files: `Views/Editor/PreviewCompositor/PreviewCompositorView.swift`,
-`Services/VideoExporter.swift`, `Models/ProjectSettings.swift`,
+`Studio/Services/VideoExporter.swift`, `Studio/Models/ProjectSettings.swift`,
 `Views/Editor/TimelineViewController.swift`, `Services/CloudProjectSync.swift`,
 `Views/Editor/PreviewCompositor/PreviewParityHarness.swift`, `scripts/run-gates.sh`,
 `apps/ios/scripts/gen-xcodeproj.py`.

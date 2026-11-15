@@ -2,14 +2,14 @@
  * Shared helpers for the REGIONS cluster ports — candidates for hoisting into
  * shared modules (see the notes on each export).
  *
- * - `continuousRoundedRectPath` ports Services/ContinuousRoundedRect.swift
+ * - `continuousRoundedRectPath` ports Studio/Services/ContinuousRoundedRect.swift
  *   `path(rect:cornerRadius:)` (Apple's continuous-corner "squircle", used by
  *   the device bezel, the squircle frame shape, curtain clip and annotations).
  *   Locked by the golden-vector unit `continuousRoundedPath` (every CGPath
  *   element, incl. the `CGPath(rect:)` fallback). It belongs in its own
  *   `continuousRoundedRect.ts` once the coordinator hoists it.
  * - `cgRectPath` reproduces `CGPath(rect:transform: nil)` element emission.
- * - `SRGBA` mirrors Services/OklabGradient.swift `SRGBA` (straight alpha).
+ * - `SRGBA` mirrors Studio/Services/OklabGradient.swift `SRGBA` (straight alpha).
  * - `flipRectY` is the CI (Y-up) ↔ Y-down conversion every exporter-space
  *   rect needs at the GPU boundary.
  */

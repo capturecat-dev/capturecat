@@ -1,5 +1,5 @@
 /**
- * Port of Services/CursorSpringMath.swift `CursorSpringMath` — fluid cursor
+ * Port of Studio/Services/CursorSpringMath.swift `CursorSpringMath` — fluid cursor
  * movement: a damped spring (semi-implicit Euler at a fixed 240 Hz step,
  * resampled to 120 Hz) chases the recorded path, with click pinning over
  * PRESSED INTERVALS so a click never moves off the thing it clicked.

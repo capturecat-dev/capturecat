@@ -1,5 +1,5 @@
 /**
- * Port of Models/AspectRatio.swift + Models/ExportSettings.swift geometry:
+ * Port of Studio/Models/AspectRatio.swift + Studio/Models/ExportSettings.swift geometry:
  * the canvas aspect shared by the editor's letterboxed preview and the
  * exporter's output size, the letterbox fit, and the exported pixel size /
  * bitrate. Locked by the `exportOutputGeometry` vectors.

@@ -1,7 +1,7 @@
 /**
  * Edge inset (erosion) and softness (feather) for a decoded person-mask
  * frame — docs/camera-cutout.md §12.4, the twin of
- * apps/macos/CaptureCat/Services/CameraMaskEdge.swift. Pure integer
+ * apps/macos/CaptureCat/Studio/Services/CameraMaskEdge.swift. Pure integer
  * arithmetic, so both sides produce the SAME bytes (locked by the
  * `cameraMaskEdge` golden-vector unit). The renderer runs every decoded mask
  * frame (frame 0 under the poster too) through `processMaskEdge` before it

@@ -1,5 +1,5 @@
 /**
- * Port of Services/CursorPhysicsMath.swift `CursorPhysicsMath` — cursor
+ * Port of Studio/Services/CursorPhysicsMath.swift `CursorPhysicsMath` — cursor
  * motion physics (tilt, squash-and-stretch, body drag) as a PURE function of
  * the recorded path and the timeline clock: `pose(events:at:coordinateSize:
  * videoRect:spriteHeight:tilt:stretch:drag:weight:)`, `Pose.yFlipped()`,

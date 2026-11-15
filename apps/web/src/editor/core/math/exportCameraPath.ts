@@ -1,6 +1,6 @@
 /**
  * Port of the exporter's per-frame camera path — the INLINE pre-pass inside
- * `VideoExporter.export` (Services/VideoExporter.swift lines 410–614 at
+ * `VideoExporter.export` (Studio/Services/VideoExporter.swift lines 410–614 at
  * da569841c7b63175bffa46d897457f157224774d: the spring state vars,
  * `tiltSpringTarget`, `tiltRegionTarget`, `combinedTiltKey` and the
  * `cameraPath` map) plus `private struct CameraKey` (line 3922).

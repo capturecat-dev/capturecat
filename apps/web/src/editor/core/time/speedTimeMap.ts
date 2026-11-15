@@ -1,5 +1,5 @@
 /**
- * Port of Services/SpeedTimeMap.swift — SOURCE time (original recording) ↔
+ * Port of Studio/Services/SpeedTimeMap.swift — SOURCE time (original recording) ↔
  * OUTPUT time (after trim + per-segment playback speed).
  *
  * Locked to Swift by the `speedTimeMap` golden vectors.

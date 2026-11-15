@@ -1,6 +1,6 @@
 /**
  * The exporter's region compositing NUMBERS — ports of private / inline code
- * in apps/macos/CaptureCat/Services/VideoExporter.swift (commit da569841):
+ * in apps/macos/CaptureCat/Studio/Services/VideoExporter.swift (commit da569841):
  *
  * - per-frame selection (export(), 1614-1616 / 1630-1632 / 1783-1785);
  * - `applyRegionBlur` (2636-2724);
@@ -8,7 +8,7 @@
  *   geometry (2806-2877);
  * - the Depth Focus block (1633-1664; the mask itself is focusMath.ts);
  * - `Easing.regionEnvelope` / `Easing.smootherStep`
- *   (Services/EasingFunctions.swift — hoist into a shared `easing.ts`).
+ *   (Studio/Services/EasingFunctions.swift — hoist into a shared `easing.ts`).
  *
  * Golden-vector units (verbatim oracles in WebVectors+RegionsOracle.swift):
  * `exportActiveRegions`, `exportRegionBlur`, `exportRegionHighlight`,
@@ -84,7 +84,7 @@ import {
 } from "./regionGeometry";
 import { smax, smin } from "./swift";
 
-// ── Easing (Services/EasingFunctions.swift) ─────────────────────────────────
+// ── Easing (Studio/Services/EasingFunctions.swift) ─────────────────────────────────
 // Single source: easing.ts (locked by `easingEnvelopes` + `regionEnvelope`).
 import { regionEnvelope, smootherStep } from "./easing";
 export { regionEnvelope, smootherStep };

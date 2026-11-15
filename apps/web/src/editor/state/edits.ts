@@ -599,7 +599,7 @@ export function deleteFocusItem(id: string, isHighlight: boolean): Edit {
 
 // ── ANNOTATE lane ───────────────────────────────────────────────────────
 
-/** `Annotation.applyNewAnnotationDefaults()` (Models/Annotation.swift). */
+/** `Annotation.applyNewAnnotationDefaults()` (Studio/Models/Annotation.swift). */
 export function applyNewAnnotationDefaults(a: ReturnType<typeof newAnnotation>): void {
   switch (a.type) {
     case "text":

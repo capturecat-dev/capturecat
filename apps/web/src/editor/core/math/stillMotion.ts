@@ -1,5 +1,5 @@
 /**
- * Port of Services/StillMotionComposer.swift `enum StillMotionComposer` —
+ * Port of Studio/Services/StillMotionComposer.swift `enum StillMotionComposer` —
  * Tuning, cornerTour, compose(duration:) and clampFocal — the "Motion"
  * one-click cinematic tour for still-image captures. (`StillMotionApplier`,
  * which installs a plan into a project, is `applyStillMotion` in

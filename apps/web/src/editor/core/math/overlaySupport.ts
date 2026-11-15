@@ -2,8 +2,8 @@
  * Shared support for the OVERLAY cluster ports (keystroke pill, curtain,
  * annotations, subtitles): CoreGraphics path primitives as element lists,
  * the draw-op vocabulary + a CGContext-shaped recorder, Services/
- * ContinuousRoundedRect.swift, Services/OklabGradient.swift (+ SRGBA),
- * Services/SwiftUIShadow.swift and Views/Editor/ClickRippleOverlay.swift
+ * ContinuousRoundedRect.swift, Studio/Services/OklabGradient.swift (+ SRGBA),
+ * Studio/Services/SwiftUIShadow.swift and Studio/Editor/ClickRippleOverlay.swift
  * `TapRippleMath`.
  *
  * Locked to Swift by the golden-vector units `overlayPathPrimitives`,
@@ -126,7 +126,7 @@ export function closedPolygonPath(points: readonly Point[]): PathElements {
   return out;
 }
 
-// ── ContinuousRoundedRect (Services/ContinuousRoundedRect.swift) ────────────
+// ── ContinuousRoundedRect (Studio/Services/ContinuousRoundedRect.swift) ────────────
 
 export const ContinuousRoundedRect = {
   fullReach: 1.528665,
@@ -152,7 +152,7 @@ export function continuousCircularPath(rect: Rect, cornerRadius: number): PathEl
   return toTuples(CRR.circularPath(rect, cornerRadius));
 }
 
-// ── SRGBA + OklabGradient (Services/OklabGradient.swift) ────────────────────
+// ── SRGBA + OklabGradient (Studio/Services/OklabGradient.swift) ────────────────────
 
 /** `OklabGradient.resolution` — stops per CGGradient ramp. */
 // Single source: oklabGradient.ts (locked by oklabGradient / oklabGradientStops).
@@ -198,7 +198,7 @@ export function oklabGradientTable(stops: readonly GradientStop[]): { colors: RG
   return { colors: table.map((e) => fromS(e.color)), locations: table.map((e) => e.location) };
 }
 
-// ── SwiftUIShadow (Services/SwiftUIShadow.swift) ────────────────────────────
+// ── SwiftUIShadow (Studio/Services/SwiftUIShadow.swift) ────────────────────────────
 
 /** SwiftUIShadow.blurFactor — single source: swiftUIShadow.ts. */
 import { blurFactor as swiftUIShadowBlurFactor } from "./swiftUIShadow";
@@ -210,7 +210,7 @@ export function deviceScale(ctm: AffineTransform): number {
   return Math.sqrt(Math.abs(ctm.a * ctm.d - ctm.b * ctm.c));
 }
 
-// ── TapRippleMath (Views/Editor/ClickRippleOverlay.swift) ───────────────────
+// ── TapRippleMath (Studio/Editor/ClickRippleOverlay.swift) ───────────────────
 // Single source: tapRippleMath.ts (locked by tapRippleProgress).
 import { period as tapPeriod, progress as tapProgress, rippleDuration as tapRippleDuration } from "./tapRippleMath";
 

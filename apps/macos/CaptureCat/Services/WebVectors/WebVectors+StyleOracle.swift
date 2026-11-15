@@ -25,7 +25,7 @@ extension WebVectors {
         return [vcase(["oracleMismatch": .str(unit)], ["oracleMismatch": .arr(mine.map { .str($0) })])]
     }
 
-    // MARK: - BackgroundGradientRenderer.draw (Services/BackgroundGradientRenderer.swift:26-55)
+    // MARK: - BackgroundGradientRenderer.draw (Studio/Services/BackgroundGradientRenderer.swift:26-55)
 
     /// The gradient line endpoints `draw(in:rect:start:end:axis:)` hands to
     /// `drawLinearGradient`, in the context's Y-UP space. nil when the guard
@@ -51,7 +51,7 @@ extension WebVectors {
         return (p0, p1)
     }
 
-    // MARK: - BackgroundLook private helpers (Services/BackgroundLook.swift)
+    // MARK: - BackgroundLook private helpers (Studio/Services/BackgroundLook.swift)
 
     /// `noiseRows(width:height:cell:)` — BackgroundLook.swift:145-168 (cache
     /// omitted: it only memoizes this exact computation).
@@ -167,7 +167,7 @@ extension WebVectors {
         return spec.noise > 0 ? "styledGrain" : "styled"
     }
 
-    // MARK: - BackgroundLook.styled as data (Services/BackgroundLook.swift:353-422)
+    // MARK: - BackgroundLook.styled as data (Studio/Services/BackgroundLook.swift:353-422)
 
     /// One step of a CoreImage chain, as plain data.
     enum CIStep {
@@ -300,7 +300,7 @@ extension WebVectors {
         return steps
     }
 
-    // MARK: - CameraStyleMath.adjustedImage as data (Services/CameraStyleMath.swift:58-99)
+    // MARK: - CameraStyleMath.adjustedImage as data (Studio/Services/CameraStyleMath.swift:58-99)
 
     static func adjustedImageChainOracle(_ a: CameraStyleMath.Adjustments) -> [CIStep] {
         guard !a.isIdentity else { return [] }

@@ -1,5 +1,5 @@
 /**
- * Port of Services/ReactiveCameraLayout.swift — the camera bubble's reactive
+ * Port of Studio/Services/ReactiveCameraLayout.swift — the camera bubble's reactive
  * placement (shrinks as the screen zooms in, grows back as it releases; the
  * corner never changes). CLAUDE.md names it a preview/export source of truth:
  * the preview compositor AND the exporter feed it the same smoothed zoom.

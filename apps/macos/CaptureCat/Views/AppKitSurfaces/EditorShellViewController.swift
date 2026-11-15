@@ -2,7 +2,7 @@ import AVFoundation
 import AppKit
 import Observation
 
-// (EditorShellSelection, the shared shell state, lives in Views/Editor/EditorShellSelection.swift.)
+// (EditorShellSelection, the shared shell state, lives in Studio/Editor/EditorShellSelection.swift.)
 
 // MARK: - Window content switcher
 

@@ -6,7 +6,7 @@ import AppKit
 /// VERBATIM ORACLES for the cursor cluster's golden vectors — private or
 /// inline Swift that the harness cannot call:
 ///
-/// - Services/VideoExporter.swift (commit da569841c7b63175bffa46d897457f157224774d):
+/// - Studio/Services/VideoExporter.swift (commit da569841c7b63175bffa46d897457f157224774d):
 ///   `CursorAsset` (L70–74), `export` locals L345–408 (fullCursorCoordinateSize,
 ///   sourceToOutputScale, maximumZoom, cursorRasterScale, menuBarCrop,
 ///   effectiveNaturalSize, resolvedCursorCoordinateSize, the event shift),
@@ -15,9 +15,9 @@ import AppKit
 ///   `renderCursorCI` L3354–3467, `manualDropShadow` L3470–3490,
 ///   `renderCursor` L3492–3555, `makeCursorAsset` L3557–3591,
 ///   `drawFallbackCursor` L3593–3613.
-/// - Views/Editor/ClickRippleOverlay.swift: `clickDragThreshold` L176–180
+/// - Studio/Editor/ClickRippleOverlay.swift: `clickDragThreshold` L176–180
 ///   (private) and the numbers `renderForExport` L183–253 hands CoreGraphics.
-/// - Services/CursorStyleProvider.swift: private `drawnArrow` / `drawnDot`
+/// - Studio/Services/CursorStyleProvider.swift: private `drawnArrow` / `drawnDot`
 ///   L121–176 geometry, and the rasterization body of `rasterizedCGImage`
 ///   L50–117 (minus its cache).
 ///

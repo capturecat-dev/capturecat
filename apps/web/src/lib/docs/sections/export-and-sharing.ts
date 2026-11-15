@@ -2,8 +2,8 @@ import type { DocSection } from "../types";
 
 /**
  * Checked against apps/macos/CaptureCat: ExportSheetController.swift,
- * Models/ExportSettings.swift, Services/ExportFormats.swift (GIFExportPolicy,
- * static-span collapse), Services/VideoExporter.swift, ShareJobCenter.swift,
+ * Studio/Models/ExportSettings.swift, Studio/Services/ExportFormats.swift (GIFExportPolicy,
+ * static-span collapse), Studio/Services/VideoExporter.swift, ShareJobCenter.swift,
  * ShareIntelligence.swift, SettingsWindowController.swift (Sync exports to
  * cloud) and ProjectBrowserViewController.swift (card menu, upload states);
  * apps/web: editor/ui/export/ExportDialog.tsx + SharePanel.tsx,

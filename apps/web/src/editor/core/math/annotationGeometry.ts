@@ -1,5 +1,5 @@
 /**
- * Port of Services/AnnotationRenderer.swift — every number the ONE shared
+ * Port of Studio/Services/AnnotationRenderer.swift — every number the ONE shared
  * annotation renderer (Mac preview AND exporter) computes, as data:
  * `labelRect`, `backdropAlpha`, `trimmedStrokes` (Draw On), `boxEdgeIntersection`,
  * and the full draw RECIPE of `image` / `draw` / `drawBackdrop` / `draw(_:)`

@@ -1,6 +1,6 @@
 /**
  * Port of the PRIVATE camera-bubble and card-frame compositing numbers of
- * Services/VideoExporter.swift (commit da569841c7b63175bffa46d897457f157224774d):
+ * Studio/Services/VideoExporter.swift (commit da569841c7b63175bffa46d897457f157224774d):
  *
  *   export(...)                 static camera setup  (VideoExporter.swift:336-342, 1079-1155)
  *                               per-frame camera flow (:1425-1475, :1919-1991, :2197-2242)

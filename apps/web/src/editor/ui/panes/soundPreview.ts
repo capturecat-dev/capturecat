@@ -1,6 +1,6 @@
 /**
  * The Cursor pane's sound previews — the live halves of
- * `Services/ClickSoundPlayer.swift` and `Services/KeySoundPlayer.swift`
+ * `Studio/Services/ClickSoundPlayer.swift` and `Studio/Services/KeySoundPlayer.swift`
  * that `CursorSettingsPaneAppKit` calls (Test buttons, style picks, the
  * click toggle / volume drag), over the SAME synthesis the preview and the
  * exporter mix (core/audio/sounds.ts).

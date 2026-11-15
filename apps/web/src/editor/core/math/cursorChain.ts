@@ -4,7 +4,7 @@
  * `processCursorEvents` is the chain BOTH Mac renderers run on the recorded
  * events (confirmed identical at commit da569841):
  *
- *   - Services/VideoExporter.swift `export` (lines 125–143):
+ *   - Studio/Services/VideoExporter.swift `export` (lines 125–143):
  *       settings.smoothCursor ? CursorSmoother(factor: smoothingFactor).smooth : events
  *       → CursorSpringMath.apply(events:settings:)
  *       → CursorEndBehaviorMath.apply(trimEnd: project.effectiveTrimEnd,

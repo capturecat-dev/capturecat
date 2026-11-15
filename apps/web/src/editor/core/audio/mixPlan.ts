@@ -1,5 +1,5 @@
 /**
- * Port of `Services/ProjectAudioMix.swift` `prepare(for:project:clickTimes:keystrokes:)`
+ * Port of `Studio/Services/ProjectAudioMix.swift` `prepare(for:project:clickTimes:keystrokes:)`
  * plus the audio half of `VideoExporter.export` (reader range, fast-path
  * offset, output length) — WHAT the exported audio track contains, as plain
  * data. `engine/audio/mixer.ts` renders it; playback and export both render

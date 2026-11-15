@@ -1,5 +1,5 @@
 /**
- * Port of Models/CursorEvent.swift `CursorOverlayLayout` — where the cursor
+ * Port of Studio/Models/CursorEvent.swift `CursorOverlayLayout` — where the cursor
  * sprite lands, shared by the preview compositor and the exporter:
  * `make(cursorPosition:coordinateSize:videoRect:cursorSize:hotSpot:cursorScale:)`,
  * `resolveCoordinateSize(recordedSize:fallbackSourceSize:)`,

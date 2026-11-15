@@ -1,5 +1,5 @@
 /**
- * Port of Services/AutoZoomGenerator.swift (`enum AutoZoomGenerator`) — ALL of
+ * Port of Studio/Services/AutoZoomGenerator.swift (`enum AutoZoomGenerator`) — ALL of
  * it: the Tuning table, extractInteractions, typingBursts, dwells, Cluster
  * (startTime / endTime / centroid / spread), cluster, qualifies, depth,
  * clampFocal, frame, applyRhythm, clip and generateZoomRegions.

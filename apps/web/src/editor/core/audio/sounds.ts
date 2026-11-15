@@ -1,7 +1,7 @@
 /**
  * Synthesized click + keyboard sounds — ports of
- * `Services/ClickSoundPlayer.swift` (`tickSamples(style:)`) and
- * `Services/KeySoundPlayer.swift` (`variation(timestamp:category:)`,
+ * `Studio/Services/ClickSoundPlayer.swift` (`tickSamples(style:)`) and
+ * `Studio/Services/KeySoundPlayer.swift` (`variation(timestamp:category:)`,
  * `strokeSamples(style:pitch:)`, `renderTrackWAV(events:duration:style:)`).
  *
  * The Mac feeds BOTH its live preview and its exporter from these exact

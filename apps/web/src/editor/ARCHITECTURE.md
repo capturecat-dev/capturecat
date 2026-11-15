@@ -8,7 +8,7 @@ contributor builds against. It will live at `apps/web/src/editor/ARCHITECTURE.md
 ## Non-negotiables
 
 1. **Parity is the product.** The web preview AND web export must match the Mac
-   app's exporter (`apps/macos/CaptureCat/Services/VideoExporter.swift`, whose
+   app's exporter (`apps/macos/CaptureCat/Studio/Services/VideoExporter.swift`, whose
    preview twin is `Views/Editor/PreviewCompositor/PreviewCompositorView.swift`)
    for the same project.json + media. The Mac exporter is the reference.
 2. **Never fork math silently.** Every computation ported from Swift lives in
@@ -101,7 +101,7 @@ auth for local development — it must be absent from production builds.
 - OUTPUT seconds: position in the exported video after trim + speed regions.
   Playhead, timeline ruler (check the Mac TimelineCanvasView), render/export
   frame times use OUTPUT. Convert with the `SpeedTimeMap` port
-  (`Services/SpeedTimeMap.swift`, incl. `init(trimmedOutputOf:)` and
+  (`Studio/Services/SpeedTimeMap.swift`, incl. `init(trimmedOutputOf:)` and
   `Project.exportedOutputDuration`).
 - Coordinates: normalized 0–1 of the recorded frame, Y-DOWN, unless a Swift
   type says otherwise. CIImage space is Y-up in the exporter — port the math,

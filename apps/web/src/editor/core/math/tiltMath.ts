@@ -1,5 +1,5 @@
 /**
- * Port of Services/TiltMath.swift (`enum TiltMath` + the
+ * Port of Studio/Services/TiltMath.swift (`enum TiltMath` + the
  * `CATransform3D.init(_ p: TiltMath.Homography)` extension) — ALL of it:
  * perspectiveDistance, introAmount, springStep, deviceSideOffset,
  * tiltStyleParams, tiltReturnParams, rampOutLead, rampOutScale,

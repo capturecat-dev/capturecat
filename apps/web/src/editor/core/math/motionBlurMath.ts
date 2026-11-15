@@ -1,5 +1,5 @@
 /**
- * Port of Services/MotionBlurMath.swift (`enum MotionBlurMath`) —
+ * Port of Studio/Services/MotionBlurMath.swift (`enum MotionBlurMath`) —
  * CameraSample, Blur, the constants, `mappedCenter` (private in Swift) and
  * `blur(previous:current:dt:strength:)`.
  *
@@ -11,7 +11,7 @@
  * output-time gap between them. Stateless and closed-form.
  *
  * GPU contract — what the Mac exporter does with the result
- * (Services/VideoExporter.swift ≈2131–2165 at da569841):
+ * (Studio/Services/VideoExporter.swift ≈2131–2165 at da569841):
  * - only when `settings.motionBlur` and `frameIndex > 0`; `previous`/`current`
  *   are `cameraPath[frameIndex-1]` / `cameraPath[frameIndex]` (zoom, focalX,
  *   focalY, offsetX, offsetY of the exporter CameraKeys), `dt` is the OUTPUT

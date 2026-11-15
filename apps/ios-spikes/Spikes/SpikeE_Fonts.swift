@@ -3,7 +3,7 @@ import UIKit
 /// (e) Fonts: resolve every FontCatalog curated family × SubtitleWeight on iOS.
 ///
 /// The Mac resolves a stored family with NSFontManager.font(withFamily:traits:
-/// weight:size:) (Services/FontCatalog.swift). iOS has no NSFontManager; the
+/// weight:size:) (Studio/Services/FontCatalog.swift). iOS has no NSFontManager; the
 /// natural port is a UIFontDescriptor family + weight-trait match. For each
 /// pair this records the face iOS picks and the advance width of a reference
 /// string, so mac/merge-font-report.py can diff them against the Mac's own

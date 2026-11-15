@@ -155,7 +155,7 @@ const eStillTreatment = e(StillTreatment);
 
 // ── Leaf types ──────────────────────────────────────────────────────────────
 
-/** Extensions/Color+Codable.swift — synthesized: four required Doubles. */
+/** Studio/Extensions/Color+Codable.swift — synthesized: four required Doubles. */
 export const decodeCodableColor: Decode<CodableColor> = (v, path) => {
   const c = new Keyed(v, path, CODABLE_COLOR_KEYS);
   return withExtra(
@@ -174,7 +174,7 @@ const decodeCodablePoint: Decode<CodablePoint> = (v, path) => {
   return withExtra({ x: c.decode("x", dDouble), y: c.decode("y", dDouble) }, c.extra());
 };
 
-/** Models/ExportSettings.swift — every field decodeIfPresent with a default. */
+/** Studio/Models/ExportSettings.swift — every field decodeIfPresent with a default. */
 export const decodeExportSettings: Decode<ExportSettings> = (v, path) => {
   const c = new Keyed(v, path, EXPORT_SETTINGS_KEYS);
   return withExtra(
@@ -193,7 +193,7 @@ export const decodeExportSettings: Decode<ExportSettings> = (v, path) => {
 
 // ── ProjectSettings ─────────────────────────────────────────────────────────
 
-/** Models/ProjectSettings.swift `init(from:)`, in source order. `showCamera`
+/** Studio/Models/ProjectSettings.swift `init(from:)`, in source order. `showCamera`
  * is further normalised by `decodeProject` (needs the camera URL). */
 export const decodeProjectSettings: Decode<ProjectSettings> = (v, path) => {
   const c = new Keyed(v, path, PROJECT_SETTINGS_KEYS);
@@ -370,7 +370,7 @@ export const decodeProjectSettings: Decode<ProjectSettings> = (v, path) => {
 
 // ── Regions ─────────────────────────────────────────────────────────────────
 
-/** Models/ZoomRegion.swift — synthesized Codable. */
+/** Studio/Models/ZoomRegion.swift — synthesized Codable. */
 export const decodeZoomRegion: Decode<ZoomRegion> = (v, path) => {
   const c = new Keyed(v, path, ZOOM_REGION_KEYS);
   return withExtra(
@@ -390,7 +390,7 @@ export const decodeZoomRegion: Decode<ZoomRegion> = (v, path) => {
   );
 };
 
-/** Models/TiltRegion.swift — synthesized Codable. */
+/** Studio/Models/TiltRegion.swift — synthesized Codable. */
 export const decodeTiltRegion: Decode<TiltRegion> = (v, path) => {
   const c = new Keyed(v, path, TILT_REGION_KEYS);
   return withExtra(
@@ -416,7 +416,7 @@ function decodeRect(c: Keyed, dx: number, dy: number, dw: number, dh: number) {
   };
 }
 
-/** Models/BlurRegion.swift */
+/** Studio/Models/BlurRegion.swift */
 export const decodeBlurRegion: Decode<BlurRegion> = (v, path) => {
   const c = new Keyed(v, path, BLUR_REGION_KEYS);
   const id = c.decode("id", dUUID);
@@ -430,7 +430,7 @@ export const decodeBlurRegion: Decode<BlurRegion> = (v, path) => {
   return withExtra({ id, startTime, endTime, label, rect, intensity, style, animated }, c.extra());
 };
 
-/** Models/HighlightRegion.swift */
+/** Studio/Models/HighlightRegion.swift */
 export const decodeHighlightRegion: Decode<HighlightRegion> = (v, path) => {
   const c = new Keyed(v, path, HIGHLIGHT_REGION_KEYS);
   const id = c.decode("id", dUUID);
@@ -442,7 +442,7 @@ export const decodeHighlightRegion: Decode<HighlightRegion> = (v, path) => {
   return withExtra({ id, startTime, endTime, label, rect, opacity }, c.extra());
 };
 
-/** Models/FocusRegion.swift */
+/** Studio/Models/FocusRegion.swift */
 export const decodeFocusRegion: Decode<FocusRegion> = (v, path) => {
   const c = new Keyed(v, path, FOCUS_REGION_KEYS);
   const id = c.decode("id", dUUID);
@@ -475,7 +475,7 @@ function decodeLayoutMode(c: Keyed): CameraLayoutMode {
   return CAMERA_LAYOUT_MODES.includes(raw) ? (raw as CameraLayoutMode) : "bubble";
 }
 
-/** Models/CameraLayoutRegion.swift — every field optional; a missing id gets
+/** Studio/Models/CameraLayoutRegion.swift — every field optional; a missing id gets
  * a FRESH random UUID (as Swift's `?? UUID()` does). `look`, `cameraSide` and
  * `splitStyle` are lenient (`try?` — missing, null, unknown or mistyped → absent) and stay
  * absent unless set, so untouched projects re-encode byte-identically. */
@@ -498,7 +498,7 @@ export const decodeCameraLayoutRegion: Decode<CameraLayoutRegion> = (v, path) =>
   return withExtra(region, c.extra());
 };
 
-/** Models/Annotation.swift `init(from:)` (custom decoder). */
+/** Studio/Models/Annotation.swift `init(from:)` (custom decoder). */
 export const decodeAnnotation: Decode<Annotation> = (v, path) => {
   const c = new Keyed(v, path, ANNOTATION_KEYS);
   const id = c.decode("id", dUUID);
@@ -560,7 +560,7 @@ export const decodeAnnotation: Decode<Annotation> = (v, path) => {
   );
 };
 
-/** Models/VoiceOverClip.swift `init(from:)` (clamps source fields). */
+/** Studio/Models/VoiceOverClip.swift `init(from:)` (clamps source fields). */
 export const decodeVoiceOverClip: Decode<VoiceOverClip> = (v, path) => {
   const c = new Keyed(v, path, VOICE_OVER_CLIP_KEYS);
   const id = c.decode("id", dUUID);
@@ -577,7 +577,7 @@ export const decodeVoiceOverClip: Decode<VoiceOverClip> = (v, path) => {
   );
 };
 
-/** Models/SubtitleSegment.swift `WordTiming` — synthesized. */
+/** Studio/Models/SubtitleSegment.swift `WordTiming` — synthesized. */
 const decodeWordTiming: Decode<WordTiming> = (v, path) => {
   const c = new Keyed(v, path, WORD_TIMING_KEYS);
   return withExtra(
@@ -591,7 +591,7 @@ const decodeWordTiming: Decode<WordTiming> = (v, path) => {
   );
 };
 
-/** Models/SubtitleSegment.swift `init(from:)`. */
+/** Studio/Models/SubtitleSegment.swift `init(from:)`. */
 export const decodeSubtitleSegment: Decode<SubtitleSegment> = (v, path) => {
   const c = new Keyed(v, path, SUBTITLE_SEGMENT_KEYS);
   return withExtra(
@@ -606,7 +606,7 @@ export const decodeSubtitleSegment: Decode<SubtitleSegment> = (v, path) => {
   );
 };
 
-/** Models/VideoSpeedRegion.swift — synthesized. */
+/** Studio/Models/VideoSpeedRegion.swift — synthesized. */
 export const decodeSpeedRegion: Decode<VideoSpeedRegion> = (v, path) => {
   const c = new Keyed(v, path, SPEED_REGION_KEYS);
   return withExtra(
@@ -620,7 +620,7 @@ export const decodeSpeedRegion: Decode<VideoSpeedRegion> = (v, path) => {
   );
 };
 
-/** Models/Project.swift `VideoClipSegment` — synthesized. */
+/** Studio/Models/Project.swift `VideoClipSegment` — synthesized. */
 export const decodeVideoClipSegment: Decode<VideoClipSegment> = (v, path) => {
   const c = new Keyed(v, path, VIDEO_CLIP_SEGMENT_KEYS);
   return withExtra(
@@ -633,7 +633,7 @@ export const decodeVideoClipSegment: Decode<VideoClipSegment> = (v, path) => {
   );
 };
 
-/** Models/Project.swift `ProjectSourceSegment` — synthesized. */
+/** Studio/Models/Project.swift `ProjectSourceSegment` — synthesized. */
 export const decodeSourceSegment: Decode<ProjectSourceSegment> = (v, path) => {
   const c = new Keyed(v, path, SOURCE_SEGMENT_KEYS);
   return withExtra(
@@ -652,7 +652,7 @@ export const decodeSourceSegment: Decode<ProjectSourceSegment> = (v, path) => {
 
 // ── Project ─────────────────────────────────────────────────────────────────
 
-/** Models/Project.swift `init(from:)`. */
+/** Studio/Models/Project.swift `init(from:)`. */
 export const decodeProject: Decode<Project> = (v, path) => {
   const c = new Keyed(v, path, PROJECT_KEYS);
   const id = c.decode("id", dUUID);

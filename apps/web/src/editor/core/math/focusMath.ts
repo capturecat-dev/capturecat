@@ -1,5 +1,5 @@
 /**
- * Port of apps/macos/CaptureCat/Services/FocusMath.swift — the Depth Focus
+ * Port of apps/macos/CaptureCat/Studio/Services/FocusMath.swift — the Depth Focus
  * blur PROFILE shared by the Mac preview and exporter: constants,
  * `bandWidth`, `blurRadius`, `blurSigma`, `blurAmount`,
  * `roundedRectOutsideDistance`, and `maskImage` (as a pure byte raster:

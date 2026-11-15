@@ -3,7 +3,7 @@ import CoreGraphics
 import CoreMedia
 
 // Exporter camera-bubble compositing numbers — VERBATIM ORACLES of the
-// private/inline code in Services/VideoExporter.swift at commit
+// private/inline code in Studio/Services/VideoExporter.swift at commit
 // da569841c7b63175bffa46d897457f157224774d:
 //   canvasScale / camera statics          336-342, 1079-1155
 //   camera reader advance                 1425-1441

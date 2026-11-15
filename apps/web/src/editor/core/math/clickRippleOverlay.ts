@@ -1,5 +1,5 @@
 /**
- * Port of Views/Editor/ClickRippleOverlay.swift `ClickRippleOverlay` — the
+ * Port of Studio/Editor/ClickRippleOverlay.swift `ClickRippleOverlay` — the
  * click-ripple frame math shared by the preview compositor and the exporter
  * (CLAUDE.md §2 names `discreteClickTimes` as a preview/export source of
  * truth): `activeRipples`, `discreteClickTimes`, `discreteClicks`,

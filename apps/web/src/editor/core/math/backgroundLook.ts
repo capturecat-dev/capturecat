@@ -1,5 +1,5 @@
 /**
- * Port of Services/BackgroundLook.swift — the backdrop behind the video card:
+ * Port of Studio/Services/BackgroundLook.swift — the backdrop behind the video card:
  * base fill (gradient / mesh / solid / image / wallpaper / transparent) plus
  * the user's "look" (pixelate, halftone, blur, brightness/contrast/saturation,
  * hue, tint, vignette, grain). The Mac preview and exporter both consume the

@@ -1,5 +1,5 @@
 /**
- * Port of Services/SwiftUIShadow.swift — the `CGContext.setShadow` parameters
+ * Port of Studio/Services/SwiftUIShadow.swift — the `CGContext.setShadow` parameters
  * that reproduce SwiftUI's `.shadow(radius:y:)` (used by the device bezel,
  * annotation and selection-chrome renderers).
  *

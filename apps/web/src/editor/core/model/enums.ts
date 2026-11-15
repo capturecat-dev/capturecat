@@ -325,7 +325,7 @@ export const CameraSplitStyle = {
 export type CameraSplitStyle = ValueOf<typeof CameraSplitStyle>;
 
 // ── Services-declared persisted enums ───────────────────────────────────────
-/** Services/ClickSoundPlayer.swift */
+/** Studio/Services/ClickSoundPlayer.swift */
 export const ClickSoundStyle = {
   softTick: "Soft Tick",
   clicky: "Clicky",
@@ -334,7 +334,7 @@ export const ClickSoundStyle = {
 } as const;
 export type ClickSoundStyle = ValueOf<typeof ClickSoundStyle>;
 
-/** Services/KeySoundPlayer.swift */
+/** Studio/Services/KeySoundPlayer.swift */
 export const KeySoundStyle = {
   thock: "Thock",
   clacky: "Clacky",
@@ -346,7 +346,7 @@ export const KeySoundStyle = {
 } as const;
 export type KeySoundStyle = ValueOf<typeof KeySoundStyle>;
 
-/** Services/KeystrokeOverlay.swift */
+/** Studio/Services/KeystrokeOverlay.swift */
 export const KeystrokeOverlayPosition = {
   bottomCenter: "bottomCenter",
   bottomLeft: "bottomLeft",
@@ -355,11 +355,11 @@ export const KeystrokeOverlayPosition = {
 } as const;
 export type KeystrokeOverlayPosition = ValueOf<typeof KeystrokeOverlayPosition>;
 
-/** Services/KeystrokeOverlay.swift */
+/** Studio/Services/KeystrokeOverlay.swift */
 export const KeystrokeOverlayAnimation = { slideUp: "slideUp", fade: "fade", pop: "pop" } as const;
 export type KeystrokeOverlayAnimation = ValueOf<typeof KeystrokeOverlayAnimation>;
 
-/** Services/IntroSlideMath.swift */
+/** Studio/Services/IntroSlideMath.swift */
 export const IntroSlideStyle = {
   off: "Off",
   top: "Top",
@@ -369,7 +369,7 @@ export const IntroSlideStyle = {
 } as const;
 export type IntroSlideStyle = ValueOf<typeof IntroSlideStyle>;
 
-/** Services/CurtainUnveilMath.swift */
+/** Studio/Services/CurtainUnveilMath.swift */
 export const CurtainUnveilCorner = {
   off: "Off",
   topLeft: "Top Left",

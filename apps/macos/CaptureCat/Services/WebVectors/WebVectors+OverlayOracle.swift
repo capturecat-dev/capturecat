@@ -10,7 +10,7 @@ import CoreText
 // Every recipe unit proves the copy by comparing its pixels against the REAL
 // renderer (see WebVectors+OverlayDraw.swift).
 
-// MARK: - KeystrokeOverlayRenderer (Services/KeystrokeOverlay.swift)
+// MARK: - KeystrokeOverlayRenderer (Studio/Services/KeystrokeOverlay.swift)
 
 enum KeystrokeOverlayOracle {
     struct Metrics {
@@ -164,7 +164,7 @@ enum KeystrokeOverlayOracle {
     }
 }
 
-// MARK: - CurtainUnveilMath.draw (Services/CurtainUnveilMath.swift)
+// MARK: - CurtainUnveilMath.draw (Studio/Services/CurtainUnveilMath.swift)
 
 enum CurtainUnveilOracle {
     typealias RGBA = CurtainUnveilMath.RGBA

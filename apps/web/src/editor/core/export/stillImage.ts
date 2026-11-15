@@ -1,6 +1,6 @@
 /**
  * PNG export of a still capture — the port of `StillImageExporter`
- * (apps/macos/CaptureCat/Services/StillImageExporter.swift). The Mac renders
+ * (apps/macos/CaptureCat/Studio/Services/StillImageExporter.swift). The Mac renders
  * the PNG with the REAL video exporter over a settled micro clip and lifts
  * its last frame; the web renders the same frame with the same passes:
  *

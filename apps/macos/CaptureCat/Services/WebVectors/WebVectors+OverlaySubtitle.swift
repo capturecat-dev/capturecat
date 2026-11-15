@@ -1,7 +1,7 @@
 import AppKit
 import CoreGraphics
 
-// VERBATIM ORACLE of the exporter's subtitle burn — Services/VideoExporter.swift
+// VERBATIM ORACLE of the exporter's subtitle burn — Studio/Services/VideoExporter.swift
 // at commit da569841c7b63175bffa46d897457f157224774d:
 //   • export(): canvasScale (lines 336–342) and the active-subtitle lookup
 //     (lines 1798–1801);

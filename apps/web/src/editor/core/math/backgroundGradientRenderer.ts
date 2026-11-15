@@ -1,5 +1,5 @@
 /**
- * Port of Services/BackgroundGradientRenderer.swift — the background ramp's
+ * Port of Studio/Services/BackgroundGradientRenderer.swift — the background ramp's
  * geometry: `Axis`, the gradient-line endpoints `draw(in:rect:start:end:axis:)`
  * hands to `CGContext.drawLinearGradient` (options `.drawsBeforeStartLocation`
  * + `.drawsAfterEndLocation`, i.e. clamp t to 0…1), and the bitmap size

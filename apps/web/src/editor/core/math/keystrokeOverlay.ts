@@ -1,5 +1,5 @@
 /**
- * Port of Services/KeystrokeOverlay.swift — `KeystrokeOverlayMath` (timing,
+ * Port of Studio/Services/KeystrokeOverlay.swift — `KeystrokeOverlayMath` (timing,
  * repeat-collapsing, scope filter, pill placement) and the NUMBERS of
  * `KeystrokeOverlayRenderer` (pill size from measured text, the draw recipe
  * of `draw` / `drawPill` / `image`). Shared by the Mac preview and exporter

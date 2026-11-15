@@ -1,5 +1,5 @@
 /**
- * Port of the Mac EXPORTER's subtitle burn — Services/VideoExporter.swift:
+ * Port of the Mac EXPORTER's subtitle burn — Studio/Services/VideoExporter.swift:
  * `export()`'s canvasScale (lines 336–342) and active-subtitle lookup
  * (1798–1801), private `renderSubtitle(subtitle:at:onto:outputSize:
  * canvasScale:settings:)` (3661–3857) and private `subtitleDropShadow`

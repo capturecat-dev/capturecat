@@ -4,7 +4,7 @@ import CoreMedia
 
 // Frame layout / placement / output-size units. VideoExporter's layout helpers
 // are `private`, so they are exercised through VERBATIM ORACLES below (copied
-// from Services/VideoExporter.swift at commit
+// from Studio/Services/VideoExporter.swift at commit
 // da569841c7b63175bffa46d897457f157224774d); everything they call —
 // PlacementMath, DeviceFrameLayout, ExportSettings, AspectRatio, CMTime — is
 // the REAL code. `--web-parity-fixtures` then checks the whole exporter

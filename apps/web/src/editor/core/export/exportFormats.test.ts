@@ -1,6 +1,6 @@
 /**
  * Export formats — golden vectors from the REAL Swift
- * (`CaptureCat --export-formats-test`, Services/ExportFormats.swift), copied
+ * (`CaptureCat --export-formats-test`, Studio/Services/ExportFormats.swift), copied
  * into ./golden/exportFormats.golden.json:
  *
  *  - gifPolicy: GIFExportPolicy frame rate / delay / size / count / caption

@@ -42,7 +42,7 @@ export const INSPECTOR_TABS: ReadonlyArray<{ id: InspectorTabId; title: string; 
   { id: "annotations", title: "Annotate", icon: "pencil.tip" },
 ];
 
-// ── Aspect ratios (Models/AspectRatio.swift raw values + hints) ─────────
+// ── Aspect ratios (Studio/Models/AspectRatio.swift raw values + hints) ─────────
 
 export const ASPECT_RATIOS: ReadonlyArray<{ id: string; title: string; hint: string; ratio: number | null }> = [
   { id: "Auto", title: "Auto", hint: "Match the recording", ratio: null },

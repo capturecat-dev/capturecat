@@ -1,6 +1,6 @@
 /**
  * Fast export — static-span collapse (VFR). A 1:1 port of `StaticSpanCollapse`
- * (apps/macos/CaptureCat/Services/ExportFormats.swift), locked to the Swift by
+ * (apps/macos/CaptureCat/Studio/Services/ExportFormats.swift), locked to the Swift by
  * the `collapse` golden vectors (`CaptureCat --export-formats-test`) and, end
  * to end, by the Mac exporter's own sample timestamps for the synthetic VFR
  * fixture (scripts/editor-lab/export-formats.mjs).
