@@ -77,28 +77,11 @@ final class EditorPlaybackController {
     /// Re-derives `cursorEvents` from the raw path. Cheap to call: it no-ops
     /// unless the settings actually changed.
     func applyCursorSmoothing(settings: ProjectSettings, trimEnd: TimeInterval = 0) {
-        // Signature string (tuples cap == at 6 elements).
-        let want = [
-            "\(settings.smoothCursor)", "\(settings.smoothingFactor)",
-            "\(settings.cursorFluidEnabled)", "\(settings.cursorTension)",
-            "\(settings.cursorFriction)", "\(settings.cursorMass)",
-            "\(settings.cursorLoopToStart)", "\(settings.cursorStopAtEnd)",
-            "\(trimEnd)",
-        ].joined(separator: "|")
+        let want = CursorPathChain.signature(settings: settings, trimEnd: trimEnd)
         if let applied = appliedSmoothing, applied == want { return }
         appliedSmoothing = want
-        let smoothed = settings.smoothCursor
-            ? CursorSmoother(factor: settings.smoothingFactor).smooth(events: rawCursorEvents)
-            : rawCursorEvents
-        // Fluid movement AFTER smoothing — the exporter applies the identical
-        // chain (see VideoExporter's cursor load).
-        var chained = CursorSpringMath.apply(events: smoothed, settings: settings)
-        chained = CursorEndBehaviorMath.apply(
-            events: chained,
-            trimEnd: trimEnd,
-            loopToStart: settings.cursorLoopToStart,
-            stopAtEnd: settings.cursorStopAtEnd)
-        cursorEvents = chained
+        // The exporter (and the iOS editor) draw the same chain.
+        cursorEvents = CursorPathChain.apply(rawCursorEvents, settings: settings, trimEnd: trimEnd)
     }
     var videoSize: CGSize = .zero
     @ObservationIgnored private var timeObserverToken: Any?
