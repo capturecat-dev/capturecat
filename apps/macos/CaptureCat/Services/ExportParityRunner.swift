@@ -25,6 +25,21 @@ enum ExportParityRunner {
             }
             RunLoop.main.run()
         }
+        if let i = args.firstIndex(of: "--export-formats-parity"), args.indices.contains(i + 1) {
+            let fixtures = URL(fileURLWithPath: args[i + 1], isDirectory: true)
+            func value(_ name: String) -> String? {
+                args.firstIndex(of: name).flatMap { args.indices.contains($0 + 1) ? args[$0 + 1] : nil }
+            }
+            let out = value("--out").map { URL(fileURLWithPath: $0, isDirectory: true) }
+                ?? fixtures.deletingLastPathComponent().appendingPathComponent("export-formats-mac")
+            Task { @MainActor in
+                let pass = await ExportFormatsParityHarness.run(
+                    fixtures: fixtures, out: out, reference: value("--reference").map { URL(fileURLWithPath: $0) }
+                ) { print($0) }
+                exit(pass ? 0 : 1)
+            }
+            RunLoop.main.run()
+        }
         guard let options = ExportParityHarness.options(from: CommandLine.arguments, flag: "--export-parity") else {
             print("usage: CaptureCat --export-parity <fixturesDir> [--out <dir>] [--only a,b] [--inject padding] [--source-yuv] [--reference <dir>]")
             exit(2)

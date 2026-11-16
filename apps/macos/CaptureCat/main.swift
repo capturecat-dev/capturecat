@@ -37,7 +37,8 @@ if CommandLine.arguments.contains("--preview-export-parity") {
 if CommandLine.arguments.contains("--export-tuning-test") {
     ExportTuningHarness.run()
 }
-if CommandLine.arguments.contains("--export-parity") || CommandLine.arguments.contains("--decode-probe") {
+if CommandLine.arguments.contains("--export-parity") || CommandLine.arguments.contains("--decode-probe")
+    || CommandLine.arguments.contains("--export-formats-parity") {
     MainActor.assumeIsolated { ExportParityRunner.run() }
 }
 if CommandLine.arguments.contains("--web-cursor-sprites") {

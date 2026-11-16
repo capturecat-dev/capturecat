@@ -1,4 +1,7 @@
+import ImageIO
+import Photos
 import UIKit
+import UniformTypeIdentifiers
 
 /// StudioLab — the studio's harness app (never shipped). It hosts the SAME
 /// StudioUI views the CaptureCat app ships (PreviewStageView) in a real
@@ -74,6 +77,26 @@ final class LabViewController: UIViewController {
                 await ExportParityHarness.decodeProbe(video: video, index: index, out: out) { print($0) }
                 exit(0)
             }
+            return
+        }
+        func argValue(_ name: String) -> String? {
+            arguments.firstIndex(of: name).flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
+        }
+        if let fixtures = argValue("--ios-export-formats") {
+            let out = URL(fileURLWithPath: argValue("--out") ?? NSTemporaryDirectory() + "export-formats-ios", isDirectory: true)
+            let reference = argValue("--reference").map { URL(fileURLWithPath: $0, isDirectory: true) }
+            stage.isHidden = true
+            Task { @MainActor in
+                let pass = await ExportFormatsParityHarness.run(
+                    fixtures: URL(fileURLWithPath: fixtures, isDirectory: true), out: out, reference: reference) { print($0) }
+                exit(pass ? 0 : 1)
+            }
+            return
+        }
+        if let dir = argValue("--ios-delivery-test") {
+            stage.isHidden = true
+            let movie = argValue("--movie").map { URL(fileURLWithPath: $0) }
+            Task { @MainActor in await DeliveryLab.run(presenter: self, dir: URL(fileURLWithPath: dir, isDirectory: true), movie: movie) }
             return
         }
         if let i = arguments.firstIndex(of: "--ios-preview-export-parity"), arguments.indices.contains(i + 1) {
@@ -161,6 +184,70 @@ enum ExportLab {
               + (options.reference.map { " reference=\($0.path)" } ?? ""))
         let results = await ExportParityHarness.run(options) { print($0) }
         exit(!results.isEmpty && results.allSatisfy(\.pass) ? 0 : 1)
+    }
+}
+
+/// `--ios-delivery-test <dir> [--movie <file>]` (Studio 3d): the shipping
+/// ExportDelivery against the real system — saves `<dir>/export.gif`,
+/// `<dir>/still.png` and the movie into the Simulator's photo library and reads
+/// each asset back (type, pixel size, GIF kept as GIF, movie duration), then
+/// presents the Files export picker and the share sheet in this window. The
+/// script grants StudioLab photo access first (`simctl privacy`).
+@MainActor
+enum DeliveryLab {
+    static func run(presenter: UIViewController, dir: URL, movie: URL?) async {
+        var failures = 0
+        func check(_ name: String, _ pass: Bool, _ detail: String = "") {
+            if !pass { failures += 1 }
+            print("DELIVERY \(pass ? "PASS" : "FAIL") \(name)\(detail.isEmpty ? "" : " — \(detail)")")
+        }
+        // Read access to fetch the saved assets back (the test only — the app
+        // itself asks for add-only access).
+        _ = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+        var files = [dir.appendingPathComponent("export.gif"), dir.appendingPathComponent("still.png")]
+        if let movie { files.append(movie) }
+        for url in files {
+            let kind = ExportDelivery.kind(for: url)
+            do {
+                let id = try await ExportDelivery.saveToPhotos(url)
+                guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject else {
+                    check("photos: \(url.lastPathComponent) saved and found", false, "no asset for \(id)"); continue
+                }
+                let source = CGImageSourceCreateWithURL(url as CFURL, nil)
+                let image = source.flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) }
+                let resource = PHAssetResource.assetResources(for: asset).first
+                switch kind {
+                case .movie:
+                    check("photos: \(url.lastPathComponent) is a video", asset.mediaType == .video && asset.duration > 0,
+                          "type \(asset.mediaType.rawValue), \(String(format: "%.2f", asset.duration)) s")
+                case .gif:
+                    check("photos: \(url.lastPathComponent) is an image kept as GIF",
+                          asset.mediaType == .image && resource?.uniformTypeIdentifier == UTType.gif.identifier
+                            && asset.pixelWidth == image?.width && asset.pixelHeight == image?.height,
+                          "type \(asset.mediaType.rawValue), \(resource?.uniformTypeIdentifier ?? "–"), \(asset.pixelWidth)×\(asset.pixelHeight)")
+                case .png:
+                    check("photos: \(url.lastPathComponent) is a PNG image at full size",
+                          asset.mediaType == .image && resource?.uniformTypeIdentifier == UTType.png.identifier
+                            && asset.pixelWidth == image?.width && asset.pixelHeight == image?.height,
+                          "type \(asset.mediaType.rawValue), \(resource?.uniformTypeIdentifier ?? "–"), \(asset.pixelWidth)×\(asset.pixelHeight)")
+                }
+            } catch {
+                check("photos: \(url.lastPathComponent) saved", false, error.localizedDescription)
+            }
+        }
+        // System UI in this real window: each controller presents, then goes.
+        let file = files[0]
+        for (name, controller) in [("files export picker", ExportDelivery.filesPicker(for: file) as UIViewController),
+                                   ("share sheet", ExportDelivery.shareSheet(for: file, from: presenter.view))] {
+            presenter.present(controller, animated: false)
+            await LabTime.settle(1.0)
+            check("\(name) presents", presenter.presentedViewController === controller,
+                  "\(type(of: presenter.presentedViewController as Any))")
+            presenter.dismiss(animated: false)
+            await LabTime.settle(0.5)
+        }
+        print("DELIVERY-TEST \(failures == 0 ? "PASS" : "FAIL") failures=\(failures)")
+        exit(failures == 0 ? 0 : 1)
     }
 }
 

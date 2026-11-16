@@ -53,5 +53,7 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>CaptureCat saves the videos, GIFs and images you export to your photo library.</string>
 </dict>
 </plist>

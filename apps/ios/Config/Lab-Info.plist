@@ -7,5 +7,9 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>CaptureCat saves the videos, GIFs and images you export to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>StudioLab reads back the exports it saves to Photos to verify them.</string>
 </dict>
 </plist>
