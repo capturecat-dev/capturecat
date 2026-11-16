@@ -46,6 +46,13 @@ final class EditorViewController: UIViewController {
         project: project, selection: selection,
         undoManager: { [weak self] in self?.editorUndo },
         currentTime: { [weak self] in self?.playback.currentTime ?? 0 })
+    /// The timeline (Studio 4c), mounted in `timelineContainer`. It edits
+    /// the same project, selection and undo stack as the stage and inspector.
+    private(set) lazy var timelinePlayback = EditorTimelinePlayback(
+        playback: playback, project: { [unowned self] in self.project })
+    private(set) lazy var timeline = StudioTimelineViewController(
+        project: project, selection: selection, playback: timelinePlayback, undoManager: editorUndo)
+    private var compactTimelineHeight: NSLayoutConstraint?
     private let contextPill = EditorContextPill()
     private let undoButton = CCButton(symbol: "undo", style: .ghost, size: .regular, radius: .full)
     private let redoButton = CCButton(symbol: "redo", style: .ghost, size: .regular, radius: .full)
@@ -159,11 +166,13 @@ final class EditorViewController: UIViewController {
         // Compact: one column — stage, transport, timeline, inspector.
         let stageHeight = stageCard.heightAnchor.constraint(equalTo: stageCard.widthAnchor, multiplier: 9.0 / 16.0)
         stageHeight.priority = .defaultHigh
+        let timelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 180)
+        compactTimelineHeight = timelineHeight
         compactConstraints = [
             stageCard.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
             stageHeight,
             stageCard.heightAnchor.constraint(lessThanOrEqualTo: guide.heightAnchor, multiplier: 0.45),
-            timelineContainer.heightAnchor.constraint(equalToConstant: 180),
+            timelineHeight,
             inspectorContainer.topAnchor.constraint(equalTo: timelineContainer.bottomAnchor, constant: CCSpace.sm),
             inspectorContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
             inspectorContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
@@ -182,6 +191,7 @@ final class EditorViewController: UIViewController {
             NSLayoutConstraint.activate(compactConstraints)
         }
         inspector.setRegularWidth(regular)
+        timelineHeightChanged(timeline.intrinsicPanelHeight)
     }
 
     override func viewDidLayoutSubviews() {
@@ -195,7 +205,9 @@ final class EditorViewController: UIViewController {
         super.viewDidLoad()
         wireCanvas()
         wireTransport()
+        installTimeline()
         inspector.install(in: self)
+        wireFeatures()
         contextPill.onEditText = { [weak self] in
             guard let self, let id = self.selection.selectedAnnotationID else { return }
             self.canvas.beginInlineEdit(annotationID: id)
@@ -248,7 +260,47 @@ final class EditorViewController: UIViewController {
         playback.setPlaying(false, for: project)
         saveNow()
         playback.teardown()
+        timeline.tearDown()
         if let onClose { onClose() } else { dismiss(animated: true) }
+    }
+
+    // MARK: - Timeline (Studio 4c) and feature keys (4e, 4f)
+
+    private func installTimeline() {
+        addChild(timeline)
+        let v = timeline.view!
+        v.translatesAutoresizingMaskIntoConstraints = false
+        timelineContainer.addSubview(v)
+        NSLayoutConstraint.activate([
+            v.topAnchor.constraint(equalTo: timelineContainer.topAnchor),
+            v.leadingAnchor.constraint(equalTo: timelineContainer.leadingAnchor),
+            v.trailingAnchor.constraint(equalTo: timelineContainer.trailingAnchor),
+            v.bottomAnchor.constraint(equalTo: timelineContainer.bottomAnchor),
+        ])
+        timeline.didMove(toParent: self)
+        // A fresh text / callout opens the in-place label editor, and Add
+        // Blur / Pixelate arms drag-to-draw on the stage (the Mac's flow).
+        timeline.onBeginInlineEdit = { [weak self] id in self?.canvas.beginInlineEdit(annotationID: id) }
+        timeline.onArmBlurDraw = { [weak self] style in self?.canvas.armBlurDraw(style: style) }
+        timeline.onPreferredHeightChange = { [weak self] height in self?.timelineHeightChanged(height) }
+        timelineHeightChanged(timeline.intrinsicPanelHeight)
+    }
+
+    /// iPhone: the timeline gets its full height, up to a third of the screen
+    /// (it scrolls beyond); iPad: it takes what the stage leaves.
+    private func timelineHeightChanged(_ height: CGFloat) {
+        let cap = max(180, view.bounds.height / 3)
+        let constant = min(max(height, 180), cap)
+        if compactTimelineHeight?.constant != constant { compactTimelineHeight?.constant = constant }
+    }
+
+    /// The inspector's feature keys. History (4f) opens here; the others are
+    /// wired when the features (4e) land.
+    private func wireFeatures() {
+        inspector.onShowHistory = { [weak self] in
+            guard let self else { return }
+            _ = StudioHistory.present(from: self, project: self.project, undoManager: self.editorUndo)
+        }
     }
 
     // MARK: - Canvas wiring (the Mac stage's compositor callbacks)
