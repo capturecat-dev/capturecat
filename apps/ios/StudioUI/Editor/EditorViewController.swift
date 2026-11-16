@@ -93,6 +93,7 @@ final class EditorViewController: UIViewController {
     private var compactConstraints: [NSLayoutConstraint] = []
     private var lastShowCamera: Bool
     private var lastTrim: (TimeInterval, TimeInterval)
+    private var lastVoiceClips: [VoiceOverClip]?
 
     init(folder: StudioProjectFolder, initialTime: TimeInterval? = nil) {
         self.folder = folder
@@ -298,13 +299,42 @@ final class EditorViewController: UIViewController {
         if compactTimelineHeight?.constant != constant { compactTimelineHeight?.constant = constant }
     }
 
-    /// The inspector's feature keys. History (4f) opens here; the others are
-    /// wired when the features (4e) land.
+    /// The feature keys: the inspector's (4d) and the timeline's mic and
+    /// camera-mask hooks open the features (4e) and History (4f), each a
+    /// sheet over the editor with one undo step on the editor's stack.
     private func wireFeatures() {
         inspector.onShowHistory = { [weak self] in
-            guard let self else { return }
+            guard let self, !self.isPreviewingVersion else { return }
             _ = StudioHistory.present(from: self, project: self.project, undoManager: self.editorUndo)
         }
+        inspector.onRecordVoiceOver = { [weak self] in self?.presentVoiceOver() }
+        timeline.onToggleVoiceOverRecording = { [weak self] in self?.presentVoiceOver() }
+        inspector.onTranscribe = { [weak self] in
+            guard let self, !self.isPreviewingVersion else { return }
+            StudioTranscription.present(from: self, project: self.project, undoManager: self.editorUndo)
+        }
+        inspector.onAutoZoom = { [weak self] in
+            guard let self, !self.isPreviewingVersion else { return }
+            StudioAutoZoom.present(from: self, project: self.project, undoManager: self.editorUndo)
+        }
+        inspector.onRemoveBackground = { [weak self] in self?.presentBackgroundRemoval() }
+        timeline.onNeedsCameraMask = { [weak self] in self?.presentBackgroundRemoval() }
+        // The timeline's VOICE row draws the live take from the one session.
+        timelinePlayback.voiceOverState = {
+            let session = StudioVoiceOver.session
+            return (session.isRecording, session.recordingStartTime, session.liveSamples)
+        }
+    }
+
+    private func presentVoiceOver() {
+        guard !isPreviewingVersion else { return }
+        canvas.endInlineEdit(commit: true)
+        StudioVoiceOver.present(from: self, project: project, undoManager: editorUndo, transport: playback)
+    }
+
+    private func presentBackgroundRemoval() {
+        guard !isPreviewingVersion, presentedViewController == nil else { return }
+        StudioBackgroundRemoval.present(from: self, project: project, undoManager: editorUndo)
     }
 
     // MARK: - Canvas wiring (the Mac stage's compositor callbacks)
@@ -416,6 +446,11 @@ final class EditorViewController: UIViewController {
                 self.playback.syncToTrimRange(for: self.project)
             }
             self.playback.player?.isMuted = self.project.settings.muteRecordedAudio
+            let clips = self.project.voiceOverClips
+            if let last = self.lastVoiceClips, last != clips {
+                self.playback.scheduleVoiceOverRefresh(for: self.project)
+            }
+            self.lastVoiceClips = clips
             self.playback.applyCursorSmoothing(settings: self.project.settings, trimEnd: self.project.effectiveTrimEnd)
         })
         // Canvas size follows the project's reference canvas and aspect.
