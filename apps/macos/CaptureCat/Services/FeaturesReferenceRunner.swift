@@ -2,7 +2,8 @@ import AppKit
 import AVFoundation
 
 /// `CaptureCat --features-reference <dir> [--speech <wav> --script <txt>]
-///  [--whisper-base <dir> [--fetch-model]] [--camera <mov>] [--only autozoom,voiceover,transcription,cutout]`
+///  [--whisper-base <dir> [--fetch-model]] [--speech-corpus <dir>] [--camera <mov>]
+///  [--only autozoom,voiceover,transcription,cutout]`
 ///
 /// `--whisper-base` is a WhisperKit download base holding `base.en` and its
 /// tokenizer; `--fetch-model` lets WhisperKit download them there first
@@ -42,7 +43,8 @@ enum FeaturesReferenceRunner {
                     failures += await transcription(dir.appendingPathComponent("transcription", isDirectory: true),
                                                     speech: URL(fileURLWithPath: speech), script: URL(fileURLWithPath: script),
                                                     models: URL(fileURLWithPath: models, isDirectory: true),
-                                                    fetch: args.contains("--fetch-model"))
+                                                    fetch: args.contains("--fetch-model"),
+                                                    corpus: value("--speech-corpus").map(corpusClips) ?? [])
                 } else {
                     print("FEATURES-REFERENCE transcription SKIPPED (needs --speech, --script and --whisper-base)")
                 }
@@ -144,7 +146,8 @@ enum FeaturesReferenceRunner {
 
     // MARK: - Transcription
 
-    private static func transcription(_ dir: URL, speech: URL, script: URL, models: URL, fetch: Bool) async -> Int {
+    private static func transcription(_ dir: URL, speech: URL, script: URL, models: URL, fetch: Bool,
+                                      corpus: [URL]) async -> Int {
         typealias F = FeaturesHarness.SpeechFixture
         let fm = FileManager.default
         do {
@@ -189,12 +192,26 @@ enum FeaturesReferenceRunner {
             let cpuTranscript = FeaturesHarness.transcript(try await cpu.transcribe(
                 videoURL: dir.appendingPathComponent(F.macInput)))
             try JSONEncoder().encode(cpuTranscript).write(to: dir.appendingPathComponent("mac-transcript-cpu.json"))
-            let computeSpread = FeaturesHarness.maxTimingDelta(mac: transcript, ios: cpuTranscript)
-            print("FEATURES-REFERENCE transcription Mac CPU-only vs default compute: max timing |Δ| \(computeSpread) s, median \(FeaturesHarness.medianTimingDelta(mac: transcript, ios: cpuTranscript)) s, text \(cpuTranscript.map(\.text) == transcript.map(\.text) ? "identical" : "DIFFERS")")
+            // The Mac's self-variance over a corpus: each clip on the default
+            // compute units and on the CPU only, word boundaries pooled.
+            var pairs: [(a: [FeaturesHarness.TranscriptSegment], b: [FeaturesHarness.TranscriptSegment])] = [(transcript, cpuTranscript)]
+            for clip in corpus {
+                let a = FeaturesHarness.transcript(try await service.transcribe(videoURL: clip))
+                let b = FeaturesHarness.transcript(try await cpu.transcribe(videoURL: clip))
+                let d = FeaturesHarness.timingDeltas(mac: a, ios: b)
+                print(String(format: "FEATURES-REFERENCE transcription self-variance %@: %d words, max %.3f p90 %.3f%@",
+                             clip.lastPathComponent, a.reduce(0) { $0 + $1.words.count }, d.max() ?? 0,
+                             FeaturesHarness.percentile(d, 0.9),
+                             a.map(\.words.count) == b.map(\.words.count) ? "" : " (ANE and CPU differ in words)"))
+                pairs.append((a, b))
+            }
+            let spread = FeaturesHarness.selfSpread(pairs)
+            print(String(format: "FEATURES-REFERENCE transcription Mac self-variance (ANE vs CPU, %d clips, %d boundaries): max %.3f p90 %.3f median %.3f, %d clip(s) differing in words",
+                         spread.clips, spread.boundaries, spread.max, spread.p90, spread.median, spread.mismatches))
             FeaturesHarness.write(["wavSHA256": wavSHA, "seconds": seconds, "segments": segments.count,
                                    "words": segments.reduce(0) { $0 + $1.words.count },
                                    "repeatTimingDelta": repeatDelta, "repeatIdentical": repeatSame,
-                                   "computeSpread": computeSpread],
+                                   "selfSpread": spread.json],
                                   to: dir.appendingPathComponent("mac-transcription.json"))
             print("FEATURES-REFERENCE transcription \(segments.count) segments, \(segments.reduce(0) { $0 + $1.words.count }) words in \(String(format: "%.1f", seconds)) s · wav \(wavSHA.prefix(12))")
             return segments.isEmpty ? 1 : 0
@@ -291,6 +308,14 @@ enum FeaturesReferenceRunner {
             print("FEATURES-REFERENCE cutout FAIL \(error)")
             return 1
         }
+    }
+
+    /// The corpus clips (`*.aiff`, `*.wav`), in name order.
+    private static func corpusClips(_ path: String) -> [URL] {
+        let dir = URL(fileURLWithPath: path, isDirectory: true)
+        return ((try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
+            .filter { ["aiff", "wav"].contains($0.pathExtension.lowercased()) }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
     private nonisolated final class ProgressBox: @unchecked Sendable {

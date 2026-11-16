@@ -369,10 +369,21 @@ enum FeaturesLab {
         if FeaturesHarness.injected(.transcriptTiming) {
             segments = segments.map { s in
                 var s = s
-                s.startTime += 0.12; s.endTime += 0.12
-                s.words = s.words.map { w in var w = w; w.startTime += 0.12; w.endTime += 0.12; return w }
+                s.startTime += 0.3; s.endTime += 0.3
+                s.words = s.words.map { w in var w = w; w.startTime += 0.3; w.endTime += 0.3; return w }
                 return s
             }
+        }
+        if FeaturesHarness.injected(.transcriptDropWord), segments.count > 2, segments[2].words.count > 1 {
+            let dropped = segments[2].words.removeFirst()
+            segments[2].text = segments[2].words.map(\.text).joined(separator: " ")
+            segments[2].startTime = segments[2].words[0].startTime
+            report.note("injected: dropped “\(dropped.text)”")
+        }
+        if FeaturesHarness.injected(.transcriptBoundary), segments.count > 1, segments[1].words.count > 3 {
+            segments[1].words[2].endTime += 0.3
+            segments[1].words[3].startTime += 0.3
+            report.note("injected: the boundary after “\(segments[1].words[2].text)” moved 0.3 s")
         }
         let iosTranscript = FeaturesHarness.transcript(segments)
         try? JSONEncoder().encode(iosTranscript).write(to: out.appendingPathComponent("ios-transcript.json"))
@@ -399,8 +410,7 @@ enum FeaturesLab {
         }
         FeaturesHarness.compareTranscripts(
             mac: macTranscript, ios: iosTranscript, script: script,
-            computeSpread: mac["computeSpread"] as? Double ?? 0,
-            engineNote: "the same WhisperKit model and options, run by CoreML on different compute units (the Mac's Neural Engine / GPU vs the Simulator's CPU), so float16 vs float32 arithmetic can tip a token",
+            spread: FeaturesHarness.TimingSpread(json: mac["selfSpread"]),
             report: report)
         undo.undo()
         report.check("undo restores the subtitles from before", project.subtitles.isEmpty

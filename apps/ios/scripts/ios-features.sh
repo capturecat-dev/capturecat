@@ -23,8 +23,9 @@ set -euo pipefail
 # the gate cannot pass.
 #
 # `--inject` takes a FeaturesHarness.Inject name (autozoom-shift,
-# voice-offset, mix-gain, transcript-timing, mask-ignored, mask-alpha,
-# progress-snap) and must make the gate FAIL.
+# voice-offset, mix-gain, transcript-timing, transcript-drop-word,
+# transcript-boundary, mask-ignored, mask-alpha, progress-snap) and must
+# make the gate FAIL.
 #
 # Env:
 #   DEVICE=<simulator udid>  (default: the 4e iPad)
@@ -70,7 +71,19 @@ That is all it takes. Thanks for watching, and see you next time.
 TEXT
   # Kept between runs: `say` output is not byte-stable run to run.
   [[ -f "$OUT/speech.aiff" ]] || say -o "$OUT/speech.aiff" -f "$OUT/speech.txt"
-  SPEECH_ARGS=(--speech "$OUT/speech.aiff" --script "$OUT/speech.txt")
+  # The corpus the Mac measures its own compute-unit variance on (the
+  # transcription timing bars; FeaturesHarness+Transcription.swift).
+  mkdir -p "$OUT/corpus"
+  corpus=(
+    "Press the record button, choose the window you want, and start talking. When you stop, the editor opens."
+    "Zoom in on the important parts. Add a caption, trim the slow start, and speed up the waiting."
+    "Share a link with your team. They can watch it in the browser and leave comments at any moment."
+    "The background, the cursor and the camera all follow your settings, in the preview and in the export."
+  )
+  for i in "${!corpus[@]}"; do
+    [[ -f "$OUT/corpus/clip$i.aiff" ]] || say -o "$OUT/corpus/clip$i.aiff" "${corpus[$i]}"
+  done
+  SPEECH_ARGS=(--speech "$OUT/speech.aiff" --script "$OUT/speech.txt" --speech-corpus "$OUT/corpus")
   MODEL_ARGS=(--whisper-base "$WHISPER_BASE")
   MAC_MODEL_ARGS=(--whisper-base "$WHISPER_BASE")
   [[ "${FETCH_MODEL:-}" == "1" ]] && MAC_MODEL_ARGS+=(--fetch-model)
