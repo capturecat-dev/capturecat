@@ -8,6 +8,9 @@ protocol InspectorHost: AnyObject {
     var session: InspectorEditSession { get }
     var presenter: UIViewController { get }
     func runFeature(_ feature: InspectorFeature)
+    /// A Cutout / Pop-out look was picked: start finding the person quietly
+    /// (the Mac's `ensureMask`), no sheet.
+    func ensureCameraMask()
     /// The photo/file picker: hands back a local copy of the picked image.
     func pickImage(logo: Bool, _ completion: @escaping (URL) -> Void)
     /// The transcription state the Subtitles pane shows (Studio 4e sets it).
@@ -139,10 +142,11 @@ final class InspectorChoiceRowView: UIView, InspectorRowView {
             group.onChange = { [weak self] selection in
                 guard let host = self?.host, let index = selection.first else { return }
                 host.session.perform(spec.id, name: spec.title) { spec.write(host.scope, index) }
-                // A Cutout / Pop-out look starts finding the person right away
-                // (the Mac's segmentation ensureMask) — the feature's to run.
+                // A Cutout / Pop-out look starts finding the person right away,
+                // in the background (the Mac's segmentation ensureMask). The
+                // Remove Background key is the one that opens the feature.
                 if spec.id == CameraPane.background.id, host.scope.project?.usesCameraLook == true {
-                    host.runFeature(.removeBackground)
+                    host.ensureCameraMask()
                 }
             }
             chips = group

@@ -318,7 +318,10 @@ final class EditorViewController: UIViewController {
             StudioAutoZoom.present(from: self, project: self.project, undoManager: self.editorUndo)
         }
         inspector.onRemoveBackground = { [weak self] in self?.presentBackgroundRemoval() }
-        timeline.onNeedsCameraMask = { [weak self] in self?.presentBackgroundRemoval() }
+        // A Cutout / Pop-out look placed from the inspector or the timeline
+        // starts the person mask quietly, as on the Mac (no sheet).
+        inspector.onEnsureCameraMask = { [weak self] in self?.startCameraMask() }
+        timeline.onNeedsCameraMask = { [weak self] in self?.startCameraMask() }
         // The timeline's VOICE row draws the live take from the one session.
         timelinePlayback.voiceOverState = {
             let session = StudioVoiceOver.session
@@ -330,6 +333,11 @@ final class EditorViewController: UIViewController {
         guard !isPreviewingVersion else { return }
         canvas.endInlineEdit(commit: true)
         StudioVoiceOver.present(from: self, project: project, undoManager: editorUndo, transport: playback)
+    }
+
+    private func startCameraMask() {
+        _ = StudioBackgroundRemoval.cameraMask(for: project)
+        renderStage()
     }
 
     private func presentBackgroundRemoval() {

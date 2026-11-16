@@ -42,6 +42,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     var onRecordVoiceOver: (() -> Void)?
     /// The rail's History key.
     var onShowHistory: (() -> Void)?
+    /// A camera look that needs the person mask was picked (start it quietly).
+    var onEnsureCameraMask: (() -> Void)?
     /// What Subtitles shows while a transcription runs.
     var transcription = InspectorTranscriptionState() {
         didSet { if transcription != oldValue { refreshVisiblePane() } }
@@ -118,6 +120,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         case .showHistory: onShowHistory?()
         }
     }
+
+    func ensureCameraMask() { onEnsureCameraMask?() }
 
     func pickImage(logo: Bool, _ completion: @escaping (URL) -> Void) {
         if let imagePicker { imagePicker(logo, completion); return }
