@@ -376,7 +376,7 @@ enum InspectorLab {
         }) else { return }
         let inspector = editor.inspector
         let window = editor.view.window!
-        let regular = editor.view.bounds.width >= 700
+        let regular = editor.usesRegularLayout
         log("INSPECTOR layout \(regular ? "regular (side column)" : "compact (bottom sheet)") window=\(Int(window.bounds.width))×\(Int(window.bounds.height))")
 
         if !injected {
@@ -563,7 +563,7 @@ enum InspectorLab {
         let inspector = editor.inspector
         let selection = editor.selection
         apply(.none, to: selection)
-        if editor.view.bounds.width < 700 { inspector.setSheetRaised(true, animated: false) }
+        if !editor.usesRegularLayout { inspector.setSheetRaised(true, animated: false) }
         selection.inspectorTab = .background
         await settle(0.6)
 

@@ -7,6 +7,14 @@ import UIKit
 enum ThisDevice {
     static var noun: String { UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone" }
     static var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+
+    /// The screen the app is showing on now — on iPhone Duo the outer or the
+    /// inner display, which changes as it folds — never a stored or `main`
+    /// screen. The foreground scene's, else any connected scene's.
+    static var activeScreen: UIScreen? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return (scenes.first { $0.activationState == .foregroundActive } ?? scenes.first)?.screen
+    }
 }
 
 /// Text the screens show for times, sizes and dates.

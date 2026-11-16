@@ -83,6 +83,7 @@ final class LabViewController: UIViewController {
         if KitGalleryLab.start(arguments, lab: self) { return }
         if InspectorLab.start(arguments, lab: self) { return }
         if TimelineEditsLab.start(arguments, in: self) { return }
+        if EditorResizeLab.start(arguments, lab: self) { return }
         if #available(iOS 26, *), HistoryLab.start(arguments, lab: self) { return }
         if FeaturesLab.start(arguments, lab: self) { return }
         if WhisperProbeLab.start(arguments) { return }

@@ -185,9 +185,22 @@ final class EditorViewController: UIViewController {
         ]
     }
 
+    /// The side-by-side layout (inspector column beside the stage): both size
+    /// classes regular — iPad full screen and the iPhone Duo's inner display.
+    /// Size classes, not a width breakpoint: they follow fold / unfold, Split
+    /// View and Stage Manager, and keep a landscape phone (regular width,
+    /// compact height) on the stacked layout that fits its height. Read here
+    /// in layout, UIKit's automatic trait tracking re-lays out on a change.
+    var usesRegularLayout: Bool {
+        #if DEBUG
+        if Self.probeDefect == .ignoresSizeClass { return false }
+        #endif
+        return traitCollection.horizontalSizeClass == .regular && traitCollection.verticalSizeClass == .regular
+    }
+
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
-        let regular = view.bounds.width >= 700
+        let regular = usesRegularLayout
         if regular, regularConstraints.first?.isActive != true {
             NSLayoutConstraint.deactivate(compactConstraints)
             NSLayoutConstraint.activate(regularConstraints)
@@ -526,7 +539,7 @@ final class EditorViewController: UIViewController {
     /// Probe seams — INJECTED DEFECTS for `--editor-shell --inject …`: the
     /// stage told it is paused while playing (the playback exception
     /// broken), or never handed the player (frames frozen on the poster).
-    enum ProbeDefect { case none, blurWhilePlaying, frozenFrames }
+    enum ProbeDefect { case none, blurWhilePlaying, frozenFrames, ignoresSizeClass }
     static var probeDefect = ProbeDefect.none
     #endif
 

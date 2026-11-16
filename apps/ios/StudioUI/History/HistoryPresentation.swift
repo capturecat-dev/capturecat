@@ -44,8 +44,9 @@ final class HistoryPresentation {
     }
 
     static func style(for editor: EditorViewController) -> Style {
-        // The editor's own regular/compact rule (EditorViewController.viewWillLayoutSubviews).
-        editor.view.bounds.width >= 700 ? .sidePanel : .sheet
+        // The editor's own regular/compact rule (size classes, so it follows
+        // fold / unfold on iPhone Duo).
+        editor.usesRegularLayout ? .sidePanel : .sheet
     }
 
     private init(panel: HistoryPanelController, style: Style, editor: EditorViewController) {

@@ -335,7 +335,7 @@ final class HistoryRig {
         await LabTime.settle(0.6)
         if let view = presentation.probeMovingView, let window = view.window {
             let frame = view.convert(view.bounds, to: window)
-            let wantSide = editor.view.bounds.width >= 700
+            let wantSide = editor.usesRegularLayout
             let ok = wantSide
                 ? frame.maxX <= window.bounds.maxX + 0.5 && frame.width >= 340 && frame.minX > window.bounds.width * 0.4
                 : frame.maxY <= window.bounds.maxY + 0.5 && frame.height > window.bounds.height * 0.6

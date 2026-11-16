@@ -146,7 +146,11 @@ final class MacPresence {
     }
 
     static func hello() -> @Sendable () -> WirelessHello {
-        let screen = UIScreen.main.nativeBounds.size
+        // The display the app is on when the link starts (iPhone Duo: outer or
+        // inner). A broadcast reports its real frame size in its own video
+        // format messages, so a later fold doesn't need this to change.
+        let display = ThisDevice.activeScreen
+        let screen = display?.nativeBounds.size ?? .zero
         let hello = WirelessHello(
             role: WirelessDevice.roleApp,
             deviceID: DeviceIdentity.deviceID,
@@ -156,7 +160,7 @@ final class MacPresence {
             appVersion: DeviceIdentity.appVersion,
             screenWidth: Int(min(screen.width, screen.height)),
             screenHeight: Int(max(screen.width, screen.height)),
-            screenScale: Double(UIScreen.main.nativeScale)
+            screenScale: Double(display?.nativeScale ?? 0)
         )
         return { hello }
     }
