@@ -311,22 +311,55 @@ final class CCButton: UIControl {
     }
 }
 
-/// Light haptic acknowledgements for primary actions.
+/// Light haptic acknowledgements for primary actions, steps and detents.
 enum CCHaptics {
+    #if DEBUG
+    /// Probe seam: while non-nil, every haptic appends its kind here
+    /// ("light", "selection", "detent", "success", "warning").
+    static var probeLog: [String]?
+    #endif
+
+    private static func note(_ kind: String) {
+        #if DEBUG
+        probeLog?.append(kind)
+        #endif
+    }
+
+    private static let selectionGenerator = UISelectionFeedbackGenerator()
+    private static let detentGenerator = UIImpactFeedbackGenerator(style: .rigid)
+
+    /// Wake the step/detent engines ahead of a drag (lower latency).
+    static func prepare() {
+        selectionGenerator.prepare()
+        detentGenerator.prepare()
+    }
+
     static func light() {
+        note("light")
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
     }
 
+    /// One step: a discrete slider notch, a stepper tick, a chip pick.
     static func selection() {
-        UISelectionFeedbackGenerator().selectionChanged()
+        note("selection")
+        selectionGenerator.selectionChanged()
+    }
+
+    /// A detent: the value just landed on a stop (a slider's soft detent or
+    /// the end of its range, a stepper reaching its bound).
+    static func detent() {
+        note("detent")
+        detentGenerator.impactOccurred(intensity: 0.75)
     }
 
     static func success() {
+        note("success")
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     static func warning() {
+        note("warning")
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
     }
 }
