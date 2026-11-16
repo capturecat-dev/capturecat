@@ -20,7 +20,7 @@ import Foundation
 /// - exclusive lanes: effects = zoom + tilt (`TimelineCanvasView
 ///   .effectLaneSpans`; co-spanning zoom/tilt within
 ///   `EffectBlockItem.linkEpsilon` are one linked block, paired exactly like
-///   `canvasEffectItems`), focus = blur + depth focus + camera layout +
+///   `timelineEffectItems`), focus = blur + depth focus + camera layout +
 ///   highlight (`focusLaneSpans`), speed = speed regions (add / duplicate
 ///   guards). Annotations, voice-overs and subtitles may overlap.
 nonisolated struct MergePolicy: Sendable {

@@ -144,8 +144,10 @@ TARGETS.append({
     "type": "com.apple.product-type.application",
     "filetype": "wrapper.application",
     "bundle": "so.capturecat.ios.studiolab",
-    "sync": ["StudioLab", "StudioUI", "Studio", "StudioHarness"],
-    "mac": [],
+    # Kit: the StudioUI views dress themselves with the house kit (the
+    # timeline's menus, motion and icons), so the harness compiles it too.
+    "sync": ["StudioLab", "StudioUI", "Studio", "StudioHarness", "Kit"],
+    "mac": ["CCIconSet"],
     "plist": "Config/Lab-Info.plist",
     "entitlements": None,
     "extra": {

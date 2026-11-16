@@ -412,7 +412,7 @@ nonisolated enum ProjectMerge {
         JSONKeys.less(a, b) ? "\(a)|\(b)" : "\(b)|\(a)"
     }
 
-    /// Linked zoom+tilt blocks (TimelineViewController.canvasEffectItems pairing).
+    /// Linked zoom+tilt blocks (TimelineEditing.timelineEffectItems pairing).
     private static func linkedPairs(_ doc: JSONObject, _ lane: MergePolicy.Lane) -> Set<String> {
         var links = Set<String>()
         guard let link = lane.link else { return links }
