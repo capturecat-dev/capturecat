@@ -326,7 +326,7 @@ enum WebAudioFixtures {
         return Float(v)
     }
 
-    private static func pcmSampleBuffer(_ interleaved: [Float], channels: Int, sampleRate: Double, startFrame: Int) throws -> CMSampleBuffer {
+    static func pcmSampleBuffer(_ interleaved: [Float], channels: Int, sampleRate: Double, startFrame: Int) throws -> CMSampleBuffer {
         var asbd = AudioStreamBasicDescription(
             mSampleRate: sampleRate, mFormatID: kAudioFormatLinearPCM,
             mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,

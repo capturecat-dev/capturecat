@@ -135,8 +135,9 @@ export interface AudioMixPlan {
 export interface AudioMediaInfo {
   /** Recording asset duration (seconds). */
   assetDuration: number;
-  /** One entry per recorded audio track, file order: its end on the source timeline (seconds). */
-  recordingTracks: { duration: number }[];
+  /** One entry per recorded audio track, file order: its end on the source
+   * timeline (seconds) and its channel count (undefined = unknown). */
+  recordingTracks: { duration: number; channels?: number }[];
   /** Voice-over fileName → measured duration (seconds); missing/undecodable files are absent. */
   voiceDurations: Record<string, number>;
 }
@@ -150,9 +151,20 @@ export interface SoundCueInput {
 
 const f32 = Math.fround;
 
-function baseVolume(index: number, settings: Project["settings"]): number {
+/**
+ * `ProjectAudioMix.recordedTrackRole` — which volume slider a recorded track
+ * follows. System audio is written first (stereo), the mic after it (mono);
+ * a take recorded with the mic but without system audio has ONE track, the
+ * mono mic, and it follows the Microphone slider.
+ */
+export function recordedTrackRole(index: number, trackCount: number, channels: number | undefined): "systemAudio" | "microphone" {
+  if (trackCount === 1 && channels === 1) return "microphone";
+  return index === 0 ? "systemAudio" : "microphone";
+}
+
+function baseVolume(role: "systemAudio" | "microphone", settings: Project["settings"]): number {
   if (settings.muteRecordedAudio) return 0;
-  const raw = index === 0 ? settings.systemAudioVolume : settings.microphoneVolume;
+  const raw = role === "systemAudio" ? settings.systemAudioVolume : settings.microphoneVolume;
   return f32(smax(0, smin(1, raw)));
 }
 
@@ -202,7 +214,7 @@ export function buildAudioMixPlan(project: Project, cues: SoundCueInput, media: 
 
   const recordingTracks: RecordingTrackMix[] = media.recordingTracks.map((t, index) => ({
     index,
-    volume: baseVolume(index, settings),
+    volume: baseVolume(recordedTrackRole(index, media.recordingTracks.length, t.channels), settings),
     sourceEndFrame: Math.round(t.duration * MIX_SAMPLE_RATE),
   }));
 

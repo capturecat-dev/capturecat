@@ -1968,7 +1968,20 @@ final class RecordingPanelViewController: NSViewController {
         }
     }
 
+    /// Set by the panel gates (`--recording-panel-shot`): never ask
+    /// ScreenCaptureKit for sources. A gate build is signed differently from
+    /// the release but shares its bundle id, so macOS shows its Screen
+    /// Recording prompt — on the developer's Mac, with the real CaptureCat
+    /// already allowed — and answering it hands the permission to the gate
+    /// build. The panel then simply lists no displays or windows.
+    static var harnessSkipsSourceProbe = false
+
     private func loadSources(forceProbe: Bool = false) async {
+        if Self.harnessSkipsSourceProbe {
+            isLoadingSources = false
+            refresh()
+            return
+        }
         isLoadingSources = true
         errorMessage = nil
         refresh()

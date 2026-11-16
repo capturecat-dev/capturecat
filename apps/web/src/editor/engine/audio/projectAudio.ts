@@ -141,7 +141,7 @@ export class ProjectAudio {
     if (version !== this.version) return this.plan;
     const plan = buildAudioMixPlan(project, cues, {
       assetDuration: this.assetDuration,
-      recordingTracks: this.recordingReaders.map((r) => ({ duration: r?.duration ?? 0 })),
+      recordingTracks: this.recordingReaders.map((r) => ({ duration: r?.duration ?? 0, channels: r?.channels })),
       voiceDurations,
     });
     const voices = new Map<string, PcmTrackReader>();

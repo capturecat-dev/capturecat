@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import ImageIO
 import CoreText
 import CryptoKit
 import Foundation
@@ -920,66 +921,13 @@ enum MCPServer {
         let cacheDir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("capturecat-mcp-renders", isDirectory: true)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
-        let cached = cacheDir.appendingPathComponent("\(digest).mp4")
 
-        var freshlyRendered = false
-        if !FileManager.default.fileExists(atPath: cached.path) {
-            freshlyRendered = true
-            progress.report(0, total: 100, message: "Rendering the project (first look after an edit)")
-            let semaphore = DispatchSemaphore(value: 0)
-            var outcome: Result<URL, Error> = .failure(ToolError("render did not run"))
-            Task { @MainActor in
-                do {
-                    let result = try await HeadlessRunner.performExport(
-                        ref: ref,
-                        outputPath: cached.path,
-                        progress: { percent in
-                            log("render_frames export \(percent)%")
-                            progress.report(Double(percent), total: 100, message: "Rendering")
-                        }
-                    )
-                    outcome = .success(result.url)
-                } catch {
-                    outcome = .failure(error)
-                }
-                semaphore.signal()
-            }
-            semaphore.wait()
-            let actual: URL
-            do { actual = try outcome.get() } catch {
-                try? FileManager.default.removeItem(at: cached)
-                throw error
-            }
-            // Sandbox fallback: performExport may have written elsewhere.
-            if actual.path != cached.path {
-                try? FileManager.default.removeItem(at: cached)
-                try FileManager.default.copyItem(at: actual, to: cached)
-            }
-            pruneRenderCache(cacheDir, keeping: cached)
-        } else {
-            // Mark as recently used so pruning keeps the renders in play.
-            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: cached.path)
-        }
-
-        // Source-time labels come from the very bytes that were rendered.
-        let timeMap = (try? decodeProject(jsonData)).map { SpeedTimeMap(trimmedOutputOf: $0) }
-
-        let asset = AVURLAsset(url: cached)
-        let infoSemaphore = DispatchSemaphore(value: 0)
-        var duration: Double = 0
-        var displaySize = CGSize(width: 16, height: 9)
-        Task {
-            duration = (try? await asset.load(.duration).seconds) ?? 0
-            if let track = try? await asset.loadTracks(withMediaType: .video).first,
-               let natural = try? await track.load(.naturalSize),
-               let transform = try? await track.load(.preferredTransform) {
-                let applied = natural.applying(transform)
-                displaySize = CGSize(width: abs(applied.width), height: abs(applied.height))
-            }
-            infoSemaphore.signal()
-        }
-        infoSemaphore.wait()
-        guard duration > 0 else { throw ToolError("the render has no duration — nothing to show") }
+        // The project exactly as the exporter loads it; its output length and
+        // time map are the exporter's own (Project.exportedOutputDuration).
+        let project = try HeadlessRunner.loadProject(ref: ref)
+        let timeMap: SpeedTimeMap? = SpeedTimeMap(trimmedOutputOf: project)
+        let duration = project.exportedOutputDuration(timeMap: SpeedTimeMap(trimmedOutputOf: project))
+        guard duration > 0.001 else { throw ToolError("the project has no duration — nothing to show") }
 
         let times: [Double]
         if let explicitTimes {
@@ -994,35 +942,67 @@ enum MCPServer {
                 ? [spec.start]
                 : (0..<spec.count).map { spec.start + (end - spec.start) * Double($0) / Double(spec.count - 1) }
         }
-
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        generator.requestedTimeToleranceBefore = .zero
-        generator.requestedTimeToleranceAfter = .zero
-
-        let aspect = displaySize.height > 0 ? displaySize.width / displaySize.height : 16.0 / 9.0
-        let sheetLayout = sheet ? contactSheetLayout(count: times.count, aspect: aspect, maxEdge: maxEdge) : nil
-        if let sheetLayout {
-            generator.maximumSize = CGSize(width: sheetLayout.tile.width.rounded(.up),
-                                           height: sheetLayout.tile.height.rounded(.up))
-        } else {
-            generator.maximumSize = CGSize(width: maxEdge, height: maxEdge)
-        }
+        let clampedTimes = times.map { max(0, min($0, max(0, duration - 0.001))) }
 
         struct Frame { let image: CGImage; let output: Double; let source: Double? }
         var frames: [Frame] = []
-        for t in times {
-            let clamped = max(0, min(t, max(0, duration - 0.001)))
-            let requested = CMTime(seconds: clamped, preferredTimescale: 600)
-            var actualTime = CMTime.zero
-            let cgImage = try generator.copyCGImage(at: requested, actualTime: &actualTime)
-            let output = CMTimeGetSeconds(actualTime)
-            frames.append(Frame(image: cgImage, output: output,
-                                source: timeMap.map { $0.sourceTime(forOutput: output) }))
+        let renderMode = "frames-only render"
+        var displaySize = CGSize(width: 16, height: 9)
+        // Tile / frame size the images are fitted into (aspect kept, never upscaled).
+        func fitBox(aspect: CGFloat) -> (box: CGSize, sheet: ContactSheetLayout?) {
+            if sheet {
+                let layout = contactSheetLayout(count: times.count, aspect: aspect, maxEdge: maxEdge)
+                return (CGSize(width: layout.tile.width.rounded(.up), height: layout.tile.height.rounded(.up)), layout)
+            }
+            return (CGSize(width: maxEdge, height: maxEdge), nil)
         }
+        var sheetLayout: ContactSheetLayout?
+
+        // Frames only: the exporter walks the whole timeline exactly as a
+        // full export does but composites just these frames, and hands
+        // over its lossless pre-encode images — byte-identical to the same
+        // frames of a full export (`--render-only-test`), in a fraction of
+        // the time. Nothing is cached: the next call is as quick.
+        progress.report(0, total: 100, message: "Rendering \(times.count) frame(s)")
+        let work = cacheDir.appendingPathComponent("\(digest)-frames-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: work) }
+        let semaphore = DispatchSemaphore(value: 0)
+        var outcome: Result<[VideoExporter.RenderedFrame], Error> = .failure(ToolError("render did not run"))
+        Task { @MainActor in
+            let exporter = VideoExporter()
+            exporter.renderOnlyOutputTimes = clampedTimes
+            exporter.renderOnlyDirectory = work
+            do {
+                try await exporter.export(project: project, to: work.appendingPathComponent("frames.mp4"))
+                outcome = .success(exporter.renderedFrames)
+            } catch {
+                outcome = .failure(error)
+            }
+            semaphore.signal()
+        }
+        semaphore.wait()
+        let rendered = try outcome.get()
+        var images: [CGImage] = []
+        for frame in rendered {
+            guard let source = CGImageSourceCreateWithURL(frame.url as CFURL, nil),
+                  let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+                throw ToolError("frame at \(fmt(frame.requestedTime))s did not render")
+            }
+            images.append(image)
+        }
+        if let first = images.first { displaySize = CGSize(width: first.width, height: first.height) }
+        let aspect = displaySize.height > 0 ? displaySize.width / displaySize.height : 16.0 / 9.0
+        let fit = fitBox(aspect: aspect)
+        sheetLayout = fit.sheet
+        for (frame, image) in zip(rendered, images) {
+            frames.append(Frame(image: fitted(image, within: fit.box), output: frame.outputTime,
+                                source: timeMap.map { $0.sourceTime(forOutput: frame.outputTime) }))
+        }
+        progress.report(100, total: 100, message: "Rendered")
 
         var header: [String: Any] = [
-            "render": freshlyRendered ? "fresh export" : "cached export",
+            "render": renderMode,
             "durationSeconds": (duration * 100).rounded() / 100,
             "frames": frames.count,
             "layout": layout,
@@ -1072,23 +1052,22 @@ enum MCPServer {
     /// recently used few.
     static let renderCacheLimit = 6
 
-    private static func pruneRenderCache(_ directory: URL, keeping current: URL) {
-        let fm = FileManager.default
-        guard let files = try? fm.contentsOfDirectory(
-            at: directory, includingPropertiesForKeys: [.contentModificationDateKey]
-        ) else { return }
-        let renders = files
-            .filter { $0.pathExtension == "mp4" && $0.lastPathComponent != current.lastPathComponent }
-            .map { url -> (URL, Date) in
-                let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
-                    .contentModificationDate ?? .distantPast
-                return (url, date)
-            }
-            .sorted { $0.1 > $1.1 }
-        for (url, _) in renders.dropFirst(renderCacheLimit - 1) {
-            try? fm.removeItem(at: url)
-        }
+    /// `image` scaled down to fit `box`, aspect kept and never enlarged — what
+    /// AVAssetImageGenerator.maximumSize did when frames came from a movie.
+    static func fitted(_ image: CGImage, within box: CGSize) -> CGImage {
+        let scale = min(1, box.width / CGFloat(image.width), box.height / CGFloat(image.height))
+        guard scale < 1 else { return image }
+        let w = max(1, Int((CGFloat(image.width) * scale).rounded()))
+        let h = max(1, Int((CGFloat(image.height) * scale).rounded()))
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return image }
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        return ctx.makeImage() ?? image
     }
+
 
     private static func encodeImage(_ image: CGImage, jpeg: Bool, quality: Double) throws -> Data {
         let rep = NSBitmapImageRep(cgImage: image)

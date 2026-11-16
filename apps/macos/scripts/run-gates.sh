@@ -51,6 +51,8 @@ GATES=(
   --history-panel-shot
   --reference-canvas-test
   --export-tuning-test
+  --render-only-test
+  --audio-role-test
 )
 
 failed=0

@@ -329,6 +329,9 @@ final class PreviewCompositorCore {
     static let renderTiming = ProcessInfo.processInfo.environment["CAPTURECAT_RENDER_TIMING"] != nil
     nonisolated(unsafe) static var renderCount = 0
     nonisolated(unsafe) static var renderTotal: CFTimeInterval = 0
+    nonisolated(unsafe) static var renderMax: CFTimeInterval = 0
+    /// Distinct video frames the driver has pulled (`--editor-bench`).
+    var debugVideoFrameToken: Int { videoDriver?.frameToken ?? 0 }
     /// Last target handed to `interpolate`, per layer+keyPath. See `interpolate`.
     private var lastAnimationTarget: [String: NSValue] = [:]
 
@@ -640,7 +643,9 @@ final class PreviewCompositorCore {
         defer {
             if PreviewCompositorCore.renderTiming {
                 PreviewCompositorCore.renderCount += 1
-                PreviewCompositorCore.renderTotal += CACurrentMediaTime() - renderStart
+                let spent = CACurrentMediaTime() - renderStart
+                PreviewCompositorCore.renderTotal += spent
+                PreviewCompositorCore.renderMax = max(PreviewCompositorCore.renderMax, spent)
             }
         }
         let s = input.project.settings

@@ -215,6 +215,9 @@ final class PreviewCompositorView: NSView {
     static var renderTiming: Bool { PreviewCompositorCore.renderTiming }
     static var renderCount: Int { PreviewCompositorCore.renderCount }
     static var renderTotal: CFTimeInterval { PreviewCompositorCore.renderTotal }
+    static var renderMax: CFTimeInterval { PreviewCompositorCore.renderMax }
+    /// Distinct video frames the driver has pulled (`--editor-bench`).
+    var debugVideoFrameToken: Int { core.debugVideoFrameToken }
 
     /// Defect injections for `--preview-parity`'s self-tests (see the core).
     static var debugUnmaskedLooks: Bool {
