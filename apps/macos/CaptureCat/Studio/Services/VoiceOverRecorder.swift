@@ -39,6 +39,11 @@ final class VoiceOverRecorder: NSObject {
         recorder?.isRecording == true
     }
 
+    /// Seconds recorded so far (0 when idle) — the take's elapsed time.
+    var currentTime: TimeInterval {
+        recorder?.currentTime ?? 0
+    }
+
     func startRecording(to url: URL) throws {
         stopRecording(discard: true)
 

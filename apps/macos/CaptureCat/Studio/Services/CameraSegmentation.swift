@@ -48,6 +48,8 @@ final class CameraSegmentation {
     /// Host seam: true while capture, export or an upload owns the machine —
     /// the job never starts then and pauses between frames.
     @ObservationIgnored var isHostBusy: @MainActor () -> Bool = { false }
+    /// Gate seam: a stand-in for Vision's matte (nil in the apps).
+    @ObservationIgnored var matteSource: CameraSegmenter.Matte?
     @ObservationIgnored private var isWorking = false
     @ObservationIgnored private var gate: CameraSegmentationGate?
     /// Loaded tracks, keyed by mask path, valid for one file signature.
@@ -198,8 +200,9 @@ final class CameraSegmentation {
             }
         }
         do {
+            let matte = matteSource
             let data = try await Task.detached(priority: .utility) {
-                try await CameraSegmenter.segment(cameraURL: cameraURL, gate: gate, progress: report)
+                try await CameraSegmenter.segment(cameraURL: cameraURL, gate: gate, matte: matte, progress: report)
             }.value
             try data.write(to: maskURL, options: .atomic)
             failedSignatures[projectID] = nil
@@ -220,5 +223,39 @@ final class CameraSegmentation {
     /// True while capture, export or a share upload owns the machine.
     private var isBusy: Bool {
         isHostBusy()
+    }
+}
+
+extension CameraSegmentation.Status {
+    /// The status line the editors show under the camera looks (the Mac's
+    /// Camera pane, the iOS background-removal sheet); nil when nothing is
+    /// needed.
+    var displayText: String? {
+        switch self {
+        case .notNeeded: return nil
+        case .ready: return "Background removed — Cutout and Pop-out card are live."
+        case .queued: return "Removing background — waiting to start…"
+        case .running(let p): return "Removing background… \(Int((p * 100).rounded()))%"
+        case .paused(let p): return "Paused while recording or exporting — \(Int((p * 100).rounded()))%"
+        case .failed(let message): return "Couldn't remove the background: \(message)"
+        }
+    }
+
+    /// The bar under the line: nil = indeterminate (queued); hidden when
+    /// ready or failed.
+    var barValue: Double? {
+        switch self {
+        case .queued: return nil
+        case .running(let p), .paused(let p): return p
+        case .ready: return 1
+        case .notNeeded, .failed: return 0
+        }
+    }
+
+    var showsBar: Bool {
+        switch self {
+        case .ready, .failed: return false
+        default: return true
+        }
     }
 }

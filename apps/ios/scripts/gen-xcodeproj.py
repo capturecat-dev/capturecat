@@ -17,6 +17,11 @@ Folders (synchronized — new .swift files compile with no project edit):
   ShareExtension/ CaptureCatShare            "Save to CaptureCat" share extension
   ../macos/CaptureCat/Shared/   all three        files that MUST build on iOS
   ../macos/CaptureCat/Studio/   CaptureCat (app) the studio core, shared with the Mac app
+
+Swift packages: WhisperKit (transcription, Studio 4e) for the app and
+StudioLab, pinned to the exact version the Mac app resolves; the transitive
+pins are copied from the Mac's Package.resolved so both apps build the same
+engine.
 """
 import hashlib
 import os
@@ -61,6 +66,15 @@ MAC_FILES = {
     "CCIconSet": "../macos/CaptureCat/Views/Shared/DesignKit/CCIconSet.swift",
 }
 
+# Swift packages: key -> (repository, exact version, product). The Mac app
+# resolves WhisperKit 0.15.0 (apps/macos/…/Package.resolved); iOS pins the
+# same so a recording transcribes identically on both (Studio 4e).
+PACKAGES = {
+    "WhisperKit": ("https://github.com/argmaxinc/WhisperKit.git", "0.15.0", "WhisperKit"),
+}
+MAC_RESOLVED = os.path.join(ROOT, "..", "macos", "CaptureCat.xcodeproj", "project.xcworkspace",
+                            "xcshareddata", "swiftpm", "Package.resolved")
+
 CONFIG_FILES = [
     "Config/App-Info.plist",
     "Config/App.entitlements",
@@ -83,6 +97,7 @@ TARGETS = [
         # StillMovieWriter comes with Studio/ for the app; the extensions still
         # reference it on its own.
         "mac": ["OAuthPKCE", "LoopbackAuthServer", "CCIconSet"],
+        "packages": ["WhisperKit"],
         "plist": "Config/App-Info.plist",
         "entitlements": "Config/App.entitlements",
         "extra": {
@@ -148,6 +163,7 @@ TARGETS.append({
     # and the StudioUI views (the timeline's menus, motion, icons) use the kit.
     "sync": ["StudioLab", "StudioUI", "Studio", "StudioHarness", "Kit"],
     "mac": ["CCIconSet"],
+    "packages": ["WhisperKit"],
     "plist": "Config/Lab-Info.plist",
     "entitlements": None,
     "extra": {
@@ -262,6 +278,12 @@ def main():
         for key in t["mac"]:
             base = os.path.basename(MAC_FILES[key])
             add("PBXBuildFile", f'\t\t{oid("bf." + t["key"] + "." + key)} /* {base} in Sources */ = {{isa = PBXBuildFile; fileRef = {oid("macfile." + key)} /* {base} */; }};')
+    for t in TARGETS:
+        for key in t.get("packages", []):
+            add("PBXBuildFile", f'\t\t{oid("bf.pkg." + t["key"] + "." + key)} /* {key} in Frameworks */ = {{isa = PBXBuildFile; productRef = {oid("pkgprod." + t["key"] + "." + key)} /* {key} */; }};')
+            add("XCSwiftPackageProductDependency", f'\t\t{oid("pkgprod." + t["key"] + "." + key)} /* {key} */ = {{\n\t\t\tisa = XCSwiftPackageProductDependency;\n\t\t\tpackage = {oid("pkg." + key)} /* XCRemoteSwiftPackageReference "{key}" */;\n\t\t\tproductName = {PACKAGES[key][2]};\n\t\t}};')
+    for key, (repo, version, _) in PACKAGES.items():
+        add("XCRemoteSwiftPackageReference", f'\t\t{oid("pkg." + key)} /* XCRemoteSwiftPackageReference "{key}" */ = {{\n\t\t\tisa = XCRemoteSwiftPackageReference;\n\t\t\trepositoryURL = "{repo}";\n\t\t\trequirement = {{\n\t\t\t\tkind = exactVersion;\n\t\t\t\tversion = {version};\n\t\t\t}};\n\t\t}};')
     extensions = [t for t in TARGETS if "app-extension" in t["type"]]
     for t in extensions:
         add("PBXBuildFile", f'\t\t{oid("embed." + t["key"])} /* {t["product"]} in Embed Foundation Extensions */ = {{isa = PBXBuildFile; fileRef = {oid("product." + t["key"])} /* {t["product"]} */; settings = {{ATTRIBUTES = (RemoveHeadersOnCopy, ); }}; }};')
@@ -280,7 +302,8 @@ def main():
         k = t["key"]
         src = "\n".join(f'\t\t\t\t{oid("bf." + k + "." + m)} /* {os.path.basename(MAC_FILES[m])} in Sources */,' for m in t["mac"])
         add("PBXSourcesBuildPhase", f'\t\t{oid("phase.sources." + k)} /* Sources */ = {{\n\t\t\tisa = PBXSourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n{src}\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};'.replace("(\n\n", "(\n"))
-        add("PBXFrameworksBuildPhase", f'\t\t{oid("phase.frameworks." + k)} /* Frameworks */ = {{\n\t\t\tisa = PBXFrameworksBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};')
+        fw = "".join(f'\t\t\t\t{oid("bf.pkg." + k + "." + key)} /* {key} in Frameworks */,\n' for key in t.get("packages", []))
+        add("PBXFrameworksBuildPhase", f'\t\t{oid("phase.frameworks." + k)} /* Frameworks */ = {{\n\t\t\tisa = PBXFrameworksBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n{fw}\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};')
         add("PBXResourcesBuildPhase", f'\t\t{oid("phase.resources." + k)} /* Resources */ = {{\n\t\t\tisa = PBXResourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};')
 
     # Groups
@@ -303,12 +326,20 @@ def main():
             deps = "\n".join(f'\t\t\t\t{oid("dep." + e["key"])} /* PBXTargetDependency */,' for e in extensions)
         phase_lines = "\n".join(f"\t\t\t\t{p}," for p in phases)
         syncs = "\n".join(f'\t\t\t\t{oid("sync." + s)} /* {SYNC[s][1] or SYNC[s][0]} */,' for s in t["sync"])
-        add("PBXNativeTarget", f'\t\t{oid("target." + k)} /* {t["name"]} */ = {{\n\t\t\tisa = PBXNativeTarget;\n\t\t\tbuildConfigurationList = {oid("cfglist." + k)} /* Build configuration list for PBXNativeTarget "{t["name"]}" */;\n\t\t\tbuildPhases = (\n{phase_lines}\n\t\t\t);\n\t\t\tbuildRules = (\n\t\t\t);\n\t\t\tdependencies = (\n{deps}\n\t\t\t);\n\t\t\tfileSystemSynchronizedGroups = (\n{syncs}\n\t\t\t);\n\t\t\tname = {t["name"]};\n\t\t\tproductName = {t["name"]};\n\t\t\tproductReference = {oid("product." + k)} /* {t["product"]} */;\n\t\t\tproductType = "{t["type"]}";\n\t\t}};'.replace("(\n\n", "(\n"))
+        pkgdeps = ""
+        if t.get("packages"):
+            items = "".join(f'\n\t\t\t\t{oid("pkgprod." + k + "." + key)} /* {key} */,' for key in t["packages"])
+            pkgdeps = f"\n\t\t\tpackageProductDependencies = ({items}\n\t\t\t);"
+        add("PBXNativeTarget", f'\t\t{oid("target." + k)} /* {t["name"]} */ = {{\n\t\t\tisa = PBXNativeTarget;\n\t\t\tbuildConfigurationList = {oid("cfglist." + k)} /* Build configuration list for PBXNativeTarget "{t["name"]}" */;\n\t\t\tbuildPhases = (\n{phase_lines}\n\t\t\t);\n\t\t\tbuildRules = (\n\t\t\t);\n\t\t\tdependencies = (\n{deps}\n\t\t\t);\n\t\t\tfileSystemSynchronizedGroups = (\n{syncs}\n\t\t\t);\n\t\t\tname = {t["name"]};{pkgdeps}\n\t\t\tproductName = {t["name"]};\n\t\t\tproductReference = {oid("product." + k)} /* {t["product"]} */;\n\t\t\tproductType = "{t["type"]}";\n\t\t}};'.replace("(\n\n", "(\n"))
 
     # Project
     target_attrs = "\n".join(f'\t\t\t\t\t{oid("target." + t["key"])} = {{\n\t\t\t\t\t\tCreatedOnToolsVersion = 27.0;\n\t\t\t\t\t}};' for t in TARGETS)
     target_list = "\n".join(f'\t\t\t\t{oid("target." + t["key"])} /* {t["name"]} */,' for t in TARGETS)
-    add("PBXProject", f'\t\t{project} /* Project object */ = {{\n\t\t\tisa = PBXProject;\n\t\t\tattributes = {{\n\t\t\t\tBuildIndependentTargetsInParallel = 1;\n\t\t\t\tLastSwiftUpdateCheck = 2700;\n\t\t\t\tLastUpgradeCheck = 2700;\n\t\t\t\tTargetAttributes = {{\n{target_attrs}\n\t\t\t\t}};\n\t\t\t}};\n\t\t\tbuildConfigurationList = {oid("cfglist.project")} /* Build configuration list for PBXProject "CaptureCat" */;\n\t\t\tdevelopmentRegion = en;\n\t\t\thasScannedForEncodings = 0;\n\t\t\tknownRegions = (\n\t\t\t\ten,\n\t\t\t\tBase,\n\t\t\t);\n\t\t\tmainGroup = {main_group};\n\t\t\tminimizedProjectReferenceProxies = 1;\n\t\t\tpreferredProjectObjectVersion = 77;\n\t\t\tproductRefGroup = {products_group} /* Products */;\n\t\t\tprojectDirPath = "";\n\t\t\tprojectRoot = "";\n\t\t\ttargets = (\n{target_list}\n\t\t\t);\n\t\t}};')
+    pkgrefs = ""
+    if PACKAGES:
+        items = "".join(f'\n\t\t\t\t{oid("pkg." + key)} /* XCRemoteSwiftPackageReference "{key}" */,' for key in PACKAGES)
+        pkgrefs = f"\n\t\t\tpackageReferences = ({items}\n\t\t\t);"
+    add("PBXProject", f'\t\t{project} /* Project object */ = {{\n\t\t\tisa = PBXProject;\n\t\t\tattributes = {{\n\t\t\t\tBuildIndependentTargetsInParallel = 1;\n\t\t\t\tLastSwiftUpdateCheck = 2700;\n\t\t\t\tLastUpgradeCheck = 2700;\n\t\t\t\tTargetAttributes = {{\n{target_attrs}\n\t\t\t\t}};\n\t\t\t}};\n\t\t\tbuildConfigurationList = {oid("cfglist.project")} /* Build configuration list for PBXProject "CaptureCat" */;\n\t\t\tdevelopmentRegion = en;\n\t\t\thasScannedForEncodings = 0;\n\t\t\tknownRegions = (\n\t\t\t\ten,\n\t\t\t\tBase,\n\t\t\t);\n\t\t\tmainGroup = {main_group};\n\t\t\tminimizedProjectReferenceProxies = 1;{pkgrefs}\n\t\t\tpreferredProjectObjectVersion = 77;\n\t\t\tproductRefGroup = {products_group} /* Products */;\n\t\t\tprojectDirPath = "";\n\t\t\tprojectRoot = "";\n\t\t\ttargets = (\n{target_list}\n\t\t\t);\n\t\t}};')
 
     # Build configurations
     def config(id_, name, settings):
@@ -340,6 +371,7 @@ def main():
         "PBXFileSystemSynchronizedRootGroup", "PBXFrameworksBuildPhase", "PBXGroup", "PBXNativeTarget",
         "PBXProject", "PBXResourcesBuildPhase", "PBXSourcesBuildPhase", "PBXTargetDependency",
         "XCBuildConfiguration", "XCConfigurationList",
+        "XCRemoteSwiftPackageReference", "XCSwiftPackageProductDependency",
     ]
     body = []
     for section in order:
@@ -431,6 +463,18 @@ def main():
         scheme = "\n".join(l[4:] if l.startswith("    ") else l for l in scheme.split("\n"))
         with open(os.path.join(scheme_dir, name + ".xcscheme"), "w") as f:
             f.write(scheme)
+
+    # The Mac app's package pins (WhisperKit and everything it pulls in),
+    # minus the Mac-only ones — so both apps build the same engine.
+    import json
+    with open(MAC_RESOLVED) as f:
+        resolved = json.load(f)
+    resolved["pins"] = [p for p in resolved["pins"] if p["identity"] != "sparkle"]
+    resolved.pop("originHash", None)
+    swiftpm = os.path.join(OUT, "project.xcworkspace", "xcshareddata", "swiftpm")
+    os.makedirs(swiftpm, exist_ok=True)
+    with open(os.path.join(swiftpm, "Package.resolved"), "w") as f:
+        f.write(json.dumps(resolved, indent=2, separators=(",", " : ")) + "\n")
 
     write_scheme("App", "CaptureCat", "CaptureCat.app")
     write_scheme("Lab", "StudioLab", "StudioLab.app")

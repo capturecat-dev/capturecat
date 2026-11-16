@@ -29,7 +29,7 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>CaptureCat finds your Mac on this Wi-Fi so it can record your iPhone screen without a cable.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>CaptureCat records your voice with screen and camera takes.</string>
+	<string>CaptureCat records your voice with screen and camera takes, and when you record a voice-over in the editor.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>CaptureCat imports the screenshots and screen recordings you choose and saves them to your projects.</string>
 	<key>NSUserActivityTypes</key>

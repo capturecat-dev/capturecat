@@ -289,7 +289,7 @@ enum PreviewExportParityHarness {
     }
 
     /// The frame at `time`, read the way VideoExporter reads its source.
-    private static func decodedFrame(_ url: URL, at time: TimeInterval) async -> CGImage? {
+    static func decodedFrame(_ url: URL, at time: TimeInterval) async -> CGImage? {
         let asset = AVURLAsset(url: url)
         guard let track = try? await asset.loadTracks(withMediaType: .video).first,
               let reader = try? AVAssetReader(asset: asset) else { return nil }
@@ -312,7 +312,7 @@ enum PreviewExportParityHarness {
                                ?? CGColorSpace(name: CGColorSpace.sRGB)!)
     }
 
-    private static func platformImage(_ cg: CGImage) -> PlatformImage {
+    static func platformImage(_ cg: CGImage) -> PlatformImage {
         #if canImport(AppKit)
         NSImage(cgImage: cg, size: CGSize(width: cg.width, height: cg.height))
         #else
