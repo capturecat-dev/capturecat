@@ -101,6 +101,7 @@ final class CCHeaderBar: UIView {
         case .inline:
             let centered = titleLabel.centerXAnchor.constraint(equalTo: content.centerXAnchor)
             centered.priority = .defaultHigh
+            titleCentering = centered
             NSLayoutConstraint.activate([
                 centered,
                 titleLabel.leadingAnchor.constraint(greaterThanOrEqualTo: leading.trailingAnchor, constant: CCSpace.sm),
@@ -113,6 +114,15 @@ final class CCHeaderBar: UIView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    /// `.inline`: moves the centred title sideways (points; + is right) —
+    /// e.g. off a folding display's crease, over the pane it belongs to.
+    var titleCenterOffset: CGFloat = 0 {
+        didSet { if titleCentering?.constant != titleCenterOffset { titleCentering?.constant = titleCenterOffset } }
+    }
+    private var titleCentering: NSLayoutConstraint?
+    /// Probe seam: the title label (its frame, in gates).
+    var probeTitleView: UIView { titleLabel }
 
     func setTrailing(_ views: [UIView]) {
         trailing.arrangedSubviews.forEach { $0.removeFromSuperview() }

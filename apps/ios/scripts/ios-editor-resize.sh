@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ios-editor-resize.sh — the editor folding and unfolding (iPhone Duo).
 #
-#   apps/ios/scripts/ios-editor-resize.sh [outDir] [--inject ignores-size-class]
+#   apps/ios/scripts/ios-editor-resize.sh [outDir] [--inject ignores-size-class|ignores-crease]
 #
 # Builds StudioLab and runs `--editor-resize`: the real editor hosted at the
 # Duo's outer-display size and size classes, given state (playhead,

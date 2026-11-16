@@ -53,8 +53,27 @@ final class CCTabBar: UIView {
 
     var barHeight: CGFloat { isCompactHeight ? 50 : 62 }
 
+    /// A vertical bar: items top to bottom, icons only (the title is the
+    /// accessibility label) — where the system puts bars on a vertical
+    /// edge (`FoldingDisplay.verticalBarEdge`, the iPhone Duo folded).
+    var isVertical = false {
+        didSet {
+            guard isVertical != oldValue else { return }
+            for button in buttons { button.iconOnly = isVertical }
+            invalidateIntrinsicContentSize()
+            setNeedsLayout()
+            layoutIfNeeded()
+            moveChip(animated: false)
+        }
+    }
+    /// A vertical bar's item height.
+    static let verticalItemHeight: CGFloat = 52
+    /// A vertical bar's natural length.
+    var verticalLength: CGFloat { CGFloat(items.count) * Self.verticalItemHeight + inset * 2 }
+
     override var intrinsicContentSize: CGSize {
-        CGSize(width: CGFloat(items.count) * (isCompactHeight ? 132 : 104) + inset * 2, height: barHeight)
+        if isVertical { return CGSize(width: 48, height: verticalLength) }
+        return CGSize(width: CGFloat(items.count) * (isCompactHeight ? 132 : 104) + inset * 2, height: barHeight)
     }
 
     func setSelectedIndex(_ index: Int, animated: Bool) {
@@ -75,20 +94,25 @@ final class CCTabBar: UIView {
     }
 
     private func itemRect(_ index: Int) -> CGRect {
+        if isVertical {
+            let height = (bounds.height - inset * 2) / CGFloat(max(items.count, 1))
+            return CGRect(x: inset, y: inset + height * CGFloat(index), width: bounds.width - inset * 2, height: height)
+        }
         let width = (bounds.width - inset * 2) / CGFloat(max(items.count, 1))
         return CGRect(x: inset + width * CGFloat(index), y: inset, width: width, height: bounds.height - inset * 2)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let outer = CCRadius.full.resolved(for: bounds.height)
+        let thickness = isVertical ? bounds.width : bounds.height
+        let outer = CCRadius.full.resolved(for: thickness)
         layer.cornerRadius = outer
         CCMaterial.refit(layer, radius: outer)
         for (index, button) in buttons.enumerated() {
             button.frame = itemRect(index)
-            button.horizontal = isCompactHeight
+            button.horizontal = isCompactHeight && !isVertical
         }
-        let chipRadius = CCRadius.full.resolved(for: bounds.height - inset * 2)
+        let chipRadius = CCRadius.full.resolved(for: thickness - inset * 2)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         if chip.animation(forKey: "ccmotion.position") == nil {
@@ -120,7 +144,7 @@ final class CCTabBar: UIView {
 
     private func applyTheme() {
         let colors = CCTheme.color
-        CCMaterial.dress(layer, as: .raised(tint: colors.popover), radius: CCRadius.full.resolved(for: bounds.height), traits: traitCollection)
+        CCMaterial.dress(layer, as: .raised(tint: colors.popover), radius: CCRadius.full.resolved(for: min(bounds.width, bounds.height)), traits: traitCollection)
         // A stronger float than the height formula — the bar hovers over content.
         layer.setValue(true, forKey: "ccmatShadow")
         CCMaterial.dress(chip, as: .raisedMatte(tint: colors.elevated), radius: chip.cornerRadius, traits: traitCollection)
@@ -137,6 +161,8 @@ final class CCTabBarItemView: UIControl {
     private let label: UILabel
     private var isOn = false
     var horizontal = false { didSet { if horizontal != oldValue { setNeedsLayout() } } }
+    /// Icon only (a vertical bar); the title stays the accessibility label.
+    var iconOnly = false { didSet { if iconOnly != oldValue { label.isHidden = iconOnly; setNeedsLayout() } } }
 
     init(item: CCNavItem) {
         icon = CCIconView(item.symbol, pointSize: 18, weight: .medium, tint: CCTheme.color.mutedForeground)
@@ -163,7 +189,9 @@ final class CCTabBarItemView: UIControl {
         super.layoutSubviews()
         let side = CCIcon.side(for: 18)
         let labelSize = label.sizeThatFits(CGSize(width: bounds.width - 8, height: 40))
-        if horizontal {
+        if iconOnly {
+            icon.frame = CGRect(x: (bounds.width - side) / 2, y: (bounds.height - side) / 2, width: side, height: side)
+        } else if horizontal {
             let total = side + 6 + labelSize.width
             let x = (bounds.width - total) / 2
             icon.frame = CGRect(x: x, y: (bounds.height - side) / 2, width: side, height: side)

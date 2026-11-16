@@ -52,7 +52,6 @@ final class EditorViewController: UIViewController {
         playback: playback, project: { [unowned self] in self.project })
     private(set) lazy var timeline = StudioTimelineViewController(
         project: project, selection: selection, playback: timelinePlayback, undoManager: editorUndo)
-    private var compactTimelineHeight: NSLayoutConstraint?
     private let contextPill = EditorContextPill()
     private let undoButton = CCButton(symbol: "undo", style: .ghost, size: .regular, radius: .full)
     private let redoButton = CCButton(symbol: "redo", style: .ghost, size: .regular, radius: .full)
@@ -89,8 +88,18 @@ final class EditorViewController: UIViewController {
     private var autosaveWork: DispatchWorkItem?
     private var dirty = false
     private var lastSnapshot = ""
-    private var regularConstraints: [NSLayoutConstraint] = []
-    private var compactConstraints: [NSLayoutConstraint] = []
+    private var constraintSets: [Arrangement: [NSLayoutConstraint]] = [:]
+    private var timelineHeights: [Arrangement: NSLayoutConstraint] = [:]
+    private(set) var activeArrangement: Arrangement?
+    /// The crease, as a layout guide (zero-sized when there is none), and
+    /// the equal spaces that centre the stage in its half.
+    private let creaseGuide = UILayoutGuide()
+    private let stageTopSpace = UILayoutGuide()
+    private let stageBottomSpace = UILayoutGuide()
+    private var creaseLeft: NSLayoutConstraint!
+    private var creaseTop: NSLayoutConstraint!
+    private var creaseWidth: NSLayoutConstraint!
+    private var creaseHeight: NSLayoutConstraint!
     private var lastShowCamera: Bool
     private var lastTrim: (TimeInterval, TimeInterval)
     private var lastVoiceClips: [VoiceOverClip]?
@@ -137,45 +146,56 @@ final class EditorViewController: UIViewController {
         contextPill.isHidden = true
 
         let guide = root.safeAreaLayoutGuide
+        for g in [creaseGuide, stageTopSpace, stageBottomSpace] { root.addLayoutGuide(g) }
+        // The crease's frame (zero when there is none), set in layout.
+        creaseLeft = creaseGuide.leftAnchor.constraint(equalTo: root.leftAnchor)
+        creaseTop = creaseGuide.topAnchor.constraint(equalTo: root.topAnchor)
+        creaseWidth = creaseGuide.widthAnchor.constraint(equalToConstant: 0)
+        creaseHeight = creaseGuide.heightAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
+            creaseLeft, creaseTop, creaseWidth, creaseHeight,
             header.topAnchor.constraint(equalTo: root.topAnchor),
             header.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
             stageCard.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: CCSpace.md),
             transport.topAnchor.constraint(equalTo: stageCard.bottomAnchor, constant: CCSpace.sm),
             transport.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
             transport.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
             transport.heightAnchor.constraint(equalToConstant: 48),
-            timelineContainer.topAnchor.constraint(equalTo: transport.bottomAnchor, constant: CCSpace.sm),
-            timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
-            timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
         ])
+        func sixteenByNine() -> NSLayoutConstraint {
+            let c = stageCard.heightAnchor.constraint(equalTo: stageCard.widthAnchor, multiplier: 9.0 / 16.0)
+            c.priority = .defaultHigh
+            return c
+        }
+        // Timeline under the stage, as wide as it (both size-class layouts).
+        func timelineUnderStage() -> [NSLayoutConstraint] {
+            [stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
+             timelineContainer.topAnchor.constraint(equalTo: transport.bottomAnchor, constant: CCSpace.sm),
+             timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
+             timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor)]
+        }
         // Regular width: the inspector is a 340 pt column (the Mac's 340…480,
         // ideal 380, scaled to a tablet), stage + timeline to its left. The
         // card takes a 16:9 share of the width when there is room; the
         // timeline keeps at least 220 pt and takes what is left.
-        let regularStageHeight = stageCard.heightAnchor.constraint(equalTo: stageCard.widthAnchor, multiplier: 9.0 / 16.0)
-        regularStageHeight.priority = .defaultHigh
-        regularConstraints = [
+        constraintSets[.sideBySide] = timelineUnderStage() + [
             inspectorContainer.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
             inspectorContainer.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
             inspectorContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
             inspectorContainer.widthAnchor.constraint(equalToConstant: 340),
             stageCard.trailingAnchor.constraint(equalTo: inspectorContainer.leadingAnchor, constant: -CCSpace.md),
-            regularStageHeight,
+            sixteenByNine(),
             stageCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 160),
             timelineContainer.heightAnchor.constraint(greaterThanOrEqualToConstant: 220),
             timelineContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
         ]
         // Compact: one column — stage, transport, timeline, inspector.
-        let stageHeight = stageCard.heightAnchor.constraint(equalTo: stageCard.widthAnchor, multiplier: 9.0 / 16.0)
-        stageHeight.priority = .defaultHigh
         let timelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 180)
-        compactTimelineHeight = timelineHeight
-        compactConstraints = [
+        timelineHeights[.stacked] = timelineHeight
+        constraintSets[.stacked] = timelineUnderStage() + [
             stageCard.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
-            stageHeight,
+            sixteenByNine(),
             stageCard.heightAnchor.constraint(lessThanOrEqualTo: guide.heightAnchor, multiplier: 0.45),
             timelineHeight,
             inspectorContainer.topAnchor.constraint(equalTo: timelineContainer.bottomAnchor, constant: CCSpace.sm),
@@ -183,6 +203,77 @@ final class EditorViewController: UIViewController {
             inspectorContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
             inspectorContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
         ]
+        // A crease top to bottom (iPhone Duo unfolded): the stage and its
+        // transport fill one half, centred in it; the timeline and the
+        // inspector take the other half — nothing straddles the fold.
+        let vTimelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 220)
+        timelineHeights[.splitAtVerticalCrease] = vTimelineHeight
+        constraintSets[.splitAtVerticalCrease] = [
+            stageCard.trailingAnchor.constraint(equalTo: creaseGuide.leadingAnchor, constant: -CCSpace.md),
+            sixteenByNine(),
+            stageCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 160),
+            stageTopSpace.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
+            stageTopSpace.bottomAnchor.constraint(equalTo: stageCard.topAnchor),
+            stageBottomSpace.topAnchor.constraint(equalTo: transport.bottomAnchor),
+            stageBottomSpace.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
+            stageTopSpace.heightAnchor.constraint(equalTo: stageBottomSpace.heightAnchor),
+            timelineContainer.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
+            timelineContainer.leadingAnchor.constraint(equalTo: creaseGuide.trailingAnchor, constant: CCSpace.md),
+            timelineContainer.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
+            vTimelineHeight,
+            inspectorContainer.topAnchor.constraint(equalTo: timelineContainer.bottomAnchor, constant: CCSpace.sm),
+            inspectorContainer.leadingAnchor.constraint(equalTo: timelineContainer.leadingAnchor),
+            inspectorContainer.trailingAnchor.constraint(equalTo: timelineContainer.trailingAnchor),
+            inspectorContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
+        ]
+        // A crease side to side: stage and transport above it; timeline and
+        // inspector below.
+        let hTimelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 180)
+        timelineHeights[.splitAtHorizontalCrease] = hTimelineHeight
+        constraintSets[.splitAtHorizontalCrease] = [
+            stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
+            stageCard.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
+            sixteenByNine(),
+            transport.bottomAnchor.constraint(lessThanOrEqualTo: creaseGuide.topAnchor, constant: -CCSpace.sm),
+            timelineContainer.topAnchor.constraint(equalTo: creaseGuide.bottomAnchor, constant: CCSpace.sm),
+            timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
+            timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
+            hTimelineHeight,
+            inspectorContainer.topAnchor.constraint(equalTo: timelineContainer.bottomAnchor, constant: CCSpace.sm),
+            inspectorContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
+            inspectorContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
+            inspectorContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
+        ]
+    }
+
+    /// How the editor's regions are laid out.
+    enum Arrangement: String {
+        /// Compact size classes: one column.
+        case stacked
+        /// Both size classes regular: an inspector column beside the stage.
+        case sideBySide
+        /// A crease top to bottom: stage | timeline over inspector.
+        case splitAtVerticalCrease
+        /// A crease side to side: stage over timeline and inspector.
+        case splitAtHorizontalCrease
+    }
+
+    /// The arrangement for the current size classes and fold. A crease
+    /// wins: nothing may straddle it, whatever the size classes.
+    var arrangement: Arrangement {
+        switch crease {
+        case .vertical?: return .splitAtVerticalCrease
+        case .horizontal?: return .splitAtHorizontalCrease
+        case nil: return usesRegularLayout ? .sideBySide : .stacked
+        }
+    }
+
+    /// The fold's crease across the editor, if any (`FoldingDisplay`).
+    var crease: FoldingDisplay.Crease? {
+        #if DEBUG
+        if Self.probeDefect == .ignoresCrease { return nil }
+        #endif
+        return FoldingDisplay.crease(in: view)
     }
 
     /// The side-by-side layout (inspector column beside the stage): both size
@@ -200,15 +291,29 @@ final class EditorViewController: UIViewController {
 
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
-        let regular = usesRegularLayout
-        if regular, regularConstraints.first?.isActive != true {
-            NSLayoutConstraint.deactivate(compactConstraints)
-            NSLayoutConstraint.activate(regularConstraints)
-        } else if !regular, compactConstraints.first?.isActive != true {
-            NSLayoutConstraint.deactivate(regularConstraints)
-            NSLayoutConstraint.activate(compactConstraints)
+        let crease = self.crease
+        let arrangement = self.arrangement
+        let r = crease?.rect ?? .zero
+        if creaseLeft.constant != r.minX { creaseLeft.constant = r.minX }
+        if creaseTop.constant != r.minY { creaseTop.constant = r.minY }
+        if creaseWidth.constant != r.width { creaseWidth.constant = r.width }
+        if creaseHeight.constant != r.height { creaseHeight.constant = r.height }
+        if arrangement != activeArrangement {
+            if let activeArrangement { NSLayoutConstraint.deactivate(constraintSets[activeArrangement] ?? []) }
+            NSLayoutConstraint.activate(constraintSets[arrangement] ?? [])
+            activeArrangement = arrangement
         }
-        inspector.setRegularWidth(regular)
+        // The inspector is a column whenever it has a pane of its own.
+        inspector.setRegularWidth(arrangement == .sideBySide || arrangement == .splitAtVerticalCrease)
+        // The centred title moves off a vertical crease, over the stage's half.
+        if case .vertical(let c)? = crease {
+            let rtl = view.effectiveUserInterfaceLayoutDirection == .rightToLeft
+            let pane = rtl ? (c.maxX + view.bounds.width - view.safeAreaInsets.right) / 2
+                           : (view.safeAreaInsets.left + c.minX) / 2
+            header.titleCenterOffset = pane - view.bounds.midX
+        } else {
+            header.titleCenterOffset = 0
+        }
         timelineHeightChanged(timeline.intrinsicPanelHeight)
     }
 
@@ -305,11 +410,20 @@ final class EditorViewController: UIViewController {
     }
 
     /// iPhone: the timeline gets its full height, up to a third of the screen
-    /// (it scrolls beyond); iPad: it takes what the stage leaves.
+    /// (it scrolls beyond); iPad: it takes what the stage leaves. Beside a
+    /// crease it may take up to half its pane; the inspector gets the rest.
     private func timelineHeightChanged(_ height: CGFloat) {
-        let cap = max(180, view.bounds.height / 3)
-        let constant = min(max(height, 180), cap)
-        if compactTimelineHeight?.constant != constant { compactTimelineHeight?.constant = constant }
+        let h = view.bounds.height
+        let caps: [Arrangement: CGFloat] = [
+            .stacked: max(180, h / 3),
+            .splitAtVerticalCrease: max(220, h / 2),
+            .splitAtHorizontalCrease: max(160, (h - (crease?.rect.maxY ?? 0)) / 2),
+        ]
+        for (arrangement, constraint) in timelineHeights {
+            let floor: CGFloat = arrangement == .splitAtHorizontalCrease ? 160 : 180
+            let constant = min(max(height, floor), caps[arrangement] ?? floor)
+            if constraint.constant != constant { constraint.constant = constant }
+        }
     }
 
     /// The feature keys: the inspector's (4d) and the timeline's mic and
@@ -539,7 +653,7 @@ final class EditorViewController: UIViewController {
     /// Probe seams — INJECTED DEFECTS for `--editor-shell --inject …`: the
     /// stage told it is paused while playing (the playback exception
     /// broken), or never handed the player (frames frozen on the poster).
-    enum ProbeDefect { case none, blurWhilePlaying, frozenFrames, ignoresSizeClass }
+    enum ProbeDefect { case none, blurWhilePlaying, frozenFrames, ignoresSizeClass, ignoresCrease }
     static var probeDefect = ProbeDefect.none
     #endif
 

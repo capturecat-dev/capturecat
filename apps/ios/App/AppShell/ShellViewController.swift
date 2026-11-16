@@ -35,6 +35,12 @@ final class ShellViewController: UIViewController, UINavigationControllerDelegat
     private var tabBarBottom: NSLayoutConstraint!
     private var tabBarWidth: NSLayoutConstraint!
     private var tabBarHeight: NSLayoutConstraint!
+    /// Bottom placement (the floating capsule) vs. a vertical bar in the
+    /// system's bar region on a vertical edge (iPhone Duo folded).
+    private var bottomPlacement: [NSLayoutConstraint] = []
+    private var sidePlacement: [NSLayoutConstraint] = []
+    private var sideSlide: NSLayoutConstraint?
+    private(set) var tabBarEdge: NSDirectionalRectEdge?
     private(set) var selected: Tab = .library
     private(set) var isRegular: Bool?
     private var tabBarHidden = false
@@ -70,15 +76,16 @@ final class ShellViewController: UIViewController, UINavigationControllerDelegat
             content.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             content.topAnchor.constraint(equalTo: view.topAnchor),
             content.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            tabBar.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            tabBarBottom, tabBarWidth, tabBarHeight,
+            tabBarWidth, tabBarHeight,
         ])
+        bottomPlacement = [tabBar.centerXAnchor.constraint(equalTo: view.centerXAnchor), tabBarBottom]
+        NSLayoutConstraint.activate(bottomPlacement)
 
         tabBar.onSelect = { [weak self] index in self?.select(Tab(rawValue: index) ?? .library, animated: true) }
         tabBar.onReselect = { [weak self] _ in self?.reselect() }
         sidebar.onSelect = { [weak self] index in self?.select(Tab(rawValue: index) ?? .library, animated: true) }
         sidebar.onReselect = { [weak self] _ in self?.reselect() }
-        registerForTraitChanges([UITraitHorizontalSizeClass.self, UITraitVerticalSizeClass.self]) { (self: ShellViewController, _: UITraitCollection) in
+        registerForTraitChanges([UITraitHorizontalSizeClass.self, UITraitVerticalSizeClass.self] + FoldingDisplay.traitsAffectingVerticalBarEdge) { (self: ShellViewController, _: UITraitCollection) in
             self.applyLayout(animated: true)
         }
         show(.library, animated: false)
@@ -97,9 +104,18 @@ final class ShellViewController: UIViewController, UINavigationControllerDelegat
             if sidebar.isRail != wantsRail { sidebar.isRail = wantsRail }
             sidebarWidth.constant = sidebarCollapsed ? 0 : expandedSidebarWidth
         }
-        tabBarWidth.constant = min(tabBar.intrinsicContentSize.width, view.bounds.width - CCSpace.lg * 2)
-        tabBarHeight.constant = tabBar.barHeight
-        tabBarBottom.constant = tabBarHidden ? tabBar.barHeight + 40 : (view.safeAreaInsets.bottom > 0 ? 0 : -CCSpace.md)
+        placeTabBar()
+        if tabBarEdge != nil {
+            tabBarWidth.constant = 48
+            tabBarHeight.constant = tabBar.verticalLength
+            // Hidden: slid out past the screen edge it sits on.
+            let away: CGFloat = tabBarHidden ? 48 + 40 : 0
+            sideSlide?.constant = tabBarEdge == .trailing ? away : -away
+        } else {
+            tabBarWidth.constant = min(tabBar.intrinsicContentSize.width, view.bounds.width - CCSpace.lg * 2)
+            tabBarHeight.constant = tabBar.barHeight
+            tabBarBottom.constant = tabBarHidden ? tabBar.barHeight + 40 : (view.safeAreaInsets.bottom > 0 ? 0 : -CCSpace.md)
+        }
         updateInsets()
     }
 
@@ -129,8 +145,36 @@ final class ShellViewController: UIViewController, UINavigationControllerDelegat
         view.setNeedsLayout()
     }
 
+    /// Where the compact tab bar goes: on the edge the system puts vertical
+    /// bars (in its bar region, beside the content — so the content keeps
+    /// its bottom), else the floating capsule at the bottom.
+    private func placeTabBar() {
+        var edge: NSDirectionalRectEdge?
+        if #available(iOS 27.2, *), isRegular == false, let e = FoldingDisplay.verticalBarEdge(traitCollection) {
+            edge = e
+        }
+        guard edge != tabBarEdge || (edge != nil && sidePlacement.isEmpty) else { return }
+        NSLayoutConstraint.deactivate(bottomPlacement + sidePlacement)
+        sidePlacement = []
+        sideSlide = nil
+        tabBarEdge = edge
+        if #available(iOS 27.2, *), let edge {
+            let region = view.layoutGuide(for: .bar(onEdge: edge))
+            let slide = tabBar.centerXAnchor.constraint(equalTo: region.centerXAnchor)
+            let fits = tabBar.heightAnchor.constraint(lessThanOrEqualTo: region.heightAnchor)
+            sidePlacement = [slide, tabBar.centerYAnchor.constraint(equalTo: region.centerYAnchor), fits]
+            sideSlide = slide
+            NSLayoutConstraint.activate(sidePlacement)
+        } else {
+            NSLayoutConstraint.activate(bottomPlacement)
+        }
+        tabBar.isVertical = edge != nil
+    }
+
     private func updateInsets() {
-        let compactBar = isRegular == false && !tabBarHidden
+        // A vertical bar sits in the system's bar region, outside the
+        // content's safe area: the content needs no extra inset for it.
+        let compactBar = isRegular == false && !tabBarHidden && tabBarEdge == nil
         let inset = compactBar ? tabBar.barHeight + CCSpace.md : 0
         for child in [library.nav, captureNav, accountNav] where child.additionalSafeAreaInsets.bottom != inset {
             child.additionalSafeAreaInsets.bottom = inset
@@ -271,6 +315,7 @@ final class ShellViewController: UIViewController, UINavigationControllerDelegat
 
     // Probe seams.
     var probeContent: UIView { content }
+    var probeTabBarEdge: NSDirectionalRectEdge? { tabBarEdge }
     /// The view that crossfades in when `tab` is selected (its navigation
     /// controller's view — NOT the screen's own view, which never fades).
     func probeTabView(_ tab: Tab) -> UIView { controller(for: tab).view }

@@ -14,6 +14,14 @@ import UIKit
 /// project, selection, undo stack, and playback still running and advancing.
 /// `--inject ignores-size-class` pins the editor to its compact layout: the
 /// unfold checks must then FAIL (proof the gate can see a missed resize).
+///
+/// Unfolded, the inner display has a crease (a `.division` reserved region).
+/// The simulator can only fold from its window's hardware menu, so the gate
+/// puts a crease on the unfolded editor through `FoldingDisplay`'s seam —
+/// top to bottom, then side to side — and checks that nothing straddles it:
+/// stage and transport on one side, timeline and inspector on the other,
+/// the header title off it, state kept. `--inject ignores-crease` makes the
+/// editor ignore the crease: those checks must then FAIL.
 @MainActor
 enum EditorResizeLab {
     private static var lines: [String] = []
@@ -50,10 +58,12 @@ enum EditorResizeLab {
         try? fm.createDirectory(at: out, withIntermediateDirectories: true)
         log("EDITOR-RESIZE out=\(out.path) device=\(UIDevice.current.model) \(UIDevice.current.systemVersion)")
         if let inject {
-            guard inject == "ignores-size-class" else { log("EDITOR-RESIZE FAIL unknown --inject \(inject)"); exit(1) }
+            guard inject == "ignores-size-class" || inject == "ignores-crease" else {
+                log("EDITOR-RESIZE FAIL unknown --inject \(inject)"); exit(1)
+            }
             log("EDITOR-RESIZE inject=\(inject)")
             #if DEBUG
-            EditorViewController.probeDefect = .ignoresSizeClass
+            EditorViewController.probeDefect = inject == "ignores-crease" ? .ignoresCrease : .ignoresSizeClass
             #endif
         }
 
@@ -121,6 +131,24 @@ enum EditorResizeLab {
         await settle(1.0)
         checkLayout(editor, display: inner)
         checkState(editor, snapshot: snapshot, selectedID: selectedID, after: playheadBeforeUnfold, step: "unfold")
+
+        // The crease, top to bottom (the book posture), then side to side.
+        for vertical in [true, false] {
+            let tag = vertical ? "crease-vertical" : "crease-horizontal"
+            let before = editor.playback.currentTime
+            FoldingDisplay.creaseOverride = { v in
+                vertical ? CGRect(x: v.bounds.midX - 12, y: 0, width: 24, height: v.bounds.height)
+                         : CGRect(x: 0, y: v.bounds.midY - 12, width: v.bounds.width, height: 24)
+            }
+            editor.view.setNeedsLayout()
+            await settle(1.0)
+            checkCrease(editor, vertical: vertical, tag: tag)
+            checkState(editor, snapshot: snapshot, selectedID: selectedID, after: before, step: tag)
+        }
+        FoldingDisplay.creaseOverride = nil
+        editor.view.setNeedsLayout()
+        await settle(1.0)
+        checkLayout(editor, display: inner)
         let playheadBeforeFold = editor.playback.currentTime
 
         // Fold again.
@@ -177,6 +205,48 @@ enum EditorResizeLab {
         log("EDITOR-RESIZE \(tag) layout stage=\(fmt(stage)) timeline=\(fmt(timeline)) inspector=\(fmt(inspector))")
     }
 
+    /// Nothing straddles the crease: stage + transport on one side, timeline
+    /// over inspector on the other; the header title is off it.
+    @available(iOS 26, *)
+    private static func checkCrease(_ editor: EditorViewController, vertical: Bool, tag: String) {
+        let want: EditorViewController.Arrangement = vertical ? .splitAtVerticalCrease : .splitAtHorizontalCrease
+        check("\(tag)-arrangement", editor.activeArrangement == want,
+              "arrangement \(editor.activeArrangement?.rawValue ?? "nil") (want \(want.rawValue))")
+        let root = editor.view!
+        let bounds = root.bounds
+        let crease = vertical ? CGRect(x: bounds.midX - 12, y: 0, width: 24, height: bounds.height)
+                              : CGRect(x: 0, y: bounds.midY - 12, width: bounds.width, height: 24)
+        func frame(_ v: UIView) -> CGRect { root.convert(v.bounds, from: v) }
+        let stage = frame(editor.stageCard), transport = frame(editor.transport)
+        let timeline = frame(editor.timelineContainer), inspector = frame(editor.inspectorContainer)
+        let title = frame(editor.header.probeTitleView)
+        let regions = ["stage": stage, "transport": transport, "timeline": timeline, "inspector": inspector]
+        for (name, r) in regions.sorted(by: { $0.key < $1.key }) {
+            let inside = bounds.insetBy(dx: -0.5, dy: -0.5).contains(r) && r.width > 1 && r.height > 1
+            check("\(tag)-\(name)-inside", inside, "\(name) \(fmt(r)) in \(fmt(bounds))")
+            check("\(tag)-\(name)-off-crease", !r.insetBy(dx: 0.5, dy: 0.5).intersects(crease),
+                  "\(name) \(fmt(r)) vs crease \(fmt(crease))")
+        }
+        if vertical {
+            check("\(tag)-stage-side", stage.maxX <= crease.minX + 0.5 && transport.maxX <= crease.minX + 0.5,
+                  "stage \(fmt(stage)) transport \(fmt(transport)) left of \(Int(crease.minX))")
+            check("\(tag)-panel-side", timeline.minX >= crease.maxX - 0.5 && inspector.minX >= crease.maxX - 0.5,
+                  "timeline \(fmt(timeline)) inspector \(fmt(inspector)) right of \(Int(crease.maxX))")
+            check("\(tag)-stage-fills-half", stage.width >= crease.minX - 40,
+                  "stage width \(Int(stage.width)) of a \(Int(crease.minX)) pt half")
+        } else {
+            check("\(tag)-stage-side", stage.maxY <= crease.minY + 0.5 && transport.maxY <= crease.minY + 0.5,
+                  "stage \(fmt(stage)) transport \(fmt(transport)) above \(Int(crease.minY))")
+            check("\(tag)-panel-side", timeline.minY >= crease.maxY - 0.5 && inspector.minY >= crease.maxY - 0.5,
+                  "timeline \(fmt(timeline)) inspector \(fmt(inspector)) below \(Int(crease.maxY))")
+        }
+        check("\(tag)-timeline-over-inspector", timeline.maxY <= inspector.minY + 0.5 && timeline.height >= 159.5
+              && inspector.height >= 120, "timeline \(fmt(timeline)) inspector \(fmt(inspector))")
+        check("\(tag)-title-off-crease", !title.isEmpty && !title.intersects(crease),
+              "title \(fmt(title)) vs crease \(fmt(crease))")
+        log("EDITOR-RESIZE \(tag) stage=\(fmt(stage)) timeline=\(fmt(timeline)) inspector=\(fmt(inspector)) title=\(fmt(title))")
+    }
+
     @available(iOS 26, *)
     private static func checkState(_ editor: EditorViewController, snapshot: String, selectedID: UUID?,
                                    after playhead: TimeInterval, step: String) {
@@ -191,8 +261,8 @@ enum EditorResizeLab {
     // MARK: - Fixture
 
     @available(iOS 26, *)
-    private static func openEditor() async -> EditorViewController? {
-        let dir = out.appendingPathComponent("project", isDirectory: true)
+    static func openEditor(in folder: URL? = nil) async -> EditorViewController? {
+        let dir = (folder ?? out).appendingPathComponent("project", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let project = InspectorValuesTranscript.makeProject(folder: dir)
         guard let poster = poster(),
