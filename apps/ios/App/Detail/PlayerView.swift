@@ -126,7 +126,12 @@ final class PlayerView: UIView {
             errorStack.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: CCSpace.lg),
         ])
 
-        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped)))
+        // Tapping the video toggles the controls, but a tap ON a control
+        // (play, scrubber) belongs to that control: a parent tap recognizer
+        // otherwise cancels the custom UIControl's touch, and play never fires.
+        let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
+        tap.delegate = self
+        addGestureRecognizer(tap)
         timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 10), queue: .main) { [weak self] time in
             MainActor.assumeIsolated { self?.tick(time.seconds) }
         }
@@ -422,4 +427,15 @@ final class PlayerScrubber: UIControl {
 
     override func accessibilityIncrement() { onAccessibilityStep?(5) }
     override func accessibilityDecrement() { onAccessibilityStep?(-5) }
+}
+
+extension PlayerView: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        var view = touch.view
+        while let v = view, v !== self {
+            if v is UIControl { return false }
+            view = v.superview
+        }
+        return true
+    }
 }
