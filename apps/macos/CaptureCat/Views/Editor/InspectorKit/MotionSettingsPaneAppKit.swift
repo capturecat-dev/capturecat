@@ -1,29 +1,5 @@
 import AppKit
 
-/// Everything the Motion pane needs from the editor beyond ProjectSettings —
-/// pushed fresh on every SwiftUI update so bindings/closures never go stale.
-struct MotionPaneContext {
-    var highlightRegion: Ref<HighlightRegion?>
-    var onDeleteHighlight: () -> Void
-    var tiltRegion: Ref<TiltRegion?>
-    var onDeleteTilt: () -> Void
-    var zoomRegion: Ref<ZoomRegion?>
-    var onDeleteZoom: () -> Void
-    var onAddTiltToBlock: () -> Void
-    var onAddZoomToBlock: () -> Void
-    var onAddZoomBlockAtPlayhead: () -> Void = {}
-    /// Snap the project's Slide onto the selected block's span (join). Returns
-    /// false when no block is selected — caller falls back to a global slide.
-    var onJoinSlideToSelectedBlock: () -> Bool = { false }
-    /// Depth Focus region (FOCUS lane) — sharp inside, graduated blur outside.
-    var focusRegion: Ref<FocusRegion?> = Ref(get: { nil }, set: { _ in })
-    var onDeleteFocusRegion: () -> Void = {}
-    /// Blur region (FOCUS lane) — gaussian or pixelated censor patch.
-    var blurRegion: Ref<BlurRegion?> = Ref(get: { nil }, set: { _ in })
-    var onDeleteBlurRegion: () -> Void = {}
-    var onAddTiltBlockAtPlayhead: () -> Void = {}
-}
-
 /// The Motion tab as a native AppKit pane — twin of MotionSettingsView,
 /// context-sensitive: global motion settings when no EFFECTS block is
 /// selected, the selected block's Zoom/Tilt editors when one is.
@@ -43,13 +19,15 @@ final class MotionSettingsPaneAppKit: NSView {
     // Block sections (always visible; details follow the selected block)
     // Below 1.0 the "zoom" is a SCALE-DOWN: the card shrinks toward the focal
     // point — scale is an effect, timed on the EFFECTS lane like any zoom.
-    private let blockZoomSlider = InspectorSliderRow(label: "Zoom / Scale", range: 0.3...6.0, step: 0.1)
+    // Every control's title/range/step/readout, write and visibility: the
+    // shared EffectBlocksPane spec (Studio/Editor/Inspector).
+    private let blockZoomSlider = InspectorSliderRow(EffectBlocksPane.zoomLevel)
     private let zoomPreviewPad = EffectPreviewPadControl()
-    private let followCursorToggle = InspectorToggleControl("Follow Cursor")
+    private let followCursorToggle = InspectorToggleControl(EffectBlocksPane.followCursor)
     /// Per-block animation style — the "Screen Animation Style" control:
     /// Default follows the project speed; Snappy pops, Slow Glide and
     /// Cinematic ease in without any bounce.
-    private let blockStyleMenu = InspectorMenuControl()
+    private let blockStyleMenu = InspectorMenuControl(EffectBlocksPane.zoomSpeed)
     private var blockStyleRow: NSView!
     /// Aim the zoom: where the push-in points, 0…1 in video space. THIS is
     /// how an "offset at an angle" opening is composed — the card's rest
@@ -59,64 +37,49 @@ final class MotionSettingsPaneAppKit: NSView {
     /// Card position excursion during the block — slides the whole card away
     /// from its home and back on the block's spring.
     private let offsetPad = ZoomFocusPadControl(title: "Offset")
-    private let blockZoomCaption = InspectorKitViews.captionLine(
-        "How far this block pushes in — the EFFECTS block shows the level.",
-        full: "How far this block pushes in. The block on the EFFECTS lane shows the level."
-    )
+    private let blockZoomCaption = InspectorKitViews.captionLine(EffectBlocksPane.zoomCaption)
     /// Section toggles — every effect on a block switches on and off here.
-    private let zoomToggle = InspectorToggleControl("Zoom")
-    private let tiltToggle = InspectorToggleControl("Tilt")
+    private let zoomToggle = InspectorToggleControl(EffectBlocksPane.zoomToggle)
+    private let tiltToggle = InspectorToggleControl(EffectBlocksPane.tiltToggle)
     private var zoomViews: [NSView] = []
 
     private let tiltPad = TiltPadControl()
     /// One-click skew presets — the fastest route to a good-looking tilt.
-    private let tiltPresetChips = InspectorChipsControl()
-    private let tiltStyleMenu = InspectorMenuControl()
+    private let tiltPresetChips = InspectorChipsControl(EffectBlocksPane.tiltPreset)
+    private let tiltStyleMenu = InspectorMenuControl(EffectBlocksPane.tiltSpeed)
     private var tiltStyleRow: NSView!
-    private let rotationSlider = InspectorSliderRow(label: "Rotation", range: -30...30, step: 1)
-    private let tiltCaption = InspectorKitViews.captionLine(
-        "Drag the pad to skew the screen — the preview updates live.",
-        full: "Drag the pad to skew the screen — left/right tips a side back, up/down tips the top or bottom back. The preview updates live."
-    )
+    private let rotationSlider = InspectorSliderRow(EffectBlocksPane.rotation)
+    private let tiltCaption = InspectorKitViews.captionLine(EffectBlocksPane.tiltCaption)
     /// One-click "reference look": deep push-in with a gentle pitch-back and a
     /// whisper of rotation. The depth comes from PITCH — big roll values are
     /// what make zoom+tilt look broken.
-    private let cinematicButton = InspectorButton("Cinematic")
+    private let cinematicButton = InspectorButton(EffectBlocksPane.cinematic)
     private let tiltButtonRow = NSStackView()
     private var tiltViews: [NSView] = []
 
     // Highlight section
-    private let highlightOpacitySlider = InspectorSliderRow(label: "Opacity", range: 0.1...0.9)
+    private let highlightOpacitySlider = InspectorSliderRow(EffectBlocksPane.highlightOpacity)
     private let highlightPad = PropertyPreviewPadControl()
-    private let highlightCaption = InspectorKitViews.captionLine(
-        "Softly dims everything outside the selected region.",
-        full: "Highlights softly dim everything outside the selected region so attention stays on the important area."
-    )
-    private let removeHighlightButton = InspectorButton("Remove Highlight", destructive: true)
+    private let highlightCaption = InspectorKitViews.captionLine(EffectBlocksPane.highlightCaption)
+    private let removeHighlightButton = InspectorButton(EffectBlocksPane.removeHighlight)
     private var highlightViews: [NSView] = []
 
     // Depth Focus section
-    private let depthFocusStyleChips = InspectorChipsControl()
-    private let depthFocusStrengthSlider = InspectorSliderRow(label: "Blur Strength", range: 0.1...1, step: 0.05)
-    private let depthFocusFalloffSlider = InspectorSliderRow(label: "Focus Falloff", range: 0...1, step: 0.05)
-    private let depthFocusCornerSlider = InspectorSliderRow(label: "Corner Radius", range: 0...1, step: 0.05)
-    private let depthFocusAngleSlider = InspectorSliderRow(label: "Angle", range: -90...90, step: 1)
-    private let depthFocusCaption = InspectorKitViews.captionLine(
-        "Sharp inside the region, graduated blur outside — drag it on the preview.",
-        full: "The focused area stays sharp while everything outside melts into a graduated blur. Area follows the rect; Tilt Shift blurs with distance from an angled band through its centre. Drag and resize the region on the preview."
-    )
-    private let removeDepthFocusButton = InspectorButton("Remove Depth Focus", destructive: true)
+    private let depthFocusStyleChips = InspectorChipsControl(EffectBlocksPane.depthStyleChoice)
+    private let depthFocusStrengthSlider = InspectorSliderRow(EffectBlocksPane.depthStrength)
+    private let depthFocusFalloffSlider = InspectorSliderRow(EffectBlocksPane.depthFalloff)
+    private let depthFocusCornerSlider = InspectorSliderRow(EffectBlocksPane.depthCorner)
+    private let depthFocusAngleSlider = InspectorSliderRow(EffectBlocksPane.depthAngle)
+    private let depthFocusCaption = InspectorKitViews.captionLine(EffectBlocksPane.depthCaption)
+    private let removeDepthFocusButton = InspectorButton(EffectBlocksPane.removeDepth)
     private var depthFocusViews: [NSView] = []
 
     // Blur section
-    private let blurStyleChips = InspectorChipsControl()
-    private let blurStrengthSlider = InspectorSliderRow(label: "Strength", range: 0.1...1, step: 0.05)
-    private let blurAnimatedToggle = InspectorToggleControl("Animated")
-    private let blurCaption = InspectorKitViews.captionLine(
-        "Blur softens the region; Pixelate covers it with a mosaic.",
-        full: "Blur softens the region; Pixelate covers it with a mosaic. Animated jitters the mosaic grid over time — the classic censor look."
-    )
-    private let removeBlurButton = InspectorButton("Remove Blur", destructive: true)
+    private let blurStyleChips = InspectorChipsControl(EffectBlocksPane.blurStyleChoice)
+    private let blurStrengthSlider = InspectorSliderRow(EffectBlocksPane.blurStrength)
+    private let blurAnimatedToggle = InspectorToggleControl(EffectBlocksPane.blurAnimated)
+    private let blurCaption = InspectorKitViews.captionLine(EffectBlocksPane.blurCaption)
+    private let removeBlurButton = InspectorButton(EffectBlocksPane.removeBlur)
     private var blurViews: [NSView] = []
 
     override var isFlipped: Bool { true }
@@ -156,23 +119,20 @@ final class MotionSettingsPaneAppKit: NSView {
             view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
 
-        blockZoomSlider.format = { String(format: "%.1fx", $0) }
-        rotationSlider.format = { String(format: "%.0f°", $0) }
-        highlightOpacitySlider.format = { "\(Int($0 * 100))%" }
-
         fullWidth(effectsPane)
         globalViews = [effectsPane]
 
         let zoomBox = InspectorSectionBox("Zoom")
         zoomBox.addRow(zoomToggle)
         zoomBox.addRow(blockZoomSlider)
-        blockStyleMenu.items = ["Default"].map { InspectorMenuControl.Item(title: $0) }
-            + ZoomAnimationStyle.allCases.map { .init(title: $0.rawValue) }
-        blockStyleRow = InspectorKitViews.row("Speed", control: blockStyleMenu)
+        blockStyleRow = InspectorKitViews.row(EffectBlocksPane.zoomSpeed.title, control: blockStyleMenu)
         zoomBox.addRow(blockStyleRow)
         zoomBox.addRow(zoomPreviewPad, attached: true)
         zoomPreviewPad.heightAnchor.constraint(equalToConstant: 96).isActive = true
         zoomBox.addRow(followCursorToggle)
+        focusPad.inspectorSpecID = "blocks.focusPad"
+        offsetPad.inspectorSpecID = "blocks.offsetPad"
+        tiltPad.inspectorSpecID = "blocks.tiltPad"
         zoomBox.addRow(focusPad)
         focusPad.heightAnchor.constraint(equalToConstant: 132).isActive = true
         zoomBox.addRow(offsetPad)
@@ -184,12 +144,9 @@ final class MotionSettingsPaneAppKit: NSView {
         let tiltBox = InspectorSectionBox("Tilt")
         tiltBox.addRow(tiltToggle)
         tiltBox.addRow(tiltPad)
-        tiltPresetChips.items = ["Flat", "Showcase", "Lean L", "Lean R", "Top Down"]
         tiltBox.addRow(tiltPresetChips, attached: true)
         tiltBox.addRow(rotationSlider)
-        tiltStyleMenu.items = ["Default"].map { InspectorMenuControl.Item(title: $0) }
-            + ZoomAnimationStyle.allCases.map { .init(title: $0.rawValue) }
-        tiltStyleRow = InspectorKitViews.row("Speed", control: tiltStyleMenu)
+        tiltStyleRow = InspectorKitViews.row(EffectBlocksPane.tiltSpeed.title, control: tiltStyleMenu)
         tiltBox.addRow(tiltStyleRow)
         tiltButtonRow.orientation = .horizontal
         tiltButtonRow.spacing = 8
@@ -209,15 +166,10 @@ final class MotionSettingsPaneAppKit: NSView {
         highlightViews = [highlightBox]
 
         let depthFocusBox = InspectorSectionBox("Depth Focus")
-        depthFocusStyleChips.items = FocusRegionStyle.allCases.map(\.rawValue)
         depthFocusBox.addRow(depthFocusStyleChips)
-        depthFocusStrengthSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         depthFocusBox.addRow(depthFocusStrengthSlider)
-        depthFocusFalloffSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         depthFocusBox.addRow(depthFocusFalloffSlider)
-        depthFocusCornerSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         depthFocusBox.addRow(depthFocusCornerSlider)
-        depthFocusAngleSlider.format = { "\(Int($0.rounded()))°" }
         depthFocusBox.addRow(depthFocusAngleSlider)
         depthFocusBox.addRow(depthFocusCaption, attached: true)
         depthFocusBox.addRow(removeDepthFocusButton)
@@ -225,9 +177,7 @@ final class MotionSettingsPaneAppKit: NSView {
         depthFocusViews = [depthFocusBox]
 
         let blurBox = InspectorSectionBox("Blur")
-        blurStyleChips.items = BlurStyle.allCases.map(\.rawValue)
         blurBox.addRow(blurStyleChips)
-        blurStrengthSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         blurBox.addRow(blurStrengthSlider)
         blurBox.addRow(blurAnimatedToggle)
         blurBox.addRow(blurCaption, attached: true)
@@ -236,126 +186,65 @@ final class MotionSettingsPaneAppKit: NSView {
         blurViews = [blurBox]
     }
 
+    /// The pane's scope for the shared spec: the selected block through the
+    /// current context (rebuilt per use, so it always sees the latest one).
+    private var scope: InspectorScope {
+        InspectorScope(settings: settings, motion: context)
+    }
+
     private func wire() {
-
-
-        blockZoomSlider.onChange = { [weak self] v in self?.context.zoomRegion.wrappedValue?.zoomLevel = v }
-        followCursorToggle.onChange = { [weak self] on in
-            self?.context.zoomRegion.wrappedValue?.followsCursor = on ? nil : false
-        }
-        blockStyleMenu.onSelect = { [weak self] index in
-            self?.context.zoomRegion.wrappedValue?.animationStyle =
-                index == 0 ? nil : ZoomAnimationStyle.allCases[index - 1]
-        }
+        let scope: () -> InspectorScope? = { [weak self] in self?.scope }
+        blockZoomSlider.bind(EffectBlocksPane.zoomLevel, scope)
+        followCursorToggle.bind(EffectBlocksPane.followCursor, scope)
+        blockStyleMenu.bind(EffectBlocksPane.zoomSpeed, scope)
         focusPad.onChange = { [weak self] focal in
-            self?.context.zoomRegion.wrappedValue?.focalPoint = focal
+            guard let self else { return }
+            EffectBlocksPane.focus(self.scope, fx: focal.x, fy: focal.y)
         }
         offsetPad.onChange = { [weak self] point in
-            // Pad 0…1 maps to the full excursion range (±cardOffsetLimit —
-            // shared with the canvas drag clamp; a tighter mapping here
-            // would silently truncate a wide drag the moment the pad is
-            // touched). Dead-centre means none.
-            let limit = ZoomFocalMath.cardOffsetLimit
-            let dx = (Double(point.x) - 0.5) * 2 * limit
-            let dy = (Double(point.y) - 0.5) * 2 * limit
-            let none = abs(dx) < 0.02 && abs(dy) < 0.02
-            self?.context.zoomRegion.wrappedValue?.cardOffsetX = none ? nil : dx
-            self?.context.zoomRegion.wrappedValue?.cardOffsetY = none ? nil : dy
-        }
-        zoomToggle.onChange = { [weak self] on in
             guard let self else { return }
-            if on {
-                if self.context.tiltRegion.wrappedValue != nil {
-                    self.context.onAddZoomToBlock()
-                } else {
-                    self.context.onAddZoomBlockAtPlayhead()
-                }
-            } else if self.context.zoomRegion.wrappedValue != nil {
-                self.context.onDeleteZoom()
-            }
+            // Pad 0…1 maps to the full excursion range; dead-centre means none.
+            EffectBlocksPane.offset(self.scope, point: point)
         }
-        tiltToggle.onChange = { [weak self] on in
-            guard let self else { return }
-            if on {
-                if self.context.zoomRegion.wrappedValue != nil {
-                    self.context.onAddTiltToBlock()
-                } else {
-                    self.context.onAddTiltBlockAtPlayhead()
-                }
-            } else if self.context.tiltRegion.wrappedValue != nil {
-                self.context.onDeleteTilt()
-            }
-        }
+        zoomToggle.bind(EffectBlocksPane.zoomToggle, scope)
+        tiltToggle.bind(EffectBlocksPane.tiltToggle, scope)
 
         tiltPad.onChange = { [weak self] pitch, yaw in
-            self?.context.tiltRegion.wrappedValue?.pitch = pitch
-            self?.context.tiltRegion.wrappedValue?.yaw = yaw
-            self?.refreshBlockUI()
+            guard let self else { return }
+            EffectBlocksPane.tilt(self.scope, pitch: pitch, yaw: yaw)
+            self.refreshBlockUI()
         }
         rotationSlider.onChange = { [weak self] v in
-            self?.context.tiltRegion.wrappedValue?.roll = v
-            self?.tiltPad.roll = v
-        }
-        tiltPresetChips.onSelect = { [weak self] index in
-            // (pitch, yaw, roll) — depth from PITCH, drama from yaw, life
-            // from a whisper of roll. Values chosen against the reference.
-            let presets: [(Double, Double, Double)] = [
-                (0, 0, 0), (12, 0, -3), (8, -25, -2), (8, 25, 2), (28, 0, 0),
-            ]
-            guard presets.indices.contains(index) else { return }
-            let (pitch, yaw, roll) = presets[index]
-            self?.context.tiltRegion.wrappedValue?.pitch = pitch
-            self?.context.tiltRegion.wrappedValue?.yaw = yaw
-            self?.context.tiltRegion.wrappedValue?.roll = roll
-        }
-        tiltStyleMenu.onSelect = { [weak self] index in
-            self?.context.tiltRegion.wrappedValue?.animationStyle =
-                index == 0 ? nil : ZoomAnimationStyle.allCases[index - 1]
-        }
-        cinematicButton.onClick = { [weak self] in
             guard let self else { return }
-            if self.context.zoomRegion.wrappedValue == nil { self.context.onAddZoomToBlock() }
-            if self.context.tiltRegion.wrappedValue == nil { self.context.onAddTiltToBlock() }
-            self.context.zoomRegion.wrappedValue?.zoomLevel = 2.4
-            self.context.tiltRegion.wrappedValue?.pitch = 12
-            self.context.tiltRegion.wrappedValue?.yaw = 0
-            self.context.tiltRegion.wrappedValue?.roll = -3
+            EffectBlocksPane.rotation.write(self.scope, v)
+            self.tiltPad.roll = v
         }
+        tiltPresetChips.bind(EffectBlocksPane.tiltPreset, scope)
+        tiltStyleMenu.bind(EffectBlocksPane.tiltSpeed, scope)
+        cinematicButton.bind(EffectBlocksPane.cinematic, scope)
 
-        highlightOpacitySlider.onChange = { [weak self] v in self?.context.highlightRegion.wrappedValue?.opacity = v }
-        removeHighlightButton.onClick = { [weak self] in self?.context.onDeleteHighlight() }
+        highlightOpacitySlider.bind(EffectBlocksPane.highlightOpacity, scope)
+        removeHighlightButton.bind(EffectBlocksPane.removeHighlight, scope)
 
         depthFocusStyleChips.onSelect = { [weak self] i in
-            let styles = FocusRegionStyle.allCases
-            self?.context.focusRegion.wrappedValue?.style = styles[max(0, min(styles.count - 1, i))]
-            self?.refreshBlockUI()
+            guard let self else { return }
+            EffectBlocksPane.depthStyleChoice.write(self.scope, i)
+            self.refreshBlockUI()
         }
-        depthFocusStrengthSlider.onChange = { [weak self] v in
-            self?.context.focusRegion.wrappedValue?.intensity = v
-        }
-        depthFocusFalloffSlider.onChange = { [weak self] v in
-            self?.context.focusRegion.wrappedValue?.falloff = v
-        }
-        depthFocusCornerSlider.onChange = { [weak self] v in
-            self?.context.focusRegion.wrappedValue?.cornerRadius = v
-        }
-        depthFocusAngleSlider.onChange = { [weak self] v in
-            self?.context.focusRegion.wrappedValue?.angle = v
-        }
-        removeDepthFocusButton.onClick = { [weak self] in self?.context.onDeleteFocusRegion() }
+        depthFocusStrengthSlider.bind(EffectBlocksPane.depthStrength, scope)
+        depthFocusFalloffSlider.bind(EffectBlocksPane.depthFalloff, scope)
+        depthFocusCornerSlider.bind(EffectBlocksPane.depthCorner, scope)
+        depthFocusAngleSlider.bind(EffectBlocksPane.depthAngle, scope)
+        removeDepthFocusButton.bind(EffectBlocksPane.removeDepth, scope)
 
         blurStyleChips.onSelect = { [weak self] i in
-            let styles = BlurStyle.allCases
-            self?.context.blurRegion.wrappedValue?.style = styles[max(0, min(styles.count - 1, i))]
-            self?.refreshBlockUI()
+            guard let self else { return }
+            EffectBlocksPane.blurStyleChoice.write(self.scope, i)
+            self.refreshBlockUI()
         }
-        blurStrengthSlider.onChange = { [weak self] v in
-            self?.context.blurRegion.wrappedValue?.intensity = v
-        }
-        blurAnimatedToggle.onChange = { [weak self] on in
-            self?.context.blurRegion.wrappedValue?.animated = on
-        }
-        removeBlurButton.onClick = { [weak self] in self?.context.onDeleteBlurRegion() }
+        blurStrengthSlider.bind(EffectBlocksPane.blurStrength, scope)
+        blurAnimatedToggle.bind(EffectBlocksPane.blurAnimated, scope)
+        removeBlurButton.bind(EffectBlocksPane.removeBlur, scope)
     }
 
     /// Called from the bridge on every SwiftUI update — fresh bindings and
@@ -393,23 +282,23 @@ final class MotionSettingsPaneAppKit: NSView {
         for v in highlightViews { v.isHidden = highlight == nil }
         for v in depthFocusViews { v.isHidden = depthFocus == nil }
         for v in blurViews { v.isHidden = blur == nil }
-        if let blur {
-            blurStyleChips.selectedIndex = BlurStyle.allCases.firstIndex(of: blur.style) ?? 0
-            blurStrengthSlider.setValue(blur.intensity)
-            blurAnimatedToggle.isOn = blur.animated
+        let scope = self.scope
+        if blur != nil {
+            blurStyleChips.selectedIndex = EffectBlocksPane.blurStyleChoice.read(scope) ?? 0
+            blurStrengthSlider.setValue(EffectBlocksPane.blurStrength.read(scope))
+            blurAnimatedToggle.isOn = EffectBlocksPane.blurAnimated.read(scope)
             // Animation only means something for the mosaic.
-            blurAnimatedToggle.isHidden = blur.style != .pixelate
+            blurAnimatedToggle.isHidden = !EffectBlocksPane.blurAnimated.visible(scope)
         }
-        if let depthFocus {
-            depthFocusStyleChips.selectedIndex =
-                FocusRegionStyle.allCases.firstIndex(of: depthFocus.style) ?? 0
-            depthFocusStrengthSlider.setValue(depthFocus.intensity)
-            depthFocusFalloffSlider.setValue(depthFocus.falloff)
-            depthFocusCornerSlider.setValue(depthFocus.cornerRadius)
-            depthFocusAngleSlider.setValue(depthFocus.angle)
+        if depthFocus != nil {
+            depthFocusStyleChips.selectedIndex = EffectBlocksPane.depthStyleChoice.read(scope) ?? 0
+            depthFocusStrengthSlider.setValue(EffectBlocksPane.depthStrength.read(scope))
+            depthFocusFalloffSlider.setValue(EffectBlocksPane.depthFalloff.read(scope))
+            depthFocusCornerSlider.setValue(EffectBlocksPane.depthCorner.read(scope))
+            depthFocusAngleSlider.setValue(EffectBlocksPane.depthAngle.read(scope))
             // Angle is tilt-shift-only; corner radius is Area-only.
-            depthFocusAngleSlider.isHidden = depthFocus.style != .tiltShift
-            depthFocusCornerSlider.isHidden = depthFocus.style != .area
+            depthFocusAngleSlider.isHidden = !EffectBlocksPane.depthAngle.visible(scope)
+            depthFocusCornerSlider.isHidden = !EffectBlocksPane.depthCorner.visible(scope)
         }
         zoomToggle.isOn = zoom != nil
         tiltToggle.isOn = tilt != nil
@@ -421,22 +310,15 @@ final class MotionSettingsPaneAppKit: NSView {
                 level: zoom.zoomLevel,
                 omegaMultiplier: style?.omegaMultiplier ?? 1,
                 damping: style?.damping ?? 0.88)
-            followCursorToggle.isOn = zoom.followsCursor ?? true
-            blockStyleMenu.selectedIndex = zoom.animationStyle.flatMap {
-                ZoomAnimationStyle.allCases.firstIndex(of: $0).map { $0 + 1 }
-            } ?? 0
+            followCursorToggle.isOn = EffectBlocksPane.followCursor.read(scope)
+            blockStyleMenu.selectedIndex = EffectBlocksPane.zoomSpeed.read(scope) ?? 0
             focusPad.focal = zoom.focalPoint
-            offsetPad.focal = CGPoint(
-                x: (zoom.cardOffsetX ?? 0) / (2 * ZoomFocalMath.cardOffsetLimit) + 0.5,
-                y: (zoom.cardOffsetY ?? 0) / (2 * ZoomFocalMath.cardOffsetLimit) + 0.5
-            )
+            offsetPad.focal = EffectBlocksPane.offsetPoint(scope)
         }
         if let tilt {
             tiltPad.set(pitch: tilt.pitch, yaw: tilt.yaw, roll: tilt.roll)
             rotationSlider.setValue(tilt.roll)
-            tiltStyleMenu.selectedIndex = tilt.animationStyle.flatMap {
-                ZoomAnimationStyle.allCases.firstIndex(of: $0).map { $0 + 1 }
-            } ?? 0
+            tiltStyleMenu.selectedIndex = EffectBlocksPane.tiltSpeed.read(scope) ?? 0
         }
         if let highlight {
             highlightOpacitySlider.setValue(highlight.opacity)
@@ -644,12 +526,30 @@ final class TiltPadControl: NSView {
         refresh()
     }
 
+    #if DEBUG
+    /// Probe seam: press the pad at (fx, fy) of its half-extents
+    /// (x right, y up, −1…1) through the pad area's real mouse handlers.
+    func probePress(fx: Double, fy: Double) {
+        let size = padArea.bounds.size
+        let point = NSPoint(x: size.width / 2 + CGFloat(fx) * max(1, size.width / 2 - 10),
+                            y: size.height / 2 - CGFloat(fy) * max(1, size.height / 2 - 10))
+        guard let window = padArea.window else { return }
+        let location = padArea.convert(point, to: nil)
+        // The pad commits on press (and drag); a release does nothing.
+        if let event = NSEvent.mouseEvent(with: .leftMouseDown, location: location, modifierFlags: [], timestamp: 0,
+                                          windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                                          clickCount: 1, pressure: 1) {
+            padArea.mouseDown(with: event)
+        }
+    }
+    #endif
+
     fileprivate func drag(to point: NSPoint) {
         let size = padArea.bounds.size
         let fx = (point.x - size.width / 2) / max(1, size.width / 2 - 10)
         let fy = (size.height / 2 - point.y) / max(1, size.height / 2 - 10)
-        yaw = (max(-1, min(1, Double(fx))) * maxAngle).rounded()
-        pitch = (max(-1, min(1, Double(fy))) * maxAngle).rounded()
+        // Clamp + whole-degree rounding: InspectorPadMath, shared with iOS.
+        (pitch, yaw) = InspectorPadMath.tiltAngles(fx: Double(fx), fy: Double(fy), maxAngle: maxAngle)
         refresh()
         onChange?(pitch, yaw)
     }
@@ -663,10 +563,7 @@ final class TiltPadControl: NSView {
 
     private func refresh() {
         valuePill.stringValue = String(format: "%.0f° / %.0f°", pitch, yaw)
-        padArea.knobFraction = CGPoint(
-            x: 0.5 + CGFloat(yaw / maxAngle) * 0.5,
-            y: 0.5 - CGFloat(pitch / maxAngle) * 0.5
-        )
+        padArea.knobFraction = InspectorPadMath.tiltKnobFraction(pitch: pitch, yaw: yaw, maxAngle: maxAngle)
         applyCardTransform()
         padArea.needsLayout = true
     }
@@ -908,14 +805,19 @@ final class ZoomFocusPadControl: NSView {
         center.fill()
     }
 
+    #if DEBUG
+    /// Probe seam: the point a press must land on for pad fraction (fx, fy).
+    func probePoint(fx: CGFloat, fy: CGFloat) -> NSPoint {
+        let pad = padRect
+        return NSPoint(x: pad.minX + fx * pad.width, y: pad.minY + fy * pad.height)
+    }
+    #endif
+
     private func apply(_ event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
         let pad = padRect
         guard pad.width > 1, pad.height > 1 else { return }
-        focal = CGPoint(
-            x: min(1, max(0, (p.x - pad.minX) / pad.width)),
-            y: min(1, max(0, (p.y - pad.minY) / pad.height))
-        )
+        focal = InspectorPadMath.focal(fx: (p.x - pad.minX) / pad.width, fy: (p.y - pad.minY) / pad.height)
         onChange?(focal)
     }
 

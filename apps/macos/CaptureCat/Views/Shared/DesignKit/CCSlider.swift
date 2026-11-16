@@ -258,6 +258,12 @@ final class CCSlider: NSControl {
         restyle()
     }
 
+    #if DEBUG
+    /// Probe seam (`--inspector-values-test`): where the bar travels, so a
+    /// harness can press at a value's x through the real mouse path.
+    var probeTravel: (origin: CGFloat, width: CGFloat) { travel }
+    #endif
+
     private func commit(atX x: CGFloat) {
         let (origin, width) = travel
         let fraction = min(max((x - origin) / width, 0), 1)

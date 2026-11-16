@@ -9,6 +9,9 @@ final class CCSelect: UIControl {
     var onSelect: ((Int) -> Void)?
     /// The sheet title.
     var prompt: String?
+    /// Shown in place of the selected option while set — e.g. "Custom" while
+    /// a freeform value supersedes the list (the Mac menu's overrideTitle).
+    var overrideTitle: String? { didSet { if overrideTitle != oldValue { refresh() } } }
     weak var presenter: UIViewController?
 
     private let valueLabel: UILabel
@@ -52,7 +55,7 @@ final class CCSelect: UIControl {
     }
 
     private func refresh() {
-        valueLabel.text = options.indices.contains(selectedIndex) ? options[selectedIndex] : ""
+        valueLabel.text = overrideTitle ?? (options.indices.contains(selectedIndex) ? options[selectedIndex] : "")
         accessibilityLabel = prompt ?? "Choose"
         accessibilityValue = valueLabel.text
     }

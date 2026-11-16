@@ -18,54 +18,45 @@ final class EffectsSettingsPaneAppKit: NSView {
     /// a selected block (span snapped); false → plain global slide.
     var onSlideEnabled: (() -> Bool)?
 
-    private let slideToggle = InspectorToggleControl("Slide")
-    private let slideChips = InspectorChipsControl()
+    // Every control's title/range/step/readout, write and visibility: the
+    // shared EffectsPane spec (Studio/Editor/Inspector).
+    private let slideToggle = InspectorToggleControl(EffectsPane.slide)
+    private let slideChips = InspectorChipsControl(EffectsPane.slideStyle)
     private let slidePad = EffectPreviewPadControl()
     // Slide length is set ONLY by dragging the block's edge on the EFFECTS
     // lane — a slider here would bypass the timeline's no-overlap clamp.
-    private let slideBounceSlider = InspectorSliderRow(label: "Bounce", range: 0...1, step: 0.05)
+    private let slideBounceSlider = InspectorSliderRow(EffectsPane.slideBounce)
     /// Pace within the block: 1x spans the whole block, higher lands early
     /// and holds. Length itself stays timeline-only.
-    private let slideSpeedSlider = InspectorSliderRow(label: "Speed", range: 1...4, step: 0.25)
-    private let slideDepthToggle = InspectorToggleControl("Pull Toward Viewer")
-    private let slideCaption = InspectorKitViews.captionLine(
-        "Slides in from an edge — drag the Slide block on the EFFECTS lane to place it.",
-        full: "The screen slides from an edge with a punchy settle. Pull Toward Viewer adds a 3D depth pull — the card starts small and deep, then dollies to the front as it lands. Drag the yellow Slide block on the EFFECTS lane to place it anywhere — at 0:00 it plays as the intro."
-    )
+    private let slideSpeedSlider = InspectorSliderRow(EffectsPane.slideSpeed)
+    private let slideDepthToggle = InspectorToggleControl(EffectsPane.slideDepth)
+    private let slideCaption = InspectorKitViews.captionLine(EffectsPane.slideCaption)
 
-    private let curtainToggle = InspectorToggleControl("Curtain Unveil")
-    private let curtainChips = InspectorChipsControl()
-    private let curtainDurationSlider = InspectorSliderRow(label: "Length", range: 0.4...3.0, step: 0.1)
+    private let curtainToggle = InspectorToggleControl(EffectsPane.curtain)
+    private let curtainChips = InspectorChipsControl(EffectsPane.curtainCorner)
+    private let curtainDurationSlider = InspectorSliderRow(EffectsPane.curtainLength)
     private let curtainColorWell = InspectorColorWellControl()
     private var curtainColorRow: NSView!
-    private let curtainColorResetButton = InspectorButton("Reset Color")
+    private let curtainColorResetButton = InspectorButton(EffectsPane.curtainColorReset)
     private let curtainLogoChooseButton = InspectorButton("Choose Logo…")
-    private let curtainLogoRemoveButton = InspectorButton("Remove Logo", destructive: true)
+    private let curtainLogoRemoveButton = InspectorButton(EffectsPane.curtainLogoRemove)
     private let curtainLogoButtons = NSStackView()
-    private let curtainLogoOpacitySlider = InspectorSliderRow(label: "Logo Opacity", range: 0...1, step: 0.05)
-    private let curtainLogoSizeSlider = InspectorSliderRow(label: "Logo Size", range: 0.05...0.8, step: 0.05)
-    private let curtainLogoTintToggle = InspectorToggleControl("Tint Logo")
+    private let curtainLogoOpacitySlider = InspectorSliderRow(EffectsPane.curtainLogoOpacity)
+    private let curtainLogoSizeSlider = InspectorSliderRow(EffectsPane.curtainLogoSize)
+    private let curtainLogoTintToggle = InspectorToggleControl(EffectsPane.curtainLogoTint)
     private let curtainLogoTintWell = InspectorColorWellControl()
     private var curtainLogoTintRow: NSView!
-    private let curtainCaption = InspectorKitViews.captionLine(
-        "A curtain peels away from the chosen corner to reveal the video.",
-        full: "A curtain covers the screen and peels away from the chosen corner like a page turn, revealing the video underneath. Add a logo and it rides the curtain, peeling away with it. Drag the Curtain block on the EFFECTS lane to place it."
-    )
+    private let curtainCaption = InspectorKitViews.captionLine(EffectsPane.curtainCaption)
 
-    private let parallaxToggle = InspectorToggleControl("Parallax")
-    private let parallaxSlider = InspectorSliderRow(label: "Strength", range: 0.05...1, step: 0.05)
+    private let parallaxToggle = InspectorToggleControl(EffectsPane.parallax)
+    private let parallaxSlider = InspectorSliderRow(EffectsPane.parallaxStrength)
     private let parallaxPad = PropertyPreviewPadControl()
-    private let parallaxCaption = InspectorKitViews.captionLine(
-        "The background drifts gently with zooms for a sense of depth."
-    )
+    private let parallaxCaption = InspectorKitViews.captionLine(EffectsPane.parallaxCaption)
 
-    private let blurToggle = InspectorToggleControl("Motion Blur")
-    private let blurStrengthSlider = InspectorSliderRow(label: "Strength", range: 0...1, step: 0.05)
+    private let blurToggle = InspectorToggleControl(EffectsPane.motionBlur)
+    private let blurStrengthSlider = InspectorSliderRow(EffectsPane.motionBlurStrength)
     private let blurPad = PropertyPreviewPadControl()
-    private let blurCaption = InspectorKitViews.captionLine(
-        "Subtle blur during fast camera movement, for a more natural look.",
-        full: "Adds subtle blur during fast camera movements for a more natural look."
-    )
+    private let blurCaption = InspectorKitViews.captionLine(EffectsPane.motionBlurCaption)
 
     override var isFlipped: Bool { true }
 
@@ -95,13 +86,10 @@ final class EffectsSettingsPaneAppKit: NSView {
         // a single-line caption (full story in the tooltip) at the bottom.
         let slideBox = InspectorSectionBox("Slide")
         slideBox.addRow(slideToggle)
-        slideChips.items = IntroSlideStyle.allCases.dropFirst().map(\.rawValue)
         slideBox.addRow(slideChips)
         slideBox.addRow(slidePad, attached: true)
         slidePad.heightAnchor.constraint(equalToConstant: 96).isActive = true
-        slideBounceSlider.format = { $0 < 0.026 ? "None" : "\(Int(($0 * 100).rounded()))%" }
         slideBox.addRow(slideBounceSlider)
-        slideSpeedSlider.format = { $0 <= 1.01 ? "1x" : String(format: "%.2gx", $0) }
         slideBox.addRow(slideSpeedSlider)
         slideBox.addRow(slideDepthToggle)
         slideBox.addRow(slideCaption, attached: true)
@@ -109,11 +97,9 @@ final class EffectsSettingsPaneAppKit: NSView {
 
         let curtainBox = InspectorSectionBox("Curtain Unveil")
         curtainBox.addRow(curtainToggle)
-        curtainChips.items = CurtainUnveilCorner.allCases.dropFirst().map(\.rawValue)
         curtainBox.addRow(curtainChips)
-        curtainDurationSlider.format = { String(format: "%.1fs", $0) }
         curtainBox.addRow(curtainDurationSlider)
-        curtainColorRow = InspectorKitViews.row("Curtain", control: curtainColorWell)
+        curtainColorRow = InspectorKitViews.row(EffectsPane.curtainColor.title, control: curtainColorWell)
         curtainBox.addRow(curtainColorRow)
         curtainBox.addRow(curtainColorResetButton, attached: true)
         curtainLogoButtons.orientation = .horizontal
@@ -121,19 +107,16 @@ final class EffectsSettingsPaneAppKit: NSView {
         curtainLogoButtons.addArrangedSubview(curtainLogoChooseButton)
         curtainLogoButtons.addArrangedSubview(curtainLogoRemoveButton)
         curtainBox.addRow(curtainLogoButtons)
-        curtainLogoOpacitySlider.format = { "\(Int(($0 * 100).rounded()))%" }
         curtainBox.addRow(curtainLogoOpacitySlider)
-        curtainLogoSizeSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         curtainBox.addRow(curtainLogoSizeSlider)
         curtainBox.addRow(curtainLogoTintToggle)
-        curtainLogoTintRow = InspectorKitViews.row("Tint", control: curtainLogoTintWell)
+        curtainLogoTintRow = InspectorKitViews.row(EffectsPane.curtainLogoTintColor.title, control: curtainLogoTintWell)
         curtainBox.addRow(curtainLogoTintRow)
         curtainBox.addRow(curtainCaption, attached: true)
         fullWidth(curtainBox)
 
         let parallaxBox = InspectorSectionBox("Parallax")
         parallaxBox.addRow(parallaxToggle)
-        parallaxSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         parallaxBox.addRow(parallaxSlider)
         parallaxBox.addRow(parallaxPad, attached: true)
         parallaxPad.heightAnchor.constraint(equalToConstant: 96).isActive = true
@@ -142,64 +125,34 @@ final class EffectsSettingsPaneAppKit: NSView {
 
         let blurBox = InspectorSectionBox("Motion Blur")
         blurBox.addRow(blurToggle)
-        blurStrengthSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         blurBox.addRow(blurStrengthSlider)
         blurBox.addRow(blurPad, attached: true)
         blurPad.heightAnchor.constraint(equalToConstant: 96).isActive = true
         blurBox.addRow(blurCaption, attached: true)
         fullWidth(blurBox)
 
-        slideToggle.onChange = { [weak self] on in
-            guard let self else { return }
-            if on {
-                if self.onSlideEnabled?() != true, self.settings.introSlideStyle == .off {
-                    self.settings.introSlideStyle = .bottom
-                }
-            } else {
-                self.settings.introSlideStyle = .off
-            }
-        }
-        slideChips.onSelect = { [weak self] index in
-            let styles = Array(IntroSlideStyle.allCases.dropFirst())
-            self?.settings.introSlideStyle = styles[max(0, min(styles.count - 1, index))]
-        }
-        slideBounceSlider.onChange = { [weak self] v in self?.settings.introSlideBounce = v }
-        slideSpeedSlider.onChange = { [weak self] v in self?.settings.introSlideSpeed = v }
-        slideDepthToggle.onChange = { [weak self] on in self?.settings.introSlideDepth = on }
-        curtainToggle.onChange = { [weak self] on in
-            self?.settings.curtainUnveilCorner = on ? .topLeft : .off
-        }
-        curtainChips.onSelect = { [weak self] index in
-            let corners = Array(CurtainUnveilCorner.allCases.dropFirst())
-            self?.settings.curtainUnveilCorner = corners[max(0, min(corners.count - 1, index))]
-        }
-        curtainDurationSlider.onChange = { [weak self] v in self?.settings.curtainUnveilDuration = v }
-        curtainColorWell.getColor = { [weak self] in
-            self?.settings.curtainColor?.nsColor ?? Self.defaultCurtainNSColor
-        }
-        curtainColorWell.setColor = { [weak self] c in
-            self?.settings.curtainColor = CodableColor(c)
-        }
-        curtainColorResetButton.onClick = { [weak self] in self?.settings.curtainColor = nil }
+        let scope: () -> InspectorScope? = { [weak self] in self?.scope }
+        slideToggle.bind(EffectsPane.slide, scope)
+        slideChips.bind(EffectsPane.slideStyle, scope)
+        slideBounceSlider.bind(EffectsPane.slideBounce, scope)
+        slideSpeedSlider.bind(EffectsPane.slideSpeed, scope)
+        slideDepthToggle.bind(EffectsPane.slideDepth, scope)
+        curtainToggle.bind(EffectsPane.curtain, scope)
+        curtainChips.bind(EffectsPane.curtainCorner, scope)
+        curtainDurationSlider.bind(EffectsPane.curtainLength, scope)
+        curtainColorWell.bind(EffectsPane.curtainColor, scope, fallback: Self.defaultCurtainNSColor)
+        curtainColorResetButton.bind(EffectsPane.curtainColorReset, scope)
+        curtainLogoChooseButton.inspectorSpecID = "effects.curtainLogoChoose"
         curtainLogoChooseButton.onClick = { [weak self] in self?.pickCurtainLogo() }
-        curtainLogoRemoveButton.onClick = { [weak self] in self?.removeCurtainLogo() }
-        curtainLogoOpacitySlider.onChange = { [weak self] v in self?.settings.curtainLogoOpacity = v }
-        curtainLogoSizeSlider.onChange = { [weak self] v in self?.settings.curtainLogoScale = v }
-        curtainLogoTintToggle.onChange = { [weak self] on in
-            self?.settings.curtainLogoTint = on ? CodableColor(.white) : nil
-        }
-        curtainLogoTintWell.getColor = { [weak self] in
-            self?.settings.curtainLogoTint?.nsColor ?? .white
-        }
-        curtainLogoTintWell.setColor = { [weak self] c in
-            self?.settings.curtainLogoTint = CodableColor(c)
-        }
-        parallaxToggle.onChange = { [weak self] on in
-            self?.settings.parallaxStrength = on ? 0.4 : 0
-        }
-        parallaxSlider.onChange = { [weak self] v in self?.settings.parallaxStrength = v }
-        blurToggle.onChange = { [weak self] on in self?.settings.motionBlur = on }
-        blurStrengthSlider.onChange = { [weak self] v in self?.settings.motionBlurStrength = v }
+        curtainLogoRemoveButton.bind(EffectsPane.curtainLogoRemove, scope)
+        curtainLogoOpacitySlider.bind(EffectsPane.curtainLogoOpacity, scope)
+        curtainLogoSizeSlider.bind(EffectsPane.curtainLogoSize, scope)
+        curtainLogoTintToggle.bind(EffectsPane.curtainLogoTint, scope)
+        curtainLogoTintWell.bind(EffectsPane.curtainLogoTintColor, scope)
+        parallaxToggle.bind(EffectsPane.parallax, scope)
+        parallaxSlider.bind(EffectsPane.parallaxStrength, scope)
+        blurToggle.bind(EffectsPane.motionBlur, scope)
+        blurStrengthSlider.bind(EffectsPane.motionBlurStrength, scope)
 
         observe()
     }
@@ -214,32 +167,29 @@ final class EffectsSettingsPaneAppKit: NSView {
     }
 
 
+    /// The pane's scope for the shared spec — the selection only matters to
+    /// Slide (joining the selected block).
+    private var scope: InspectorScope {
+        InspectorScope(settings: settings, project: project,
+                       motion: .joinOnly { [weak self] in self?.onSlideEnabled?() ?? false })
+    }
+
     // Same pick/copy semantics as the Brand pane's watermark: copy into the
-    // project folder under a fresh name (cache-busting), remove the old file.
+    // project folder under a fresh name (cache-busting), remove the old file
+    // (EffectsPane.adoptCurtainLogo, shared with iOS).
     private func pickCurtainLogo() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.png, .jpeg, .tiff, .heic, .pdf]
         panel.allowsMultipleSelection = false
         panel.message = "Choose a logo image (PNG with transparency works best)"
         guard panel.runModal() == .OK, let source = panel.url else { return }
-        guard let folder = project.videoURL?.deletingLastPathComponent() else { return }
-        let destName = "curtain-logo-\(UUID().uuidString.prefix(8)).\(source.pathExtension.lowercased())"
-        let dest = folder.appendingPathComponent(destName)
         do {
-            let previous = project.curtainLogoImageURL
-            try FileManager.default.copyItem(at: source, to: dest)
-            settings.curtainLogoFileName = destName
-            if let previous { try? FileManager.default.removeItem(at: previous) }
+            try EffectsPane.adoptCurtainLogo(scope, from: source)
+        } catch InspectorMediaError.noProjectFolder {
+            return
         } catch {
             NSSound.beep()
         }
-    }
-
-    private func removeCurtainLogo() {
-        if let url = project.curtainLogoImageURL {
-            try? FileManager.default.removeItem(at: url)
-        }
-        settings.curtainLogoFileName = nil
     }
 
     private func observe() {
@@ -253,64 +203,63 @@ final class EffectsSettingsPaneAppKit: NSView {
     }
 
     private func applySettings() {
-        let slideOn = settings.introSlideStyle != .off
+        let scope = self.scope
+        let slideOn = EffectsPane.slide.read(scope)
         slideToggle.isOn = slideOn
-        slideChips.isHidden = !slideOn
+        slideChips.isHidden = !EffectsPane.slideStyle.visible(scope)
         slidePad.isHidden = !slideOn
-        slideBounceSlider.isHidden = !slideOn
-        slideSpeedSlider.isHidden = !slideOn
-        slideDepthToggle.isHidden = !slideOn
+        slideBounceSlider.isHidden = !EffectsPane.slideBounce.visible(scope)
+        slideSpeedSlider.isHidden = !EffectsPane.slideSpeed.visible(scope)
+        slideDepthToggle.isHidden = !EffectsPane.slideDepth.visible(scope)
         if slideOn {
-            let styles = Array(IntroSlideStyle.allCases.dropFirst())
-            slideChips.selectedIndex = styles.firstIndex(of: settings.introSlideStyle) ?? 0
+            slideChips.selectedIndex = EffectsPane.slideStyle.read(scope) ?? 0
             slidePad.mode = .slide(
                 style: settings.introSlideStyle,
                 duration: settings.introSlideDuration,
                 bounce: settings.introSlideBounce,
                 depth: settings.introSlideDepth)
         }
-        slideDepthToggle.isOn = settings.introSlideDepth
-        slideBounceSlider.setValue(settings.introSlideBounce)
-        slideSpeedSlider.setValue(settings.introSlideSpeed)
+        slideDepthToggle.isOn = EffectsPane.slideDepth.read(scope)
+        slideBounceSlider.setValue(EffectsPane.slideBounce.read(scope))
+        slideSpeedSlider.setValue(EffectsPane.slideSpeed.read(scope))
 
-        let curtainOn = settings.curtainUnveilCorner != .off
+        let curtainOn = EffectsPane.curtain.read(scope)
         let hasLogo = settings.curtainLogoFileName != nil
         curtainToggle.isOn = curtainOn
-        curtainChips.isHidden = !curtainOn
-        curtainDurationSlider.isHidden = !curtainOn
-        curtainColorRow.isHidden = !curtainOn
-        curtainColorResetButton.isHidden = !curtainOn || settings.curtainColor == nil
-        curtainLogoButtons.isHidden = !curtainOn
+        curtainChips.isHidden = !EffectsPane.curtainCorner.visible(scope)
+        curtainDurationSlider.isHidden = !EffectsPane.curtainLength.visible(scope)
+        curtainColorRow.isHidden = !EffectsPane.curtainColor.visible(scope)
+        curtainColorResetButton.isHidden = !EffectsPane.curtainColorReset.visible(scope)
+        curtainLogoButtons.isHidden = !EffectsPane.curtainLogoChooseVisible(scope)
         curtainLogoRemoveButton.isHidden = !hasLogo
-        curtainLogoOpacitySlider.isHidden = !curtainOn || !hasLogo
-        curtainLogoSizeSlider.isHidden = !curtainOn || !hasLogo
-        curtainLogoTintToggle.isHidden = !curtainOn || !hasLogo
-        curtainLogoTintRow.isHidden = !curtainOn || !hasLogo || settings.curtainLogoTint == nil
+        curtainLogoOpacitySlider.isHidden = !EffectsPane.curtainLogoOpacity.visible(scope)
+        curtainLogoSizeSlider.isHidden = !EffectsPane.curtainLogoSize.visible(scope)
+        curtainLogoTintToggle.isHidden = !EffectsPane.curtainLogoTint.visible(scope)
+        curtainLogoTintRow.isHidden = !EffectsPane.curtainLogoTintColor.visible(scope)
         if curtainOn {
-            let corners = Array(CurtainUnveilCorner.allCases.dropFirst())
-            curtainChips.selectedIndex = corners.firstIndex(of: settings.curtainUnveilCorner) ?? 0
-            curtainDurationSlider.setValue(settings.curtainUnveilDuration)
+            curtainChips.selectedIndex = EffectsPane.curtainCorner.read(scope) ?? 0
+            curtainDurationSlider.setValue(EffectsPane.curtainLength.read(scope))
             curtainColorWell.refresh()
-            curtainLogoChooseButton.title = hasLogo ? "Replace Logo…" : "Choose Logo…"
-            curtainLogoOpacitySlider.setValue(settings.curtainLogoOpacity)
-            curtainLogoSizeSlider.setValue(settings.curtainLogoScale)
-            curtainLogoTintToggle.isOn = settings.curtainLogoTint != nil
+            curtainLogoChooseButton.title = EffectsPane.curtainLogoChooseTitle(scope)
+            curtainLogoOpacitySlider.setValue(EffectsPane.curtainLogoOpacity.read(scope))
+            curtainLogoSizeSlider.setValue(EffectsPane.curtainLogoSize.read(scope))
+            curtainLogoTintToggle.isOn = EffectsPane.curtainLogoTint.read(scope)
             curtainLogoTintWell.refresh()
         }
 
-        let parallaxOn = settings.parallaxStrength > 0.001
+        let parallaxOn = EffectsPane.parallax.read(scope)
         parallaxToggle.isOn = parallaxOn
-        parallaxSlider.isHidden = !parallaxOn
+        parallaxSlider.isHidden = !EffectsPane.parallaxStrength.visible(scope)
         parallaxPad.isHidden = !parallaxOn
         if parallaxOn {
-            parallaxSlider.setValue(settings.parallaxStrength)
+            parallaxSlider.setValue(EffectsPane.parallaxStrength.read(scope))
             parallaxPad.mode = .parallax(strength: settings.parallaxStrength)
         }
 
-        blurToggle.isOn = settings.motionBlur
-        blurStrengthSlider.isHidden = !settings.motionBlur
+        blurToggle.isOn = EffectsPane.motionBlur.read(scope)
+        blurStrengthSlider.isHidden = !EffectsPane.motionBlurStrength.visible(scope)
         if settings.motionBlur {
-            blurStrengthSlider.setValue(settings.motionBlurStrength)
+            blurStrengthSlider.setValue(EffectsPane.motionBlurStrength.read(scope))
         }
         blurPad.isHidden = !settings.motionBlur
         blurPad.mode = .motionBlur(on: settings.motionBlur, strength: settings.motionBlurStrength)

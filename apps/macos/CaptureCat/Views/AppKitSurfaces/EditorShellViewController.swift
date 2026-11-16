@@ -188,12 +188,8 @@ final class EditorShellViewController: NSSplitViewController {
     // Change-detection mirrors for the observation loops (the AppKit twin of
     // `.onChange(of:)`).
     private var lastShowInspector = true
-    private var lastHighlightID: UUID?
-    private var lastDepthFocusID: UUID?
-    private var lastBlurRegionID: UUID?
-    private var lastTiltID: UUID?
-    private var lastZoomID: UUID?
-    private var lastAnnotationID: UUID?
+    /// Selection → inspector tab (shared with the iOS inspector, Studio 4d).
+    private var tabFollower = InspectorTabFollower()
     private var lastShowCamera: Bool
     private var lastMuted: Bool
     private var lastTrimStart: TimeInterval
@@ -531,29 +527,14 @@ final class EditorShellViewController: NSSplitViewController {
             }
             // The reveal tab exists exactly when the sidebar does not.
             self.revealTab?.isHidden = show
-            if highlight != self.lastHighlightID {
-                self.lastHighlightID = highlight
-                if highlight != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true; self.leaveHistoryForInspector() }
-            }
-            if depthFocus != self.lastDepthFocusID {
-                self.lastDepthFocusID = depthFocus
-                if depthFocus != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true; self.leaveHistoryForInspector() }
-            }
-            if blurRegion != self.lastBlurRegionID {
-                self.lastBlurRegionID = blurRegion
-                if blurRegion != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true; self.leaveHistoryForInspector() }
-            }
-            if tilt != self.lastTiltID {
-                self.lastTiltID = tilt
-                if tilt != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true; self.leaveHistoryForInspector() }
-            }
-            if zoom != self.lastZoomID {
-                self.lastZoomID = zoom
-                if zoom != nil { self.selection.inspectorTab = .effects; self.selection.showInspector = true; self.leaveHistoryForInspector() }
-            }
-            if annotation != self.lastAnnotationID {
-                self.lastAnnotationID = annotation
-                if annotation != nil { self.selection.inspectorTab = .annotations; self.selection.showInspector = true; self.leaveHistoryForInspector() }
+            // A newly selected region opens Effects, an annotation Annotate
+            // (the rule lives in InspectorTabFollower; the ids above are read
+            // here so the observation re-arms on each).
+            _ = (highlight, depthFocus, blurRegion, tilt, zoom, annotation)
+            if let tab = self.tabFollower.update(self.selection) {
+                self.selection.inspectorTab = tab
+                self.selection.showInspector = true
+                self.leaveHistoryForInspector()
             }
         }
 
@@ -1685,7 +1666,8 @@ final class EditorInspectorViewController: NSViewController {
             project: project,
             selection: selection,
             undoManager: view.window?.undoManager,
-            currentTime: { [weak playback] in playback?.currentTime ?? 0 }
+            currentTime: { [weak playback] in playback?.currentTime ?? 0 },
+            refused: { NSSound.beep() }
         )
     }
 

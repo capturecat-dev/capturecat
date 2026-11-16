@@ -10,19 +10,21 @@ final class BrandSettingsPaneAppKit: NSView {
     private let project: Project
 
     private let stack = NSStackView()
-    private let showToggle = InspectorToggleControl("Show Watermark")
+    // Every control's title/range/step/readout, write and visibility: the
+    // shared BrandPane spec (Studio/Editor/Inspector).
+    private let showToggle = InspectorToggleControl(BrandPane.show)
 
     private let logoRow = NSStackView()
     private let thumbBox = NSView()
     private let thumbImage = NSImageView()
     private let thumbPlaceholder = NSImageView()
     private let chooseButton = InspectorButton("Choose Logo…")
-    private let removeButton = InspectorButton("Remove", destructive: true)
+    private let removeButton = InspectorButton(BrandPane.remove)
     private let errorLabel = InspectorKitViews.caption("")
 
     private let pad: WatermarkPositionPadControl
-    private let sizeSlider = InspectorSliderRow(label: "Size", range: 40...400, step: 10)
-    private let opacitySlider = InspectorSliderRow(label: "Opacity", range: 0.1...1.0, step: 0.05)
+    private let sizeSlider = InspectorSliderRow(BrandPane.size)
+    private let opacitySlider = InspectorSliderRow(BrandPane.opacity)
     private var detailViews: [NSView] = []
 
     private var thumbnail: NSImage?
@@ -115,62 +117,58 @@ final class BrandSettingsPaneAppKit: NSView {
         fullWidth(brandBox)
 
         let positionBox = InspectorSectionBox("Position")
+        pad.inspectorSpecID = "brand.pad"
         positionBox.addRow(pad)
         pad.heightAnchor.constraint(equalToConstant: 96).isActive = true
         positionBox.addRow(sizeSlider)
-        opacitySlider.format = { "\(Int(($0 * 100).rounded()))%" }
         positionBox.addRow(opacitySlider)
         fullWidth(positionBox)
         detailViews = [positionBox]
     }
 
+    /// The pane's scope for the shared spec.
+    private var scope: InspectorScope { InspectorScope(settings: project.settings, project: project) }
+
     private func wire() {
-        showToggle.onChange = { [weak self] on in self?.project.settings.showWatermark = on }
+        let scope: () -> InspectorScope? = { [weak self] in self?.scope }
+        showToggle.bind(BrandPane.show, scope)
+        chooseButton.inspectorSpecID = "brand.choose"
         chooseButton.onClick = { [weak self] in self?.pickLogo() }
         removeButton.onClick = { [weak self] in self?.removeLogo() }
         sizeSlider.onChange = { [weak self] v in
-            self?.project.settings.watermarkSize = v
-            self?.pad.refresh()
+            guard let self else { return }
+            BrandPane.size.write(self.scope, v)
+            self.pad.refresh()
         }
         opacitySlider.onChange = { [weak self] v in
-            self?.project.settings.watermarkOpacity = v
-            self?.pad.refresh()
+            guard let self else { return }
+            BrandPane.opacity.write(self.scope, v)
+            self.pad.refresh()
         }
     }
 
     // Same pick/copy semantics as the SwiftUI pane: copy into the project
-    // folder under a fresh name (cache-busting), remove the previous file.
+    // folder under a fresh name (cache-busting), remove the previous file
+    // (BrandPane.adoptLogo, shared with iOS).
     private func pickLogo() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.png, .jpeg, .tiff, .heic]
         panel.allowsMultipleSelection = false
         panel.message = "Choose a logo image (PNG with transparency works best)"
         guard panel.runModal() == .OK, let source = panel.url else { return }
-        guard let folder = project.videoURL?.deletingLastPathComponent() else {
+        do {
+            try BrandPane.adoptLogo(scope, from: source)
+            errorLabel.stringValue = ""
+        } catch InspectorMediaError.noProjectFolder {
             errorLabel.stringValue = "Project folder not available."
             errorLabel.isHidden = false
-            return
-        }
-        let destName = "watermark-\(UUID().uuidString.prefix(8)).\(source.pathExtension.lowercased())"
-        let dest = folder.appendingPathComponent(destName)
-        do {
-            let previous = project.watermarkImageURL
-            try FileManager.default.copyItem(at: source, to: dest)
-            project.settings.watermarkFileName = destName
-            project.settings.showWatermark = true
-            errorLabel.stringValue = ""
-            if let previous { try? FileManager.default.removeItem(at: previous) }
         } catch {
             errorLabel.stringValue = "Couldn't copy logo: \(error.localizedDescription)"
         }
     }
 
     private func removeLogo() {
-        if let url = project.watermarkImageURL {
-            try? FileManager.default.removeItem(at: url)
-        }
-        project.settings.watermarkFileName = nil
-        project.settings.showWatermark = false
+        BrandPane.removeLogo(scope)
         thumbnail = nil
     }
 
@@ -186,7 +184,8 @@ final class BrandSettingsPaneAppKit: NSView {
 
     private func apply() {
         let s = project.settings
-        showToggle.isOn = s.showWatermark
+        let scope = self.scope
+        showToggle.isOn = BrandPane.show.read(scope)
 
         if loadedName != s.watermarkFileName {
             loadedName = s.watermarkFileName
@@ -195,14 +194,14 @@ final class BrandSettingsPaneAppKit: NSView {
         }
         thumbImage.image = thumbnail
         thumbPlaceholder.isHidden = thumbnail != nil
-        chooseButton.title = s.watermarkFileName == nil ? "Choose Logo…" : "Replace Logo…"
-        removeButton.isHidden = s.watermarkFileName == nil
+        chooseButton.title = BrandPane.chooseTitle(scope)
+        removeButton.isHidden = !BrandPane.remove.visible(scope)
         errorLabel.isHidden = errorLabel.stringValue.isEmpty
 
-        let showDetails = s.showWatermark && s.watermarkFileName != nil
+        let showDetails = BrandPane.detailsVisible(scope)
         for view in detailViews { view.isHidden = !showDetails }
-        sizeSlider.setValue(s.watermarkSize)
-        opacitySlider.setValue(s.watermarkOpacity)
+        sizeSlider.setValue(BrandPane.size.read(scope))
+        opacitySlider.setValue(BrandPane.opacity.read(scope))
         pad.refresh()
     }
 }
@@ -258,8 +257,7 @@ final class WatermarkPositionPadControl: NSView {
     /// Mini logo mirrors the Size slider (40…400 px → 12…56 pt wide) and the
     /// real logo's aspect — same mapping as the SwiftUI pad.
     private var markSize: CGSize {
-        let t = (min(400, max(40, settings.watermarkSize)) - 40) / 360
-        let w = 12 + CGFloat(t) * 44
+        let w = InspectorPadMath.watermarkMarkWidth(size: settings.watermarkSize)
         let aspect: CGFloat = {
             guard let logo, logo.size.height > 0 else { return 1.5 }
             return logo.size.width / logo.size.height
@@ -300,14 +298,23 @@ final class WatermarkPositionPadControl: NSView {
         CATransaction.commit()
     }
 
+    #if DEBUG
+    /// Probe seam: the point a press must land on for mark fraction (fx, fy).
+    func probePoint(fx: CGFloat, fy: CGFloat) -> NSPoint {
+        let mark = markSize
+        let usableW = max(1, bounds.width - 2 * inset - mark.width)
+        let usableH = max(1, bounds.height - 2 * inset - mark.height)
+        return NSPoint(x: inset + mark.width / 2 + fx * usableW, y: inset + mark.height / 2 + fy * usableH)
+    }
+    #endif
+
     private func setFraction(from point: CGPoint) {
         let mark = markSize
         let usableW = max(1, bounds.width - 2 * inset - mark.width)
         let usableH = max(1, bounds.height - 2 * inset - mark.height)
         let fx = (point.x - inset - mark.width / 2) / usableW
         let fy = (point.y - inset - mark.height / 2) / usableH
-        settings.watermarkX = Double(min(1, max(0, fx)))
-        settings.watermarkY = Double(min(1, max(0, fy)))
+        InspectorPadMath.watermarkDrag(settings, fx: fx, fy: fy)
         refresh()
     }
 
@@ -320,11 +327,8 @@ final class WatermarkPositionPadControl: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        // Per-axis edge/corner magnetism — same thresholds as SwiftUI.
-        if abs(settings.watermarkX) < 0.06 { settings.watermarkX = 0 }
-        if abs(settings.watermarkX - 1) < 0.06 { settings.watermarkX = 1 }
-        if abs(settings.watermarkY) < 0.06 { settings.watermarkY = 0 }
-        if abs(settings.watermarkY - 1) < 0.06 { settings.watermarkY = 1 }
+        // Per-axis edge/corner magnetism — InspectorPadMath, shared with iOS.
+        InspectorPadMath.watermarkRelease(settings)
         refresh()
     }
 }

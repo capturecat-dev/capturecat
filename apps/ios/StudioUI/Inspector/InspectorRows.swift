@@ -1,0 +1,420 @@
+import UIKit
+
+/// What a pane's rows need from the inspector that hosts them.
+@MainActor
+protocol InspectorHost: AnyObject {
+    /// The scope as of now (built fresh: an undo may have swapped settings).
+    var scope: InspectorScope { get }
+    var session: InspectorEditSession { get }
+    var presenter: UIViewController { get }
+    func runFeature(_ feature: InspectorFeature)
+    /// The photo/file picker: hands back a local copy of the picked image.
+    func pickImage(logo: Bool, _ completion: @escaping (URL) -> Void)
+    /// The transcription state the Subtitles pane shows (Studio 4e sets it).
+    var transcription: InspectorTranscriptionState { get }
+}
+
+/// What the Subtitles pane shows about a transcription the host runs.
+struct InspectorTranscriptionState: Equatable {
+    var isBusy = false
+    var progress = ""
+    var error: String?
+}
+
+/// One row of a pane: it shows/hides by its spec and re-reads its value.
+@MainActor
+protocol InspectorRowView: UIView {
+    var rowID: String { get }
+    func isRowVisible(_ scope: InspectorScope) -> Bool
+    func refresh(_ scope: InspectorScope)
+}
+
+// MARK: - Slider
+
+final class InspectorSliderRowView: UIView, InspectorRowView {
+    let spec: InspectorSlider
+    let slider: CCSlider
+    private weak var host: InspectorHost?
+    private let symbolFor: ((Double) -> String)?
+    var rowID: String { spec.id }
+
+    init(_ spec: InspectorSlider, host: InspectorHost, symbol: ((Double) -> String)? = nil) {
+        self.spec = spec
+        self.host = host
+        self.symbolFor = symbol
+        slider = CCSlider(title: spec.title, value: spec.range.lowerBound, range: spec.range, step: spec.step,
+                          format: spec.format)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        slider.accessibilityIdentifier = spec.id
+        // Model values between stops stay as they are (the Mac slider's rule):
+        // landing on the nearest stop must still write it.
+        slider.keepsOffStepValues = true
+        slider.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(slider)
+        pinEdges(slider, to: self)
+        slider.onChange = { [weak self] v in
+            guard let self, let host = self.host else { return }
+            host.session.begin(spec.id, name: spec.title)
+            spec.write(host.scope, v)
+            if let symbolFor = self.symbolFor { self.slider.symbol = symbolFor(v) }
+        }
+        slider.onCommit = { [weak self] _ in self?.host?.session.commit() }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func isRowVisible(_ scope: InspectorScope) -> Bool { spec.visible(scope) }
+
+    func refresh(_ scope: InspectorScope) {
+        let range = spec.range(in: scope)
+        if slider.range != range { slider.range = range }
+        let value = spec.read(scope)
+        if !slider.probeIsDragging { slider.setValue(value, animated: window != nil) }
+        if let symbolFor { slider.symbol = symbolFor(value) }
+    }
+}
+
+// MARK: - Toggle
+
+final class InspectorToggleRowView: UIView, InspectorRowView {
+    let spec: InspectorToggle
+    let row: CCToggleRow
+    private weak var host: InspectorHost?
+    var rowID: String { spec.id }
+
+    init(_ spec: InspectorToggle, host: InspectorHost) {
+        self.spec = spec
+        self.host = host
+        row = CCToggleRow(title: spec.title)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        row.accessibilityIdentifier = spec.id
+        addSubview(row)
+        pinEdges(row, to: self)
+        row.onChange = { [weak self] on in
+            guard let host = self?.host else { return }
+            host.session.perform(spec.id, name: spec.title) { spec.write(host.scope, on) }
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func isRowVisible(_ scope: InspectorScope) -> Bool { spec.visible(scope) }
+
+    func refresh(_ scope: InspectorScope) {
+        let on = spec.read(scope)
+        // Animate only once laid out: a spring started at zero bounds aims
+        // the thumb at a wrong spot that the toggle's layout won't correct.
+        if row.isOn != on { row.setOn(on, animated: window != nil && row.toggle.bounds.width > 0) }
+        let enabled = spec.enabled(scope)
+        if row.isEnabled != enabled { row.isEnabled = enabled }
+    }
+}
+
+// MARK: - Choice (chips or menu)
+
+final class InspectorChoiceRowView: UIView, InspectorRowView {
+    let spec: InspectorChoice
+    private(set) var chips: CCChipGroup?
+    private(set) var select: CCSelect?
+    private weak var host: InspectorHost?
+    var rowID: String { spec.id }
+
+    /// Chip rows the Mac labels above the chips.
+    static let labelledChips: Set<String> = [
+        "camera.background", "camera.cardFill", "camera.cardBorder", "background.menuBarAlign",
+    ]
+
+    init(_ spec: InspectorChoice, host: InspectorHost) {
+        self.spec = spec
+        self.host = host
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        switch spec.style {
+        case .chips:
+            let group = CCChipGroup(items: spec.items.map { CCChipGroup.Item($0) }, mode: .single, selected: [0])
+            group.accessibilityIdentifier = spec.id
+            group.accessibilityLabel = spec.title
+            group.onChange = { [weak self] selection in
+                guard let host = self?.host, let index = selection.first else { return }
+                host.session.perform(spec.id, name: spec.title) { spec.write(host.scope, index) }
+                // A Cutout / Pop-out look starts finding the person right away
+                // (the Mac's segmentation ensureMask) — the feature's to run.
+                if spec.id == CameraPane.background.id, host.scope.project?.usesCameraLook == true {
+                    host.runFeature(.removeBackground)
+                }
+            }
+            chips = group
+            if Self.labelledChips.contains(spec.id) {
+                let label = ccLabel(spec.title, font: CCFont.labelMedium, color: CCTheme.color.foreground)
+                label.adjustsFontForContentSizeCategory = true
+                let column = UIStackView(arrangedSubviews: [label, group])
+                column.axis = .vertical
+                column.spacing = CCSpace.sm
+                column.translatesAutoresizingMaskIntoConstraints = false
+                addSubview(column)
+                pinEdges(column, to: self)
+            } else {
+                addSubview(group)
+                pinEdges(group, to: self)
+            }
+        case .menu:
+            let menu = CCSelect(options: spec.items)
+            menu.prompt = spec.title
+            menu.accessibilityIdentifier = spec.id
+            menu.presenter = host.presenter
+            menu.onSelect = { [weak self] index in
+                guard let host = self?.host else { return }
+                host.session.perform(spec.id, name: spec.title) { spec.write(host.scope, index) }
+            }
+            select = menu
+            // Title above a full-width select: in a 340 pt column a side-by-
+            // side row truncated either the title or the choice.
+            let row = CCFormRow(label: spec.title, control: menu)
+            menu.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+            addSubview(row)
+            pinEdges(row, to: self)
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func isRowVisible(_ scope: InspectorScope) -> Bool { spec.visible(scope) }
+
+    func refresh(_ scope: InspectorScope) {
+        let index = spec.read(scope)
+        if let chips {
+            let want: Set<Int> = index.map { [$0] } ?? []
+            if chips.selection != want { chips.setSelection(want) }
+        }
+        if let select {
+            if let index, select.selectedIndex != index { select.setSelectedIndex(index) }
+            select.overrideTitle = spec.overrideTitle(scope)
+        }
+    }
+}
+
+// MARK: - Colour
+
+final class InspectorColorRowView: UIView, InspectorRowView {
+    let specs: [InspectorColor]
+    let wells: [CCColorWell]
+    private weak var host: InspectorHost?
+    var rowID: String { specs[0].id }
+
+    init(title: String, _ specs: [InspectorColor], host: InspectorHost) {
+        self.specs = specs
+        self.host = host
+        wells = specs.map { CCColorWell(title: $0.title, color: .white, supportsOpacity: $0.supportsOpacity) }
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        for (spec, well) in zip(specs, wells) {
+            well.accessibilityIdentifier = spec.id
+            well.onChange = { [weak self] color in
+                guard let host = self?.host else { return }
+                host.session.begin(spec.id, name: spec.title)
+                spec.write(host.scope, CodableColor(color))
+            }
+            well.onCommit = { [weak self] _ in self?.host?.session.commit() }
+        }
+        let control: UIView
+        if wells.count == 1 {
+            control = wells[0]
+        } else {
+            let pair = UIStackView(arrangedSubviews: wells)
+            pair.spacing = CCSpace.sm
+            control = pair
+            if let first = wells.first { first.title = "\(title) — Top" }
+            if wells.count > 1 { wells[1].title = "\(title) — Bottom" }
+        }
+        let row = CCControlRow(title: title, control: control)
+        addSubview(row)
+        pinEdges(row, to: self)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func isRowVisible(_ scope: InspectorScope) -> Bool { specs[0].visible(scope) }
+
+    func refresh(_ scope: InspectorScope) {
+        for (spec, well) in zip(specs, wells) {
+            let color = spec.read(scope).platformColor
+            if !well.color.isEqual(color) { well.color = color }
+        }
+    }
+}
+
+// MARK: - Text
+
+final class InspectorTextRowView: UIView, InspectorRowView {
+    let spec: InspectorText
+    let field: CCField
+    private weak var host: InspectorHost?
+    var rowID: String { spec.id }
+
+    init(_ spec: InspectorText, host: InspectorHost, showsTitle: Bool) {
+        self.spec = spec
+        self.host = host
+        field = CCField(placeholder: spec.placeholder)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        field.accessibilityIdentifier = spec.id
+        field.accessibilityLabel = spec.title
+        field.returnKeyType = .done
+        field.onTextChange = { [weak self] text in
+            guard spec.commit == .live, let host = self?.host else { return }
+            host.session.begin(spec.id, name: spec.title)
+            spec.write(host.scope, text)
+        }
+        field.addAction(UIAction { [weak self] _ in self?.endEditing() }, for: .editingDidEnd)
+        field.onReturn = { [weak field] _ in field?.resignFirstResponder() }
+        if showsTitle {
+            let row = CCControlRow(title: spec.title, control: field)
+            field.widthAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
+            addSubview(row)
+            pinEdges(row, to: self)
+        } else {
+            addSubview(field)
+            pinEdges(field, to: self)
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    /// Commit: live edits close their step; end-commit fields write now.
+    func endEditing() {
+        guard let host else { return }
+        switch spec.commit {
+        case .live:
+            host.session.commit()
+        case .onEnd:
+            host.session.perform(spec.id, name: spec.title) { spec.write(host.scope, field.text ?? "") }
+            field.text = spec.read(host.scope)
+        }
+    }
+
+    func isRowVisible(_ scope: InspectorScope) -> Bool { spec.visible(scope) }
+
+    func refresh(_ scope: InspectorScope) {
+        guard !field.isFirstResponder else { return }
+        let text = spec.read(scope)
+        if field.text != text { field.text = text }
+    }
+}
+
+// MARK: - Buttons
+
+final class InspectorActionRowView: UIView, InspectorRowView {
+    let specs: [InspectorAction]
+    let buttons: [CCButton]
+    private weak var host: InspectorHost?
+    var rowID: String { specs[0].id }
+
+    init(_ specs: [InspectorAction], host: InspectorHost) {
+        self.specs = specs
+        self.host = host
+        buttons = specs.map { CCButton(title: " ", style: $0.destructive ? .destructive : .secondary, size: .sm) }
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        for (spec, button) in zip(specs, buttons) {
+            button.accessibilityIdentifier = spec.id
+            button.onTap = { [weak self] in
+                guard let host = self?.host else { return }
+                host.session.perform(spec.id, name: spec.title(host.scope)) { spec.run(host.scope) }
+            }
+        }
+        let row = UIStackView(arrangedSubviews: buttons + [UIView()])
+        row.spacing = CCSpace.sm
+        row.alignment = .center
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        pinEdges(row, to: self)
+        heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func isRowVisible(_ scope: InspectorScope) -> Bool { specs.contains { $0.visible(scope) } }
+
+    func refresh(_ scope: InspectorScope) {
+        for (spec, button) in zip(specs, buttons) {
+            let title = spec.title(scope)
+            if button.title != title { button.title = title }
+            let shown = spec.visible(scope)
+            if button.isHidden == shown { button.isHidden = !shown }
+        }
+    }
+}
+
+// MARK: - Caption
+
+final class InspectorCaptionRowView: UIView, InspectorRowView {
+    let spec: InspectorCaption
+    let label: UILabel
+    var rowID: String { spec.id }
+
+    init(_ spec: InspectorCaption) {
+        self.spec = spec
+        label = ccLabel(spec.fixed ?? "", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        label.adjustsFontForContentSizeCategory = true
+        label.accessibilityIdentifier = spec.id
+        addSubview(label)
+        pinEdges(label, to: self)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func isRowVisible(_ scope: InspectorScope) -> Bool { spec.visible(scope) }
+
+    func refresh(_ scope: InspectorScope) {
+        let text = spec.text(scope)
+        if label.text != text { label.text = text }
+    }
+}
+
+// MARK: - Feature key
+
+/// A key that starts a feature the host wires (Studio 4e/4f).
+final class InspectorFeatureRowView: UIView, InspectorRowView {
+    let feature: InspectorFeature
+    let button: CCButton
+    private let visible: (InspectorScope) -> Bool
+    var rowID: String { "feature.\(feature.rawValue)" }
+
+    init(_ feature: InspectorFeature, visible: @escaping (InspectorScope) -> Bool, host: InspectorHost) {
+        self.feature = feature
+        self.visible = visible
+        button = CCButton(title: feature.title, symbol: feature.symbol, style: .outline, size: .sm)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        button.accessibilityIdentifier = "feature.\(feature.rawValue)"
+        button.onTap = { [weak host] in host?.runFeature(feature) }
+        let row = UIStackView(arrangedSubviews: [button, UIView()])
+        row.alignment = .center
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        pinEdges(row, to: self)
+        heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func isRowVisible(_ scope: InspectorScope) -> Bool { visible(scope) }
+    func refresh(_ scope: InspectorScope) {}
+}
+
+// MARK: - Helpers
+
+@MainActor
+func pinEdges(_ view: UIView, to host: UIView, inset: CGFloat = 0) {
+    view.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+        view.leadingAnchor.constraint(equalTo: host.leadingAnchor, constant: inset),
+        view.trailingAnchor.constraint(equalTo: host.trailingAnchor, constant: -inset),
+        view.topAnchor.constraint(equalTo: host.topAnchor, constant: inset),
+        view.bottomAnchor.constraint(equalTo: host.bottomAnchor, constant: -inset),
+    ])
+}

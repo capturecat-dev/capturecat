@@ -41,6 +41,11 @@ final class EditorViewController: UIViewController {
     let timelineContainer = UIView()
     /// 4d mounts the inspector panes here.
     let inspectorContainer = UIView()
+    /// The inspector (Studio 4d) — its `on…` feature hooks are wired by 4e/4f.
+    private(set) lazy var inspector = StudioInspectorController(
+        project: project, selection: selection,
+        undoManager: { [weak self] in self?.editorUndo },
+        currentTime: { [weak self] in self?.playback.currentTime ?? 0 })
     private let contextPill = EditorContextPill()
     private let undoButton = CCButton(symbol: "undo", style: .ghost, size: .regular, radius: .full)
     private let redoButton = CCButton(symbol: "redo", style: .ghost, size: .regular, radius: .full)
@@ -168,6 +173,7 @@ final class EditorViewController: UIViewController {
             NSLayoutConstraint.deactivate(regularConstraints)
             NSLayoutConstraint.activate(compactConstraints)
         }
+        inspector.setRegularWidth(regular)
     }
 
     override func viewDidLayoutSubviews() {
@@ -181,6 +187,7 @@ final class EditorViewController: UIViewController {
         super.viewDidLoad()
         wireCanvas()
         wireTransport()
+        inspector.install(in: self)
         contextPill.onEditText = { [weak self] in
             guard let self, let id = self.selection.selectedAnnotationID else { return }
             self.canvas.beginInlineEdit(annotationID: id)
