@@ -11,7 +11,7 @@ targets silently drift; re-running this is not.
 
 Folders (synchronized — new .swift files compile with no project edit):
   App/            CaptureCat (app)
-  Kit/            app + share extension      UIKit design kit (extension-safe)
+  Kit/            app + share extension + StudioLab   UIKit design kit (extension-safe)
   Core/           app + both extensions      API, sync, uploads (extension-safe)
   Broadcast/      CaptureCatBroadcast        ReplayKit broadcast upload extension
   ShareExtension/ CaptureCatShare            "Save to CaptureCat" share extension
@@ -144,8 +144,9 @@ TARGETS.append({
     "type": "com.apple.product-type.application",
     "filetype": "wrapper.application",
     "bundle": "so.capturecat.ios.studiolab",
-    "sync": ["StudioLab", "StudioUI", "Studio", "StudioHarness"],
-    "mac": [],
+    # Kit/ too: --kit-gallery renders the house controls in this real window.
+    "sync": ["StudioLab", "StudioUI", "Studio", "StudioHarness", "Kit"],
+    "mac": ["CCIconSet"],
     "plist": "Config/Lab-Info.plist",
     "entitlements": None,
     "extra": {

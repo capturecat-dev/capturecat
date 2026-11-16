@@ -1,0 +1,176 @@
+import UIKit
+
+/// The editor's preview card — the iOS twin of the Mac's
+/// `EditorStageViewController` card: the letterboxed live stage
+/// (`PreviewStageView`, the shared compositor), the touch edit surface over
+/// it (`EditorCanvasView`, the shared gesture core) and a bottom-trailing
+/// zoom pill. Pinch magnifies the stage (pure magnification about the
+/// fingers, 25 %–400 % like the Mac's 0.25…4 scroll-view range); two fingers
+/// pan it while magnified.
+final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
+    let stage = PreviewStageView(frame: .zero)
+    let canvas = EditorCanvasView(frame: .zero)
+    let zoomPill = EditorZoomPill()
+
+    /// The user changed the magnification (pinch or pill); 1 = fit.
+    var onZoomChange: ((CGFloat) -> Void)?
+
+    static let zoomSteps: [CGFloat] = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0]
+    private var pinchStartZoom: CGFloat = 1
+    private var pinchStartPan: CGPoint = .zero
+    private var pinchAnchorCanvas: CGPoint = .zero
+    private var panStart: CGPoint = .zero
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        translatesAutoresizingMaskIntoConstraints = false
+        backgroundColor = CCTheme.color.card
+        layer.cornerRadius = CCTheme.radii.lg
+        layer.cornerCurve = .continuous
+        clipsToBounds = true
+        accessibilityIdentifier = "studio.stageCard"
+
+        for view in [stage, canvas] as [UIView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+            NSLayoutConstraint.activate([
+                view.leadingAnchor.constraint(equalTo: leadingAnchor),
+                view.trailingAnchor.constraint(equalTo: trailingAnchor),
+                view.topAnchor.constraint(equalTo: topAnchor),
+                view.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+        }
+        canvas.stage = stage
+        stage.isDraggingOnCanvasProvider = { [weak canvas] in canvas?.isActivelyDragging ?? false }
+        stage.inlineEditingIDProvider = { [weak canvas] in canvas?.inlineEditingID }
+
+        addSubview(zoomPill)
+        NSLayoutConstraint.activate([
+            zoomPill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            zoomPill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+        ])
+        zoomPill.onZoomOut = { [weak self] in self?.stepZoom(-1) }
+        zoomPill.onZoomIn = { [weak self] in self?.stepZoom(1) }
+        zoomPill.onReset = { [weak self] in self?.setZoom(1, pan: .zero) }
+        zoomPill.update(zoom: 1, canZoomOut: true, canZoomIn: true)
+
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(pinched(_:)))
+        pinch.delegate = self
+        canvas.addGestureRecognizer(pinch)
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(panned(_:)))
+        pan.minimumNumberOfTouches = 2
+        pan.maximumNumberOfTouches = 2
+        pan.delegate = self
+        canvas.addGestureRecognizer(pan)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    // MARK: - Magnification
+
+    func setZoom(_ zoom: CGFloat, pan: CGPoint) {
+        // The in-place editor is placed in view space: commit it first.
+        canvas.endInlineEdit(commit: true)
+        let z = min(4, max(0.25, zoom))
+        stage.userZoom = z
+        stage.panOffset = clampedPan(pan, zoom: z)
+        zoomPill.update(zoom: z, canZoomOut: z > Self.zoomSteps.first!, canZoomIn: z < Self.zoomSteps.last!)
+        onZoomChange?(z)
+        canvas.gestures.requestRender?()
+    }
+
+    private func stepZoom(_ direction: Int) {
+        let zoom = stage.userZoom
+        let next = direction > 0
+            ? Self.zoomSteps.first(where: { $0 > zoom + 0.001 })
+            : Self.zoomSteps.last(where: { $0 < zoom - 0.001 })
+        if let next { setZoom(next, pan: next <= 1 ? .zero : stage.panOffset) }
+    }
+
+    /// Keeps a magnified canvas covering the card's centre (no panning at
+    /// or below fit).
+    private func clampedPan(_ pan: CGPoint, zoom: CGFloat) -> CGPoint {
+        let m = stage.fitMagnification * zoom
+        let w = stage.virtualCanvasSize.width * m, h = stage.virtualCanvasSize.height * m
+        let maxX = max(0, (w - bounds.width) / 2), maxY = max(0, (h - bounds.height) / 2)
+        return CGPoint(x: min(maxX, max(-maxX, pan.x)), y: min(maxY, max(-maxY, pan.y)))
+    }
+
+    @objc private func pinched(_ g: UIPinchGestureRecognizer) {
+        switch g.state {
+        case .began:
+            pinchStartZoom = stage.userZoom
+            pinchStartPan = stage.panOffset
+            pinchAnchorCanvas = stage.canvasPoint(fromView: g.location(in: stage))
+        case .changed:
+            let z = min(4, max(0.25, pinchStartZoom * g.scale))
+            // Keep the canvas point under the fingers where it was.
+            stage.userZoom = z
+            stage.panOffset = .zero
+            let unpanned = stage.viewPoint(fromCanvas: pinchAnchorCanvas)
+            let finger = g.location(in: stage)
+            setZoom(z, pan: CGPoint(x: finger.x - unpanned.x, y: finger.y - unpanned.y))
+        default:
+            break
+        }
+    }
+
+    @objc private func panned(_ g: UIPanGestureRecognizer) {
+        switch g.state {
+        case .began: panStart = stage.panOffset
+        case .changed:
+            guard stage.userZoom > 1 else { return }
+            let t = g.translation(in: stage)
+            setZoom(stage.userZoom, pan: CGPoint(x: panStart.x + t.x, y: panStart.y + t.y))
+        default: break
+        }
+    }
+
+    func gestureRecognizer(_ g: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+        (g is UIPinchGestureRecognizer && other is UIPanGestureRecognizer)
+            || (g is UIPanGestureRecognizer && other is UIPinchGestureRecognizer)
+    }
+}
+
+/// − / 100 % / + — the Mac's `PreviewZoomPill`, dressed as a raised kit
+/// surface. Tapping the percentage returns to fit.
+final class EditorZoomPill: CCSurface {
+    var onZoomOut: (() -> Void)?
+    var onZoomIn: (() -> Void)?
+    var onReset: (() -> Void)?
+
+    private let minus = CCButton(symbol: "minus", style: .ghost, size: .sm, radius: .full)
+    private let plus = CCButton(symbol: "plus", style: .ghost, size: .sm, radius: .full)
+    private let percent = CCButton(title: "100%", style: .ghost, size: .sm, radius: .full)
+
+    init() {
+        super.init(.raised, tint: CCTheme.color.popover, radius: .full)
+        minus.accessibilityLabelOverride = "Zoom out"
+        plus.accessibilityLabelOverride = "Zoom in"
+        percent.accessibilityLabelOverride = "Fit"
+        minus.onTap = { [weak self] in self?.onZoomOut?() }
+        plus.onTap = { [weak self] in self?.onZoomIn?() }
+        percent.onTap = { [weak self] in self?.onReset?() }
+        let row = UIStackView(arrangedSubviews: [minus, percent, plus])
+        row.spacing = 0
+        row.alignment = .center
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
+            row.topAnchor.constraint(equalTo: topAnchor, constant: 2),
+            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+            percent.widthAnchor.constraint(greaterThanOrEqualToConstant: 58),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func update(zoom: CGFloat, canZoomOut: Bool, canZoomIn: Bool) {
+        percent.title = "\(Int((zoom * 100).rounded()))%"
+        minus.isEnabled = canZoomOut
+        plus.isEnabled = canZoomIn
+    }
+}

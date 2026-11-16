@@ -197,7 +197,16 @@ final class ProjectDetailViewController: DetailPageViewController {
             ? "Original recording — edits play on Mac and the web."
             : "The shared video, exactly as exported."
 
-        var actions: [ActionListCard.Action] = [
+        var actions: [ActionListCard.Action] = []
+        // The studio editor (iOS 26+): edit the project on this device.
+        if #available(iOS 26, *) {
+            actions.append(.init(title: "Edit on \(ThisDevice.noun)", symbol: "scissors") { [weak self] _ in
+                guard let self else { return }
+                self.playerCard.player.pause()
+                StudioEditorEntry.open(projectID: self.projectID, from: self)
+            })
+        }
+        actions += [
             .init(title: "Continue on Mac", symbol: "desktop") { [weak self] _ in
                 guard let self, let project = LibraryStore.shared.project(self.projectID) else { return }
                 ProjectActions.continueOnMac(projectID: self.projectID, name: project.name, from: self)

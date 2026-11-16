@@ -76,6 +76,7 @@ final class LabViewController: UIViewController {
             }
             return
         }
+        if EditorShellLab.handles(arguments, host: self) { return }
         if let i = arguments.firstIndex(of: "--ios-preview-export-parity"), arguments.indices.contains(i + 1) {
             let fixture = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
             func value(_ name: String) -> String? {

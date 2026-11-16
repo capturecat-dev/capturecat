@@ -83,27 +83,51 @@ class PreviewStageView: UIView {
         ReferenceCanvas.canvas(box: box, aspect: aspect)
     }
 
-    /// Magnification from the virtual canvas to the view (fit, centred).
-    var magnification: CGFloat {
+    /// Magnification from the virtual canvas to the view that FITS it
+    /// (centred) — the Mac's `ZoomScrollView.fitMagnification`. Rasters are
+    /// drawn at screen scale × this.
+    var fitMagnification: CGFloat {
         guard virtualCanvasSize.width > 0, virtualCanvasSize.height > 0 else { return 1 }
         return min(bounds.width / virtualCanvasSize.width, bounds.height / virtualCanvasSize.height)
     }
 
+    /// The user's zoom on top of the fit (the editor's pinch, Studio 4b):
+    /// 1 = fit, as on the Mac (100% = fit, the user's zoom multiplies). Pure
+    /// magnification — like the Mac's scroll-view zoom it never re-lays the
+    /// project out and never re-rasters (rasters stay at screen × fit).
+    var userZoom: CGFloat = 1 {
+        didSet { if userZoom != oldValue { applyCanvasTransform() } }
+    }
+
+    /// Pan of the magnified canvas away from centred, in view points (only
+    /// meaningful while `userZoom` > 1; the editor clamps it).
+    var panOffset: CGPoint = .zero {
+        didSet { if panOffset != oldValue { applyCanvasTransform() } }
+    }
+
+    /// Magnification from the virtual canvas to the view: fit × user zoom.
+    var magnification: CGFloat { fitMagnification * userZoom }
+
     override func layoutSubviews() {
         super.layoutSubviews()
+        applyCanvasTransform()
+        core.refreshContentsScale()
+        if let input = pendingInput, bounds.width > 1, bounds.height > 1 {
+            render(input)
+        }
+    }
+
+    /// Places the canvas: magnified about its top-left, centred, then panned.
+    private func applyCanvasTransform() {
         let m = magnification
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         canvasLayer.bounds = CGRect(origin: .zero, size: virtualCanvasSize)
         canvasLayer.position = CGPoint(
-            x: (bounds.width - virtualCanvasSize.width * m) / 2,
-            y: (bounds.height - virtualCanvasSize.height * m) / 2)
+            x: (bounds.width - virtualCanvasSize.width * m) / 2 + panOffset.x,
+            y: (bounds.height - virtualCanvasSize.height * m) / 2 + panOffset.y)
         canvasLayer.setAffineTransform(CGAffineTransform(scaleX: m, y: m))
         CATransaction.commit()
-        core.refreshContentsScale()
-        if let input = pendingInput, bounds.width > 1, bounds.height > 1 {
-            render(input)
-        }
     }
 
     override func didMoveToWindow() {
@@ -127,7 +151,12 @@ class PreviewStageView: UIView {
         core.hostZoomGroupStill = stills.zoomGroup
         core.hostCameraDissolve = stills.cameraDissolve
         core.render(input)
+        lastRenderedTime = input.currentTime
     }
+
+    /// The timeline time of the last frame rendered (the twin tells a
+    /// same-time re-render from a step).
+    private(set) var lastRenderedTime: TimeInterval?
 
     private var rendering = false
 
@@ -150,20 +179,44 @@ class PreviewStageView: UIView {
         return CGPoint(x: (point.x - canvasLayer.position.x) / m,
                        y: (point.y - canvasLayer.position.y) / m)
     }
+
+    /// Canvas space → this view (the inverse of `canvasPoint(fromView:)`).
+    func viewPoint(fromCanvas point: CGPoint) -> CGPoint {
+        let m = magnification
+        return CGPoint(x: canvasLayer.position.x + point.x * m,
+                       y: canvasLayer.position.y + point.y * m)
+    }
+
+    /// A canvas-space rect in this view's coordinates.
+    func viewRect(fromCanvas rect: CGRect) -> CGRect {
+        let origin = viewPoint(fromCanvas: rect.origin)
+        let m = magnification
+        return CGRect(x: origin.x, y: origin.y, width: rect.width * m, height: rect.height * m)
+    }
+
+    // MARK: - Edit-surface state the core reads (Studio 4b)
+
+    /// The touch front end above the stage (`EditorCanvasView`) reports a
+    /// live canvas drag here (the core drops live-motion rasters to 1x for
+    /// it) and the annotation open in its in-place editor (omitted from the
+    /// raster — the editor IS it). Nil providers = neither, as before 4b.
+    var isDraggingOnCanvasProvider: (() -> Bool)?
+    var inlineEditingIDProvider: (() -> UUID?)?
 }
 
 extension PreviewStageView: PreviewCompositorHost {
     var compositorCanvasSize: CGSize { virtualCanvasSize }
 
-    /// Screen pixels per canvas point: the display scale times the
-    /// magnification, so rasters match the pixels they land on.
+    /// Screen pixels per canvas point: the display scale times the FIT
+    /// magnification, so rasters match the pixels they land on at 100%
+    /// (the user's pinch zoom magnifies them, as the Mac's scroll view does).
     var compositorDisplayScale: CGFloat? {
         guard let window else { return nil }
-        return window.screen.scale * max(0.01, magnification)
+        return window.screen.scale * max(0.01, fitMagnification)
     }
 
-    var compositorIsDraggingOnCanvas: Bool { false }
-    var compositorInlineEditingID: UUID? { nil }
+    var compositorIsDraggingOnCanvas: Bool { isDraggingOnCanvasProvider?() ?? false }
+    var compositorInlineEditingID: UUID? { inlineEditingIDProvider?() }
 
     func compositorDidRender(_ frame: PreviewCompositorCore.RenderedFrame) {
         onRender?(frame)
