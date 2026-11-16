@@ -1,4 +1,5 @@
 import CoreImage
+import CoreVideo
 import QuartzCore
 import UIKit
 
@@ -29,10 +30,11 @@ import UIKit
 /// without them. The twin only runs when an effect is possible (blur on and
 /// not playing; a look transition in progress) — zero cost otherwise.
 ///
-/// Limits (docs/ios-studio-plan.md): the twin gets no players — iOS renders
-/// posters today; when iOS playback lands it must be handed the displayed
-/// frames, and the dissolve's per-frame read-backs want a cache. Stacking
-/// layouts (the camera inside the card) keep the plain composite.
+/// Limits (docs/ios-studio-plan.md): the twin gets no players — with the
+/// editor's playback (Studio 4b) it is handed the DISPLAYED video and camera
+/// frames as posters instead; the dissolve's per-frame read-backs want a
+/// cache. Stacking layouts (the camera inside the card) keep the plain
+/// composite.
 @MainActor
 final class PreviewStageTwin {
     struct Stills {
@@ -61,13 +63,24 @@ final class PreviewStageTwin {
         guard blurPossible || dissolvePossible else { return Stills() }
 
         let canvas = stage.virtualCanvasSize
-        let scale = window.screen.scale * max(0.01, stage.magnification)
+        let scale = window.screen.scale * max(0.01, stage.fitMagnification)
         let twin = prepareTwin(stage: stage, canvas: canvas, scale: scale)
         twin.rasterScaleOverride = core.rasterScaleOverride
         twin.adoptMotionState(from: core)
         // No players in the twin: a second video output on the same item
-        // would compete with the stage's (posters only on iOS today).
+        // would compete with the stage's. With a player (the editor's
+        // playback, Studio 4b) the twin is handed the frames the stage is
+        // DISPLAYING as its posters, so a paused blur or a look dissolve is
+        // built from the frame on screen, never a stale poster.
         var twinInput = input
+        if input.player != nil, let frame = core.displayedVideoFrame,
+           let image = displayedImage(frame, cache: &videoFrameCache) {
+            twinInput.videoPosterImage = image
+        }
+        if input.cameraPlayer != nil, let frame = core.displayedCameraFrame,
+           let image = displayedImage(frame, cache: &cameraFrameCache) {
+            twinInput.cameraPosterImage = image
+        }
         twinInput.player = nil
         twinInput.cameraPlayer = nil
 
@@ -77,11 +90,18 @@ final class PreviewStageTwin {
         twin.cameraStackIsolation = nil
         twin.zoomGroupOnly = true
         twin.render(twinInput)
-        if blurPossible, twin.appliedMotionBlur.active, twin.motionBlurScreenRadius > 0,
+        // A same-time re-render carries no new velocity: the core KEEPS the
+        // blur of its last time-advancing frame (the Mac's CA filter stays
+        // on screen). The twin may not have rendered that frame — it skips
+        // playing frames — so the held blur is the MAIN core's (Studio 4b:
+        // pausing mid-zoom showed no blur on iOS while the Mac kept it).
+        let sameTime = stage.lastRenderedTime == input.currentTime
+        let blurSource = sameTime ? core : twin
+        if blurPossible, blurSource.appliedMotionBlur.active, blurSource.motionBlurScreenRadius > 0,
            let crisp = readBack(scale: scale) {
             stills.zoomGroup = Self.exporterMotionBlur(
-                crisp, radiusPx: twin.motionBlurScreenRadius * canvas.width * scale,
-                angle: twin.motionBlurScreenAngle,
+                crisp, radiusPx: blurSource.motionBlurScreenRadius * canvas.width * scale,
+                angle: blurSource.motionBlurScreenAngle,
                 linear: PreviewCompositorCore.debugMotionBlurDefect == .linearLight)
         }
 
@@ -116,6 +136,25 @@ final class PreviewStageTwin {
         twin.cameraStackIsolation = nil
         twin.zoomGroupOnly = false
         return stills
+    }
+
+    private var videoFrameCache: (token: Int, buffer: CVPixelBuffer, image: UIImage)?
+    private var cameraFrameCache: (token: Int, buffer: CVPixelBuffer, image: UIImage)?
+
+    /// A displayed frame as a poster image — its values as the layer shows
+    /// them (no colour management: the exporter composites gamma-encoded
+    /// values), cached per delivered frame.
+    private func displayedImage(
+        _ frame: (buffer: CVPixelBuffer, token: Int),
+        cache: inout (token: Int, buffer: CVPixelBuffer, image: UIImage)?
+    ) -> UIImage? {
+        if let cached = cache, cached.token == frame.token, cached.buffer === frame.buffer { return cached.image }
+        let ci = CIImage(cvPixelBuffer: frame.buffer, options: [.colorSpace: NSNull()])
+        guard let cg = Self.gammaContext.createCGImage(
+            ci, from: ci.extent, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!) else { return nil }
+        let image = UIImage(cgImage: cg, scale: 1, orientation: .up)
+        cache = (frame.token, frame.buffer, image)
+        return image
     }
 
     /// A camera-look transition can be in progress at `input`'s time — the

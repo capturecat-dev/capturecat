@@ -138,20 +138,10 @@ final class VideoExporter {
         var cursorCoordinateSize: CGSize = .zero
         if let cursorURL = project.cursorDataURL {
             let recording = try? CursorRecording.load(from: cursorURL)
-            cursorEvents = recording?.events ?? []
             cursorCoordinateSize = recording?.hasValidCoordinateSpace == true ? recording?.coordinateSize ?? .zero : .zero
-            if settings.smoothCursor {
-                let smoother = CursorSmoother(factor: settings.smoothingFactor)
-                cursorEvents = smoother.smooth(events: cursorEvents)
-            }
-            // Fluid movement after smoothing — identical chain to
-            // EditorPlaybackController.applyCursorSmoothing.
-            cursorEvents = CursorSpringMath.apply(events: cursorEvents, settings: settings)
-            cursorEvents = CursorEndBehaviorMath.apply(
-                events: cursorEvents,
-                trimEnd: project.effectiveTrimEnd,
-                loopToStart: settings.cursorLoopToStart,
-                stopAtEnd: settings.cursorStopAtEnd)
+            // The editors' preview draws the same chain (CursorPathChain).
+            cursorEvents = CursorPathChain.apply(
+                recording?.events ?? [], settings: settings, trimEnd: project.effectiveTrimEnd)
         }
 
         // Audio mix — includes the synthesized click ticks (same waveform the

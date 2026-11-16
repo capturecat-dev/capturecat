@@ -155,11 +155,13 @@ enum SubtitlePillRasterizer {
             )
         }
 
-        let textSize = attrString.boundingRect(
-            with: CGSize(width: max(1, maxWidth), height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            context: nil
-        )
+        // Measured on AppKit's rules (PlatformText → AppKitTextLayout), as the
+        // text is drawn below and as the exporter measures the same pill
+        // (VideoExporter.renderSubtitle). UIKit's own boundingRect made the
+        // iOS preview's pill 1 pt taller than the iOS export's (Studio 4b,
+        // found by --editor-shell's subtitle drag).
+        let textSize = PlatformText.boundingRect(
+            of: attrString, size: CGSize(width: max(1, maxWidth), height: .greatestFiniteMagnitude))
         let pillW = ceil(textSize.width) + 24  // 12pt horizontal padding
         let pillH = ceil(textSize.height) + 12 // 6pt vertical padding
         let slack: CGFloat = s.subtitleStyle == .glow ? 24 : 10
