@@ -15,7 +15,9 @@ import Foundation
 ///   CPU instead of the Neural Engine moves word boundaries by
 ///   `computeSpread` (0.14 s on 2026-11-16), so iOS (CoreML on the
 ///   Simulator's CPU) may differ by that, plus one step. Relative, like 3c's
-///   "no worse than the Mac" bars.
+///   "no worse than the Mac" bars. On the iOS 27 Simulator this check FAILS
+///   (≤ 0.12 s outliers on some audio) and the owner chose to keep it
+///   failing (2026-11-16) rather than widen it — do not loosen it to go green.
 extension FeaturesHarness {
     enum SpeechFixture {
         static let movie = "speech.mov"
