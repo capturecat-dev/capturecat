@@ -97,7 +97,10 @@ The inspector panes (4d) call these from their `onRecordVoiceOver`,
 Auto Zoom needs Mac capture data (`cursor.json`), so it explains instead of
 generating for iPhone and web takes. Vision's person segmentation has no
 runtime in the iOS Simulator ("E5RT is not supported") — on a device it runs
-as on the Mac.
+as on the Mac. In the Simulator WhisperKit runs on the CPU only: the iOS 27
+Simulator transcribes like the Mac (same words; a few word boundaries move
+by ≤ 0.14 s), the iOS 26.2 Simulator mostly returns nothing
+(`StudioLab --whisper-probe`).
 
 ## Contracts it follows
 
@@ -123,7 +126,7 @@ as on the Mac.
     apps/ios/scripts/studio-canary.sh       # Studio/ typechecks for iOS on its own (fast)
     apps/ios/scripts/ios-vectors.sh         # the Mac's golden vectors run INSIDE the iOS Simulator vs the Mac's output (exact / ≤1e-12; known iOS differences listed)
     apps/ios/scripts/kit-gallery.sh         # the studio controls, every state, both themes, iPhone + iPad: PNGs, structure, behaviour, motion SEQUENCES mid-flight (+ injected-snap self-test)
-    apps/ios/scripts/ios-features.sh        # voice-over, transcription, Auto Zoom, background removal vs the Mac (CaptureCat --features-reference): entries, mix, blocks, subtitles, mask, cutout frames; progress SEQUENCES mid-flight (+ --inject self-tests). WHISPER_MODELS=<dir> for transcription
+    apps/ios/scripts/ios-features.sh        # voice-over, transcription, Auto Zoom, background removal vs the Mac (CaptureCat --features-reference): entries, mix, blocks, subtitles, mask, cutout frames; progress SEQUENCES mid-flight (+ --inject self-tests). WHISPER_BASE=<dir> (model + tokenizer) for transcription; run it on an iOS 27 simulator — the iOS 26.2 Simulator's CPU path decodes base.en to nothing
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production

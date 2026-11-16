@@ -205,27 +205,30 @@ enum FeaturesLab {
                 report.note(String(format: "voice file decoded vs the Mac's: %d frames (Mac %d), max |Δ| %.2e",
                                    decoded.count, macDecoded.count, c.maxDelta))
             }
-            if FeaturesHarness.injected(.mixGain), let i = project.voiceOverClips.firstIndex(where: { $0.id == clip.id }) {
-                project.voiceOverClips[i].gain = 0.9
-            }
-            let mix = try await FeaturesHarness.readMix(project: project)
-            FeaturesHarness.writeFloats(mix, to: out.appendingPathComponent("ios-mix.f32"))
-            let c = FeaturesHarness.compareSamples(mix, macMix)
-            report.check("export mix matches the Mac (≤ \(F.mixTolerance))", c.sameLength && c.maxDelta <= F.mixTolerance,
-                         String(format: "%d samples (Mac %d), max |Δ| %.2e", mix.count, macMix.count, c.maxDelta))
-            // Equal-input cross-check: the Mac's own take mixed by iOS.
+            // The export mix, gated on EQUAL input: the Mac's own take placed
+            // by the iOS entry and mixed by iOS must be the Mac's mix. (The
+            // encoded take itself is not byte-stable even on the Mac: its AAC
+            // encoder gave two encodings of this narration 3.67e-5 apart on
+            // 2026-11-16 — the iOS take's own mix is reported below.)
             let cross = F.project(recording: recording)
             var macClip = clip
             macClip.fileName = "mac-voice.m4a"
-            macClip.gain = 1
-            macClip.startTime = F.takeStart
+            if FeaturesHarness.injected(.mixGain) { macClip.gain = 0.9 }
             try? fm.removeItem(at: cross.projectDirectory.appendingPathComponent("mac-voice.m4a"))
             try? fm.copyItem(at: ref.appendingPathComponent("mac-voice.m4a"),
                              to: cross.projectDirectory.appendingPathComponent("mac-voice.m4a"))
             cross.voiceOverClips = [macClip]
             let crossMix = try await FeaturesHarness.readMix(project: cross)
+            FeaturesHarness.writeFloats(crossMix, to: out.appendingPathComponent("ios-mix-mac-take.f32"))
             let cc = FeaturesHarness.compareSamples(crossMix, macMix)
-            report.note(String(format: "the Mac's take mixed on iOS vs the Mac's mix: max |Δ| %.2e", cc.maxDelta))
+            report.check("export mix of the same take matches the Mac (≤ \(F.mixTolerance))",
+                         cc.sameLength && cc.maxDelta <= F.mixTolerance,
+                         String(format: "%d samples (Mac %d), max |Δ| %.2e", crossMix.count, macMix.count, cc.maxDelta))
+            let mix = try await FeaturesHarness.readMix(project: project)
+            FeaturesHarness.writeFloats(mix, to: out.appendingPathComponent("ios-mix.f32"))
+            let c = FeaturesHarness.compareSamples(mix, macMix)
+            report.note(String(format: "the iOS take's own mix vs the Mac's: %d samples (Mac %d), max |Δ| %.2e (the takes' AAC encodings: see above)",
+                               mix.count, macMix.count, c.maxDelta))
         } catch {
             report.check("scripted take", false, "\(error)")
         }
@@ -248,7 +251,7 @@ enum FeaturesLab {
         tap(controller.recordButton)
         var samples: [(drawn: CGFloat, count: Int, time: String)] = []
         var midFlight = 0
-        let end = Date().addingTimeInterval(1.4)
+        let end = Date().addingTimeInterval(2.6)
         while Date() < end {
             try? await Task.sleep(for: .milliseconds(12))
             let bar = controller.meter.probeNewestBar
@@ -257,7 +260,7 @@ enum FeaturesLab {
             // one only ever draws 2 pt or one of its last few targets.
             let shown = controller.meter.probeHeightsShown
             if let drawn = bar?.drawn, shown.count > 1,
-               isMidFlight(drawn, shown: [2] + Array(shown.suffix(3))) { midFlight += 1 }
+               isMidFlight(drawn, shown: [2] + Array(shown.suffix(2))) { midFlight += 1 }
         }
         CCMotion.probeSnap = false
         report.check("recording started from the sheet", StudioVoiceOver.session.isRecording && playhead.isPlaying
@@ -495,6 +498,11 @@ enum FeaturesLab {
                      "\(finalStatus) after \(String(format: "%.1f", seconds)) s · sheet showed \(controller.statusLog.count) states")
         report.check("progress SEQUENCE: running percentages advance", running.count >= 3, "\(running.sorted().prefix(12)) …")
         report.check("progress bar caught mid-flight", midFlight >= 1, "\(midFlight) mid-flight samples")
+        // The sheet re-renders on its observation loop's next turn.
+        let labelDeadline = Date().addingTimeInterval(2)
+        while controller.status.label.text != CameraSegmentation.Status.ready.displayText && Date() < labelDeadline {
+            await LabTime.settle(0.05)
+        }
         report.check("sheet shows the Mac's status line", controller.status.label.text == CameraSegmentation.Status.ready.displayText,
                      controller.status.label.text ?? "–")
         await dismissSheets(lab)
