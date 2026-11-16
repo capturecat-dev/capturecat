@@ -31,8 +31,12 @@ enum FeaturesHarness {
         case voiceOffset = "voice-offset"
         /// The iOS voice clip's gain drops to 0.9 before the mix.
         case mixGain = "mix-gain"
-        /// The iOS transcript's words all move 0.12 s later.
+        /// The iOS transcript moves 0.3 s later as a whole.
         case transcriptTiming = "transcript-timing"
+        /// One word drops out of the iOS transcript.
+        case transcriptDropWord = "transcript-drop-word"
+        /// One word boundary in the iOS transcript moves by 0.3 s.
+        case transcriptBoundary = "transcript-boundary"
         /// The iOS preview is rendered without the person mask.
         case maskIgnored = "mask-ignored"
         /// The iOS matte loses its edges (alpha thresholded at 200).
