@@ -41,6 +41,22 @@ final class TranscriptionService {
 
     static let model = "base.en"
 
+    /// Where WhisperKit keeps the model under a download base (the
+    /// tokenizer lands beside it, under `models/openai/`).
+    static func modelFolder(in downloadBase: URL) -> URL {
+        downloadBase.appendingPathComponent("models/argmaxinc/whisperkit-coreml/openai_whisper-\(model)", isDirectory: true)
+    }
+
+    /// Downloads the model into `downloadBase` (WhisperKit's own fetch — the
+    /// apps do this inside `transcribe` on first use; gates call it once).
+    static func fetchModel(into downloadBase: URL) async throws -> URL {
+        #if canImport(WhisperKit)
+        return try await WhisperKit.download(variant: model, downloadBase: downloadBase)
+        #else
+        throw TranscriptionError.transcriptionFailed("this build has no speech engine (WhisperKit is not linked)")
+        #endif
+    }
+
     func transcribe(videoURL: URL, language: String = "en") async throws -> [SubtitleSegment] {
         #if canImport(WhisperKit)
         isTranscribing = true

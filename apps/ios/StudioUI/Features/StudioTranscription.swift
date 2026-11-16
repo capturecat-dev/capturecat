@@ -26,23 +26,25 @@ enum StudioTranscription {
 
     /// The model folder once downloaded (WhisperKit's hub layout).
     static var storedModelFolder: URL? {
-        let folder = downloadBase.appendingPathComponent(
-            "models/argmaxinc/whisperkit-coreml/openai_whisper-\(TranscriptionService.model)", isDirectory: true)
+        let folder = TranscriptionService.modelFolder(in: downloadBase)
         return FileManager.default.fileExists(atPath: folder.appendingPathComponent("config.json").path) ? folder : nil
     }
 
     #if DEBUG
-    /// Probe seam: load the model from this folder (the gate shares the
-    /// Mac's model files).
-    static var probeModelFolder: URL?
+    /// Probe seam: a download base holding the model AND its tokenizer (the
+    /// gate shares the Mac's files; nothing is fetched).
+    static var probeDownloadBase: URL?
     #endif
 
-    /// One engine per app run (the loaded model is reused).
+    /// One engine per app run (the loaded model is reused). The tokenizer is
+    /// kept under the same base, so a stored model loads offline.
     static let service: TranscriptionService = {
         #if DEBUG
-        if let folder = probeModelFolder { return TranscriptionService(modelFolder: folder) }
+        if let base = probeDownloadBase {
+            return TranscriptionService(modelFolder: TranscriptionService.modelFolder(in: base), downloadBase: base)
+        }
         #endif
-        if let folder = storedModelFolder { return TranscriptionService(modelFolder: folder) }
+        if let folder = storedModelFolder { return TranscriptionService(modelFolder: folder, downloadBase: downloadBase) }
         return TranscriptionService(downloadBase: downloadBase)
     }()
 

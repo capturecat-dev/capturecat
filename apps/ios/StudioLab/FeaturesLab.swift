@@ -1,7 +1,7 @@
 import AVFoundation
 import UIKit
 
-/// `--features <outDir> --reference <macFeaturesDir> [--whisper-models <dir>]
+/// `--features <outDir> --reference <macFeaturesDir> [--whisper-base <dir>]
 ///  [--only autozoom,voiceover,transcription,cutout] [--inject <defect>]`
 ///
 /// The iOS half of the Studio 4e features gate (StudioHarness/FeaturesHarness;
@@ -36,7 +36,7 @@ enum FeaturesLab {
         }
         FeaturesHarness.inject = value("--inject").flatMap(FeaturesHarness.Inject.init(rawValue:))
         let only = value("--only").map { Set($0.split(separator: ",").map(String.init)) }
-        let models = value("--whisper-models").map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let models = value("--whisper-base").map { URL(fileURLWithPath: $0, isDirectory: true) }
         lab.stage.isHidden = true
         Task { @MainActor in
             let pass = await run(lab: lab, out: out, reference: reference, models: models, only: only)
@@ -294,7 +294,7 @@ enum FeaturesLab {
             report.check("Mac reference and model present", false, "\(ref.path), models \(models?.path ?? "–")")
             return report
         }
-        StudioTranscription.probeModelFolder = models.appendingPathComponent(F.modelFolderName, isDirectory: true)
+        StudioTranscription.probeDownloadBase = models
         let movie = ref.appendingPathComponent(F.movie)
         let script = (try? String(contentsOf: ref.appendingPathComponent(F.script), encoding: .utf8)) ?? ""
         let service = StudioTranscription.service

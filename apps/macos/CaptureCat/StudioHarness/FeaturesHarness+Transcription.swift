@@ -12,7 +12,6 @@ extension FeaturesHarness {
     enum SpeechFixture {
         static let movie = "speech.mov"
         static let script = "speech.txt"
-        static let modelFolderName = "openai_whisper-base.en"
         /// Whisper's timestamp grid is 20 ms; allow a few steps of drift
         /// between compute units.
         static let timingTolerance = 0.1

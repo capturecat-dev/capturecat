@@ -16,9 +16,11 @@ set -euo pipefail
 #
 # Inputs: synthetic media, `say` speech (never user audio) and iMovie's
 # bundled trailer clip as the camera (read from /Applications, never copied
-# into the repository). Transcription needs WhisperKit's base.en model on
-# disk (WHISPER_MODELS=<dir holding openai_whisper-base.en>); without it the
-# transcription feature is skipped and the gate cannot pass.
+# into the repository). Transcription needs WhisperKit's base.en model and
+# its tokenizer under a download base (WHISPER_BASE=<dir>); FETCH_MODEL=1
+# lets the Mac's WhisperKit download them there (~150 MB from Hugging Face —
+# only with the owner's go-ahead). Without them transcription is skipped and
+# the gate cannot pass.
 #
 # `--inject` takes a FeaturesHarness.Inject name (autozoom-shift,
 # voice-offset, mix-gain, transcript-timing, mask-ignored, mask-alpha,
@@ -27,7 +29,8 @@ set -euo pipefail
 # Env:
 #   DEVICE=<simulator udid>  (default: the 4e iPad)
 #   APP=<CaptureCat.app>     an unsandboxed Mac build to use instead of building
-#   WHISPER_MODELS=<dir>     WhisperKit model root (…/openai_whisper-base.en inside)
+#   WHISPER_BASE=<dir>       WhisperKit download base (models/argmaxinc/whisperkit-coreml/openai_whisper-base.en + tokenizer)
+#   FETCH_MODEL=1            let WhisperKit download them into WHISPER_BASE first
 #   ONLY=a,b                 autozoom,voiceover,transcription,cutout
 #   REUSE_MAC=1              keep an existing <out>/mac reference
 
@@ -56,7 +59,8 @@ BIN="$APP/Contents/MacOS/CaptureCat"
 
 SPEECH_ARGS=()
 MODEL_ARGS=()
-if [[ -n "${WHISPER_MODELS:-}" && -f "$WHISPER_MODELS/openai_whisper-base.en/config.json" ]]; then
+MAC_MODEL_ARGS=()
+if [[ -n "${WHISPER_BASE:-}" ]] && { [[ -f "$WHISPER_BASE/models/argmaxinc/whisperkit-coreml/openai_whisper-base.en/config.json" ]] || [[ "${FETCH_MODEL:-}" == "1" ]]; }; then
   # Known speech, synthesized (the default system voice; never user audio).
   cat > "$OUT/speech.txt" <<'TEXT'
 Welcome to the editor. Today we will record a short demo of the new export panel.
@@ -66,9 +70,11 @@ That is all it takes. Thanks for watching, and see you next time.
 TEXT
   say -o "$OUT/speech.aiff" -f "$OUT/speech.txt"
   SPEECH_ARGS=(--speech "$OUT/speech.aiff" --script "$OUT/speech.txt")
-  MODEL_ARGS=(--whisper-models "$WHISPER_MODELS")
+  MODEL_ARGS=(--whisper-base "$WHISPER_BASE")
+  MAC_MODEL_ARGS=(--whisper-base "$WHISPER_BASE")
+  [[ "${FETCH_MODEL:-}" == "1" ]] && MAC_MODEL_ARGS+=(--fetch-model)
 else
-  echo "ios-features: no WhisperKit model at \${WHISPER_MODELS}/openai_whisper-base.en — transcription will be skipped"
+  echo "ios-features: no WhisperKit model under \${WHISPER_BASE} — transcription will be skipped"
 fi
 
 if [[ "${REUSE_MAC:-}" != "1" || ! -d "$MAC_OUT" ]]; then
@@ -79,7 +85,7 @@ if [[ "${REUSE_MAC:-}" != "1" || ! -d "$MAC_OUT" ]]; then
   else
     rm -rf "$MAC_OUT"
   fi
-  "$BIN" --features-reference "$MAC_OUT" ${SPEECH_ARGS[@]+"${SPEECH_ARGS[@]}"} ${MODEL_ARGS[@]+"${MODEL_ARGS[@]}"} \
+  "$BIN" --features-reference "$MAC_OUT" ${SPEECH_ARGS[@]+"${SPEECH_ARGS[@]}"} ${MAC_MODEL_ARGS[@]+"${MAC_MODEL_ARGS[@]}"} \
     ${ONLY_ARGS[@]+"${ONLY_ARGS[@]}"} > "$OUT/mac-reference.log" 2>&1 \
     || { grep '^FEATURES-REFERENCE' "$OUT/mac-reference.log" | tail -20; echo "IOS-FEATURES FAIL (Mac reference)"; exit 1; }
   grep '^FEATURES-REFERENCE' "$OUT/mac-reference.log"

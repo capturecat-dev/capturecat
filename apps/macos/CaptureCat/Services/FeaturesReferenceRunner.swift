@@ -2,7 +2,11 @@ import AppKit
 import AVFoundation
 
 /// `CaptureCat --features-reference <dir> [--speech <wav> --script <txt>]
-///  [--whisper-models <dir>] [--camera <mov>] [--only autozoom,voiceover,transcription,cutout]`
+///  [--whisper-base <dir> [--fetch-model]] [--camera <mov>] [--only autozoom,voiceover,transcription,cutout]`
+///
+/// `--whisper-base` is a WhisperKit download base holding `base.en` and its
+/// tokenizer; `--fetch-model` lets WhisperKit download them there first
+/// (~150 MB from Hugging Face — only with the owner's go-ahead).
 ///
 /// The Mac half of the Studio 4e features gate (StudioHarness/FeaturesHarness):
 /// writes each feature's fixture into <dir> and the Mac's own results beside
@@ -17,7 +21,7 @@ enum FeaturesReferenceRunner {
         setbuf(stdout, nil)
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--features-reference"), args.indices.contains(i + 1) else {
-            print("usage: CaptureCat --features-reference <dir> [--speech <wav> --script <txt>] [--whisper-models <dir>] [--camera <mov>] [--only …]")
+            print("usage: CaptureCat --features-reference <dir> [--speech <wav> --script <txt>] [--whisper-base <dir> [--fetch-model]] [--camera <mov>] [--only …]")
             exit(2)
         }
         func value(_ name: String) -> String? {
@@ -34,12 +38,13 @@ enum FeaturesReferenceRunner {
             if wants("autozoom") { failures += await autoZoom(dir.appendingPathComponent("autozoom", isDirectory: true)) }
             if wants("voiceover") { failures += await voiceOver(dir.appendingPathComponent("voiceover", isDirectory: true)) }
             if wants("transcription") {
-                if let speech = value("--speech"), let script = value("--script"), let models = value("--whisper-models") {
+                if let speech = value("--speech"), let script = value("--script"), let models = value("--whisper-base") {
                     failures += await transcription(dir.appendingPathComponent("transcription", isDirectory: true),
                                                     speech: URL(fileURLWithPath: speech), script: URL(fileURLWithPath: script),
-                                                    models: URL(fileURLWithPath: models, isDirectory: true))
+                                                    models: URL(fileURLWithPath: models, isDirectory: true),
+                                                    fetch: args.contains("--fetch-model"))
                 } else {
-                    print("FEATURES-REFERENCE transcription SKIPPED (needs --speech, --script and --whisper-models)")
+                    print("FEATURES-REFERENCE transcription SKIPPED (needs --speech, --script and --whisper-base)")
                 }
             }
             if wants("cutout") {
@@ -139,16 +144,27 @@ enum FeaturesReferenceRunner {
 
     // MARK: - Transcription
 
-    private static func transcription(_ dir: URL, speech: URL, script: URL, models: URL) async -> Int {
+    private static func transcription(_ dir: URL, speech: URL, script: URL, models: URL, fetch: Bool) async -> Int {
         typealias F = FeaturesHarness.SpeechFixture
         let fm = FileManager.default
         do {
+            let modelFolder = TranscriptionService.modelFolder(in: models)
+            if !fm.fileExists(atPath: modelFolder.appendingPathComponent("config.json").path) {
+                guard fetch else {
+                    print("FEATURES-REFERENCE transcription FAIL no model at \(modelFolder.path) (pass --fetch-model to download it)")
+                    return 1
+                }
+                print("FEATURES-REFERENCE transcription fetching \(TranscriptionService.model) into \(models.path)")
+                _ = try await TranscriptionService.fetchModel(into: models)
+            }
             try fm.createDirectory(at: dir, withIntermediateDirectories: true)
             let movie = dir.appendingPathComponent(F.movie)
             try await writeSpeechMovie(movie, speech: speech)
             try? fm.removeItem(at: dir.appendingPathComponent(F.script))
             try fm.copyItem(at: script, to: dir.appendingPathComponent(F.script))
-            let service = TranscriptionService(modelFolder: models.appendingPathComponent(F.modelFolderName, isDirectory: true))
+            // Model and tokenizer from the one base (the tokenizer is fetched
+            // there on the first load; StudioLab then needs no network).
+            let service = TranscriptionService(modelFolder: modelFolder, downloadBase: models)
             let wav = fm.temporaryDirectory.appendingPathComponent("features-\(UUID().uuidString).wav")
             try await service.extractAudio(from: movie, to: wav)
             let wavSHA = FeaturesHarness.sha256(try Data(contentsOf: wav))
