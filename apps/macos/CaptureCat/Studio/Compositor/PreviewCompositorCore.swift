@@ -244,6 +244,22 @@ final class PreviewCompositorCore {
     private var videoDriver: VideoFrameLayerDriver?
     private var cameraDriver: VideoFrameLayerDriver?
 
+    /// The video frame the card is showing right now and its delivery token
+    /// (nil before a player delivered one). The iOS stage hands it to its
+    /// twin core (`PreviewStageTwin`, Studio 2d), which has no players, so a
+    /// paused motion blur shows the frame on screen, not a stale poster.
+    /// Read-only; unused on the Mac.
+    var displayedVideoFrame: (buffer: CVPixelBuffer, token: Int)? {
+        guard let driver = videoDriver, let buffer = driver.currentPixelBuffer else { return nil }
+        return (buffer, driver.frameToken)
+    }
+
+    /// The camera frame on screen (see `displayedVideoFrame`).
+    var displayedCameraFrame: (buffer: CVPixelBuffer, token: Int)? {
+        guard let driver = cameraDriver, let buffer = driver.currentPixelBuffer else { return nil }
+        return (buffer, driver.frameToken)
+    }
+
     /// Parity-harness hook.
     func debugCursorLayer() -> CALayer? { cursorLayer }
 

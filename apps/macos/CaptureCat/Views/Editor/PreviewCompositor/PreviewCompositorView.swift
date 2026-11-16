@@ -244,51 +244,10 @@ extension PreviewCompositorView: PreviewCompositorHost {
     var compositorInlineEditingID: UUID? { interactionView?.inlineEditingID }
 
     /// Hit context for the interaction layer (canvas-space geometry from
-    /// THIS render, so gestures always match the pixels on screen).
+    /// THIS render, so gestures always match the pixels on screen). Built by
+    /// the core (Studio 4b) — the iOS touch surface builds it the same way.
     func compositorDidRender(_ frame: PreviewCompositorCore.RenderedFrame) {
-        let input = frame.input
-        let canvas = frame.canvas
-        let angles = frame.tiltAngles
         let interaction = ensureInteractionView()
-        interaction.context = PreviewInteractionView.HitContext(
-            project: input.project,
-            isPlaying: input.isPlaying,
-            canvas: canvas,
-            contentRect: frame.contentRect,
-            videoRect: frame.videoRect,
-            zoom: frame.zoom,
-            zoomAnchor: frame.zoomAnchor,
-            cameraRect: core.lastCameraRect,
-            subtitleRect: core.lastSubtitleRect,
-            watermarkRect: core.lastWatermarkRect,
-            selectedBlurID: localSelectedBlurID,
-            selectedHighlightID: input.selectedHighlightID,
-            selectedDepthFocusID: input.selectedDepthFocusID,
-            selectedAnnotationID: input.selectedAnnotationID,
-            cameraFitScale: ReactiveCameraLayout.canvasFitScale(for: canvas),
-            cameraAspect: input.cameraVideoAspect,
-            tiltPitch: angles.pitch,
-            tiltYaw: angles.yaw,
-            tiltRoll: angles.roll,
-            tiltCenter: frame.tiltCenter,
-            tiltDistance: frame.tiltDistance,
-            selectedZoomFocal: input.selectedZoomID.flatMap { id in
-                input.project.zoomRegions.first { $0.id == id }?.focalPoint
-            },
-            cardOffset: core.motion.cardOffset,
-            activeZoomID: input.project.zoomRegions.first(where: {
-                input.currentTime >= $0.startTime && input.currentTime <= $0.endTime
-            })?.id,
-            // The resize notch only while the stack is settled on screen
-            // (not mid-morph into or out of a Bubble block, and not while
-            // the row yields to a zoom — a drag there would set the yielded
-            // height).
-            stack: core.lastStackRows.flatMap { rows in
-                core.lastStackActive && core.lastStackYield > 0.999 && core.lastCameraLayout.cardClip == rows.screen
-                    ? PreviewInteractionView.StackSeam(
-                        cameraRow: rows.camera, area: core.lastStackArea,
-                        gap: CameraLayoutMath.stackGap(input.project.settings.cameraStackGap)) : nil
-            }
-        )
+        interaction.context = core.hitContext(for: frame, selectedBlurID: localSelectedBlurID)
     }
 }
