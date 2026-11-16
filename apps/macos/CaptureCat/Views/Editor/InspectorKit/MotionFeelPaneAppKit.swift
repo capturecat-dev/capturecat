@@ -8,21 +8,14 @@ final class MotionFeelPaneAppKit: NSView {
     private let settings: ProjectSettings
     private let stack = NSStackView()
 
-    private let speedChips = InspectorChipsControl()
+    // Controls and copy: the shared MotionFeelPane spec.
+    private let speedChips = InspectorChipsControl(MotionFeelPane.speed)
     private let speedPad = MotionSpeedPadControl()
-    private let speedCaption = InspectorKitViews.captionLine(
-        "How quickly zoom and tilt transitions animate.",
-        full: "How quickly zoom and tilt transitions animate. Slower feels more cinematic."
-    )
-    private let zoomLevelSlider = InspectorSliderRow(label: "Zoom Level", range: 1.5...4.0, step: 0.1)
-    private let zoomCaption = InspectorKitViews.captionLine(
-        "Default zoom level for auto-generated zoom regions."
-    )
-    private let followSlider = InspectorSliderRow(label: "Follow Speed", range: 0...1, step: 0.05)
-    private let followCaption = InspectorKitViews.captionLine(
-        "How quickly the zoomed camera chases the cursor.",
-        full: "How quickly the zoomed camera chases the cursor — slower feels weightier."
-    )
+    private let speedCaption = InspectorKitViews.captionLine(MotionFeelPane.speedCaption)
+    private let zoomLevelSlider = InspectorSliderRow(MotionFeelPane.zoomLevel)
+    private let zoomCaption = InspectorKitViews.captionLine(MotionFeelPane.zoomCaption)
+    private let followSlider = InspectorSliderRow(MotionFeelPane.follow)
+    private let followCaption = InspectorKitViews.captionLine(MotionFeelPane.followCaption)
 
     override var isFlipped: Bool { true }
 
@@ -48,24 +41,20 @@ final class MotionFeelPaneAppKit: NSView {
         }
 
         let motionBox = InspectorSectionBox("Motion")
-        speedChips.items = ProjectSettings.AnimationSpeed.allCases.map(\.rawValue)
         motionBox.addRow(speedChips)
         motionBox.addRow(speedPad, attached: true)
         speedPad.heightAnchor.constraint(equalToConstant: 84).isActive = true
         motionBox.addRow(speedCaption, attached: true)
-        zoomLevelSlider.format = { String(format: "%.1fx", $0) }
         motionBox.addRow(zoomLevelSlider)
         motionBox.addRow(zoomCaption, attached: true)
-        followSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         motionBox.addRow(followSlider)
         motionBox.addRow(followCaption, attached: true)
         fullWidth(motionBox)
 
-        speedChips.onSelect = { [weak self] index in
-            self?.settings.animationSpeed = ProjectSettings.AnimationSpeed.allCases[index]
-        }
-        zoomLevelSlider.onChange = { [weak self] v in self?.settings.autoZoomLevel = v }
-        followSlider.onChange = { [weak self] v in self?.settings.cameraFollowSpeed = v }
+        let scope: () -> InspectorScope? = { [weak self] in self?.scope }
+        speedChips.bind(MotionFeelPane.speed, scope)
+        zoomLevelSlider.bind(MotionFeelPane.zoomLevel, scope)
+        followSlider.bind(MotionFeelPane.follow, scope)
 
         observe()
     }
@@ -82,11 +71,13 @@ final class MotionFeelPaneAppKit: NSView {
         }
     }
 
+    private var scope: InspectorScope { InspectorScope(settings: settings) }
+
     private func apply() {
-        speedChips.selectedIndex = ProjectSettings.AnimationSpeed.allCases
-            .firstIndex(of: settings.animationSpeed) ?? 1
+        let scope = self.scope
+        speedChips.selectedIndex = MotionFeelPane.speed.read(scope) ?? 1
         speedPad.duration = settings.animationSpeed.duration
-        zoomLevelSlider.setValue(settings.autoZoomLevel)
-        followSlider.setValue(settings.cameraFollowSpeed)
+        zoomLevelSlider.setValue(MotionFeelPane.zoomLevel.read(scope))
+        followSlider.setValue(MotionFeelPane.follow.read(scope))
     }
 }

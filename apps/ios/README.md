@@ -47,6 +47,7 @@ recording.
 | `../macos/CaptureCat/Shared/` | all three | files that must build for macOS AND iOS — the Wi-Fi wire protocol |
 | `../macos/CaptureCat/Studio/` | app | the studio core shared with the Mac app — models, renderers, exporter, compositor, timeline edits (docs/ios-studio-plan.md) |
 | a few Mac files by reference | see `scripts/gen-xcodeproj.py` | `OAuthPKCE`, `LoopbackAuthServer`, `CCIconSet`; the extensions also take `StillMovieWriter` |
+| `StudioUI/` | app, StudioLab | the studio's UIKit surfaces: the stage, the editor (`Editor/`, 4b), the touch timeline (`Timeline/`, 4c), the inspector (`Inspector/`, 4d — see below) |
 | `StudioVectors/` | none (script-built) | the iOS runner for `ios-vectors.sh` — never in a shipping target |
 
 The Xcode project is generated — never hand-edit it:
@@ -78,6 +79,33 @@ The studio's editor controls (Studio 4a — the Mac's InspectorKit at touch scal
 | `CCColorPickerView` / `CCColorPicker` | swatches + SV field, hue, opacity, hex | `CCColorPickerView(color:supportsOpacity:presets:)`, `adopt(_:)`, `commitHex(_:)`, `onChange`; `CCColorPicker.present(from:source:title:color:…)` — bottom sheet on compact width, anchored card on regular. sRGB throughout (`UIColor.ccSRGB(hue:…)`, `ccHSBA`, `ccHex`) |
 | `CCAlert` | dialog / confirmation sheet | `addButton(_:role:action:)` (async actions show busy, throws → inline error), `symbol` + `tone: .destructive`, `presentation: .sheet` (docked to the bottom on compact width, grows upward, swipe to cancel); `CCAlert.confirm(…destructive:symbol:presentation:…)` |
 | `CCHaptics` | step / detent feedback | `selection()`, `detent()`, `prepare()`, `light()`; DEBUG `probeLog` |
+| `CCPadView` | 2D drag pad: recessed well + floating knob (Studio 4d) | `init(title:)`, `onTouch(phase, point)` (raw touches; the host maps them), `setKnob(_:animated:)` (springs unless dragging), `knobAreaInset`, `showsKnob`, `contentLayer` (host drawing), `onNudge` + `accessibilityValueProvider` (adjustable, up/down actions), `probePress(at:)` |
+| `CCIconRail` | icon + label switcher, vertical rail or horizontal strip, one gliding chip (Studio 4d) | `init(items:selectedIndex:axis:trailing:)`, `axis`, `onSelect`, `onTrailing` (a plain key, never selected), `setSelectedIndex(_:animated:)`; `probeChipLayer`, `probeTap` |
+
+Additive since 4d: `CCSelect.overrideTitle` (shown in place of the choice — "Custom" while a
+freeform value supersedes the list) and `CCSlider.keepsOffStepValues` (a pushed model value
+between stops stays as it is, the Mac slider's rule, so landing on the nearest stop still writes).
+
+## Studio inspector (4d)
+
+`StudioUI/Inspector/StudioInspectorController` — all nine of the Mac's inspector panes, built
+from the SHARED specs in `../macos/CaptureCat/Studio/Editor/Inspector/` (titles, ranges, steps,
+readouts, the fields each control writes with its side rules, show/hide rules, pad math). The
+Mac panes are built from the same specs, so neither front end can drift: the Mac
+`--inspector-values-test` and the iOS `--inspector` gate replay ONE script and are held to ONE
+frozen transcript (`StudioHarness/InspectorValuesGoldens`).
+
+- iPad (regular width): a side column in the editor's `inspectorContainer` — pane | rail.
+- iPhone (compact): a bottom sheet docked on that container — grabber, rail strip, pane; drag
+  or tap the grabber to raise it to the header.
+- Selection drives the pane (`InspectorTabFollower`, the Mac shell's rule). State comes in
+  through ONE observation loop over the shown pane, goes out through the specs' writes.
+- Undo: every edit is one step (`InspectorEditSession`: snapshot at the press, field-level
+  restore at undo; `smoothCursor`/`autoHideCursor` — which ProjectSettings' decoder forces off on
+  every load — are restored directly).
+- Feature keys only call closures, wired by 4e/4f at merge: `onTranscribe`, `onAutoZoom`,
+  `onRemoveBackground` (also called when a Cutout/Pop-out look is picked, like the Mac's
+  ensureMask), `onRecordVoiceOver`, `onShowHistory`; `transcription` feeds the Subtitles status.
 
 ## Contracts it follows
 
@@ -103,6 +131,7 @@ The studio's editor controls (Studio 4a — the Mac's InspectorKit at touch scal
     apps/ios/scripts/studio-canary.sh       # Studio/ typechecks for iOS on its own (fast)
     apps/ios/scripts/ios-vectors.sh         # the Mac's golden vectors run INSIDE the iOS Simulator vs the Mac's output (exact / ≤1e-12; known iOS differences listed)
     apps/ios/scripts/kit-gallery.sh         # the studio controls, every state, both themes, iPhone + iPad: PNGs, structure, behaviour, motion SEQUENCES mid-flight (+ injected-snap self-test)
+    apps/ios/scripts/ios-inspector.sh       # the inspector: every control of the 9 panes vs the Mac's frozen transcript, one undo step per edit, touch targets, VoiceOver, Dynamic Type, re-theme, column/sheet layout, motion SEQUENCES (+ injected-snap self-test)
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production

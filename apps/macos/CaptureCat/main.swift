@@ -70,6 +70,15 @@ if CaptureProbe.isRequested {
     MainActor.assumeIsolated { CaptureProbe.run() }
 }
 
+// Inspector values: every control of the nine panes through the real Mac
+// inspector, scored against the frozen transcript the iOS inspector is held
+// to (Studio 4d). Never reached in a normal launch.
+#if DEBUG
+if CommandLine.arguments.contains("--inspector-values-test") {
+    MainActor.assumeIsolated { InspectorValuesHarness.run() }
+}
+#endif
+
 if CommandLine.arguments.contains("--inspector-probe") {
     MainActor.assumeIsolated { InspectorProbeHarness.run() }
 }

@@ -9,43 +9,45 @@ final class CursorSettingsPaneAppKit: NSView {
 
     private let stack = NSStackView()
     private let previewBox: CursorPreviewBoxControl
-    private let showToggle = InspectorToggleControl("Show Cursor")
-    private let styleMenu = InspectorMenuControl()
-    private let sizeSlider = InspectorSliderRow(label: "Size", range: 0.5...3.0, step: 0.25)
+    // Every control's title/range/step/readout, write and visibility: the
+    // shared CursorPane spec (Studio/Editor/Inspector).
+    private let showToggle = InspectorToggleControl(CursorPane.show)
+    private let styleMenu = InspectorMenuControl(CursorPane.style)
+    private let sizeSlider = InspectorSliderRow(CursorPane.size)
     // Fluid movement (CursorSpringMath) — demoed live in the preview box.
     // (The tilt/stretch/drag/weight pose sliders were cut: fluid movement is
     // the one motion treatment the product needs, and it's on by default. The
     // pose math survives in CursorPhysicsMath, inert at its zero defaults.)
-    private let fluidToggle = InspectorToggleControl("Fluid Movement")
-    private let tensionSlider = InspectorSliderRow(label: "Tension", range: 20...600, step: 10)
-    private let tensionCaption = InspectorKitViews.caption("How quickly the cursor accelerates toward where you moved.")
-    private let frictionSlider = InspectorSliderRow(label: "Friction", range: 2...80, step: 1)
-    private let frictionCaption = InspectorKitViews.caption("Resistance while moving fast — higher settles sooner.")
-    private let massSlider = InspectorSliderRow(label: "Mass", range: 0.2...6, step: 0.1)
-    private let massCaption = InspectorKitViews.caption("Heavier keeps momentum — more overshoot and wiggle. Clicks always stay exactly where you clicked.")
-    private let autoHideToggle = InspectorToggleControl("Auto-Hide Cursor")
-    private let loopToggle = InspectorToggleControl("Loop to Start")
-    private let stopEndToggle = InspectorToggleControl("Stop at End")
-    private let endCaption = InspectorKitViews.caption("Loop glides the cursor back to its first position near the end — seamless for looping social clips. Stop freezes it for the final half second.")
-    private let hideAfterSlider = InspectorSliderRow(label: "Hide After", range: 1...10, step: 0.5)
-    private let smoothToggle = InspectorToggleControl("Smooth Cursor Motion")
-    private let smoothingSlider = InspectorSliderRow(label: "Smoothing", range: 0.05...0.5, step: 0.05)
-    private let rippleToggle = InspectorToggleControl("Show Click Ripple")
-    private let rippleSizeSlider = InspectorSliderRow(label: "Size", range: 20...100, step: 5)
+    private let fluidToggle = InspectorToggleControl(CursorPane.fluidToggle)
+    private let tensionSlider = InspectorSliderRow(CursorPane.tension)
+    private let tensionCaption = InspectorKitViews.caption(CursorPane.tensionCaption)
+    private let frictionSlider = InspectorSliderRow(CursorPane.friction)
+    private let frictionCaption = InspectorKitViews.caption(CursorPane.frictionCaption)
+    private let massSlider = InspectorSliderRow(CursorPane.mass)
+    private let massCaption = InspectorKitViews.caption(CursorPane.massCaption)
+    private let autoHideToggle = InspectorToggleControl(CursorPane.autoHide)
+    private let loopToggle = InspectorToggleControl(CursorPane.loop)
+    private let stopEndToggle = InspectorToggleControl(CursorPane.stopAtEnd)
+    private let endCaption = InspectorKitViews.caption(CursorPane.endCaption)
+    private let hideAfterSlider = InspectorSliderRow(CursorPane.hideAfter)
+    private let smoothToggle = InspectorToggleControl(CursorPane.smooth)
+    private let smoothingSlider = InspectorSliderRow(CursorPane.smoothing)
+    private let rippleToggle = InspectorToggleControl(CursorPane.rippleToggle)
+    private let rippleSizeSlider = InspectorSliderRow(CursorPane.rippleSize)
     private let rippleColorWell = InspectorColorWellControl()
     private var rippleColorRow: NSView!
-    private let clickSoundToggle = InspectorToggleControl("Click Sound")
-    private let clickStyleMenu = InspectorMenuControl()
-    private let clickTestButton = InspectorButton("Test")
+    private let clickSoundToggle = InspectorToggleControl(CursorPane.clickSoundToggle)
+    private let clickStyleMenu = InspectorMenuControl(CursorPane.clickStyle)
+    private let clickTestButton = InspectorButton(CursorPane.clickTest)
     private var clickStyleRow: NSView!
-    private let clickVolumeSlider = InspectorSliderRow(label: "Volume", range: 0.1...1.0, step: 0.05)
+    private let clickVolumeSlider = InspectorSliderRow(CursorPane.clickVolume)
     private var clickSoundCaption: NSView!
     private var keyNoDataCaption: NSView!
-    private let keySoundToggle = InspectorToggleControl("Keyboard Sounds")
-    private let keyStyleMenu = InspectorMenuControl()
-    private let keyTestButton = InspectorButton("Test")
+    private let keySoundToggle = InspectorToggleControl(CursorPane.keySoundToggle)
+    private let keyStyleMenu = InspectorMenuControl(CursorPane.keyStyle)
+    private let keyTestButton = InspectorButton(CursorPane.keyTest)
     private var keyStyleRow: NSView!
-    private let keyVolumeSlider = InspectorSliderRow(label: "Volume", range: 0.1...1.0, step: 0.05)
+    private let keyVolumeSlider = InspectorSliderRow(CursorPane.keyVolume)
     private var keyCaption: NSView!
     private var keyPermissionCaption: NSView!
     private let keyPermissionButton = InspectorButton("Request Permission")
@@ -54,13 +56,13 @@ final class CursorSettingsPaneAppKit: NSView {
     /// Whether the CURRENT project is a single-window recording — the only
     /// case where scoping the overlay to the recorded app means anything.
     var isWindowRecording: Bool = false { didSet { apply() } }
-    private let keystrokeOverlayToggle = InspectorToggleControl("Show Shortcut Overlay")
-    private let keystrokePositionMenu = InspectorMenuControl()
+    private let keystrokeOverlayToggle = InspectorToggleControl(CursorPane.keystrokeOverlay)
+    private let keystrokePositionMenu = InspectorMenuControl(CursorPane.keystrokePosition)
     private var keystrokePositionRow: NSView!
-    private let keystrokeAnimationMenu = InspectorMenuControl()
+    private let keystrokeAnimationMenu = InspectorMenuControl(CursorPane.keystrokeAnimation)
     private var keystrokeAnimationRow: NSView!
-    private let keystrokeSizeSlider = InspectorSliderRow(label: "Size", range: 0.6...1.8, step: 0.1)
-    private let keystrokeScopeToggle = InspectorToggleControl("Only Recorded App")
+    private let keystrokeSizeSlider = InspectorSliderRow(CursorPane.keystrokeSize)
+    private let keystrokeScopeToggle = InspectorToggleControl(CursorPane.keystrokeScope)
     private var keystrokeScopeCaption: NSView!
     private var keystrokeNoDataCaption: NSView!
     private var keystrokeCaption: NSView!
@@ -101,11 +103,11 @@ final class CursorSettingsPaneAppKit: NSView {
         cursorBox.addRow(previewBox)
         previewBox.heightAnchor.constraint(equalToConstant: 110).isActive = true
         cursorBox.addRow(showToggle)
+        // The Mac menu shows each style's cursor image beside its name.
         styleMenu.items = ProjectSettings.CursorStyle.allCases.map {
             .init(title: $0.rawValue, icon: CursorStyleProvider.asset(for: $0).image)
         }
-        cursorBox.addRow(InspectorKitViews.row("Style", control: styleMenu))
-        sizeSlider.format = { String(format: "%.2fx", $0) }
+        cursorBox.addRow(InspectorKitViews.row(CursorPane.style.title, control: styleMenu))
         cursorBox.addRow(sizeSlider)
         fullWidth(cursorBox)
 
@@ -115,7 +117,6 @@ final class CursorSettingsPaneAppKit: NSView {
         motionBox.addRow(tensionCaption, attached: true)
         motionBox.addRow(frictionSlider)
         motionBox.addRow(frictionCaption, attached: true)
-        massSlider.format = { String(format: "%.1fx", $0) }
         motionBox.addRow(massSlider)
         motionBox.addRow(massCaption, attached: true)
         motionBox.addRow(smoothToggle)
@@ -124,7 +125,6 @@ final class CursorSettingsPaneAppKit: NSView {
 
         let behaviorBox = InspectorSectionBox("Behavior")
         behaviorBox.addRow(autoHideToggle)
-        hideAfterSlider.format = { String(format: "%.1fs", $0) }
         behaviorBox.addRow(hideAfterSlider)
         behaviorBox.addRow(loopToggle)
         behaviorBox.addRow(stopEndToggle)
@@ -134,176 +134,106 @@ final class CursorSettingsPaneAppKit: NSView {
         let clickBox = InspectorSectionBox("Click Effect")
         clickBox.addRow(rippleToggle)
         clickBox.addRow(rippleSizeSlider)
-        rippleColorWell.supportsOpacity = false
-        rippleColorRow = InspectorKitViews.row("Color", control: rippleColorWell)
+        rippleColorRow = InspectorKitViews.row(CursorPane.rippleColor.title, control: rippleColorWell)
         clickBox.addRow(rippleColorRow)
 
         clickBox.addRow(clickSoundToggle)
-        clickStyleMenu.items = ClickSoundStyle.allCases.map { .init(title: $0.rawValue, icon: nil) }
         let styleControls = NSStackView(views: [clickStyleMenu, clickTestButton])
         styleControls.orientation = .horizontal
         styleControls.spacing = 8
-        clickStyleRow = InspectorKitViews.row("Sound", control: styleControls)
+        clickStyleRow = InspectorKitViews.row(CursorPane.clickStyle.title, control: styleControls)
         clickBox.addRow(clickStyleRow)
-        clickVolumeSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         clickBox.addRow(clickVolumeSlider)
-        clickSoundCaption = InspectorKitViews.captionLine(
-            "A synthesized tick plays at every recorded click.",
-            full: "A synthesized tick plays at every recorded click — in the preview and in the exported file."
-        )
+        clickSoundCaption = InspectorKitViews.captionLine(CursorPane.clickCaption)
         clickBox.addRow(clickSoundCaption, attached: true)
         fullWidth(clickBox)
 
         let keyBox = InspectorSectionBox("Keyboard Sounds")
         keyBox.addRow(keySoundToggle)
-        keyStyleMenu.items = KeySoundStyle.allCases.map { .init(title: $0.rawValue, icon: nil) }
         let keyControls = NSStackView(views: [keyStyleMenu, keyTestButton])
         keyControls.orientation = .horizontal
         keyControls.spacing = 8
-        keyStyleRow = InspectorKitViews.row("Sound", control: keyControls)
+        keyStyleRow = InspectorKitViews.row(CursorPane.keyStyle.title, control: keyControls)
         keyBox.addRow(keyStyleRow)
-        keyVolumeSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         keyBox.addRow(keyVolumeSlider)
-        keyNoDataCaption = InspectorKitViews.caption(
-            "This recording has no keystroke data — typing sounds apply to recordings made from now on (with Input Monitoring granted). Record a new take to hear them."
-        )
+        keyNoDataCaption = InspectorKitViews.caption(CursorPane.keyNoDataCaption)
         keyBox.addRow(keyNoDataCaption, attached: true)
-        keyCaption = InspectorKitViews.captionLine(
-            "Keystroke timings (never what you typed) play as typing sounds.",
-            full: "Keystroke timings (never what you typed) are captured in new recordings and play as typing sounds."
-        )
+        keyCaption = InspectorKitViews.captionLine(CursorPane.keyCaption)
         keyBox.addRow(keyCaption, attached: true)
-        keyPermissionCaption = InspectorKitViews.caption(
-            "Grant Input Monitoring in System Settings → Privacy & Security so future recordings can capture keystroke timing. Nothing you type is ever stored — only when keys were pressed."
-        )
+        keyPermissionCaption = InspectorKitViews.caption(CursorPane.keyPermissionCaption)
         keyBox.addRow(keyPermissionCaption)
         keyBox.addRow(keyPermissionButton, attached: true)
         fullWidth(keyBox)
 
         let overlayBox = InspectorSectionBox("Shortcut Overlay")
         overlayBox.addRow(keystrokeOverlayToggle)
-        keystrokePositionMenu.items = KeystrokeOverlayPosition.allCases
-            .map { .init(title: $0.label, icon: nil) }
-        keystrokePositionRow = InspectorKitViews.row("Position", control: keystrokePositionMenu)
+        keystrokePositionRow = InspectorKitViews.row(CursorPane.keystrokePosition.title, control: keystrokePositionMenu)
         overlayBox.addRow(keystrokePositionRow)
-        keystrokeAnimationMenu.items = KeystrokeOverlayAnimation.allCases
-            .map { .init(title: $0.label, icon: nil) }
-        keystrokeAnimationRow = InspectorKitViews.row("Animation", control: keystrokeAnimationMenu)
+        keystrokeAnimationRow = InspectorKitViews.row(CursorPane.keystrokeAnimation.title, control: keystrokeAnimationMenu)
         overlayBox.addRow(keystrokeAnimationRow)
-        keystrokeSizeSlider.format = { "\(Int(($0 * 100).rounded()))%" }
         overlayBox.addRow(keystrokeSizeSlider)
         overlayBox.addRow(keystrokeScopeToggle)
-        keystrokeScopeCaption = InspectorKitViews.captionLine(
-            "Hide shortcuts pressed in other apps during the recording.",
-            full: "Hide shortcuts pressed in other apps while this window was being recorded."
-        )
+        keystrokeScopeCaption = InspectorKitViews.captionLine(CursorPane.keystrokeScopeCaption)
         overlayBox.addRow(keystrokeScopeCaption, attached: true)
-        keystrokeNoDataCaption = InspectorKitViews.caption(
-            "This recording has no shortcut data. Enable \"Capture Shortcuts\" in the recording panel before recording — only combos with ⌘, ⌃ or ⌥ are stored, never plain typing."
-        )
+        keystrokeNoDataCaption = InspectorKitViews.caption(CursorPane.keystrokeNoDataCaption)
         overlayBox.addRow(keystrokeNoDataCaption, attached: true)
-        keystrokeCaption = InspectorKitViews.captionLine(
-            "Recorded shortcuts (⌘⇧S…) appear as a pill in preview and export.",
-            full: "Recorded shortcuts (⌘⇧S…) appear as a pill, in the preview and in the exported file."
-        )
+        keystrokeCaption = InspectorKitViews.captionLine(CursorPane.keystrokeCaption)
         overlayBox.addRow(keystrokeCaption, attached: true)
         fullWidth(overlayBox)
     }
 
+    #if DEBUG
+    static var probeKeystrokePermission: Bool?
+    #endif
+
+    /// The pane's scope for the shared spec (built per use — cheap).
+    private var scope: InspectorScope {
+        var env = InspectorEnvironment()
+        env.hasKeystrokeData = hasKeystrokeData
+        env.hasShortcutData = hasShortcutData
+        env.isWindowRecording = isWindowRecording
+        env.hasKeystrokePermission = KeystrokeTracker.hasPermission
+        #if DEBUG
+        // Probe seam: the values test pins the permission (it varies per Mac).
+        if let pinned = Self.probeKeystrokePermission { env.hasKeystrokePermission = pinned }
+        #endif
+        return InspectorScope(settings: settings, env: env)
+    }
+
     private func wire() {
-        showToggle.onChange = { [weak self] on in self?.settings.showCursor = on }
-        styleMenu.onSelect = { [weak self] index in
-            self?.settings.cursorStyle = ProjectSettings.CursorStyle.allCases[index]
-        }
-        sizeSlider.onChange = { [weak self] v in self?.settings.cursorScale = v }
-        fluidToggle.onChange = { [weak self] on in self?.settings.cursorFluidEnabled = on }
-        tensionSlider.onChange = { [weak self] v in self?.settings.cursorTension = v }
-        frictionSlider.onChange = { [weak self] v in self?.settings.cursorFriction = v }
-        massSlider.onChange = { [weak self] v in self?.settings.cursorMass = v }
-        autoHideToggle.onChange = { [weak self] on in self?.settings.autoHideCursor = on }
-        loopToggle.onChange = { [weak self] on in
-            self?.settings.cursorLoopToStart = on
-            if on { self?.settings.cursorStopAtEnd = false }
-        }
-        stopEndToggle.onChange = { [weak self] on in
-            self?.settings.cursorStopAtEnd = on
-            if on { self?.settings.cursorLoopToStart = false }
-        }
-        hideAfterSlider.onChange = { [weak self] v in self?.settings.autoHideDelay = v }
-        smoothToggle.onChange = { [weak self] on in self?.settings.smoothCursor = on }
-        smoothingSlider.onChange = { [weak self] v in self?.settings.smoothingFactor = v }
-        rippleToggle.onChange = { [weak self] on in self?.settings.showClickRipple = on }
-        rippleSizeSlider.onChange = { [weak self] v in self?.settings.clickRippleSize = v }
-        rippleColorWell.getColor = { [weak self] in
-            guard let c = self?.settings.clickRippleColor else { return .white }
-            return NSColor(srgbRed: c.red, green: c.green, blue: c.blue, alpha: c.opacity)
-        }
-        rippleColorWell.setColor = { [weak self] color in
-            guard let srgb = color.usingColorSpace(.sRGB) else { return }
-            self?.settings.clickRippleColor = CodableColor(
-                red: srgb.redComponent, green: srgb.greenComponent,
-                blue: srgb.blueComponent, opacity: srgb.alphaComponent
-            )
-        }
-        clickSoundToggle.onChange = { [weak self] on in
-            self?.settings.clickSoundEnabled = on
-            if on, let s = self?.settings {
-                ClickSoundPlayer.shared.playPreview(volume: s.clickSoundVolume, style: s.clickSoundStyle)
-            }
-        }
-        clickStyleMenu.onSelect = { [weak self] index in
-            guard let self else { return }
-            let style = ClickSoundStyle.allCases[index]
-            settings.clickSoundStyle = style
-            ClickSoundPlayer.shared.play(volume: settings.clickSoundVolume, style: style)
-        }
-        clickTestButton.onClick = { [weak self] in
-            guard let s = self?.settings else { return }
-            ClickSoundPlayer.shared.play(volume: s.clickSoundVolume, style: s.clickSoundStyle)
-        }
-        clickVolumeSlider.onChange = { [weak self] v in
-            guard let self else { return }
-            settings.clickSoundVolume = v
-            ClickSoundPlayer.shared.playPreview(volume: v, style: settings.clickSoundStyle)
-        }
-        keySoundToggle.onChange = { [weak self] on in
-            guard let self else { return }
-            settings.keySoundEnabled = on
-            if on {
-                KeySoundPlayer.shared.playTestBurst(volume: settings.keySoundVolume, style: settings.keySoundStyle)
-            }
-        }
-        keyStyleMenu.onSelect = { [weak self] index in
-            guard let self else { return }
-            let style = KeySoundStyle.allCases[index]
-            settings.keySoundStyle = style
-            KeySoundPlayer.shared.playTestBurst(volume: settings.keySoundVolume, style: style)
-        }
-        keyTestButton.onClick = { [weak self] in
-            guard let s = self?.settings else { return }
-            KeySoundPlayer.shared.playTestBurst(volume: s.keySoundVolume, style: s.keySoundStyle)
-        }
-        keyVolumeSlider.onChange = { [weak self] v in
-            self?.settings.keySoundVolume = v
-        }
+        let scope: () -> InspectorScope? = { [weak self] in self?.scope }
+        showToggle.bind(CursorPane.show, scope)
+        styleMenu.bind(CursorPane.style, scope)
+        sizeSlider.bind(CursorPane.size, scope)
+        fluidToggle.bind(CursorPane.fluidToggle, scope)
+        tensionSlider.bind(CursorPane.tension, scope)
+        frictionSlider.bind(CursorPane.friction, scope)
+        massSlider.bind(CursorPane.mass, scope)
+        autoHideToggle.bind(CursorPane.autoHide, scope)
+        loopToggle.bind(CursorPane.loop, scope)
+        stopEndToggle.bind(CursorPane.stopAtEnd, scope)
+        hideAfterSlider.bind(CursorPane.hideAfter, scope)
+        smoothToggle.bind(CursorPane.smooth, scope)
+        smoothingSlider.bind(CursorPane.smoothing, scope)
+        rippleToggle.bind(CursorPane.rippleToggle, scope)
+        rippleSizeSlider.bind(CursorPane.rippleSize, scope)
+        rippleColorWell.bind(CursorPane.rippleColor, scope, requireSRGB: true)
+        clickSoundToggle.bind(CursorPane.clickSoundToggle, scope)
+        clickStyleMenu.bind(CursorPane.clickStyle, scope)
+        clickTestButton.bind(CursorPane.clickTest, scope)
+        clickVolumeSlider.bind(CursorPane.clickVolume, scope)
+        keySoundToggle.bind(CursorPane.keySoundToggle, scope)
+        keyStyleMenu.bind(CursorPane.keyStyle, scope)
+        keyTestButton.bind(CursorPane.keyTest, scope)
+        keyVolumeSlider.bind(CursorPane.keyVolume, scope)
         keyPermissionButton.onClick = {
             KeystrokeTracker.requestPermission()
         }
-        keystrokeOverlayToggle.onChange = { [weak self] on in
-            self?.settings.showKeystrokes = on
-        }
-        keystrokePositionMenu.onSelect = { [weak self] index in
-            self?.settings.keystrokeOverlayPosition = KeystrokeOverlayPosition.allCases[index]
-        }
-        keystrokeAnimationMenu.onSelect = { [weak self] index in
-            self?.settings.keystrokeOverlayAnimation = KeystrokeOverlayAnimation.allCases[index]
-        }
-        keystrokeSizeSlider.onChange = { [weak self] v in
-            self?.settings.keystrokeOverlaySize = v
-        }
-        keystrokeScopeToggle.onChange = { [weak self] on in
-            self?.settings.keystrokeOverlayScopeToRecordedApp = on
-        }
+        keystrokeOverlayToggle.bind(CursorPane.keystrokeOverlay, scope)
+        keystrokePositionMenu.bind(CursorPane.keystrokePosition, scope)
+        keystrokeAnimationMenu.bind(CursorPane.keystrokeAnimation, scope)
+        keystrokeSizeSlider.bind(CursorPane.keystrokeSize, scope)
+        keystrokeScopeToggle.bind(CursorPane.keystrokeScope, scope)
     }
 
     private func observe() {
@@ -317,66 +247,60 @@ final class CursorSettingsPaneAppKit: NSView {
     }
 
     private func apply() {
-        showToggle.isOn = settings.showCursor
-        styleMenu.selectedIndex = ProjectSettings.CursorStyle.allCases
-            .firstIndex(of: settings.cursorStyle) ?? 0
-        sizeSlider.setValue(settings.cursorScale)
-        fluidToggle.isOn = settings.cursorFluidEnabled
-        for control in [tensionSlider, frictionSlider, massSlider] {
-            control.isHidden = !settings.cursorFluidEnabled
-        }
-        tensionCaption.isHidden = !settings.cursorFluidEnabled
-        frictionCaption.isHidden = !settings.cursorFluidEnabled
-        massCaption.isHidden = !settings.cursorFluidEnabled
-        tensionSlider.setValue(settings.cursorTension)
-        frictionSlider.setValue(settings.cursorFriction)
-        massSlider.setValue(settings.cursorMass)
-        autoHideToggle.isOn = settings.autoHideCursor
-        loopToggle.isOn = settings.cursorLoopToStart
-        stopEndToggle.isOn = settings.cursorStopAtEnd
-        hideAfterSlider.isHidden = !settings.autoHideCursor
-        hideAfterSlider.setValue(settings.autoHideDelay)
-        smoothToggle.isOn = settings.smoothCursor
-        smoothingSlider.isHidden = !settings.smoothCursor
-        smoothingSlider.setValue(settings.smoothingFactor)
-        rippleToggle.isOn = settings.showClickRipple
-        rippleSizeSlider.isHidden = !settings.showClickRipple
-        rippleSizeSlider.setValue(settings.clickRippleSize)
-        rippleColorRow.isHidden = !settings.showClickRipple
+        let scope = self.scope
+        showToggle.isOn = CursorPane.show.read(scope)
+        styleMenu.selectedIndex = CursorPane.style.read(scope) ?? 0
+        sizeSlider.setValue(CursorPane.size.read(scope))
+        fluidToggle.isOn = CursorPane.fluidToggle.read(scope)
+        tensionSlider.isHidden = !CursorPane.tension.visible(scope)
+        frictionSlider.isHidden = !CursorPane.friction.visible(scope)
+        massSlider.isHidden = !CursorPane.mass.visible(scope)
+        tensionCaption.isHidden = !CursorPane.tensionCaption.visible(scope)
+        frictionCaption.isHidden = !CursorPane.frictionCaption.visible(scope)
+        massCaption.isHidden = !CursorPane.massCaption.visible(scope)
+        tensionSlider.setValue(CursorPane.tension.read(scope))
+        frictionSlider.setValue(CursorPane.friction.read(scope))
+        massSlider.setValue(CursorPane.mass.read(scope))
+        autoHideToggle.isOn = CursorPane.autoHide.read(scope)
+        loopToggle.isOn = CursorPane.loop.read(scope)
+        stopEndToggle.isOn = CursorPane.stopAtEnd.read(scope)
+        hideAfterSlider.isHidden = !CursorPane.hideAfter.visible(scope)
+        hideAfterSlider.setValue(CursorPane.hideAfter.read(scope))
+        smoothToggle.isOn = CursorPane.smooth.read(scope)
+        smoothingSlider.isHidden = !CursorPane.smoothing.visible(scope)
+        smoothingSlider.setValue(CursorPane.smoothing.read(scope))
+        rippleToggle.isOn = CursorPane.rippleToggle.read(scope)
+        rippleSizeSlider.isHidden = !CursorPane.rippleSize.visible(scope)
+        rippleSizeSlider.setValue(CursorPane.rippleSize.read(scope))
+        rippleColorRow.isHidden = !CursorPane.rippleColor.visible(scope)
         rippleColorWell.refresh()
-        clickSoundToggle.isOn = settings.clickSoundEnabled
-        clickStyleRow.isHidden = !settings.clickSoundEnabled
-        clickStyleMenu.selectedIndex = ClickSoundStyle.allCases
-            .firstIndex(of: settings.clickSoundStyle) ?? 0
-        clickVolumeSlider.isHidden = !settings.clickSoundEnabled
-        clickVolumeSlider.setValue(settings.clickSoundVolume)
-        clickSoundCaption.isHidden = !settings.clickSoundEnabled
-        keySoundToggle.isOn = settings.keySoundEnabled
-        keyStyleRow.isHidden = !settings.keySoundEnabled
-        keyStyleMenu.selectedIndex = KeySoundStyle.allCases
-            .firstIndex(of: settings.keySoundStyle) ?? 0
-        keyVolumeSlider.isHidden = !settings.keySoundEnabled
-        keyVolumeSlider.setValue(settings.keySoundVolume)
-        let hasKeyPermission = KeystrokeTracker.hasPermission
-        keyNoDataCaption.isHidden = !settings.keySoundEnabled || hasKeystrokeData
-        keyCaption.isHidden = !settings.keySoundEnabled || !hasKeyPermission || !hasKeystrokeData
-        keyPermissionCaption.isHidden = !settings.keySoundEnabled || hasKeyPermission
-        keyPermissionButton.isHidden = !settings.keySoundEnabled || hasKeyPermission
-        keystrokeOverlayToggle.isOn = settings.showKeystrokes
-        let overlayActive = settings.showKeystrokes && hasShortcutData
-        keystrokePositionRow.isHidden = !overlayActive
-        keystrokePositionMenu.selectedIndex = KeystrokeOverlayPosition.allCases
-            .firstIndex(of: settings.keystrokeOverlayPosition) ?? 0
-        keystrokeAnimationRow.isHidden = !overlayActive
-        keystrokeAnimationMenu.selectedIndex = KeystrokeOverlayAnimation.allCases
-            .firstIndex(of: settings.keystrokeOverlayAnimation) ?? 0
-        keystrokeSizeSlider.isHidden = !overlayActive
-        keystrokeSizeSlider.setValue(settings.keystrokeOverlaySize)
-        keystrokeScopeToggle.isHidden = !overlayActive || !isWindowRecording
-        keystrokeScopeToggle.isOn = settings.keystrokeOverlayScopeToRecordedApp
-        keystrokeScopeCaption.isHidden = keystrokeScopeToggle.isHidden
-        keystrokeNoDataCaption.isHidden = !settings.showKeystrokes || hasShortcutData
-        keystrokeCaption.isHidden = !overlayActive
+        clickSoundToggle.isOn = CursorPane.clickSoundToggle.read(scope)
+        clickStyleRow.isHidden = !CursorPane.clickStyle.visible(scope)
+        clickStyleMenu.selectedIndex = CursorPane.clickStyle.read(scope) ?? 0
+        clickVolumeSlider.isHidden = !CursorPane.clickVolume.visible(scope)
+        clickVolumeSlider.setValue(CursorPane.clickVolume.read(scope))
+        clickSoundCaption.isHidden = !CursorPane.clickCaption.visible(scope)
+        keySoundToggle.isOn = CursorPane.keySoundToggle.read(scope)
+        keyStyleRow.isHidden = !CursorPane.keyStyle.visible(scope)
+        keyStyleMenu.selectedIndex = CursorPane.keyStyle.read(scope) ?? 0
+        keyVolumeSlider.isHidden = !CursorPane.keyVolume.visible(scope)
+        keyVolumeSlider.setValue(CursorPane.keyVolume.read(scope))
+        keyNoDataCaption.isHidden = !CursorPane.keyNoDataCaption.visible(scope)
+        keyCaption.isHidden = !CursorPane.keyCaption.visible(scope)
+        keyPermissionCaption.isHidden = !CursorPane.keyPermissionCaption.visible(scope)
+        keyPermissionButton.isHidden = !CursorPane.keyPermissionVisible(scope)
+        keystrokeOverlayToggle.isOn = CursorPane.keystrokeOverlay.read(scope)
+        keystrokePositionRow.isHidden = !CursorPane.keystrokePosition.visible(scope)
+        keystrokePositionMenu.selectedIndex = CursorPane.keystrokePosition.read(scope) ?? 0
+        keystrokeAnimationRow.isHidden = !CursorPane.keystrokeAnimation.visible(scope)
+        keystrokeAnimationMenu.selectedIndex = CursorPane.keystrokeAnimation.read(scope) ?? 0
+        keystrokeSizeSlider.isHidden = !CursorPane.keystrokeSize.visible(scope)
+        keystrokeSizeSlider.setValue(CursorPane.keystrokeSize.read(scope))
+        keystrokeScopeToggle.isHidden = !CursorPane.keystrokeScope.visible(scope)
+        keystrokeScopeToggle.isOn = CursorPane.keystrokeScope.read(scope)
+        keystrokeScopeCaption.isHidden = !CursorPane.keystrokeScopeCaption.visible(scope)
+        keystrokeNoDataCaption.isHidden = !CursorPane.keystrokeNoDataCaption.visible(scope)
+        keystrokeCaption.isHidden = !CursorPane.keystrokeCaption.visible(scope)
         previewBox.refreshFromSettings()
     }
 }

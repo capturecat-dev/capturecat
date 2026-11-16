@@ -10,76 +10,76 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let hasRecordedCamera: Bool
 
     private let stack = NSStackView()
-    private let showToggle = InspectorToggleControl("Show Camera")
-    private let noCameraCaption = InspectorKitViews.caption("No recorded camera video is available for this project.")
+    // Every control's title/range/step/readout, write and visibility: the
+    // shared CameraPane spec (Studio/Editor/Inspector).
+    private let showToggle = InspectorToggleControl(CameraPane.show)
+    private let noCameraCaption = InspectorKitViews.caption(CameraPane.noCameraCaption)
     private let pad: CameraPreviewPadControl
-    private let positionMenu = InspectorMenuControl()
-    private let shapeMenu = InspectorMenuControl()
+    private let positionMenu = InspectorMenuControl(CameraPane.position)
+    private let shapeMenu = InspectorMenuControl(CameraPane.shape)
     /// Bubble orientation (Auto / Vertical / Wide) — only meaningful for the
     /// aspect-following shapes; hidden for circle/square (always 1:1).
-    private let orientationChips = InspectorChipsControl()
+    private let orientationChips = InspectorChipsControl(CameraPane.orientation)
     /// Background removal for the WHOLE video (ProjectSettings.cameraLook):
     /// None / Cutout / Pop-out card. Not a timeline block — camera-layout
     /// blocks still override it for their span.
-    private let backgroundLabel = InspectorKitViews.label("Background")
-    private let backgroundChips = InspectorChipsControl()
-    private static let backgroundLooks: [CameraBubbleLook?] = [nil] + CameraBubbleLook.allCases
-    private let mirrorToggle = InspectorToggleControl("Mirror Camera")
-    private let sizeSlider: InspectorSliderRow
+    private let backgroundLabel = InspectorKitViews.label(CameraPane.background.title)
+    private let backgroundChips = InspectorChipsControl(CameraPane.background)
+    private let mirrorToggle = InspectorToggleControl(CameraPane.mirror)
+    private let sizeSlider = InspectorSliderRow(CameraPane.size)
     /// §12.5 — off keeps the bubble at its size while the screen zooms.
-    private let shrinkToggle = InspectorToggleControl("Shrink During Zoom")
+    private let shrinkToggle = InspectorToggleControl(CameraPane.shrink)
     /// §12.12 — vertical videos: camera row on top, screen below.
-    private let stackToggle = InspectorToggleControl("Stack on Top in Vertical Video")
-    private let stackHeightSlider = InspectorSliderRow(label: "Camera Height", range: 25...70, step: 1)
+    private let stackToggle = InspectorToggleControl(CameraPane.stack)
+    private let stackHeightSlider = InspectorSliderRow(CameraPane.stackHeight)
     /// §12.14 — the gap between the rows; None joins them into one card.
-    private let stackGapSlider = InspectorSliderRow(label: "Gap", range: 0...8, step: 1)
+    private let stackGapSlider = InspectorSliderRow(CameraPane.stackGap)
 
     // Cutout & Pop-out (docs/camera-cutout.md §12) — whole-video styles for
     // the two looks; the section shows only while the project uses a look.
     private let looksBox = InspectorSectionBox("Cutout & Pop-out")
-    private let edgeSoftnessSlider = InspectorSliderRow(label: "Edge Softness", range: 0...1, step: 0.05)
-    private let edgeInsetSlider = InspectorSliderRow(label: "Edge Inset", range: 0...1, step: 0.05)
-    private let popOutSlider = InspectorSliderRow(label: "Pop-out", range: 0...1, step: 0.05)
-    private let cardLabel = InspectorKitViews.label("Card")
-    private let cardChips = InspectorChipsControl()
+    private let edgeSoftnessSlider = InspectorSliderRow(CameraPane.edgeSoftness)
+    private let edgeInsetSlider = InspectorSliderRow(CameraPane.edgeInset)
+    private let popOutSlider = InspectorSliderRow(CameraPane.popOut)
+    private let cardLabel = InspectorKitViews.label(CameraPane.cardFill.title)
+    private let cardChips = InspectorChipsControl(CameraPane.cardFill)
     private let gradientStartWell = InspectorColorWellControl()
     private let gradientEndWell = InspectorColorWellControl()
     private var gradientRow: NSView!
     private let cardColorWell = InspectorColorWellControl()
     private var cardColorRow: NSView!
-    private let backgroundBlurSlider = InspectorSliderRow(label: "Background Blur", range: 0...1, step: 0.05)
+    private let backgroundBlurSlider = InspectorSliderRow(CameraPane.backgroundBlur)
     private let cardChooseImageButton = CaptureCatButton(title: "Choose Image…", symbol: "photo", style: .secondary)
     private let cardImageGrid = WallpaperGridControl(mode: .customImages)
     private let cardWallpaperGrid = WallpaperGridControl(mode: .catalog)
-    private let cardBorderLabel = InspectorKitViews.label("Border")
-    private let cardBorderChips = InspectorChipsControl()
-    private static let cardBorders: [CameraCardBorder?] = [nil] + CameraCardBorder.allCases
-    private let cardBorderWidthSlider = InspectorSliderRow(label: "Thickness", range: 0...1, step: 0.05)
+    private let cardBorderLabel = InspectorKitViews.label(CameraPane.cardBorder.title)
+    private let cardBorderChips = InspectorChipsControl(CameraPane.cardBorder)
+    private let cardBorderWidthSlider = InspectorSliderRow(CameraPane.cardBorderWidth)
     private let cardBorderColorWell = InspectorColorWellControl()
     private var cardBorderColorRow: NSView!
 
     // Adjust section — color sliders + look preset + ring light.
-    private let brightnessSlider = InspectorSliderRow(label: "Brightness", range: -1...1, step: 0.05)
-    private let contrastSlider = InspectorSliderRow(label: "Contrast", range: 0.5...1.5, step: 0.05)
-    private let saturationSlider = InspectorSliderRow(label: "Saturation", range: 0...2, step: 0.05)
-    private let hueSlider = InspectorSliderRow(label: "Hue", range: -180...180, step: 5)
-    private let filterChips = InspectorChipsControl()
-    private let ringLightSlider = InspectorSliderRow(label: "Ring Light", range: 0...1, step: 0.05)
+    private let brightnessSlider = InspectorSliderRow(CameraPane.brightness)
+    private let contrastSlider = InspectorSliderRow(CameraPane.contrast)
+    private let saturationSlider = InspectorSliderRow(CameraPane.saturation)
+    private let hueSlider = InspectorSliderRow(CameraPane.hue)
+    private let filterChips = InspectorChipsControl(CameraPane.filter)
+    private let ringLightSlider = InspectorSliderRow(CameraPane.ringLight)
 
     // Style section — shape refinement, border, opacity.
-    private let cornerRadiusSlider = InspectorSliderRow(label: "Corner Radius", range: 0...60, step: 1)
-    private let borderWidthSlider = InspectorSliderRow(label: "Border", range: 0...8, step: 0.5)
+    private let cornerRadiusSlider = InspectorSliderRow(CameraPane.cornerRadius)
+    private let borderWidthSlider = InspectorSliderRow(CameraPane.borderWidth)
     private let borderColorWell = InspectorColorWellControl()
-    private let borderColorReset = InspectorButton("Reset")
+    private let borderColorReset = InspectorButton(CameraPane.borderColorReset)
     private var borderColorRow: NSView!
-    private let opacitySlider = InspectorSliderRow(label: "Opacity", range: 0.2...1, step: 0.05)
+    private let opacitySlider = InspectorSliderRow(CameraPane.opacity)
     /// House 2D tilt pad (same control as the Motion pane), capped at ±25°.
     private let tiltPad = TiltPadControl()
 
     // Name-tag section.
-    private let tagTextField = InspectorFlatTextField(placeholder: "Name")
-    private let tagSubtextField = InspectorFlatTextField(placeholder: "Role / company")
-    private let tagPositionMenu = InspectorMenuControl()
+    private let tagTextField = InspectorFlatTextField(CameraPane.tagText)
+    private let tagSubtextField = InspectorFlatTextField(CameraPane.tagSubtext)
+    private let tagPositionMenu = InspectorMenuControl(CameraPane.tagPosition)
     private let tagTextColorWell = InspectorColorWellControl()
     private let tagBackgroundColorWell = InspectorColorWellControl()
 
@@ -109,11 +109,6 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         self.project = project
         self.segmentation = segmentation
         self.pad = CameraPreviewPadControl(settings: settings)
-        // Shown as % of canvas width — the stored value stays nominal-canvas
-        // points (persistence identity; 1456pt nominal width = 100%). 8% floor:
-        // below that the bubble reads as a dot and the name tag has nowhere to
-        // live. 22% ceiling gives presenter-style prominence.
-        self.sizeSlider = InspectorSliderRow(label: "Size", range: 8...22, step: 0.5)
         super.init(frame: .zero)
 
         stack.orientation = .vertical
@@ -146,21 +141,22 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         if !hasRecordedCamera {
             cameraBox.addRow(noCameraCaption, attached: true)
         }
+        pad.inspectorSpecID = "camera.pad"
         cameraBox.addRow(pad)
         pad.heightAnchor.constraint(equalToConstant: 96).isActive = true
 
-        let positionRow = InspectorKitViews.row("Position", control: positionMenu)
-        let shapeRow = InspectorKitViews.row("Shape", control: shapeMenu)
+        let positionRow = InspectorKitViews.row(CameraPane.position.title, control: positionMenu)
+        let shapeRow = InspectorKitViews.row(CameraPane.shape.title, control: shapeMenu)
 
         // Border color well + reset back to the default white 30% (nil).
         let borderPair = NSStackView(views: [borderColorWell, borderColorReset])
         borderPair.orientation = .horizontal
         borderPair.spacing = 8
-        borderColorRow = InspectorKitViews.row("Border Color", control: borderPair)
+        borderColorRow = InspectorKitViews.row(CameraPane.borderColor.title, control: borderPair)
 
-        let tagPositionRow = InspectorKitViews.row("Tag Position", control: tagPositionMenu)
-        let tagTextColorRow = InspectorKitViews.row("Text Color", control: tagTextColorWell)
-        let tagBackgroundRow = InspectorKitViews.row("Tag Fill", control: tagBackgroundColorWell)
+        let tagPositionRow = InspectorKitViews.row(CameraPane.tagPosition.title, control: tagPositionMenu)
+        let tagTextColorRow = InspectorKitViews.row(CameraPane.tagTextColor.title, control: tagTextColorWell)
+        let tagBackgroundRow = InspectorKitViews.row(CameraPane.tagFill.title, control: tagBackgroundColorWell)
 
         // Background first, right under the pad: below Shape it would
         // inherit the hidden orientation chips' 6pt gap on circle/square.
@@ -197,9 +193,9 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         let gradientPair = NSStackView(views: [gradientStartWell, gradientEndWell])
         gradientPair.orientation = .horizontal
         gradientPair.spacing = 8
-        gradientRow = InspectorKitViews.row("Card Colors", control: gradientPair)
-        cardColorRow = InspectorKitViews.row("Card Color", control: cardColorWell)
-        cardBorderColorRow = InspectorKitViews.row("Border Color", control: cardBorderColorWell)
+        gradientRow = InspectorKitViews.row(CameraPane.cardGradientStart.title, control: gradientPair)
+        cardColorRow = InspectorKitViews.row(CameraPane.cardColor.title, control: cardColorWell)
+        cardBorderColorRow = InspectorKitViews.row(CameraPane.cardBorderColor.title, control: cardBorderColorWell)
         looksBox.addRow(edgeSoftnessSlider)
         looksBox.addRow(edgeInsetSlider)
         looksBox.addRow(popOutSlider)
@@ -246,161 +242,104 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
             shrinkToggle, stackToggle, adjustBox, styleBox, tagBox,
         ]
 
-        positionMenu.items = ProjectSettings.CameraPosition.allCases.map { .init(title: $0.rawValue) }
-        shapeMenu.items = ProjectSettings.CameraShape.allCases.map { .init(title: $0.rawValue) }
-        orientationChips.items = ProjectSettings.CameraOrientation.allCases.map(\.rawValue)
-        backgroundChips.items = Self.backgroundLooks.map { $0?.displayName ?? "None" }
         backgroundChips.toolTip = "Remove the background behind you for the whole video"
-        tagPositionMenu.items = ProjectSettings.CameraTagPosition.allCases.map { .init(title: $0.rawValue) }
-        filterChips.items = ProjectSettings.CameraFilterStyle.allCases.map(\.rawValue)
-        sizeSlider.format = { $0.truncatingRemainder(dividingBy: 1) == 0
-            ? "\(Int($0))%" : String(format: "%.1f%%", $0) }
-        hueSlider.format = { "\(Int($0))°" }
-        ringLightSlider.format = { "\(Int($0 * 100))%" }
-        opacitySlider.format = { "\(Int($0 * 100))%" }
-        for slider in [edgeSoftnessSlider, edgeInsetSlider, popOutSlider, backgroundBlurSlider, cardBorderWidthSlider] {
-            slider.format = { "\(Int(($0 * 100).rounded()))%" }
-        }
-        cardChips.items = CameraCardFill.allCases.map(\.displayName)
         cardChips.toolTip = "What fills the pop-out card behind you"
-        cardBorderChips.items = Self.cardBorders.map { $0?.displayName ?? "None" }
         shrinkToggle.toolTip = "Shrink the camera while the screen is zoomed in"
         stackToggle.toolTip = "In 9:16 and 4:5 videos, put the camera across the top and the screen below"
-        stackHeightSlider.format = { "\(Int($0.rounded()))%" }
-        stackGapSlider.format = { $0 < 0.5 ? "None" : "\(Int($0.rounded()))%" }
         stackGapSlider.toolTip = "Space between the camera and the screen — None joins them into one card"
         tagTextField.delegate = self
         tagSubtextField.delegate = self
-        tiltPad.maxAngle = 25
+        tiltPad.maxAngle = CameraPane.tiltMaxAngle
+        tiltPad.inspectorSpecID = "camera.tiltPad"
+    }
+
+    /// The pane's scope for the shared spec (built per use — cheap).
+    private var scope: InspectorScope {
+        var env = InspectorEnvironment()
+        env.hasRecordedCamera = hasRecordedCamera
+        return InspectorScope(settings: settings, project: project, env: env)
     }
 
     private func wire() {
-        showToggle.onChange = { [weak self] on in self?.settings.showCamera = on }
-        mirrorToggle.onChange = { [weak self] on in self?.settings.cameraMirrored = on }
-        sizeSlider.onChange = { [weak self] percent in
-            self?.settings.cameraSize = percent / 100 * 1456
-        }
-        positionMenu.onSelect = { [weak self] index in
-            guard let self else { return }
-            // Picking a corner from the menu clears free placement.
-            settings.cameraPosition = ProjectSettings.CameraPosition.allCases[index]
-            settings.cameraCustomX = nil
-            settings.cameraCustomY = nil
-        }
-        shapeMenu.onSelect = { [weak self] index in
-            self?.settings.cameraShape = ProjectSettings.CameraShape.allCases[index]
-        }
-        orientationChips.onSelect = { [weak self] index in
-            self?.settings.cameraOrientation = ProjectSettings.CameraOrientation.allCases[index]
-        }
+        let scope: () -> InspectorScope? = { [weak self] in self?.scope }
+        showToggle.bind(CameraPane.show, scope)
+        mirrorToggle.bind(CameraPane.mirror, scope)
+        sizeSlider.bind(CameraPane.size, scope)
+        positionMenu.bind(CameraPane.position, scope)
+        shapeMenu.bind(CameraPane.shape, scope)
+        orientationChips.bind(CameraPane.orientation, scope)
         backgroundChips.onSelect = { [weak self] index in
             guard let self else { return }
-            settings.cameraLook = Self.backgroundLooks[index]
+            CameraPane.background.write(self.scope, index)
             // Start finding the person now rather than on the next preview
             // render (idempotent; a fresh mask is reused).
             if let project, project.usesCameraLook { segmentation?.ensureMask(for: project) }
         }
 
-        shrinkToggle.onChange = { [weak self] on in
-            // Default (on) is stored as nil so untouched projects stay byte-identical.
-            self?.settings.cameraShrinkOnZoom = on ? nil : false
-        }
-        stackToggle.onChange = { [weak self] on in self?.settings.cameraPortraitStack = on }
-        stackHeightSlider.onChange = { [weak self] percent in self?.settings.cameraStackRatio = percent / 100 }
-        stackGapSlider.onChange = { [weak self] percent in self?.settings.cameraStackGap = percent.rounded() / 100 }
+        shrinkToggle.bind(CameraPane.shrink, scope)
+        stackToggle.bind(CameraPane.stack, scope)
+        stackHeightSlider.bind(CameraPane.stackHeight, scope)
+        stackGapSlider.bind(CameraPane.stackGap, scope)
 
         // Cutout & Pop-out (§12)
-        edgeSoftnessSlider.onChange = { [weak self] v in self?.settings.cameraEdgeSoftness = v }
-        edgeInsetSlider.onChange = { [weak self] v in self?.settings.cameraEdgeInset = v }
-        popOutSlider.onChange = { [weak self] v in self?.settings.cameraPopOutAmount = v }
-        backgroundBlurSlider.onChange = { [weak self] v in self?.settings.cameraBackgroundBlur = v }
-        cardChips.onSelect = { [weak self] index in
-            self?.settings.cameraCardFill = CameraCardFill.allCases[index]
-        }
-        gradientStartWell.getColor = { [weak self] in
-            guard let self else { return .white }
-            return Self.nsColor(CameraCardStyle(self.settings).gradientTop)
-        }
-        gradientStartWell.setColor = { [weak self] c in self?.settings.cameraCardGradientStart = CodableColor(c) }
-        gradientEndWell.getColor = { [weak self] in
-            guard let self else { return .white }
-            return Self.nsColor(CameraCardStyle(self.settings).gradientBottom)
-        }
-        gradientEndWell.setColor = { [weak self] c in self?.settings.cameraCardGradientEnd = CodableColor(c) }
-        cardColorWell.getColor = { [weak self] in
-            guard let self else { return .black }
-            return Self.nsColor(CameraCardStyle(self.settings).color)
-        }
-        cardColorWell.setColor = { [weak self] c in self?.settings.cameraCardColor = CodableColor(c) }
+        edgeSoftnessSlider.bind(CameraPane.edgeSoftness, scope)
+        edgeInsetSlider.bind(CameraPane.edgeInset, scope)
+        popOutSlider.bind(CameraPane.popOut, scope)
+        backgroundBlurSlider.bind(CameraPane.backgroundBlur, scope)
+        cardChips.bind(CameraPane.cardFill, scope)
+        gradientStartWell.bind(CameraPane.cardGradientStart, scope)
+        gradientEndWell.bind(CameraPane.cardGradientEnd, scope)
+        cardColorWell.bind(CameraPane.cardColor, scope, fallback: .black)
         cardChooseImageButton.onClick = { [weak self] in
             let panel = NSOpenPanel()
             panel.allowedContentTypes = [.image]
-            if panel.runModal() == .OK, let url = panel.url {
+            if panel.runModal() == .OK, let url = panel.url, let self {
                 // Same as the canvas background's picker: reference the file,
                 // remember a copy so it reappears as a tile.
-                self?.settings.cameraCardImagePath = url.path
+                CameraPane.adoptCardImage(self.scope, path: url.path)
                 CustomWallpaperStore.add(from: url)
-                self?.cardImageGrid.reloadCustomItems()
+                self.cardImageGrid.reloadCustomItems()
             }
         }
-        cardImageGrid.onSelect = { [weak self] path in self?.settings.cameraCardImagePath = path }
-        cardWallpaperGrid.onSelect = { [weak self] path in self?.settings.cameraCardImagePath = path }
-        cardBorderChips.onSelect = { [weak self] index in
-            self?.settings.cameraCardBorder = Self.cardBorders[index]
+        cardImageGrid.onSelect = { [weak self] path in
+            guard let self else { return }
+            CameraPane.adoptCardImage(self.scope, path: path)
         }
-        cardBorderWidthSlider.onChange = { [weak self] v in self?.settings.cameraCardBorderWidth = v }
-        cardBorderColorWell.getColor = { [weak self] in
-            guard let self else { return .white }
-            return Self.nsColor(CameraCardStyle(self.settings).borderColor)
+        cardWallpaperGrid.onSelect = { [weak self] path in
+            guard let self else { return }
+            CameraPane.adoptCardImage(self.scope, path: path)
         }
-        cardBorderColorWell.setColor = { [weak self] c in self?.settings.cameraCardBorderColor = CodableColor(c) }
+        cardBorderChips.bind(CameraPane.cardBorder, scope)
+        cardBorderWidthSlider.bind(CameraPane.cardBorderWidth, scope)
+        cardBorderColorWell.bind(CameraPane.cardBorderColor, scope)
 
         // Adjust
-        brightnessSlider.onChange = { [weak self] v in self?.settings.cameraBrightness = v }
-        contrastSlider.onChange = { [weak self] v in self?.settings.cameraContrast = v }
-        saturationSlider.onChange = { [weak self] v in self?.settings.cameraSaturation = v }
-        hueSlider.onChange = { [weak self] v in self?.settings.cameraHue = v }
-        ringLightSlider.onChange = { [weak self] v in self?.settings.cameraRingLight = v }
-        filterChips.onSelect = { [weak self] index in
-            self?.settings.cameraFilter = ProjectSettings.CameraFilterStyle.allCases[index]
-        }
+        brightnessSlider.bind(CameraPane.brightness, scope)
+        contrastSlider.bind(CameraPane.contrast, scope)
+        saturationSlider.bind(CameraPane.saturation, scope)
+        hueSlider.bind(CameraPane.hue, scope)
+        ringLightSlider.bind(CameraPane.ringLight, scope)
+        filterChips.bind(CameraPane.filter, scope)
 
         // Style
-        cornerRadiusSlider.onChange = { [weak self] v in self?.settings.cameraCornerRadius = v }
-        borderWidthSlider.onChange = { [weak self] v in self?.settings.cameraBorderWidth = v }
-        opacitySlider.onChange = { [weak self] v in self?.settings.cameraOpacity = v }
+        cornerRadiusSlider.bind(CameraPane.cornerRadius, scope)
+        borderWidthSlider.bind(CameraPane.borderWidth, scope)
+        opacitySlider.bind(CameraPane.opacity, scope)
         tiltPad.onChange = { [weak self] pitch, yaw in
-            self?.settings.cameraTiltPitch = pitch
-            self?.settings.cameraTiltYaw = yaw
+            guard let self else { return }
+            CameraPane.tilt(self.scope, pitch: pitch, yaw: yaw)
         }
-        borderColorWell.getColor = { [weak self] in
-            guard let self else { return .white }
-            return CameraStyleMath.borderNSColor(self.settings)
-        }
-        borderColorWell.setColor = { [weak self] c in
-            self?.settings.cameraBorderColor = CodableColor(c)
-        }
+        borderColorWell.bind(CameraPane.borderColor, scope)
         borderColorReset.onClick = { [weak self] in
-            self?.settings.cameraBorderColor = nil
-            self?.borderColorWell.refresh()
+            guard let self else { return }
+            CameraPane.borderColorReset.run(self.scope)
+            self.borderColorWell.refresh()
         }
 
         // Name tag
-        tagPositionMenu.onSelect = { [weak self] index in
-            self?.settings.cameraTagPosition = ProjectSettings.CameraTagPosition.allCases[index]
-        }
-        tagTextColorWell.getColor = { [weak self] in
-            self?.settings.cameraTagTextColor.nsColor ?? .white
-        }
-        tagTextColorWell.setColor = { [weak self] c in
-            self?.settings.cameraTagTextColor = CodableColor(c)
-        }
-        tagBackgroundColorWell.getColor = { [weak self] in
-            self?.settings.cameraTagBackgroundColor.nsColor ?? NSColor(white: 0, alpha: 0.55)
-        }
-        tagBackgroundColorWell.setColor = { [weak self] c in
-            self?.settings.cameraTagBackgroundColor = CodableColor(c)
-        }
+        tagPositionMenu.bind(CameraPane.tagPosition, scope)
+        tagTextColorWell.bind(CameraPane.tagTextColor, scope)
+        tagBackgroundColorWell.bind(CameraPane.tagFill, scope, fallback: NSColor(white: 0, alpha: 0.55))
     }
 
     /// Live text commit as the user types (same behaviour as the menu-bar
@@ -408,9 +347,9 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     func controlTextDidChange(_ obj: Notification) {
         guard let field = obj.object as? NSTextField else { return }
         if field === tagTextField {
-            settings.cameraTagText = field.stringValue
+            CameraPane.tagText.write(scope, field.stringValue)
         } else if field === tagSubtextField {
-            settings.cameraTagSubtext = field.stringValue
+            CameraPane.tagSubtext.write(scope, field.stringValue)
         }
     }
 
@@ -427,80 +366,67 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     }
 
     private func apply() {
-        showToggle.isOn = settings.showCamera
-        showToggle.isEnabled = hasRecordedCamera
-        pad.alphaValue = hasRecordedCamera && settings.showCamera ? 1 : 0.45
+        let scope = self.scope
+        showToggle.isOn = CameraPane.show.read(scope)
+        showToggle.isEnabled = CameraPane.show.enabled(scope)
+        pad.alphaValue = CameraPane.showDetails(scope) ? 1 : 0.45
 
-        let showDetails = hasRecordedCamera && settings.showCamera
+        let showDetails = CameraPane.showDetails(scope)
         for view in detailViews { view.isHidden = !showDetails }
 
-        positionMenu.selectedIndex = ProjectSettings.CameraPosition.allCases
-            .firstIndex(of: settings.cameraPosition) ?? 0
-        shapeMenu.selectedIndex = ProjectSettings.CameraShape.allCases
-            .firstIndex(of: settings.cameraShape) ?? 0
-        mirrorToggle.isOn = settings.cameraMirrored
-        backgroundChips.selectedIndex = Self.backgroundLooks.firstIndex(of: settings.cameraLook) ?? 0
-        sizeSlider.setValue(settings.effectiveCameraSize / 1456 * 100)
+        positionMenu.selectedIndex = CameraPane.position.read(scope) ?? 0
+        shapeMenu.selectedIndex = CameraPane.shape.read(scope) ?? 0
+        mirrorToggle.isOn = CameraPane.mirror.read(scope)
+        backgroundChips.selectedIndex = CameraPane.background.read(scope) ?? 0
+        sizeSlider.setValue(CameraPane.size.read(scope))
 
-        brightnessSlider.setValue(settings.cameraBrightness)
-        contrastSlider.setValue(settings.cameraContrast)
-        saturationSlider.setValue(settings.cameraSaturation)
-        hueSlider.setValue(settings.cameraHue)
-        ringLightSlider.setValue(settings.cameraRingLight)
-        filterChips.selectedIndex = ProjectSettings.CameraFilterStyle.allCases
-            .firstIndex(of: settings.cameraFilter) ?? 0
+        brightnessSlider.setValue(CameraPane.brightness.read(scope))
+        contrastSlider.setValue(CameraPane.contrast.read(scope))
+        saturationSlider.setValue(CameraPane.saturation.read(scope))
+        hueSlider.setValue(CameraPane.hue.read(scope))
+        ringLightSlider.setValue(CameraPane.ringLight.read(scope))
+        filterChips.selectedIndex = CameraPane.filter.read(scope) ?? 0
 
         // Corner radius only applies to the rounded-rect shape.
         // Orientation only applies to the aspect-following shapes — circle
         // and square are always 1:1.
-        let aspectShape = settings.cameraShape == .roundedRect || settings.cameraShape == .squircle
-        orientationChips.isHidden = !showDetails || !aspectShape
-        orientationChips.selectedIndex = ProjectSettings.CameraOrientation.allCases
-            .firstIndex(of: settings.cameraOrientation) ?? 0
-
-        cornerRadiusSlider.isHidden = !showDetails || settings.cameraShape != .roundedRect
-        cornerRadiusSlider.setValue(settings.cameraCornerRadius)
-        borderWidthSlider.setValue(settings.cameraBorderWidth)
-        opacitySlider.setValue(settings.cameraOpacity)
+        orientationChips.isHidden = !CameraPane.orientation.visible(scope)
+        orientationChips.selectedIndex = CameraPane.orientation.read(scope) ?? 0
+        cornerRadiusSlider.isHidden = !CameraPane.cornerRadius.visible(scope)
+        cornerRadiusSlider.setValue(CameraPane.cornerRadius.read(scope))
+        borderWidthSlider.setValue(CameraPane.borderWidth.read(scope))
+        opacitySlider.setValue(CameraPane.opacity.read(scope))
         tiltPad.set(pitch: settings.cameraTiltPitch, yaw: settings.cameraTiltYaw, roll: 0)
         borderColorWell.refresh()
 
-        tagPositionMenu.selectedIndex = ProjectSettings.CameraTagPosition.allCases
-            .firstIndex(of: settings.cameraTagPosition) ?? 0
-        if tagTextField.currentEditor() == nil { tagTextField.stringValue = settings.cameraTagText }
-        if tagSubtextField.currentEditor() == nil { tagSubtextField.stringValue = settings.cameraTagSubtext }
+        tagPositionMenu.selectedIndex = CameraPane.tagPosition.read(scope) ?? 0
+        if tagTextField.currentEditor() == nil { tagTextField.stringValue = CameraPane.tagText.read(scope) }
+        if tagSubtextField.currentEditor() == nil { tagSubtextField.stringValue = CameraPane.tagSubtext.read(scope) }
         tagTextColorWell.refresh()
         tagBackgroundColorWell.refresh()
         pad.refresh()
-        shrinkToggle.isOn = settings.cameraShrinkOnZoom ?? true
-        let stackOn = settings.cameraPortraitStack ?? false
-        stackToggle.isOn = stackOn
-        stackHeightSlider.setValue(CameraLayoutMath.stackRatio(settings.cameraStackRatio) * 100)
-        if stackHeightSlider.isHidden != (!showDetails || !stackOn) {
-            stackHeightSlider.isHidden = !showDetails || !stackOn
+        shrinkToggle.isOn = CameraPane.shrink.read(scope)
+        stackToggle.isOn = CameraPane.stack.read(scope)
+        stackHeightSlider.setValue(CameraPane.stackHeight.read(scope))
+        let stackShown = CameraPane.stackShown(scope)
+        if stackHeightSlider.isHidden != !stackShown {
+            stackHeightSlider.isHidden = !stackShown
             if !stackHeightSlider.isHidden { CCMotion.expand(self) }
         }
-        stackGapSlider.setValue(CameraLayoutMath.stackGap(settings.cameraStackGap) * 100)
-        if stackGapSlider.isHidden != (!showDetails || !stackOn) {
-            stackGapSlider.isHidden = !showDetails || !stackOn
+        stackGapSlider.setValue(CameraPane.stackGap.read(scope))
+        if stackGapSlider.isHidden != !stackShown {
+            stackGapSlider.isHidden = !stackShown
             if !stackGapSlider.isHidden { CCMotion.expand(self) }
         }
-        applyLooksSection(showDetails: showDetails)
+        applyLooksSection(scope)
         applyLookStatus(showDetails: showDetails)
-    }
-
-    private static func nsColor(_ c: CameraCardStyle.RGB) -> NSColor {
-        NSColor(srgbRed: c.r, green: c.g, blue: c.b, alpha: 1)
     }
 
     /// The Cutout & Pop-out section (§12.8): shown while the project uses a
     /// look; the card rows only while a pop-out card can draw, and each fill
     /// shows only its own controls.
-    private func applyLooksSection(showDetails: Bool) {
-        let regionLooks = project?.cameraLayoutRegions.compactMap(\.effectiveLook) ?? []
-        let usesLook = settings.cameraLook != nil || !regionLooks.isEmpty
-        let usesPopOut = settings.cameraLook == .popOut || regionLooks.contains(.popOut)
-        let shown = showDetails && usesLook
+    private func applyLooksSection(_ scope: InspectorScope) {
+        let shown = CameraPane.looksShown(scope)
         if shown != !looksBox.isHidden {
             looksBox.isHidden = !shown
             if shown {
@@ -510,23 +436,23 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
             }
         }
         guard shown else { return }
-        let style = CameraCardStyle(settings)
 
-        edgeSoftnessSlider.setValue(style.edgeSoftness)
-        edgeInsetSlider.setValue(style.edgeInset)
-        popOutSlider.setValue(style.popOutAmount ?? 0.5)
-        backgroundBlurSlider.setValue(min(1, max(0, settings.cameraBackgroundBlur ?? 0)))
-        cardChips.selectedIndex = CameraCardFill.allCases.firstIndex(of: style.fill) ?? 0
-        cardBorderChips.selectedIndex = Self.cardBorders.firstIndex(of: style.border) ?? 0
-        cardBorderWidthSlider.setValue(style.borderThickness)
+        edgeSoftnessSlider.setValue(CameraPane.edgeSoftness.read(scope))
+        edgeInsetSlider.setValue(CameraPane.edgeInset.read(scope))
+        popOutSlider.setValue(CameraPane.popOut.read(scope))
+        backgroundBlurSlider.setValue(CameraPane.backgroundBlur.read(scope))
+        cardChips.selectedIndex = CameraPane.cardFill.read(scope) ?? 0
+        cardBorderChips.selectedIndex = CameraPane.cardBorder.read(scope) ?? 0
+        cardBorderWidthSlider.setValue(CameraPane.cardBorderWidth.read(scope))
         for well in [gradientStartWell, gradientEndWell, cardColorWell, cardBorderColorWell] { well.refresh() }
 
+        let usesPopOut = CameraPane.usesPopOut(scope)
         let card: [NSView] = [popOutSlider, cardLabel, cardChips, cardBorderLabel, cardBorderChips]
         for view in card { view.isHidden = !usesPopOut }
-        gradientRow.isHidden = !usesPopOut || style.fill != .gradient
-        cardColorRow.isHidden = !usesPopOut || style.fill != .color
-        backgroundBlurSlider.isHidden = !usesPopOut || style.fill != .camera
-        let showsImage = usesPopOut && style.fill == .image
+        gradientRow.isHidden = !CameraPane.cardGradientStart.visible(scope)
+        cardColorRow.isHidden = !CameraPane.cardColor.visible(scope)
+        backgroundBlurSlider.isHidden = !CameraPane.backgroundBlur.visible(scope)
+        let showsImage = CameraPane.cardImageVisible(scope)
         cardChooseImageButton.isHidden = !showsImage
         cardImageGrid.isHidden = !showsImage
         cardWallpaperGrid.isHidden = !showsImage
@@ -536,8 +462,8 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
             cardWallpaperGrid.selectedPath = settings.cameraCardImagePath
             cardWallpaperGrid.loadIfNeeded()
         }
-        cardBorderWidthSlider.isHidden = !usesPopOut || style.border == nil
-        cardBorderColorRow.isHidden = !usesPopOut || style.border != .solid
+        cardBorderWidthSlider.isHidden = !CameraPane.cardBorderWidth.visible(scope)
+        cardBorderColorRow.isHidden = !CameraPane.cardBorderColor.visible(scope)
     }
 
     /// "Removing background… 42%" while the mask job runs for this project.
@@ -692,15 +618,10 @@ final class CameraPreviewPadControl: NSView {
     }
 
     private var bubbleSize: CGFloat {
-        20 + CGFloat((settings.effectiveCameraSize - 120) / 200) * 26
+        InspectorPadMath.cameraBubbleDiameter(cameraSize: settings.effectiveCameraSize)
     }
 
-    private var fraction: CGPoint {
-        if let x = settings.cameraCustomX, let y = settings.cameraCustomY {
-            return CGPoint(x: x, y: y)
-        }
-        return ReactiveCameraLayout.fraction(for: settings.cameraPosition)
-    }
+    private var fraction: CGPoint { InspectorPadMath.cameraFraction(settings) }
 
     func refresh() {
         needsLayout = true
@@ -742,14 +663,23 @@ final class CameraPreviewPadControl: NSView {
 
     // MARK: - Drag to place
 
+    #if DEBUG
+    /// Probe seam: the point a press must land on for bubble fraction (fx, fy).
+    func probePoint(fx: CGFloat, fy: CGFloat) -> NSPoint {
+        let bubble = bubbleSize
+        let usableW = max(1, bounds.width - bubble - 2 * inset)
+        let usableH = max(1, bounds.height - bubble - 2 * inset)
+        return NSPoint(x: inset + bubble / 2 + fx * usableW, y: inset + bubble / 2 + fy * usableH)
+    }
+    #endif
+
     private func place(at point: NSPoint) {
         let bubble = bubbleSize
         let usableW = max(1, bounds.width - bubble - 2 * inset)
         let usableH = max(1, bounds.height - bubble - 2 * inset)
         let fx = (point.x - inset - bubble / 2) / usableW
         let fy = (point.y - inset - bubble / 2) / usableH
-        settings.cameraCustomX = Double(min(1, max(0, fx)))
-        settings.cameraCustomY = Double(min(1, max(0, fy)))
+        InspectorPadMath.cameraDrag(settings, fx: fx, fy: fy)
         needsLayout = true
     }
 
@@ -762,18 +692,11 @@ final class CameraPreviewPadControl: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        // A release near a corner collapses to the clean corner enum.
-        guard let x = settings.cameraCustomX, let y = settings.cameraCustomY else { return }
-        for corner in ProjectSettings.CameraPosition.allCases {
-            let f = ReactiveCameraLayout.fraction(for: corner)
-            if abs(f.x - x) < 0.08 && abs(f.y - y) < 0.08 {
-                settings.cameraPosition = corner
-                settings.cameraCustomX = nil
-                settings.cameraCustomY = nil
-                needsLayout = true
-                return
-            }
-        }
+        // A release near a corner collapses to the clean corner enum
+        // (InspectorPadMath, shared with the iOS pad).
+        let before = (settings.cameraCustomX, settings.cameraCustomY)
+        InspectorPadMath.cameraRelease(settings)
+        if before != (settings.cameraCustomX, settings.cameraCustomY) { needsLayout = true }
     }
 }
 

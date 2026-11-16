@@ -10,7 +10,9 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let transcription = TranscriptionService()
 
     private let stack = NSStackView()
-    private let showToggle = InspectorToggleControl("Show Subtitles")
+    // Every control's title/range/step/readout, write and visibility: the
+    // shared SubtitlePane spec (Studio/Editor/Inspector).
+    private let showToggle = InspectorToggleControl(SubtitlePane.showToggle)
 
     // Generate / manage
     private let generateButton = InspectorButton("Generate Subtitles")
@@ -21,7 +23,7 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let manageRow = NSStackView()
     private let countLabel = NSTextField(labelWithString: "")
     private let regenerateButton = InspectorButton("Regenerate")
-    private let deleteButton = InspectorButton("Delete", destructive: true)
+    private let deleteButton = InspectorButton(SubtitlePane.delete)
 
     // Presets
     private let presetsScroll = NSScrollView()
@@ -29,19 +31,19 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private var presetCards: [SubtitlePresetCardControl] = []
 
     // Text
-    private let sizeSlider = InspectorSliderRow(label: "Size", range: 16...64, step: 2)
-    private let weightChips = InspectorChipsControl()
-    private let fontMenu = InspectorMenuControl()
-    private let uppercaseToggle = InspectorToggleControl("Uppercase")
+    private let sizeSlider = InspectorSliderRow(SubtitlePane.size)
+    private let weightChips = InspectorChipsControl(SubtitlePane.weight)
+    private let fontMenu = InspectorMenuControl(SubtitlePane.font)
+    private let uppercaseToggle = InspectorToggleControl(SubtitlePane.uppercase)
     private let textColorWell = InspectorColorWellControl()
 
     // Style
-    private let positionChips = InspectorChipsControl()
+    private let positionChips = InspectorChipsControl(SubtitlePane.position)
     private let positionPad: SubtitlePositionPadControl
-    private let styleChips = InspectorChipsControl()
+    private let styleChips = InspectorChipsControl(SubtitlePane.style)
     private let bgColorRow: NSView
     private let bgColorWell = InspectorColorWellControl()
-    private let karaokeToggle = InspectorToggleControl("Karaoke Highlight")
+    private let karaokeToggle = InspectorToggleControl(SubtitlePane.karaoke)
     private let highlightColorRow: NSView
     private let highlightColorWell = InspectorColorWellControl()
 
@@ -60,8 +62,8 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     init(project: Project) {
         self.project = project
         self.positionPad = SubtitlePositionPadControl(settings: project.settings)
-        self.bgColorRow = InspectorKitViews.row("Background", control: bgColorWell)
-        self.highlightColorRow = InspectorKitViews.row("Highlight", control: highlightColorWell)
+        self.bgColorRow = InspectorKitViews.row(SubtitlePane.background.title, control: bgColorWell)
+        self.highlightColorRow = InspectorKitViews.row(SubtitlePane.highlight.title, control: highlightColorWell)
         super.init(frame: .zero)
 
         stack.orientation = .vertical
@@ -130,7 +132,7 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
             let card = SubtitlePresetCardControl(preset: preset)
             card.onClick = { [weak self] in
                 guard let self else { return }
-                preset.apply(to: self.project.settings)
+                SubtitlePane.applyPreset(self.scope, preset)
             }
             presetsRow.addArrangedSubview(card)
             presetCards.append(card)
@@ -145,6 +147,7 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         presetsScroll.horizontalScrollElasticity = .allowed
         presetsScroll.verticalScrollElasticity = .none
         presetsScroll.heightAnchor.constraint(equalToConstant: 62).isActive = true
+        presetsScroll.inspectorSpecID = "subtitles.presets"
         presetsBox.addRow(presetsScroll)
         fullWidth(presetsBox)
         details.append(presetsBox)
@@ -152,22 +155,19 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         // Text
         let textBox = InspectorSectionBox("Text")
         textBox.addRow(sizeSlider)
-        fontMenu.items = FontCatalog.menuNames.map { .init(title: $0, icon: nil) }
-        textBox.addRow(InspectorKitViews.row("Font", control: fontMenu))
-        weightChips.items = ProjectSettings.SubtitleWeight.allCases.map(\.rawValue)
+        textBox.addRow(InspectorKitViews.row(SubtitlePane.font.title, control: fontMenu))
         textBox.addRow(weightChips)
         textBox.addRow(uppercaseToggle)
-        textBox.addRow(InspectorKitViews.row("Color", control: textColorWell))
+        textBox.addRow(InspectorKitViews.row(SubtitlePane.color.title, control: textColorWell))
         fullWidth(textBox)
         details.append(textBox)
 
         // Style
         let styleBox = InspectorSectionBox("Style")
-        positionChips.items = ProjectSettings.SubtitlePosition.allCases.map(\.rawValue)
         styleBox.addRow(positionChips)
+        positionPad.inspectorSpecID = "subtitles.positionPad"
         styleBox.addRow(positionPad, attached: true)
         positionPad.heightAnchor.constraint(equalToConstant: 96).isActive = true
-        styleChips.items = ProjectSettings.SubtitleStyle.allCases.map(\.rawValue)
         styleBox.addRow(styleChips)
         styleBox.addRow(bgColorRow)
         styleBox.addRow(karaokeToggle)
@@ -179,6 +179,7 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         captionsStack.orientation = .vertical
         captionsStack.alignment = .leading
         captionsStack.spacing = 8
+        captionsStack.inspectorSpecID = "subtitles.captions"
         captionsBox.addRow(captionsStack)
         fullWidth(captionsBox)
         editBox = captionsBox
@@ -186,53 +187,31 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         detailViews = details
     }
 
+    /// The pane's scope for the shared spec.
+    private var scope: InspectorScope { InspectorScope(settings: project.settings, project: project) }
+
     private func wire() {
-        showToggle.onChange = { [weak self] on in self?.project.settings.showSubtitles = on }
+        let scope: () -> InspectorScope? = { [weak self] in self?.scope }
+        showToggle.bind(SubtitlePane.showToggle, scope)
         generateButton.onClick = { [weak self] in self?.generate() }
         regenerateButton.onClick = { [weak self] in
-            self?.project.subtitles.removeAll()
-            self?.generate()
-        }
-        deleteButton.onClick = { [weak self] in self?.project.subtitles.removeAll() }
-
-        sizeSlider.onChange = { [weak self] v in self?.project.settings.subtitleFontSize = v }
-        fontMenu.onSelect = { [weak self] i in
-            self?.project.settings.subtitleFontName = FontCatalog.storedName(forMenuIndex: i)
-        }
-        weightChips.onSelect = { [weak self] i in
-            self?.project.settings.subtitleWeight = ProjectSettings.SubtitleWeight.allCases[i]
-        }
-        uppercaseToggle.onChange = { [weak self] on in self?.project.settings.subtitleUppercase = on }
-        textColorWell.getColor = { [weak self] in
-            self?.project.settings.subtitleColor.nsColor ?? .white
-        }
-        textColorWell.setColor = { [weak self] c in
-            self?.project.settings.subtitleColor = CodableColor(c)
-        }
-
-        positionChips.onSelect = { [weak self] i in
             guard let self else { return }
-            // Picking a stock anchor clears free placement (pad/preview drag).
-            project.settings.subtitlePosition = ProjectSettings.SubtitlePosition.allCases[i]
-            project.settings.subtitleCustomX = nil
-            project.settings.subtitleCustomY = nil
+            SubtitlePane.clearForRegenerate(self.scope)
+            self.generate()
         }
-        styleChips.onSelect = { [weak self] i in
-            self?.project.settings.subtitleStyle = ProjectSettings.SubtitleStyle.allCases[i]
-        }
-        bgColorWell.getColor = { [weak self] in
-            self?.project.settings.subtitleBackgroundColor.nsColor ?? .black
-        }
-        bgColorWell.setColor = { [weak self] c in
-            self?.project.settings.subtitleBackgroundColor = CodableColor(c)
-        }
-        karaokeToggle.onChange = { [weak self] on in self?.project.settings.highlightWords = on }
-        highlightColorWell.getColor = { [weak self] in
-            self?.project.settings.subtitleHighlightColor.nsColor ?? .systemYellow
-        }
-        highlightColorWell.setColor = { [weak self] c in
-            self?.project.settings.subtitleHighlightColor = CodableColor(c)
-        }
+        deleteButton.bind(SubtitlePane.delete, scope)
+
+        sizeSlider.bind(SubtitlePane.size, scope)
+        fontMenu.bind(SubtitlePane.font, scope)
+        weightChips.bind(SubtitlePane.weight, scope)
+        uppercaseToggle.bind(SubtitlePane.uppercase, scope)
+        textColorWell.bind(SubtitlePane.color, scope)
+
+        positionChips.bind(SubtitlePane.position, scope)
+        styleChips.bind(SubtitlePane.style, scope)
+        bgColorWell.bind(SubtitlePane.background, scope, fallback: .black)
+        karaokeToggle.bind(SubtitlePane.karaoke, scope)
+        highlightColorWell.bind(SubtitlePane.highlight, scope, fallback: .systemYellow)
     }
 
     private func generate() {
@@ -259,13 +238,14 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
 
     private func apply() {
         let s = project.settings
-        showToggle.isOn = s.showSubtitles
+        let scope = self.scope
+        showToggle.isOn = SubtitlePane.showToggle.read(scope)
 
         let show = s.showSubtitles
-        let hasSubtitles = !project.subtitles.isEmpty
+        let hasSubtitles = SubtitlePane.hasSubtitles(scope)
         let busy = transcription.isTranscribing
 
-        generateButton.isHidden = !show || hasSubtitles || busy
+        generateButton.isHidden = !SubtitlePane.generateVisible(scope, busy: busy)
         generateCaption.isHidden = generateButton.isHidden
         progressSpinner.isHidden = !show || !busy
         if busy { progressSpinner.startAnimation(nil) } else { progressSpinner.stopAnimation(nil) }
@@ -273,24 +253,24 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         progressLabel.stringValue = transcription.progress
         errorLabel.isHidden = !show || transcription.error == nil
         errorLabel.stringValue = transcription.error ?? ""
-        manageRow.isHidden = !show || !hasSubtitles
-        countLabel.stringValue = "\(project.subtitles.count) subtitles"
+        manageRow.isHidden = !SubtitlePane.manageVisible(scope)
+        countLabel.stringValue = SubtitlePane.countText(scope)
 
-        for view in detailViews { view.isHidden = !show }
-        bgColorRow.isHidden = !show || s.subtitleStyle != .background
-        highlightColorRow.isHidden = !show || !s.highlightWords
-        editBox.isHidden = !show || !hasSubtitles
+        for view in detailViews { view.isHidden = !SubtitlePane.detailsVisible(scope) }
+        bgColorRow.isHidden = !SubtitlePane.background.visible(scope)
+        highlightColorRow.isHidden = !SubtitlePane.highlight.visible(scope)
+        editBox.isHidden = !SubtitlePane.manageVisible(scope)
 
         for card in presetCards {
             card.setActive(card.preset.matches(s))
         }
-        sizeSlider.setValue(s.subtitleFontSize)
-        weightChips.selectedIndex = ProjectSettings.SubtitleWeight.allCases.firstIndex(of: s.subtitleWeight) ?? 0
-        uppercaseToggle.isOn = s.subtitleUppercase
-        fontMenu.selectedIndex = FontCatalog.menuIndex(for: s.subtitleFontName)
-        positionChips.selectedIndex = ProjectSettings.SubtitlePosition.allCases.firstIndex(of: s.subtitlePosition) ?? 0
-        styleChips.selectedIndex = ProjectSettings.SubtitleStyle.allCases.firstIndex(of: s.subtitleStyle) ?? 0
-        karaokeToggle.isOn = s.highlightWords
+        sizeSlider.setValue(SubtitlePane.size.read(scope))
+        weightChips.selectedIndex = SubtitlePane.weight.read(scope) ?? 0
+        uppercaseToggle.isOn = SubtitlePane.uppercase.read(scope)
+        fontMenu.selectedIndex = SubtitlePane.font.read(scope) ?? 0
+        positionChips.selectedIndex = SubtitlePane.position.read(scope) ?? 0
+        styleChips.selectedIndex = SubtitlePane.style.read(scope) ?? 0
+        karaokeToggle.isOn = SubtitlePane.karaoke.read(scope)
         textColorWell.refresh()
         bgColorWell.refresh()
         highlightColorWell.refresh()
@@ -373,9 +353,8 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     func controlTextDidChange(_ notification: Notification) {
         guard let field = notification.object as? NSTextField,
               let idString = field.identifier?.rawValue,
-              let id = UUID(uuidString: idString),
-              let index = project.subtitles.firstIndex(where: { $0.id == id }) else { return }
-        project.subtitles[index].text = field.stringValue
+              let id = UUID(uuidString: idString) else { return }
+        SubtitlePane.setCaption(scope, id: id, text: field.stringValue)
     }
 }
 
@@ -444,11 +423,12 @@ final class SubtitlePresetCardControl: NSControl {
     /// The "Aa" rendered with the preset's REAL style recipe: weight,
     /// uppercase, color, background pill hue, and outline/glow shadow.
     private static func sample(for preset: SubtitlePreset) -> NSAttributedString {
-        let color: NSColor = preset.karaoke ? (preset.highlight ?? .systemYellow) : preset.color
+        let color: NSColor = preset.karaoke
+            ? (preset.highlight?.platformColor ?? .systemYellow) : preset.color.platformColor
         let shadow = NSShadow()
         switch preset.style {
         case .glow:
-            shadow.shadowColor = preset.color.withAlphaComponent(0.9)
+            shadow.shadowColor = preset.color.platformColor.withAlphaComponent(0.9)
             shadow.shadowBlurRadius = 5
         case .outline:
             shadow.shadowColor = .black
@@ -462,7 +442,7 @@ final class SubtitlePresetCardControl: NSControl {
             .shadow: shadow,
         ]
         if preset.style == .background {
-            attributes[.backgroundColor] = (preset.background ?? .black).withAlphaComponent(0.75)
+            attributes[.backgroundColor] = (preset.background?.platformColor ?? .black).withAlphaComponent(0.75)
         }
         return NSAttributedString(string: preset.uppercase ? "AA" : "Aa", attributes: attributes)
     }
@@ -538,16 +518,7 @@ final class SubtitlePositionPadControl: NSView {
         layer?.borderColor = ink.withAlphaComponent(0.12).cgColor
     }
 
-    private var fraction: CGPoint {
-        if let x = settings.subtitleCustomX, let y = settings.subtitleCustomY {
-            return CGPoint(x: min(1, max(0, x)), y: min(1, max(0, y)))
-        }
-        switch settings.subtitlePosition {
-        case .top: return CGPoint(x: 0.5, y: 0)
-        case .center: return CGPoint(x: 0.5, y: 0.5)
-        case .bottom: return CGPoint(x: 0.5, y: 1)
-        }
-    }
+    private var fraction: CGPoint { InspectorPadMath.subtitleFraction(settings) }
 
     override func layout() {
         super.layout()
@@ -573,13 +544,21 @@ final class SubtitlePositionPadControl: NSView {
         CATransaction.commit()
     }
 
+    #if DEBUG
+    /// Probe seam: the point a press must land on for pill fraction (fx, fy).
+    func probePoint(fx: CGFloat, fy: CGFloat) -> NSPoint {
+        let usableW = max(1, bounds.width - 2 * inset - pillSize.width)
+        let usableH = max(1, bounds.height - 2 * inset - pillSize.height)
+        return NSPoint(x: inset + pillSize.width / 2 + fx * usableW, y: inset + pillSize.height / 2 + fy * usableH)
+    }
+    #endif
+
     private func setFraction(from point: CGPoint) {
         let usableW = max(1, bounds.width - 2 * inset - pillSize.width)
         let usableH = max(1, bounds.height - 2 * inset - pillSize.height)
         let fx = (point.x - inset - pillSize.width / 2) / usableW
         let fy = (point.y - inset - pillSize.height / 2) / usableH
-        settings.subtitleCustomX = Double(min(1, max(0, fx)))
-        settings.subtitleCustomY = Double(min(1, max(0, fy)))
+        InspectorPadMath.subtitleDrag(settings, fx: fx, fy: fy)
         refresh()
     }
 
@@ -592,16 +571,9 @@ final class SubtitlePositionPadControl: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        // Anchor snap — same thresholds as the SwiftUI pad.
-        guard let x = settings.subtitleCustomX, let y = settings.subtitleCustomY,
-              abs(x - 0.5) < 0.08 else { return }
-        let anchors: [(ProjectSettings.SubtitlePosition, Double)] = [(.top, 0), (.center, 0.5), (.bottom, 1)]
-        for (anchor, fy) in anchors where abs(y - fy) < 0.08 {
-            settings.subtitlePosition = anchor
-            settings.subtitleCustomX = nil
-            settings.subtitleCustomY = nil
-            refresh()
-            return
-        }
+        // Anchor snap — InspectorPadMath, shared with the iOS pad.
+        let before = (settings.subtitleCustomX, settings.subtitleCustomY)
+        InspectorPadMath.subtitleRelease(settings)
+        if before != (settings.subtitleCustomX, settings.subtitleCustomY) { refresh() }
     }
 }

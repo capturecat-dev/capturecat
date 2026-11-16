@@ -45,6 +45,7 @@ GATES=(
   --timeline-edits-test
   --editor-shell-shot
   --inspector-probe
+  --inspector-values-test
   --recording-panel-shot
   --cloud-sync-test
   --wireless-device-test

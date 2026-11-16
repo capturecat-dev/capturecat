@@ -191,9 +191,15 @@ final class CCSlider: UIControl {
         return min(max(nearest, range.lowerBound), range.upperBound)
     }
 
+    /// Keep a pushed model value as it is (clamped, NOT step-snapped), the
+    /// way the Mac slider holds it: a model value between stops then still
+    /// changes when the user lands on the nearest stop (the inspector, whose
+    /// writes must match the Mac's). Off (default): pushes snap to a stop.
+    var keepsOffStepValues = false
+
     /// Push a model value (no onChange echo). `animated` springs the bar there.
     func setValue(_ newValue: Double, animated: Bool) {
-        let next = resolve(newValue)
+        let next = keepsOffStepValues ? min(max(newValue, range.lowerBound), range.upperBound) : resolve(newValue)
         guard next != storedValue else { return }
         storedValue = next
         refreshValueText()

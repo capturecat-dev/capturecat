@@ -1,4 +1,39 @@
-import AppKit
+import CoreGraphics
+import Foundation
+
+/// Everything the Effects pane's block editors need beyond ProjectSettings —
+/// pushed fresh on every selection change so closures never go stale.
+/// (Moved from MotionSettingsPaneAppKit.swift in Studio 4d: the iOS
+/// inspector edits the same selected regions through the same accessors.)
+struct MotionPaneContext {
+    var highlightRegion: Ref<HighlightRegion?>
+    var onDeleteHighlight: () -> Void
+    var tiltRegion: Ref<TiltRegion?>
+    var onDeleteTilt: () -> Void
+    var zoomRegion: Ref<ZoomRegion?>
+    var onDeleteZoom: () -> Void
+    var onAddTiltToBlock: () -> Void
+    var onAddZoomToBlock: () -> Void
+    var onAddZoomBlockAtPlayhead: () -> Void = {}
+    /// Snap the project's Slide onto the selected block's span (join). Returns
+    /// false when no block is selected — caller falls back to a global slide.
+    var onJoinSlideToSelectedBlock: () -> Bool = { false }
+    /// Depth Focus region (FOCUS lane) — sharp inside, graduated blur outside.
+    var focusRegion: Ref<FocusRegion?> = Ref(get: { nil }, set: { _ in })
+    var onDeleteFocusRegion: () -> Void = {}
+    /// Blur region (FOCUS lane) — gaussian or pixelated censor patch.
+    var blurRegion: Ref<BlurRegion?> = Ref(get: { nil }, set: { _ in })
+    var onDeleteBlurRegion: () -> Void = {}
+    var onAddTiltBlockAtPlayhead: () -> Void = {}
+}
+
+/// Bindings/context the Annotate pane needs from the editor (mirrors the
+/// MotionPaneContext pattern). Moved from AnnotationSettingsPaneAppKit.swift.
+struct AnnotatePaneContext {
+    var selectedAnnotationID: Ref<UUID?>
+    var currentTime: TimeInterval
+    var undoManager: UndoManager?
+}
 
 /// Builds the Motion and Annotate pane contexts from project + selection state.
 ///
@@ -6,6 +41,9 @@ import AppKit
 /// `@State` into `Binding`s for the native column. The column is now hosted
 /// directly, so the region accessors, the undoable deletes, and the
 /// effect-block composition live here as plain functions over `Ref`.
+/// Shared since Studio 4d (the iOS inspector builds its contexts here too);
+/// `refused` is what the host does when an add finds no free slot — the Mac
+/// beeps.
 @MainActor
 enum InspectorPaneContexts {
 
@@ -13,7 +51,8 @@ enum InspectorPaneContexts {
         project: Project,
         selection: EditorShellSelection,
         undoManager: UndoManager?,
-        currentTime: @escaping () -> TimeInterval = { 0 }
+        currentTime: @escaping () -> TimeInterval = { 0 },
+        refused: @escaping () -> Void = {}
     ) -> MotionPaneContext {
         MotionPaneContext(
             highlightRegion: Ref(
@@ -81,7 +120,7 @@ enum InspectorPaneContexts {
             },
             onAddZoomBlockAtPlayhead: {
                 guard let slot = freeEffectSlot(project: project, at: currentTime()) else {
-                    NSSound.beep(); return
+                    refused(); return
                 }
                 let region = ZoomRegion(startTime: slot.0, endTime: slot.1)
                 project.zoomRegions.append(region)
@@ -159,7 +198,7 @@ enum InspectorPaneContexts {
             },
             onAddTiltBlockAtPlayhead: {
                 guard let slot = freeEffectSlot(project: project, at: currentTime()) else {
-                    NSSound.beep(); return
+                    refused(); return
                 }
                 let region = TiltRegion(startTime: slot.0, endTime: slot.1, pitch: 12)
                 project.tiltRegions.append(region)

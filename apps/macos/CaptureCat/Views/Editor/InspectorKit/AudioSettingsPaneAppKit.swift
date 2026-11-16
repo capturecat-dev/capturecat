@@ -15,18 +15,10 @@ final class AudioSettingsPaneAppKit: NSView {
 
     init(settings: ProjectSettings) {
         self.settings = settings
-        systemRow = AudioVolumeRow(
-            label: "System Audio", range: 0...1,
-            onIcon: "speaker.wave.2", offIcon: "speaker.slash", valueWidth: 35
-        )
-        micRow = AudioVolumeRow(
-            label: "Microphone", range: 0...1,
-            onIcon: "mic", offIcon: "mic.slash", valueWidth: 35
-        )
-        voiceRow = AudioVolumeRow(
-            label: "Voice Over", range: 0...1.5,
-            onIcon: "waveform.and.mic", offIcon: "mic.slash", valueWidth: 42
-        )
+        // Titles, ranges, steps, readouts and icons: the shared AudioPane spec.
+        systemRow = AudioVolumeRow(AudioPane.system)
+        micRow = AudioVolumeRow(AudioPane.microphone)
+        voiceRow = AudioVolumeRow(AudioPane.voiceOver)
         super.init(frame: .zero)
 
         stack.orientation = .vertical
@@ -48,9 +40,13 @@ final class AudioSettingsPaneAppKit: NSView {
         stack.addArrangedSubview(audioBox)
         audioBox.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
 
-        systemRow.onChange = { [weak self] v in self?.settings.systemAudioVolume = v }
-        micRow.onChange = { [weak self] v in self?.settings.microphoneVolume = v }
-        voiceRow.onChange = { [weak self] v in self?.settings.voiceOverVolume = v }
+        for (row, volume) in [(systemRow, AudioPane.system), (micRow, AudioPane.microphone),
+                              (voiceRow, AudioPane.voiceOver)] {
+            row.onChange = { [weak self] v in
+                guard let self else { return }
+                volume.slider.write(self.scope, v)
+            }
+        }
 
         observe()
     }
@@ -67,10 +63,12 @@ final class AudioSettingsPaneAppKit: NSView {
         }
     }
 
+    private var scope: InspectorScope { InspectorScope(settings: settings) }
+
     private func apply() {
-        systemRow.setValue(settings.systemAudioVolume)
-        micRow.setValue(settings.microphoneVolume)
-        voiceRow.setValue(settings.voiceOverVolume)
+        systemRow.setValue(AudioPane.system.slider.read(scope))
+        micRow.setValue(AudioPane.microphone.slider.read(scope))
+        voiceRow.setValue(AudioPane.voiceOver.slider.read(scope))
     }
 }
 
@@ -81,19 +79,18 @@ final class AudioVolumeRow: NSView {
     var onChange: ((Double) -> Void)?
 
     private let slider = CCSlider()
-    private let onIcon: String
-    private let offIcon: String
+    private let volume: AudioPane.Volume
 
     override var isFlipped: Bool { true }
 
-    init(label text: String, range: ClosedRange<Double>, onIcon: String, offIcon: String, valueWidth: CGFloat) {
-        self.onIcon = onIcon
-        self.offIcon = offIcon
+    init(_ volume: AudioPane.Volume) {
+        self.volume = volume
         super.init(frame: .zero)
-        slider.title = text
-        slider.range = range
-        slider.step = 0.05
-        slider.format = { "\(Int(($0 * 100).rounded()))%" }
+        slider.title = volume.slider.title
+        slider.range = volume.slider.range
+        slider.step = volume.slider.step
+        slider.format = volume.slider.format
+        inspectorSpecID = volume.slider.id
         slider.translatesAutoresizingMaskIntoConstraints = false
         addSubview(slider)
         NSLayoutConstraint.activate([
@@ -117,6 +114,6 @@ final class AudioVolumeRow: NSView {
     }
 
     private func refresh(_ v: Double) {
-        slider.symbol = v > 0 ? onIcon : offIcon
+        slider.symbol = volume.symbol(for: v)
     }
 }

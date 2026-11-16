@@ -12,7 +12,9 @@ final class BackgroundSettingsPaneAppKit: NSView {
 
     private let stack = NSStackView()
 
-    private let typeChips = InspectorChipsControl()
+    // Every control's title/range/step/readout, write and visibility: the
+    // shared BackgroundPane spec (Studio/Editor/Inspector).
+    private let typeChips = InspectorChipsControl(BackgroundPane.type)
 
     // Background source controls (shown per type)
     private let gradientStartWell = InspectorColorWellControl()
@@ -24,48 +26,48 @@ final class BackgroundSettingsPaneAppKit: NSView {
     private let chooseImageButton = CaptureCatButton(title: "Choose Image…", symbol: "photo", style: .secondary)
     private let imageGrid = WallpaperGridControl(mode: .customImages)
     private let wallpaperGrid = WallpaperGridControl(mode: .catalog)
-    private let transparentCaption = InspectorKitViews.caption("No additional settings")
-    private let angleSlider = InspectorSliderRow(label: "Angle", range: 0...360, step: 5)
+    private let transparentCaption = InspectorKitViews.caption(BackgroundPane.transparentCaption)
+    private let angleSlider = InspectorSliderRow(BackgroundPane.angle)
 
     // Look (shared BackgroundLook — preview and export consume one bitmap)
-    private let blurSlider = InspectorSliderRow(label: "Blur", range: 0...1, step: 0.02)
-    private let pixelateSlider = InspectorSliderRow(label: "Pixelate", range: 0...1, step: 0.02)
-    private let halftoneSlider = InspectorSliderRow(label: "Halftone", range: 0...1, step: 0.02)
-    private let noiseSlider = InspectorSliderRow(label: "Grain", range: 0...1, step: 0.02)
-    private let contrastSlider = InspectorSliderRow(label: "Contrast", range: 0.5...1.5, step: 0.02)
-    private let hueSlider = InspectorSliderRow(label: "Hue", range: 0...360, step: 5)
-    private let brightnessSlider = InspectorSliderRow(label: "Brightness", range: -1...1, step: 0.02)
-    private let saturationSlider = InspectorSliderRow(label: "Saturation", range: 0...2, step: 0.05)
+    private let blurSlider = InspectorSliderRow(BackgroundPane.blur)
+    private let pixelateSlider = InspectorSliderRow(BackgroundPane.pixelate)
+    private let halftoneSlider = InspectorSliderRow(BackgroundPane.halftone)
+    private let noiseSlider = InspectorSliderRow(BackgroundPane.grain)
+    private let contrastSlider = InspectorSliderRow(BackgroundPane.contrast)
+    private let hueSlider = InspectorSliderRow(BackgroundPane.hue)
+    private let brightnessSlider = InspectorSliderRow(BackgroundPane.brightness)
+    private let saturationSlider = InspectorSliderRow(BackgroundPane.saturation)
     private let tintWell = InspectorColorWellControl()
     private var tintRow: NSView!
-    private let tintSlider = InspectorSliderRow(label: "Tint Amount", range: 0...1, step: 0.02)
-    private let vignetteSlider = InspectorSliderRow(label: "Vignette", range: 0...1, step: 0.02)
-    private let lookResetButton = InspectorButton("Reset Look")
+    private let tintSlider = InspectorSliderRow(BackgroundPane.tintAmount)
+    private let vignetteSlider = InspectorSliderRow(BackgroundPane.vignette)
+    private let lookResetButton = InspectorButton(BackgroundPane.resetLook)
     private var lookBox: InspectorSectionBox!
 
     // Frame
-    private let deviceFrameToggle = InspectorToggleControl("iPhone / iPad Frame")
-    private let paddingSlider = InspectorSliderRow(label: "Padding", range: 0...300, step: 4)
-    private let placementMenu = InspectorMenuControl()
+    private let deviceFrameToggle = InspectorToggleControl(BackgroundPane.deviceFrame)
+    private let paddingSlider = InspectorSliderRow(BackgroundPane.padding)
+    private let placementMenu = InspectorMenuControl(BackgroundPane.placement)
     private let placementPad = PlacementPadControl()
     /// Shown only while a freeform drag (videoCustomX/Y) overrides the enum.
-    private let placementResetButton = InspectorButton("Reset to Center")
-    private let shapeMenu = InspectorMenuControl()
-    private let cornersSlider = InspectorSliderRow(label: "Rounded Corners", range: 0...20, step: 1)
-    private let shadowSlider = InspectorSliderRow(label: "Shadow", range: 0...60, step: 2)
-    private let shadowOpacitySlider = InspectorSliderRow(label: "Shadow Opacity", range: 0...1, step: 0.05)
+    private let placementResetButton = InspectorButton(BackgroundPane.placementReset)
+    private let shapeMenu = InspectorMenuControl(BackgroundPane.shape)
+    private let cornersSlider = InspectorSliderRow(BackgroundPane.corners)
+    private let shadowSlider = InspectorSliderRow(BackgroundPane.shadow)
+    private let shadowOpacitySlider = InspectorSliderRow(BackgroundPane.shadowOpacity)
     private let framePad = PropertyPreviewPadControl()
 
     // Menu bar
-    private let menuBarChips = InspectorChipsControl()
-    private let titleField = InspectorFlatTextField(placeholder: "App name", width: 140)
+    private let menuBarChips = InspectorChipsControl(BackgroundPane.menuBar)
+    private let titleField = InspectorFlatTextField(BackgroundPane.menuBarTitle, width: 140)
     private var titleRow: NSView!
     private let alignLabel = NSTextField(labelWithString: "Align")
-    private let alignChips = InspectorChipsControl()
-    private let clockField = InspectorFlatTextField(placeholder: "9:41", width: 70)
+    private let alignChips = InspectorChipsControl(BackgroundPane.menuBarAlign)
+    private let clockField = InspectorFlatTextField(BackgroundPane.menuBarClock, width: 70)
     private var clockRow: NSView!
-    private let statusIconsToggle = InspectorToggleControl("Wi-Fi & Battery Icons")
-    private let heightSlider = InspectorSliderRow(label: "Height", range: 2...6, step: 0.1)
+    private let statusIconsToggle = InspectorToggleControl(BackgroundPane.menuBarIcons)
+    private let heightSlider = InspectorSliderRow(BackgroundPane.menuBarHeight)
     private let menuBarCaption = InspectorKitViews.caption("")
 
     override var isFlipped: Bool { true }
@@ -112,15 +114,13 @@ final class BackgroundSettingsPaneAppKit: NSView {
     private func build() {
         // Background source section.
         let backgroundBox = InspectorSectionBox("Background")
-        typeChips.items = ProjectSettings.BackgroundType.allCases.map(\.rawValue)
         backgroundBox.addRow(typeChips)
-        gradientStartRow = InspectorKitViews.row("Start Color", control: gradientStartWell)
-        gradientEndRow = InspectorKitViews.row("End Color", control: gradientEndWell)
-        solidRow = InspectorKitViews.row("Color", control: solidWell)
+        gradientStartRow = InspectorKitViews.row(BackgroundPane.gradientStart.title, control: gradientStartWell)
+        gradientEndRow = InspectorKitViews.row(BackgroundPane.gradientEnd.title, control: gradientEndWell)
+        solidRow = InspectorKitViews.row(BackgroundPane.solid.title, control: solidWell)
         backgroundBox.addRow(gradientStartRow)
         backgroundBox.addRow(gradientEndRow)
         backgroundBox.addRow(solidRow)
-        angleSlider.format = { "\(Int($0.rounded()))°" }
         backgroundBox.addRow(angleSlider)
         backgroundBox.addRow(chooseImageButton)
         backgroundBox.addRow(imageGrid, attached: true)
@@ -130,12 +130,6 @@ final class BackgroundSettingsPaneAppKit: NSView {
 
         // Look section — adjustments layered on whatever fill is chosen.
         lookBox = InspectorSectionBox("Look")
-        brightnessSlider.format = { v in
-            v >= 0 ? "+\(Int((v * 100).rounded()))" : "\(Int((v * 100).rounded()))"
-        }
-        saturationSlider.format = { String(format: "%.2f×", $0) }
-        contrastSlider.format = { String(format: "%.2f×", $0) }
-        hueSlider.format = { "\(Int($0.rounded()))°" }
         lookBox.addRow(blurSlider)
         lookBox.addRow(pixelateSlider)
         lookBox.addRow(halftoneSlider)
@@ -144,7 +138,7 @@ final class BackgroundSettingsPaneAppKit: NSView {
         lookBox.addRow(contrastSlider)
         lookBox.addRow(saturationSlider)
         lookBox.addRow(hueSlider)
-        tintRow = InspectorKitViews.row("Tint", control: tintWell)
+        tintRow = InspectorKitViews.row(BackgroundPane.tint.title, control: tintWell)
         lookBox.addRow(tintRow)
         lookBox.addRow(tintSlider, attached: true)
         lookBox.addRow(vignetteSlider)
@@ -156,18 +150,16 @@ final class BackgroundSettingsPaneAppKit: NSView {
         if isDeviceRecording {
             frameBox.addRow(deviceFrameToggle)
         }
-        placementMenu.items = ProjectSettings.VideoPlacement.allCases.map { .init(title: $0.rawValue) }
-        frameBox.addRow(InspectorKitViews.row("Placement", control: placementMenu))
+        frameBox.addRow(InspectorKitViews.row(BackgroundPane.placement.title, control: placementMenu))
+        placementPad.inspectorSpecID = "background.placementPad"
         frameBox.addRow(placementPad, attached: true)
         placementPad.heightAnchor.constraint(equalToConstant: 96).isActive = true
         frameBox.addRow(placementResetButton, attached: true)
 
         frameBox.addRow(paddingSlider)
 
-        shapeMenu.items = ProjectSettings.FrameShape.allCases.map { .init(title: $0.rawValue) }
-        frameBox.addRow(InspectorKitViews.row("Shape", control: shapeMenu))
+        frameBox.addRow(InspectorKitViews.row(BackgroundPane.shape.title, control: shapeMenu))
 
-        shadowOpacitySlider.format = { "\(Int($0 * 100))%" }
         frameBox.addRow(cornersSlider)
         frameBox.addRow(shadowSlider)
         frameBox.addRow(shadowOpacitySlider)
@@ -179,161 +171,96 @@ final class BackgroundSettingsPaneAppKit: NSView {
 
         let menuBarBox = InspectorSectionBox("Menu Bar")
 
-        // Display labels for MenuBarReplacement — the SwiftUI pane shortens
-        // "Clean Dark/Light" to "Dark/Light" on the chips.
-        menuBarChips.items = ProjectSettings.MenuBarReplacement.allCases.map {
-            switch $0 {
-            case .off: return "Original"
-            case .hidden: return "Hidden"
-            case .dark: return "Dark"
-            case .light: return "Light"
-            }
-        }
         menuBarBox.addRow(menuBarChips)
 
-        titleRow = InspectorKitViews.row("Title", control: titleField)
+        titleRow = InspectorKitViews.row(BackgroundPane.menuBarTitle.title, control: titleField)
         menuBarBox.addRow(titleRow)
 
+        alignLabel.stringValue = BackgroundPane.menuBarAlign.title
         alignLabel.font = EditorThemeKit.label()
         menuBarBox.addRow(alignLabel)
-        alignChips.items = ProjectSettings.MenuBarTitleAlignment.allCases.map(\.rawValue)
         menuBarBox.addRow(alignChips, attached: true)
 
-        clockRow = InspectorKitViews.row("Clock", control: clockField)
+        clockRow = InspectorKitViews.row(BackgroundPane.menuBarClock.title, control: clockField)
         menuBarBox.addRow(clockRow)
         menuBarBox.addRow(statusIconsToggle)
 
-        heightSlider.format = { String(format: "%.1f%%", $0) }
         menuBarBox.addRow(heightSlider)
+        menuBarCaption.inspectorSpecID = BackgroundPane.menuBarCaption.id
         menuBarBox.addRow(menuBarCaption, attached: true)
         fullWidth(menuBarBox)
     }
 
-    private func wire() {
-        typeChips.onSelect = { [weak self] index in
-            self?.settings.backgroundType = ProjectSettings.BackgroundType.allCases[index]
-        }
+    /// The pane's scope for the shared spec (built per use — cheap).
+    private var scope: InspectorScope {
+        var env = InspectorEnvironment()
+        env.isDeviceRecording = isDeviceRecording
+        env.supportsMenuBar = supportsMenuBar
+        return InspectorScope(settings: settings, env: env)
+    }
 
-        func bindWell(_ well: InspectorColorWellControl,
-                      get: @escaping () -> CodableColor,
-                      set: @escaping (CodableColor) -> Void) {
-            well.getColor = {
-                let c = get()
-                return NSColor(srgbRed: c.red, green: c.green, blue: c.blue, alpha: c.opacity)
-            }
-            well.setColor = { color in
-                guard let srgb = color.usingColorSpace(.sRGB) else { return }
-                set(CodableColor(
-                    red: srgb.redComponent, green: srgb.greenComponent,
-                    blue: srgb.blueComponent, opacity: srgb.alphaComponent
-                ))
-            }
-        }
-        bindWell(gradientStartWell,
-                 get: { [weak self] in self?.settings.gradientStartColor ?? CodableColor(red: 1, green: 1, blue: 1) },
-                 set: { [weak self] in self?.settings.gradientStartColor = $0 })
-        bindWell(gradientEndWell,
-                 get: { [weak self] in self?.settings.gradientEndColor ?? CodableColor(red: 0, green: 0, blue: 0) },
-                 set: { [weak self] in self?.settings.gradientEndColor = $0 })
-        bindWell(solidWell,
-                 get: { [weak self] in self?.settings.solidColor ?? CodableColor(red: 0, green: 0, blue: 0) },
-                 set: { [weak self] in self?.settings.solidColor = $0 })
-        bindWell(tintWell,
-                 get: { [weak self] in self?.settings.backgroundTintColor ?? CodableColor(red: 0, green: 0, blue: 0) },
-                 set: { [weak self] in
-                     self?.settings.backgroundTintColor = $0
-                     // Picking a tint with the amount at zero would look like
-                     // nothing happened — give it a visible starting strength.
-                     if (self?.settings.backgroundTintOpacity ?? 0) <= 0 {
-                         self?.settings.backgroundTintOpacity = 0.3
-                     }
-                 })
-        angleSlider.onChange = { [weak self] v in self?.settings.gradientAngle = v }
-        blurSlider.onChange = { [weak self] v in self?.settings.backgroundBlur = v }
-        pixelateSlider.onChange = { [weak self] v in self?.settings.backgroundPixelate = v }
-        halftoneSlider.onChange = { [weak self] v in self?.settings.backgroundHalftone = v }
-        noiseSlider.onChange = { [weak self] v in self?.settings.backgroundNoise = v }
-        contrastSlider.onChange = { [weak self] v in self?.settings.backgroundContrast = v }
-        hueSlider.onChange = { [weak self] v in self?.settings.backgroundHue = v }
-        brightnessSlider.onChange = { [weak self] v in self?.settings.backgroundBrightness = v }
-        saturationSlider.onChange = { [weak self] v in self?.settings.backgroundSaturation = v }
-        tintSlider.onChange = { [weak self] v in self?.settings.backgroundTintOpacity = v }
-        vignetteSlider.onChange = { [weak self] v in self?.settings.backgroundVignette = v }
-        lookResetButton.onClick = { [weak self] in
-            guard let s = self?.settings else { return }
-            s.backgroundBlur = 0
-            s.backgroundBrightness = 0
-            s.backgroundSaturation = 1
-            s.backgroundTintOpacity = 0
-            s.backgroundVignette = 0
-            s.backgroundPixelate = 0
-            s.backgroundHalftone = 0
-            s.backgroundNoise = 0
-            s.backgroundContrast = 1
-            s.backgroundHue = 0
-        }
+    private func wire() {
+        let scope: () -> InspectorScope? = { [weak self] in self?.scope }
+        typeChips.bind(BackgroundPane.type, scope)
+        gradientStartWell.bind(BackgroundPane.gradientStart, scope, requireSRGB: true)
+        gradientEndWell.bind(BackgroundPane.gradientEnd, scope, requireSRGB: true)
+        solidWell.bind(BackgroundPane.solid, scope, requireSRGB: true)
+        tintWell.bind(BackgroundPane.tint, scope, requireSRGB: true)
+        angleSlider.bind(BackgroundPane.angle, scope)
+        blurSlider.bind(BackgroundPane.blur, scope)
+        pixelateSlider.bind(BackgroundPane.pixelate, scope)
+        halftoneSlider.bind(BackgroundPane.halftone, scope)
+        noiseSlider.bind(BackgroundPane.grain, scope)
+        contrastSlider.bind(BackgroundPane.contrast, scope)
+        hueSlider.bind(BackgroundPane.hue, scope)
+        brightnessSlider.bind(BackgroundPane.brightness, scope)
+        saturationSlider.bind(BackgroundPane.saturation, scope)
+        tintSlider.bind(BackgroundPane.tintAmount, scope)
+        vignetteSlider.bind(BackgroundPane.vignette, scope)
+        lookResetButton.bind(BackgroundPane.resetLook, scope)
 
         chooseImageButton.onClick = { [weak self] in
             let panel = NSOpenPanel()
             panel.allowedContentTypes = [.image]
-            if panel.runModal() == .OK, let url = panel.url {
+            if panel.runModal() == .OK, let url = panel.url, let self {
                 // The project keeps referencing the picked file (existing
                 // behavior); a copy is remembered in the library so the image
                 // reappears as a tile in the Image grid.
-                self?.settings.backgroundImagePath = url.path
+                BackgroundPane.adoptImage(self.scope, path: url.path)
                 CustomWallpaperStore.add(from: url)
-                self?.imageGrid.reloadCustomItems()
+                self.imageGrid.reloadCustomItems()
             }
         }
 
         imageGrid.onSelect = { [weak self] path in
-            self?.settings.backgroundImagePath = path
+            guard let self else { return }
+            BackgroundPane.adoptImage(self.scope, path: path)
         }
         wallpaperGrid.onSelect = { [weak self] path in
-            self?.settings.backgroundImagePath = path
+            guard let self else { return }
+            BackgroundPane.adoptImage(self.scope, path: path)
         }
 
-        deviceFrameToggle.onChange = { [weak self] on in self?.settings.showDeviceFrame = on }
-        paddingSlider.onChange = { [weak self] v in self?.settings.backgroundPadding = v }
-        placementMenu.onSelect = { [weak self] index in
-            self?.settings.videoPlacement = ProjectSettings.VideoPlacement.allCases[index]
-            // Picking an anchor is an explicit choice — drop any freeform
-            // drag position, or the menu selection would appear to do nothing.
-            self?.settings.videoCustomX = nil
-            self?.settings.videoCustomY = nil
-        }
+        deviceFrameToggle.bind(BackgroundPane.deviceFrame, scope)
+        paddingSlider.bind(BackgroundPane.padding, scope)
+        placementMenu.bind(BackgroundPane.placement, scope)
         placementPad.onSelect = { [weak self] placement in
-            self?.settings.videoPlacement = placement
-            self?.settings.videoCustomX = nil
-            self?.settings.videoCustomY = nil
+            guard let self else { return }
+            BackgroundPane.pickPlacement(self.scope, placement)
         }
-        placementResetButton.onClick = { [weak self] in
-            self?.settings.videoCustomX = nil
-            self?.settings.videoCustomY = nil
-            self?.settings.videoPlacement = .center
-        }
-        shapeMenu.onSelect = { [weak self] index in
-            self?.settings.frameShape = ProjectSettings.FrameShape.allCases[index]
-        }
-        cornersSlider.onChange = { [weak self] v in
-            // Mirrors the SwiftUI pane: one slider writes both radii.
-            self?.settings.windowCornerRadius = v
-            self?.settings.cornerRadius = v
-        }
-        shadowSlider.onChange = { [weak self] v in self?.settings.shadowRadius = v }
-        shadowOpacitySlider.onChange = { [weak self] v in self?.settings.shadowOpacity = v }
+        placementResetButton.bind(BackgroundPane.placementReset, scope)
+        shapeMenu.bind(BackgroundPane.shape, scope)
+        cornersSlider.bind(BackgroundPane.corners, scope)
+        shadowSlider.bind(BackgroundPane.shadow, scope)
+        shadowOpacitySlider.bind(BackgroundPane.shadowOpacity, scope)
 
         guard supportsMenuBar else { return }
-        menuBarChips.onSelect = { [weak self] index in
-            self?.settings.menuBarReplacement = ProjectSettings.MenuBarReplacement.allCases[index]
-        }
+        menuBarChips.bind(BackgroundPane.menuBar, scope)
         titleField.delegate = fieldDelegate
         clockField.delegate = fieldDelegate
-        statusIconsToggle.onChange = { [weak self] on in self?.settings.menuBarShowStatusIcons = on }
-        alignChips.onSelect = { [weak self] index in
-            self?.settings.menuBarTitleAlignment = ProjectSettings.MenuBarTitleAlignment.allCases[index]
-        }
-        heightSlider.onChange = { [weak self] v in self?.settings.menuBarHeight = v }
+        statusIconsToggle.bind(BackgroundPane.menuBarIcons, scope)
+        alignChips.bind(BackgroundPane.menuBarAlign, scope)
+        heightSlider.bind(BackgroundPane.menuBarHeight, scope)
     }
 
     private lazy var fieldDelegate = FieldDelegate(owner: self)
@@ -346,9 +273,9 @@ final class BackgroundSettingsPaneAppKit: NSView {
         func controlTextDidChange(_ obj: Notification) {
             guard let owner, let field = obj.object as? NSTextField else { return }
             if field === owner.titleField {
-                owner.settings.menuBarTitle = field.stringValue
+                BackgroundPane.menuBarTitle.write(owner.scope, field.stringValue)
             } else if field === owner.clockField {
-                owner.settings.menuBarClock = field.stringValue
+                BackgroundPane.menuBarClock.write(owner.scope, field.stringValue)
             }
         }
     }
@@ -364,92 +291,82 @@ final class BackgroundSettingsPaneAppKit: NSView {
     }
 
     private func apply() {
+        let scope = self.scope
         let type = settings.backgroundType
-        typeChips.selectedIndex = ProjectSettings.BackgroundType.allCases.firstIndex(of: type) ?? 0
+        typeChips.selectedIndex = BackgroundPane.type.read(scope) ?? 0
 
-        let usesRamp = type == .gradient || type == .mesh
-        gradientStartRow.isHidden = !usesRamp
-        gradientEndRow.isHidden = !usesRamp
-        solidRow.isHidden = type != .solid
-        chooseImageButton.isHidden = type != .image
-        imageGrid.isHidden = type != .image
+        gradientStartRow.isHidden = !BackgroundPane.gradientStart.visible(scope)
+        gradientEndRow.isHidden = !BackgroundPane.gradientEnd.visible(scope)
+        solidRow.isHidden = !BackgroundPane.solid.visible(scope)
+        chooseImageButton.isHidden = !BackgroundPane.chooseImageVisible(scope)
+        imageGrid.isHidden = !BackgroundPane.chooseImageVisible(scope)
         if type == .image {
             imageGrid.selectedPath = settings.backgroundImagePath
             imageGrid.loadIfNeeded()
         }
-        wallpaperGrid.isHidden = type != .wallpaper
+        wallpaperGrid.isHidden = !BackgroundPane.wallpaperVisible(scope)
         if type == .wallpaper {
             wallpaperGrid.selectedPath = settings.backgroundImagePath
             wallpaperGrid.loadIfNeeded()
         }
-        transparentCaption.isHidden = type != .transparent
-        angleSlider.isHidden = type != .gradient
-        // nil = legacy corner-to-corner diagonal; show it as the nearest
-        // round number until the user takes over.
-        angleSlider.setValue(settings.gradientAngle ?? 135)
+        transparentCaption.isHidden = !BackgroundPane.transparentCaption.visible(scope)
+        angleSlider.isHidden = !BackgroundPane.angle.visible(scope)
+        angleSlider.setValue(BackgroundPane.angle.read(scope))
 
         gradientStartWell.refresh()
         gradientEndWell.refresh()
         solidWell.refresh()
 
-        lookBox.isHidden = type == .transparent
-        blurSlider.setValue(settings.backgroundBlur)
-        pixelateSlider.setValue(settings.backgroundPixelate)
-        halftoneSlider.setValue(settings.backgroundHalftone)
-        noiseSlider.setValue(settings.backgroundNoise)
-        contrastSlider.setValue(settings.backgroundContrast)
-        hueSlider.setValue(settings.backgroundHue)
-        brightnessSlider.setValue(settings.backgroundBrightness)
-        saturationSlider.setValue(settings.backgroundSaturation)
+        lookBox.isHidden = !BackgroundPane.lookVisible(scope)
+        blurSlider.setValue(BackgroundPane.blur.read(scope))
+        pixelateSlider.setValue(BackgroundPane.pixelate.read(scope))
+        halftoneSlider.setValue(BackgroundPane.halftone.read(scope))
+        noiseSlider.setValue(BackgroundPane.grain.read(scope))
+        contrastSlider.setValue(BackgroundPane.contrast.read(scope))
+        hueSlider.setValue(BackgroundPane.hue.read(scope))
+        brightnessSlider.setValue(BackgroundPane.brightness.read(scope))
+        saturationSlider.setValue(BackgroundPane.saturation.read(scope))
         tintWell.refresh()
-        tintSlider.setValue(settings.backgroundTintOpacity)
-        vignetteSlider.setValue(settings.backgroundVignette)
-        lookResetButton.isHidden = BackgroundLook.Spec(settings).isPlainLook
+        tintSlider.setValue(BackgroundPane.tintAmount.read(scope))
+        vignetteSlider.setValue(BackgroundPane.vignette.read(scope))
+        lookResetButton.isHidden = !BackgroundPane.resetLook.visible(scope)
 
-        deviceFrameToggle.isOn = settings.showDeviceFrame
-        paddingSlider.setValue(settings.backgroundPadding)
+        deviceFrameToggle.isOn = BackgroundPane.deviceFrame.read(scope)
+        paddingSlider.setValue(BackgroundPane.padding.read(scope))
         // Placement honesty: while videoCustomX/Y override the enum, say
         // "Custom", offer the reset, and show the card where it actually is.
-        let isCustomPlacement = PlacementMath.isCustom(settings)
-        placementMenu.selectedIndex = ProjectSettings.VideoPlacement.allCases
-            .firstIndex(of: settings.videoPlacement) ?? 0
-        placementMenu.overrideTitle = isCustomPlacement ? "Custom" : nil
-        placementResetButton.isHidden = !isCustomPlacement
+        let isCustomPlacement = BackgroundPane.isCustomPlacement(scope)
+        placementMenu.selectedIndex = BackgroundPane.placement.read(scope) ?? 0
+        placementMenu.overrideTitle = BackgroundPane.placement.overrideTitle(scope)
+        placementResetButton.isHidden = !BackgroundPane.placementReset.visible(scope)
         placementPad.placement = settings.videoPlacement
         placementPad.customFraction = isCustomPlacement
             ? CGPoint(x: settings.videoCustomX ?? 0.5, y: settings.videoCustomY ?? 0.5)
             : nil
         placementPad.padding = settings.backgroundPadding
-        shapeMenu.selectedIndex = ProjectSettings.FrameShape.allCases
-            .firstIndex(of: settings.frameShape) ?? 0
-        cornersSlider.setValue(settings.windowCornerRadius)
-        shadowSlider.setValue(settings.shadowRadius)
-        shadowOpacitySlider.setValue(settings.shadowOpacity)
+        shapeMenu.selectedIndex = BackgroundPane.shape.read(scope) ?? 0
+        cornersSlider.setValue(BackgroundPane.corners.read(scope))
+        shadowSlider.setValue(BackgroundPane.shadow.read(scope))
+        shadowOpacitySlider.setValue(BackgroundPane.shadowOpacity.read(scope))
         framePad.mode = .frameStyle(
             cornerRadius: settings.windowCornerRadius,
             shadowRadius: settings.shadowRadius,
             shadowOpacity: settings.shadowOpacity)
 
         guard supportsMenuBar else { return }
-        let replacement = settings.menuBarReplacement
-        menuBarChips.selectedIndex = ProjectSettings.MenuBarReplacement.allCases
-            .firstIndex(of: replacement) ?? 0
-        let showsCustomBar = replacement == .dark || replacement == .light
-        titleRow.isHidden = !showsCustomBar
-        alignLabel.isHidden = !showsCustomBar
-        alignChips.isHidden = !showsCustomBar
-        clockRow.isHidden = !showsCustomBar
-        statusIconsToggle.isHidden = !showsCustomBar
-        heightSlider.isHidden = replacement == .off
-        if titleField.currentEditor() == nil { titleField.stringValue = settings.menuBarTitle }
-        if clockField.currentEditor() == nil { clockField.stringValue = settings.menuBarClock }
-        alignChips.selectedIndex = ProjectSettings.MenuBarTitleAlignment.allCases
-            .firstIndex(of: settings.menuBarTitleAlignment) ?? 0
-        statusIconsToggle.isOn = settings.menuBarShowStatusIcons
-        heightSlider.setValue(settings.menuBarHeight)
-        menuBarCaption.stringValue = replacement == .hidden
-            ? "Crops the menu bar strip off the recording entirely — adjust Height until the bar is exactly gone."
-            : "Covers the recorded macOS menu bar with a clean bar — your own title, a fixed clock, no personal clutter. Adjust Height until it exactly hides the real bar."
+        menuBarChips.selectedIndex = BackgroundPane.menuBar.read(scope) ?? 0
+        titleRow.isHidden = !BackgroundPane.menuBarTitle.visible(scope)
+        alignLabel.isHidden = !BackgroundPane.menuBarAlign.visible(scope)
+        alignChips.isHidden = !BackgroundPane.menuBarAlign.visible(scope)
+        clockRow.isHidden = !BackgroundPane.menuBarClock.visible(scope)
+        statusIconsToggle.isHidden = !BackgroundPane.menuBarIcons.visible(scope)
+        heightSlider.isHidden = !BackgroundPane.menuBarHeight.visible(scope)
+        if titleField.currentEditor() == nil { titleField.stringValue = BackgroundPane.menuBarTitle.read(scope) }
+        if clockField.currentEditor() == nil { clockField.stringValue = BackgroundPane.menuBarClock.read(scope) }
+        alignChips.selectedIndex = BackgroundPane.menuBarAlign.read(scope) ?? 0
+        statusIconsToggle.isOn = BackgroundPane.menuBarIcons.read(scope)
+        heightSlider.setValue(BackgroundPane.menuBarHeight.read(scope))
+        menuBarCaption.stringValue = BackgroundPane.menuBarCaption.text(scope)
     }
 }
 
@@ -468,11 +385,9 @@ final class PlacementPadControl: CCPreviewPad {
     var customFraction: CGPoint? { didSet { needsLayout = true } }
     var padding: Double = 0 { didSet { needsLayout = true } }
 
-    private static let fractions: [ProjectSettings.VideoPlacement: (x: CGFloat, y: CGFloat)] = [
-        .topLeft: (0, 0), .top: (0.5, 0), .topRight: (1, 0),
-        .left: (0, 0.5), .center: (0.5, 0.5), .right: (1, 0.5),
-        .bottomLeft: (0, 1), .bottom: (0.5, 1), .bottomRight: (1, 1),
-    ]
+    private static var fractions: [ProjectSettings.VideoPlacement: (x: CGFloat, y: CGFloat)] {
+        InspectorPadMath.placementFractions
+    }
 
     private var dots: [CALayer] = []
     private let card = CALayer()
@@ -557,10 +472,9 @@ final class PlacementPadControl: CCPreviewPad {
     }
 
     private func pick(at point: NSPoint) {
-        func step(_ f: CGFloat) -> CGFloat { f < 1.0 / 3 ? 0 : (f > 2.0 / 3 ? 1 : 0.5) }
-        let fx = step(point.x / max(1, bounds.width))
-        let fy = step(point.y / max(1, bounds.height))
-        if let match = Self.fractions.first(where: { $0.value == (fx, fy) })?.key {
+        // The thirds snap is shared (InspectorPadMath) with the iOS pad.
+        if let match = InspectorPadMath.placement(atFraction: point.x / max(1, bounds.width),
+                                                 point.y / max(1, bounds.height)) {
             placement = match
             onSelect?(match)
         }

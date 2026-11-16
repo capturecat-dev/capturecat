@@ -1,13 +1,5 @@
 import AppKit
 
-/// Bindings/context the Annotate pane needs from EditorView (mirrors the
-/// MotionPaneContext pattern).
-struct AnnotatePaneContext {
-    var selectedAnnotationID: Ref<UUID?>
-    var currentTime: TimeInterval
-    var undoManager: UndoManager?
-}
-
 /// The Annotate tab as a native AppKit pane — faithful port of the redesigned
 /// AnnotationSettingsView: type header with destructive delete (undoable),
 /// per-type Text/Tap/Style sections, Effects (opacity + Build In/Out
@@ -20,29 +12,31 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let stack = NSStackView()
 
     // Empty state
-    private let emptyHeader = InspectorKitViews.header("Annotate")
-    private let emptyCaption = InspectorKitViews.caption("Add a text label, arrow, shape, or tap indicator from the toolbar — it lands on the ANNOTATE lane at the playhead. Select one (on the preview or the timeline) to edit its properties here. Double-click a text label on the preview to edit it in place.")
+    // Every control's title/range/step/readout, write and visibility: the
+    // shared AnnotationPane spec (Studio/Editor/Inspector).
+    private let emptyHeader = InspectorKitViews.header(AnnotationPane.emptyHeader)
+    private let emptyCaption = InspectorKitViews.caption(AnnotationPane.emptyCaption)
 
     // Header
     private let headerRow = NSStackView()
     private let typeIcon = NSImageView()
     private let typeLabel = NSTextField(labelWithString: "")
-    private let deleteButton = InspectorButton("Delete", destructive: true)
+    private let deleteButton = InspectorButton(AnnotationPane.delete)
 
     // Text section
     private let textCaption = InspectorKitViews.caption("Text")
-    private let textField = InspectorFlatTextField(placeholder: "Label")
-    private let textTip = InspectorKitViews.caption("Tip: double-click the label on the preview to edit it in place.")
-    private let fontSizeSlider = InspectorSliderRow(label: "Size", range: 10...72, step: 1)
-    private let weightChips = InspectorChipsControl()
-    private let fontMenu = InspectorMenuControl()
+    private let textField = InspectorFlatTextField(AnnotationPane.text)
+    private let textTip = InspectorKitViews.caption(AnnotationPane.textTipCaption)
+    private let fontSizeSlider = InspectorSliderRow(AnnotationPane.fontSize)
+    private let weightChips = InspectorChipsControl(AnnotationPane.weight)
+    private let fontMenu = InspectorMenuControl(AnnotationPane.font)
     private var fontRow: NSView!
-    private let uppercaseToggle = InspectorToggleControl("Uppercase")
+    private let uppercaseToggle = InspectorToggleControl(AnnotationPane.uppercase)
 
     // Tap section
     private let tapCaption = InspectorKitViews.caption("Tap Ripple")
-    private let tapSizeSlider = InspectorSliderRow(label: "Size", range: 20...120, step: 5)
-    private let tapTip = InspectorKitViews.caption("Drag the ripple on the preview over the tapped spot. It pulses for the block's whole duration.")
+    private let tapSizeSlider = InspectorSliderRow(AnnotationPane.tapSize)
+    private let tapTip = InspectorKitViews.caption(AnnotationPane.tapTipCaption)
 
     // Style section
     private let styleCaption = InspectorKitViews.caption("Style")
@@ -52,34 +46,34 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let fillToggle = CaptureCatToggle()
     private var fillRow: NSView!
     private let fillRowLabel = NSTextField(labelWithString: "Background")
-    private let cornersSlider = InspectorSliderRow(label: "Corners", range: 0...24, step: 1)
-    private let borderSlider = InspectorSliderRow(label: "Border", range: 0...12, step: 0.5)
+    private let cornersSlider = InspectorSliderRow(AnnotationPane.corners)
+    private let borderSlider = InspectorSliderRow(AnnotationPane.border)
 
     // Effects section
     private let effectsCaption = InspectorKitViews.caption("Effects")
-    private let opacitySlider = InspectorSliderRow(label: "Opacity", range: 0.2...1.0, step: 0.05)
-    private let blackoutSlider = InspectorSliderRow(label: "Blackout", range: 0...0.9, step: 0.05)
-    private let buildInMenu = InspectorMenuControl()
+    private let opacitySlider = InspectorSliderRow(AnnotationPane.opacity)
+    private let blackoutSlider = InspectorSliderRow(AnnotationPane.blackout)
+    private let buildInMenu = InspectorMenuControl(AnnotationPane.buildIn)
     private var buildInRow: NSView!
-    private let buildOutMenu = InspectorMenuControl()
+    private let buildOutMenu = InspectorMenuControl(AnnotationPane.buildOut)
     private var buildOutRow: NSView!
-    private let shadowToggle = InspectorToggleControl("Shadow")
+    private let shadowToggle = InspectorToggleControl(AnnotationPane.shadow)
 
     // Drawing section
     private let drawingCaption = InspectorKitViews.caption("Strokes")
     private let drawingRow = NSStackView()
     private let strokesLabel = NSTextField(labelWithString: "")
-    private let undoStrokeButton = InspectorButton("Undo Last")
-    private let clearStrokesButton = InspectorButton("Clear", destructive: true)
-    private let drawingTip = InspectorKitViews.caption("Draw directly on the preview canvas.")
+    private let undoStrokeButton = InspectorButton(AnnotationPane.undoStroke)
+    private let clearStrokesButton = InspectorButton(AnnotationPane.clearStrokes)
+    private let drawingTip = InspectorKitViews.caption(AnnotationPane.drawingTipCaption)
 
     // Timing section
     private let timingCaption = InspectorKitViews.caption("Timing")
     private let timingRow = NSStackView()
-    private let startField = InspectorFlatTextField(placeholder: "0.00", width: 56)
-    private let endField = InspectorFlatTextField(placeholder: "0.00", width: 56)
-    private let atPlayheadButton = InspectorButton("At Playhead")
-    private let timingTip = InspectorKitViews.caption("Drag the block's edges on the ANNOTATE lane to retime it.")
+    private let startField = InspectorFlatTextField(AnnotationPane.start, width: 56)
+    private let endField = InspectorFlatTextField(AnnotationPane.end, width: 56)
+    private let atPlayheadButton = InspectorButton(AnnotationPane.atPlayhead)
+    private let timingTip = InspectorKitViews.caption(AnnotationPane.timingTipCaption)
 
     private var editorViews: [NSView] = []
     private var dividers: [NSView] = []
@@ -176,10 +170,8 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         editor(textField)
         editor(textTip)
         editor(fontSizeSlider)
-        fontMenu.items = FontCatalog.menuNames.map { .init(title: $0, icon: nil) }
-        fontRow = InspectorKitViews.row("Font", control: fontMenu)
+        fontRow = InspectorKitViews.row(AnnotationPane.font.title, control: fontMenu)
         editor(fontRow)
-        weightChips.items = ProjectSettings.SubtitleWeight.allCases.map(\.rawValue)
         editor(weightChips)
         editor(uppercaseToggle)
 
@@ -191,13 +183,15 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         // Style
         editorDivider()
         editor(styleCaption)
-        colorRow = InspectorKitViews.row("Color", control: colorWell)
+        colorRow = InspectorKitViews.row(AnnotationPane.color.title, control: colorWell)
         editor(colorRow)
 
         // Fill/background row: label left, well + switch right.
         fillRowLabel.font = EditorThemeKit.label()
+        fillToggle.inspectorSpecID = AnnotationPane.fillToggle.id
         fillToggle.onChange = { [weak self] isOn in
-            self?.mutate { $0.showBackground = isOn }
+            guard let self else { return }
+            AnnotationPane.fillToggle.write(self.scope, isOn)
         }
         let fillControls = NSStackView(views: [fillWell, fillToggle])
         fillControls.orientation = .horizontal
@@ -223,15 +217,11 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         // Effects
         editorDivider()
         editor(effectsCaption)
-        opacitySlider.format = { "\(Int(($0 * 100).rounded()))%" }
         editor(opacitySlider)
-        blackoutSlider.format = { $0 < 0.026 ? "Off" : "\(Int(($0 * 100).rounded()))%" }
         editor(blackoutSlider)
-        buildInMenu.items = AnnotationEffect.allCases.map { .init(title: $0.rawValue) }
-        buildInRow = InspectorKitViews.row("Build In", control: buildInMenu)
+        buildInRow = InspectorKitViews.row(AnnotationPane.buildIn.title, control: buildInMenu)
         editor(buildInRow)
-        buildOutMenu.items = AnnotationEffect.allCases.map { .init(title: $0.rawValue) }
-        buildOutRow = InspectorKitViews.row("Build Out", control: buildOutMenu)
+        buildOutRow = InspectorKitViews.row(AnnotationPane.buildOut.title, control: buildOutMenu)
         editor(buildOutRow)
         editor(shadowToggle)
 
@@ -276,121 +266,43 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
 
     // MARK: - Wiring (writes)
 
-    private var selectedIndex: Int? {
-        guard let id = context.selectedAnnotationID.wrappedValue else { return nil }
-        return project.annotations.firstIndex(where: { $0.id == id })
-    }
-
-    private func mutate(_ change: (inout Annotation) -> Void) {
-        guard let idx = selectedIndex else { return }
-        var annotation = project.annotations[idx]
-        change(&annotation)
-        project.annotations[idx] = annotation
+    /// The pane's scope for the shared spec: the selected annotation through
+    /// the current context (rebuilt per use, so it always sees the latest).
+    private var scope: InspectorScope {
+        InspectorScope(settings: project.settings, project: project, annotate: context)
     }
 
     private func wire() {
-        deleteButton.onClick = { [weak self] in
-            guard let self, let idx = self.selectedIndex else { return }
-            let removed = self.project.annotations[idx]
-            self.project.annotations.remove(at: idx)
-            self.context.selectedAnnotationID.wrappedValue = nil
-            self.context.undoManager?.registerUndo(withTarget: self.project) { p in
-                p.annotations.append(removed)
-            }
-            self.context.undoManager?.setActionName("Delete Annotation")
-        }
-
-        fontSizeSlider.onChange = { [weak self] value in
-            self?.mutate { $0.fontSize = value }
-        }
-        tapSizeSlider.onChange = { [weak self] value in
-            self?.mutate { $0.fontSize = value }
-        }
-        fontMenu.onSelect = { [weak self] index in
-            self?.mutate { $0.fontName = FontCatalog.storedName(forMenuIndex: index) }
-        }
-        uppercaseToggle.onChange = { [weak self] on in
-            self?.mutate { $0.uppercase = on }
-        }
-        weightChips.onSelect = { [weak self] index in
-            let all = ProjectSettings.SubtitleWeight.allCases
-            guard all.indices.contains(index) else { return }
-            self?.mutate { $0.fontWeight = all[index] }
-        }
-
-        colorWell.getColor = { [weak self] in
-            guard let self, let idx = self.selectedIndex else { return .white }
-            return self.project.annotations[idx].color.nsColor
-        }
-        colorWell.setColor = { [weak self] color in
-            self?.mutate { $0.color = CodableColor(color) }
-        }
-        fillWell.getColor = { [weak self] in
-            guard let self, let idx = self.selectedIndex else { return .black }
-            return self.project.annotations[idx].backgroundColor.nsColor
-        }
-        fillWell.setColor = { [weak self] color in
-            self?.mutate { $0.backgroundColor = CodableColor(color) }
-        }
-
-        cornersSlider.onChange = { [weak self] value in
-            self?.mutate { $0.cornerRadius = value }
-        }
-        borderSlider.onChange = { [weak self] value in
-            self?.mutate { $0.lineWidth = value }
-        }
-        opacitySlider.onChange = { [weak self] value in
-            self?.mutate { $0.opacity = value }
-        }
-        blackoutSlider.onChange = { [weak self] value in
-            self?.mutate { $0.backdropOpacity = value < 0.026 ? 0 : value }
-        }
-        buildInMenu.onSelect = { [weak self] index in
-            let all = AnnotationEffect.allCases
-            guard all.indices.contains(index) else { return }
-            self?.mutate { $0.enterEffect = all[index] }
-        }
-        buildOutMenu.onSelect = { [weak self] index in
-            let all = AnnotationEffect.allCases
-            guard all.indices.contains(index) else { return }
-            self?.mutate { $0.exitEffect = all[index] }
-        }
-        shadowToggle.onChange = { [weak self] on in
-            self?.mutate { $0.showShadow = on }
-        }
-        undoStrokeButton.onClick = { [weak self] in
-            self?.mutate {
-                guard !$0.drawingStrokes.isEmpty else { return }
-                $0.drawingStrokes.removeLast()
-            }
-        }
-        clearStrokesButton.onClick = { [weak self] in
-            self?.mutate { $0.drawingStrokes = [] }
-        }
-        atPlayheadButton.onClick = { [weak self] in
-            guard let self else { return }
-            let time = self.context.currentTime
-            let duration = self.project.duration
-            self.mutate {
-                $0.startTime = max(0, time)
-                $0.endTime = min(duration, time + 3)
-            }
-        }
+        let scope: () -> InspectorScope? = { [weak self] in self?.scope }
+        deleteButton.bind(AnnotationPane.delete, scope)
+        fontSizeSlider.bind(AnnotationPane.fontSize, scope)
+        tapSizeSlider.bind(AnnotationPane.tapSize, scope)
+        fontMenu.bind(AnnotationPane.font, scope)
+        uppercaseToggle.bind(AnnotationPane.uppercase, scope)
+        weightChips.bind(AnnotationPane.weight, scope)
+        colorWell.bind(AnnotationPane.color, scope)
+        fillWell.bind(AnnotationPane.fillColor, scope, fallback: .black)
+        cornersSlider.bind(AnnotationPane.corners, scope)
+        borderSlider.bind(AnnotationPane.border, scope)
+        opacitySlider.bind(AnnotationPane.opacity, scope)
+        blackoutSlider.bind(AnnotationPane.blackout, scope)
+        buildInMenu.bind(AnnotationPane.buildIn, scope)
+        buildOutMenu.bind(AnnotationPane.buildOut, scope)
+        shadowToggle.bind(AnnotationPane.shadow, scope)
+        undoStrokeButton.bind(AnnotationPane.undoStroke, scope)
+        clearStrokesButton.bind(AnnotationPane.clearStrokes, scope)
+        atPlayheadButton.bind(AnnotationPane.atPlayhead, scope)
     }
 
     // NSTextFieldDelegate — commit text/time fields on end editing.
     func controlTextDidEndEditing(_ obj: Notification) {
         guard let field = obj.object as? NSTextField else { return }
         if field === textField {
-            mutate { $0.text = field.stringValue }
+            AnnotationPane.text.write(scope, field.stringValue)
         } else if field === startField {
-            if let value = Double(field.stringValue) {
-                mutate { $0.startTime = max(0, value) }
-            }
+            AnnotationPane.start.write(scope, field.stringValue)
         } else if field === endField {
-            if let value = Double(field.stringValue) {
-                mutate { $0.endTime = max($0.startTime + 0.5, value) }
-            }
+            AnnotationPane.end.write(scope, field.stringValue)
         }
         apply()
     }
@@ -400,8 +312,8 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private func apply() {
         // Touch the whole annotations array so any property change re-arms.
         let annotations = project.annotations
-        let idx = context.selectedAnnotationID.wrappedValue
-            .flatMap { id in annotations.firstIndex(where: { $0.id == id }) }
+        let scope = self.scope
+        let idx = AnnotationPane.selectedIndex(scope)
 
         let hasSelection = idx != nil
         emptyHeader.isHidden = hasSelection
@@ -412,33 +324,31 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         let type = annotation.type
 
         // Header
-        typeIcon.image = CCIcon.image(icon(for: type), pointSize: 13, weight: .semibold)
-        typeLabel.stringValue = name(for: type)
+        typeIcon.image = CCIcon.image(AnnotationPane.icon(for: type), pointSize: 13, weight: .semibold)
+        typeLabel.stringValue = AnnotationPane.name(for: type)
 
         // Section visibility
-        let isText = type == .text || type == .callout
+        let isText = AnnotationPane.isText(scope)
         textCaption.isHidden = !isText
-        textField.isHidden = !isText
+        textField.isHidden = !AnnotationPane.text.visible(scope)
         textTip.isHidden = !isText
-        fontSizeSlider.isHidden = !isText
-        weightChips.isHidden = !isText
-        uppercaseToggle.isHidden = !isText
-        fontRow.isHidden = !isText
+        fontSizeSlider.isHidden = !AnnotationPane.fontSize.visible(scope)
+        weightChips.isHidden = !AnnotationPane.weight.visible(scope)
+        uppercaseToggle.isHidden = !AnnotationPane.uppercase.visible(scope)
+        fontRow.isHidden = !AnnotationPane.font.visible(scope)
 
-        let isTap = type == .tap
+        let isTap = AnnotationPane.isTap(scope)
         tapCaption.isHidden = !isTap
-        tapSizeSlider.isHidden = !isTap
+        tapSizeSlider.isHidden = !AnnotationPane.tapSize.visible(scope)
         tapTip.isHidden = !isTap
 
-        let hasFill = isText || type == .rectangle || type == .ellipse
-        fillRow.isHidden = !hasFill
-        fillRowLabel.stringValue = (type == .rectangle || type == .ellipse) ? "Fill" : "Background"
-        cornersSlider.isHidden = !(isText || type == .rectangle)
-        let hasBorder = type == .arrow || type == .drawing || type == .rectangle || type == .ellipse
-        borderSlider.isHidden = !hasBorder
-        shadowToggle.isHidden = isTap
+        fillRow.isHidden = !AnnotationPane.hasFill(scope)
+        fillRowLabel.stringValue = AnnotationPane.fillTitle(scope)
+        cornersSlider.isHidden = !AnnotationPane.corners.visible(scope)
+        borderSlider.isHidden = !AnnotationPane.border.visible(scope)
+        shadowToggle.isHidden = !AnnotationPane.shadow.visible(scope)
 
-        let isDrawing = type == .drawing
+        let isDrawing = AnnotationPane.isDrawing(scope)
         drawingCaption.isHidden = !isDrawing
         drawingRow.isHidden = !isDrawing
         drawingTip.isHidden = !isDrawing
@@ -447,66 +357,42 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         // non-nil mid-edit; comparing against firstResponder fails the
         // nil-vs-nil case and left the fields stuck on their placeholders)
         if textField.currentEditor() == nil {
-            textField.stringValue = annotation.text
+            textField.stringValue = AnnotationPane.text.read(scope)
         }
-        fontSizeSlider.setValue(annotation.fontSize)
-        tapSizeSlider.setValue(annotation.fontSize)
-        if let wIndex = ProjectSettings.SubtitleWeight.allCases.firstIndex(of: annotation.fontWeight) {
+        fontSizeSlider.setValue(AnnotationPane.fontSize.read(scope))
+        tapSizeSlider.setValue(AnnotationPane.tapSize.read(scope))
+        if let wIndex = AnnotationPane.weight.read(scope) {
             weightChips.selectedIndex = wIndex
         }
-        uppercaseToggle.isOn = annotation.uppercase
-        fontMenu.selectedIndex = FontCatalog.menuIndex(for: annotation.fontName)
+        uppercaseToggle.isOn = AnnotationPane.uppercase.read(scope)
+        fontMenu.selectedIndex = AnnotationPane.font.read(scope) ?? 0
         colorWell.refresh()
         fillWell.refresh()
         fillWell.isHidden = !annotation.showBackground
-        fillToggle.isOn = annotation.showBackground
-        cornersSlider.setValue(annotation.cornerRadius)
-        borderSlider.slider.range = isDrawing ? 1...30 : 0...12
-        borderSlider.setValue(annotation.lineWidth)
-        opacitySlider.setValue(annotation.opacity)
-        blackoutSlider.setValue(annotation.backdropOpacity)
-        if let eIndex = AnnotationEffect.allCases.firstIndex(of: annotation.enterEffect) {
+        fillToggle.isOn = AnnotationPane.fillToggle.read(scope)
+        cornersSlider.setValue(AnnotationPane.corners.read(scope))
+        borderSlider.slider.range = AnnotationPane.border.range(in: scope)
+        borderSlider.setValue(AnnotationPane.border.read(scope))
+        opacitySlider.setValue(AnnotationPane.opacity.read(scope))
+        blackoutSlider.setValue(AnnotationPane.blackout.read(scope))
+        if let eIndex = AnnotationPane.buildIn.read(scope) {
             buildInMenu.selectedIndex = eIndex
         }
-        if let xIndex = AnnotationEffect.allCases.firstIndex(of: annotation.exitEffect) {
+        if let xIndex = AnnotationPane.buildOut.read(scope) {
             buildOutMenu.selectedIndex = xIndex
         }
-        shadowToggle.isOn = annotation.showShadow
+        shadowToggle.isOn = AnnotationPane.shadow.read(scope)
 
-        let strokes = annotation.drawingStrokes.count
-        strokesLabel.stringValue = "\(strokes) stroke\(strokes == 1 ? "" : "s")"
+        let strokes = AnnotationPane.strokeCount(scope)
+        strokesLabel.stringValue = AnnotationPane.strokesText(scope)
         undoStrokeButton.isHidden = strokes == 0
         clearStrokesButton.isHidden = strokes == 0
 
         if startField.currentEditor() == nil {
-            startField.stringValue = String(format: "%.2f", annotation.startTime)
+            startField.stringValue = AnnotationPane.start.read(scope)
         }
         if endField.currentEditor() == nil {
-            endField.stringValue = String(format: "%.2f", annotation.endTime)
-        }
-    }
-
-    private func name(for type: AnnotationType) -> String {
-        switch type {
-        case .text: return "Text"
-        case .arrow: return "Arrow"
-        case .callout: return "Callout"
-        case .drawing: return "Drawing"
-        case .rectangle: return "Rectangle"
-        case .ellipse: return "Ellipse"
-        case .tap: return "Tap Indicator"
-        }
-    }
-
-    private func icon(for type: AnnotationType) -> String {
-        switch type {
-        case .text: return "textformat"
-        case .arrow: return "arrow.up.right"
-        case .callout: return "bubble.left"
-        case .drawing: return "scribble"
-        case .rectangle: return "rectangle"
-        case .ellipse: return "circle"
-        case .tap: return "hand.tap"
+            endField.stringValue = AnnotationPane.end.read(scope)
         }
     }
 }

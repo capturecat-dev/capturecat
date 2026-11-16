@@ -25,6 +25,11 @@ import UniformTypeIdentifiers
 ///                           iOS VideoExporter and score them against the Mac's
 ///                           taps (StudioHarness/ExportParityHarness;
 ///                           apps/ios/scripts/ios-export-parity.sh)
+///   --inspector <outDir> [--inject snap]
+///                           every inspector control of the nine panes through the
+///                           real editor vs the Mac's frozen transcript, undo per
+///                           edit, structure, Dynamic Type, re-theme, motion
+///                           sequences (InspectorLab.swift; apps/ios/scripts/ios-inspector.sh)
 ///   --kit-gallery <outDir>  every house control in every state, both themes,
 ///                           with motion sequences (KitGalleryLab.swift;
 ///                           apps/ios/scripts/kit-gallery.sh)
@@ -76,6 +81,7 @@ final class LabViewController: UIViewController {
 
     func start(arguments: [String]) {
         if KitGalleryLab.start(arguments, lab: self) { return }
+        if InspectorLab.start(arguments, lab: self) { return }
         if TimelineEditsLab.start(arguments, in: self) { return }
         if let i = arguments.firstIndex(of: "--decode-probe"), arguments.indices.contains(i + 1) {
             let video = URL(fileURLWithPath: arguments[i + 1])

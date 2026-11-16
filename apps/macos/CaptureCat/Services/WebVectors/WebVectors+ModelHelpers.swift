@@ -113,10 +113,10 @@ extension WebVectors {
         func presetWV(_ p: SubtitlePreset) -> WV {
             [
                 "id": .str(p.id), "name": .str(p.name), "style": .str(p.style.rawValue), "weight": .str(p.weight.rawValue),
-                "uppercase": p.uppercase.wv, "color": WVModel.color(CodableColor(p.color)),
-                "background": p.background.map { WVModel.color(CodableColor($0)) } ?? .null,
+                "uppercase": p.uppercase.wv, "color": WVModel.color(p.color.codable),
+                "background": p.background.map { WVModel.color($0.codable) } ?? .null,
                 "karaoke": p.karaoke.wv,
-                "highlight": p.highlight.map { WVModel.color(CodableColor($0)) } ?? .null,
+                "highlight": p.highlight.map { WVModel.color($0.codable) } ?? .null,
             ]
         }
         cases.append(vcase(["kind": "all"], .arr(SubtitlePreset.all.map(presetWV))))
