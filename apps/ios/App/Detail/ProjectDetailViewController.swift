@@ -308,7 +308,7 @@ final class ProjectDetailViewController: DetailPageViewController {
                         return
                     }
                     self.loadedSource = .original
-                    player.load(AVURLAsset(url: file.url), startAt: startAt, autoplay: autoplay)
+                    player.load(file.avAsset(), startAt: startAt, autoplay: autoplay)
                     self.urlsExpireAt = detail.urlsExpireAt
                 } catch {
                     if case APIError.http(404, _, _) = error { self.showMissing(); return }

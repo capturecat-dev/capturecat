@@ -46,7 +46,7 @@ final class ThumbnailStore {
             let start = facts?.trimStart ?? 0
             // A frame a little in, so the first black frame never becomes the card.
             let time = (facts?.isStillCapture ?? false) ? 0.1 : min(start + max(0.6, duration * 0.12), max(duration - 0.1, 0.1))
-            return await Self.frame(from: AVURLAsset(url: file.url), at: time)
+            return await Self.frame(from: file.avAsset(), at: time)
         }
     }
 
