@@ -27,15 +27,14 @@ final class MergeReviewDialog {
         self.review = review
         let count = review.conflicts.count
         dialog = CCDialog(
-            title: count == 1 ? "Review 1 conflict" : "Review \(count) conflicts",
+            title: MergeReviewWords.dialogTitle(conflicts: count),
             subtitle: projectName,
             width: 500)
         dialog.entrance = .slideUp()
 
         let who = Self.theirsName(review)
         let intro = CCWrappingLabel()
-        intro.stringValue = "\(who) changed this project while it was also edited on this Mac. "
-            + "Choose which side to keep where the two can't be combined — everything else is already merged."
+        intro.stringValue = MergeReviewWords.intro(theirs: who, device: "Mac")
         captions.append(intro)
         dialog.addContent(intro)
 
@@ -51,7 +50,7 @@ final class MergeReviewDialog {
             detail.stringValue = Self.detail(for: conflict, theirs: who)
             captions.append(detail)
             let control = CCSegmented(
-                segments: ["Mine", "Theirs"],
+                segments: MergeReviewWords.segments,
                 selectedIndex: conflict.resolution == .mine ? 0 : 1,
                 size: .sm,
                 hoverWash: true)
@@ -70,8 +69,7 @@ final class MergeReviewDialog {
             let accordion = CCAccordion(mode: .single, chrome: .card)
             let n = review.autoResolved.count
             accordion.addItem(
-                title: n == 1 ? "1 clash settled automatically (latest edit wins)"
-                    : "\(n) clashes settled automatically (latest edit wins)",
+                title: MergeReviewWords.autoResolvedTitle(n),
                 text: list)
             self.accordion = accordion
             dialog.addContent(accordion)
@@ -130,73 +128,18 @@ final class MergeReviewDialog {
     var probeTitles: [String] { labels.map(\.stringValue) }
     var probeAccordion: CCAccordion? { accordion }
 
-    // MARK: - Words
+    // MARK: - Words (shared: Studio/ProjectHistory/HistoryWords.swift)
 
-    static func theirsName(_ review: CloudMergeReview) -> String {
-        if let name = review.author?.name, !name.isEmpty {
-            if let label = review.author?.clientLabel, !label.isEmpty { return "\(name) (\(label))" }
-            return name
-        }
-        return "The web editor"
-    }
+    static func theirsName(_ review: CloudMergeReview) -> String { MergeReviewWords.theirsName(author: review.author) }
 
     /// "Annotation", "Zoom", "Caption word"… for a collection path.
-    static func noun(forPath path: String) -> String {
-        let key = path.split(separator: "[").first.map(String.init) ?? path
-        if path.contains(".words[") { return "Caption word" }
-        switch key {
-        case "zoomRegions": return "Zoom"
-        case "tiltRegions": return "Tilt"
-        case "speedRegions": return "Speed region"
-        case "blurRegions": return "Blur"
-        case "highlightRegions": return "Highlight"
-        case "focusRegions": return "Depth focus"
-        case "cameraLayoutRegions": return "Camera layout"
-        case "annotations": return "Annotation"
-        case "voiceOverClips": return "Voice-over"
-        case "subtitles": return "Caption"
-        default: return "Item"
-        }
-    }
+    static func noun(forPath path: String) -> String { MergeReviewWords.noun(forPath: path) }
 
-    static func title(for conflict: MergeConflict) -> String {
-        switch conflict.kind {
-        case "clipStructure": return "Clips and trim"
-        case "deleteVsModify": return noun(forPath: conflict.path)
-        case "subtitlesRegenerated": return "Captions"
-        case "laneOverlap":
-            let lane = conflict.lane.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "Timeline"
-            return "\(lane) lane overlap"
-        default: return conflict.path
-        }
-    }
+    static func title(for conflict: MergeConflict) -> String { MergeReviewWords.title(for: conflict) }
 
     static func detail(for conflict: MergeConflict, theirs: String) -> String {
-        switch conflict.kind {
-        case "clipStructure":
-            return "The clips were cut or trimmed on both sides. Mine keeps this Mac's clips; Theirs keeps \(theirs)'s."
-        case "deleteVsModify":
-            let noun = noun(forPath: conflict.path).lowercased()
-            return conflict.deletedBy == .mine
-                ? "Deleted on this Mac but edited by \(theirs). Mine deletes the \(noun); Theirs keeps the edit."
-                : "Deleted by \(theirs) but edited on this Mac. Mine keeps the edit; Theirs deletes the \(noun)."
-        case "subtitlesRegenerated":
-            let by = conflict.regeneratedBy == "mine" ? "on this Mac" : conflict.regeneratedBy == "theirs" ? "by \(theirs)" : "on both sides"
-            return "Captions were regenerated \(by) and edited on the other side. Pick one set of captions."
-        case "laneOverlap":
-            return "Combining both sides would make two items overlap on this lane. Pick whose timing to keep for both."
-        default:
-            return "Both sides changed this."
-        }
+        MergeReviewWords.detail(for: conflict, theirs: theirs, device: "Mac")
     }
 
-    static func describe(_ item: MergeAutoResolved) -> String {
-        let side = item.winner == .mine ? "this Mac" : "theirs"
-        let what: String
-        switch item.kind {
-        case "order": what = "\(noun(forPath: item.path)) order"
-        default: what = item.path
-        }
-        return "• \(what) — kept \(side)"
-    }
+    static func describe(_ item: MergeAutoResolved) -> String { MergeReviewWords.describe(item, device: "Mac") }
 }

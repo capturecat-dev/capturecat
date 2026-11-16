@@ -4,7 +4,7 @@
  * The merge runs on the RAW project.json values, never on decoded models:
  * decoding drops unknown keys and, for id-less CameraLayoutRegions, invents a
  * fresh random id on every decode — neither is acceptable in a three-way
- * merge. Twinned EXACTLY in Swift (Services/ProjectHistory/JSONValue.swift);
+ * merge. Twinned EXACTLY in Swift (Studio/ProjectHistory/JSONValue.swift);
  * the `projectMerge` golden vectors lock the two together.
  *
  * Canonical JSON (what every comparison and golden string uses):

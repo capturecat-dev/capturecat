@@ -64,7 +64,8 @@ enum HistoryPanelHarness {
 
     // MARK: - Fixture
 
-    private struct Fixture {
+    /// Also the fixture of `--history-transcript` (HistoryTranscriptHarness).
+    struct Fixture {
         let root: URL
         let dir: URL
         let project: Project
@@ -79,7 +80,7 @@ enum HistoryPanelHarness {
         try encoder.encode(project).write(to: url, options: .atomic)
     }
 
-    private static func load(_ url: URL) throws -> Project {
+    static func load(_ url: URL) throws -> Project {
         try JSONDecoder().decode(Project.self, from: Data(contentsOf: url))
     }
 
@@ -87,7 +88,7 @@ enum HistoryPanelHarness {
     /// on the web, a Mac edit, an agent edit on the web (named), Ana again,
     /// a Mac push that replaced a media file (so old versions pin removed
     /// media) — then an unsynced Mac edit for the "not synced" pseudo-row.
-    private static func makeFixture() async throws -> Fixture {
+    static func makeFixture() async throws -> Fixture {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent("capturecat-history-panel-\(UUID().uuidString)", isDirectory: true)
         let id = UUID()

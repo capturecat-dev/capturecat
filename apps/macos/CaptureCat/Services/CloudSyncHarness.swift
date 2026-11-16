@@ -1389,7 +1389,10 @@ final class StubCloudServer: CloudProjectTransport {
 
     // MARK: Project history (docs/project-history.md §2, §4, §6)
 
-    /// One retained version, as `cloud_project_versions` stores it.
+    /// One retained version, as `cloud_project_versions` stores it: the
+    /// shared log's entry (Studio/ProjectHistory/ProjectVersionLog — the
+    /// iOS studio's on-device history records through the same rules) plus
+    /// the media manifest it pins.
     struct StubVersion {
         let id: String
         let seq: Int
@@ -1409,11 +1412,23 @@ final class StubCloudServer: CloudProjectTransport {
         let mergedFrom: Int?
         let restoredFrom: String?
         var extended = false
+
+        init(_ entry: ProjectVersionLog.Entry, files: [CloudRemoteFile]) {
+            id = entry.id; seq = entry.seq; firstRevision = entry.firstRevision; revision = entry.revision
+            document = entry.document; self.files = files; kind = entry.kind; label = entry.label
+            actorUID = entry.actorUID; clientKind = entry.clientKind; clientID = entry.clientID; source = entry.source
+            change = entry.change; openedAt = entry.openedAt; updatedAt = entry.updatedAt
+            mergedFrom = entry.mergedFrom; restoredFrom = entry.restoredFrom; extended = entry.extended
+        }
     }
 
+    /// The versions (no coalescing windows — the gates pin a clock that
+    /// jumps between saves) and each one's pinned manifest.
+    private var log = ProjectVersionLog()
+    private var versionFiles: [String: [CloudRemoteFile]] = [:]
+
     /// Oldest first.
-    private(set) var versions: [StubVersion] = []
-    private var nextSeq = 1
+    var versions: [StubVersion] { log.entries.map { StubVersion($0, files: versionFiles[$0.id] ?? []) } }
     /// When the current revision was saved (`updated_at`).
     private(set) var updatedAt: Date?
     private(set) var lastSaveContext: CloudSaveContext?
@@ -1449,37 +1464,13 @@ final class StubCloudServer: CloudProjectTransport {
         previous: Data?, actorUID: String, clientKind: String, clientID: String?, source: String,
         change: ChangeSet?, checkpoint: CloudSaveContext.Checkpoint?, mergedFrom: Int?, restoredFrom: String?
     ) -> StubVersion {
-        let now = updatedAt ?? Date()
-        let derivedChange = change ?? previous.flatMap { prev -> ChangeSet? in
-            guard let a = try? JSONValue.parse(data: prev), let b = try? JSONValue.parse(data: document ?? Data()) else { return nil }
-            return ProjectDiff.diff(a, b)
-        }
-        if checkpoint == nil, var head = versions.last, head.kind == "edit", head.label == nil,
-           head.actorUID == actorUID, head.clientID == clientID, head.source == source {
-            head.revision = revision
-            head.document = document ?? Data()
-            head.files = committedFiles
-            head.updatedAt = now
-            head.change = head.change.map { prior in derivedChange.map { ProjectDiff.compose(prior, $0) } ?? prior } ?? derivedChange
-            head.extended = true
-            versions[versions.count - 1] = head
-            return head
-        }
-        let kind: String
-        switch checkpoint {
-        case .merge: kind = "merge"
-        case .restore: kind = "restore"
-        case .upload: kind = "upload"
-        default: kind = previous == nil ? "upload" : "edit"
-        }
-        let version = StubVersion(
-            id: "ver-\(nextSeq)", seq: nextSeq, firstRevision: revision, revision: revision,
-            document: document ?? Data(), files: committedFiles, kind: kind, label: nil,
-            actorUID: actorUID, clientKind: clientKind, clientID: clientID, source: source,
-            change: derivedChange, openedAt: now, updatedAt: now, mergedFrom: mergedFrom, restoredFrom: restoredFrom)
-        nextSeq += 1
-        versions.append(version)
-        return version
+        let entry = log.record(
+            previous: previous, document: document ?? Data(), revision: revision, at: updatedAt ?? Date(),
+            actorUID: actorUID, clientKind: clientKind, clientID: clientID, source: source, change: change,
+            checkpoint: checkpoint.flatMap { ProjectVersionLog.Checkpoint(rawValue: $0.rawValue) },
+            mergedFrom: mergedFrom, restoredFrom: restoredFrom)
+        versionFiles[entry.id] = committedFiles
+        return StubVersion(entry, files: committedFiles)
     }
 
     /// A web save by `actor` (Ana on the web editor by default): a new
@@ -1519,8 +1510,7 @@ final class StubCloudServer: CloudProjectTransport {
 
     /// "Name this version" from another client (or the test itself).
     func name(_ id: String, _ label: String?) {
-        guard let index = versions.firstIndex(where: { $0.id == id }) else { return }
-        versions[index].label = label
+        log.name(id, label)
     }
 
     /// The API's version object `V` (docs/project-history.md §6.1), built as
@@ -1631,7 +1621,7 @@ extension StubCloudServer: CloudHistoryTransport {
         if !trimmed.isEmpty, versions[index].label == nil, versions.filter({ $0.label != nil }).count >= namedLimit {
             throw CloudSyncError.api(status: 402, code: "named_version_limit", message: "Named version limit reached")
         }
-        versions[index].label = trimmed.isEmpty ? nil : trimmed
+        log.name(versionID, trimmed.isEmpty ? nil : trimmed)
         let body = wire(["projectId": projectID.uuidString, "version": versionJSON(versions[index])])
         let object = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
         return CloudHistoryParse.version(object?["version"])
@@ -1681,10 +1671,11 @@ extension StubCloudServer: CloudHistoryTransport {
         guard versions.last?.id != versionID else {
             throw CloudSyncError.api(status: 409, code: "head_version", message: "The current version cannot be deleted")
         }
-        guard let index = versions.firstIndex(where: { $0.id == versionID }) else {
+        guard versions.contains(where: { $0.id == versionID }) else {
             throw CloudSyncError.api(status: 404, code: "version_not_found", message: "Version not found")
         }
-        versions.remove(at: index)
+        log.remove([versionID])
+        versionFiles[versionID] = nil
         deletedVersions.append(versionID)
         collect()
     }
@@ -1701,7 +1692,8 @@ extension StubCloudServer: CloudHistoryTransport {
         let doomed = versions.filter { v in
             v.id != headID && v.label == nil && v.files.contains { !current.contains($0.sha256) }
         }.map(\.id)
-        versions.removeAll { doomed.contains($0.id) }
+        log.remove(Set(doomed))
+        for id in doomed { versionFiles[id] = nil }
         deletedVersions += doomed
         collect()
         let after = mediaStats()

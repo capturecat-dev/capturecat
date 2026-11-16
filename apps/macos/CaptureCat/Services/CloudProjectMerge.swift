@@ -189,13 +189,7 @@ nonisolated enum CloudJSON {
 
 // MARK: - Merge outcome types
 
-/// Who saved the revision a merge brought in (best effort, from the
-/// versions list) — the toast's "from Ana (Web)".
-nonisolated struct CloudVersionAuthor: Equatable, Sendable {
-    let name: String?
-    /// "Mac" / "Web" / "Agent via Mac" / "Agent via Web".
-    let clientLabel: String?
-}
+// `CloudVersionAuthor` lives in Studio/ProjectHistory/HistoryVersion.swift.
 
 /// What a finished merge did — drives the "Merged 2 changes from Ana (Web)" toast.
 nonisolated struct CloudMergeReport: Equatable, Sendable {
@@ -264,10 +258,9 @@ extension CloudProjectSync {
     /// mineWins = the project.json mtime (clamped to now) is LATER than the
     /// server's `updated_at`, at the API's millisecond resolution; ties (and
     /// an unknown server clock) go to theirs.
+    /// (Shared with the iOS studio: `ProjectMergeSession.mineWins`.)
     static func mineWins(localModified: Date?, theirsUpdatedAt: Date?, now: Date) -> Bool {
-        guard let theirs = theirsUpdatedAt, let local = localModified else { return false }
-        let mine = min(local, now)
-        return CloudAPIDate.milliseconds(mine) > CloudAPIDate.milliseconds(theirs)
+        ProjectMergeSession.mineWins(mineEdited: localModified, theirsSaved: theirsUpdatedAt, now: now)
     }
 
     /// `X-CC-Change` for `from` → `to` (nil without a parseable `from`).

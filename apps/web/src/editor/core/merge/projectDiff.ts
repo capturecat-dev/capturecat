@@ -10,7 +10,7 @@
  *                                the largest id lists to counts when needed
  *   decodeChangeHeader(text)   → ChangeSet | null (validated, normalized)
  *
- * Twinned EXACTLY in Swift (Services/ProjectHistory/ProjectDiff.swift).
+ * Twinned EXACTLY in Swift (Studio/ProjectHistory/ProjectDiff.swift).
  * This module has no dependency on the web project model, so the API may
  * import it (or copy it verbatim — the golden vectors lock both).
  */

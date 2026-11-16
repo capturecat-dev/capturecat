@@ -5,7 +5,7 @@
  * Phrase order (fixed): clip structure / trim / recording, timeline items
  * (lane order), settings by inspector tab (InspectorTab order, then aspect
  * ratio, export, other), captions, then document fields. Twinned EXACTLY in
- * Swift (Services/ProjectHistory/ChangeSummary.swift); golden-tested.
+ * Swift (Studio/ProjectHistory/ChangeSummary.swift); golden-tested.
  */
 import { countsOf, type ChangeSet, type CollectionChange } from "./projectDiff";
 

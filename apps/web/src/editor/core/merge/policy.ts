@@ -2,7 +2,7 @@
  * The project-merge policy table (docs/project-history.md §Policy).
  *
  * A LITERAL in both languages — this file and
- * apps/macos/CaptureCat/Services/ProjectHistory/MergePolicy.swift. Its
+ * apps/macos/CaptureCat/Studio/ProjectHistory/MergePolicy.swift. Its
  * canonical-JSON FNV-1a hash is written into the golden file by the Swift
  * harness, and the TS suite fails when its own hash differs, so the two
  * tables can never drift silently.

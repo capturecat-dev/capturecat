@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenerates the committed project-merge golden files from the REAL Swift
-# (apps/macos/CaptureCat/Services/ProjectHistory) and proves every merged
+# (apps/macos/CaptureCat/Studio/ProjectHistory) and proves every merged
 # output opens on the Mac.
 #
 #   apps/web/scripts/merge-vectors.sh [<path to the CaptureCat binary>]

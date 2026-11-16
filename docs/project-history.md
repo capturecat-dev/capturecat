@@ -5,7 +5,7 @@ Swift) landed 2026-09-30; the API (1A storage + 1B routes, §6) on
 2026-10-01. The web UI (3A), Mac sync (3B) and Mac History UI (3C) build on
 this document.
 
-| Piece | TypeScript (`apps/web/src/editor/core/merge/`) | Swift (`apps/macos/CaptureCat/Services/ProjectHistory/`) |
+| Piece | TypeScript (`apps/web/src/editor/core/merge/`) | Swift (`apps/macos/CaptureCat/Studio/ProjectHistory/`) |
 |---|---|---|
 | Raw JSON, canonical JSON, hash | `jsonMerge.ts` | `JSONValue.swift` |
 | Policy table | `policy.ts` (`MERGE_POLICY`) | `MergePolicy.swift` (`MergePolicy.standard`) |

@@ -326,18 +326,8 @@ final class HistoryPaneAppKit: NSView {
     }
 
     private func renderVersions(_ page: CloudVersionPage) {
-        let headID = page.headVersionID ?? page.versions.first?.id
-        let calendar = Calendar.current
-        var days: [(Date, [CloudVersion])] = []
-        for version in page.versions {
-            let day = calendar.startOfDay(for: version.date ?? Date())
-            if let last = days.last, last.0 == day {
-                days[days.count - 1].1.append(version)
-            } else {
-                days.append((day, [version]))
-            }
-        }
-        for (day, versions) in days {
+        let headID = HistoryWords.headID(of: page)
+        for (day, versions) in HistoryWords.days(page.versions) {
             let section = InspectorSectionBox(Self.dayTitle(day))
             var shown = versions
             if Self.debugDropLastRowPerDay, shown.count > 0 { shown.removeLast() }
@@ -362,11 +352,7 @@ final class HistoryPaneAppKit: NSView {
     }
 
     private func addFooter(_ page: CloudVersionPage) {
-        var parts: [String] = []
-        if let days = page.retention?.historyDays, days > 0 { parts.append("Kept for \(days) days") }
-        if let max = page.retention?.maxNamed, max > 0 {
-            parts.append("\(page.retention?.namedCount ?? page.versions.filter(\.isNamed).count) of \(max) named")
-        }
+        let retention = HistoryWords.retentionCaption(page)
         let footer = NSStackView()
         footer.orientation = .vertical
         footer.alignment = .leading
@@ -375,7 +361,7 @@ final class HistoryPaneAppKit: NSView {
             let row = NSStackView()
             row.orientation = .horizontal
             row.spacing = CCSpace.sm
-            let label = NSTextField(labelWithString: "History keeps \(Self.bytes(page.pinnedMediaBytes)) of removed media")
+            let label = NSTextField(labelWithString: HistoryWords.pinnedMediaCaption(page))
             label.lineBreakMode = .byTruncatingTail
             label.setContentCompressionResistancePriority(.init(200), for: .horizontal)
             footerLabel = label
@@ -389,8 +375,8 @@ final class HistoryPaneAppKit: NSView {
             }
             footer.addArrangedSubview(row)
         }
-        if !parts.isEmpty {
-            let caption = NSTextField(labelWithString: parts.joined(separator: " · "))
+        if let retention {
+            let caption = NSTextField(labelWithString: retention)
             caption.font = CCTheme.font.caption
             caption.textColor = CCTheme.color.mutedForeground
             footer.addArrangedSubview(caption)
@@ -415,56 +401,34 @@ final class HistoryPaneAppKit: NSView {
         }
     }
 
-    // MARK: - Words
+    // MARK: - Words (shared: Studio/ProjectHistory/HistoryWords.swift)
 
-    static func dayTitle(_ day: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(day) { return "Today" }
-        if calendar.isDateInYesterday(day) { return "Yesterday" }
-        let formatter = DateFormatter()
-        formatter.setLocalizedDateFormatFromTemplate(
-            calendar.isDate(day, equalTo: Date(), toGranularity: .year) ? "EEEEMMMd" : "MMMdyyyy")
-        return formatter.string(from: day)
-    }
+    static func dayTitle(_ day: Date) -> String { HistoryWords.dayTitle(day) }
 
-    static func timeText(_ date: Date?) -> String {
-        guard let date else { return "—" }
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        return formatter.string(from: date)
-    }
+    static func timeText(_ date: Date?) -> String { HistoryWords.timeText(date) }
 
     /// "Sep 28, 3:42 PM".
-    static func stamp(_ date: Date?) -> String {
-        guard let date else { return "an earlier version" }
-        let formatter = DateFormatter()
-        formatter.setLocalizedDateFormatFromTemplate("MMMdjmm")
-        return formatter.string(from: date)
-    }
+    static func stamp(_ date: Date?) -> String { HistoryWords.stamp(date) }
 
-    static func bytes(_ count: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: count, countStyle: .file)
-    }
+    static func bytes(_ count: Int64) -> String { HistoryWords.bytes(count) }
 
     // MARK: - Actions
 
     private func showMenu(for row: HistoryRowView, event: NSEvent?) {
         let version = row.version
         let menu = NSMenu()
-        if !row.isHead {
-            menu.addItem(CloudMenuTarget.item("Preview") { [weak self] in self?.preview(version) })
-        }
-        menu.addItem(CloudMenuTarget.item(version.isNamed ? "Rename Version…" : "Name This Version…") { [weak self] in
-            self?.name(version)
-        })
-        if !row.isHead {
-            menu.addItem(CloudMenuTarget.item("Compare with Current") { [weak self] in self?.compare(version) })
-            menu.addItem(.separator())
-            menu.addItem(CloudMenuTarget.item("Restore This Version…") { [weak self] in self?.confirmRestore(version) })
-            if page?.isOwner != false {
-                menu.addItem(CloudMenuTarget.item("Delete Version…") { [weak self] in self?.confirmDelete(version) })
-            }
+        for action in HistoryRowAction.items(isHead: row.isHead, isNamed: version.isNamed, isOwner: page?.isOwner) {
+            if action == .restore { menu.addItem(.separator()) }
+            menu.addItem(CloudMenuTarget.item(action.title) { [weak self] in
+                guard let self else { return }
+                switch action {
+                case .preview: self.preview(version)
+                case .name: self.name(version)
+                case .compareWithCurrent: self.compare(version)
+                case .restore: self.confirmRestore(version)
+                case .delete: self.confirmDelete(version)
+                }
+            })
         }
         glide.update(row: row, active: true)
         if let event, event.type == .rightMouseDown {
@@ -497,10 +461,8 @@ final class HistoryPaneAppKit: NSView {
 
     func name(_ version: CloudVersion) {
         guard let window else { return }
-        let alert = CCAlert(
-            title: version.isNamed ? "Rename this version" : "Name this version",
-            message: "Named versions are kept beyond the history window, so you can always come back to them.")
-        let field = CCField(placeholder: "e.g. Sent to client", value: version.label ?? "")
+        let alert = CCAlert(title: HistoryWords.nameTitle(isNamed: version.isNamed), message: HistoryWords.nameMessage)
+        let field = CCField(placeholder: HistoryWords.namePlaceholder, value: version.label ?? "")
         alert.accessoryView = field
         alert.addButton("Save", role: .primary)
         alert.addButton("Cancel")
@@ -541,9 +503,7 @@ final class HistoryPaneAppKit: NSView {
 
     func confirmRestore(_ version: CloudVersion) {
         guard let window else { return }
-        let alert = CCAlert(
-            title: "Restore the version from \(Self.stamp(version.date))?",
-            message: "Your current version stays in History — restoring adds this one as the newest version.")
+        let alert = CCAlert(title: HistoryWords.restoreTitle(version), message: HistoryWords.restoreMessage)
         alert.addButton("Restore", role: .primary)
         alert.addButton("Cancel")
         alert.beginSheet(for: window) { [weak self] choice in
@@ -572,8 +532,8 @@ final class HistoryPaneAppKit: NSView {
                     switch outcome {
                     case .restored:
                         CloudSyncController.shared.showToast(
-                            title: "Restored the version from \(Self.stamp(version.date))",
-                            message: "The version before it is still in History.",
+                            title: HistoryWords.restoredToast(version),
+                            message: HistoryWords.restoredToastMessage,
                             symbol: "clock.arrow.circlepath", in: window)
                     case .needsSync:
                         CCAlert(title: "Sync first",
@@ -593,8 +553,7 @@ final class HistoryPaneAppKit: NSView {
 
     func confirmDelete(_ version: CloudVersion) {
         guard let window else { return }
-        let alert = CCAlert(title: "Delete this version?",
-                            message: "The version from \(Self.stamp(version.date)) is removed from History for everyone.")
+        let alert = CCAlert(title: HistoryWords.deleteTitle, message: HistoryWords.deleteMessage(version))
         alert.addButton("Delete", role: .destructive)
         alert.addButton("Cancel")
         let client = environment.client
