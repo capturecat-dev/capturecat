@@ -160,7 +160,7 @@ extension FeaturesHarness {
     /// pipeline re-encodes `track` byte for byte — if everything around
     /// Vision (reader, frame times, conditioning, encoder, header) matches.
     static func replayMatte(_ track: CameraMaskTrack, delay: TimeInterval) -> CameraSegmenter.Matte {
-        final class Box: @unchecked Sendable {
+        nonisolated final class Box: @unchecked Sendable {
             let lock = NSLock()
             let decoder: CameraMaskTrack.Decoder
             init(_ track: CameraMaskTrack) { decoder = CameraMaskTrack.Decoder(track: track) }

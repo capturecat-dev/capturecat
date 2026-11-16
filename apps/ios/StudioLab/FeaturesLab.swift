@@ -79,6 +79,14 @@ enum FeaturesLab {
         alert?.probeButtons.first { $0.title == title }
     }
 
+    /// MID-FLIGHT: the value drawn now is none of the values the control was
+    /// ever told to show (nor where it started). A snapped animation — or a
+    /// sample taken before a new value's frame committed — only ever draws
+    /// one of those, so it can never count.
+    static func isMidFlight(_ drawn: CGFloat, shown: [CGFloat], tolerance: CGFloat = 0.75) -> Bool {
+        !shown.isEmpty && shown.allSatisfy { abs(drawn - $0) > tolerance }
+    }
+
     static func tap(_ control: UIControl?) {
         control?.sendActions(for: .touchUpInside)
     }
@@ -237,18 +245,23 @@ enum FeaturesLab {
         await LabTime.settle(0.6)
         if FeaturesHarness.injected(.progressSnap) { CCMotion.probeSnap = true }
         tap(controller.recordButton)
-        var samples: [(drawn: CGFloat, target: CGFloat, count: Int, time: String)] = []
+        var samples: [(drawn: CGFloat, count: Int, time: String)] = []
+        var midFlight = 0
         let end = Date().addingTimeInterval(1.4)
         while Date() < end {
             try? await Task.sleep(for: .milliseconds(12))
             let bar = controller.meter.probeNewestBar
-            samples.append((bar?.drawn ?? 0, bar?.target ?? 0, controller.meter.probeShownCount, controller.timeLabel.text ?? ""))
+            samples.append((bar?.drawn ?? 0, controller.meter.probeShownCount, controller.timeLabel.text ?? ""))
+            // The newest bar springs from 2 pt to each new level; a snapped
+            // one only ever draws 2 pt or one of its last few targets.
+            let shown = controller.meter.probeHeightsShown
+            if let drawn = bar?.drawn, shown.count > 1,
+               isMidFlight(drawn, shown: [2] + Array(shown.suffix(3))) { midFlight += 1 }
         }
         CCMotion.probeSnap = false
         report.check("recording started from the sheet", StudioVoiceOver.session.isRecording && playhead.isPlaying
                      && controller.recordButton.title == "Stop")
         let counts = Set(samples.map(\.count)), times = Set(samples.map(\.time))
-        let midFlight = samples.filter { $0.target > 4 && $0.drawn > 2.5 && abs($0.drawn - $0.target) > 0.75 }.count
         report.check("level meter SEQUENCE advances", counts.count >= 8 && times.count >= 4,
                      "\(samples.count) samples, \(counts.count) bar counts, \(times.count) time readouts")
         report.check("newest level bar caught mid-flight", midFlight >= 1, "\(midFlight) mid-flight samples")
@@ -306,16 +319,19 @@ enum FeaturesLab {
         tap(button("Generate", in: controller.alert))
         var stages: [String] = []
         var midFlight = 0, fractions = Set<Int>()
+        var barWidth: CGFloat = -1
         let started = Date()
         while controller.lastSegments == nil && Date().timeIntervalSince(started) < 600 {
             try? await Task.sleep(for: .milliseconds(15))
             let stage = service.progress
             if stages.last != stage { stages.append(stage) }
             if service.isTranscribing { fractions.insert(Int(service.fraction * 100)) }
-            let drawn = controller.status.probeDrawnWidth, target = controller.status.probeTargetWidth
-            let full = controller.status.bar.bounds.width
-            if service.isTranscribing, !controller.status.bar.isIndeterminate, full > 0,
-               drawn > 1, drawn < full - 1, abs(drawn - target) > 1 { midFlight += 1 }
+            // Only while the bar's own width holds still (a sheet still
+            // laying out moves the fill without any animation).
+            let width = controller.status.bar.bounds.width
+            defer { barWidth = width }
+            if service.isTranscribing, !controller.status.bar.isIndeterminate, width > 0, width == barWidth,
+               isMidFlight(controller.status.probeDrawnWidth, shown: controller.status.probeTargetWidths) { midFlight += 1 }
             if controller.alert.map({ !$0.probeButtons.isEmpty }) == false { break }
         }
         CCMotion.probeSnap = false
@@ -412,6 +428,7 @@ enum FeaturesLab {
         let cutoutChip = controller.chips.allSubviews(of: CCChip.self).first { $0.accessibilityLabel == "Cutout" || $0.title == "Cutout" }
         tap(cutoutChip)
         var running = Set<Int>(), midFlight = 0
+        var barWidth: CGFloat = -1
         let started = Date()
         var finalStatus = StudioBackgroundRemoval.segmentation.status(for: project)
         while Date().timeIntervalSince(started) < 120 {
@@ -419,9 +436,16 @@ enum FeaturesLab {
             finalStatus = StudioBackgroundRemoval.segmentation.status(for: project)
             if case .running(let p) = finalStatus, p > 0, p < 1 { running.insert(Int(p * 100)) }
             let row = controller.status
-            let full = row.bar.bounds.width, drawn = row.probeDrawnWidth
-            if case .running = finalStatus, !row.bar.isIndeterminate, full > 0, drawn > 1, drawn < full - 1,
-               abs(drawn - row.probeTargetWidth) > 1 { midFlight += 1 }
+            let width = row.bar.bounds.width
+            defer { barWidth = width }
+            if case .running = finalStatus, !row.bar.isIndeterminate, width > 0, width == barWidth,
+               isMidFlight(row.probeDrawnWidth, shown: row.probeTargetWidths) {
+                midFlight += 1
+                if midFlight <= 4 {
+                    report.note(String(format: "mid-flight sample: drawn %.2f of %.1f; last targets %@", row.probeDrawnWidth,
+                                       row.bar.bounds.width, row.probeTargetWidths.suffix(3).map { String(format: "%.2f", $0) }.joined(separator: ", ")))
+                }
+            }
             if finalStatus == .ready { break }
             if case .failed = finalStatus { break }
         }

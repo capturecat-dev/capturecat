@@ -284,6 +284,7 @@ final class StudioVoiceLevelMeter: UIView {
         CATransaction.commit()
         if animatingNewest, let newest = bars.last, let level = visible.last {
             newest.bounds.size.width = max(2, slot - 2)
+            probeHeightsShown.append(height(for: level))
             CCMotion.spring(newest, keyPath: "bounds.size.height", from: 2, to: height(for: level), .snappy)
         }
     }
@@ -295,4 +296,7 @@ final class StudioVoiceLevelMeter: UIView {
         return ((bar.presentation() ?? bar).bounds.height, height(for: level))
     }
     var probeShownCount: Int { shownCount }
+    /// Every height the newest bar was sent to, plus where it springs from
+    /// (a snapped bar only ever draws one of those).
+    private(set) var probeHeightsShown: [CGFloat] = [2]
 }

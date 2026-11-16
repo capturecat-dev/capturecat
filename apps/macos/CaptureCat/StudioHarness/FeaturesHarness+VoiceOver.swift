@@ -26,7 +26,7 @@ extension FeaturesHarness {
 
         /// The narration: a voiced 180 Hz tone with harmonics under a
         /// syllable envelope (silences between "words" so the meter moves).
-        static func sample(_ i: Int) -> Float {
+        nonisolated static func sample(_ i: Int) -> Float {
             let t = Double(i) / sampleRate
             let syllable = 0.5 - 0.5 * cos(2 * .pi * t / 0.36)
             let word = t.truncatingRemainder(dividingBy: 0.9) < 0.66 ? 1.0 : 0.05

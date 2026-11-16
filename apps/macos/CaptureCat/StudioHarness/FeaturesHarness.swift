@@ -55,13 +55,13 @@ enum FeaturesHarness {
         return canonicalJSON(stripIDs(object))
     }
 
-    static func canonicalJSON(_ object: Any) -> String {
+    nonisolated static func canonicalJSON(_ object: Any) -> String {
         guard let data = try? JSONSerialization.data(withJSONObject: object,
                                                      options: [.sortedKeys, .fragmentsAllowed]) else { return "<invalid>" }
         return String(decoding: data, as: UTF8.self)
     }
 
-    static func stripIDs(_ object: Any) -> Any {
+    nonisolated static func stripIDs(_ object: Any) -> Any {
         if let dict = object as? [String: Any] {
             var out: [String: Any] = [:]
             for (key, value) in dict where key != "id" { out[key] = stripIDs(value) }

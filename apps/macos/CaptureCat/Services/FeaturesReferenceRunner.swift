@@ -259,7 +259,7 @@ enum FeaturesReferenceRunner {
         }
     }
 
-    private final class ProgressBox: @unchecked Sendable {
+    private nonisolated final class ProgressBox: @unchecked Sendable {
         private let lock = NSLock()
         private var list: [Double] = []
         func add(_ v: Double) { lock.withLock { list.append(v) } }

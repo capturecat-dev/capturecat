@@ -73,7 +73,12 @@ fi
 
 if [[ "${REUSE_MAC:-}" != "1" || ! -d "$MAC_OUT" ]]; then
   echo "ios-features: Mac reference → $MAC_OUT"
-  rm -rf "$MAC_OUT"
+  # Regenerate only the features asked for; keep the others' references.
+  if [[ -n "${ONLY:-}" ]]; then
+    for part in ${ONLY//,/ }; do rm -rf "$MAC_OUT/$part"; done
+  else
+    rm -rf "$MAC_OUT"
+  fi
   "$BIN" --features-reference "$MAC_OUT" ${SPEECH_ARGS[@]+"${SPEECH_ARGS[@]}"} ${MODEL_ARGS[@]+"${MODEL_ARGS[@]}"} \
     ${ONLY_ARGS[@]+"${ONLY_ARGS[@]}"} > "$OUT/mac-reference.log" 2>&1 \
     || { grep '^FEATURES-REFERENCE' "$OUT/mac-reference.log" | tail -20; echo "IOS-FEATURES FAIL (Mac reference)"; exit 1; }
