@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import Observation
 
 /// Background person segmentation for the camera LOOKS — produces
 /// `camera-mask.ccmask` (docs/camera-cutout.md §6) and serves the fresh
@@ -13,6 +14,10 @@ import Foundation
 /// Queued when a look is first applied to a project without a fresh mask
 /// (the editor calls `ensureMask` whenever it renders a project that uses a
 /// look) and after a recording whose project already uses one.
+///
+/// Shared by the Mac app and the iOS studio (Studio 4e): the host plugs in
+/// through `projectLookup` and `isHostBusy` (the Mac's AppState in
+/// `CameraSegmentation+AppState.swift`; the iOS editor's open project).
 @Observable
 @MainActor
 final class CameraSegmentation {
@@ -37,7 +42,12 @@ final class CameraSegmentation {
     private(set) var runningPaused = false
     private(set) var failures: [UUID: String] = [:]
 
-    @ObservationIgnored private weak var appState: AppState?
+    /// Host seam: the project with this id, if the host still has it open
+    /// or listed (nil drops it from the queue).
+    @ObservationIgnored var projectLookup: @MainActor (UUID) -> Project? = { _ in nil }
+    /// Host seam: true while capture, export or an upload owns the machine —
+    /// the job never starts then and pauses between frames.
+    @ObservationIgnored var isHostBusy: @MainActor () -> Bool = { false }
     @ObservationIgnored private var isWorking = false
     @ObservationIgnored private var gate: CameraSegmentationGate?
     /// Loaded tracks, keyed by mask path, valid for one file signature.
@@ -50,10 +60,6 @@ final class CameraSegmentation {
 
     /// Nonisolated so AppState (not a @MainActor type) can own one.
     nonisolated init() {}
-
-    func start(appState: AppState) {
-        self.appState = appState
-    }
 
     // MARK: - Fresh tracks
 
@@ -208,16 +214,11 @@ final class CameraSegmentation {
     }
 
     private func project(withID id: UUID) -> Project? {
-        if let current = appState?.currentProject, current.id == id { return current }
-        return appState?.projectStore.projects.first { $0.id == id }
+        projectLookup(id)
     }
 
     /// True while capture, export or a share upload owns the machine.
     private var isBusy: Bool {
-        guard let appState else { return false }
-        return appState.recordingSession.isRecording
-            || appState.recordingSession.isPaused
-            || appState.showExport
-            || appState.shareJobCenter.hasActiveJobs
+        isHostBusy()
     }
 }

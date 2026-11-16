@@ -5,14 +5,34 @@ import OSLog
 private let voiceOverRecorderLogger = Logger(subsystem: "so.capturecat.CaptureCat", category: "VoiceOverRecorder")
 #endif
 
+/// What records a take: `AVAudioRecorder` on the mic in the apps
+/// (`VoiceOverMic.makeRecorder`, Studio/Platform). A seam only so a gate can
+/// feed a synthetic buffer through the same recorder, session and placement
+/// code without touching a microphone (StudioHarness/FeaturesHarness).
+@MainActor
+protocol VoiceOverCapture: AnyObject {
+    var isRecording: Bool { get }
+    var currentTime: TimeInterval { get }
+    var isMeteringEnabled: Bool { get set }
+    @discardableResult func prepareToRecord() -> Bool
+    func record() -> Bool
+    func stop()
+    func updateMeters()
+    func averagePower(forChannel channelNumber: Int) -> Float
+}
+
+extension AVAudioRecorder: VoiceOverCapture {}
+
 @MainActor
 final class VoiceOverRecorder: NSObject {
+    /// Makes the capture for a take. Default: the microphone.
+    static var makeCapture: (URL, [String: Any]) throws -> VoiceOverCapture = VoiceOverMic.makeRecorder
     struct RecordingResult {
         let fileURL: URL
         let duration: TimeInterval
     }
 
-    private var recorder: AVAudioRecorder?
+    private var recorder: VoiceOverCapture?
     private var fileURL: URL?
 
     var isRecording: Bool {
@@ -30,7 +50,7 @@ final class VoiceOverRecorder: NSObject {
             AVEncoderBitRateKey: 192_000,
         ]
 
-        let recorder = try AVAudioRecorder(url: url, settings: settings)
+        let recorder = try Self.makeCapture(url, settings)
         recorder.isMeteringEnabled = true
         recorder.prepareToRecord()
         guard recorder.record() else {

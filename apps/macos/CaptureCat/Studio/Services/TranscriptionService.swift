@@ -1,30 +1,71 @@
 import Foundation
 import AVFoundation
+import Observation
+#if canImport(WhisperKit)
 import WhisperKit
+#endif
 
+/// Speech → subtitles, shared by the Mac editor, the MCP `transcribe` tool
+/// and the iOS studio (Studio 4e): WhisperKit `base.en` on device, word
+/// timestamps, grouped by `SubtitleSegment.groupWords` — one engine and one
+/// model on every platform, so a recording gets the same subtitle structure
+/// wherever it is transcribed (Phase 0 measured WhisperKit on iOS: 20×
+/// realtime, 232 MB).
+///
+/// Both apps link WhisperKit; `studio-canary.sh` typechecks Studio/ with no
+/// packages, so the engine sits behind `canImport(WhisperKit)` there.
 @Observable
 final class TranscriptionService {
     var isTranscribing = false
     var progress: String = ""
     var error: String?
+    /// 0…1 across the stages (model, audio, decoding, grouping) — the iOS
+    /// sheet's bar. The stage strings above are unchanged.
+    var fraction: Double = 0
 
+    /// Where the model lives. Both nil (the Mac's choice since it shipped):
+    /// WhisperKit's default download location. `modelFolder` loads a model
+    /// already on disk without the network (Phase 0 §3.7); `downloadBase`
+    /// moves the download.
+    @ObservationIgnored let modelFolder: URL?
+    @ObservationIgnored let downloadBase: URL?
+
+    #if canImport(WhisperKit)
     private var whisperKit: WhisperKit?
+    #endif
+
+    init(modelFolder: URL? = nil, downloadBase: URL? = nil) {
+        self.modelFolder = modelFolder
+        self.downloadBase = downloadBase
+    }
+
+    static let model = "base.en"
 
     func transcribe(videoURL: URL, language: String = "en") async throws -> [SubtitleSegment] {
+        #if canImport(WhisperKit)
         isTranscribing = true
         progress = "Loading model..."
+        fraction = 0
         error = nil
         defer { isTranscribing = false }
 
         // Initialize WhisperKit (downloads base.en model on first use ~150MB)
         if whisperKit == nil {
-            whisperKit = try await WhisperKit(
-                WhisperKitConfig(model: "base.en")
-            )
+            if modelFolder == nil && downloadBase == nil {
+                whisperKit = try await WhisperKit(
+                    WhisperKitConfig(model: Self.model)
+                )
+            } else {
+                whisperKit = try await WhisperKit(
+                    WhisperKitConfig(model: Self.model, downloadBase: downloadBase,
+                                     modelFolder: modelFolder?.path, download: modelFolder == nil)
+                )
+            }
         }
 
         // Extract audio to 16kHz mono WAV via AVAssetReader
         progress = "Extracting audio..."
+        fraction = 0.1
         let wavURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("wav")
@@ -32,6 +73,7 @@ final class TranscriptionService {
 
         // Transcribe with word-level timestamps
         progress = "Transcribing..."
+        fraction = 0.15
         let options = DecodingOptions(
             task: .transcribe,
             language: language,
@@ -39,33 +81,54 @@ final class TranscriptionService {
             skipSpecialTokens: true,
             wordTimestamps: true
         )
-        let results = try await whisperKit!.transcribe(
+        // WhisperKit's own Progress, sampled for the bar (read-only: the
+        // decode is unchanged).
+        let pipe = whisperKit!
+        let sampler = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                let done = pipe.progress.fractionCompleted
+                if done.isFinite, let self { self.fraction = 0.15 + 0.8 * min(1, max(0, done)) }
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+        defer { sampler.cancel() }
+        let results = try await pipe.transcribe(
             audioPath: wavURL.path,
             decodeOptions: options
         )
+        sampler.cancel()
 
         try? FileManager.default.removeItem(at: wavURL)
 
         // Map word timings → SubtitleSegment, then group
         progress = "Processing subtitles..."
-        var words: [SubtitleSegment] = []
-        for result in results {
-            for word in result.allWords {
-                words.append(SubtitleSegment(
-                    startTime: TimeInterval(word.start),
-                    endTime: TimeInterval(word.end),
-                    text: word.word.trimmingCharacters(in: CharacterSet.whitespaces)
-                ))
-            }
-        }
-
-        let grouped = SubtitleSegment.groupWords(words)
+        fraction = 0.95
+        let grouped = Self.subtitles(fromWords: results.flatMap { result in
+            result.allWords.map { (start: $0.start, end: $0.end, word: $0.word) }
+        })
         progress = "Done — \(grouped.count) subtitles"
+        fraction = 1
         return grouped
+        #else
+        throw TranscriptionError.transcriptionFailed("this build has no speech engine (WhisperKit is not linked)")
+        #endif
+    }
+
+    /// The engine's words (in order) → the project's subtitles: one segment
+    /// per word, trimmed, then `SubtitleSegment.groupWords`.
+    static func subtitles(fromWords words: [(start: Float, end: Float, word: String)]) -> [SubtitleSegment] {
+        let segments = words.map { word in
+            SubtitleSegment(
+                startTime: TimeInterval(word.start),
+                endTime: TimeInterval(word.end),
+                text: word.word.trimmingCharacters(in: CharacterSet.whitespaces)
+            )
+        }
+        return SubtitleSegment.groupWords(segments)
     }
 
     /// Extract audio to 16kHz mono WAV using AVAssetReader (sandbox-safe, no Process)
-    private func extractAudio(from videoURL: URL, to wavURL: URL) async throws {
+    func extractAudio(from videoURL: URL, to wavURL: URL) async throws {
         let asset = AVURLAsset(url: videoURL)
         // Prefer mic track (last) over system audio (first) for speech transcription
         guard let audioTrack = try await asset.loadTracks(withMediaType: .audio).last else {
