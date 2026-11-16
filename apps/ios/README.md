@@ -79,6 +79,19 @@ The studio's editor controls (Studio 4a — the Mac's InspectorKit at touch scal
 | `CCAlert` | dialog / confirmation sheet | `addButton(_:role:action:)` (async actions show busy, throws → inline error), `symbol` + `tone: .destructive`, `presentation: .sheet` (docked to the bottom on compact width, grows upward, swipe to cancel); `CCAlert.confirm(…destructive:symbol:presentation:…)` |
 | `CCHaptics` | step / detent feedback | `selection()`, `detent()`, `prepare()`, `light()`; DEBUG `probeLog` |
 
+## History (Studio 4f)
+
+`StudioUI/History/` — the Mac's History pane on touch, over an on-device history
+(`Studio/ProjectHistory/LocalProjectHistory`: `<project>/.history/`, every editor save
+recorded by the API's own version rules). Entry point:
+`StudioHistory.present(from:project:undoManager:)` (sheet on iPhone, side panel over the
+inspector column on iPad); the editor calls `StudioHistory.attach(_:)` on load. Rows,
+words, menus, Compare groups and the three-way merge are the Mac's shared code
+(`Studio/ProjectHistory/`). Preview puts a version READ-ONLY on the live stage
+(`EditorViewController.stageProjectOverride`); Restore and merges are one undo step.
+Cloud history and sync (Phase 5) plug in behind `ProjectHistoryService` and hand Merge
+Review (`StudioHistory.reviewMerge`) a `ProjectMergeSession`.
+
 ## Contracts it follows
 
 - **Sign-in** = the Mac's flow: loopback (`127.0.0.1`) + PKCE through
@@ -103,6 +116,7 @@ The studio's editor controls (Studio 4a — the Mac's InspectorKit at touch scal
     apps/ios/scripts/studio-canary.sh       # Studio/ typechecks for iOS on its own (fast)
     apps/ios/scripts/ios-vectors.sh         # the Mac's golden vectors run INSIDE the iOS Simulator vs the Mac's output (exact / ≤1e-12; known iOS differences listed)
     apps/ios/scripts/kit-gallery.sh         # the studio controls, every state, both themes, iPhone + iPad: PNGs, structure, behaviour, motion SEQUENCES mid-flight (+ injected-snap self-test)
+    apps/ios/scripts/ios-history.sh         # History (Studio 4f): rows, compare, preview, restore, Merge Review vs the Mac's --history-transcript, line for line; motion sequences; INJECT= must FAIL
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production

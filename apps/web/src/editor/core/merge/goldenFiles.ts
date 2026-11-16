@@ -4,7 +4,7 @@
  * process.getBuiltinModule, like core/vectors/harness.ts.
  *
  * golden/{mergePolicy,projectMerge}.json are written by the REAL Swift
- * (Services/ProjectHistory via `CaptureCat --web-vectors`) — regenerate them
+ * (Studio/ProjectHistory via `CaptureCat --web-vectors`) — regenerate them
  * with `apps/web/scripts/merge-vectors.sh`, never by hand.
  */
 import { canonicalJSON, fnv1a64Hex, type Json } from "./jsonMerge";

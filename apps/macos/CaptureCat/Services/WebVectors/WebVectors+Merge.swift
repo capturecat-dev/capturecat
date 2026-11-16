@@ -1,7 +1,7 @@
 import Foundation
 
 /// Project-history golden vectors (docs/project-history.md): the merge, diff,
-/// compose, header and summary twins in Services/ProjectHistory against
+/// compose, header and summary twins in Studio/ProjectHistory against
 /// apps/web/src/editor/core/merge.
 ///
 /// - `mergePolicy`: the policy table's canonical JSON + FNV hash, canonical

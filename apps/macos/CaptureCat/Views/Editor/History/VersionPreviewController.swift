@@ -23,17 +23,8 @@ final class VersionPreviewController {
 
     private(set) var session: Session?
 
-    static func title(for version: CloudVersion) -> String {
-        // "Ana on Web"; an agent's or mixed save names the badge instead
-        // ("Ana (Agent via Web)").
-        let who: String
-        switch (version.actorName, version.source) {
-        case (let name?, "human"): who = "\(name) on \(version.clientLabel)"
-        case (let name?, _): who = "\(name) (\(version.clientLabel))"
-        default: who = version.clientLabel
-        }
-        return "Viewing \(HistoryPaneAppKit.stamp(version.date)) — \(who)"
-    }
+    /// "Viewing Sep 28, 3:42 PM — Ana on Web" (shared: HistoryWords).
+    static func title(for version: CloudVersion) -> String { HistoryWords.previewTitle(for: version) }
 
     func begin(preview: Project, version: CloudVersion, appState: AppState,
                environment: EditorHistoryEnvironment, window: NSWindow?) {
@@ -69,7 +60,7 @@ final class VersionPreviewController {
     /// The callout itself — shared with `--history-panel-shot`.
     static func callout(version: CloudVersion, onRestore: @escaping () -> Void, onBack: @escaping () -> Void) -> CCCallout {
         let callout = CCCallout(title: title(for: version),
-                                message: "Read-only preview — edits here are not saved.",
+                                message: HistoryWords.previewMessage,
                                 variant: .info)
         callout.setActions([
             CCButton(title: "Restore", symbol: "clock.arrow.circlepath", style: .primary, size: .sm, onClick: onRestore),
@@ -81,9 +72,7 @@ final class VersionPreviewController {
     private func restore(project: Project, window: NSWindow?) {
         guard let session, let window, let appState = session.appState else { return }
         let version = session.version
-        let alert = CCAlert(
-            title: "Restore the version from \(HistoryPaneAppKit.stamp(version.date))?",
-            message: "Your current version stays in History — restoring adds this one as the newest version.")
+        let alert = CCAlert(title: HistoryWords.restoreTitle(version), message: HistoryWords.restoreMessage)
         alert.addButton("Restore", role: .primary)
         alert.addButton("Cancel")
         alert.beginSheet(for: window) { [weak self] choice in
@@ -106,8 +95,8 @@ final class VersionPreviewController {
                         self?.backToCurrent()
                         if case .restored = outcome {
                             CloudSyncController.shared.showToast(
-                                title: "Restored the version from \(HistoryPaneAppKit.stamp(version.date))",
-                                message: "The version before it is still in History.",
+                                title: HistoryWords.restoredToast(version),
+                                message: HistoryWords.restoredToastMessage,
                                 symbol: "clock.arrow.circlepath", in: window)
                         } else {
                             CCAlert(title: "Sync first",

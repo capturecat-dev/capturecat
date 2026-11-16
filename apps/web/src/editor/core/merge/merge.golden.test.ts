@@ -1,6 +1,6 @@
 /**
  * Project-history parity gate — the TS core (core/merge) against the REAL
- * Swift (apps/macos/CaptureCat/Services/ProjectHistory).
+ * Swift (apps/macos/CaptureCat/Studio/ProjectHistory).
  *
  * golden/{mergePolicy,mergeRandom,projectMerge}.json are written by
  * `CaptureCat --web-vectors … --only mergePolicy,mergeRandom,projectMerge`

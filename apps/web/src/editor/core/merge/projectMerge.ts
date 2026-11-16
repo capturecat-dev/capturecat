@@ -2,7 +2,7 @@
  * `merge(base, mine, theirs, mineWins, choices?)` — the three-way project
  * merge (docs/project-history.md §Merge). Pure and clock-free: `mineWins`
  * (last local edit vs the server's updated_at, ties → theirs) is decided by
- * the caller. Twinned EXACTLY in Swift (Services/ProjectHistory/
+ * the caller. Twinned EXACTLY in Swift (Studio/ProjectHistory/
  * ProjectMerge.swift) and locked by the `projectMerge` golden vectors.
  *
  * Works on raw project.json values, so unknown keys merge per key and are

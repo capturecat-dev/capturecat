@@ -881,6 +881,15 @@ if CommandLine.arguments.contains("--history-panel-shot") {
     MainActor.assumeIsolated { HistoryPanelHarness.run() }
 }
 
+// Project history VALUES for the iOS studio's `--history` gate (Studio 4f):
+// the history-panel fixture's rows, compares and restore through the real
+// Mac client and views, and every apps/web merge fixture through the real
+// MergeReviewDialog — written as a transcript plus the replay iOS records.
+// No network, no user data. Never reached in a normal launch.
+if CommandLine.arguments.contains("--history-transcript") {
+    MainActor.assumeIsolated { HistoryTranscriptHarness.run() }
+}
+
 // Desktop auth acceptance test: PKCE generation, RFC 8252 redirect-URI
 // validation, the loopback listener's full lifecycle (bind → 404 → one-shot
 // callback → teardown, plus timeout/cancel/port-conflict) and the Keychain

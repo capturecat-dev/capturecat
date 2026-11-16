@@ -77,6 +77,7 @@ final class LabViewController: UIViewController {
     func start(arguments: [String]) {
         if KitGalleryLab.start(arguments, lab: self) { return }
         if TimelineEditsLab.start(arguments, in: self) { return }
+        if #available(iOS 26, *), HistoryLab.start(arguments, lab: self) { return }
         if let i = arguments.firstIndex(of: "--decode-probe"), arguments.indices.contains(i + 1) {
             let video = URL(fileURLWithPath: arguments[i + 1])
             let index = arguments.firstIndex(of: "--index").flatMap { arguments.indices.contains($0 + 1) ? Int(arguments[$0 + 1]) : nil } ?? 0

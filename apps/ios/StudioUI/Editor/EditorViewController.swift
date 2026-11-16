@@ -58,6 +58,14 @@ final class EditorViewController: UIViewController {
     /// `--preview-gesture-test` transcript's `events:` vocabulary).
     var canvasEventLog: ((String) -> Void)?
 
+    /// Studio 4f — History ▸ Preview: an earlier version shown READ-ONLY on
+    /// the live stage (a separate, never-saved model; nil = the project).
+    /// While set, editing is off: canvas, timeline, inspector, undo.
+    var stageProjectOverride: Project? { didSet { stageOverrideChanged() } }
+    var isPreviewingVersion: Bool { stageProjectOverride != nil }
+    /// What the stage and transport show: the preview, else the project.
+    var shownProject: Project { stageProjectOverride ?? project }
+
     private let initialTime: TimeInterval?
     private lazy var toaster = CCToaster(host: view)
     private var observations: [SurfaceObservation] = []
@@ -196,6 +204,8 @@ final class EditorViewController: UIViewController {
         playback.currentTime = min(max(initialTime ?? project.effectiveTrimStart, project.effectiveTrimStart),
                                    project.effectiveTrimEnd)
         startObserving()
+        // Studio 4f: every save is kept in the project's on-device History.
+        StudioHistory.attach(self)
         let center = NotificationCenter.default
         for name in [NSNotification.Name.NSUndoManagerDidCloseUndoGroup, .NSUndoManagerDidUndoChange,
                      .NSUndoManagerDidRedoChange] {
@@ -311,7 +321,7 @@ final class EditorViewController: UIViewController {
     }
 
     /// Output ↔ source over the trim window and speed regions (shared map).
-    private var timeMap: SpeedTimeMap { SpeedTimeMap(trimmedOutputOf: project) }
+    private var timeMap: SpeedTimeMap { SpeedTimeMap(trimmedOutputOf: shownProject) }
 
     // MARK: - Observation
 
@@ -374,6 +384,7 @@ final class EditorViewController: UIViewController {
 
     /// Everything one frame needs — the Mac stage's `FrameInput`.
     func frameInput() -> PreviewCompositorCore.FrameInput {
+        let project = shownProject
         let showCameraPlayer = playback.showsCameraPlayer(for: project)
         var isPlaying = playback.isPlaying
         var player = playback.player
@@ -475,6 +486,7 @@ final class EditorViewController: UIViewController {
     /// Deletes the selected annotation or region through the shared timeline
     /// edits (their undo registration, their values).
     func deleteSelection() {
+        guard !isPreviewingVersion else { return }
         if let id = selection.selectedAnnotationID {
             timelineEdits.deleteAnnotation(id: id)
         } else if let id = selection.selectedBlurID {
@@ -491,20 +503,43 @@ final class EditorViewController: UIViewController {
 
     func performUndo() {
         canvas.endInlineEdit(commit: true)
-        guard editorUndo.canUndo else { return }
+        guard editorUndo.canUndo, !isPreviewingVersion else { return }
         editorUndo.undo()
         renderStage()
     }
 
     func performRedo() {
-        guard editorUndo.canRedo else { return }
+        guard editorUndo.canRedo, !isPreviewingVersion else { return }
         editorUndo.redo()
         renderStage()
     }
 
     @objc private func undoStackChanged() {
-        undoButton.isEnabled = editorUndo.canUndo
-        redoButton.isEnabled = editorUndo.canRedo
+        undoButton.isEnabled = editorUndo.canUndo && !isPreviewingVersion
+        redoButton.isEnabled = editorUndo.canRedo && !isPreviewingVersion
+    }
+
+    /// Read-only while a History version is on the stage.
+    private func stageOverrideChanged() {
+        guard isViewLoaded else { return }
+        let editable = !isPreviewingVersion
+        canvas.endInlineEdit(commit: true)
+        if !editable {
+            selection.selectedAnnotationID = nil
+            selection.selectedBlurID = nil
+            selection.selectedHighlightID = nil
+            selection.selectedDepthFocusID = nil
+            selection.selectedZoomID = nil
+            selection.selectedTiltID = nil
+        }
+        canvas.isUserInteractionEnabled = editable
+        for container in [timelineContainer, inspectorContainer] {
+            container.isUserInteractionEnabled = editable
+            container.alpha = editable ? 1 : 0.45
+        }
+        contextPill.isHidden = contextPill.isHidden || !editable
+        undoStackChanged()
+        renderStage()
     }
 
     // MARK: - Keyboard (hardware keyboards; iPad)

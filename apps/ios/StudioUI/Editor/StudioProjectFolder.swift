@@ -35,6 +35,9 @@ final class StudioProjectFolder {
     let project: Project
     /// The document as last read or written (unknown keys included).
     private var document: [String: Any]
+    /// After every save, with the bytes written (Studio 4f: the on-device
+    /// History records them — `StudioHistory.attach`).
+    var onDidSave: ((Data) -> Void)?
     /// Top-level media keys re-pointed on open → the string the document had.
     private var originalMedia: [String: String] = [:]
     /// Settings image paths re-pointed on open → the document's path.
@@ -55,6 +58,26 @@ final class StudioProjectFolder {
     static func open(_ directory: URL) throws -> StudioProjectFolder {
         let url = directory.appendingPathComponent(documentName)
         guard let data = try? Data(contentsOf: url) else { throw OpenError.missingDocument }
+        let resolved = try resolve(data, in: directory)
+        guard let video = resolved.project.videoURL, FileManager.default.fileExists(atPath: video.path) else {
+            throw OpenError.noRecording
+        }
+        let folder = StudioProjectFolder(directory: directory, project: resolved.project, document: resolved.document)
+        folder.originalMedia = resolved.originalMedia
+        folder.originalSettingsPaths = resolved.originalSettingsPaths
+        return folder
+    }
+
+    /// A document decoded the way `open` decodes it: media re-pointed into
+    /// `directory`, with the strings it replaced.
+    struct Resolved {
+        let project: Project
+        let document: [String: Any]
+        let originalMedia: [String: String]
+        let originalSettingsPaths: [String: String]
+    }
+
+    static func resolve(_ data: Data, in directory: URL) throws -> Resolved {
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw OpenError.notAnObject
         }
@@ -83,11 +106,22 @@ final class StudioProjectFolder {
         }
         let resolvedData = try JSONSerialization.data(withJSONObject: resolved)
         let project = try JSONDecoder().decode(Project.self, from: resolvedData)
-        guard let video = project.videoURL, fm.fileExists(atPath: video.path) else { throw OpenError.noRecording }
-        let folder = StudioProjectFolder(directory: directory, project: project, document: object)
-        folder.originalMedia = originals
-        folder.originalSettingsPaths = settingsOriginals
-        return folder
+        return Resolved(project: project, document: object, originalMedia: originals, originalSettingsPaths: settingsOriginals)
+    }
+
+    /// Studio 4f (History restore / merge): makes `data` the project's
+    /// document — written to project.json byte for byte (the Mac's pull
+    /// writes a restored revision the same way), unknown keys and all — and
+    /// returns it decoded, media re-pointed, for the editor's live model to
+    /// adopt (`Project.adoptState(of:)`).
+    @discardableResult
+    func adoptDocument(_ data: Data) throws -> Project {
+        let resolved = try Self.resolve(data, in: directory)
+        try data.write(to: documentURL, options: .atomic)
+        document = resolved.document
+        originalMedia = resolved.originalMedia
+        originalSettingsPaths = resolved.originalSettingsPaths
+        return resolved.project
     }
 
     /// The model merged onto the document (see the type comment), as written
@@ -119,6 +153,7 @@ final class StudioProjectFolder {
             withJSONObject: merged, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         try data.write(to: documentURL, options: .atomic)
         document = merged
+        onDidSave?(data)
     }
 
     /// The model's keys replace the document's; objects merge recursively,

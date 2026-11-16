@@ -36,17 +36,19 @@ final class HistoryRowView: NSView {
     init(version: CloudVersion, isHead: Bool, timeText: String) {
         self.version = version
         self.isHead = isHead
-        avatar = CCAvatar(name: version.actorName ?? "Someone", size: .sm)
+        // The words and badges are shared with iOS (HistoryRowModel).
+        let model = HistoryRowModel(version: version, isHead: isHead, timeText: timeText)
+        avatar = CCAvatar(name: model.author, size: .sm)
         super.init(frame: .zero)
         wantsLayer = true
 
-        timeField.stringValue = timeText
-        authorField.stringValue = version.actorName ?? "Someone"
+        timeField.stringValue = model.timeText
+        authorField.stringValue = model.author
         authorField.lineBreakMode = .byTruncatingTail
-        summaryField.stringValue = version.summary
+        summaryField.stringValue = model.summary
         summaryField.lineBreakMode = .byTruncatingTail
         summaryField.maximumNumberOfLines = 1
-        summaryField.toolTip = version.change.map { ChangeSummary.format($0) } ?? version.summary
+        summaryField.toolTip = model.fullSummary
         for field in [authorField, summaryField] {
             field.setContentCompressionResistancePriority(.init(200), for: .horizontal)
         }
@@ -54,11 +56,13 @@ final class HistoryRowView: NSView {
         badgeRow.orientation = .horizontal
         badgeRow.spacing = CCSpace.xs
         badgeRow.setHuggingPriority(.required, for: .horizontal)
-        var list: [CCBadge] = [CCBadge(version.clientLabel, variant: .subtle)]
-        if let label = version.label, !label.isEmpty { list.insert(CCBadge(label, variant: .primary), at: 0) }
-        if isHead { list.append(CCBadge("Current", variant: .outline)) }
-        if version.kind == "merge" { list.append(CCBadge("Merge", variant: .outline)) }
-        if version.kind == "restore" { list.append(CCBadge("Restored", variant: .outline)) }
+        let list: [CCBadge] = model.badges.map { badge in
+            switch badge.style {
+            case .subtle: return CCBadge(badge.text, variant: .subtle)
+            case .primary: return CCBadge(badge.text, variant: .primary)
+            case .outline: return CCBadge(badge.text, variant: .outline)
+            }
+        }
         for badge in list { badgeRow.addArrangedSubview(badge) }
         badges = list
 
@@ -89,7 +93,7 @@ final class HistoryRowView: NSView {
         timeField.setContentCompressionResistancePriority(.required, for: .horizontal)
         themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
         setAccessibilityRole(.button)
-        setAccessibilityLabel("\(timeText), \(version.actorName ?? "Someone"), \(version.clientLabel). \(version.summary)")
+        setAccessibilityLabel(model.accessibilityLabel(clientLabel: version.clientLabel))
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
