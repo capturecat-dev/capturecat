@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import Observation
 #if canImport(WhisperKit)
+import CoreML
 import WhisperKit
 #endif
 
@@ -29,14 +30,19 @@ final class TranscriptionService {
     /// moves the download.
     @ObservationIgnored let modelFolder: URL?
     @ObservationIgnored let downloadBase: URL?
+    /// Gate seam: run every model on the CPU (the iOS Simulator's only
+    /// path), to attribute a Mac ↔ Simulator difference to compute units.
+    /// False in the apps — WhisperKit picks the Neural Engine / GPU.
+    @ObservationIgnored let cpuOnly: Bool
 
     #if canImport(WhisperKit)
     private var whisperKit: WhisperKit?
     #endif
 
-    init(modelFolder: URL? = nil, downloadBase: URL? = nil) {
+    init(modelFolder: URL? = nil, downloadBase: URL? = nil, cpuOnly: Bool = false) {
         self.modelFolder = modelFolder
         self.downloadBase = downloadBase
+        self.cpuOnly = cpuOnly
     }
 
     static let model = "base.en"
@@ -72,10 +78,13 @@ final class TranscriptionService {
                     WhisperKitConfig(model: Self.model)
                 )
             } else {
-                whisperKit = try await WhisperKit(
-                    WhisperKitConfig(model: Self.model, downloadBase: downloadBase,
-                                     modelFolder: modelFolder?.path, download: modelFolder == nil)
-                )
+                let config = WhisperKitConfig(model: Self.model, downloadBase: downloadBase,
+                                              modelFolder: modelFolder?.path, download: modelFolder == nil)
+                if cpuOnly {
+                    config.computeOptions = ModelComputeOptions(melCompute: .cpuOnly, audioEncoderCompute: .cpuOnly,
+                                                                textDecoderCompute: .cpuOnly, prefillCompute: .cpuOnly)
+                }
+                whisperKit = try await WhisperKit(config)
             }
         }
 

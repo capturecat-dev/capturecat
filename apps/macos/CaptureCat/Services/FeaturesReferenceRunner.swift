@@ -168,15 +168,33 @@ enum FeaturesReferenceRunner {
             let wav = fm.temporaryDirectory.appendingPathComponent("features-\(UUID().uuidString).wav")
             try await service.extractAudio(from: movie, to: wav)
             let wavSHA = FeaturesHarness.sha256(try Data(contentsOf: wav))
-            try? fm.removeItem(at: wav)
+            // Kept: StudioLab also transcribes exactly this input (the
+            // equal-input cross-check that isolates the engine).
+            try? fm.removeItem(at: dir.appendingPathComponent(F.macInput))
+            try fm.moveItem(at: wav, to: dir.appendingPathComponent(F.macInput))
             let started = Date()
             let segments = try await service.transcribe(videoURL: movie)
             let seconds = Date().timeIntervalSince(started)
             let transcript = FeaturesHarness.transcript(segments)
             let data = try JSONEncoder().encode(transcript)
             try data.write(to: dir.appendingPathComponent("mac-transcript.json"))
+            // The Mac against itself: a second run of the same input.
+            let again = FeaturesHarness.transcript(try await service.transcribe(videoURL: movie))
+            let repeatDelta = FeaturesHarness.maxTimingDelta(mac: transcript, ios: again)
+            let repeatSame = again.map(\.words.count) == transcript.map(\.words.count) && again.map(\.text) == transcript.map(\.text)
+            print("FEATURES-REFERENCE transcription Mac rerun: structure+text \(repeatSame ? "identical" : "DIFFER"), max timing |Δ| \(repeatDelta) s")
+            // Attribution: the same input with every model on the CPU (the
+            // iOS Simulator's only compute path).
+            let cpu = TranscriptionService(modelFolder: modelFolder, downloadBase: models, cpuOnly: true)
+            let cpuTranscript = FeaturesHarness.transcript(try await cpu.transcribe(
+                videoURL: dir.appendingPathComponent(F.macInput)))
+            try JSONEncoder().encode(cpuTranscript).write(to: dir.appendingPathComponent("mac-transcript-cpu.json"))
+            let computeSpread = FeaturesHarness.maxTimingDelta(mac: transcript, ios: cpuTranscript)
+            print("FEATURES-REFERENCE transcription Mac CPU-only vs default compute: max timing |Δ| \(computeSpread) s, median \(FeaturesHarness.medianTimingDelta(mac: transcript, ios: cpuTranscript)) s, text \(cpuTranscript.map(\.text) == transcript.map(\.text) ? "identical" : "DIFFERS")")
             FeaturesHarness.write(["wavSHA256": wavSHA, "seconds": seconds, "segments": segments.count,
-                                   "words": segments.reduce(0) { $0 + $1.words.count }],
+                                   "words": segments.reduce(0) { $0 + $1.words.count },
+                                   "repeatTimingDelta": repeatDelta, "repeatIdentical": repeatSame,
+                                   "computeSpread": computeSpread],
                                   to: dir.appendingPathComponent("mac-transcription.json"))
             print("FEATURES-REFERENCE transcription \(segments.count) segments, \(segments.reduce(0) { $0 + $1.words.count }) words in \(String(format: "%.1f", seconds)) s · wav \(wavSHA.prefix(12))")
             return segments.isEmpty ? 1 : 0

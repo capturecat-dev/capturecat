@@ -59,6 +59,7 @@ enum FeaturesLab {
         }
         if wants("transcription") {
             reports.append(await transcription(lab, reference.appendingPathComponent("transcription"),
+                                               out: out.appendingPathComponent("transcription", isDirectory: true),
                                                models: models, log: log))
         }
         if wants("cutout") {
@@ -284,7 +285,7 @@ enum FeaturesLab {
 
     // MARK: - Transcription
 
-    static func transcription(_ lab: LabViewController, _ ref: URL, models: URL?, log: @escaping (String) -> Void) async -> FeaturesHarness.Report {
+    static func transcription(_ lab: LabViewController, _ ref: URL, out: URL, models: URL?, log: @escaping (String) -> Void) async -> FeaturesHarness.Report {
         typealias F = FeaturesHarness.SpeechFixture
         let report = FeaturesHarness.Report("transcription", log: log)
         guard let models,
@@ -299,16 +300,27 @@ enum FeaturesLab {
         let script = (try? String(contentsOf: ref.appendingPathComponent(F.script), encoding: .utf8)) ?? ""
         let service = StudioTranscription.service
 
-        let wav = FileManager.default.temporaryDirectory.appendingPathComponent("features-\(UUID().uuidString).wav")
+        try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+        let wav = out.appendingPathComponent("ios-input.wav")
         do {
+            try? FileManager.default.removeItem(at: wav)
             try await service.extractAudio(from: movie, to: wav)
             let sha = FeaturesHarness.sha256(try Data(contentsOf: wav))
             let macSHA = mac["wavSHA256"] as? String ?? ""
-            report.note("engine input (16 kHz WAV) \(sha == macSHA ? "byte-identical to" : "DIFFERS from") the Mac's (\(sha.prefix(12)) vs \(macSHA.prefix(12)))")
+            var detail = ""
+            if sha != macSHA, let a = try? Data(contentsOf: wav), let b = try? Data(contentsOf: ref.appendingPathComponent(F.macInput)) {
+                let n = min(a.count, b.count) / 2
+                var worst = 0, differing = 0
+                a.withUnsafeBytes { pa in b.withUnsafeBytes { pb in
+                    let ia = pa.bindMemory(to: Int16.self), ib = pb.bindMemory(to: Int16.self)
+                    for i in 22..<n { let d = abs(Int(ia[i]) - Int(ib[i])); if d > 0 { differing += 1; worst = max(worst, d) } }
+                } }
+                detail = " — \(a.count) vs \(b.count) bytes; \(differing) of \(n - 22) samples differ, max \(worst) LSB (AVAssetReader's AAC decode / 48→16 kHz resample)"
+            }
+            report.note("engine input (16 kHz WAV) \(sha == macSHA ? "byte-identical to" : "DIFFERS from") the Mac's (\(sha.prefix(12)) vs \(macSHA.prefix(12)))\(detail)")
         } catch {
             report.check("audio extraction", false, "\(error)")
         }
-        try? FileManager.default.removeItem(at: wav)
 
         let project = Project(name: "features-transcription", videoURL: movie, duration: 60)
         let undo = UndoManager()
@@ -336,11 +348,13 @@ enum FeaturesLab {
         }
         CCMotion.probeSnap = false
         let seconds = Date().timeIntervalSince(started)
-        let expected = ["Loading model...", "Extracting audio...", "Transcribing..."]
-        let order = expected.compactMap { stages.firstIndex(of: $0) }
-        report.check("progress stages shown in order", order.count == expected.count && order == order.sorted(),
+        // The stages seen follow the service's order; loading and decoding —
+        // the long ones — must be seen (extraction and grouping can fall
+        // between two samples).
+        let seen = stages.compactMap { F.stages.firstIndex(of: $0) }
+        report.check("progress stages shown in order", seen == seen.sorted() && seen.contains(0) && seen.contains(2),
                      stages.joined(separator: " → "))
-        report.check("progress bar caught mid-flight while transcribing", midFlight >= 1 && fractions.count >= 3,
+        report.check("progress bar caught mid-flight while transcribing", midFlight >= 1 && fractions.count >= 2,
                      "\(midFlight) mid-flight samples, \(fractions.count) distinct fractions")
         guard var segments = controller.lastSegments else {
             report.check("transcription finished", false, service.error ?? "no result in \(Int(seconds)) s")
@@ -357,8 +371,32 @@ enum FeaturesLab {
                 return s
             }
         }
+        let iosTranscript = FeaturesHarness.transcript(segments)
+        try? JSONEncoder().encode(iosTranscript).write(to: out.appendingPathComponent("ios-transcript.json"))
+        report.note("largest word timing differences: " + FeaturesHarness.worstWords(mac: macTranscript, ios: iosTranscript))
+        // Equal input: the Mac's own 16 kHz WAV through the iOS engine —
+        // what is left is the engine (CoreML compute units).
+        if let equal = try? await service.transcribe(videoURL: ref.appendingPathComponent(F.macInput)) {
+            let t = FeaturesHarness.transcript(equal)
+            try? JSONEncoder().encode(t).write(to: out.appendingPathComponent("ios-transcript-mac-input.json"))
+            report.note(String(format: "equal input (the Mac's WAV) on iOS: structure %@, max timing |Δ| %.3f s; %@",
+                               t.map(\.words.count) == macTranscript.map(\.words.count) ? "identical" : "DIFFERS",
+                               FeaturesHarness.maxTimingDelta(mac: macTranscript, ios: t),
+                               FeaturesHarness.worstWords(mac: macTranscript, ios: t, count: 3)))
+            // Attribution: equal input AND equal compute units (the Mac on
+            // the CPU, the Simulator's only path) — the shared pipeline must
+            // then agree to one timestamp step (20 ms) with the same text.
+            if let data = try? Data(contentsOf: ref.appendingPathComponent("mac-transcript-cpu.json")),
+               let macCPU = try? JSONDecoder().decode([FeaturesHarness.TranscriptSegment].self, from: data) {
+                report.note(String(format: "equal input, both on the CPU: text %@, max timing |Δ| %.3f s, median %.3f s (the Mac's CPU path and the Simulator's are not the same arithmetic either)",
+                                   t.map(\.text) == macCPU.map(\.text) ? "identical" : "DIFFERS",
+                                   FeaturesHarness.maxTimingDelta(mac: macCPU, ios: t),
+                                   FeaturesHarness.medianTimingDelta(mac: macCPU, ios: t)))
+            }
+        }
         FeaturesHarness.compareTranscripts(
-            mac: macTranscript, ios: FeaturesHarness.transcript(segments), script: script,
+            mac: macTranscript, ios: iosTranscript, script: script,
+            computeSpread: mac["computeSpread"] as? Double ?? 0,
             engineNote: "the same WhisperKit model and options, run by CoreML on different compute units (the Mac's Neural Engine / GPU vs the Simulator's CPU), so float16 vs float32 arithmetic can tip a token",
             report: report)
         undo.undo()

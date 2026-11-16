@@ -68,7 +68,8 @@ First, open the project you want to share. Then choose a size and a format.
 When the export finishes, the file is saved next to your recording.
 That is all it takes. Thanks for watching, and see you next time.
 TEXT
-  say -o "$OUT/speech.aiff" -f "$OUT/speech.txt"
+  # Kept between runs: `say` output is not byte-stable run to run.
+  [[ -f "$OUT/speech.aiff" ]] || say -o "$OUT/speech.aiff" -f "$OUT/speech.txt"
   SPEECH_ARGS=(--speech "$OUT/speech.aiff" --script "$OUT/speech.txt")
   MODEL_ARGS=(--whisper-base "$WHISPER_BASE")
   MAC_MODEL_ARGS=(--whisper-base "$WHISPER_BASE")
