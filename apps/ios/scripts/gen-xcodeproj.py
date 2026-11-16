@@ -144,7 +144,8 @@ TARGETS.append({
     "type": "com.apple.product-type.application",
     "filetype": "wrapper.application",
     "bundle": "so.capturecat.ios.studiolab",
-    # Kit/ too: --kit-gallery renders the house controls in this real window.
+    # Kit/ too: --kit-gallery renders the house controls in this real window,
+    # and the StudioUI views (the timeline's menus, motion, icons) use the kit.
     "sync": ["StudioLab", "StudioUI", "Studio", "StudioHarness", "Kit"],
     "mac": ["CCIconSet"],
     "plist": "Config/Lab-Info.plist",

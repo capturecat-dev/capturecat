@@ -16,6 +16,10 @@ import UniformTypeIdentifiers
 ///                           run the Mac's preview-parity matrix (the same script,
 ///                           StudioHarness/PreviewParityHarness) against the
 ///                           Mac's frozen goldens
+///   --timeline-edits <outDir> [--inject accordion-snap|selection-snap|touch-offset]
+///                           replay the Mac --timeline-edits-test through the touch
+///                           timeline (TimelineEditsLab) against the Mac's frozen
+///                           transcript, plus the lane / selection motion checks
 ///   --ios-export-parity <fixturesDir> [--out <dir>] [--only a,b] [--inject padding]
 ///                           re-export the Mac's render-parity fixtures with the
 ///                           iOS VideoExporter and score them against the Mac's
@@ -72,6 +76,7 @@ final class LabViewController: UIViewController {
 
     func start(arguments: [String]) {
         if KitGalleryLab.start(arguments, lab: self) { return }
+        if TimelineEditsLab.start(arguments, in: self) { return }
         if let i = arguments.firstIndex(of: "--decode-probe"), arguments.indices.contains(i + 1) {
             let video = URL(fileURLWithPath: arguments[i + 1])
             let index = arguments.firstIndex(of: "--index").flatMap { arguments.indices.contains($0 + 1) ? Int(arguments[$0 + 1]) : nil } ?? 0

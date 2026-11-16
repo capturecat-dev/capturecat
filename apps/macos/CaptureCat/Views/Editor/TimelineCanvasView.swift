@@ -1,183 +1,5 @@
 import AppKit
 
-// MARK: - Snapshot (one-way data in)
-
-/// One block on the FOCUS lane, already mapped into output time.
-struct TimelineFocusItem: Equatable {
-    var id: UUID
-    var isHighlight: Bool
-    var startTime: TimeInterval
-    var endTime: TimeInterval
-    var label: String
-    var isSelected: Bool
-}
-
-/// One context-menu row a lane block contributes (title, checkmark,
-/// enabled, action); a nil action is a separator.
-struct TimelineMenuEntry {
-    var title: String = ""
-    var checked = false
-    var isEnabled = true
-    var action: (() -> Void)?
-
-    static let separator = TimelineMenuEntry()
-}
-
-/// One block on the ANNOTATE lane, already mapped into output time.
-struct TimelineAnnotateItem: Equatable {
-    var id: UUID
-    var startTime: TimeInterval
-    var endTime: TimeInterval
-    /// Short type label ("Text", "Tap"…) — the block caption.
-    var label: String
-    /// SF Symbol name for the type glyph.
-    var icon: String
-    var isSelected: Bool
-}
-
-/// Immutable value the AppKit canvas renders from. All times are OUTPUT time
-/// (post speed-map); the SwiftUI side converts to source time at every
-/// callback boundary, so the canvas never touches the model or the time map.
-struct TimelineCanvasSnapshot: Equatable {
-    var outputDuration: TimeInterval
-    var playheadOutputTime: TimeInterval
-    /// Slice hover snapped onto the playhead — line turns red, same as SwiftUI.
-    var playheadIsRed: Bool
-    /// The playhead grab strip is disabled while the slice tool owns the lane.
-    var playheadHitTestEnabled: Bool
-    /// Pre-formatted scrub readout (e.g. "0:02.4"), computed by TimelineView.
-    var scrubLabel: String
-    var effectItems: [EffectBlockItem]
-    /// Intro Slide chip pinned to the head of the EFFECTS lane — end time in
-    /// output seconds (nil = intro off) and its label ("Intro · Bottom").
-    var introChipStart: TimeInterval = 0
-    var introChipEnd: TimeInterval? = nil
-    var introChipSelected: Bool = false
-    var introChipLabel: String = ""
-    var introChipIcon: String = "arrow.up.to.line"
-    /// Curtain Unveil chip on the EFFECTS lane — end time in output seconds
-    /// (nil = curtain off). Label/icon are fixed ("Curtain" / book.pages).
-    var curtainChipStart: TimeInterval = 0
-    var curtainChipEnd: TimeInterval? = nil
-    var curtainChipSelected: Bool = false
-    var selectedZoomID: UUID?
-    var selectedTiltID: UUID?
-    var focusItems: [TimelineFocusItem]
-    var annotateItems: [TimelineAnnotateItem]
-    var trimStartOutput: TimeInterval
-    var trimEndOutput: TimeInterval
-    /// Slice tool armed — the VIDEO lane swaps its drag gestures for the
-    /// crosshair cut indicator, exactly like the SwiftUI overlay did.
-    var sliceArmed: Bool = false
-    /// Still capture in Image treatment with NO timed effects — "there is no
-    /// time". The video block reads as one full-width slab (scale is pinned to
-    /// 1 by the controller), the ruler drops to a bare baseline and the
-    /// playhead hides while idle — but scrubbing still works, and the line
-    /// shows during the interaction. The underlying time mapping is UNCHANGED:
-    /// effect blocks keep their exact positions and drag math. The moment a
-    /// timed effect exists this goes false (playhead/scrub behave exactly as
-    /// video; see `dimmedRuler`).
-    var timelessVideo: Bool = false
-    /// Still capture in Image treatment WITH timed effects: full video-style
-    /// playhead and scrubbing, ruler ticks slightly dimmed (labels stay
-    /// legible) as the one remaining hint of the Image treatment.
-    var dimmedRuler: Bool = false
-}
-
-// MARK: - Callbacks (mutations out)
-
-/// Every mutation routes through these closures into the SAME TimelineView
-/// functions the SwiftUI lanes used, so undo registration and lane rules are
-/// reused verbatim. Times passed here are OUTPUT time; the wrappers convert.
-struct TimelineCanvasCallbacks {
-    var scrub: (CGFloat) -> Void
-    var seek: (CGFloat) -> Void
-    var selectEffect: (UUID?, UUID?) -> Void
-    /// Click on the Intro chip — opens the Motion pane where the entrance
-    /// direction and length live.
-    var openIntro: () -> Void = {}
-    var deleteIntro: () -> Void = {}
-    /// Live drag of the Intro chip's right edge — new END in output seconds.
-    var resizeIntro: (TimeInterval) -> Void = { _ in }
-    /// Live drag of the whole chip — new START in output seconds.
-    var moveIntro: (TimeInterval) -> Void = { _ in }
-    /// Click on the Curtain chip — opens the Effects pane.
-    var openCurtain: () -> Void = {}
-    var deleteCurtain: () -> Void = {}
-    /// Live drag of the Curtain chip's right edge — new END in output seconds.
-    var resizeCurtain: (TimeInterval) -> Void = { _ in }
-    /// Live drag of the whole Curtain chip — new START in output seconds.
-    var moveCurtain: (TimeInterval) -> Void = { _ in }
-    var commitEffectTimes: (UUID?, UUID?, TimeInterval, TimeInterval) -> Void
-    var setZoomLevel: (UUID, Double) -> Void
-    var addZoomToBlock: (UUID) -> Void
-    var addTiltToBlock: (UUID) -> Void
-    var removeZoom: (UUID) -> Void
-    var removeTilt: (UUID) -> Void
-    var deleteEffectBlock: (UUID?, UUID?) -> Void
-    var addZoomAt: (TimeInterval) -> Void
-    var addTiltAt: (TimeInterval) -> Void
-    var selectFocus: (UUID?, Bool) -> Void
-    var commitFocusTimes: (UUID, Bool, TimeInterval, TimeInterval) -> Void
-    var deleteFocus: (UUID, Bool) -> Void
-    /// Extra entries for a FOCUS block's context menu, above Delete (camera
-    /// layout blocks: side + Copy / Paste Layout). Empty = none.
-    var focusMenuExtras: (UUID) -> [TimelineMenuEntry] = { _ in [] }
-    var addBlurAt: (TimeInterval) -> Void
-    var addHighlightAt: (TimeInterval) -> Void
-    var selectAnnotation: (UUID?) -> Void
-    var commitAnnotationTimes: (UUID, TimeInterval, TimeInterval) -> Void
-    var deleteAnnotation: (UUID) -> Void
-    var addAnnotationAt: (AnnotationType, TimeInterval) -> Void
-    /// Keyboard, handled natively by the canvas (it becomes first responder
-    /// on click, which starves SwiftUI's .onKeyPress chain).
-    var deleteSelection: () -> Void = {}
-    var togglePlayback: () -> Void = {}
-}
-
-// MARK: - Shared metrics
-
-/// Mirrors TimelineView's layout constants exactly — one source of numbers for
-/// both drawing and hit testing. Flipped coordinates: y grows downward.
-enum TimelineCanvasMetrics {
-    static let rulerHeight: CGFloat = 22
-    static let rulerBottomSpacing: CGFloat = 6
-    static let trackHeight: CGFloat = 48
-    static let trackSpacing: CGFloat = 4
-    static let bottomInset: CGFloat = 12
-
-    static let videoLaneY: CGFloat = rulerHeight + rulerBottomSpacing               // 28
-    static let voiceLaneY: CGFloat = videoLaneY + trackHeight + trackSpacing        // 80
-    static let effectsLaneY: CGFloat = voiceLaneY + trackHeight + trackSpacing      // 132
-    static let focusLaneY: CGFloat = effectsLaneY + trackHeight + trackSpacing      // 184
-    static let annotateLaneY: CGFloat = focusLaneY + trackHeight + trackSpacing     // 236
-    static let tracksBottom: CGFloat = annotateLaneY + trackHeight                  // 284
-
-    /// Separators sit at the top of each inter-lane gap, like the SwiftUI
-    /// `.overlay(alignment: .top)` on the padded rows.
-    static let separatorYs: [CGFloat] = [
-        voiceLaneY - trackSpacing,
-        effectsLaneY - trackSpacing,
-        focusLaneY - trackSpacing,
-        annotateLaneY - trackSpacing,
-    ]
-
-    /// EFFECTS sub-rows: overlapping items stack instead of hiding each
-    /// other. Each extra row adds one pitch to the lane; capped so a
-    /// pathological pile-up cannot swallow the timeline.
-    static let subRowGap: CGFloat = 4
-    static let subRowPitch: CGFloat = trackHeight + subRowGap
-    static let maxEffectsRows = 3
-
-    static let blockInset: CGFloat = 3      // TimelineBlockSurface.inset
-    static let blockCornerRadius: CGFloat = 10
-    static let handleWidth: CGFloat = 8
-    static let minBlockWidth: CGFloat = 20
-    static let minDuration: TimeInterval = 0.5
-    static let dragThreshold: CGFloat = 3
-    static let playheadStripHalfWidth: CGFloat = 14
-}
-
 /// Layer-backed, flipped AppKit port of the timeline's track area. Draws the
 /// ruler, EFFECTS and FOCUS lanes, separators and hints itself; the VIDEO and
 /// VOICE rows stay as hosted SwiftUI so their clip/speed/trim/recording logic
@@ -357,7 +179,9 @@ final class TimelineCanvasView: NSView {
 
     // MARK: Mouse state machine
 
-    private enum DragMode { case move, resizeLeft, resizeRight }
+    // Drag state + resolution are shared with the iOS timeline
+    // (Studio/Editor/TimelineLaneMath.swift).
+    private typealias DragMode = TimelineBlockDragMode
 
     /// Intro chip drags (outside the block state machine — the chip is
     /// settings, not a region). Move distinguishes click from drag by the
@@ -372,28 +196,8 @@ final class TimelineCanvasView: NSView {
     /// the no-overlap clamp, mirroring the lane's legacy-grace rule.
     private var introDragInitialSpan: (start: TimeInterval, end: TimeInterval)?
 
-    private enum DragTarget {
-        case effect(EffectBlockItem)
-        case focus(TimelineFocusItem)
-        case annotate(TimelineAnnotateItem)
-    }
-
-    private struct BlockDrag {
-        var target: DragTarget
-        var mode: DragMode
-        var initialStart: TimeInterval
-        var initialEnd: TimeInterval
-        var startPoint: CGPoint
-        var didDrag = false
-        var translationX: CGFloat = 0
-        /// Captured once at mouseDown so the whole gesture resolves against a
-        /// stable set — same as the SwiftUI blocks re-deriving from drag-start.
-        var snapCandidates: [TimeInterval]
-        var otherSpans: [(TimeInterval, TimeInterval)]
-        /// Legacy-overlap grace applies on the EFFECTS lane only.
-        var usesLegacyGrace: Bool
-        var minDuration: TimeInterval
-    }
+    private typealias DragTarget = TimelineBlockDragTarget
+    private typealias BlockDrag = TimelineBlockDrag
 
     private enum MouseState {
         case idle
@@ -598,40 +402,12 @@ final class TimelineCanvasView: NSView {
     /// Draw order: earlier-starting first, so later-starting annotations draw
     /// on top (overlaps are allowed on this lane).
     private var orderedAnnotateItems: [TimelineAnnotateItem] {
-        snapshot.annotateItems.sorted { $0.startTime < $1.startTime }
+        TimelineLaneMath.orderedAnnotateItems(snapshot)
     }
 
-    /// Sub-row layout for concurrent annotations: greedy interval
-    /// partitioning per overlap cluster, so overlapping blocks stack in
-    /// slimmer rows instead of burying each other. Isolated annotations keep
-    /// the full lane height.
+    /// Sub-row layout for concurrent annotations (TimelineLaneMath).
     private var annotateRowLayout: [UUID: (row: Int, rows: Int)] {
-        var layout: [UUID: (row: Int, rows: Int)] = [:]
-        var rowEnds: [TimeInterval] = []
-        var assignments: [(UUID, Int)] = []
-        var clusterMaxEnd = -TimeInterval.infinity
-
-        func flushCluster() {
-            for (id, row) in assignments { layout[id] = (row, rowEnds.count) }
-            assignments.removeAll()
-            rowEnds.removeAll()
-        }
-
-        for item in orderedAnnotateItems {
-            if !rowEnds.isEmpty && item.startTime >= clusterMaxEnd - 0.0001 {
-                flushCluster()
-            }
-            if let free = rowEnds.firstIndex(where: { $0 <= item.startTime + 0.0001 }) {
-                rowEnds[free] = item.endTime
-                assignments.append((item.id, free))
-            } else {
-                rowEnds.append(item.endTime)
-                assignments.append((item.id, rowEnds.count - 1))
-            }
-            clusterMaxEnd = max(clusterMaxEnd, item.endTime)
-        }
-        flushCluster()
-        return layout
+        TimelineLaneMath.annotateRowLayout(snapshot)
     }
 
     /// Committed rect for an annotation — full lane height when alone,
@@ -654,299 +430,53 @@ final class TimelineCanvasView: NSView {
     // MARK: - Snap / clamp resolution (byte-for-byte port of the block views)
 
     private func resolvedTimes(for drag: BlockDrag) -> (start: TimeInterval, end: TimeInterval) {
-        let delta = TimeInterval(drag.translationX / max(trackWidth, 1)) * snapshot.outputDuration
-        let totalDuration = snapshot.outputDuration
-        let minDuration = drag.minDuration
-
-        // Anything the block was ALREADY overlapping at drag start is exempt
-        // (EFFECTS lane only) — legacy-overlap projects can be pulled apart.
-        let blockers: [(TimeInterval, TimeInterval)]
-        if drag.usesLegacyGrace {
-            blockers = drag.otherSpans.filter { other in
-                !(other.0 < drag.initialEnd - 0.0001 && other.1 > drag.initialStart + 0.0001)
-            }
-        } else {
-            blockers = drag.otherSpans
-        }
-
-        let snapEdge: (TimeInterval, [TimeInterval]) -> TimeInterval? = { time, excludedEdges in
-            let candidates = drag.snapCandidates.filter { candidate in
-                !excludedEdges.contains(where: { abs($0 - candidate) < 0.0001 })
-            }
-            return TimelineSnap.nearestCandidate(
-                to: time,
-                candidates: candidates,
-                duration: totalDuration,
-                trackWidth: self.trackWidth
-            )
-        }
-
-        switch drag.mode {
-        case .move:
-            let duration = drag.initialEnd - drag.initialStart
-            let proposedStart = drag.initialStart + delta
-            let proposedEnd = proposedStart + duration
-            let candidates = drag.snapCandidates.filter { candidate in
-                abs(candidate - drag.initialStart) >= 0.0001 && abs(candidate - drag.initialEnd) >= 0.0001
-            }
-            let snappedStartCandidate = TimelineSnap.nearestCandidate(
-                to: proposedStart, candidates: candidates,
-                duration: totalDuration, trackWidth: trackWidth
-            )
-            let snappedEndCandidate = TimelineSnap.nearestCandidate(
-                to: proposedEnd, candidates: candidates,
-                duration: totalDuration, trackWidth: trackWidth
-            )
-            let adjustedStart: TimeInterval
-            switch (snappedStartCandidate, snappedEndCandidate) {
-            case let (start?, end?):
-                adjustedStart = abs(start - proposedStart) <= abs(end - proposedEnd) ? start : (end - duration)
-            case let (start?, nil):
-                adjustedStart = start
-            case let (nil, end?):
-                adjustedStart = end - duration
-            case (nil, nil):
-                adjustedStart = proposedStart
-            }
-            var newStart = max(0, min(totalDuration - duration, adjustedStart))
-            // Snap has already run; now refuse to land on top of a neighbour,
-            // sliding flush against whichever side the drag was heading for.
-            for other in blockers {
-                if newStart < other.1 && (newStart + duration) > other.0 {
-                    let leftPos = other.0 - duration
-                    let rightPos = other.1
-                    newStart = abs(adjustedStart - leftPos) <= abs(adjustedStart - rightPos)
-                        ? max(0, leftPos)
-                        : min(totalDuration - duration, rightPos)
-                }
-            }
-            return (newStart, newStart + duration)
-        case .resizeLeft:
-            let snappedStart = snapEdge(drag.initialStart + delta, [drag.initialStart, drag.initialEnd])
-                ?? (drag.initialStart + delta)
-            var newStart = max(0, min(drag.initialEnd - minDuration, snappedStart))
-            if let block = blockers
-                .filter({ $0.0 < drag.initialEnd && $0.1 > newStart })
-                .map({ $0.1 }).max() {
-                // EFFECTS keeps the min-duration clamp after the neighbour
-                // clamp; FOCUS lets the neighbour win outright — same as the
-                // SwiftUI blocks.
-                newStart = drag.usesLegacyGrace
-                    ? min(max(newStart, block), drag.initialEnd - minDuration)
-                    : max(newStart, block)
-            }
-            return (newStart, drag.initialEnd)
-        case .resizeRight:
-            let snappedEnd = snapEdge(drag.initialEnd + delta, [drag.initialStart, drag.initialEnd])
-                ?? (drag.initialEnd + delta)
-            var newEnd = max(drag.initialStart + minDuration, min(totalDuration, snappedEnd))
-            if let block = blockers
-                .filter({ $0.1 > drag.initialStart && $0.0 < newEnd })
-                .map({ $0.0 }).min() {
-                newEnd = max(drag.initialStart + minDuration, min(newEnd, block))
-            }
-            return (drag.initialStart, newEnd)
-        }
+        TimelineLaneMath.resolvedTimes(for: drag, outputDuration: snapshot.outputDuration, trackWidth: trackWidth)
     }
 
     private func snapIndicator(for drag: BlockDrag) -> TimeInterval? {
-        let resolved = resolvedTimes(for: drag)
-        return TimelineSnap.snappedEdge(
-            start: resolved.start,
-            end: resolved.end,
-            candidates: drag.snapCandidates,
-            checkStart: drag.mode != .resizeRight,
-            checkEnd: drag.mode != .resizeLeft
-        )
+        TimelineLaneMath.snapIndicator(for: drag, outputDuration: snapshot.outputDuration, trackWidth: trackWidth)
     }
 
-    // MARK: - Per-item candidates / spans (ports of the SwiftUI lane builders)
+    // MARK: - Per-item candidates / spans (TimelineLaneMath)
 
-    private func effectSnapCandidates(excluding item: EffectBlockItem) -> [TimeInterval] {
-        var candidates: [TimeInterval] = [
-            snapshot.trimStartOutput,
-            snapshot.trimEndOutput,
-            snapshot.playheadOutputTime,
-        ]
-        for focus in snapshot.focusItems {
-            candidates.append(focus.startTime)
-            candidates.append(focus.endTime)
-        }
-        for other in snapshot.effectItems
-        where other.zoomID != item.zoomID || other.tiltID != item.tiltID {
-            candidates.append(other.startTime)
-            candidates.append(other.endTime)
-        }
-        return candidates
-    }
-
-    private func effectLaneSpans(excluding item: EffectBlockItem) -> [(TimeInterval, TimeInterval)] {
-        var spans: [(TimeInterval, TimeInterval)] = snapshot.effectItems.compactMap { other in
-            guard other.zoomID != item.zoomID || other.tiltID != item.tiltID else { return nil }
-            return (other.startTime, other.endTime)
-        }
-        // The Slide chip shares this lane — blocks may not be dragged under it
-        // either. (Effect drags use legacy grace, so a joined Slide that
-        // already co-spans this block stays exempt.)
-        if let introEnd = snapshot.introChipEnd, introEnd > snapshot.introChipStart {
-            spans.append((snapshot.introChipStart, introEnd))
-        }
-        if let curtainEnd = snapshot.curtainChipEnd, curtainEnd > snapshot.curtainChipStart {
-            spans.append((snapshot.curtainChipStart, curtainEnd))
-        }
-        return spans
-    }
-
-    /// Effect spans the Slide chip must not be dragged onto. Spans already
-    /// overlapping the chip at mouse-down are exempt (joined Slide).
     private func introBlockers() -> [(TimeInterval, TimeInterval)] {
-        let initial = introDragInitialSpan ?? (snapshot.introChipStart, snapshot.introChipEnd ?? snapshot.introChipStart)
-        var blockers: [(TimeInterval, TimeInterval)] = snapshot.effectItems.compactMap { item in
-            let overlapping = item.startTime < initial.end - 0.0001 && item.endTime > initial.start + 0.0001
-            return overlapping ? nil : (item.startTime, item.endTime)
-        }
-        if let curtainEnd = snapshot.curtainChipEnd, curtainEnd > snapshot.curtainChipStart {
-            blockers.append((snapshot.curtainChipStart, curtainEnd))
-        }
-        return blockers
+        TimelineLaneMath.introBlockers(initial: introDragInitialSpan, in: snapshot)
     }
 
-    /// Spans the Curtain chip must not be dragged onto — every effect block
-    /// (span-overlap exempt at mouse-down, like the Slide chip) plus the
-    /// Slide chip itself.
     private func curtainBlockers() -> [(TimeInterval, TimeInterval)] {
-        let initial = curtainDragInitialSpan ?? (snapshot.curtainChipStart, snapshot.curtainChipEnd ?? snapshot.curtainChipStart)
-        var blockers: [(TimeInterval, TimeInterval)] = snapshot.effectItems.compactMap { item in
-            let overlapping = item.startTime < initial.end - 0.0001 && item.endTime > initial.start + 0.0001
-            return overlapping ? nil : (item.startTime, item.endTime)
-        }
-        if let introEnd = snapshot.introChipEnd, introEnd > snapshot.introChipStart {
-            blockers.append((snapshot.introChipStart, introEnd))
-        }
-        return blockers
-    }
-
-    private func focusSnapCandidates(excluding item: TimelineFocusItem) -> [TimeInterval] {
-        var candidates: [TimeInterval] = [
-            snapshot.trimStartOutput,
-            snapshot.trimEndOutput,
-            snapshot.playheadOutputTime,
-        ]
-        // The SwiftUI FOCUS lane snaps to zoom-region edges only, not to
-        // tilt-only blocks.
-        for effect in snapshot.effectItems where effect.hasZoom {
-            candidates.append(effect.startTime)
-            candidates.append(effect.endTime)
-        }
-        for other in snapshot.focusItems where other.id != item.id {
-            candidates.append(other.startTime)
-            candidates.append(other.endTime)
-        }
-        return candidates
-    }
-
-    private func focusLaneSpans(excluding item: TimelineFocusItem) -> [(TimeInterval, TimeInterval)] {
-        snapshot.focusItems.compactMap { other in
-            guard other.id != item.id else { return nil }
-            return (other.startTime, other.endTime)
-        }
-    }
-
-    private func annotateSnapCandidates(excluding item: TimelineAnnotateItem) -> [TimeInterval] {
-        var candidates: [TimeInterval] = [
-            snapshot.trimStartOutput,
-            snapshot.trimEndOutput,
-            snapshot.playheadOutputTime,
-        ]
-        for effect in snapshot.effectItems {
-            candidates.append(effect.startTime)
-            candidates.append(effect.endTime)
-        }
-        for focus in snapshot.focusItems {
-            candidates.append(focus.startTime)
-            candidates.append(focus.endTime)
-        }
-        for other in snapshot.annotateItems where other.id != item.id {
-            candidates.append(other.startTime)
-            candidates.append(other.endTime)
-        }
-        return candidates
+        TimelineLaneMath.curtainBlockers(initial: curtainDragInitialSpan, in: snapshot)
     }
 
     // MARK: - Hit testing
 
     // MARK: - EFFECTS sub-rows
 
-    /// Greedy interval-graph coloring for the EFFECTS lane: sort by start,
-    /// give each item the LOWEST sub-row whose previous occupant has ended.
-    /// Overlapping effects STACK into sub-rows instead of drawing over each
-    /// other (they still apply simultaneously). Capped at `maxEffectsRows`;
-    /// beyond that, items share the last row. SHARED source of truth: the
-    /// canvas colors chips with it and TimelineViewController sizes the lane
-    /// with `effectsRowCount(snapshot:)` below.
+    /// EFFECTS sub-row assignment — shared (TimelineLaneMath); these
+    /// forwards keep the canvas's static entry points for its callers.
     static func effectsRowAssignment(
         spans: [(key: String, start: TimeInterval, end: TimeInterval)]
     ) -> (rows: [String: Int], rowCount: Int) {
-        var rows: [String: Int] = [:]
-        var rowEnds: [TimeInterval] = []
-        for span in spans.sorted(by: { $0.start < $1.start }) {
-            if let free = rowEnds.indices.first(where: { span.start >= rowEnds[$0] - 0.0001 }) {
-                rows[span.key] = free
-                rowEnds[free] = max(rowEnds[free], span.end)
-            } else if rowEnds.count < TimelineCanvasMetrics.maxEffectsRows {
-                rows[span.key] = rowEnds.count
-                rowEnds.append(span.end)
-            } else {
-                rows[span.key] = TimelineCanvasMetrics.maxEffectsRows - 1
-                rowEnds[TimelineCanvasMetrics.maxEffectsRows - 1] =
-                    max(rowEnds[TimelineCanvasMetrics.maxEffectsRows - 1], span.end)
-            }
-        }
-        return (rows, max(1, rowEnds.count))
+        TimelineLaneMath.effectsRowAssignment(spans: spans)
     }
 
-    /// The committed EFFECTS-lane spans a snapshot describes — effect blocks
-    /// plus the Slide and Curtain chips.
     static func effectsSpans(
         snapshot: TimelineCanvasSnapshot
     ) -> [(key: String, start: TimeInterval, end: TimeInterval)] {
-        var spans: [(key: String, start: TimeInterval, end: TimeInterval)] =
-            snapshot.effectItems.map {
-                ("effect-\($0.zoomID?.uuidString ?? "-")/\($0.tiltID?.uuidString ?? "-")",
-                 $0.startTime, $0.endTime)
-            }
-        if let end = snapshot.introChipEnd, end > snapshot.introChipStart {
-            spans.append(("intro-chip", snapshot.introChipStart, end))
-        }
-        if let end = snapshot.curtainChipEnd, end > snapshot.curtainChipStart {
-            spans.append(("curtain-chip", snapshot.curtainChipStart, end))
-        }
-        return spans
+        TimelineLaneMath.effectsSpans(snapshot: snapshot)
     }
 
-    /// Committed sub-row count for a snapshot (≥ 1) — the number the lane
-    /// HEIGHT is sized from, on both the canvas and the controller.
     static func effectsRowCount(snapshot: TimelineCanvasSnapshot) -> Int {
-        effectsRowAssignment(spans: effectsSpans(snapshot: snapshot)).rowCount
+        TimelineLaneMath.effectsRowCount(snapshot: snapshot)
     }
 
-    /// Live spans: the committed snapshot spans, with a mid-drag effect
-    /// block's span replaced by its resolved drag times so chips glide to
-    /// their sub-row while dragging. (Chip drags mutate the model live, so
-    /// the snapshot is already current for them.)
     private func liveEffectsSpans() -> [(key: String, start: TimeInterval, end: TimeInterval)] {
-        var spans = Self.effectsSpans(snapshot: snapshot)
-        if case .draggingBlock(let drag) = mouseState,
-           case .effect(let item) = drag.target, drag.didDrag {
-            let key = effectsSpanKey(item)
-            let resolved = resolvedTimes(for: drag)
-            spans = spans.map { $0.key == key ? (key, resolved.start, resolved.end) : $0 }
-        }
-        return spans
+        var drag: BlockDrag?
+        if case .draggingBlock(let d) = mouseState { drag = d }
+        return TimelineLaneMath.liveEffectsSpans(snapshot: snapshot, drag: drag, trackWidth: trackWidth)
     }
 
     private func effectsSpanKey(_ item: EffectBlockItem) -> String {
-        "effect-\(item.zoomID?.uuidString ?? "-")/\(item.tiltID?.uuidString ?? "-")"
+        TimelineLaneMath.effectsSpanKey(item)
     }
 
     /// Live row assignment, keyed by `effectsSpanKey` / "intro-chip" /
@@ -1018,10 +548,7 @@ final class TimelineCanvasView: NSView {
     private func dragMode(for point: CGPoint, blockStart: TimeInterval, blockEnd: TimeInterval) -> DragMode {
         let originX = x(forOutputTime: blockStart)
         let width = blockWidth(start: blockStart, end: blockEnd)
-        let localX = min(max(point.x - originX, 0), width)
-        if localX < M.handleWidth { return .resizeLeft }
-        if localX > width - M.handleWidth { return .resizeRight }
-        return .move
+        return TimelineLaneMath.dragMode(localX: point.x - originX, blockWidth: width)
     }
 
     // MARK: - Keyboard
@@ -1096,17 +623,9 @@ final class TimelineCanvasView: NSView {
             if !isSelected(item) {
                 callbacks?.selectEffect(item.zoomID, item.tiltID)
             }
-            mouseState = .draggingBlock(BlockDrag(
-                target: .effect(item),
-                mode: dragMode(for: point, blockStart: item.startTime, blockEnd: item.endTime),
-                initialStart: item.startTime,
-                initialEnd: item.endTime,
-                startPoint: point,
-                snapCandidates: effectSnapCandidates(excluding: item),
-                otherSpans: effectLaneSpans(excluding: item),
-                usesLegacyGrace: true,
-                minDuration: M.minDuration
-            ))
+            mouseState = .draggingBlock(TimelineLaneMath.effectDrag(
+                item, mode: dragMode(for: point, blockStart: item.startTime, blockEnd: item.endTime),
+                at: point, in: snapshot))
             // The SwiftUI blocks pop their hover cursor when a drag begins.
             setCursor(.arrow)
             return
@@ -1115,17 +634,9 @@ final class TimelineCanvasView: NSView {
             if !item.isSelected {
                 callbacks?.selectFocus(item.id, item.isHighlight)
             }
-            mouseState = .draggingBlock(BlockDrag(
-                target: .focus(item),
-                mode: dragMode(for: point, blockStart: item.startTime, blockEnd: item.endTime),
-                initialStart: item.startTime,
-                initialEnd: item.endTime,
-                startPoint: point,
-                snapCandidates: focusSnapCandidates(excluding: item),
-                otherSpans: focusLaneSpans(excluding: item),
-                usesLegacyGrace: false,
-                minDuration: M.minDuration
-            ))
+            mouseState = .draggingBlock(TimelineLaneMath.focusDrag(
+                item, mode: dragMode(for: point, blockStart: item.startTime, blockEnd: item.endTime),
+                at: point, in: snapshot))
             setCursor(.arrow)
             return
         }
@@ -1134,18 +645,10 @@ final class TimelineCanvasView: NSView {
             if !item.isSelected {
                 callbacks?.selectAnnotation(item.id)
             }
-            mouseState = .draggingBlock(BlockDrag(
-                target: .annotate(item),
-                mode: dragMode(for: point, blockStart: item.startTime, blockEnd: item.endTime),
-                initialStart: item.startTime,
-                initialEnd: item.endTime,
-                startPoint: point,
-                snapCandidates: annotateSnapCandidates(excluding: item),
-                // Overlaps are allowed on this lane — no blocking spans.
-                otherSpans: [],
-                usesLegacyGrace: false,
-                minDuration: M.minDuration
-            ))
+            // Overlaps are allowed on this lane — no blocking spans.
+            mouseState = .draggingBlock(TimelineLaneMath.annotateDrag(
+                item, mode: dragMode(for: point, blockStart: item.startTime, blockEnd: item.endTime),
+                at: point, in: snapshot))
             setCursor(.arrow)
             return
         }
@@ -1172,15 +675,11 @@ final class TimelineCanvasView: NSView {
     override func mouseDragged(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         if draggingIntroEdge {
-            var end = outputTime(atX: point.x)
             // Same rule as resizeRight on effect blocks: stop flush against the
             // nearest non-exempt neighbour instead of sliding under it.
-            let start = snapshot.introChipStart
-            if let block = introBlockers()
-                .filter({ $0.1 > start && $0.0 < end })
-                .map({ $0.0 }).min() {
-                end = min(end, block)
-            }
+            let end = TimelineLaneMath.chipResizedEnd(
+                proposedEnd: outputTime(atX: point.x), chipStart: snapshot.introChipStart,
+                blockers: introBlockers())
             callbacks?.resizeIntro(end)
             return
         }
@@ -1191,29 +690,17 @@ final class TimelineCanvasView: NSView {
             if move.didDrag {
                 let dt = TimeInterval(dx / max(1, trackWidth)) * snapshot.outputDuration
                 let duration = (snapshot.introChipEnd ?? move.initialStart) - snapshot.introChipStart
-                var newStart = max(0, min(snapshot.outputDuration - duration, move.initialStart + dt))
-                // Refuse to land on a neighbour — slide flush to the nearer side.
-                for other in introBlockers() {
-                    if newStart < other.1 && newStart + duration > other.0 {
-                        let leftPos = other.0 - duration
-                        let rightPos = other.1
-                        newStart = abs((move.initialStart + dt) - leftPos) <= abs((move.initialStart + dt) - rightPos)
-                            ? max(0, leftPos)
-                            : min(snapshot.outputDuration - duration, rightPos)
-                    }
-                }
+                let newStart = TimelineLaneMath.chipMovedStart(
+                    initialStart: move.initialStart, dt: dt, duration: duration,
+                    outputDuration: snapshot.outputDuration, blockers: introBlockers())
                 callbacks?.moveIntro(newStart)
             }
             return
         }
         if draggingCurtainEdge {
-            var end = outputTime(atX: point.x)
-            let start = snapshot.curtainChipStart
-            if let block = curtainBlockers()
-                .filter({ $0.1 > start && $0.0 < end })
-                .map({ $0.0 }).min() {
-                end = min(end, block)
-            }
+            let end = TimelineLaneMath.chipResizedEnd(
+                proposedEnd: outputTime(atX: point.x), chipStart: snapshot.curtainChipStart,
+                blockers: curtainBlockers())
             callbacks?.resizeCurtain(end)
             return
         }
@@ -1224,17 +711,9 @@ final class TimelineCanvasView: NSView {
             if move.didDrag {
                 let dt = TimeInterval(dx / max(1, trackWidth)) * snapshot.outputDuration
                 let duration = (snapshot.curtainChipEnd ?? move.initialStart) - snapshot.curtainChipStart
-                var newStart = max(0, min(snapshot.outputDuration - duration, move.initialStart + dt))
-                // Refuse to land on a neighbour — slide flush to the nearer side.
-                for other in curtainBlockers() {
-                    if newStart < other.1 && newStart + duration > other.0 {
-                        let leftPos = other.0 - duration
-                        let rightPos = other.1
-                        newStart = abs((move.initialStart + dt) - leftPos) <= abs((move.initialStart + dt) - rightPos)
-                            ? max(0, leftPos)
-                            : min(snapshot.outputDuration - duration, rightPos)
-                    }
-                }
+                let newStart = TimelineLaneMath.chipMovedStart(
+                    initialStart: move.initialStart, dt: dt, duration: duration,
+                    outputDuration: snapshot.outputDuration, blockers: curtainBlockers())
                 callbacks?.moveCurtain(newStart)
             }
             return
