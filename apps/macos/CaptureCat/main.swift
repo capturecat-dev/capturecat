@@ -808,6 +808,14 @@ if CommandLine.arguments.contains("--autozoom-test") {
     AutoZoomHarness.run()
 }
 
+// Studio 4e features gate, Mac half: each feature's fixture plus the Mac's own
+// results (Auto Zoom blocks, a synthetic voice take and its mix, a transcript,
+// the person mask and the cutout's preview/export frames) for StudioLab
+// `--features` to match. Never reached in a normal launch.
+if CommandLine.arguments.contains("--features-reference") {
+    MainActor.assumeIsolated { FeaturesReferenceRunner.run() }
+}
+
 // Camera layout acceptance gate: mode resolution, cameraOnly/sideBySide rect
 // geometry (including the preview↔export scale-invariance contract),
 // camera-less degradation, and region Codable. Never reached in a normal

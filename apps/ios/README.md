@@ -49,6 +49,7 @@ recording.
 | a few Mac files by reference | see `scripts/gen-xcodeproj.py` | `OAuthPKCE`, `LoopbackAuthServer`, `CCIconSet`; the extensions also take `StillMovieWriter` |
 | `StudioUI/` | app, StudioLab | the studio's UIKit surfaces: the stage, the editor (`Editor/`, 4b), the touch timeline (`Timeline/`, 4c), the inspector (`Inspector/`, 4d — see below) |
 | `StudioVectors/` | none (script-built) | the iOS runner for `ios-vectors.sh` — never in a shipping target |
+| `StudioUI/Features/` | app, StudioLab | the editor's four features (Studio 4e) — see "Editor features" below |
 
 The Xcode project is generated — never hand-edit it:
 
@@ -120,6 +121,28 @@ words, menus, Compare groups and the three-way merge are the Mac's shared code
 Cloud history and sync (Phase 5) plug in behind `ProjectHistoryService` and hand Merge
 Review (`StudioHistory.reviewMerge`) a `ProjectMergeSession`.
 
+## Editor features (Studio 4e)
+
+Each feature is a house `CCAlert` sheet (docked on compact width) with a plain
+entry point; the engine behind it is the Mac's, in `../macos/CaptureCat/Studio/`.
+The inspector panes (4d) call these from their `onRecordVoiceOver`,
+`onTranscribe`, `onAutoZoom` and `onRemoveBackground` closures.
+
+| Feature | Entry point | Shared engine | Undo |
+|---|---|---|---|
+| Voice-over | `StudioVoiceOver.present(from:project:undoManager:transport:)` — `transport` is the editor's `StudioPlaybackController` (the take starts at its playhead and plays the recording); `StudioVoiceOver.session` is the live take the timeline's VOICE row reads | `VoiceOverSession` + `VoiceOverRecorder` (iOS mic through `Studio/Platform/VoiceOverMic`: a `.playAndRecord` session for the take) | "Record Voice Over" |
+| Transcription | `StudioTranscription.present(from:project:undoManager:)` | `TranscriptionService` — WhisperKit `base.en` 0.15.0, the Mac's model and options (the model downloads once into Application Support, then loads offline) | "Generate Subtitles" |
+| Auto Zoom | `StudioAutoZoom.present(from:project:undoManager:)`; `StudioAutoZoom.availability(for:)` | `AutoZoomApplier.applyAsEdit` (the Mac timeline's command) | "Auto Zoom" |
+| Background removal | `StudioBackgroundRemoval.present(from:project:undoManager:)`; `cameraMask(for:)` feeds the editor stage | `CameraSegmentation` + `CameraSegmenter` (Vision) → `camera-mask.ccmask`; drawn by the shared compositor and exporter | "Background: …" |
+
+Auto Zoom needs Mac capture data (`cursor.json`), so it explains instead of
+generating for iPhone and web takes. Vision's person segmentation has no
+runtime in the iOS Simulator ("E5RT is not supported") — on a device it runs
+as on the Mac. In the Simulator WhisperKit runs on the CPU only: the iOS 27
+Simulator transcribes like the Mac (same words; a few word boundaries move
+by ≤ 0.14 s), the iOS 26.2 Simulator mostly returns nothing
+(`StudioLab --whisper-probe`).
+
 ## Contracts it follows
 
 - **Sign-in** = the Mac's flow: loopback (`127.0.0.1`) + PKCE through
@@ -146,6 +169,7 @@ Review (`StudioHistory.reviewMerge`) a `ProjectMergeSession`.
     apps/ios/scripts/kit-gallery.sh         # the studio controls, every state, both themes, iPhone + iPad: PNGs, structure, behaviour, motion SEQUENCES mid-flight (+ injected-snap self-test)
     apps/ios/scripts/ios-inspector.sh       # the inspector: every control of the 9 panes vs the Mac's frozen transcript, one undo step per edit, touch targets, VoiceOver, Dynamic Type, re-theme, column/sheet layout, motion SEQUENCES (+ injected-snap self-test)
     apps/ios/scripts/ios-history.sh         # History (Studio 4f): rows, compare, preview, restore, Merge Review vs the Mac's --history-transcript, line for line; motion sequences; INJECT= must FAIL
+    apps/ios/scripts/ios-features.sh        # voice-over, transcription, Auto Zoom, background removal vs the Mac (CaptureCat --features-reference): entries, mix, blocks, subtitles, mask, cutout frames; progress SEQUENCES mid-flight (+ --inject self-tests). WHISPER_BASE=<dir> (model + tokenizer) for transcription; run it on an iOS 27 simulator — the iOS 26.2 Simulator's CPU path decodes base.en to nothing
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production

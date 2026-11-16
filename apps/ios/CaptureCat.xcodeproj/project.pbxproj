@@ -14,6 +14,8 @@
 		49E6F51EA3959AF58A0D79C7 /* StillMovieWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F09EE1E5C7EC36359B64811 /* StillMovieWriter.swift */; };
 		9F21800022C243ACF970260F /* CCIconSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD2697ABA359FDCB7873A9 /* CCIconSet.swift */; };
 		AA110C6694BEBBC113F8EB88 /* CCIconSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD2697ABA359FDCB7873A9 /* CCIconSet.swift */; };
+		9DDE733F207E5CE3D2363EBC /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = C43E2BA1A510F708BD83A57B /* WhisperKit */; };
+		D59B326B74DD1E979686FDF0 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7DB60ED6AF03BC8D3E9A4648 /* WhisperKit */; };
 		06937EEA68ABE24E4DA0EBAC /* CaptureCatBroadcast.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A21D48F4067FFA35C724A86C /* CaptureCatBroadcast.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7815467F3D1963378FF9473D /* CaptureCatShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A896AB9A01BEA4F326C17375 /* CaptureCatShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -129,6 +131,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9DDE733F207E5CE3D2363EBC /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -150,6 +153,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D59B326B74DD1E979686FDF0 /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -238,6 +242,9 @@
 				7D1EB2785D17823A595A5076 /* StudioUI */,
 			);
 			name = CaptureCat;
+			packageProductDependencies = (
+				C43E2BA1A510F708BD83A57B /* WhisperKit */,
+			);
 			productName = CaptureCat;
 			productReference = CD9E91E2CA27E982A39E79FA /* CaptureCat.app */;
 			productType = "com.apple.product-type.application";
@@ -307,6 +314,9 @@
 				74CBCF1117CD7C0DAE8EF3CA /* Kit */,
 			);
 			name = StudioLab;
+			packageProductDependencies = (
+				7DB60ED6AF03BC8D3E9A4648 /* WhisperKit */,
+			);
 			productName = StudioLab;
 			productReference = 6920D983DAE4EC6C2BE9B972 /* StudioLab.app */;
 			productType = "com.apple.product-type.application";
@@ -344,6 +354,9 @@
 			);
 			mainGroup = 71DC27D9F8E3B109C877BFC4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				76C870D723B87D5B3B6781CA /* XCRemoteSwiftPackageReference "WhisperKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 113236722DEE1DC96F378B9D /* Products */;
 			projectDirPath = "";
@@ -788,6 +801,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		76C870D723B87D5B3B6781CA /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/WhisperKit.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.15.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C43E2BA1A510F708BD83A57B /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 76C870D723B87D5B3B6781CA /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
+		};
+		7DB60ED6AF03BC8D3E9A4648 /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 76C870D723B87D5B3B6781CA /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 46F86FAA6BBF9AC94A7E4595 /* Project object */;
 }

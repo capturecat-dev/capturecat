@@ -299,14 +299,10 @@ extension TimelineEditing {
         // Shared with the MCP tool and the record-stop hook (AutoZoomApplier):
         // regenerating replaces only earlier AUTO regions; the user's
         // hand-placed blocks stay and the generator routes around them.
-        let previousRegions = project.zoomRegions
-        guard AutoZoomApplier.apply(to: project) > 0 else { return }
-        selectedZoomID = nil
-
-        undoManager?.registerUndo(withTarget: project) { project in
-            project.zoomRegions = previousRegions
+        // The command itself (apply + undo) is shared with the iOS studio.
+        AutoZoomApplier.applyAsEdit(to: project, undoManager: undoManager) {
+            selectedZoomID = nil
         }
-        undoManager?.setActionName("Auto Zoom")
     }
 
     func runStillMotion() {

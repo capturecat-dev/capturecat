@@ -488,36 +488,16 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         guard show, status != lastLookStatus else { return }
         let previous = lastLookStatus
         lastLookStatus = status
-        let text: String
-        switch status {
-        case .notNeeded:
-            return
-        case .ready:
-            text = "Background removed — Cutout and Pop-out card are live."
+        // The line and bar values are shared with the iOS studio
+        // (CameraSegmentation.Status in Studio/).
+        guard let text = status.displayText else { return }
+        if let value = status.barValue {
             lookStatusBar.isIndeterminate = false
-            lookStatusBar.doubleValue = 1
-        case .queued:
-            text = "Removing background — waiting to start…"
+            lookStatusBar.doubleValue = value
+        } else {
             lookStatusBar.isIndeterminate = true
-        case .running(let p):
-            text = "Removing background… \(Int((p * 100).rounded()))%"
-            lookStatusBar.isIndeterminate = false
-            lookStatusBar.doubleValue = p
-        case .paused(let p):
-            text = "Paused while recording or exporting — \(Int((p * 100).rounded()))%"
-            lookStatusBar.isIndeterminate = false
-            lookStatusBar.doubleValue = p
-        case .failed(let message):
-            text = "Couldn't remove the background: \(message)"
-            lookStatusBar.isIndeterminate = false
-            lookStatusBar.doubleValue = 0
         }
-        let barHidden: Bool = {
-            if case .ready = status { return true }
-            if case .failed = status { return true }
-            return false
-        }()
-        lookStatusBar.isHidden = barHidden
+        lookStatusBar.isHidden = !status.showsBar
         lookStatusLabel.toolTip = text
         // Phase changes crossfade; percent ticks just update in place.
         if let previous, Self.phase(previous) != Self.phase(status) {

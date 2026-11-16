@@ -69,6 +69,10 @@ final class EditorViewController: UIViewController {
     /// Harness seam: every canvas callback as a line (the Mac
     /// `--preview-gesture-test` transcript's `events:` vocabulary).
     var canvasEventLog: ((String) -> Void)?
+    /// The fresh person mask for the camera looks (Studio 4e, background
+    /// removal) — queues the mask job when a look needs it, as the Mac
+    /// editor's render does; nil draws every look as the plain bubble.
+    var cameraMaskProvider: (Project) -> CameraMaskTrack? = { StudioBackgroundRemoval.cameraMask(for: $0) }
 
     /// Studio 4f — History ▸ Preview: an earlier version shown READ-ONLY on
     /// the live stage (a separate, never-saved model; nil = the project).
@@ -471,7 +475,7 @@ final class EditorViewController: UIViewController {
             selectedBlurID: selection.selectedBlurID,
             selectedDepthFocusID: selection.selectedDepthFocusID,
             selectedZoomID: selection.selectedZoomID,
-            cameraMask: nil,
+            cameraMask: cameraMaskProvider(project),
             cameraSourceLeadIn: playback.cameraSourceLeadIn)
     }
 

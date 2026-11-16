@@ -39,13 +39,20 @@ nonisolated enum CameraSegmenter {
         var errorDescription: String? { message }
     }
 
+    /// A stand-in for Vision's matte: frame index (0-based, in encode order)
+    /// and its decoded buffer → `width`×`height` RAW alpha. Gates only — the
+    /// iOS Simulator has no runtime for Vision's segmentation network.
+    typealias Matte = @Sendable (_ frame: Int, _ buffer: CVPixelBuffer, _ width: Int, _ height: Int) throws -> [UInt8]
+
     /// Segments `cameraURL` and returns the encoded `.ccmask` bytes.
-    /// `progress` receives 0…1 (throttled to whole percents).
+    /// `progress` receives 0…1 (throttled to whole percents). `matte` nil
+    /// (every app) = Vision.
     static func segment(
         cameraURL: URL,
         gate: CameraSegmentationGate,
         keyframeInterval: Int = CameraMaskTrack.defaultKeyframeInterval,
         stats: CameraSegmentationStats? = nil,
+        matte: Matte? = nil,
         progress: @escaping @Sendable (Double) -> Void
     ) async throws -> Data {
         let asset = AVURLAsset(url: cameraURL)
@@ -110,6 +117,7 @@ nonisolated enum CameraSegmenter {
             // Frame times must strictly increase (codec rule); drop anything else.
             guard pts.isFinite, encoder.lastTime.map({ pts > $0 }) ?? true else { continue }
             var alpha: [UInt8] = try autoreleasepool {
+                if let matte { return try matte(encoder.frameCount, pixelBuffer, size.width, size.height) }
                 try sequence.perform([request], on: pixelBuffer)
                 lap("vision")
                 guard let mask = request.results?.first?.pixelBuffer else {

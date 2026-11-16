@@ -57,3 +57,29 @@ enum AutoZoomApplier {
         return regions.count
     }
 }
+
+extension AutoZoomApplier {
+    /// The editor's Auto Zoom COMMAND — the Mac timeline's Auto Zoom key
+    /// (`TimelineEditing.autoZoom`) and the iOS studio's Auto Zoom sheet run
+    /// this one body: apply, then (only when blocks were made) `onApplied`
+    /// and ONE undo step that restores the previous zoom blocks exactly.
+    /// Returns how many blocks were made (0 = nothing changed, no undo).
+    @discardableResult
+    static func applyAsEdit(
+        to project: Project,
+        zoomLevel: Double? = nil,
+        undoManager: UndoManager?,
+        onApplied: () -> Void = {}
+    ) -> Int {
+        let previousRegions = project.zoomRegions
+        let created = apply(to: project, zoomLevel: zoomLevel)
+        guard created > 0 else { return 0 }
+        onApplied()
+
+        undoManager?.registerUndo(withTarget: project) { project in
+            project.zoomRegions = previousRegions
+        }
+        undoManager?.setActionName("Auto Zoom")
+        return created
+    }
+}

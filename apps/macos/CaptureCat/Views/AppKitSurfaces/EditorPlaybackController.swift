@@ -109,12 +109,12 @@ final class EditorPlaybackController {
     /// raw PTS — docs/camera-cutout.md §2).
     var cameraSourceLeadIn: TimeInterval = 0
     var cameraHasDecodedFrame = false
-    @ObservationIgnored private let voiceOverRecorder = VoiceOverRecorder()
-    var isRecordingVoiceOver = false
-    var voiceOverRecordingStartTime: Double?
-    var liveVoiceOverSamples: [Float] = []
+    /// The voice-over take engine (shared with the iOS studio, Studio 4e).
+    @ObservationIgnored let voiceOver = VoiceOverSession()
+    var isRecordingVoiceOver: Bool { voiceOver.isRecording }
+    var voiceOverRecordingStartTime: Double? { voiceOver.recordingStartTime }
+    var liveVoiceOverSamples: [Float] { voiceOver.liveSamples }
     @ObservationIgnored private var voiceOverRefreshTask: Task<Void, Never>?
-    @ObservationIgnored private var voiceOverMeterTask: Task<Void, Never>?
     @ObservationIgnored private var cameraSetupGeneration = 0
     var cameraVideoAspect: CGFloat = 1
     var videoPosterImage: NSImage?
@@ -981,14 +981,11 @@ final class EditorPlaybackController {
     /// The `onDisappear` body from `EditorView.editorContent`.
     func teardown(saving project: Project?) {
         voiceOverRefreshTask?.cancel(); voiceOverRefreshTask = nil
-        voiceOverMeterTask?.cancel(); voiceOverMeterTask = nil
+        voiceOver.stopMetering()
         // Dirty-gated: an unconditional save here could write a stale
         // in-memory copy over an external (MCP) disk edit.
         if let project { projectStore?.saveIfDirty(project) }
-        if isRecordingVoiceOver {
-            _ = voiceOverRecorder.stopRecording(discard: true)
-            isRecordingVoiceOver = false; voiceOverRecordingStartTime = nil; liveVoiceOverSamples = []
-        }
+        voiceOver.discardIfRecording()
         cleanupPlayer(); cameraPlayer?.pause(); cameraPlayer = nil
     }
 
@@ -1030,31 +1027,19 @@ final class EditorPlaybackController {
         guard project.videoURL != nil else { return }
 
         do {
-            try await ensureMicrophonePermission()
-            try FileManager.default.createDirectory(at: project.projectDirectory, withIntermediateDirectories: true)
+            // Shared engine (Studio/Services/VoiceOverSession): permission and
+            // folder, then — after the refresh debounce is cancelled, as
+            // before — the clamped start, recorder and meter.
+            try await voiceOver.prepare(for: project)
             cancelVoiceOverRefresh(reason: "recording-start")
-
-            let outputURL = project.projectDirectory.appendingPathComponent("voiceover-\(UUID().uuidString).m4a")
-            let recordingStart = min(max(currentTime, project.effectiveTrimStart), project.effectiveTrimEnd)
-
-            try voiceOverRecorder.startRecording(to: outputURL)
-            voiceOverRecordingStartTime = recordingStart
-            liveVoiceOverSamples = []
-            isRecordingVoiceOver = true
-            startVoiceOverMetering()
-#if DEBUG
-            voiceOverEditorLogger.debug("begin start=\(recordingStart, privacy: .public) file=\(outputURL.lastPathComponent, privacy: .public)")
-#endif
+            voiceOver.onMeterSample = { [weak self] in self?.observerCounters.voiceOverMeterSamples += 1 }
+            try voiceOver.begin(for: project, currentTime: currentTime)
 
             if !isPlaying {
                 isPlaying = true
             }
         } catch {
-            voiceOverRecordingStartTime = nil
-            liveVoiceOverSamples = []
-            isRecordingVoiceOver = false
-            voiceOverMeterTask?.cancel()
-            voiceOverMeterTask = nil
+            voiceOver.abort()
             presentVoiceOverError(error.localizedDescription)
         }
     }
@@ -1066,44 +1051,7 @@ final class EditorPlaybackController {
     ) async {
         guard isRecordingVoiceOver else { return }
 
-        let clipStart = voiceOverRecordingStartTime ?? currentTime
-        let result = voiceOverRecorder.stopRecording(discard: discard)
-#if DEBUG
-        voiceOverEditorLogger.debug("stop requested discard=\(discard, privacy: .public) clipStart=\(clipStart, privacy: .public) resultExists=\(result != nil, privacy: .public)")
-#endif
-        isRecordingVoiceOver = false
-        voiceOverRecordingStartTime = nil
-        voiceOverMeterTask?.cancel()
-        voiceOverMeterTask = nil
-        liveVoiceOverSamples = []
-
-        if let result {
-            let finalizedDuration = await waitForVoiceOverFileReady(
-                at: result.fileURL,
-                fallbackDuration: result.duration
-            ) ?? result.duration
-#if DEBUG
-            voiceOverEditorLogger.debug("file ready file=\(result.fileURL.lastPathComponent, privacy: .public) fallback=\(result.duration, privacy: .public) finalized=\(finalizedDuration, privacy: .public)")
-#endif
-            let clipDuration = min(finalizedDuration, max(0.1, project.duration - clipStart))
-            if clipDuration > 0.1 {
-                let clip = VoiceOverClip(
-                    fileName: result.fileURL.lastPathComponent,
-                    startTime: clipStart,
-                    duration: clipDuration,
-                    sourceDuration: finalizedDuration
-                )
-                project.voiceOverClips.append(clip)
-#if DEBUG
-                voiceOverEditorLogger.debug("clip appended id=\(clip.id.uuidString, privacy: .public) start=\(clip.startTime, privacy: .public) duration=\(clip.duration, privacy: .public) sourceDuration=\(clip.sourceDuration, privacy: .public)")
-#endif
-            } else {
-                try? FileManager.default.removeItem(at: result.fileURL)
-#if DEBUG
-                voiceOverEditorLogger.debug("clip dropped shortDuration=\(clipDuration, privacy: .public) file=\(result.fileURL.lastPathComponent, privacy: .public)")
-#endif
-            }
-        }
+        await voiceOver.finish(for: project, discard: discard, fallbackStart: currentTime)
         if !resumePlayback {
             isPlaying = false
         }
@@ -1152,70 +1100,6 @@ final class EditorPlaybackController {
 #if DEBUG
         voiceOverEditorLogger.debug("refresh cancelled reason=\(reason, privacy: .public)")
 #endif
-    }
-
-    private func startVoiceOverMetering() {
-        voiceOverMeterTask?.cancel()
-        voiceOverMeterTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled && self.isRecordingVoiceOver {
-                self.liveVoiceOverSamples.append(self.voiceOverRecorder.currentMeterLevel())
-                self.observerCounters.voiceOverMeterSamples += 1
-                if self.liveVoiceOverSamples.count > 240 {
-                    self.liveVoiceOverSamples.removeFirst(self.liveVoiceOverSamples.count - 240)
-                }
-                try? await Task.sleep(for: .milliseconds(45))
-            }
-        }
-    }
-
-    private func waitForVoiceOverFileReady(
-        at fileURL: URL,
-        fallbackDuration: TimeInterval
-    ) async -> TimeInterval? {
-        for _ in 0..<10 {
-            if let duration = measuredVoiceOverDuration(at: fileURL), duration > 0.1 {
-                return duration
-            }
-            try? await Task.sleep(for: .milliseconds(100))
-        }
-
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return nil
-        }
-        return fallbackDuration > 0.1 ? fallbackDuration : measuredVoiceOverDuration(at: fileURL)
-    }
-
-    private func measuredVoiceOverDuration(at fileURL: URL) -> TimeInterval? {
-        guard let audioFile = try? AVAudioFile(forReading: fileURL) else {
-            return nil
-        }
-
-        let sampleRate = audioFile.processingFormat.sampleRate
-        guard sampleRate > 0 else {
-            return nil
-        }
-
-        let duration = Double(audioFile.length) / sampleRate
-        return duration.isFinite && duration > 0 ? duration : nil
-    }
-
-    private func ensureMicrophonePermission() async throws {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
-        case .authorized:
-            return
-        case .notDetermined:
-            let granted = await AVCaptureDevice.requestAccess(for: .audio)
-            guard granted else {
-                throw NSError(domain: "VoiceOverRecorder", code: 2, userInfo: [
-                    NSLocalizedDescriptionKey: "Microphone access is required to record a voice over."
-                ])
-            }
-        default:
-            throw NSError(domain: "VoiceOverRecorder", code: 3, userInfo: [
-                NSLocalizedDescriptionKey: "Microphone access is required to record a voice over."
-            ])
-        }
     }
 
     private func presentVoiceOverError(_ message: String) {
