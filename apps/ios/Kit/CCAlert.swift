@@ -16,6 +16,15 @@ import UIKit
 // bottom edge only) and the dialog stays. The first added button is the
 // default (Return in prompts); the `.cancel` button (or the last one) is
 // what a scrim tap picks.
+//
+// Confirmation SHEET (`presentation = .sheet`): on compact width the card
+// docks to the bottom edge and rises from it, buttons stacked full width
+// (actions first, Cancel last), swipe down to cancel; an inline error grows
+// its TOP edge (the bottom is pinned). Regular width keeps the centred card.
+// `symbol` adds an icon tile over the title, tinted by `tone`:
+//
+//     CCAlert.confirm(title: "Delete clip?", message: "…", confirmTitle: "Delete",
+//                     destructive: true, symbol: "trash", presentation: .sheet, from: self)
 final class CCAlert {
     enum Role {
         case primary
@@ -30,10 +39,28 @@ final class CCAlert {
         var action: (() async throws -> Void)?
     }
 
+    enum Tone {
+        case standard
+        /// The icon tile washes in the destructive ink.
+        case destructive
+    }
+
+    enum Presentation {
+        /// A centred floating card (the default).
+        case card
+        /// Compact width: docked to the bottom edge, rising from it. Regular
+        /// width: the centred card.
+        case sheet
+    }
+
     var title: String
     var message: String
     var accessoryView: UIView?
     var entrance: CCMotion.Entrance = .scaleIn
+    var presentation: Presentation = .card
+    var tone: Tone = .standard
+    /// Optional kit icon in a tile above the title.
+    var symbol: String?
     /// The prompt's field (set by `prompt`).
     private(set) var textField: CCField?
     private(set) var buttons: [Button] = []
@@ -63,6 +90,8 @@ final class CCAlert {
 
     /// Probe seams: the presented card; show an inline error.
     var probeCard: UIView? { controller?.card }
+    var probeIsDocked: Bool { controller?.isDocked ?? false }
+    var probeButtons: [CCButton] { controller?.probeButtonViews ?? [] }
     func probeShowError(_ text: String) { controller?.showError(text) }
 
     static func topmost(from controller: UIViewController) -> UIViewController {
@@ -79,11 +108,16 @@ final class CCAlert {
         message: String,
         confirmTitle: String,
         destructive: Bool = false,
+        symbol: String? = nil,
+        presentation: Presentation = .card,
         from presenter: UIViewController,
         action: (() async throws -> Void)? = nil,
         completion: ((Bool) -> Void)? = nil
     ) {
         let alert = CCAlert(title: title, message: message)
+        alert.symbol = symbol
+        alert.tone = destructive ? .destructive : .standard
+        alert.presentation = presentation
         alert.addButton(confirmTitle, role: destructive ? .destructive : .primary, action: action)
         alert.addButton("Cancel", role: .cancel)
         alert.present(from: presenter) { completion?($0 == 0) }
@@ -153,6 +187,9 @@ final class CCAlertController: UIViewController {
     private var buttonViews: [CCButton] = []
     private var isFinishing = false
     private var hasEntered = false
+    /// Docked to the bottom edge (a `.sheet` on compact width).
+    private(set) lazy var isDocked = alert.presentation == .sheet && traitCollection.horizontalSizeClass != .regular
+    var probeButtonViews: [CCButton] { buttonViews }
 
     var cancelIndex: Int {
         alert.buttons.firstIndex(where: { $0.role == .cancel }) ?? (alert.buttons.count > 1 ? alert.buttons.count - 1 : 0)
@@ -186,7 +223,23 @@ final class CCAlertController: UIViewController {
         titleLabel.accessibilityTraits = .header
         stack.axis = .vertical
         stack.spacing = CCSpace.sm
+        stack.alignment = .fill
         stack.translatesAutoresizingMaskIntoConstraints = false
+        if let symbol = alert.symbol {
+            let tone = alert.tone == .destructive ? CCTheme.color.destructive : CCTheme.color.primary
+            let tile = CCIconTile(symbol: symbol, side: 44, kind: .recessed, tint: tone.withAlphaComponent(0.14),
+                                  iconSize: 19, iconTint: tone, radius: .md)
+            let holder = UIView()
+            holder.translatesAutoresizingMaskIntoConstraints = false
+            holder.addSubview(tile)
+            NSLayoutConstraint.activate([
+                tile.leadingAnchor.constraint(equalTo: holder.leadingAnchor),
+                tile.topAnchor.constraint(equalTo: holder.topAnchor),
+                tile.bottomAnchor.constraint(equalTo: holder.bottomAnchor),
+            ])
+            stack.addArrangedSubview(holder)
+            stack.setCustomSpacing(CCSpace.md + 2, after: holder)
+        }
         stack.addArrangedSubview(titleLabel)
         if !alert.message.isEmpty {
             stack.addArrangedSubview(ccLabel(alert.message, font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0))
@@ -203,28 +256,48 @@ final class CCAlertController: UIViewController {
         buttonRow.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(buttonRow)
 
-        // 999, not 750: button hugging (750) must never out-vote the card's
-        // design width (it shrank the card and truncated the message).
-        let width = card.widthAnchor.constraint(equalToConstant: 380)
-        width.priority = .required - 1
-        let centerY = card.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -12)
-        centerY.priority = .defaultLow
         // Content is top-pinned, buttons bottom-pinned; this gap defines the
         // natural height (999) so a growth animation can drive the height.
         let gap = buttonRow.topAnchor.constraint(equalTo: stack.bottomAnchor, constant: CCSpace.xl)
         gap.priority = .required - 1
+        if isDocked {
+            // The sheet: full width (≤ 500), docked over the bottom safe area
+            // (riding the keyboard); grows UPWARD.
+            let fill = card.widthAnchor.constraint(equalTo: view.safeAreaLayoutGuide.widthAnchor, constant: -CCSpace.sm * 2)
+            fill.priority = .required - 1
+            let bottom = card.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -CCSpace.sm)
+            bottom.priority = .defaultHigh
+            NSLayoutConstraint.activate([
+                card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                card.widthAnchor.constraint(lessThanOrEqualToConstant: 500),
+                fill, bottom,
+                card.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: CCSpace.lg),
+                card.bottomAnchor.constraint(lessThanOrEqualTo: view.keyboardLayoutGuide.topAnchor, constant: -CCSpace.sm),
+            ])
+            let pan = UIPanGestureRecognizer(target: self, action: #selector(pan(_:)))
+            view.addGestureRecognizer(pan)
+        } else {
+            // 999, not 750: button hugging (750) must never out-vote the card's
+            // design width (it shrank the card and truncated the message).
+            let width = card.widthAnchor.constraint(equalToConstant: 380)
+            width.priority = .required - 1
+            let centerY = card.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -12)
+            centerY.priority = .defaultLow
+            NSLayoutConstraint.activate([
+                card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                width,
+                card.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: CCSpace.xl),
+                card.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -CCSpace.xl),
+                centerY,
+                card.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: CCSpace.lg),
+                card.bottomAnchor.constraint(lessThanOrEqualTo: view.keyboardLayoutGuide.topAnchor, constant: -CCSpace.lg),
+            ])
+        }
         NSLayoutConstraint.activate([
             scrim.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrim.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrim.topAnchor.constraint(equalTo: view.topAnchor),
             scrim.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            width,
-            card.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: CCSpace.xl),
-            card.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -CCSpace.xl),
-            centerY,
-            card.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: CCSpace.lg),
-            card.bottomAnchor.constraint(lessThanOrEqualTo: view.keyboardLayoutGuide.topAnchor, constant: -CCSpace.lg),
             stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: CCSpace.xl),
             stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -CCSpace.xl),
             stack.topAnchor.constraint(equalTo: card.topAnchor, constant: CCSpace.xl),
@@ -256,7 +329,14 @@ final class CCAlertController: UIViewController {
         // Side by side only when both titles fit untruncated.
         let cardWidth = min(380, max(view.bounds.width, 320) - CCSpace.xl * 2) - CCSpace.xl * 2
         let widest = buttonViews.map(\.intrinsicContentSize.width).max() ?? 0
-        if buttonViews.count == 2, widest * 2 + CCSpace.sm <= cardWidth {
+        if isDocked {
+            // The sheet: full-width stack, actions first, Cancel at the bottom
+            // (nearest the thumb).
+            row.axis = .vertical
+            let cancel = alert.buttons.indices.filter { alert.buttons[$0].role == .cancel }
+            let actions = alert.buttons.indices.filter { alert.buttons[$0].role != .cancel }
+            (actions + cancel).forEach { row.addArrangedSubview(buttonViews[$0]) }
+        } else if buttonViews.count == 2, widest * 2 + CCSpace.sm <= cardWidth {
             row.axis = .horizontal
             row.addArrangedSubview(buttonViews[1])
             row.addArrangedSubview(buttonViews[0])
@@ -273,7 +353,14 @@ final class CCAlertController: UIViewController {
         hasEntered = true
         CCMotion.fadeAlpha(scrim, to: 1, duration: 0.22, from: 0)
         CCMotion.fadeAlpha(card, to: 1, duration: 0.18, from: 0)
-        CCMotion.enter(card.layer, alert.entrance)
+        if isDocked {
+            if !CCMotion.reduceMotion {
+                let travel = view.bounds.height - card.frame.minY
+                CCMotion.spring(card.layer, keyPath: "transform.translation.y", from: travel, to: 0, .arrive)
+            }
+        } else {
+            CCMotion.enter(card.layer, alert.entrance)
+        }
         if let field = alert.textField {
             _ = field.becomeFirstResponder()
             field.selectAll(nil)
@@ -285,6 +372,28 @@ final class CCAlertController: UIViewController {
     @objc private func scrimTapped() {
         guard !buttonViews.contains(where: \.isBusy) else { return }
         finish(cancelIndex)
+    }
+
+    /// The sheet: swipe down to cancel (never while an action is busy).
+    @objc private func pan(_ gesture: UIPanGestureRecognizer) {
+        guard !isFinishing, !buttonViews.contains(where: \.isBusy) else { return }
+        let dy = max(0, gesture.translation(in: view).y)
+        switch gesture.state {
+        case .changed:
+            card.transform = CGAffineTransform(translationX: 0, y: dy)
+            scrim.alpha = max(0, 1 - dy / 300)
+        case .ended, .cancelled:
+            if dy > 90 || gesture.velocity(in: view).y > 800 {
+                finish(cancelIndex)
+            } else {
+                CCMotion.springViews(.snappy) {
+                    self.card.transform = .identity
+                    self.scrim.alpha = 1
+                }
+            }
+        default:
+            break
+        }
     }
 
     override func accessibilityPerformEscape() -> Bool {
@@ -317,7 +426,8 @@ final class CCAlertController: UIViewController {
     private var topPin: NSLayoutConstraint?
 
     /// The error line grows in on the house bounce — only the card's BOTTOM
-    /// edge moves (the top is pinned from here on); the buttons ride it.
+    /// edge moves (the top is pinned from here on); the buttons ride it. A
+    /// docked sheet is the mirror image: its bottom is pinned, the TOP grows.
     func showError(_ text: String) {
         CCHaptics.warning()
         alert.textField?.isError = true
@@ -326,7 +436,7 @@ final class CCAlertController: UIViewController {
         UIAccessibility.post(notification: .announcement, argument: text)
         guard wasHidden else { CCMotion.pop(errorLabel, from: 0.96); return }
         view.layoutIfNeeded()
-        if topPin == nil {
+        if topPin == nil, !isDocked {
             let pin = card.topAnchor.constraint(equalTo: view.topAnchor, constant: card.frame.minY)
             // Below the labels' compression resistance: if the grown card
             // meets the keyboard, the card moves up instead of squashing text.
@@ -353,8 +463,15 @@ final class CCAlertController: UIViewController {
         guard !isFinishing else { return }
         isFinishing = true
         view.endEditing(true)
-        CCMotion.exit(card.layer, alert.entrance)
-        CCMotion.fadeAlpha(card, to: 0, duration: 0.16)
+        if isDocked {
+            let travel = view.bounds.height - card.frame.minY
+            CCMotion.run(duration: 0.22, curve: .glide) {
+                self.card.transform = CGAffineTransform(translationX: 0, y: travel)
+            }
+        } else {
+            CCMotion.exit(card.layer, alert.entrance)
+            CCMotion.fadeAlpha(card, to: 0, duration: 0.16)
+        }
         CCMotion.fadeAlpha(scrim, to: 0, duration: 0.18)
         DispatchQueue.main.asyncAfter(deadline: .now() + CCMotion.paced(0.18)) { [weak self] in
             guard let self else { return }

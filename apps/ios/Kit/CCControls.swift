@@ -1,18 +1,29 @@
 import UIKit
 
-// CCKit form controls — UIKit ports of the Mac's CCToggle, CCCheckbox,
-// CCSlider (the Weather-style pill), CCSearchField, CCPreviewPad and
-// CCFormRow. Same anatomy and tokens as the Mac kit, at touch scale (~1.25×).
+// CCKit form controls — UIKit ports of the Mac's CCToggle (+ CCToggleRow),
+// CCCheckbox, CCSearchField, CCPreviewPad and CCFormRow. Same anatomy and
+// tokens as the Mac kit, at touch scale (~1.25×). The slider lives in
+// CCSlider.swift, the stepper in CCStepper.swift.
 
 /// Switch: a recessed pill track (accent when on) with a white floating
 /// thumb that springs across on the bouncy spring. Mac 36×21 → 48×28.
+///
+/// Press STRETCHES the thumb toward the side it will travel to — only that
+/// (pushed) edge moves; the resting edge stays put — then on release it
+/// springs across and settles round. A 44 pt touch target around the track.
+///
+///     let toggle = CCToggle(isOn: true) { on in … }
+///     toggle.setOn(false, animated: true)     // model push, no onChange echo
 final class CCToggle: UIControl {
     var onChange: ((Bool) -> Void)?
     private(set) var isOn: Bool
 
-    private static let trackSize = CGSize(width: 48, height: 28)
+    static let trackSize = CGSize(width: 48, height: 28)
     private static let inset: CGFloat = 2.5
+    /// How far the pressed thumb stretches toward its destination.
+    private static let stretch: CGFloat = 7
     private let thumb = CALayer()
+    private var stretched = false
 
     init(isOn: Bool = false, onChange: ((Bool) -> Void)? = nil) {
         self.isOn = isOn
@@ -20,9 +31,18 @@ final class CCToggle: UIControl {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         layer.cornerCurve = .continuous
+        // A plain layer (no material sublayer): the thumb's bounds SPRING
+        // during the stretch, and a child base layer would park at its final
+        // size mid-flight. White + hairline + soft shadow = the raised face.
         let side = Self.trackSize.height - Self.inset * 2
         thumb.bounds = CGRect(x: 0, y: 0, width: side, height: side)
         thumb.cornerRadius = side / 2
+        thumb.cornerCurve = .continuous
+        thumb.borderWidth = 0.5
+        thumb.shadowColor = UIColor.black.cgColor
+        thumb.shadowOpacity = 0.3
+        thumb.shadowRadius = 2
+        thumb.shadowOffset = CGSize(width: 0, height: 0.5)
         layer.addSublayer(thumb)
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: Self.trackSize.width),
@@ -30,12 +50,7 @@ final class CCToggle: UIControl {
         ])
         isAccessibilityElement = true
         accessibilityTraits = .toggleButton
-        addAction(UIAction { [weak self] _ in
-            guard let self else { return }
-            self.setOn(!self.isOn, animated: true)
-            CCHaptics.selection()
-            self.onChange?(self.isOn)
-        }, for: .touchUpInside)
+        addAction(UIAction { [weak self] _ in self?.userToggle() }, for: .touchUpInside)
         ccOnThemeChange { [weak self] in self?.applyTheme() }
         applyTheme()
     }
@@ -44,16 +59,59 @@ final class CCToggle: UIControl {
 
     override var intrinsicContentSize: CGSize { Self.trackSize }
 
+    override var isEnabled: Bool {
+        didSet {
+            guard isEnabled != oldValue else { return }
+            CCMotion.fadeAlpha(self, to: isEnabled ? 1 : CCTheme.disabledAlpha, duration: 0.16)
+            accessibilityTraits = isEnabled ? .toggleButton : [.toggleButton, .notEnabled]
+        }
+    }
+
+    override var isHighlighted: Bool {
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            setStretched(isHighlighted && isEnabled)
+        }
+    }
+
+    /// 44 pt touch target around the 48×28 track.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let dx = max(0, (44 - bounds.width) / 2), dy = max(0, (44 - bounds.height) / 2)
+        return bounds.insetBy(dx: -dx, dy: -dy).contains(point)
+    }
+
+    /// The user flipped it (tap, or a CCToggleRow tap): animate, haptic, notify.
+    func userToggle() {
+        guard isEnabled else { return }
+        stretched = false
+        isOn.toggle()
+        applyTheme(animated: true)
+        moveThumb(animated: true)
+        CCHaptics.selection()
+        onChange?(isOn)
+        sendActions(for: .valueChanged)
+    }
+
     func setOn(_ on: Bool, animated: Bool) {
         guard on != isOn else { return }
         isOn = on
-        applyTheme()
+        stretched = false
+        applyTheme(animated: animated)
         moveThumb(animated: animated)
     }
 
-    private var thumbCenter: CGPoint {
-        let side = thumb.bounds.height
-        return CGPoint(x: isOn ? bounds.width - Self.inset - side / 2 : Self.inset + side / 2, y: bounds.midY)
+    /// Press feedback, driven by `isHighlighted` (and CCToggleRow's press).
+    func setStretched(_ on: Bool) {
+        guard on != stretched else { return }
+        stretched = on
+        moveThumb(animated: true, spring: .snappy)
+    }
+
+    private func thumbFrame(on: Bool, stretched: Bool) -> CGRect {
+        let side = Self.trackSize.height - Self.inset * 2
+        let width = stretched ? side + Self.stretch : side
+        let x = on ? bounds.width - Self.inset - width : Self.inset
+        return CGRect(x: x, y: (bounds.height - side) / 2, width: width, height: side)
     }
 
     override func layoutSubviews() {
@@ -64,32 +122,166 @@ final class CCToggle: UIControl {
         if thumb.animation(forKey: "ccmotion.position") == nil { moveThumb(animated: false) }
     }
 
-    private func moveThumb(animated: Bool) {
+    private func moveThumb(animated: Bool, spring: CCMotion.Spring = .bouncy) {
+        let frame = thumbFrame(on: isOn, stretched: stretched)
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        let bounds = CGRect(origin: .zero, size: frame.size)
         if animated, window != nil {
-            CCMotion.spring(thumb, keyPath: "position", to: NSValue(cgPoint: thumbCenter), .bouncy)
+            // Same spring on both key paths, so the resting edge holds still
+            // while only the pushed edge travels.
+            CCMotion.spring(thumb, keyPath: "position", to: NSValue(cgPoint: center), spring)
+            CCMotion.spring(thumb, keyPath: "bounds", to: NSValue(cgRect: bounds), spring)
         } else {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            thumb.position = thumbCenter
+            thumb.position = center
+            thumb.bounds = bounds
             CATransaction.commit()
         }
     }
 
-    private func applyTheme() {
+    private func applyTheme(animated: Bool = false) {
         let colors = CCTheme.color
         let track = isOn ? colors.primary : colors.active
         CCMaterial.dress(layer, as: .recessed(tint: track), radius: Self.trackSize.height / 2, traits: traitCollection)
+        if animated, window != nil, let base = layer.sublayers?.first(where: { $0.name == "ccmat.base" }) {
+            let fade = CATransition()
+            fade.type = .fade
+            fade.duration = CCMotion.paced(0.2)
+            base.add(fade, forKey: "cctoggle.track")
+        }
         layer.borderWidth = 1
         layer.borderColor = cc(isOn ? .clear : colors.border)
-        CCMaterial.dress(thumb, as: .raised(tint: .white), radius: thumb.bounds.height / 2, traits: traitCollection)
-        thumb.shadowColor = UIColor.black.cgColor
-        thumb.shadowOpacity = 0.3
-        thumb.shadowRadius = 2
-        thumb.shadowOffset = CGSize(width: 0, height: 0.5)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        thumb.backgroundColor = UIColor.white.cgColor
+        thumb.borderColor = CCMaterial.hairline(dark: CCTheme.isDark(traitCollection), onWell: false).cgColor
+        CATransaction.commit()
         accessibilityValue = isOn ? "On" : "Off"
     }
 
     var probeThumbLayer: CALayer { thumb }
+    /// The thumb's resting frame for a state (probe expectations).
+    func probeThumbFrame(on: Bool, stretched: Bool) -> CGRect { thumbFrame(on: on, stretched: stretched) }
+}
+
+/// The inspector's toggle row (the Mac's InspectorToggleControl): label
+/// left (+ an optional muted detail line), CCToggle right. The WHOLE row is
+/// the touch target and ONE VoiceOver element (label, On/Off, toggle trait);
+/// pressing the row stretches the toggle's thumb like pressing the toggle.
+final class CCToggleRow: UIControl {
+    let toggle: CCToggle
+    var onChange: ((Bool) -> Void)?
+    private let titleLabel: UILabel
+    private let detailLabel: UILabel
+
+    var isOn: Bool { toggle.isOn }
+
+    init(title: String, detail: String? = nil, isOn: Bool = false, onChange: ((Bool) -> Void)? = nil) {
+        toggle = CCToggle(isOn: isOn)
+        self.onChange = onChange
+        titleLabel = ccLabel(title, font: CCFont.body, color: CCTheme.color.foreground, lines: 0)
+        detailLabel = ccLabel(detail ?? "", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        detailLabel.isHidden = detail == nil
+        let text = UIStackView(arrangedSubviews: [titleLabel, detailLabel])
+        text.axis = .vertical
+        text.spacing = 2
+        text.isUserInteractionEnabled = false
+        text.translatesAutoresizingMaskIntoConstraints = false
+        toggle.isUserInteractionEnabled = false
+        toggle.isAccessibilityElement = false
+        addSubview(text)
+        addSubview(toggle)
+        NSLayoutConstraint.activate([
+            text.leadingAnchor.constraint(equalTo: leadingAnchor),
+            text.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: CCSpace.sm),
+            text.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -CCSpace.sm),
+            text.centerYAnchor.constraint(equalTo: centerYAnchor),
+            toggle.leadingAnchor.constraint(greaterThanOrEqualTo: text.trailingAnchor, constant: CCSpace.md),
+            toggle.trailingAnchor.constraint(equalTo: trailingAnchor),
+            toggle.centerYAnchor.constraint(equalTo: centerYAnchor),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+        ])
+        isAccessibilityElement = true
+        accessibilityLabel = title
+        accessibilityHint = detail
+        accessibilityTraits = .toggleButton
+        accessibilityValue = isOn ? "On" : "Off"
+        toggle.onChange = { [weak self] on in
+            guard let self else { return }
+            self.accessibilityValue = on ? "On" : "Off"
+            self.onChange?(on)
+            self.sendActions(for: .valueChanged)
+        }
+        addAction(UIAction { [weak self] _ in self?.toggle.userToggle() }, for: .touchUpInside)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func setOn(_ on: Bool, animated: Bool) {
+        toggle.setOn(on, animated: animated)
+        accessibilityValue = on ? "On" : "Off"
+    }
+
+    override var isHighlighted: Bool {
+        didSet { toggle.setStretched(isHighlighted && isEnabled) }
+    }
+
+    override var isEnabled: Bool {
+        didSet {
+            guard isEnabled != oldValue else { return }
+            toggle.isEnabled = isEnabled
+            CCMotion.fadeAlpha(titleLabel, to: isEnabled ? 1 : CCTheme.disabledAlpha, duration: 0.16)
+            CCMotion.fadeAlpha(detailLabel, to: isEnabled ? 1 : CCTheme.disabledAlpha, duration: 0.16)
+            accessibilityTraits = isEnabled ? .toggleButton : [.toggleButton, .notEnabled]
+        }
+    }
+}
+
+/// Label left (+ optional muted detail), any control right — the inspector
+/// row (the Mac's `InspectorKitViews.row`). For steppers, color wells,
+/// selects. At least 44 pt tall.
+final class CCControlRow: UIView {
+    let control: UIView
+    private let titleLabel: UILabel
+    private let detailLabel: UILabel
+
+    init(title: String, detail: String? = nil, control: UIView) {
+        self.control = control
+        titleLabel = ccLabel(title, font: CCFont.body, color: CCTheme.color.foreground, lines: 0)
+        detailLabel = ccLabel(detail ?? "", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        detailLabel.isHidden = detail == nil
+        let text = UIStackView(arrangedSubviews: [titleLabel, detailLabel])
+        text.axis = .vertical
+        text.spacing = 2
+        text.translatesAutoresizingMaskIntoConstraints = false
+        control.translatesAutoresizingMaskIntoConstraints = false
+        control.setContentCompressionResistancePriority(.required, for: .horizontal)
+        addSubview(text)
+        addSubview(control)
+        NSLayoutConstraint.activate([
+            text.leadingAnchor.constraint(equalTo: leadingAnchor),
+            text.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: CCSpace.xs),
+            text.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -CCSpace.xs),
+            text.centerYAnchor.constraint(equalTo: centerYAnchor),
+            control.leadingAnchor.constraint(greaterThanOrEqualTo: text.trailingAnchor, constant: CCSpace.md),
+            control.trailingAnchor.constraint(equalTo: trailingAnchor),
+            control.centerYAnchor.constraint(equalTo: centerYAnchor),
+            control.topAnchor.constraint(greaterThanOrEqualTo: topAnchor),
+            control.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+        ])
+        // The control speaks for the row: VoiceOver reads the row's title as
+        // the control's label unless the control has its own.
+        if control.accessibilityLabel?.isEmpty ?? true { control.accessibilityLabel = title }
+        titleLabel.isAccessibilityElement = control.accessibilityLabel != title
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 }
 
 /// Checkbox: a recessed box (accent + floating when checked) whose check
@@ -179,152 +371,6 @@ final class CCCheckbox: UIControl {
     override var isHighlighted: Bool {
         didSet { CCMaterial.press(box.layer, down: isHighlighted, traits: traitCollection) }
     }
-}
-
-/// The Weather-style pill slider: title inside on the left, a normalized
-/// readout on the right (0–100%, never px/pt), ticks along the track and a
-/// slim floating thumb bar that grows while dragged. Mac pill 36 → 44 pt.
-final class CCSlider: UIControl {
-    var onChange: ((Double) -> Void)?
-    var format: ((Double) -> String)? { didSet { refreshValue() } }
-    var value: Double = 0.5 {
-        didSet {
-            value = min(max(value, 0), 1)
-            refreshValue()
-            setNeedsLayout()
-        }
-    }
-
-    private static let pillHeight: CGFloat = 44
-    private static let hPadding: CGFloat = 16
-    private static let maxTicks = 9
-    private let titleLabel: UILabel
-    private let valueLabel = UILabel()
-    private var ticks: [CALayer] = []
-    private let thumb = CALayer()
-    private var dragging = false
-
-    init(title: String, value: Double = 0.5) {
-        titleLabel = ccLabel(title, font: CCFont.scaled(15, .medium, .subheadline, max: 20), color: CCTheme.color.foreground)
-        super.init(frame: .zero)
-        translatesAutoresizingMaskIntoConstraints = false
-        layer.cornerCurve = .continuous
-        for _ in 0..<Self.maxTicks {
-            let tick = CALayer()
-            tick.cornerRadius = 0.5
-            layer.addSublayer(tick)
-            ticks.append(tick)
-        }
-        thumb.cornerRadius = 2.5
-        layer.addSublayer(thumb)
-        valueLabel.font = CCFont.mono
-        valueLabel.adjustsFontForContentSizeCategory = true
-        valueLabel.textAlignment = .right
-        valueLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(titleLabel)
-        addSubview(valueLabel)
-        NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: Self.pillHeight),
-            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.hPadding),
-            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            valueLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.hPadding),
-            valueLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            valueLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 40),
-        ])
-        isAccessibilityElement = true
-        accessibilityLabel = title
-        accessibilityTraits = .adjustable
-        self.value = min(max(value, 0), 1)
-        refreshValue()   // observers don't fire inside our own init
-        ccOnThemeChange { [weak self] in self?.applyTheme() }
-        applyTheme()
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    private func display(_ v: Double) -> String { format?(v) ?? "\(Int((v * 100).rounded()))%" }
-
-    private func refreshValue() {
-        valueLabel.text = display(value)
-        accessibilityValue = valueLabel.text
-    }
-
-    private var travel: (origin: CGFloat, width: CGFloat) {
-        let origin = Self.hPadding + titleLabel.intrinsicContentSize.width + CCSpace.lg
-        let end = bounds.width - Self.hPadding - max(valueLabel.intrinsicContentSize.width, 40) - CCSpace.md
-        return (origin, max(0, end - origin))
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        let r = CCRadius.full.resolved(for: bounds.height)
-        layer.cornerRadius = r
-        CCMaterial.refit(layer, radius: r)
-        let (origin, width) = travel
-        let midY = bounds.midY
-        let visible = width < 64 ? 0 : min(Self.maxTicks, Int(width / 22))
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        for (index, tick) in ticks.enumerated() {
-            tick.isHidden = index >= visible
-            guard index < visible else { continue }
-            let t = CGFloat(index + 1) / CGFloat(visible + 1)
-            tick.frame = CGRect(x: origin + width * t, y: midY - 5, width: 1, height: 10)
-        }
-        let barWidth: CGFloat = 5
-        let barHeight: CGFloat = dragging ? 27 : 22
-        if thumb.animation(forKey: "ccmotion.bounds.size.height") == nil {
-            thumb.bounds = CGRect(x: 0, y: 0, width: barWidth, height: barHeight)
-        }
-        thumb.position = CGPoint(x: origin + (width - barWidth) * CGFloat(value) + barWidth / 2, y: midY)
-        CATransaction.commit()
-        CCMaterial.refit(thumb, radius: 2.5)
-    }
-
-    private func applyTheme() {
-        let colors = CCTheme.color
-        let dark = CCTheme.isDark(traitCollection)
-        let fill = dragging ? colors.elevated.ccBlended(0.06, of: dark ? .white : .black, traits: traitCollection) : colors.elevated
-        CCMaterial.dress(layer, as: .recessed(tint: fill), radius: Self.pillHeight / 2, traits: traitCollection)
-        layer.borderWidth = 1
-        layer.borderColor = cc(colors.border)
-        for tick in ticks { tick.backgroundColor = colors.faintForeground.resolvedColor(with: traitCollection).withAlphaComponent(0.22).cgColor }
-        // The Mac thumb: white on dark, a light-grey floating bar on light.
-        CCMaterial.dress(thumb, as: .raised(tint: dark ? .white : .lightGray), radius: 2.5, traits: traitCollection)
-        valueLabel.textColor = colors.mutedForeground
-    }
-
-    private func update(_ touch: UITouch) {
-        let (origin, width) = travel
-        guard width > 0 else { return }
-        value = Double(min(max((touch.location(in: self).x - origin) / width, 0), 1))
-        onChange?(value)
-        sendActions(for: .valueChanged)
-    }
-
-    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-        dragging = true
-        applyTheme()
-        CCMotion.spring(thumb, keyPath: "bounds.size.height", to: 27.0, .snappy)
-        update(touch)
-        return true
-    }
-
-    override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-        update(touch)
-        return true
-    }
-
-    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
-        dragging = false
-        applyTheme()
-        CCMotion.spring(thumb, keyPath: "bounds.size.height", to: 22.0, .bouncy)
-    }
-
-    override func cancelTracking(with event: UIEvent?) { endTracking(nil, with: event) }
-
-    override func accessibilityIncrement() { value += 0.05; onChange?(value) }
-    override func accessibilityDecrement() { value -= 0.05; onChange?(value) }
 }
 
 /// Search well: a recessed pill with the kit loupe, an ink focus ring while

@@ -40,7 +40,7 @@ recording.
 | Folder | Target(s) | What |
 |---|---|---|
 | `App/` | app | screens, sign-in (`Auth/`), capture tab + upload center + push routing (`Capture/`) |
-| `Kit/` | app, share | UIKit design kit (extension-safe) |
+| `Kit/` | app, share, StudioLab | UIKit design kit (extension-safe) — see "Kit" below |
 | `Core/` | app, both extensions | API client, session/keychain, lossless project.json, uploads, inbox, Mac link client |
 | `Broadcast/` | broadcast extension | ReplayKit: stream to Mac (H.264) or record locally |
 | `ShareExtension/` | share extension | "Save to CaptureCat" |
@@ -55,6 +55,29 @@ The Xcode project is generated — never hand-edit it:
 
 Bundle ids: `so.capturecat.ios`, `.broadcast`, `.share`; App Group `group.so.capturecat.ios`
 (also the keychain access group the extensions read the session and link key from).
+
+## Kit
+
+The UIKit port of the Mac's CCKit (`apps/macos/CaptureCat/Views/Shared/DesignKit/README.md`):
+same tokens (`CCTheme`), material (`CCMaterial`: raised / raisedMatte / recessed), motion
+(`CCMotion`: growth lands on the bounce, only the pushed edge moves; press tints in place)
+and icon kit (`CCIcon`, which traps on a name it can't draw). Every control is touch-first
+(44 pt targets), speaks to VoiceOver, follows Dynamic Type and re-themes live.
+
+The studio's editor controls (Studio 4a — the Mac's InspectorKit at touch scale):
+
+| Component | What | API |
+|---|---|---|
+| `CCSlider` | label-inside pill slider, ticks, readout | `init(title:value:range:step:format:)`, `value` / `setValue(_:animated:)`, `step` (≤ 10 stops → ticks are the stops), `detents` (soft stops, continuous), `format` (human units only), `symbol`, `haptics`, `onChange`, `onCommit` (once per gesture); relative drag, tap jumps |
+| `CCChip` / `CCChipGroup` | choice chips, flow layout | `CCChipGroup(items:mode: .single/.multiple, selected:)`, `Item(_:symbol:isEnabled:)`, `allowsEmpty`, `selection` / `selectedIndex`, `setSelection(_:)`, `onChange(Set<Int>)`; compresses padding before it wraps; growth bounces |
+| `CCToggle` / `CCToggleRow` | switch; label + detail + switch row | `CCToggle(isOn:onChange:)`, `setOn(_:animated:)`, `userToggle()`; press stretches the thumb toward its destination. `CCToggleRow(title:detail:isOn:onChange:)` — the whole row is the target and one VoiceOver element |
+| `CCControlRow` | label (+ detail) left, any control right | `CCControlRow(title:detail:control:)`; lends its title to an unlabeled control |
+| `CCStepper` | −/+ keys around a rolling-digit well | `init(value:min:max:step:)`, `format`, `value`, `onChange`, `onCommit`; hold-to-repeat accelerates, keys dim at bounds; one adjustable element |
+| `CCRollingLabel` | odometer text | `setText(_:direction: .up/.down/.none)`, `alignment`, `fontProvider` |
+| `CCColorWell` | inspector color swatch → picker | `CCColorWell(title:color:supportsOpacity:)`, `color`, `presets`, `onChange`, `onCommit` (when the picker closes) |
+| `CCColorPickerView` / `CCColorPicker` | swatches + SV field, hue, opacity, hex | `CCColorPickerView(color:supportsOpacity:presets:)`, `adopt(_:)`, `commitHex(_:)`, `onChange`; `CCColorPicker.present(from:source:title:color:…)` — bottom sheet on compact width, anchored card on regular. sRGB throughout (`UIColor.ccSRGB(hue:…)`, `ccHSBA`, `ccHex`) |
+| `CCAlert` | dialog / confirmation sheet | `addButton(_:role:action:)` (async actions show busy, throws → inline error), `symbol` + `tone: .destructive`, `presentation: .sheet` (docked to the bottom on compact width, grows upward, swipe to cancel); `CCAlert.confirm(…destructive:symbol:presentation:…)` |
+| `CCHaptics` | step / detent feedback | `selection()`, `detent()`, `prepare()`, `light()`; DEBUG `probeLog` |
 
 ## Contracts it follows
 
@@ -79,6 +102,7 @@ Bundle ids: `so.capturecat.ios`, `.broadcast`, `.share`; App Group `group.so.cap
     apps/ios/scripts/mac-interop.sh         # real iOS sender ↔ the REAL Mac receiver (WirelessServer): presence, requestBroadcast, one phone, keyframe-on-record, 70/70 frames, clock mapping, rotation, openProject ack
     apps/ios/scripts/studio-canary.sh       # Studio/ typechecks for iOS on its own (fast)
     apps/ios/scripts/ios-vectors.sh         # the Mac's golden vectors run INSIDE the iOS Simulator vs the Mac's output (exact / ≤1e-12; known iOS differences listed)
+    apps/ios/scripts/kit-gallery.sh         # the studio controls, every state, both themes, iPhone + iPad: PNGs, structure, behaviour, motion SEQUENCES mid-flight (+ injected-snap self-test)
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production

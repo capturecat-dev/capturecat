@@ -13,6 +13,7 @@
 		ED1F31F9268EA4FB84ECAC55 /* StillMovieWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F09EE1E5C7EC36359B64811 /* StillMovieWriter.swift */; };
 		49E6F51EA3959AF58A0D79C7 /* StillMovieWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F09EE1E5C7EC36359B64811 /* StillMovieWriter.swift */; };
 		9F21800022C243ACF970260F /* CCIconSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD2697ABA359FDCB7873A9 /* CCIconSet.swift */; };
+		AA110C6694BEBBC113F8EB88 /* CCIconSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD2697ABA359FDCB7873A9 /* CCIconSet.swift */; };
 		06937EEA68ABE24E4DA0EBAC /* CaptureCatBroadcast.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A21D48F4067FFA35C724A86C /* CaptureCatBroadcast.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7815467F3D1963378FF9473D /* CaptureCatShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A896AB9A01BEA4F326C17375 /* CaptureCatShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -303,6 +304,7 @@
 				7D1EB2785D17823A595A5076 /* StudioUI */,
 				C503F10A943CFCC747EA3E4A /* Studio */,
 				4854E0004C908A659321E6C7 /* StudioHarness */,
+				74CBCF1117CD7C0DAE8EF3CA /* Kit */,
 			);
 			name = StudioLab;
 			productName = StudioLab;
@@ -418,6 +420,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA110C6694BEBBC113F8EB88 /* CCIconSet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
