@@ -151,6 +151,14 @@ final class StudioProjectFolder {
         let merged = try mergedDocument()
         let data = try JSONSerialization.data(
             withJSONObject: merged, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        // Phase 5: the same project in other bytes is not a change — keep
+        // the file (a synced document stays byte-identical to the cloud's, so
+        // adopting a pulled revision never pushes a re-spelled copy back).
+        if let disk = try? Data(contentsOf: documentURL), disk != data,
+           let a = try? JSONValue.parse(data: disk), let b = try? JSONValue.parse(data: data), a == b {
+            document = merged
+            return
+        }
         try data.write(to: documentURL, options: .atomic)
         document = merged
         onDidSave?(data)

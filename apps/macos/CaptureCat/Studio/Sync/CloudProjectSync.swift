@@ -593,6 +593,11 @@ final class CloudProjectSync {
 
     /// `X-CC-Client` of this app's saves: `mac` (the default) or `ios`.
     var clientKind = "mac"
+    /// `X-CC-Checkpoint` of a push after the first upload: `push` (the Mac —
+    /// a push is the user's "Open in Web Editor" / "Sync now", its own
+    /// version) or nil (the iOS studio's autosave pushes, which coalesce into
+    /// the head version like the web editor's saves).
+    var pushCheckpoint: CloudSaveContext.Checkpoint? = .push
 
     /// `apiBaseURL` keys the sync sidecar (each app passes its own API; the
     /// Mac's `init(transport:)` passes `CaptureCatAPI.baseURL`).
@@ -677,7 +682,7 @@ final class CloudProjectSync {
         let base = overwriteRevision ?? state?.revision ?? 0
         // Mac push and first upload always open a NEW version (§2).
         let context = saveContext(
-            checkpoint: base == 0 || stage.revision == 0 ? .upload : .push,
+            checkpoint: base == 0 || stage.revision == 0 ? .upload : pushCheckpoint,
             state: state, from: state?.loadBase(from: projectDirectory), to: document,
             projectDirectory: projectDirectory)
         switch try await transport.save(projectID: projectID, document: document, baseRevision: base, context: context) {

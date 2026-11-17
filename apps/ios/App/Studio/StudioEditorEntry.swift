@@ -1,47 +1,97 @@
-import CryptoKit
 import UIKit
 
-/// The companion app's way into the studio editor (Studio 4b): a cloud
-/// project is copied into a local studio folder — project.json exactly as the
-/// cloud holds it, plus its files — and opened in `EditorViewController`.
-/// The studio needs iOS 26 (docs/ios-studio-plan.md, decision 2); the
-/// companion stays iOS 18+, so every entry is `#available`-gated.
+/// The companion app's way into the studio editor. Since Phase 5 a studio
+/// project is a LOCAL project kept in sync with the cloud by the Mac's own
+/// engine (`StudioCloudSync` over Studio/Sync): opening clones a project this
+/// device does not have, or pulls the cloud's newer revision into the one it
+/// has (edits made here merge three-way); every edit autosaves here and is
+/// pushed like the Mac pushes (debounced, If-Match, media uploads); offline
+/// edits wait and push later. The studio needs iOS 26 (docs/ios-studio-plan.md,
+/// decision 2); the companion stays iOS 18+, so every entry is
+/// `#available`-gated.
 ///
-/// Local folders: Application Support/Studio/Projects/<ID>/. Edits save
-/// there only — syncing them back is Phase 5 — so a reopen never silently
-/// drops them: an untouched local copy refreshes from the cloud; an edited
-/// one opens as is, unless the cloud moved on too, in which case the user
-/// picks.
+/// Local folders: Application Support/Studio/Projects/<ID>/.
 enum StudioEditorEntry {
     static var isAvailable: Bool {
         if #available(iOS 26, *) { return true }
         return false
     }
 
-    static func directory(for projectID: String) -> URL {
+    static var projectsRoot: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Studio/Projects/\(projectID.uppercased())", isDirectory: true)
+            .appendingPathComponent("Studio/Projects", isDirectory: true)
     }
 
-    /// What was downloaded last time (to tell local edits from a stale copy).
-    private struct Marker: Codable {
-        var revision: Int
-        var documentSHA256: String
+    static func directory(for projectID: String) -> URL {
+        projectsRoot.appendingPathComponent(projectID.uppercased(), isDirectory: true)
     }
 
-    private static let markerName = ".studio-download.json"
+    // MARK: - The live environment
+
+    /// The signed-in session's sync environment: the shared HTTP transport
+    /// with this app's bearer token, against this app's API.
+    @available(iOS 26, *)
+    @MainActor
+    static func adoptLiveEnvironment() {
+        guard SessionStore.load()?.token != nil else {
+            StudioCloudSync.environment = nil
+            return
+        }
+        let base = CaptureCatAPI.baseURL
+        if let current = StudioCloudSync.environment, current.apiBaseURL == base { return }
+        let transport = HTTPCloudProjectTransport(baseURL: base, token: { SessionStore.load()?.token })
+        StudioCloudSync.environment = StudioCloudSync.Environment(
+            transport: transport, apiBaseURL: base, clientID: CloudClientIdentity.installID)
+    }
+
+    /// The app came forward: push studio projects holding edits made offline.
+    @available(iOS 26, *)
+    @MainActor
+    static func resumePending() {
+        adoptLiveEnvironment()
+        guard let environment = StudioCloudSync.environment else { return }
+        // Inbox takes the studio owns (5c): gone from the inbox once their
+        // first push landed; otherwise their next push removes them.
+        for take in TakeInbox.all() where take.openedInStudio == true {
+            guard let id = UUID(uuidString: take.id) else { continue }
+            let dir = directory(for: take.id)
+            if CloudSyncState.load(from: dir, projectID: id, apiBaseURL: environment.apiBaseURL) != nil {
+                TakeInbox.remove(take.id)
+            } else {
+                StudioCloudSync.session(projectID: id, directory: dir)?.onPushed = { _ in
+                    TakeInbox.remove(take.id)
+                    UploadCenter.shared.reload()
+                }
+            }
+        }
+        UploadCenter.shared.reload()
+        StudioCloudSync.resumePending(in: projectsRoot)
+    }
+
+    // MARK: - Open a cloud project
 
     @available(iOS 26, *)
     @MainActor
     static func open(projectID: String, from presenter: UIViewController) {
+        guard let id = UUID(uuidString: projectID) else { return }
+        open(id: id, directory: directory(for: projectID), from: presenter)
+    }
+
+    @available(iOS 26, *)
+    @MainActor
+    private static func open(id: UUID, directory: URL, from presenter: UIViewController,
+                             onPushed: ((Int) -> Void)? = nil) {
         let progress = AppToaster.shared.show(title: "Preparing the editor…", symbol: "film")
         Task { @MainActor in
             do {
-                let dir = try await prepareFolder(projectID: projectID, presenter: presenter)
+                adoptLiveEnvironment()
+                let (folder, sync) = try await StudioCloudSync.open(projectID: id, directory: directory)
                 progress?.dismiss()
-                let folder = try StudioProjectFolder.open(dir)
+                if let onPushed { sync?.onPushed = onPushed }
                 let editor = EditorViewController(folder: folder)
-                CCAlert.topmost(from: presenter).present(editor, animated: true)
+                CCAlert.topmost(from: presenter).present(editor, animated: true) {
+                    sync?.attach(editor)
+                }
             } catch is CancellationError {
                 progress?.dismiss()
             } catch {
@@ -52,72 +102,51 @@ enum StudioEditorEntry {
         }
     }
 
-    /// Downloads (or reuses) the local folder for `projectID`.
+    // MARK: - Open an inbox take (5c)
+
+    /// A capture still in the inbox (recorded or imported on this device,
+    /// not uploaded yet — offline, or its upload failed) becomes a studio
+    /// project: its media and a project.json (the same document its upload
+    /// would publish) in a studio folder. From then the studio's sync owns
+    /// it — its first push uploads it as the cloud project (the take's id),
+    /// and the take leaves the inbox once that lands.
+    @available(iOS 26, *)
     @MainActor
-    private static func prepareFolder(projectID: String, presenter: UIViewController) async throws -> URL {
-        let fm = FileManager.default
-        let dir = directory(for: projectID)
-        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        let detail = try await LibraryStore.shared.detail(for: projectID, fresh: true)
-        guard let document = detail.document, let documentData = document.data(using: .utf8) else {
-            throw StudioProjectFolder.OpenError.missingDocument
+    static func open(take: PendingTake, from presenter: UIViewController) {
+        switch take.state {
+        case .recording:
+            AppToaster.shared.show(title: "Still recording", message: "Open it once the recording has finished.")
+            return
+        case .uploading:
+            AppToaster.shared.show(title: "Uploading…", message: "It opens from your library as soon as it's there.")
+            return
+        case .pending, .failed:
+            break
         }
-        let documentURL = dir.appendingPathComponent(StudioProjectFolder.documentName)
-        let markerURL = dir.appendingPathComponent(markerName)
-        let marker = (try? Data(contentsOf: markerURL)).flatMap { try? JSONDecoder().decode(Marker.self, from: $0) }
-
-        var useCloudDocument = true
-        if let marker, let local = try? Data(contentsOf: documentURL), sha256(local) != marker.documentSHA256 {
-            // Edited here since the download.
-            if marker.revision == detail.revision {
-                useCloudDocument = false
-            } else {
-                useCloudDocument = try await askCloudOrLocal(from: presenter)
+        guard let id = UUID(uuidString: take.id) else { return }
+        let dir = directory(for: take.id)
+        do {
+            if !FileManager.default.fileExists(atPath: dir.appendingPathComponent(StudioProjectFolder.documentName).path) {
+                let isPhone = take.sourceKind == "device"
+                let document = try ProjectDocument.make(ProjectDocument.NewProject(
+                    id: take.id, name: take.name, createdAt: take.createdAt, videoFileName: take.mediaFile,
+                    duration: take.duration, sourceKind: take.sourceKind,
+                    isStillCapture: take.kind == .screenshot, showDeviceFrame: isPhone))
+                try StudioInboxImport.makeProject(in: dir, document: document,
+                                                  media: [(TakeInbox.mediaURL(of: take), take.mediaFile)])
             }
+            // The studio uploads it from here on (UploadCenter leaves it be).
+            TakeInbox.update(take.id) { $0.openedInStudio = true; $0.state = .pending; $0.error = nil }
+            UploadCenter.shared.reload()
+        } catch {
+            AppToaster.shared.show(title: "Couldn't open the editor", message: error.localizedDescription,
+                                   variant: .destructive)
+            return
         }
-
-        // Media: every committed file, skipped when the same size is already here.
-        for file in detail.files {
-            let target = dir.appendingPathComponent(file.path)
-            if let size = (try? fm.attributesOfItem(atPath: target.path))?[.size] as? Int64, size == file.bytes { continue }
-            try fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let (temp, response) = try await URLSession.shared.download(from: file.url)
-            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-                throw URLError(.badServerResponse)
-            }
-            try? fm.removeItem(at: target)
-            try fm.moveItem(at: temp, to: target)
+        open(id: id, directory: dir, from: presenter) { _ in
+            TakeInbox.remove(take.id)
+            UploadCenter.shared.reload()
+            NotificationCenter.default.post(name: .ccLibraryShouldRefresh, object: nil)
         }
-
-        if useCloudDocument {
-            try documentData.write(to: documentURL, options: .atomic)
-            let fresh = Marker(revision: detail.revision, documentSHA256: sha256(documentData))
-            try JSONEncoder().encode(fresh).write(to: markerURL, options: .atomic)
-        }
-        return dir
-    }
-
-    /// The cloud copy changed AND this device has unsynced edits.
-    @MainActor
-    private static func askCloudOrLocal(from presenter: UIViewController) async throws -> Bool {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
-            let alert = CCAlert(
-                title: "This project changed elsewhere",
-                message: "You have edits on this \(ThisDevice.noun) that aren't synced yet. Open them, or start again from the latest version?")
-            alert.addButton("Open my edits", role: .primary)
-            alert.addButton("Use the latest version", role: .destructive)
-            alert.addButton("Cancel", role: .cancel)
-            alert.present(from: presenter) { index in
-                switch index {
-                case 0: continuation.resume(returning: false)
-                case 1: continuation.resume(returning: true)
-                default: continuation.resume(throwing: CancellationError())
-                }
-            }
-        }
-    }
-
-    private static func sha256(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 }

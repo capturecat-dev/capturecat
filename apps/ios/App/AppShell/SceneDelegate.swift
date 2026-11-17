@@ -28,6 +28,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidBecomeActive(_ scene: UIScene) {
         let environment = AppEnvironment.shared
         environment.inbox.processPending()
+        // Studio projects edited offline push now (Phase 5).
+        if #available(iOS 26, *), environment.session.user != nil { StudioEditorEntry.resumePending() }
         NotificationCenter.default.post(name: .ccAppDidBecomeActive, object: nil)
         if environment.session.user != nil { LibraryStore.shared.refresh() }
     }

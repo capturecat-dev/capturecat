@@ -291,6 +291,8 @@ final class InboxTakeView: CCCard {
     private let progressBar = CCProgressBar()
     private let retryButton = CCButton(title: "Retry", symbol: "sync", style: .secondary, size: .sm)
     private let discardButton = CCButton(symbol: "close", style: .ghost, size: .sm, radius: .full)
+    /// Studio 5c: open the take in the editor (its upload then happens from there).
+    private let editButton = CCButton(symbol: "scissors", style: .ghost, size: .sm, radius: .full)
     private var observation: SurfaceObservation?
     private(set) var takeID: String?
     var onDiscard: ((PendingTake) -> Void)?
@@ -302,7 +304,7 @@ final class InboxTakeView: CCCard {
         text.axis = .vertical
         text.spacing = 3
         text.setCustomSpacing(CCSpace.sm, after: statusLabel)
-        let actions = UIStackView(arrangedSubviews: [retryButton, discardButton])
+        let actions = UIStackView(arrangedSubviews: [editButton, retryButton, discardButton])
         actions.spacing = CCSpace.xs
         actions.alignment = .center
         let row = UIStackView(arrangedSubviews: [tile, text, actions])
@@ -321,6 +323,14 @@ final class InboxTakeView: CCCard {
         retryButton.onTap = { [weak self] in
             guard let id = self?.takeID else { return }
             AppEnvironment.shared.inbox.retry(id)
+        }
+        editButton.accessibilityLabelOverride = "Edit"
+        editButton.onTap = { [weak self] in
+            guard let self, let id = self.takeID, let take = AppEnvironment.shared.inbox.takes.first(where: { $0.id == id }) else { return }
+            var responder: UIResponder? = self
+            while let next = responder, !(next is UIViewController) { responder = next.next }
+            guard #available(iOS 26, *), let presenter = responder as? UIViewController else { return }
+            StudioEditorEntry.open(take: take, from: presenter)
         }
         discardButton.onTap = { [weak self] in
             guard let self, let id = self.takeID, let take = AppEnvironment.shared.inbox.takes.first(where: { $0.id == id }) else { return }
@@ -368,12 +378,16 @@ final class InboxTakeView: CCCard {
             showsProgress = true
             status = progress.message
         }
+        if take.openedInStudio == true, take.state == .pending {
+            status = "In the editor — uploads with your edits"
+        }
         statusLabel.text = status
         statusLabel.textColor = statusColor
         if progressBar.isHidden == showsProgress { progressBar.isHidden = !showsProgress }
         retryButton.isHidden = take.state != .failed
+        editButton.isHidden = !StudioEditorEntry.isAvailable || !(take.state == .pending || take.state == .failed)
         discardButton.isHidden = take.state == .uploading || take.state == .recording
-        accessibilityElements = [titleLabel, statusLabel, progressBar, retryButton, discardButton].filter { !$0.isHidden }
+        accessibilityElements = [titleLabel, statusLabel, progressBar, editButton, retryButton, discardButton].filter { !$0.isHidden }
     }
 
     /// One 0…1 across the publish phases.

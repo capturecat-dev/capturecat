@@ -29,7 +29,8 @@ final class UploadCenter {
     func processPending() {
         reload()
         guard !isRunning, SessionStore.load() != nil else { return }
-        let ready = takes.filter { $0.state == .pending || $0.state == .uploading }.sorted { $0.createdAt < $1.createdAt }
+        let ready = takes.filter { ($0.state == .pending || $0.state == .uploading) && $0.openedInStudio != true }
+            .sorted { $0.createdAt < $1.createdAt }
         guard !ready.isEmpty else { return }
         isRunning = true
         let background = UIApplication.shared.beginBackgroundTask(withName: "CaptureCat upload")

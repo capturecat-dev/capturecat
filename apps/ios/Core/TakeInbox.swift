@@ -32,6 +32,10 @@ nonisolated struct PendingTake: Codable, Equatable, Sendable, Identifiable {
     var pixelHeight: Int
     var state: State
     var error: String?
+    /// Opened in the studio editor (Phase 5c): the studio's sync uploads it
+    /// (with the edits made there), so the upload center leaves it alone.
+    /// Optional — takes written before it decode as nil.
+    var openedInStudio: Bool?
 
     /// "device" when the frame is iPhone-shaped (the Mac and web draw the
     /// bezel), "display" otherwise (iPad, or an imported landscape video).

@@ -80,8 +80,11 @@ enum StudioHistory {
                 store.recordSave(data, checkpoint: .push)
             }
         }
+        // Phase 5: the cloud sync may have hooked the folder first — chain.
+        let previous = editor.folder.onDidSave
         editor.folder.onDidSave = { [weak store] data in
             store?.recordSave(data)
+            previous?(data)
         }
     }
 
@@ -103,10 +106,21 @@ enum StudioHistory {
         return present(in: editor)
     }
 
+    /// Phase 5: the project's CLOUD history while its sync is live
+    /// (`StudioCloudSync.attach` registers it); it lists the on-device
+    /// history itself when offline.
+    static var cloudHistory: [UUID: () -> ProjectHistoryService?] = [:]
+
+    /// What History lists for `editor`: the cloud's versions when the
+    /// project syncs, else this device's.
+    static func service(of editor: EditorViewController) -> ProjectHistoryService {
+        cloudHistory[editor.project.id]?() ?? history(of: editor)
+    }
+
     @discardableResult
     static func present(in editor: EditorViewController) -> HistoryPanelController {
         if let open = HistoryPresentation.current(in: editor) { return open.panel }
-        let panel = HistoryPanelController(service: history(of: editor), host: editor, device: deviceNoun)
+        let panel = HistoryPanelController(service: service(of: editor), host: editor, device: deviceNoun)
         HistoryPresentation.present(panel, in: editor)
         return panel
     }
@@ -170,7 +184,9 @@ extension EditorViewController {
         try historySwap(to: document, from: previous, actionName: actionName)
     }
 
-    private func historySwap(to document: Data, from previous: Data, actionName: String) throws {
+    /// The swap itself (no save first): `document` is written and adopted,
+    /// undo puts `previous` back. Phase 5's sync calls it with what it wrote.
+    func historySwap(to document: Data, from previous: Data, actionName: String) throws {
         let videoBefore = project.videoURL
         let resolved = try folder.adoptDocument(document)
         project.adoptState(of: resolved)
