@@ -273,6 +273,8 @@ row lower — reported, not gated, and open.
     apps/ios/scripts/ios-export-delivery.sh # GIF / PNG on iOS vs the Mac, then Photos (each asset's original read back: GIF frames/delays, PNG size, movie size/duration/samples), the Files picker and the share sheet — APP=<unsandboxed Mac build>
     apps/ios/scripts/ios-features.sh        # voice-over, transcription, Auto Zoom, background removal vs the Mac (CaptureCat --features-reference): entries, mix, blocks, subtitles, mask, cutout frames; progress SEQUENCES mid-flight (+ --inject self-tests). WHISPER_BASE=<dir> (model + tokenizer) for transcription; run it on an iOS 27 simulator — the iOS 26.2 Simulator's CPU path decodes base.en to nothing
     apps/ios/scripts/ios-device-features.sh <udid> <mac-features-dir> [whisper-base]   # the same features gate on a PHYSICAL device (default ONLY=transcription; inputs copied into StudioLab's container as @home/…; waits for an unlock). iPhone 15 Pro Max: transcription PASS 10/10
+    apps/ios/scripts/ios-release-check.sh   # App Store readiness (6c) on the Release ARCHIVE: privacy manifests vs the required-reason APIs in the stripped binaries, usage strings vs linked APIs, version/build, encryption key, icons, no harness strings / dev URLs / test keys, entitlements used, zero packaging warnings; SELFTEST=1 injects 16 defects that must each FAIL
+    apps/ios/scripts/ios-archive.sh         # signed archive → release check → App Store export (destination: export, never uploads)
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production
@@ -285,6 +287,29 @@ Driving the app in the Simulator by hand:
 
 Debug builds can point at another API: launch with `-apiBaseURL http://127.0.0.1:8799`
 (https or loopback only); the app copies it to the App Group so the extensions follow.
+
+## App Store readiness (Studio 6c)
+
+`docs/ios-app-store.md` is the owner's checklist: listing draft, privacy and
+export-compliance answers, review notes, screenshot plan, and what must happen
+before the first upload (account deletion in the app, distribution signing, the
+App Store Connect record, a review account).
+
+- **Privacy manifests**: `Config/Privacy/{App,Share,Broadcast}/PrivacyInfo.xcprivacy`,
+  copied into each bundle by `gen-xcodeproj.py`. No tracking; collected types
+  and required-reason APIs as the doc lists. A new `UserDefaults`, file-date,
+  disk-space, uptime or keyboard API in shipping code fails
+  `ios-release-check.sh` until the manifest declares it.
+- **Version / build**: `MARKETING_VERSION` / `BUILD` at the top of
+  `gen-xcodeproj.py`, shared by the app and both extensions; +1 build per upload.
+- **DEBUG-only seams**: launch flags (`-uiFixtures`, `-kitGallery`,
+  `-apiBaseURL`, …), fixtures and stored `probe*` properties are `#if DEBUG`, so
+  the Release binary carries none of them (Swift keeps stored-property names in
+  its reflection metadata; computed probes leave nothing). New probe seams that
+  STORE state go behind `#if DEBUG` too — the gate checks the archived binary.
+- **Usage strings**: microphone, add-only Photos, local network (+ Bonjour
+  `_ccwireless._tcp`). No camera or photo-library-read strings: nothing on iOS
+  opens a camera, and imports use the system picker.
 
 ## Server side
 

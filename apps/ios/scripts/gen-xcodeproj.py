@@ -38,6 +38,25 @@ TEAM = "E52HU87CX9"
 IOS = "18.0"
 APP_GROUP = "group.so.capturecat.ios"
 
+# Version + build (docs/ios-app-store.md, "Versions"). One pair for the app AND
+# its extensions — App Store Connect rejects an extension whose
+# CFBundleShortVersionString / CFBundleVersion differ from the app's.
+#   MARKETING_VERSION: what the store shows (1.0, 1.1, 2.0 …), bumped per release.
+#   BUILD: a plain integer, +1 for EVERY upload (TestFlight included); never reused.
+# A release build may override both on the command line
+# (`MARKETING_VERSION=1.1 CURRENT_PROJECT_VERSION=7`) without regenerating.
+MARKETING_VERSION = "1.0"
+BUILD = "1"
+
+# Privacy manifests (PrivacyInfo.xcprivacy), one per shipping bundle, copied
+# into the bundle root by that target's Resources phase. Checked against the
+# Release binaries by scripts/ios-release-check.sh.
+PRIVACY = {
+    "App": "Config/Privacy/App/PrivacyInfo.xcprivacy",
+    "Broadcast": "Config/Privacy/Broadcast/PrivacyInfo.xcprivacy",
+    "Share": "Config/Privacy/Share/PrivacyInfo.xcprivacy",
+}
+
 
 def oid(name):
     return hashlib.md5(name.encode()).hexdigest()[:24].upper()
@@ -236,11 +255,11 @@ RELEASE_PROJECT = {
 }
 COMMON_TARGET = {
     "CODE_SIGN_STYLE": "Automatic",
-    "CURRENT_PROJECT_VERSION": "1",
+    "CURRENT_PROJECT_VERSION": BUILD,
     "DEVELOPMENT_TEAM": TEAM,
     "ENABLE_PREVIEWS": "NO",
     "GENERATE_INFOPLIST_FILE": "YES",
-    "MARKETING_VERSION": "1.0",
+    "MARKETING_VERSION": MARKETING_VERSION,
     "PRODUCT_NAME": '"$(TARGET_NAME)"',
     "SUPPORTS_MACCATALYST": "NO",
     "SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD": "NO",
@@ -290,6 +309,10 @@ def main():
         base = os.path.basename(path)
         ftype = "text.plist.xml" if base.endswith(".plist") else "text.plist.entitlements"
         add("PBXFileReference", f'\t\t{oid("config." + path)} /* {base} */ = {{isa = PBXFileReference; lastKnownFileType = {ftype}; path = "{base}"; sourceTree = "<group>"; }};')
+    for key, path in PRIVACY.items():
+        rel = os.path.relpath(path, "Config")
+        add("PBXFileReference", f'\t\t{oid("privacy." + key)} /* {rel} */ = {{isa = PBXFileReference; lastKnownFileType = text.xml; name = "{key}-PrivacyInfo.xcprivacy"; path = "{rel}"; sourceTree = "<group>"; }};')
+        add("PBXBuildFile", f'\t\t{oid("bf.privacy." + key)} /* PrivacyInfo.xcprivacy in Resources */ = {{isa = PBXBuildFile; fileRef = {oid("privacy." + key)} /* {rel} */; }};')
 
     # Synchronized root groups
     for key, (path, name) in SYNC.items():
@@ -332,6 +355,8 @@ def main():
         fw = "".join(f'\t\t\t\t{oid("bf.pkg." + k + "." + key)} /* {key} in Frameworks */,\n' for key in t.get("packages", []))
         add("PBXFrameworksBuildPhase", f'\t\t{oid("phase.frameworks." + k)} /* Frameworks */ = {{\n\t\t\tisa = PBXFrameworksBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n{fw}\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};')
         res = "".join(f'\t\t\t\t{oid("bf.res." + k + "." + key)} /* {os.path.basename(RESOURCE_FILES[key])} in Resources */,\n' for key in t.get("resources", []))
+        if k in PRIVACY:
+            res += f'\t\t\t\t{oid("bf.privacy." + k)} /* PrivacyInfo.xcprivacy in Resources */,\n'
         add("PBXResourcesBuildPhase", f'\t\t{oid("phase.resources." + k)} /* Resources */ = {{\n\t\t\tisa = PBXResourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n{res}\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};')
 
     # Groups
@@ -344,6 +369,7 @@ def main():
     ress = "\n".join(f'\t\t\t\t{oid("resfile." + key)} /* {os.path.basename(p)} */,' for key, p in RESOURCE_FILES.items())
     add("PBXGroup", f'\t\t{res_group} /* StudioResources */ = {{\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n{ress}\n\t\t\t);\n\t\t\tname = StudioResources;\n\t\t\tsourceTree = "<group>";\n\t\t}};')
     cfgs = "\n".join(f'\t\t\t\t{oid("config." + p)} /* {os.path.basename(p)} */,' for p in CONFIG_FILES)
+    cfgs += "".join(f'\n\t\t\t\t{oid("privacy." + key)} /* {os.path.relpath(p, "Config")} */,' for key, p in PRIVACY.items())
     add("PBXGroup", f'\t\t{config_group} /* Config */ = {{\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n{cfgs}\n\t\t\t);\n\t\t\tpath = Config;\n\t\t\tsourceTree = "<group>";\n\t\t}};')
 
     # Targets
