@@ -58,6 +58,9 @@ final class VideoExporter {
     /// app (its sheet has no Cancel once an export starts), so the Mac's
     /// export runs exactly as before.
     private var cancelRequested = false
+    /// Frames of the last export the GPU refused and the CPU rendered instead
+    /// (`ExportCPUFallback`; 0 on the Mac).
+    private(set) var cpuRenderedFrames = 0
 
     /// Stops a running export (the iOS export sheet's Cancel, or the system
     /// expiring the background export, Studio 3d): the frame loop stops before
@@ -904,6 +907,20 @@ final class VideoExporter {
             return CIContext(options: Self.platformPinnedContextOptions.merging(
                 [.workingColorSpace: renderSpace, .useSoftwareRenderer: false]) { $1 })
         }()
+        // A frame the GPU refuses is re-rendered on the CPU — never left
+        // holding the pool buffer's previous frame. Measured on an iPhone 15
+        // Pro Max (2026-11-17): in the background without a `.gpu`
+        // continued-processing grant every command buffer fails, and the
+        // movie silently repeated stale frames. The Mac's GPU never refuses,
+        // so its frames are untouched.
+        let cpuFallback = ExportCPUFallback(options: Self.platformPinnedContextOptions.merging([
+            .workingColorSpace: renderSpace,
+            .cacheIntermediates: false,
+        ]) { $1 }, colorSpace: renderSpace)
+        defer {
+            cpuRenderedFrames = cpuFallback.frames
+            if cpuFallback.frames > 0 { print("[Export] \(cpuFallback.frames) frame(s) rendered on the CPU (GPU unavailable)") }
+        }
 
         // Log color pipeline info once so we can verify the chain is correct.
         if let srcCS = CVImageBufferGetColorSpace(initialPixelBuffer) {
@@ -2486,11 +2503,14 @@ final class VideoExporter {
                         // inline would block a cooperative-pool thread and
                         // starve the pipeline (measured: 100→78 fps). Park
                         // the wait on GCD instead.
-                        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                        let failure: Error? = await withCheckedContinuation { (cont: CheckedContinuation<Error?, Never>) in
                             DispatchQueue.global(qos: .userInitiated).async {
-                                _ = try? renderTask.waitUntilCompleted()
-                                cont.resume()
+                                do { _ = try renderTask.waitUntilCompleted(); cont.resume(returning: nil) }
+                                catch { cont.resume(returning: error) }
                             }
+                        }
+                        if let failure {
+                            cpuFallback.render(frameComposited, to: frameOutputBuffer, because: failure)
                         }
                     } else {
                         // Task submission failed (GPU pressure) — direct render.
@@ -2511,11 +2531,14 @@ final class VideoExporter {
                         let flipped = frameComposited.transformed(by:
                             CGAffineTransform(scaleX: 1, y: -1).translatedBy(x: 0, y: -h))
                         if let cmd = queue.makeCommandBuffer() {
-                            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                            let completed = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
                                 exportCIContext.render(flipped, to: mtlTex, commandBuffer: cmd,
                                                        bounds: flipped.extent, colorSpace: renderSpace)
-                                cmd.addCompletedHandler { _ in cont.resume() }
+                                cmd.addCompletedHandler { cont.resume(returning: $0.status == .completed) }
                                 cmd.commit()
+                            }
+                            if !completed {
+                                cpuFallback.render(frameComposited, to: frameOutputBuffer, because: cmd.error)
                             }
                         } else {
                             // Command-buffer allocation can fail under GPU pressure —
@@ -4340,4 +4363,37 @@ struct CameraLookStack {
     var cardCamera: CIImage?
     /// §12.3 `image` fill bitmap; nil → the gradient fill.
     var cardImage: CIImage?
+}
+
+
+/// Renders a frame on Core Image's software renderer when the GPU refused it
+/// (VideoExporter; an iOS app in the background may not use the GPU). The
+/// context is made on first use, so an export that never needs it never pays
+/// for it.
+final class ExportCPUFallback: @unchecked Sendable {
+    private let options: [CIContextOption: Any]
+    private let colorSpace: CGColorSpace
+    private let lock = NSLock()
+    private var context: CIContext?
+    private var count = 0
+    private var logged = false
+
+    init(options: [CIContextOption: Any], colorSpace: CGColorSpace) {
+        self.options = options.merging([.useSoftwareRenderer: true]) { $1 }
+        self.colorSpace = colorSpace
+    }
+
+    var frames: Int { lock.lock(); defer { lock.unlock() }; return count }
+
+    func render(_ image: CIImage, to buffer: CVPixelBuffer, because error: Error?) {
+        lock.lock()
+        let ctx = context ?? CIContext(options: options)
+        context = ctx
+        count += 1
+        let first = !logged
+        logged = true
+        lock.unlock()
+        if first { print("[Export] GPU refused a frame (\(error.map { "\($0)" } ?? "no error")) — rendering on the CPU") }
+        ctx.render(image, to: buffer, bounds: image.extent, colorSpace: colorSpace)
+    }
 }

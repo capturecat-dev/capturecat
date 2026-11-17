@@ -91,6 +91,7 @@ final class LabViewController: UIViewController {
         if #available(iOS 26, *), ExportSheetLab.start(arguments, lab: self) { return }
         if WhisperProbeLab.start(arguments) { return }
         if AudioDecodeProbe.start(arguments) { return }
+        if #available(iOS 26, *), BackgroundExportProbe.start(arguments, lab: self) { return }
         if let i = arguments.firstIndex(of: "--decode-probe"), arguments.indices.contains(i + 1) {
             let video = URL(fileURLWithPath: arguments[i + 1])
             let index = arguments.firstIndex(of: "--index").flatMap { arguments.indices.contains($0 + 1) ? Int(arguments[$0 + 1]) : nil } ?? 0

@@ -273,6 +273,7 @@ row lower — reported, not gated, and open.
     apps/ios/scripts/ios-export-delivery.sh # GIF / PNG on iOS vs the Mac, then Photos (each asset's original read back: GIF frames/delays, PNG size, movie size/duration/samples), the Files picker and the share sheet — APP=<unsandboxed Mac build>
     apps/ios/scripts/ios-features.sh        # voice-over, transcription, Auto Zoom, background removal vs the Mac (CaptureCat --features-reference): entries, mix, blocks, subtitles, mask, cutout frames; progress SEQUENCES mid-flight (+ --inject self-tests). WHISPER_BASE=<dir> (model + tokenizer) for transcription; run it on an iOS 27 simulator — the iOS 26.2 Simulator's CPU path decodes base.en to nothing
     apps/ios/scripts/ios-device-features.sh <udid> <mac-features-dir> [whisper-base]   # the same features gate on a PHYSICAL device (default ONLY=transcription; inputs copied into StudioLab's container as @home/…; waits for an unlock). iPhone 15 Pro Max: transcription PASS 10/10
+    apps/ios/scripts/ios-device-background-export.sh <udid> [seconds]   # background export on a PHYSICAL device: foreground vs backgrounded export (host opens Settings), every 15th frame byte-compared; iPhone 15 Pro Max PASS (refused GPU frames re-rendered on the CPU, byte-identical)
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production
