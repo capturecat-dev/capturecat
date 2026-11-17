@@ -25,12 +25,15 @@ final class StudioTimelineLaneAccordion: NSObject {
     private var duration: TimeInterval = 0.28
     private var curve = CCMotion.Curve.bounce.points
 
+    /// What cross-fades when Reduce Motion lands a lane change (the
+    /// timeline's canvas area: lane labels + canvas). Product behaviour, so
+    /// outside the DEBUG seams (the 6c merge had put it inside: Release
+    /// did not build).
+    weak var reducedMotionHost: UIView?
+
     #if DEBUG
     /// Harness seam: forces the Reduce Motion path.
     var probeReduceMotion: Bool?
-    /// What cross-fades when Reduce Motion lands a lane change (the
-    /// timeline's canvas area: lane labels + canvas).
-    weak var reducedMotionHost: UIView?
     /// Harness defect injection (`--inject accordion-snap`): every retarget
     /// snaps — the motion check must FAIL with this set.
     var probeForceSnap = false
