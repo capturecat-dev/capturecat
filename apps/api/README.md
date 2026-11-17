@@ -162,6 +162,7 @@ src/
     upload.ts        # Presigned URL generation + upload completion
     video.ts         # Video streaming with byte-range support
     delete.ts        # Video deletion
+    account-delete.ts  # DELETE /api/me — account deletion (lib/account-deletion.ts)
                      # (Stripe webhooks are NOT here — the Better Auth Stripe
                      #  plugin serves POST /api/auth/stripe/webhook)
   middleware/
@@ -316,6 +317,90 @@ Go-live, in this order:
 
    `APNS_TOPIC` (a var, default `so.capturecat.ios`) only needs setting if
    the iOS bundle id ever changes.
+
+## Account deletion (`DELETE /api/me`)
+
+App Store Guideline 5.1.1(v): an account made in an app can be deleted in
+that app. The iOS app (Account → Delete Account) and the web dashboard
+(Settings → Delete account) call `DELETE /api/me`; it is also how support
+deletes an account now (no more emailing contact@). Route:
+`src/routes/account-delete.ts`; logic: `src/lib/account-deletion.ts`;
+schema: `migrations/0043_account_deletion.sql`; tests:
+`src/routes/account-delete.test.ts`.
+
+| Status | Body | Meaning |
+| --- | --- | --- |
+| 200 | `{ deleted: true, jobId, cancelledSubscriptions, cleanup: "pending" }` | Gone. Every session (the caller's too) is dead. |
+| 401 | `{ error }` | No session — also what a retry gets after a lost 200. Clients treat 401 here as "already deleted" and sign out. |
+| 403 | `{ error: "Origin not allowed" }` / `{ error: "Account blocked" }` / `{ code: "agent_token_forbidden" }` | Cookie without a trusted Origin (CSRF), a blocked account (support decides), an agent token. |
+| 409 | `{ code: "team_has_members", team: { id, name, otherMembers } }` | The user owns a team with other members and no co-owner. |
+| 502 | `{ code: "billing_unavailable" }` | Stripe could not cancel the subscription — nothing was deleted. |
+
+Auth is `requireAuth`, exactly like `GET /api/me`: a bearer session (apps)
+or the session cookie with a trusted `Origin` (web). Agent credentials are
+refused first. 5 requests per 10 minutes per user. `X-CC-Client: ios|mac|web`
+names the client in the audit row.
+
+How it runs:
+
+1. **Checks.** A team the user owns that has other members and no other
+   owner → 409 (the owner promotes someone or removes them on the Team page
+   first); a team whose only member is the user is deleted with them. Then
+   **Stripe**: every live subscription — the customer's, plus any id D1 knows
+   (`subscription`, `plan_grants`) — is cancelled **immediately** with the
+   existing Stripe client (no proration refund, no further charges). Any
+   Stripe failure → 502, nothing changes. The Stripe customer itself is kept:
+   it holds the invoices we must keep for tax (privacy policy §6).
+2. **One D1 batch** (a transaction): the R2 keys the user's rows point at are
+   copied into `account_deletion_objects`, then every row is deleted, ending
+   with `user`. From here the account does not exist: sessions, shares,
+   agent/OAuth tokens, webhooks and push tokens are all dead.
+3. **Background**: the queued R2 objects (1000 per call; whole prefixes
+   listed page by page), Cloudflare custom hostnames, metadata cache entries
+   and the user's ShareJobsDO rows are removed — first in `waitUntil` right
+   after the response, then by the hourly cron sweep until the queue is
+   empty. Each finished item leaves the queue, so an interrupted run resumes;
+   a failing outside call is retried once per run, up to 48 runs.
+
+What happens to each table / bucket:
+
+| Data | What happens |
+| --- | --- |
+| `user`, `session`, `account` | deleted (sign-out everywhere; Google/Apple links gone) |
+| `shared_videos`, `video_versions`, `video_views`, `video_events`, `video_reactions`, `video_transcripts`, comments on their videos (anyone's) | deleted; files in **CaptureCat R2** (`videos/{id}.mp4`, `videos/{id}/…`, `thumbs/{id}`) deleted in the background |
+| Their comments on other people's videos | deleted; one with replies from others is redacted in place ("Deleted account" / "This comment was deleted.", no avatar, no annotation) so the thread survives |
+| `video_playlists`, `playlist_videos` | deleted |
+| `cloud_projects` + objects/files/versions/manifests | deleted; `cloud-projects/{uid}/…` in R2 deleted (prefix listing also catches never-finalized uploads) |
+| Other people's cloud projects they edited | kept; `updated_by`, `actor_uid`, `named_by` cleared |
+| `stored_objects`, `screenshot_api_keys`, `screenshot_usage` | deleted; `screenshots/{uid}/…` in R2 deleted |
+| `storage_buckets` (bring-your-own bucket) | **credentials deleted. Objects in the customer's own bucket are never deleted** — the module never calls the S3 API |
+| `custom_domains` | deleted; the Cloudflare custom hostname removed in the background |
+| Teams: sole-member `organization` (+ `member`, `invitation`, `ssoProvider`, `org-logos/{id}`) | deleted; any leftover `org_id` on videos/projects/playlists cleared |
+| Teams with other members | the user's `member` row goes; the team stays (409 if they are its only owner) |
+| `invitation` sent by them / addressed to their email | deleted |
+| `agent_tokens`, `agent_audit_log`, `agent_approvals`, `oauth_grants`, `oauth_codes`, `oauth_refresh_tokens`, `webhook_endpoints`, `webhook_deliveries` | deleted (registered `oauth_clients` are shared and stay) |
+| `user_devices` (APNs tokens), `wireless_links` | deleted |
+| `attest_keys`, `attest_challenges`, `attest_exemptions` | deleted |
+| `subscription`, `plan_grants` | deleted after Stripe cancelled them; later webhooks for them find no row and are ignored |
+| `beta_signups` with their email | deleted |
+| `video_reports` | ones they filed: `reporter_uid` cleared (the hashed reporter stays); open ones about their videos closed as `account_deleted` |
+| `moderation_actions` | kept — the admins' audit trail (a now-meaningless uid, no PII) |
+| ShareJobsDO (per-user upload progress) | purged in the background (`purgeAll`) |
+| `rate_limits` | not touched; keyed by uid, swept within a day |
+| `site_events`, `desktop_auth_requests`, `verification` | not user-keyed; expire on their own |
+| Stripe customer, invoices | kept in Stripe (tax records) |
+
+The audit record is the `account_deletions` row: deleted user id, client,
+time, how many subscriptions were cancelled, counts of what was removed, and
+`email_hmac` = HMAC-SHA256(`BETTER_AUTH_SECRET`, `account-deletion:` +
+lowercased email) — enough for support to answer "was the account for this
+address deleted?" without keeping the address. No name, no email.
+
+Go-live: apply `0043_account_deletion.sql` (`npx wrangler d1 migrations apply
+capturecat --remote`) **before** deploying the Worker — the route writes the
+new tables in its batch, so a Worker ahead of the migration answers 500 and
+deletes nothing (the batch is all-or-nothing). See
+`docs/account-deletion-deploy.md` at the repo root.
 
 ## Security layers (added 2026-08-02)
 

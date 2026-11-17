@@ -36,6 +36,8 @@ import { AGENT_AUDIT_RETENTION_DAYS } from "./lib/agent-tokens";
 import { agentApprovalRoutes } from "./routes/agent-approvals";
 import { webhookRoutes } from "./routes/webhooks";
 import { devicesRoutes } from "./routes/devices";
+import { accountDeleteRoutes } from "./routes/account-delete";
+import { processAccountDeletions } from "./lib/account-deletion";
 import { changelogRoutes } from "./routes/changelog";
 import { oauthRoutes } from "./routes/oauth";
 import { SITE_DOCUMENTS, frontDoorRoutes } from "./routes/front-door";
@@ -417,6 +419,10 @@ app.route("/api", webhookRoutes);
 // only — bearer sessions, never cookies or agent tokens. See
 // src/routes/devices.ts and migration 0042.
 app.route("/api", devicesRoutes);
+// DELETE /api/me — the signed-in user deletes their account (App Store
+// 5.1.1(v)). Rows go at once; stored files in the background, finished by
+// the hourly sweep. See src/lib/account-deletion.ts and migration 0043.
+app.route("/api", accountDeleteRoutes);
 // OAuth 2.1 for the MCP server: discovery, /oauth/*, and the consent page's
 // session API under /api/oauth/*.
 app.route("/", oauthRoutes);
@@ -488,6 +494,12 @@ async function sweep(env: Env): Promise<void> {
   await env.DB.prepare("DELETE FROM agent_audit_log WHERE at < ?")
     .bind(new Date(Date.now() - AGENT_AUDIT_RETENTION_DAYS * 86_400_000).toISOString()).run();
   await sweepAgentPhase2(env).catch((err) => console.error("agent sweep failed", err));
+  // Deleted accounts (0043): R2 objects, custom hostnames and caches still
+  // queued after the request's own background run.
+  await processAccountDeletions(env, { budgetMs: 60_000 }).then(
+    (r) => r.accounts > 0 && console.log(`account deletions: ${r.objectsDeleted} objects, ${r.finished}/${r.accounts} finished`),
+    (err) => console.error("account deletion sweep failed", err),
+  );
   await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
     .bind(Math.floor(Date.now() / 1000) - 86_400).run();
   // Site acquisition events (0030) are kept 13 months: a year-on-year view,

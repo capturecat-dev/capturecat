@@ -131,6 +131,13 @@ export class ShareJobsDO extends DurableObject<Env> {
     return this.getJob(id);
   }
 
+  /** The account was deleted (lib/account-deletion.ts): forget every job
+   *  and the housekeeping alarm. */
+  async purgeAll(): Promise<void> {
+    this.ctx.storage.sql.exec("DELETE FROM jobs");
+    await this.ctx.storage.deleteAlarm();
+  }
+
   /** Sweep: stale uploads → failed; old finished rows → deleted. */
   async alarm(): Promise<void> {
     const now = Date.now();
