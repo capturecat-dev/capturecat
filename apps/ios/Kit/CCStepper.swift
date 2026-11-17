@@ -16,6 +16,18 @@ import UIKit
 /// Haptics: a selection tick per step, a firmer detent when a bound is hit.
 /// VoiceOver: ONE adjustable element (swipe up/down steps), value = the text.
 final class CCStepper: UIControl {
+    // Keyboard (iPad, Studio 6a): focusable; the arrows adjust it exactly as
+    // VoiceOver's swipe up / down does.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let step = ccArrowStep(presses), isEnabled {
+            if step > 0 { accessibilityIncrement() } else { accessibilityDecrement() }
+            return
+        }
+        super.pressesBegan(presses, with: event)
+    }
+
     var onChange: ((Double) -> Void)?
     var onCommit: ((Double) -> Void)?
 

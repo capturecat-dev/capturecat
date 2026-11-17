@@ -124,6 +124,13 @@ final class StudioTimelineCanvasView: UIView {
     var probeSnapSelection = false
     #endif
 
+    // MARK: VoiceOver (StudioTimelineCanvasView+Accessibility)
+
+    /// The controller whose gesture entry points the elements' actions run.
+    weak var accessibilityController: StudioTimelineViewController?
+    var accessibilityVersion = 0
+    var accessibilityCache: (version: Int, items: [StudioTimelineAccessibilityItem])?
+
     // MARK: Init
 
     override init(frame: CGRect) {
@@ -179,6 +186,7 @@ final class StudioTimelineCanvasView: UIView {
         if dirty {
             setNeedsDisplay()
             refreshSelectionRing(animated: true)
+            accessibilityVersion += 1
         }
     }
 
@@ -685,6 +693,14 @@ final class StudioTimelineCanvasView: UIView {
         #if DEBUG
         if probeSnapSelection { glide = false }
         #endif
+        // Reduce Motion: the outline does not travel — it lands on the new
+        // block and dissolves in there.
+        if animated, isNew, !wasHidden, window != nil, CCMotion.reduceMotion {
+            stopGlide()
+            applyRing(target: frame.rect)
+            CCMotion.dissolve(selectionRing)
+            return
+        }
         if glide, let shown = ringRect {
             glideFrom = shown
             glideBegan = CACurrentMediaTime()

@@ -24,6 +24,18 @@ import UIKit
 /// range. The pill brightens and the bar grows while held (Mac 18 → 22 pt,
 /// here 22 → 28 pt). VoiceOver: one adjustable element, value = the readout.
 final class CCSlider: UIControl {
+    // Keyboard (iPad, Studio 6a): focusable; the arrows adjust it exactly as
+    // VoiceOver's swipe up / down does.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let step = ccArrowStep(presses), isEnabled {
+            if step > 0 { accessibilityIncrement() } else { accessibilityDecrement() }
+            return
+        }
+        super.pressesBegan(presses, with: event)
+    }
+
     var onChange: ((Double) -> Void)?
     /// Fires once per gesture, when the finger lifts (or VoiceOver adjusts).
     var onCommit: ((Double) -> Void)?
@@ -144,6 +156,12 @@ final class CCSlider: UIControl {
         titleLabel.translatesAutoresizingMaskIntoConstraints = true
         valueLabel.font = CCFont.mono
         valueLabel.adjustsFontForContentSizeCategory = true
+        ccRelayoutOnTextSizeChange()
+        // Big Dynamic Type: title and readout shrink to fit the pill (≥ 55%).
+        for label in [titleLabel, valueLabel] {
+            label.adjustsFontSizeToFitWidth = true
+            label.minimumScaleFactor = 0.55
+        }
         valueLabel.textAlignment = .right
         for view in [titleLabel, valueLabel] as [UIView] {
             view.isUserInteractionEnabled = false
@@ -203,7 +221,7 @@ final class CCSlider: UIControl {
         guard next != storedValue else { return }
         storedValue = next
         refreshValueText()
-        if animated, window != nil, !CCMotion.reduceMotion, bounds.width > 0 {
+        if animated, window != nil, bounds.width > 0 {
             CCMotion.spring(thumb, keyPath: "position", to: NSValue(cgPoint: thumbCenter(for: next)), .smooth)
         }
         setNeedsLayout()

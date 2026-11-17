@@ -12,6 +12,7 @@ import UIKit
 ///     -uiOrientation landscape    rotate the window scene (iPhone)
 ///     -uiForceCompactAfter <s>    override to compact width after s seconds (live size-class change)
 ///     -uiMotionProbe              write Documents/motion-probe.txt (lines start MOTIONPROBE)
+///     -uiA11yAudit                every screen through CCAccessibilityAudit (FixtureA11yAudit; ios-a11y.sh)
 final class FixtureDirector {
     static let shared = FixtureDirector()
     private weak var window: UIWindow?
@@ -44,6 +45,12 @@ final class FixtureDirector {
         if FixtureWorld.has("-uiFixtureRenameTest") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                 Task { @MainActor in await Self.runRenameTest() }
+            }
+        }
+        if FixtureWorld.has("-uiA11yAudit") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                guard let self, let root = self.root, let window = self.window else { return }
+                Task { @MainActor in await FixtureA11yAudit.run(window: window, root: root) }
             }
         }
         if FixtureWorld.has("-uiMotionProbe") {

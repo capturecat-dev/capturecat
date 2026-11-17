@@ -43,6 +43,9 @@ final class LibraryCardCell: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        // Accessibility text sizes: name and details wrap instead of truncating.
+        titleLabel.ccWrapsAtAccessibilitySizes()
+        metaLabel.ccWrapsAtAccessibilitySizes()
         surface.isUserInteractionEnabled = false
         surface.alpha = 0
         contentView.addSubview(surface)
@@ -289,10 +292,10 @@ final class InboxTakeView: CCCard {
     private let titleLabel = ccLabel("", font: CCFont.labelSemibold, color: CCTheme.color.foreground)
     private let statusLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)
     private let progressBar = CCProgressBar()
-    private let retryButton = CCButton(title: "Retry", symbol: "sync", style: .secondary, size: .sm)
-    private let discardButton = CCButton(symbol: "close", style: .ghost, size: .sm, radius: .full)
+    private let retryButton = CCButton(title: "Retry", symbol: "sync", style: .secondary, size: .regular)
+    private let discardButton = CCButton(symbol: "close", style: .ghost, size: .regular, radius: .full)
     /// Studio 5c: open the take in the editor (its upload then happens from there).
-    private let editButton = CCButton(symbol: "scissors", style: .ghost, size: .sm, radius: .full)
+    private let editButton = CCButton(symbol: "scissors", style: .ghost, size: .regular, radius: .full)
     private var observation: SurfaceObservation?
     private(set) var takeID: String?
     var onDiscard: ((PendingTake) -> Void)?
@@ -311,6 +314,11 @@ final class InboxTakeView: CCCard {
         row.spacing = CCSpace.md
         row.alignment = .center
         row.translatesAutoresizingMaskIntoConstraints = false
+        // Accessibility text sizes: icon, words and keys stack; the words wrap.
+        row.ccStacksAtAccessibilitySizes()
+        titleLabel.ccWrapsAtAccessibilitySizes()
+        statusLabel.ccWrapsAtAccessibilitySizes(otherwise: 2)
+        progressBar.accessibilityLabel = "Upload progress"
         addSubview(row)
         actions.setContentCompressionResistancePriority(.required, for: .horizontal)
         actions.setContentHuggingPriority(.required, for: .horizontal)

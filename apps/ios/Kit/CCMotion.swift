@@ -45,8 +45,142 @@ enum CCMotion {
         #endif
     }
 
-    /// Reduce Motion: entrances become fades, springs land without travel.
-    static var reduceMotion: Bool { UIAccessibility.isReduceMotionEnabled }
+    /// Reduce Motion (`CCAccessibility`, which a harness can pin): every
+    /// movement — slide, bounce, glide, scale pop, growth — becomes a short
+    /// CROSS-FADE. Still animated (house rule: never snap), no travel.
+    static var reduceMotion: Bool { CCAccessibility.reduceMotion }
+
+    /// How long a Reduce Motion cross-fade takes.
+    static var reducedDuration: TimeInterval { paced(0.22) }
+
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT: under Reduce Motion, movements land
+    /// with NO cross-fade (a snap). The a11y gate flips this to prove its
+    /// mid-flight check fails.
+    static var probeReduceSnap = false
+    #endif
+
+    static var reduceSnapped: Bool {
+        #if DEBUG
+        return probeReduceSnap
+        #else
+        return false
+        #endif
+    }
+
+    /// Key paths that MOVE or RESIZE a layer (Reduce Motion replaces them).
+    static func isMovement(_ keyPath: String) -> Bool {
+        keyPath.hasPrefix("transform") || keyPath.hasPrefix("position") || keyPath.hasPrefix("bounds")
+            || keyPath.hasPrefix("frame") || keyPath.hasPrefix("anchorPoint")
+    }
+
+    /// Reduce Motion's form of a layer movement: the value lands now and the
+    /// change cross-fades — a ghost of the layer as it looked fades out where
+    /// it was while the layer fades in where it is (sizes and scales dissolve
+    /// in place from a partial opacity instead: no ghost).
+    static func reducedChange(_ layer: CALayer, keyPath: String, to value: Any?, delay: TimeInterval = 0) {
+        let travels = keyPath.hasPrefix("position") || keyPath.hasPrefix("transform.translation")
+            || keyPath == "bounds" || keyPath == "frame" || keyPath == "transform"
+        let now = CACurrentMediaTime()
+        let fresh = ((layer.value(forKey: "ccmotion.reduce.began") as? CFTimeInterval).map { now - $0 > 0.002 }) ?? true
+        if travels, fresh, delay == 0, !reduceSnapped { ghost(of: layer) }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.removeAnimation(forKey: "ccmotion.\(keyPath)")
+        layer.setValue(value, forKeyPath: keyPath)
+        CATransaction.commit()
+        guard fresh else { return }
+        layer.setValue(now, forKey: "ccmotion.reduce.began")
+        dissolve(layer, from: travels ? 0 : 0.45, delay: delay)
+    }
+
+    /// Fade `layer` in to its model opacity (Reduce Motion's stand-in for
+    /// travel). Never a snap: the presentation opacity passes between.
+    static func dissolve(_ layer: CALayer, from fraction: Float = 0, delay: TimeInterval = 0) {
+        guard !reduceSnapped else { return }
+        let target = layer.opacity
+        guard target > 0.001 else { return }
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = target * fraction
+        animation.toValue = target
+        animation.duration = reducedDuration
+        animation.timingFunction = glide
+        if delay > 0 {
+            animation.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) + paced(delay)
+            animation.fillMode = .backwards
+        }
+        layer.add(animation, forKey: "ccmotion.reduce.dissolve")
+    }
+
+    /// A snapshot of `layer` as it looks now, left in its superlayer where it
+    /// visibly is, fading out (the other half of a Reduce Motion cross-fade).
+    private static func ghost(of layer: CALayer) {
+        guard let parent = layer.superlayer else { return }
+        let shown = layer.presentation() ?? layer
+        let size = layer.bounds.size
+        guard size.width >= 1, size.height >= 1, size.width * size.height < 4_000_000, shown.opacity > 0.01 else { return }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = layer.contentsScale > 0 ? layer.contentsScale : 2
+        format.opaque = false
+        let image = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            layer.render(in: ctx.cgContext)
+        }
+        let ghost = CALayer()
+        ghost.name = "ccmotion.reduce.ghost"
+        ghost.contents = image.cgImage
+        ghost.contentsScale = format.scale
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        ghost.bounds = CGRect(origin: .zero, size: size)
+        ghost.anchorPoint = layer.anchorPoint
+        ghost.position = shown.position
+        ghost.transform = shown.transform
+        ghost.zPosition = layer.zPosition
+        ghost.opacity = 0
+        parent.insertSublayer(ghost, above: layer)
+        CATransaction.commit()
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = shown.opacity
+        fade.toValue = 0
+        fade.duration = reducedDuration
+        fade.timingFunction = glide
+        ghost.add(fade, forKey: "ccmotion.reduce.ghost")
+        DispatchQueue.main.asyncAfter(deadline: .now() + reducedDuration + 0.05) { ghost.removeFromSuperlayer() }
+    }
+
+    /// Reduce Motion's form of a VIEW change (a frame glide, a growth, a
+    /// layout pass): `changes` land now; a snapshot of how it looked fades
+    /// out over the view while the view fades in. Nothing moves.
+    static func crossFade(_ view: UIView, _ changes: () -> Void, completion: (() -> Void)? = nil) {
+        guard view.window != nil, !reduceSnapped,
+              let ghost = view.snapshotView(afterScreenUpdates: false) else {
+            changes()
+            completion?()
+            return
+        }
+        let oldFrame = view.frame
+        ghost.isUserInteractionEnabled = false
+        ghost.accessibilityElementsHidden = true
+        ghost.layer.name = "ccmotion.reduce.ghost"
+        let sibling = view.superview != nil
+        if let host = view.superview {
+            ghost.frame = oldFrame
+            host.insertSubview(ghost, aboveSubview: view)
+        } else {
+            ghost.frame = view.bounds
+            view.addSubview(ghost)
+        }
+        changes()
+        let target = view.alpha
+        if sibling, target > 0.001 {
+            fadeAlpha(view, to: target, duration: 0.22, from: 0)
+        }
+        fadeAlpha(ghost, to: 0, duration: 0.22, from: 1)
+        DispatchQueue.main.asyncAfter(deadline: .now() + reducedDuration + 0.05) {
+            ghost.removeFromSuperview()
+            completion?()
+        }
+    }
 
     // MARK: - Curves
 
@@ -97,9 +231,15 @@ enum CCMotion {
     static func springViews(
         _ spring: Spring = .smooth,
         delay: TimeInterval = 0,
+        crossFading view: UIView? = nil,
         _ animations: @escaping () -> Void,
         completion: (() -> Void)? = nil
     ) {
+        // Reduce Motion: the change lands under a cross-fade of `view`.
+        if reduceMotion, let view, delay == 0 {
+            crossFade(view, { UIView.performWithoutAnimation(animations) }, completion: completion)
+            return
+        }
         UIView.animate(
             springDuration: spring.response / pace.rawValue,
             bounce: max(0, 1 - spring.dampingRatio),
@@ -157,6 +297,7 @@ enum CCMotion {
     /// model value) — retargeting mid-flight is seamless.
     static func spring(_ layer: CALayer, keyPath: String, to value: Any?, _ spring: Spring = .smooth) {
         if snapped(layer, keyPath: keyPath, to: value) { return }
+        if reduceMotion, isMovement(keyPath) { reducedChange(layer, keyPath: keyPath, to: value); return }
         let animation = springAnimation(keyPath: keyPath, spring)
         animation.fromValue = layer.presentation()?.value(forKeyPath: keyPath) ?? layer.value(forKeyPath: keyPath)
         animation.toValue = value
@@ -171,6 +312,7 @@ enum CCMotion {
     /// delayed animation holds its start value until it begins (staggers).
     static func spring(_ layer: CALayer, keyPath: String, from: Any?, to value: Any?, _ spring: Spring = .smooth, delay: TimeInterval = 0) {
         if snapped(layer, keyPath: keyPath, to: value) { return }
+        if reduceMotion, isMovement(keyPath) { reducedChange(layer, keyPath: keyPath, to: value, delay: delay); return }
         let animation = springAnimation(keyPath: keyPath, spring)
         animation.fromValue = from
         animation.toValue = value
@@ -222,7 +364,8 @@ enum CCMotion {
 
     /// Small spring POP about the center (badges, counters, chips).
     static func pop(_ view: UIView, from scale: CGFloat = 0.86) {
-        guard view.window != nil, !reduceMotion else { return }
+        guard view.window != nil else { return }
+        if reduceMotion { dissolve(view.layer, from: 0.5); return }
         spring(view.layer, keyPath: "transform.scale", from: scale, to: 1.0, .bouncy)
     }
 
@@ -240,7 +383,12 @@ enum CCMotion {
     /// FLIP: the frame lands now (hit-testing's truth) and the VISUAL springs
     /// there from wherever it visibly was.
     static func glide(_ view: UIView, to frame: CGRect, _ spring: Spring = .smooth) {
-        guard view.window != nil, !reduceMotion else { view.frame = frame; return }
+        guard view.window != nil else { view.frame = frame; return }
+        if reduceMotion {
+            guard view.frame != frame else { return }
+            crossFade(view) { view.frame = frame }
+            return
+        }
         let shown = view.layer.presentation() ?? view.layer
         let tx = (shown.value(forKeyPath: "transform.translation.x") as? CGFloat) ?? 0
         let ty = (shown.value(forKeyPath: "transform.translation.y") as? CGFloat) ?? 0
@@ -266,7 +414,8 @@ enum CCMotion {
     }
 
     static func enter(_ layer: CALayer, _ entrance: Entrance = .scaleIn) {
-        guard !reduceMotion else { return }
+        // Reduce Motion: no travel or scale — the surface dissolves in.
+        guard !reduceMotion else { dissolve(layer); return }
         switch entrance {
         case .scaleIn:
             spring(layer, keyPath: "transform.scale", from: 0.96, to: 1.0, .arrive)
@@ -313,9 +462,18 @@ enum CCMotion {
         drivers[key]?.stop()
         drivers[key] = nil
         let start = constraint.constant
-        guard let root, root.window != nil, abs(target - start) > 0.01, !reduceMotion else {
+        guard let root, root.window != nil, abs(target - start) > 0.01 else {
             constraint.constant = target
             root?.layoutIfNeeded()
+            completion?()
+            return
+        }
+        if reduceMotion {
+            // The growth lands under a cross-fade: nothing travels.
+            crossFade(root) {
+                constraint.constant = target
+                root.layoutIfNeeded()
+            }
             completion?()
             return
         }

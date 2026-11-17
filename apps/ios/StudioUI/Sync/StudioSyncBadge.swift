@@ -12,6 +12,8 @@ final class StudioSyncBadge: UIControl {
     var onTap: (() -> Void)?
     private let dot = CALayer()
     private let ring = CALayer()
+    /// Differentiate Without Color: the state as a glyph, not only a hue.
+    private let glyph = CCIconView("check", pointSize: 11, weight: .bold)
     private(set) var shown: StudioCloudSync.Status?
     static let dotSize: CGFloat = 9
 
@@ -27,8 +29,21 @@ final class StudioSyncBadge: UIControl {
         }
         ring.borderWidth = 1.5
         ring.backgroundColor = UIColor.clear.cgColor
+        glyph.isHidden = true
+        glyph.isUserInteractionEnabled = false
+        addSubview(glyph)
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: 22),
+            glyph.centerXAnchor.constraint(equalTo: centerXAnchor),
+            glyph.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        accessibilityLabel = "Sync status"
+        accessibilityHint = "Says the sync state in words."
+        ccOnThemeChange { [weak self] in
+            guard let self, let shown = self.shown else { return }
+            self.show(shown, animated: false)
+        }
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 44),
             heightAnchor.constraint(equalToConstant: 44),
         ])
         addTarget(self, action: #selector(tapped), for: .touchUpInside)
@@ -50,6 +65,30 @@ final class StudioSyncBadge: UIControl {
     }
 
     @objc private func tapped() { onTap?() }
+
+    /// A 44 pt touch target around the narrow dot column.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let dx = max(0, (44 - bounds.width) / 2), dy = max(0, (44 - bounds.height) / 2)
+        return bounds.insetBy(dx: -dx, dy: -dy).contains(point)
+    }
+
+    override var canBecomeFocused: Bool { !isHidden }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses) { onTap?(); return }
+        super.pressesEnded(presses, with: event)
+    }
+
+    private func symbol(for status: StudioCloudSync.Status) -> String {
+        switch status {
+        case .synced: return "check"
+        case .pending, .review: return "merge"
+        case .syncing: return "sync"
+        case .offline: return "cloud"
+        case .failed: return "alert-fill"
+        case .localOnly: return "check"
+        }
+    }
 
     private func color(for status: StudioCloudSync.Status) -> UIColor {
         switch status {
@@ -81,6 +120,14 @@ final class StudioSyncBadge: UIControl {
         }
         ring.borderColor = fill
         ring.opacity = hollow ? 1 : 0
+        // Differentiate Without Color: a glyph in the state's colour replaces
+        // the dot, so the state reads by shape too.
+        let glyphs = CCAccessibility.differentiateWithoutColor
+        glyph.iconName = symbol(for: status)
+        glyph.tintColor = color(for: status)
+        glyph.isHidden = !glyphs
+        dot.isHidden = glyphs
+        ring.isHidden = glyphs
         if status == .syncing {
             guard dot.animation(forKey: "studio.sync.pulse") == nil else { return }
             let pulse = CABasicAnimation(keyPath: "opacity")
@@ -99,5 +146,7 @@ final class StudioSyncBadge: UIControl {
     // MARK: - Probe seams
 
     var probeDot: CALayer { dot }
+    /// Probe seam: the Differentiate Without Color glyph is showing.
+    var probeShowsGlyph: Bool { !glyph.isHidden }
     var probeRing: CALayer { ring }
 }

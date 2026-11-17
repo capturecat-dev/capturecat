@@ -48,6 +48,9 @@ final class CCHeaderBar: UIView {
         titleLabel.accessibilityTraits = .header
         titleLabel.adjustsFontSizeToFitWidth = style == .large
         titleLabel.minimumScaleFactor = 0.75
+        // Big Dynamic Type: a title that no longer fits wraps (the bar grows)
+        // instead of losing its end.
+        titleLabel.numberOfLines = style == .inline ? 2 : 1
 
         backButton.accessibilityLabelOverride = "Back"
         backButton.isHidden = true
@@ -58,6 +61,10 @@ final class CCHeaderBar: UIView {
         trailing.spacing = CCSpace.xs
         trailing.alignment = .center
         hairline.alpha = 0
+        // 44 pt rows: a key's expanded touch target is never clipped.
+        leading.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        trailing.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        trailing.spacing = CCSpace.xs
 
         let content = UIView()
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -110,6 +117,8 @@ final class CCHeaderBar: UIView {
             ])
         }
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // A wrapped title (big Dynamic Type) grows the bar; it is never squeezed.
+        titleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
         accessibilityElements = [backButton, titleLabel, trailing]
     }
 
@@ -123,6 +132,23 @@ final class CCHeaderBar: UIView {
     private var titleCentering: NSLayoutConstraint?
     /// Probe seam: the title label (its frame, in gates).
     var probeTitleView: UIView { titleLabel }
+
+    #if DEBUG
+    /// INJECTED DEFECT (`--a11y --inject truncation`): the title is pinned to
+    /// one 36 pt line.
+    static var probeTruncateTitle = false
+    private var probeTitleWidth: NSLayoutConstraint?
+
+    override func layoutSubviews() {
+        if Self.probeTruncateTitle, probeTitleWidth == nil {
+            titleLabel.numberOfLines = 1
+            titleLabel.adjustsFontSizeToFitWidth = false
+            probeTitleWidth = titleLabel.widthAnchor.constraint(equalToConstant: 36)
+            probeTitleWidth?.isActive = true
+        }
+        super.layoutSubviews()
+    }
+    #endif
 
     func setTrailing(_ views: [UIView]) {
         trailing.arrangedSubviews.forEach { $0.removeFromSuperview() }

@@ -10,7 +10,8 @@ enum StudioTimelineStyle {
     /// Track-label column — the Mac's 84 pt ("ANNOTATE" ≈ 66 pt + air).
     static let labelWidth: CGFloat = 84
     /// Toolbar row height (the Mac panel's 42 pt).
-    static let toolbarHeight: CGFloat = 42
+    /// 44 pt: the keys' touch targets fit the bar (Studio 6a).
+    static let toolbarHeight: CGFloat = 44
     /// Space between the toolbar and the canvas, and the panel's side inset.
     static let canvasTopInset: CGFloat = 10
     static let sideInset: CGFloat = 12

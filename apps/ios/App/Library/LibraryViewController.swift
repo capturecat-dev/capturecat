@@ -50,6 +50,10 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
         super.viewDidLoad()
         view.backgroundColor = CCTheme.color.background
         buildHeader()
+        // A new text size re-measures the cards (columns, wrapped names).
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (self: LibraryViewController, _: UITraitCollection) in
+            self.collectionView.collectionViewLayout.invalidateLayout()
+        }
 
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -123,6 +127,14 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
         }
         titleLabel.accessibilityTraits = .header
         newRecording.accessibilityHint = "Opens Capture"
+        newRecording.accessibilityLabelOverride = "New Recording"
+        func fitNewRecording(_ vc: LibraryViewController) {
+            vc.newRecording.title = vc.traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? "" : "New Recording"
+        }
+        fitNewRecording(self)
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (vc: LibraryViewController, _: UITraitCollection) in
+            fitNewRecording(vc)
+        }
         newRecording.onTap = { [weak self] in self?.coordinator?.openCapture?() }
         newRecording.setContentCompressionResistancePriority(.required, for: .horizontal)
         filterBar.onChange = { [weak self] index in
@@ -211,7 +223,9 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
                 return layout
             case .items:
                 let available = width - gutter * 2
-                let minCard: CGFloat = 156
+                // Accessibility text sizes: wider cards (fewer columns) so
+                // names wrap into readable lines.
+                let minCard: CGFloat = environment.traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? 300 : 156
                 let columns = max(1, min(6, Int((available + 4) / (minCard + 4))))
                 let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1 / CGFloat(columns)), heightDimension: .estimated(220)))
                 item.contentInsets = .init(top: 0, leading: 2, bottom: 0, trailing: 2)

@@ -6,7 +6,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
-        let window = UIWindow(windowScene: windowScene)
+        let window = CCWindow(windowScene: windowScene)
         window.backgroundColor = CCTheme.color.background
         // Accent for the few system surfaces we allow (keyboard caret,
         // share sheet, photo picker).
@@ -18,6 +18,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         #endif
         window.makeKeyAndVisible()
+        // Assistive settings (Reduce Motion, contrast, …) re-theme live.
+        CCAccessibility.install(on: window)
         self.window = window
         handle(connectionOptions.urlContexts)
         #if DEBUG

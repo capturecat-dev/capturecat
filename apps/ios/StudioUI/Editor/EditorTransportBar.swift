@@ -34,6 +34,13 @@ final class EditorTransportBar: UIView {
         timeLabel.setContentHuggingPriority(.required, for: .horizontal)
         timeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         timeLabel.accessibilityIdentifier = "studio.time"
+        // VoiceOver: the playhead (adjustable) speaks the time; the readout
+        // would only repeat it. Play starts media (VoiceOver goes quiet).
+        timeLabel.isAccessibilityElement = false
+        playButton.accessibilityTraits = [.button, .startsMediaSession]
+        playButton.accessibilityHint = "Plays or pauses the recording."
+        backButton.accessibilityHint = "Steps the playhead back one frame."
+        forwardButton.accessibilityHint = "Steps the playhead forward one frame."
 
         let row = UIStackView(arrangedSubviews: [backButton, playButton, forwardButton, scrubber, timeLabel])
         row.spacing = CCSpace.sm
@@ -57,6 +64,7 @@ final class EditorTransportBar: UIView {
     func update(isPlaying: Bool, outputTime: TimeInterval, outputDuration: TimeInterval) {
         playButton.symbol = isPlaying ? "pause-fill" : "play-fill"
         playButton.accessibilityLabelOverride = isPlaying ? "Pause" : "Play"
+        playButton.accessibilityTraits = [.button, .startsMediaSession]
         scrubber.update(value: outputTime, duration: outputDuration)
         timeLabel.text = "\(Self.format(outputTime)) / \(Self.format(outputDuration))"
     }
@@ -85,8 +93,9 @@ final class EditorScrubber: UIControl {
         translatesAutoresizingMaskIntoConstraints = false
         accessibilityIdentifier = "studio.scrubber"
         isAccessibilityElement = true
-        accessibilityTraits = .adjustable
+        accessibilityTraits = [.adjustable, .updatesFrequently]
         accessibilityLabel = "Playhead"
+        accessibilityHint = "Swipe up or down to move a second."
         track.isUserInteractionEnabled = false
         fill.isUserInteractionEnabled = false
         knob.isUserInteractionEnabled = false
@@ -114,8 +123,30 @@ final class EditorScrubber: UIControl {
         guard !isTracking_ else { return }
         self.value = value
         self.duration = duration
-        accessibilityValue = EditorTransportBar.format(value)
+        accessibilityValue = Self.spoken(value, of: duration)
         setNeedsLayout()
+    }
+
+    /// "6.5 seconds of 20 seconds" — what VoiceOver says for the playhead.
+    static func spoken(_ value: TimeInterval, of duration: TimeInterval) -> String {
+        "\(CCAccessibility.spokenTime(value)) of \(CCAccessibility.spokenTime(duration))"
+    }
+
+    /// A 44 pt touch target around the 32 pt track.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let dy = max(0, (44 - bounds.height) / 2)
+        return bounds.insetBy(dx: 0, dy: -dy).contains(point)
+    }
+
+    // Keyboard (iPad): focusable; ← / → scrub a second (as VoiceOver's swipes).
+    override var canBecomeFocused: Bool { !isHidden }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let step = ccArrowStep(presses) {
+            if step > 0 { accessibilityIncrement() } else { accessibilityDecrement() }
+            return
+        }
+        super.pressesBegan(presses, with: event)
     }
 
     private func time(at x: CGFloat) -> TimeInterval {
@@ -147,6 +178,7 @@ final class EditorScrubber: UIControl {
 
     private func scrub(to t: TimeInterval, exact: Bool) {
         value = t
+        accessibilityValue = Self.spoken(t, of: duration)
         setNeedsLayout()
         onScrub?(t, exact)
     }

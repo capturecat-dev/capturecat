@@ -118,6 +118,7 @@ final class StudioTranscriptionController {
             lastSegments = segments
             StudioTranscription.apply(segments, to: project, undoManager: undoManager)
             onApplied?(segments)
+            CCAccessibility.announce("Subtitles generated: \(segments.count) \(segments.count == 1 ? "line" : "lines")")
         } catch {
             service.error = error.localizedDescription
             throw error

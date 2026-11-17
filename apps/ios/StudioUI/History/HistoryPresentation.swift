@@ -99,6 +99,8 @@ final class HistoryPresentation {
         ])
         panel.didMove(toParent: editor)
         self.card = card
+        // The panel covers the inspector column: VoiceOver skips what is under it.
+        editor.inspector.view.accessibilityElementsHidden = true
         root.layoutIfNeeded()
         let travel = card.bounds.width + CCSpace.md * 2
         startOffset = travel
@@ -130,14 +132,18 @@ final class HistoryPresentation {
         guard let card else { completion?(); return }
         let travel = card.bounds.width + CCSpace.md * 2
         CCMotion.fadeAlpha(card, to: 0, duration: 0.2)
-        CCMotion.run(duration: 0.22, curve: .glide) {
-            card.transform = CGAffineTransform(translationX: travel, y: 0)
+        // Reduce Motion: it fades out where it is.
+        if !CCMotion.reduceMotion {
+            CCMotion.run(duration: 0.22, curve: .glide) {
+                card.transform = CGAffineTransform(translationX: travel, y: 0)
+            }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + CCMotion.paced(0.24)) { [weak self] in
             self?.panel.willMove(toParent: nil)
             self?.panel.view.removeFromSuperview()
             self?.panel.removeFromParent()
             card.removeFromSuperview()
+            self?.editor?.inspector.view.accessibilityElementsHidden = false
             self?.finished()
             completion?()
         }
@@ -284,7 +290,7 @@ final class HistorySheetController: UIViewController, UIGestureRecognizerDelegat
             if dy > 90 || gesture.velocity(in: view).y > 800 {
                 scrimTapped()
             } else {
-                CCMotion.springViews(.snappy) {
+                CCMotion.springViews(.snappy, crossFading: view) {
                     self.card.transform = .identity
                     self.scrim.alpha = 0.6
                 }

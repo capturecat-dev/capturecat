@@ -194,7 +194,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             grabber.topAnchor.constraint(equalTo: card.topAnchor),
             grabber.leadingAnchor.constraint(equalTo: card.leadingAnchor),
             grabber.trailingAnchor.constraint(equalTo: card.trailingAnchor),
-            grabber.heightAnchor.constraint(equalToConstant: 22),
+            // 44 pt: the grabber is its own touch target (the card clips above it).
+            grabber.heightAnchor.constraint(equalToConstant: 44),
             rail.topAnchor.constraint(equalTo: grabber.bottomAnchor),
             rail.leadingAnchor.constraint(equalTo: card.leadingAnchor),
             rail.trailingAnchor.constraint(equalTo: card.trailingAnchor),
@@ -301,6 +302,21 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             hostRoot?.layoutIfNeeded()
         }
         grabber.accessibilityValue = raised ? "Expanded" : "Collapsed"
+        hideCoveredFromVoiceOver(raised ? target : nil)
+    }
+
+    /// The raised sheet covers the stage, transport and timeline: VoiceOver
+    /// skips what lies under it (everything in the editor below its top but
+    /// the sheet itself); lowered, all of it reads again.
+    private func hideCoveredFromVoiceOver(_ raisedBy: CGFloat?) {
+        guard let root = hostRoot else { return }
+        let containerTop = view.superview.map { _ in view.frame.minY - (sheetTop?.constant ?? 0) } ?? 0
+        let sheetTopY = containerTop + (raisedBy ?? 0)
+        for sibling in root.subviews where sibling !== view {
+            let covered = raisedBy != nil && sibling.frame.maxY > sheetTopY + 1 && sibling.frame.minY >= sheetTopY - 1
+            if sibling.accessibilityElementsHidden != covered { sibling.accessibilityElementsHidden = covered }
+        }
+        UIAccessibility.post(notification: .layoutChanged, argument: nil)
     }
 
     private var panStart: CGFloat = 0
@@ -349,7 +365,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         new.refresh(scope)
         scroll.setContentOffset(.zero, animated: false)
         view.layoutIfNeeded()
-        var snap = !animated || view.window == nil || CCMotion.reduceMotion
+        // Reduce Motion keeps the cross-fade; `enter` drops the rise.
+        var snap = !animated || view.window == nil
         #if DEBUG
         if Self.probeSnapPaneSwitch { snap = true }
         #endif
@@ -426,6 +443,15 @@ final class StudioInspectorController: UIViewController, InspectorHost {
 /// toggles it. One VoiceOver button ("Inspector sheet", Expanded/Collapsed).
 @MainActor
 final class InspectorGrabber: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     var onTap: (() -> Void)?
     var onPan: ((UIGestureRecognizer.State, CGFloat) -> Void)?
     private let pill = CALayer()
@@ -451,7 +477,8 @@ final class InspectorGrabber: UIControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        pill.frame = CGRect(x: bounds.midX - 18, y: bounds.midY - 2.5, width: 36, height: 5)
+        // The pill keeps its place near the top; the strip below it is target.
+        pill.frame = CGRect(x: bounds.midX - 18, y: min(bounds.midY, 11) - 2.5, width: 36, height: 5)
         pill.cornerRadius = 2.5
     }
 

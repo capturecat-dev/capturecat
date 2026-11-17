@@ -181,6 +181,7 @@ final class StudioVoiceOverController {
             addedClips.append(clip)
             CCHaptics.success()
             onClipAdded?(clip)
+            CCAccessibility.announce("Voice-over take added")
         }
         return clip
     }

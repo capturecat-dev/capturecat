@@ -324,6 +324,8 @@ final class InspectorSubtitleManageRow: InspectorCustomRow {
             host.runFeature(.transcribe)
         }
         delete.onTap = { [weak self] in self?.perform(SubtitlePane.delete.id, "Delete Subtitles") { SubtitlePane.delete.run($0) } }
+        // Big Dynamic Type: the count wraps beside the keys instead of losing its end.
+        count.numberOfLines = 0
         let row = Self.hstack([count, UIView(), regenerate, delete])
         addSubview(row)
         pinEdges(row, to: self)
@@ -377,6 +379,15 @@ final class InspectorPresetRow: InspectorCustomRow {
 }
 
 final class InspectorPresetCard: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     private let sample = CCSurface(.recessed, tint: UIColor(white: 0, alpha: 0.6), radius: .md)
     private let label = UILabel()
     private let name: UILabel
@@ -386,8 +397,12 @@ final class InspectorPresetCard: UIControl {
                        color: CCTheme.color.mutedForeground, alignment: .center)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        label.attributedText = Self.sample(preset)
+        label.attributedText = Self.sample(preset, traits: traitCollection)
         label.textAlignment = .center
+        // Dynamic Type: the sample is re-set at each text size.
+        label.registerForTraitChanges([UITraitPreferredContentSizeCategory.self, CCAccessibilityTrait.self]) { (label: UILabel, _: UITraitCollection) in
+            label.attributedText = Self.sample(preset, traits: label.traitCollection)
+        }
         sample.addSubview(label)
         pinEdges(label, to: sample)
         let column = UIStackView(arrangedSubviews: [sample, name])
@@ -429,7 +444,7 @@ final class InspectorPresetCard: UIControl {
     }
 
     /// The "Aa" in the preset's real recipe: weight, case, colour, pill, shadow.
-    private static func sample(_ preset: SubtitlePreset) -> NSAttributedString {
+    private static func sample(_ preset: SubtitlePreset, traits: UITraitCollection) -> NSAttributedString {
         let color: UIColor = preset.karaoke ? (preset.highlight?.platformColor ?? .systemYellow) : preset.color.platformColor
         let shadow = NSShadow()
         switch preset.style {
@@ -447,7 +462,9 @@ final class InspectorPresetCard: UIControl {
             }
         }()
         var attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 17, weight: weight), .foregroundColor: color, .shadow: shadow,
+            // Dynamic Type: the sample grows with the text size (to 24 pt).
+            .font: UIFontMetrics(forTextStyle: .body).scaledFont(for: .systemFont(ofSize: 17, weight: CCFont.legible(weight)), maximumPointSize: 24, compatibleWith: traits),
+            .foregroundColor: color, .shadow: shadow,
         ]
         if preset.style == .background {
             attributes[.backgroundColor] = (preset.background?.platformColor ?? .black).withAlphaComponent(0.75)

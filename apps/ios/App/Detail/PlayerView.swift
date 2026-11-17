@@ -378,6 +378,8 @@ final class PlayerScrubber: UIControl {
         isAccessibilityElement = true
         accessibilityLabel = "Playback position"
         accessibilityTraits = .adjustable
+        // Before the player knows its duration it still speaks a position.
+        accessibilityValue = "0 seconds"
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -395,6 +397,12 @@ final class PlayerScrubber: UIControl {
         knob.bounds = CGRect(x: 0, y: 0, width: side, height: side)
         knob.center = CGPoint(x: x, y: bounds.midY)
         knob.layer.cornerRadius = side / 2
+    }
+
+    /// A 44 pt touch target around the thin track (Studio 6a).
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let dy = max(0, (44 - bounds.height) / 2)
+        return bounds.insetBy(dx: 0, dy: -dy).contains(point)
     }
 
     private func fraction(for touch: UITouch) -> CGFloat {

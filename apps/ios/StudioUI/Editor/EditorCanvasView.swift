@@ -53,6 +53,12 @@ final class EditorCanvasView: UIView {
     private var pressMode: PreviewDragMode = .idle
     private var downCanvasPoint: CGPoint = .zero
 
+    // VoiceOver (EditorCanvasView+Accessibility): stable elements, by target.
+    var accessibilityItemCache: [EditorStageAccessibilityItem] = []
+    var accessibilitySummaryElement: UIAccessibilityElement?
+    /// Chrome over the stage (the zoom pill) that object frames keep clear of.
+    var accessibilityExclusions: (() -> [CGRect])?
+
     private let blurMarquee = CAShapeLayer()
     private let stackNotch = CALayer()
     private lazy var longPress = UILongPressGestureRecognizer(target: self, action: #selector(longPressed(_:)))

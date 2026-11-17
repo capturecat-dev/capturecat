@@ -89,6 +89,46 @@ Additive since 4d: `CCSelect.overrideTitle` (shown in place of the choice — "C
 freeform value supersedes the list) and `CCSlider.keepsOffStepValues` (a pushed model value
 between stops stays as it is, the Mac slider's rule, so landing on the nearest stop still writes).
 
+## Accessibility (Studio 6a)
+
+The whole app works with VoiceOver, Dynamic Type up to the largest accessibility
+size, Reduce Motion, Reduce Transparency, Increase Contrast, Differentiate Without
+Color, Bold Text, an iPad keyboard (and Full Keyboard Access) and an iPad pointer.
+
+- **Settings live in one place**: `Kit/CCAccessibility` reads them (a harness can
+  pin each: `forcedReduceMotion`, …), posts announcements (`announce` — export /
+  merge / transcription results, toasts, timeline edits) and carries changes to
+  every view as `CCAccessibilityTrait`, so `ccOnThemeChange` re-themes live. Hosts
+  call `CCAccessibility.install(on:)` per window.
+- **Reduce Motion** (`CCMotion`): every travel, bounce, glide, scale pop and growth
+  becomes a short CROSS-FADE — a ghost of the old state fades out while the new
+  one fades in (`reducedChange`, `crossFade`, `dissolve`). Still animated (house
+  rule: never snap), nothing moves.
+- **Increase Contrast / Reduce Transparency / Bold Text**: `CCTheme` colours resolve
+  stronger borders, hairlines (1 pt) and secondary ink; the scrim deepens; `CCFont`
+  steps a weight up. **Differentiate Without Color**: chips carry a check,
+  segments a bar, switches I / O, the sync dot a glyph.
+- **Targets**: `CCWindow` (the app's and StudioLab's window) gives a touch that
+  lands on something non-interactive to the nearby control whose own 44 pt target
+  (`point(inside:)`) claims it — tight rows no longer cut targets back. Regular
+  keys are 44 pt; toolbars give their 34 pt keys room.
+- **VoiceOver in the studio**: timeline clips / blocks / chips
+  (`StudioTimelineCanvasView+Accessibility`) and stage objects — annotations,
+  regions, camera, subtitles, zoom focal point (`EditorCanvasView+Accessibility`) —
+  are elements whose actions run the TOUCH path (gesture entry points, toolbar
+  commands): Move earlier/later, Start/End earlier/later, Duplicate, Delete, Split
+  at playhead; Move left/right/up/down, Make larger/smaller, Edit text. Same
+  snapping, same undo step as a finger. The playhead is adjustable ("6.5 seconds of
+  20 seconds"). Elements sized by their data carry the `a11y.data.` identifier
+  prefix (the 44 pt rule is replaced by "offers the actions").
+- **Dynamic Type**: fixed-width labels shrink to fit (buttons, sliders, rails),
+  lists wrap names and stack rows at the accessibility sizes
+  (`ccWrapsAtAccessibilitySizes`, `ccStacksAtAccessibilitySizes`), screens scroll.
+- **Keyboard (iPad)**: space play/pause, ⌘Z / ⇧⌘Z, ← / → frame step, ⌫ delete,
+  ⌘D / ⌘B on the timeline (all titled for the ⌘ overlay); kit controls are
+  focusable (Space / Return activate, arrows adjust), inspector panes and rows are
+  focus groups; buttons and chips have a pointer hover.
+
 ## Studio inspector (4d)
 
 `StudioUI/Inspector/StudioInspectorController` — all nine of the Mac's inspector panes, built
@@ -268,6 +308,7 @@ row lower — reported, not gated, and open.
     apps/ios/scripts/ios-history.sh         # History (Studio 4f): rows, compare, preview, restore, Merge Review vs the Mac's --history-transcript, line for line; motion sequences; INJECT= must FAIL
     apps/ios/scripts/ios-cloud-sync.sh      # sync (Phase 5): the Mac's --cloud-sync-test engine sections replayed on iOS (every line == the Mac's), the iOS studio's sync in the real editor (clone, debounced If-Match pushes, merges, Merge Review, cloud History, offline queue, moved container, inbox take, status dot mid-flight), and a Mac ↔ iOS round trip with the REAL Mac binary; INJECT=drop-if-match|merge-wrong-side|lose-unknown-key must FAIL
     apps/ios/scripts/ios-editor-resize.sh   # iPhone Duo fold / unfold: the real editor resized live between the outer (compact) and inner (regular) displays mid-playback — layout per size class, regions inside and clear, History style, project / selection / undo / playback kept; then a crease (top to bottom, then side to side) through FoldingDisplay's seam: stage + transport on one side, timeline over inspector on the other, nothing and no title on the crease (+ injected ignores-size-class / ignores-crease must FAIL)
+    apps/ios/scripts/ios-a11y.sh            # Studio 6a: StudioLab --a11y (every studio screen in the real window chain, default + largest text size: VoiceOver labels / traits / values, MEASURED 44 pt targets via UIWindow.hitTest, no overlapping focusable frames, text fits / grows / never overlaps; timeline + stage actions == the touch path, one undo step; Reduce Motion sampled mid-flight; keyboard commands; focus; pointer; contrast / transparency / colour / weight) + the app's -uiFixtures -uiA11yAudit (library, project, share, capture + inbox, account, dialog, sheet, toast, sign-in); INJECT=missing-label|tiny-target|truncation|snap-under-reduce-motion|action-not-undoable must FAIL. Turns the simulators' app-accessibility runtime on for the run (and off after). New studio screens (the Export sheet) register in A11yLab.extraScreens
     # StudioLab --fold-probe                # logs what UIKit reports on the running display: size classes, safe area, verticalBarEdge + bar regions, reserved regions (run on the iPhone Duo simulator)
     apps/ios/scripts/ios-export-sheet.sh    # the export sheet by touch in the real editor: MP4 / GIF / PNG byte-identical (pre-encode tap) to VideoExporter / StillImageExporter for the same settings, file facts, progress MID-FLIGHT, Cancel leaves no file, background path entered + ended, insufficient-memory alert, delivery controllers, iPhone 1080p30 default (INJECT=wrong-resolution|snap-progress|cancel-leaves-file|no-background must FAIL)
     apps/ios/scripts/ios-export-delivery.sh # GIF / PNG on iOS vs the Mac, then Photos (each asset's original read back: GIF frames/delays, PNG size, movie size/duration/samples), the Files picker and the share sheet — APP=<unsandboxed Mac build>

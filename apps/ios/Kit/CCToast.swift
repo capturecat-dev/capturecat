@@ -41,7 +41,7 @@ final class CCToaster {
         CCMotion.enter(toast.layer, .slideUp(distance: 28))
         restack(animated: true)
         toast.startCountdown()
-        UIAccessibility.post(notification: .announcement, argument: [title, message].compactMap { $0 }.joined(separator: ". "))
+        CCAccessibility.announce([title, message].compactMap { $0 }.joined(separator: ". "))
         while toasts.count > maxVisible + 1 { toasts.first?.dismiss() ; break }
         return toast
     }
@@ -82,7 +82,7 @@ final class CCToaster {
                 toast.stackTransform = CGAffineTransform(translationX: 0, y: lift).scaledBy(x: scale, y: scale)
                 if toast !== entering { toast.alpha = alpha }
             } else {
-                CCMotion.springViews(.smooth) {
+                CCMotion.springViews(.smooth, crossFading: toast) {
                     toast.bounds.size = target.size
                     toast.center = CGPoint(x: target.midX, y: target.midY)
                     toast.stackTransform = CGAffineTransform(translationX: 0, y: lift).scaledBy(x: scale, y: scale)
@@ -165,6 +165,7 @@ final class CCToast: UIView {
         titleLabel = ccLabel(title, font: CCFont.labelSemibold, color: CCTheme.color.foreground, lines: 2)
         messageLabel = ccLabel(message ?? "", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 3)
         super.init(frame: .zero)
+        ccFloatsOverContent = true
         alpha = 0
         card.translatesAutoresizingMaskIntoConstraints = true
         card.frame = bounds
@@ -276,7 +277,7 @@ final class CCToast: UIView {
             if dy > 40 || gesture.velocity(in: self).y > 500 {
                 dismiss()
             } else {
-                CCMotion.springViews(.snappy) { self.transform = .identity }
+                CCMotion.springViews(.snappy, crossFading: self) { self.transform = .identity }
             }
         default:
             break

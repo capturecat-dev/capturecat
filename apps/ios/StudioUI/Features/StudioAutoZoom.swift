@@ -95,6 +95,7 @@ final class StudioAutoZoomController {
         guard created > 0 else { throw StudioAutoZoomError.nothingToZoom }
         CCHaptics.success()
         onApplied?(created)
+        CCAccessibility.announce("Auto Zoom added \(created) \(created == 1 ? "zoom" : "zooms")")
     }
 }
 

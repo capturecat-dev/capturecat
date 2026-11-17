@@ -15,6 +15,15 @@ import UIKit
 ///     let toggle = CCToggle(isOn: true) { on in … }
 ///     toggle.setOn(false, animated: true)     // model push, no onChange echo
 final class CCToggle: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled && isAccessibilityElement }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     var onChange: ((Bool) -> Void)?
     private(set) var isOn: Bool
 
@@ -24,6 +33,10 @@ final class CCToggle: UIControl {
     private static let stretch: CGFloat = 7
     private let thumb = CALayer()
     private var stretched = false
+    /// Differentiate Without Color: "I" on the track when on, "O" when off
+    /// (the switch reads by shape, not only by the accent fill).
+    private let onGlyph = CALayer()
+    private let offGlyph = CALayer()
 
     init(isOn: Bool = false, onChange: ((Bool) -> Void)? = nil) {
         self.isOn = isOn
@@ -43,6 +56,14 @@ final class CCToggle: UIControl {
         thumb.shadowOpacity = 0.3
         thumb.shadowRadius = 2
         thumb.shadowOffset = CGSize(width: 0, height: 0.5)
+        onGlyph.bounds = CGRect(x: 0, y: 0, width: 1.5, height: 10)
+        onGlyph.cornerRadius = 0.75
+        offGlyph.bounds = CGRect(x: 0, y: 0, width: 8, height: 8)
+        offGlyph.cornerRadius = 4
+        offGlyph.borderWidth = 1.5
+        offGlyph.backgroundColor = UIColor.clear.cgColor
+        layer.addSublayer(onGlyph)
+        layer.addSublayer(offGlyph)
         layer.addSublayer(thumb)
         NSLayoutConstraint.activate([
             widthAnchor.constraint(equalToConstant: Self.trackSize.width),
@@ -120,6 +141,11 @@ final class CCToggle: UIControl {
         layer.cornerRadius = r
         CCMaterial.refit(layer, radius: r)
         if thumb.animation(forKey: "ccmotion.position") == nil { moveThumb(animated: false) }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        onGlyph.position = CGPoint(x: Self.trackSize.width * 0.3, y: bounds.midY)
+        offGlyph.position = CGPoint(x: Self.trackSize.width * 0.7, y: bounds.midY)
+        CATransaction.commit()
     }
 
     private func moveThumb(animated: Bool, spring: CCMotion.Spring = .bouncy) {
@@ -156,9 +182,17 @@ final class CCToggle: UIControl {
         CATransaction.setDisableActions(true)
         thumb.backgroundColor = UIColor.white.cgColor
         thumb.borderColor = CCMaterial.hairline(dark: CCTheme.isDark(traitCollection), onWell: false).cgColor
+        let glyphs = CCAccessibility.differentiateWithoutColor
+        onGlyph.backgroundColor = UIColor.white.cgColor
+        offGlyph.borderColor = cc(colors.mutedForeground)
+        onGlyph.opacity = glyphs && isOn ? 1 : 0
+        offGlyph.opacity = glyphs && !isOn ? 1 : 0
         CATransaction.commit()
         accessibilityValue = isOn ? "On" : "Off"
     }
+
+    /// Probe seam: the Differentiate Without Color glyph for this state shows.
+    var probeShowsGlyph: Bool { (isOn ? onGlyph : offGlyph).opacity > 0.5 }
 
     var probeThumbLayer: CALayer { thumb }
     /// The thumb's resting frame for a state (probe expectations).
@@ -170,6 +204,15 @@ final class CCToggle: UIControl {
 /// the touch target and ONE VoiceOver element (label, On/Off, toggle trait);
 /// pressing the row stretches the toggle's thumb like pressing the toggle.
 final class CCToggleRow: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     let toggle: CCToggle
     var onChange: ((Bool) -> Void)?
     private let titleLabel: UILabel
@@ -287,6 +330,15 @@ final class CCControlRow: UIView {
 /// Checkbox: a recessed box (accent + floating when checked) whose check
 /// draws in with a spring. Mac 18 → 22 pt.
 final class CCCheckbox: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     var onChange: ((Bool) -> Void)?
     private(set) var isOn: Bool
     private let box = CCSurface(.recessed, tint: CCTheme.color.elevated, radius: .sm)

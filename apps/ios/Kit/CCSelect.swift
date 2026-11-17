@@ -4,6 +4,15 @@ import UIKit
 /// chevron-up-down; tapping opens the house action sheet with the current
 /// value checked (far right). For small pickers ("Which Mac?").
 final class CCSelect: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     var options: [String] { didSet { refresh() } }
     private(set) var selectedIndex: Int
     var onSelect: ((Int) -> Void)?
@@ -22,6 +31,9 @@ final class CCSelect: UIControl {
         self.options = options
         self.selectedIndex = selectedIndex
         valueLabel = ccLabel("", font: CCFont.chip, color: CCTheme.color.foreground)
+        // Big Dynamic Type: a long choice shrinks to fit (≥ 60%) instead of losing its end.
+        valueLabel.adjustsFontSizeToFitWidth = true
+        valueLabel.minimumScaleFactor = 0.6
         leadingIcon = symbol.map { CCIconView($0, pointSize: 15, weight: .medium, tint: CCTheme.color.mutedForeground) }
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false

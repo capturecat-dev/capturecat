@@ -282,7 +282,7 @@ final class ShellViewController: UIViewController, UINavigationControllerDelegat
                 self.refreshTabBarVisibility(animated: false)
             })
         } else if animated {
-            CCMotion.springViews(.smooth, changes)
+            CCMotion.springViews(.smooth, crossFading: view, changes)
         } else {
             changes()
         }
