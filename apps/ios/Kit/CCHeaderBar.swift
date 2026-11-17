@@ -131,6 +131,11 @@ final class CCHeaderBar: UIView {
     /// two lines can't hold a project name at AX sizes. Otherwise ≤ 2 lines.
     private func applyTitleLineLimit() {
         guard style == .inline else { return }
+        #if DEBUG
+        // The injected truncation defect must survive a text-size change
+        // (it pins one line; resetting it here left the a11y gate blind).
+        if Self.probeTruncateTitle { titleLabel.numberOfLines = 1; return }
+        #endif
         titleLabel.numberOfLines = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? 0 : 2
     }
 

@@ -138,7 +138,8 @@ Color, Bold Text, an iPad keyboard (and Full Keyboard Access) and an iPad pointe
   lists wrap names and stack rows at the accessibility sizes
   (`ccWrapsAtAccessibilitySizes`, `ccStacksAtAccessibilitySizes`), screens scroll.
 - **Keyboard (iPad)**: space play/pause, ⌘Z / ⇧⌘Z, ← / → frame step, ⌫ delete, ⌘E export,
-  Esc closes a panel / the full-screen preview, ⌘D / ⌘B on the timeline (all titled for the ⌘
+  Esc closes a panel / the full-screen preview, ⌘= / ⌘− / ⌘0 zoom the timeline (also the
+  playhead's VoiceOver actions), ⌘D / ⌘B on the timeline (all titled for the ⌘
   overlay); kit controls are
   focusable (Space / Return activate, arrows adjust), inspector panes and rows are
   focus groups; buttons and chips have a pointer hover.
