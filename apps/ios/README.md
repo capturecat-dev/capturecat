@@ -31,6 +31,18 @@ views through `withObservationTracking` loops over `@Observable` stores.
   screen also advertises Handoff (`so.capturecat.openProject`, falling back to the web
   editor). No Mac answering → offer the web editor.
 
+- **Account** — plan and storage, "Forget my devices…", Sign out, and **Delete Account**
+  (`App/Account/AccountDeletion.swift`; App Store Guideline 5.1.1(v)): a destructive house
+  confirmation sheet says what is deleted (shares and links, cloud projects and history,
+  comments, devices, agent connections), that an active subscription is cancelled at once,
+  and that a connected storage bucket's keys are forgotten but its files never touched;
+  "Delete Account" enables only once DELETE is typed. `DELETE /api/me`; refusals (a team
+  the user still owns with other members — 409, a subscription that couldn't be cancelled
+  — 502, offline) show inline and change nothing. On success this device's studio
+  projects, inbox, library caches and exports are wiped, credentials dropped, and the app
+  returns to the sign-in screen. Gate: `scripts/ios-account-delete.sh` (real app, mock API,
+  `INJECT=skip-wipe|skip-signout` must fail).
+
 Copy that talks about this device ("this iPhone", "Record on iPhone") follows the device
 (`ThisDevice.noun`); content badges ("iPhone" on a phone-shaped capture) describe the
 recording.
@@ -80,7 +92,7 @@ The studio's editor controls (Studio 4a — the Mac's InspectorKit at touch scal
 | `CCRollingLabel` | odometer text | `setText(_:direction: .up/.down/.none)`, `alignment`, `fontProvider` |
 | `CCColorWell` | inspector color swatch → picker | `CCColorWell(title:color:supportsOpacity:)`, `color`, `presets`, `onChange`, `onCommit` (when the picker closes) |
 | `CCColorPickerView` / `CCColorPicker` | swatches + SV field, hue, opacity, hex | `CCColorPickerView(color:supportsOpacity:presets:)`, `adopt(_:)`, `commitHex(_:)`, `onChange`; `CCColorPicker.present(from:source:title:color:…)` — bottom sheet on compact width, anchored card on regular. sRGB throughout (`UIColor.ccSRGB(hue:…)`, `ccHSBA`, `ccHex`) |
-| `CCAlert` | dialog / confirmation sheet | `addButton(_:role:action:)` (async actions show busy, throws → inline error), `symbol` + `tone: .destructive`, `presentation: .sheet` (docked to the bottom on compact width, grows upward, swipe to cancel); `CCAlert.confirm(…destructive:symbol:presentation:…)` |
+| `CCAlert` | dialog / confirmation sheet | `addButton(_:role:action:)` (async actions show busy, throws → inline error), `symbol` + `tone: .destructive`, `presentation: .sheet` (docked to the bottom on compact width, grows upward, swipe to cancel); `setButtonEnabled(_:_:)` (e.g. a destructive action gated on a typed word); `CCAlert.confirm(…destructive:symbol:presentation:…)` |
 | `CCHaptics` | step / detent feedback | `selection()`, `detent()`, `prepare()`, `light()`; DEBUG `probeLog` |
 | `CCPadView` | 2D drag pad: recessed well + floating knob (Studio 4d) | `init(title:)`, `onTouch(phase, point)` (raw touches; the host maps them), `setKnob(_:animated:)` (springs unless dragging), `knobAreaInset`, `showsKnob`, `contentLayer` (host drawing), `onNudge` + `accessibilityValueProvider` (adjustable, up/down actions), `probePress(at:)` |
 | `CCIconRail` | icon + label switcher, vertical rail or horizontal strip, one gliding chip (Studio 4d) | `init(items:selectedIndex:axis:trailing:)`, `axis`, `onSelect`, `onTrailing` (a plain key, never selected), `setSelectedIndex(_:animated:)`; `probeChipLayer`, `probeTap` |

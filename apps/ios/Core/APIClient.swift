@@ -73,6 +73,43 @@ nonisolated final class APIClient: Sendable {
         _ = try? await send("POST", "/api/desktop/revoke", json: [String: String]())
     }
 
+    /// `DELETE /api/me` — delete the account and everything it owns
+    /// (apps/api: the server cancels an active subscription first and answers
+    /// 502 `billing_unavailable`, deleting nothing, if it can't). 200 = deleted.
+    /// 401 counts as deleted too: the session is gone, which after a DELETE
+    /// whose response was lost means the first attempt landed — and either
+    /// way this device can only sign out. Unlike `perform`, transport errors
+    /// stay distinguishable (offline vs unreachable) so the confirmation can
+    /// say whether anything happened.
+    func deleteAccount() async throws -> AccountDeletionResult {
+        var request = try makeRequest("DELETE", "/api/me")
+        // Names the client in the server's deletion audit row.
+        request.setValue("ios", forHTTPHeaderField: "X-CC-Client")
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch let error as URLError where [.notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff].contains(error.code) {
+            throw AccountDeletionError.offline
+        } catch {
+            throw AccountDeletionError.unreachable
+        }
+        guard let http = response as? HTTPURLResponse else { throw AccountDeletionError.unreachable }
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        switch http.statusCode {
+        case 200..<300:
+            return AccountDeletionResult(
+                alreadyGone: false,
+                cancelledSubscriptions: json?["cancelledSubscriptions"] as? Int ?? 0,
+                cleanupPending: (json?["cleanup"] as? String) == "pending"
+            )
+        case 401:
+            return AccountDeletionResult(alreadyGone: true, cancelledSubscriptions: 0, cleanupPending: false)
+        default:
+            throw AccountDeletionError.http(status: http.statusCode, code: json?["code"] as? String, message: json?["error"] as? String)
+        }
+    }
+
     // MARK: Cloud projects
 
     func cloudProjects() async throws -> CloudProjectList {
@@ -227,6 +264,48 @@ nonisolated final class APIClient: Sendable {
         }
         let message = json?["error"] as? String ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode).capitalized
         throw APIError.http(status: http.statusCode, code: json?["code"] as? String, message: message)
+    }
+}
+
+/// What `DELETE /api/me` reported.
+nonisolated struct AccountDeletionResult: Equatable, Sendable {
+    /// The session was already gone (401) — an earlier attempt landed.
+    var alreadyGone: Bool
+    var cancelledSubscriptions: Int
+    /// Stored files are still being removed in the background.
+    var cleanupPending: Bool
+}
+
+/// Why `DELETE /api/me` did not delete the account. The copy is what the
+/// confirmation shows inline; every case means nothing was deleted (a 401 is
+/// never an error here, see `deleteAccount`).
+nonisolated enum AccountDeletionError: LocalizedError, Equatable, Sendable {
+    case offline
+    case unreachable
+    case http(status: Int, code: String?, message: String?)
+
+    var errorDescription: String? {
+        switch self {
+        case .offline:
+            return "You're offline, so nothing was deleted. Connect to the internet and try again."
+        case .unreachable:
+            return "Couldn't reach CaptureCat, so your account wasn't deleted. Check your connection and try again."
+        case let .http(status, code, message):
+            switch (status, code) {
+            case (409, _):
+                return message ?? "Your account can't be deleted yet. Try again from the web app."
+            case (502, _), (_, "billing_unavailable"):
+                return message ?? "We couldn't cancel your subscription, so nothing was deleted. Try again in a moment."
+            case (403, "agent_token_forbidden"):
+                return "Only you can delete your account, while signed in to CaptureCat."
+            case (403, _):
+                return (message.map { $0 + ". " } ?? "") + "This account can't be deleted here. Email contact@capturecat.so and we'll help."
+            case (429, _):
+                return "Too many attempts. Wait a minute, then try again."
+            default:
+                return "Something went wrong, and nothing was deleted. Try again in a moment."
+            }
+        }
     }
 }
 

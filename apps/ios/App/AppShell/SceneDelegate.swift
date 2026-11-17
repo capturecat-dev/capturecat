@@ -22,6 +22,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         handle(connectionOptions.urlContexts)
         #if DEBUG
         FixtureDirector.shared.start(in: window)
+        AccountDeleteGate.startIfRequested(in: window)
         #endif
     }
 

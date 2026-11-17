@@ -25,6 +25,8 @@ protocol CloudAPI: AnyObject {
     func shareThumbnail(_ video: SharedVideo) async -> UIImage?
     /// "Forget my devices" — rotate the account's Wi-Fi link key.
     func forgetDevices() async throws
+    /// "Delete Account" — `DELETE /api/me` (throws `AccountDeletionError`).
+    func deleteAccount() async throws -> AccountDeletionResult
 }
 
 /// Extra share fields from `GET /api/videos` (gap: Core's SharedVideo has
@@ -44,6 +46,9 @@ protocol SessionGateway: AnyObject {
     var user: AccountUser? { get }
     func signIn(from window: UIWindow?) async throws
     func signOut() async
+    /// The account no longer exists: drop this device's credentials without
+    /// asking the server for anything (it already forgot the session).
+    func endAfterAccountDeletion() async
 }
 
 /// The upload inbox (UploadCenter in the live app).
@@ -163,6 +168,10 @@ final class LiveCloudAPI: CloudAPI {
     func forgetDevices() async throws {
         try await WirelessLinkStore.rotate()
     }
+
+    func deleteAccount() async throws -> AccountDeletionResult {
+        try await client.deleteAccount()
+    }
 }
 
 final class LiveSession: SessionGateway {
@@ -174,6 +183,10 @@ final class LiveSession: SessionGateway {
 
     func signOut() async {
         await AuthService.shared.signOut()
+    }
+
+    func endAfterAccountDeletion() async {
+        AuthService.shared.forgetCredentials()
     }
 }
 

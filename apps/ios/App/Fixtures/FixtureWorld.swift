@@ -237,6 +237,11 @@ final class FixtureWorld: CloudAPI {
         await latency(700)
     }
 
+    func deleteAccount() async throws -> AccountDeletionResult {
+        await latency(900)
+        return AccountDeletionResult(alreadyGone: false, cancelledSubscriptions: 0, cleanupPending: true)
+    }
+
     /// A finished fixture upload lands as a new project.
     func addProject(name: String, device: Bool, still: Bool) {
         let project = Project(id: UUID().uuidString, name: name, device: device, still: still, duration: still ? 8 : 37,
@@ -271,6 +276,11 @@ final class FixtureSession: SessionGateway {
 
     func signOut() async {
         try? await Task.sleep(nanoseconds: 400_000_000)
+        signedIn = false
+        NotificationCenter.default.post(name: .ccSessionDidChange, object: nil)
+    }
+
+    func endAfterAccountDeletion() async {
         signedIn = false
         NotificationCenter.default.post(name: .ccSessionDidChange, object: nil)
     }

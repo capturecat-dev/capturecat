@@ -122,6 +122,15 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
         SessionStore.clear()
     }
 
+    /// The account was deleted: the server already dropped the session, the
+    /// device rows and the link key, so nothing is asked of it — this only
+    /// forgets this device's copies (shared keychain, so the extensions stop
+    /// too). Posts `.ccSessionDidChange`.
+    func forgetCredentials() {
+        WirelessLinkStore.clear()
+        SessionStore.clear()
+    }
+
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         if let anchorWindow { return anchorWindow }
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }

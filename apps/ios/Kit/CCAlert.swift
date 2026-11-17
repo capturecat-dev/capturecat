@@ -21,6 +21,11 @@ import UIKit
 // docks to the bottom edge and rises from it, buttons stacked full width
 // (actions first, Cancel last), swipe down to cancel; an inline error grows
 // its TOP edge (the bottom is pinned). Regular width keeps the centred card.
+// Icon, title and message scroll (indicators flash) when the card is
+// squeezed — a long message with the keyboard up never clips; the accessory,
+// inline error and buttons stay pinned. `setButtonEnabled` holds a button
+// disabled (e.g. until a confirmation word is typed).
+//
 // `symbol` adds an icon tile over the title, tinted by `tone`:
 //
 //     CCAlert.confirm(title: "Delete clip?", message: "…", confirmTitle: "Delete",
@@ -88,11 +93,26 @@ final class CCAlert {
     /// Close programmatically (picks the cancel slot).
     func dismiss() { controller?.finish(controller?.cancelIndex ?? 0) }
 
+    /// Indices of buttons that start (and stay) disabled until enabled here —
+    /// e.g. a destructive action gated on typing a confirmation word.
+    private(set) var disabledButtons: Set<Int> = []
+
+    /// Enable or disable one button (by added order). Works before and after
+    /// `present`; a button re-enabled after a failed action stays as set here.
+    func setButtonEnabled(_ index: Int, _ enabled: Bool) {
+        if enabled { disabledButtons.remove(index) } else { disabledButtons.insert(index) }
+        controller?.applyEnabledStates()
+    }
+
     /// Probe seams: the presented card; show an inline error.
     var probeCard: UIView? { controller?.card }
     var probeIsDocked: Bool { controller?.isDocked ?? false }
     var probeButtons: [CCButton] { controller?.probeButtonViews ?? [] }
     func probeShowError(_ text: String) { controller?.showError(text) }
+    /// The inline error on screen, or nil while none is shown.
+    var probeErrorText: String? { controller?.probeErrorText }
+    /// Still on screen (not finishing / dismissed).
+    var probeIsPresented: Bool { controller.map { !$0.probeIsFinishing && $0.presentingViewController != nil } ?? false }
 
     static func topmost(from controller: UIViewController) -> UIViewController {
         var top = controller
@@ -183,6 +203,12 @@ final class CCAlertController: UIViewController {
     private let scrim = UIView()
     let card = CCCard(floating: true, tint: CCTheme.color.popover, radius: .xl)
     private let stack = UIStackView()
+    /// Icon, title and message. They scroll when the sheet is squeezed (a
+    /// long message with the keyboard up) — the accessory, error and buttons
+    /// stay put, and no text is ever clipped.
+    private let textScroll = UIScrollView()
+    private let textStack = UIStackView()
+    private var flashedOverflow = false
     private let errorLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.destructive, lines: 0)
     private var buttonViews: [CCButton] = []
     private var isFinishing = false
@@ -190,6 +216,15 @@ final class CCAlertController: UIViewController {
     /// Docked to the bottom edge (a `.sheet` on compact width).
     private(set) lazy var isDocked = alert.presentation == .sheet && traitCollection.horizontalSizeClass != .regular
     var probeButtonViews: [CCButton] { buttonViews }
+    var probeErrorText: String? { errorLabel.isHidden ? nil : errorLabel.text }
+    var probeIsFinishing: Bool { isFinishing }
+
+    /// Every idle button enabled unless the alert holds it disabled.
+    func applyEnabledStates() {
+        for (index, button) in buttonViews.enumerated() where !button.isBusy {
+            button.isEnabled = !alert.disabledButtons.contains(index)
+        }
+    }
 
     var cancelIndex: Int {
         alert.buttons.firstIndex(where: { $0.role == .cancel }) ?? (alert.buttons.count > 1 ? alert.buttons.count - 1 : 0)
@@ -225,6 +260,30 @@ final class CCAlertController: UIViewController {
         stack.spacing = CCSpace.sm
         stack.alignment = .fill
         stack.translatesAutoresizingMaskIntoConstraints = false
+        textStack.axis = .vertical
+        textStack.spacing = CCSpace.sm
+        textStack.alignment = .fill
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+        textScroll.translatesAutoresizingMaskIntoConstraints = false
+        textScroll.showsHorizontalScrollIndicator = false
+        textScroll.alwaysBounceVertical = false
+        textScroll.addSubview(textStack)
+        // Natural height = the text's; below the labels' compression
+        // resistance (750) and the button gap (999), so a squeezed card
+        // shortens THIS (it scrolls) instead of clipping a label.
+        let natural = textScroll.heightAnchor.constraint(equalTo: textStack.heightAnchor)
+        natural.priority = UILayoutPriority(740)
+        let floor = textScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 64)
+        floor.priority = UILayoutPriority(760)
+        NSLayoutConstraint.activate([
+            textStack.topAnchor.constraint(equalTo: textScroll.contentLayoutGuide.topAnchor),
+            textStack.bottomAnchor.constraint(equalTo: textScroll.contentLayoutGuide.bottomAnchor),
+            textStack.leadingAnchor.constraint(equalTo: textScroll.contentLayoutGuide.leadingAnchor),
+            textStack.trailingAnchor.constraint(equalTo: textScroll.contentLayoutGuide.trailingAnchor),
+            textStack.widthAnchor.constraint(equalTo: textScroll.frameLayoutGuide.widthAnchor),
+            natural, floor,
+        ])
+        stack.addArrangedSubview(textScroll)
         if let symbol = alert.symbol {
             let tone = alert.tone == .destructive ? CCTheme.color.destructive : CCTheme.color.primary
             let tile = CCIconTile(symbol: symbol, side: 44, kind: .recessed, tint: tone.withAlphaComponent(0.14),
@@ -237,12 +296,12 @@ final class CCAlertController: UIViewController {
                 tile.topAnchor.constraint(equalTo: holder.topAnchor),
                 tile.bottomAnchor.constraint(equalTo: holder.bottomAnchor),
             ])
-            stack.addArrangedSubview(holder)
-            stack.setCustomSpacing(CCSpace.md + 2, after: holder)
+            textStack.addArrangedSubview(holder)
+            textStack.setCustomSpacing(CCSpace.md + 2, after: holder)
         }
-        stack.addArrangedSubview(titleLabel)
+        textStack.addArrangedSubview(titleLabel)
         if !alert.message.isEmpty {
-            stack.addArrangedSubview(ccLabel(alert.message, font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0))
+            textStack.addArrangedSubview(ccLabel(alert.message, font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0))
         }
         if let accessory = alert.accessoryView {
             stack.setCustomSpacing(CCSpace.md + 2, after: stack.arrangedSubviews.last!)
@@ -321,6 +380,7 @@ final class CCAlertController: UIViewController {
             }
             let button = CCButton(title: spec.title, style: style, size: .lg, radius: .lg)
             button.onTap = { [weak self] in self?.tap(index) }
+            button.isEnabled = !alert.disabledButtons.contains(index)
             buttonViews.append(button)
         }
         let row = UIStackView()
@@ -345,6 +405,18 @@ final class CCAlertController: UIViewController {
             buttonViews.forEach(row.addArrangedSubview)
         }
         return row
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Squeezed (the keyboard came up): show that the text scrolls.
+        let overflows = textScroll.contentSize.height > textScroll.bounds.height + 1
+        if overflows, !flashedOverflow, hasEntered {
+            flashedOverflow = true
+            textScroll.flashScrollIndicators()
+        } else if !overflows {
+            flashedOverflow = false
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -402,7 +474,7 @@ final class CCAlertController: UIViewController {
     }
 
     private func tap(_ index: Int) {
-        guard alert.buttons.indices.contains(index), !isFinishing else { return }
+        guard alert.buttons.indices.contains(index), !isFinishing, !alert.disabledButtons.contains(index) else { return }
         guard let action = alert.buttons[index].action else {
             finish(index)
             return
@@ -417,7 +489,7 @@ final class CCAlertController: UIViewController {
             } catch {
                 guard let self else { return }
                 button.isBusy = false
-                self.buttonViews.forEach { $0.isEnabled = true }
+                self.applyEnabledStates()
                 self.showError(error.localizedDescription)
             }
         }
@@ -446,10 +518,15 @@ final class CCAlertController: UIViewController {
         }
         let startHeight = card.bounds.height
         errorLabel.isHidden = false
-        let target = card.systemLayoutSizeFitting(
+        let natural = card.systemLayoutSizeFitting(
             CGSize(width: card.bounds.width, height: 0),
             withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel
         ).height
+        // Never taller than the room left (the keyboard may be up): the text
+        // scrolls instead of the card fighting its edge constraints.
+        let floorY = isDocked ? view.keyboardLayoutGuide.layoutFrame.minY - CCSpace.sm : view.keyboardLayoutGuide.layoutFrame.minY - CCSpace.lg
+        let room = floorY - (isDocked ? view.safeAreaLayoutGuide.layoutFrame.minY + CCSpace.lg : card.frame.minY)
+        let target = max(startHeight, min(natural, room))
         let height = card.heightAnchor.constraint(equalToConstant: startHeight)
         height.isActive = true
         view.layoutIfNeeded()
