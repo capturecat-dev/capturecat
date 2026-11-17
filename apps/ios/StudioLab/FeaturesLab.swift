@@ -29,14 +29,14 @@ enum FeaturesLab {
         func value(_ name: String) -> String? {
             arguments.firstIndex(of: name).flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
         }
-        let out = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
-        guard let reference = value("--reference").map({ URL(fileURLWithPath: $0, isDirectory: true) }) else {
+        let out = LabPath.url(arguments[i + 1])
+        guard let reference = value("--reference").map({ LabPath.url($0) }) else {
             print("FEATURES-GATE FAIL usage: --features <out> --reference <macDir>")
             exit(2)
         }
         FeaturesHarness.inject = value("--inject").flatMap(FeaturesHarness.Inject.init(rawValue:))
         let only = value("--only").map { Set($0.split(separator: ",").map(String.init)) }
-        let models = value("--whisper-base").map { URL(fileURLWithPath: $0, isDirectory: true) }
+        let models = value("--whisper-base").map { LabPath.url($0) }
         lab.stage.isHidden = true
         Task { @MainActor in
             let pass = await run(lab: lab, out: out, reference: reference, models: models, only: only)
