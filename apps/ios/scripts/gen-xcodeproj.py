@@ -18,6 +18,11 @@ Folders (synchronized — new .swift files compile with no project edit):
   ../macos/CaptureCat/Shared/   all three        files that MUST build on iOS
   ../macos/CaptureCat/Studio/   CaptureCat (app) the studio core, shared with the Mac app
 
+Resources (explicit file references, copied into the app and StudioLab):
+  StudioResources/Cursors/   the Mac's NSCursor.pointingHand bitmap reps as the Mac
+                             rasterizes them (premultiplied RGBA8) — iOS has no
+                             system cursors (Studio/Platform/CursorArt.swift)
+
 Swift packages: WhisperKit (transcription, Studio 4e) for the app and
 StudioLab, pinned to the exact version the Mac app resolves; the transitive
 pins are copied from the Mac's Package.resolved so both apps build the same
@@ -66,6 +71,18 @@ MAC_FILES = {
     "CCIconSet": "../macos/CaptureCat/Views/Shared/DesignKit/CCIconSet.swift",
 }
 
+# Resource files: key -> path (relative to apps/ios). Explicit references,
+# not a synchronized folder: raw bytes that must be copied untouched.
+RESOURCE_FILES = {
+    # macOS's NSCursor.pointingHand (32 × 32 pt, hotspot 13, 8): its 32 px and
+    # 64 px bitmap reps exactly as the Mac's CursorStyleProvider rasterizes
+    # them at 1× / 2× — premultiplied RGBA8, rows top-down, the bytes
+    # `CaptureCat --web-cursor-sprites` writes (the web ships the same:
+    # apps/web/public/editor/cursors/manifest.json). Read by CursorArt on iOS.
+    "CursorHand1x": "StudioResources/Cursors/hand@1x.rgba",
+    "CursorHand2x": "StudioResources/Cursors/hand@2x.rgba",
+}
+
 # Swift packages: key -> (repository, exact version, product). The Mac app
 # resolves WhisperKit 0.15.0 (apps/macos/…/Package.resolved); iOS pins the
 # same so a recording transcribes identically on both (Studio 4e).
@@ -97,6 +114,7 @@ TARGETS = [
         # StillMovieWriter comes with Studio/ for the app; the extensions still
         # reference it on its own.
         "mac": ["OAuthPKCE", "LoopbackAuthServer", "CCIconSet"],
+        "resources": ["CursorHand1x", "CursorHand2x"],
         "packages": ["WhisperKit"],
         "plist": "Config/App-Info.plist",
         "entitlements": "Config/App.entitlements",
@@ -163,6 +181,7 @@ TARGETS.append({
     # and the StudioUI views (the timeline's menus, motion, icons) use the kit.
     "sync": ["StudioLab", "StudioUI", "Studio", "StudioHarness", "Kit"],
     "mac": ["CCIconSet"],
+    "resources": ["CursorHand1x", "CursorHand2x"],
     "packages": ["WhisperKit"],
     "plist": "Config/Lab-Info.plist",
     "entitlements": None,
@@ -256,6 +275,7 @@ def main():
     products_group = oid("group.products")
     macsrc_group = oid("group.macsources")
     config_group = oid("group.config")
+    res_group = oid("group.resources")
 
     # File references
     for t in TARGETS:
@@ -263,6 +283,9 @@ def main():
     for key, path in MAC_FILES.items():
         base = os.path.basename(path)
         add("PBXFileReference", f'\t\t{oid("macfile." + key)} /* {base} */ = {{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = {base}; path = "{path}"; sourceTree = SOURCE_ROOT; }};')
+    for key, path in RESOURCE_FILES.items():
+        base = os.path.basename(path)
+        add("PBXFileReference", f'\t\t{oid("resfile." + key)} /* {base} */ = {{isa = PBXFileReference; lastKnownFileType = file; name = "{base}"; path = "{path}"; sourceTree = SOURCE_ROOT; }};')
     for path in CONFIG_FILES:
         base = os.path.basename(path)
         ftype = "text.plist.xml" if base.endswith(".plist") else "text.plist.entitlements"
@@ -278,6 +301,10 @@ def main():
         for key in t["mac"]:
             base = os.path.basename(MAC_FILES[key])
             add("PBXBuildFile", f'\t\t{oid("bf." + t["key"] + "." + key)} /* {base} in Sources */ = {{isa = PBXBuildFile; fileRef = {oid("macfile." + key)} /* {base} */; }};')
+    for t in TARGETS:
+        for key in t.get("resources", []):
+            base = os.path.basename(RESOURCE_FILES[key])
+            add("PBXBuildFile", f'\t\t{oid("bf.res." + t["key"] + "." + key)} /* {base} in Resources */ = {{isa = PBXBuildFile; fileRef = {oid("resfile." + key)} /* {base} */; }};')
     for t in TARGETS:
         for key in t.get("packages", []):
             add("PBXBuildFile", f'\t\t{oid("bf.pkg." + t["key"] + "." + key)} /* {key} in Frameworks */ = {{isa = PBXBuildFile; productRef = {oid("pkgprod." + t["key"] + "." + key)} /* {key} */; }};')
@@ -304,15 +331,18 @@ def main():
         add("PBXSourcesBuildPhase", f'\t\t{oid("phase.sources." + k)} /* Sources */ = {{\n\t\t\tisa = PBXSourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n{src}\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};'.replace("(\n\n", "(\n"))
         fw = "".join(f'\t\t\t\t{oid("bf.pkg." + k + "." + key)} /* {key} in Frameworks */,\n' for key in t.get("packages", []))
         add("PBXFrameworksBuildPhase", f'\t\t{oid("phase.frameworks." + k)} /* Frameworks */ = {{\n\t\t\tisa = PBXFrameworksBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n{fw}\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};')
-        add("PBXResourcesBuildPhase", f'\t\t{oid("phase.resources." + k)} /* Resources */ = {{\n\t\t\tisa = PBXResourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};')
+        res = "".join(f'\t\t\t\t{oid("bf.res." + k + "." + key)} /* {os.path.basename(RESOURCE_FILES[key])} in Resources */,\n' for key in t.get("resources", []))
+        add("PBXResourcesBuildPhase", f'\t\t{oid("phase.resources." + k)} /* Resources */ = {{\n\t\t\tisa = PBXResourcesBuildPhase;\n\t\t\tbuildActionMask = 2147483647;\n\t\t\tfiles = (\n{res}\t\t\t);\n\t\t\trunOnlyForDeploymentPostprocessing = 0;\n\t\t}};')
 
     # Groups
     sync_children = "\n".join(f'\t\t\t\t{oid("sync." + key)} /* {name or path} */,' for key, (path, name) in SYNC.items())
-    add("PBXGroup", f'\t\t{main_group} = {{\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n{sync_children}\n\t\t\t\t{macsrc_group} /* MacSources */,\n\t\t\t\t{config_group} /* Config */,\n\t\t\t\t{products_group} /* Products */,\n\t\t\t);\n\t\t\tsourceTree = "<group>";\n\t\t}};')
+    add("PBXGroup", f'\t\t{main_group} = {{\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n{sync_children}\n\t\t\t\t{macsrc_group} /* MacSources */,\n\t\t\t\t{res_group} /* StudioResources */,\n\t\t\t\t{config_group} /* Config */,\n\t\t\t\t{products_group} /* Products */,\n\t\t\t);\n\t\t\tsourceTree = "<group>";\n\t\t}};')
     prods = "\n".join(f'\t\t\t\t{oid("product." + t["key"])} /* {t["product"]} */,' for t in TARGETS)
     add("PBXGroup", f'\t\t{products_group} /* Products */ = {{\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n{prods}\n\t\t\t);\n\t\t\tname = Products;\n\t\t\tsourceTree = "<group>";\n\t\t}};')
     macs = "\n".join(f'\t\t\t\t{oid("macfile." + key)} /* {os.path.basename(p)} */,' for key, p in MAC_FILES.items())
     add("PBXGroup", f'\t\t{macsrc_group} /* MacSources */ = {{\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n{macs}\n\t\t\t);\n\t\t\tname = MacSources;\n\t\t\tsourceTree = "<group>";\n\t\t}};')
+    ress = "\n".join(f'\t\t\t\t{oid("resfile." + key)} /* {os.path.basename(p)} */,' for key, p in RESOURCE_FILES.items())
+    add("PBXGroup", f'\t\t{res_group} /* StudioResources */ = {{\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n{ress}\n\t\t\t);\n\t\t\tname = StudioResources;\n\t\t\tsourceTree = "<group>";\n\t\t}};')
     cfgs = "\n".join(f'\t\t\t\t{oid("config." + p)} /* {os.path.basename(p)} */,' for p in CONFIG_FILES)
     add("PBXGroup", f'\t\t{config_group} /* Config */ = {{\n\t\t\tisa = PBXGroup;\n\t\t\tchildren = (\n{cfgs}\n\t\t\t);\n\t\t\tpath = Config;\n\t\t\tsourceTree = "<group>";\n\t\t}};')
 

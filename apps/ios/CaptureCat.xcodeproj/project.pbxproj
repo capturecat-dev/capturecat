@@ -14,6 +14,10 @@
 		49E6F51EA3959AF58A0D79C7 /* StillMovieWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F09EE1E5C7EC36359B64811 /* StillMovieWriter.swift */; };
 		9F21800022C243ACF970260F /* CCIconSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD2697ABA359FDCB7873A9 /* CCIconSet.swift */; };
 		AA110C6694BEBBC113F8EB88 /* CCIconSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD2697ABA359FDCB7873A9 /* CCIconSet.swift */; };
+		1E4FC5147389E22B8F07E98A /* hand@1x.rgba in Resources */ = {isa = PBXBuildFile; fileRef = B97F1D54F2933D9AF8F032C3 /* hand@1x.rgba */; };
+		57E5EF4442851C26597141A1 /* hand@2x.rgba in Resources */ = {isa = PBXBuildFile; fileRef = AE2592D0B2C0C442B32990A4 /* hand@2x.rgba */; };
+		0E31C174DECA4D0A2DEEA026 /* hand@1x.rgba in Resources */ = {isa = PBXBuildFile; fileRef = B97F1D54F2933D9AF8F032C3 /* hand@1x.rgba */; };
+		1719A6FBBEB1DF5A01E34422 /* hand@2x.rgba in Resources */ = {isa = PBXBuildFile; fileRef = AE2592D0B2C0C442B32990A4 /* hand@2x.rgba */; };
 		9DDE733F207E5CE3D2363EBC /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = C43E2BA1A510F708BD83A57B /* WhisperKit */; };
 		D59B326B74DD1E979686FDF0 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7DB60ED6AF03BC8D3E9A4648 /* WhisperKit */; };
 		06937EEA68ABE24E4DA0EBAC /* CaptureCatBroadcast.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A21D48F4067FFA35C724A86C /* CaptureCatBroadcast.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -61,6 +65,8 @@
 		2FAB168C087A95139429BB2C /* LoopbackAuthServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoopbackAuthServer.swift; path = "../macos/CaptureCat/Services/LoopbackAuthServer.swift"; sourceTree = SOURCE_ROOT; };
 		8F09EE1E5C7EC36359B64811 /* StillMovieWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StillMovieWriter.swift; path = "../macos/CaptureCat/Studio/Services/StillMovieWriter.swift"; sourceTree = SOURCE_ROOT; };
 		DEAD2697ABA359FDCB7873A9 /* CCIconSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CCIconSet.swift; path = "../macos/CaptureCat/Views/Shared/DesignKit/CCIconSet.swift"; sourceTree = SOURCE_ROOT; };
+		B97F1D54F2933D9AF8F032C3 /* hand@1x.rgba */ = {isa = PBXFileReference; lastKnownFileType = file; name = "hand@1x.rgba"; path = "StudioResources/Cursors/hand@1x.rgba"; sourceTree = SOURCE_ROOT; };
+		AE2592D0B2C0C442B32990A4 /* hand@2x.rgba */ = {isa = PBXFileReference; lastKnownFileType = file; name = "hand@2x.rgba"; path = "StudioResources/Cursors/hand@2x.rgba"; sourceTree = SOURCE_ROOT; };
 		A37DC08FEA69658E89711BE3 /* App-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "App-Info.plist"; sourceTree = "<group>"; };
 		C2DBC5633643E32032274E46 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "App.entitlements"; sourceTree = "<group>"; };
 		59840B32124CFBA9D839FBA8 /* Broadcast-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Broadcast-Info.plist"; sourceTree = "<group>"; };
@@ -174,6 +180,7 @@
 				67D8ECD84E4320DD83C45054 /* StudioLab */,
 				4854E0004C908A659321E6C7 /* StudioHarness */,
 				72F08247BF5820569C2C5F1A /* MacSources */,
+				CA2DA976D1169AE0BBF0B8BE /* StudioResources */,
 				89B104369EBC5E85E7E43C6B /* Config */,
 				113236722DEE1DC96F378B9D /* Products */,
 			);
@@ -199,6 +206,15 @@
 				DEAD2697ABA359FDCB7873A9 /* CCIconSet.swift */,
 			);
 			name = MacSources;
+			sourceTree = "<group>";
+		};
+		CA2DA976D1169AE0BBF0B8BE /* StudioResources */ = {
+			isa = PBXGroup;
+			children = (
+				B97F1D54F2933D9AF8F032C3 /* hand@1x.rgba */,
+				AE2592D0B2C0C442B32990A4 /* hand@2x.rgba */,
+			);
+			name = StudioResources;
 			sourceTree = "<group>";
 		};
 		89B104369EBC5E85E7E43C6B /* Config */ = {
@@ -375,6 +391,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1E4FC5147389E22B8F07E98A /* hand@1x.rgba in Resources */,
+				57E5EF4442851C26597141A1 /* hand@2x.rgba in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -396,6 +414,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0E31C174DECA4D0A2DEEA026 /* hand@1x.rgba in Resources */,
+				1719A6FBBEB1DF5A01E34422 /* hand@2x.rgba in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
