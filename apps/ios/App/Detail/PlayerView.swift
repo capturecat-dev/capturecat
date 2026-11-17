@@ -397,6 +397,12 @@ final class PlayerScrubber: UIControl {
         knob.layer.cornerRadius = side / 2
     }
 
+    /// A 44 pt touch target around the thin track (Studio 6a).
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let dy = max(0, (44 - bounds.height) / 2)
+        return bounds.insetBy(dx: 0, dy: -dy).contains(point)
+    }
+
     private func fraction(for touch: UITouch) -> CGFloat {
         max(0, min(1, touch.location(in: self).x / max(bounds.width, 1)))
     }

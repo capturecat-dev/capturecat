@@ -23,6 +23,9 @@ final class AccountViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = CCTheme.color.background
+        // Accessibility text sizes: the name and address wrap whole.
+        nameLabel.ccWrapsAtAccessibilitySizes(otherwise: 2)
+        emailLabel.ccWrapsAtAccessibilitySizes()
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.alwaysBounceVertical = true
         view.addSubview(scrollView)

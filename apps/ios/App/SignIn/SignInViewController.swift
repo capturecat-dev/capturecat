@@ -71,11 +71,28 @@ final class SignInViewController: UIViewController {
         stack.setCustomSpacing(CCSpace.xl + 4, after: features)
         stack.setCustomSpacing(0, after: signInButton)
         stack.setCustomSpacing(CCSpace.md, after: errorHost)
-        view.addSubview(stack)
+        // In a scroll view: at the accessibility text sizes the column is
+        // taller than the screen and scrolls (centred while it fits).
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.contentInsetAdjustmentBehavior = .never
+        scroll.showsVerticalScrollIndicator = false
+        view.addSubview(scroll)
+        scroll.addSubview(stack)
+        let content = scroll.contentLayoutGuide
+        let page = scroll.frameLayoutGuide
+        NSLayoutConstraint.activate([
+            scroll.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            content.widthAnchor.constraint(equalTo: page.widthAnchor),
+            content.heightAnchor.constraint(greaterThanOrEqualTo: page.heightAnchor),
+        ])
 
-        let center = stack.centerYAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerYAnchor)
+        let center = stack.centerYAnchor.constraint(equalTo: content.centerYAnchor)
         center.priority = .defaultHigh
-        let fill = stack.widthAnchor.constraint(equalTo: view.safeAreaLayoutGuide.widthAnchor, constant: -CCSpace.xl * 2)
+        let fill = stack.widthAnchor.constraint(equalTo: page.widthAnchor, constant: -CCSpace.xl * 2)
         fill.priority = .required - 1
         NSLayoutConstraint.activate([
             markHost.widthAnchor.constraint(equalToConstant: 64),
@@ -84,10 +101,10 @@ final class SignInViewController: UIViewController {
             mark.trailingAnchor.constraint(equalTo: markHost.trailingAnchor),
             mark.topAnchor.constraint(equalTo: markHost.topAnchor),
             mark.bottomAnchor.constraint(equalTo: markHost.bottomAnchor),
-            stack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            stack.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             center, fill,
-            stack.topAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.topAnchor, constant: CCSpace.lg),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -CCSpace.lg),
+            stack.topAnchor.constraint(greaterThanOrEqualTo: content.topAnchor, constant: CCSpace.lg),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor, constant: -CCSpace.lg),
             stack.widthAnchor.constraint(lessThanOrEqualToConstant: 420),
             errorLabel.leadingAnchor.constraint(equalTo: errorHost.leadingAnchor),
             errorLabel.trailingAnchor.constraint(equalTo: errorHost.trailingAnchor),

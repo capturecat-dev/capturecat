@@ -10,7 +10,11 @@ final class ShareDetailViewController: DetailPageViewController {
     let videoID: String
     private weak var coordinator: LibraryCoordinator?
     private let playerCard = PlayerCard()
-    private let titleLabel = ccLabel("", font: CCFont.title, color: CCTheme.color.foreground, lines: 3)
+    private let titleLabel: UILabel = {
+        let label = ccLabel("", font: CCFont.title, color: CCTheme.color.foreground, lines: 3)
+        label.ccWrapsAtAccessibilitySizes(otherwise: 3)
+        return label
+    }()
     private let metaLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)
     private let privacyBadge = CCBadge("Unlisted", symbol: "link")
     private let linkLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground)
@@ -104,12 +108,14 @@ final class ShareDetailViewController: DetailPageViewController {
     private func makeLinkCard() -> UIView {
         let card = CCCard(radius: .lg)
         linkLabel.lineBreakMode = .byTruncatingMiddle
-        let copy = CCButton(title: "Copy link", symbol: "link", style: .secondary, size: .sm)
+        // Accessibility text sizes: the whole link, wrapped.
+        linkLabel.ccWrapsAtAccessibilitySizes()
+        let copy = CCButton(title: "Copy link", symbol: "link", style: .secondary, size: .regular)
         copy.onTap = { [weak self] in
             guard let self, let share = LibraryStore.shared.share(self.videoID) else { return }
             ProjectActions.copyLink(share)
         }
-        let shareButton = CCButton(title: "Share…", symbol: "share", style: .secondary, size: .sm)
+        let shareButton = CCButton(title: "Share…", symbol: "share", style: .secondary, size: .regular)
         shareButton.onTap = { [weak self, weak shareButton] in
             guard let self, let shareButton, let share = LibraryStore.shared.share(self.videoID) else { return }
             ProjectActions.shareSheet(share, from: self, source: shareButton)
@@ -328,6 +334,7 @@ final class CommentRowView: UIView {
         let avatar = CCAvatar(name: comment.authorName, side: reply ? 26 : 32)
         let author = ccLabel(comment.authorName, font: CCFont.labelSemibold, color: CCTheme.color.foreground)
         author.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        author.ccWrapsAtAccessibilitySizes()
         let time = ccLabel(Format.relative(comment.createdAt), font: CCFont.caption, color: CCTheme.color.mutedForeground)
         time.setContentCompressionResistancePriority(.required, for: .horizontal)
         var topItems: [UIView] = [author]
@@ -343,7 +350,7 @@ final class CommentRowView: UIView {
         textStack.spacing = CCSpace.xs
         textStack.alignment = .fill
         if let videoTime = comment.videoTime {
-            let chip = CCButton(title: Format.duration(videoTime), symbol: "play-fill", style: .secondary, size: .sm, radius: .full)
+            let chip = CCButton(title: Format.duration(videoTime), symbol: "play-fill", style: .secondary, size: .regular, radius: .full)
             chip.accessibilityLabelOverride = "Play from \(Format.spokenDuration(videoTime))"
             chip.onTap = { [weak self] in self?.onSeek?(videoTime) }
             let chipRow = UIStackView(arrangedSubviews: [chip, UIView()])

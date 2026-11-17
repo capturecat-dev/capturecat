@@ -17,13 +17,25 @@ final class ProjectDetailViewController: DetailPageViewController {
     private let sourceSwitch = CCSegmented(segments: ["Original", "Shared video"], size: .sm, radius: .full)
     private let captionIcon = CCIconView("info-fill", pointSize: 12, weight: .semibold, tint: CCTheme.color.faintForeground)
     private let captionLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
-    private let titleLabel = ccLabel("", font: CCFont.title, color: CCTheme.color.foreground, lines: 3)
+    private let titleLabel: UILabel = {
+        let label = ccLabel("", font: CCFont.title, color: CCTheme.color.foreground, lines: 3)
+        label.ccWrapsAtAccessibilitySizes(otherwise: 3)
+        return label
+    }()
     private let badges = UIStackView()
     private let infoCard = InfoCard()
     private let shareSection = UIStackView()
     private let shareCard = CCCard(radius: .lg)
-    private let shareTitle = ccLabel("", font: CCFont.labelSemibold, color: CCTheme.color.foreground)
-    private let shareURL = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground)
+    private let shareTitle: UILabel = {
+        let label = ccLabel("", font: CCFont.labelSemibold, color: CCTheme.color.foreground)
+        label.ccWrapsAtAccessibilitySizes()
+        return label
+    }()
+    private let shareURL: UILabel = {
+        let label = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground)
+        label.ccWrapsAtAccessibilitySizes()
+        return label
+    }()
     private let shareExplain = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)
     private let privacyBadge = CCBadge("Unlisted", symbol: "link")
     private let commentsButton = CCButton(title: "Comments on the shared video", symbol: "text-bubble", style: .ghost, size: .sm)
@@ -244,12 +256,12 @@ final class ProjectDetailViewController: DetailPageViewController {
         top.alignment = .center
         shareTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         shareURL.lineBreakMode = .byTruncatingMiddle
-        let copy = CCButton(title: "Copy link", symbol: "link", style: .secondary, size: .sm)
+        let copy = CCButton(title: "Copy link", symbol: "link", style: .secondary, size: .regular)
         copy.onTap = { [weak self] in
             guard let self, let share = LibraryStore.shared.share(linkedTo: self.projectID) else { return }
             ProjectActions.copyLink(share)
         }
-        let shareButton = CCButton(title: "Share…", symbol: "share", style: .secondary, size: .sm)
+        let shareButton = CCButton(title: "Share…", symbol: "share", style: .secondary, size: .regular)
         shareButton.onTap = { [weak self, weak shareButton] in
             guard let self, let shareButton, let share = LibraryStore.shared.share(linkedTo: self.projectID) else { return }
             ProjectActions.shareSheet(share, from: self, source: shareButton)

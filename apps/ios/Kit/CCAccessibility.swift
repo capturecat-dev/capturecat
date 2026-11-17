@@ -164,6 +164,19 @@ extension UIResponder {
     }
 }
 
+// MARK: - Floating chrome
+
+extension UIView {
+    /// This view floats OVER content that scrolls under it (the tab bar, a
+    /// toast): what lies beneath is covered there — VoiceOver's touch
+    /// exploration and a finger both reach the overlay. The a11y audit takes
+    /// covered parts out of the elements under it.
+    var ccFloatsOverContent: Bool {
+        get { layer.value(forKey: "ccFloatsOverContent") as? Bool ?? false }
+        set { layer.setValue(newValue, forKey: "ccFloatsOverContent") }
+    }
+}
+
 // MARK: - Dynamic Type
 
 extension UIView {
@@ -176,6 +189,36 @@ extension UIView {
             view.invalidateIntrinsicContentSize()
             view.setNeedsLayout()
             view.superview?.setNeedsLayout()
+        }
+    }
+}
+
+extension UILabel {
+    /// At the accessibility text sizes the label wraps (no line limit);
+    /// `lines` otherwise — long names stay whole when the type is big.
+    func ccWrapsAtAccessibilitySizes(otherwise lines: Int = 1) {
+        func apply(_ label: UILabel) {
+            label.numberOfLines = label.traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? 0 : lines
+        }
+        apply(self)
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (label: UILabel, _: UITraitCollection) in
+            apply(label)
+        }
+    }
+}
+
+extension UIStackView {
+    /// At the accessibility text sizes a row becomes a column (Apple's
+    /// pattern): its parts stack instead of squeezing each other.
+    func ccStacksAtAccessibilitySizes(rowAlignment: UIStackView.Alignment = .center) {
+        func apply(_ stack: UIStackView) {
+            let big = stack.traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+            stack.axis = big ? .vertical : .horizontal
+            stack.alignment = big ? .leading : rowAlignment
+        }
+        apply(self)
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (stack: UIStackView, _: UITraitCollection) in
+            apply(stack)
         }
     }
 }

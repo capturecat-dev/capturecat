@@ -25,6 +25,9 @@ final class CCTabBar: UIView {
         self.items = items
         self.selectedIndex = selectedIndex
         super.init(frame: .zero)
+        // The bar floats over scrolling content (the a11y audit takes the
+        // content under it as covered).
+        ccFloatsOverContent = true
         translatesAutoresizingMaskIntoConstraints = false
         layer.cornerCurve = .continuous
         chip.cornerCurve = .continuous
@@ -180,6 +183,7 @@ final class CCTabBarItemView: UIControl {
         super.init(frame: .zero)
         label.text = item.title
         label.font = CCFont.scaled(11, .semibold, .caption2, max: 13)
+        ccRelayoutOnTextSizeChange()
         label.adjustsFontForContentSizeCategory = true
         label.textAlignment = .center
         label.textColor = CCTheme.color.mutedForeground
@@ -409,6 +413,9 @@ final class CCSidebarRow: UIControl {
     init(item: CCNavItem) {
         icon = CCIconView(item.symbol, pointSize: 17, weight: .medium, tint: CCTheme.color.mutedForeground)
         label = ccLabel(item.title, font: CCFont.bodyMedium, color: CCTheme.color.mutedForeground)
+        // The sidebar is a fixed column: big type shrinks to fit (≥ 55%).
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.55
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wash.alpha = 0

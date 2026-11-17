@@ -165,6 +165,7 @@ final class CCToast: UIView {
         titleLabel = ccLabel(title, font: CCFont.labelSemibold, color: CCTheme.color.foreground, lines: 2)
         messageLabel = ccLabel(message ?? "", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 3)
         super.init(frame: .zero)
+        ccFloatsOverContent = true
         alpha = 0
         card.translatesAutoresizingMaskIntoConstraints = true
         card.frame = bounds

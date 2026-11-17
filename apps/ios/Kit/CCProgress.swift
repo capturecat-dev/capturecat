@@ -119,6 +119,7 @@ final class CCProgressBar: UIView {
         didSet {
             guard value != oldValue else { return }
             refreshFill(animated: true)
+            refreshAccessibilityValue()
         }
     }
 
@@ -126,6 +127,7 @@ final class CCProgressBar: UIView {
         didSet {
             guard isIndeterminate != oldValue else { return }
             refreshMode()
+            refreshAccessibilityValue()
         }
     }
 
@@ -149,8 +151,15 @@ final class CCProgressBar: UIView {
         heightAnchor.constraint(equalToConstant: Self.barHeight).isActive = true
         isAccessibilityElement = true
         accessibilityTraits = .updatesFrequently
+        // Hosts may name it better ("Upload progress"); it is never nameless.
+        accessibilityLabel = "Progress"
+        refreshAccessibilityValue()
         ccOnThemeChange { [weak self] in self?.applyTheme() }
         applyTheme()
+    }
+
+    private func refreshAccessibilityValue() {
+        accessibilityValue = isIndeterminate ? "In progress" : "\(Int((max(0, min(1, value)) * 100).rounded())) percent"
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }

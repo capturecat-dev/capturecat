@@ -28,7 +28,7 @@ enum CCAccessibilityAudit {
         let traits: UIAccessibilityTraits
         /// In window coordinates.
         let frame: CGRect
-        let visibleFrame: CGRect
+        var visibleFrame: CGRect
         let actions: [String]
         let view: UIView?
         let isInteractive: Bool
@@ -53,7 +53,41 @@ enum CCAccessibilityAudit {
         var out: [Element] = []
         var seen = Set<ObjectIdentifier>()
         visit(root, window: window, clip: window.bounds, out: &out, seen: &seen)
+        // Floating chrome (`ccFloatsOverContent`) covers what scrolls under
+        // it: those parts leave the elements beneath (wholly covered ones
+        // keep a null visible frame — VoiceOver scrolls them out first).
+        let overlays = floatingOverlays(in: window)
+        for i in out.indices {
+            guard let view = out[i].view, !overlays.contains(where: { view === $0 || view.isDescendant(of: $0) }) else { continue }
+            for overlay in overlays {
+                let rect = overlay.convert(overlay.bounds, to: window)
+                out[i].visibleFrame = carve(out[i].visibleFrame, around: rect)
+            }
+        }
         return out
+    }
+
+    static func floatingOverlays(in window: UIWindow) -> [UIView] {
+        var found: [UIView] = []
+        func walk(_ view: UIView) {
+            guard isShown(view) else { return }
+            if view.ccFloatsOverContent { found.append(view); return }
+            view.subviews.forEach(walk)
+        }
+        walk(window)
+        return found
+    }
+
+    /// The largest part of `rect` outside `cover` (null when none is left).
+    static func carve(_ rect: CGRect, around cover: CGRect) -> CGRect {
+        guard !rect.isNull, rect.intersects(cover) else { return rect }
+        let parts = [
+            CGRect(x: rect.minX, y: rect.minY, width: max(0, cover.minX - rect.minX), height: rect.height),
+            CGRect(x: cover.maxX, y: rect.minY, width: max(0, rect.maxX - cover.maxX), height: rect.height),
+            CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: max(0, cover.minY - rect.minY)),
+            CGRect(x: rect.minX, y: cover.maxY, width: rect.width, height: max(0, rect.maxY - cover.maxY)),
+        ].filter { $0.width > 1 && $0.height > 1 }
+        return parts.max { $0.width * $0.height < $1.width * $1.height } ?? .null
     }
 
     /// The last visible `accessibilityViewIsModal` view (VoiceOver reads only it).
@@ -298,8 +332,12 @@ enum CCAccessibilityAudit {
             for sub in view.subviews { walk(sub, clip: clip, clippers: clippers) }
         }
         walk(root, clip: window.bounds, clippers: [])
+        // Text on floating chrome passes over the content by design.
+        let overlays = floatingOverlays(in: window)
+        func floats(_ v: UIView) -> Bool { overlays.contains { v.isDescendant(of: $0) } }
         for i in runs.indices {
             for j in runs.indices where j > i {
+                if floats(runs[i].view) != floats(runs[j].view) { continue }
                 let x = runs[i].frame.intersection(runs[j].frame)
                 if !x.isNull, x.width > 1.5, x.height > 1.5 {
                     problems.append(Problem(rule: "text-overlap", detail: "\"\(short(runs[i].text))\" overlaps \"\(short(runs[j].text))\" by \(Int(x.width))×\(Int(x.height)) pt"))
