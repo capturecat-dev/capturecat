@@ -445,7 +445,9 @@ enum InspectorLab {
         let root = editor.view!
         let stage = editor.stageCard.convert(editor.stageCard.bounds, to: root)
         let timelineTop = editor.timelineContainer.convert(editor.timelineContainer.bounds, to: root).minY
-        let closedTop = root.bounds.maxY
+        let toolBarFrame = editor.toolBar.convert(editor.toolBar.bounds, to: root)
+        // Closed, the panel is a zero-height strip on the tool bar's top.
+        let closedTop = toolBarFrame.minY - CCSpace.xs
         var tops: [CGFloat] = []
         var frames: [CGImage] = []
         key.sendActions(for: .touchUpInside)
@@ -460,27 +462,31 @@ enum InspectorLab {
         let final = inspector.view.frame
         let mid = tops.filter { $0 < closedTop - 2 && $0 > final.minY + 2 }
         let highest = tops.min() ?? closedTop
-        report("motion-panel-open", mid.count >= 2 && abs(final.minY - timelineTop) < 0.5, injected: injected,
-               String(format: "Cursor tool → panel top %.0f → %.0f (timeline top %.0f); %d of %d samples mid-flight (%@); highest %.0f",
-                      closedTop, final.minY, timelineTop, mid.count, tops.count, fmt(tops), highest))
+        let fitted = editor.fittedPanelHeight()
+        report("motion-panel-open", mid.count >= 2 && abs(final.height - fitted) < 1 && abs(final.maxY - closedTop) < 0.5,
+               injected: injected,
+               String(format: "Cursor tool → panel top %.0f → %.0f (on the tool bar at %.0f; %.0f high, fitted %.0f); %d of %d samples mid-flight (%@); highest %.0f",
+                      closedTop, final.minY, toolBarFrame.minY, final.height, fitted, mid.count, tops.count, fmt(tops), highest))
         if !injected {
-            check("panel-never-covers-stage", highest >= stage.maxY - 0.5,
-                  String(format: "panel's highest top %.0f (overshoot included) vs the stage's bottom %.0f", highest, stage.maxY))
-            // The panel's layout: past the screen's bottom (no band), its
-            // last row clear of the home indicator, the rail across its top,
-            // the tool's pane shown and the tool marked.
-            let screenBottom = root.bounds.maxY
-            let clearance = inspector.scroll.adjustedContentInset.bottom
-            let needed = (final.maxY - screenBottom) + root.safeAreaInsets.bottom
-            check("layout-panel", final.maxY >= screenBottom + 0.5 && clearance >= needed - 0.5
-                    && inspector.rail.axis == .horizontal && inspector.visiblePane?.tab == .cursor && key.isSelected
-                    && editor.timelineContainer.accessibilityElementsHidden && editor.toolBar.accessibilityElementsHidden,
-                  String(format: "panel %.0f×%.0f to %.0f beyond the screen's bottom; scroll inset %.0f ≥ %.0f; rail across the top; pane %@; tool selected %@; timeline + tool bar hidden from VoiceOver %@",
-                         final.width, final.height, final.maxY - screenBottom, clearance, needed,
+            check("panel-never-covers-stage", highest >= stage.maxY - 0.5 && highest > timelineTop,
+                  String(format: "panel's highest top %.0f (overshoot included) vs the stage's bottom %.0f; timeline top %.0f",
+                         highest, stage.maxY, timelineTop))
+            // The panel's layout: on the tool bar, which stays (VoiceOver
+            // too) and marks the tool; no pane rail inside; the title and
+            // Done in its strip; the timeline still reachable above it.
+            let lanes = editor.timeline.view.convert(editor.timeline.view.bounds, to: root)
+            check("layout-panel", final.maxY <= toolBarFrame.minY + 0.5 && inspector.rail.isHidden
+                    && inspector.visiblePane?.tab == .cursor && key.isSelected
+                    && inspector.panelTitle.text == "Cursor" && !inspector.closeButton.isHidden
+                    && inspector.closeButton.accessibilityLabel == "Done"
+                    && !editor.timelineContainer.accessibilityElementsHidden && !editor.toolBar.accessibilityElementsHidden
+                    && lanes.maxY <= final.minY + 0.5 && lanes.height >= EditorViewController.minTimelineStrip - 0.5,
+                  String(format: "panel %.0f×%.0f on the tool bar (%.0f ≤ %.0f); rail hidden %@; pane %@; tool selected %@; Done %@; lanes %.0f pt above it; tool bar + timeline VoiceOver-reachable",
+                         final.width, final.height, final.maxY, toolBarFrame.minY, inspector.rail.isHidden ? "yes" : "no",
                          inspector.visiblePane?.tab.rawValue ?? "none", key.isSelected ? "yes" : "no",
-                         editor.timelineContainer.accessibilityElementsHidden ? "yes" : "no"))
+                         inspector.closeButton.accessibilityLabel ?? "nil", lanes.height))
         }
-        // Close key → back to the tool bar.
+        // Done → back to the tool bar.
         tops = []
         inspector.closeButton.sendActions(for: .touchUpInside)
         let c0 = CACurrentMediaTime()
@@ -626,7 +632,9 @@ enum InspectorLab {
         // Pane switch: Background → Cursor, sampled on the presentation tree.
         var opacities: [Float] = [], rises: [CGFloat] = [], chipXs: [CGFloat] = []
         var frames: [CGImage] = []
-        let chipStart = (inspector.rail.probeChipLayer.presentation() ?? inspector.rail.probeChipLayer).position
+        // The switcher's chip: the column's rail, or the tool bar's (a panel has no rail).
+        let chipLayer = inspector.presentation == .column ? inspector.rail.probeChipLayer : editor.toolBar.probeChipLayer
+        let chipStart = (chipLayer.presentation() ?? chipLayer).position
         selection.inspectorTab = .cursor
         await settle(0.001)
         guard let cursorPane = inspector.panes[.cursor] else { check("motion-pane-switch", false, "no cursor pane"); return }
@@ -635,7 +643,7 @@ enum InspectorLab {
             let p = cursorPane.layer.presentation() ?? cursorPane.layer
             opacities.append(p.opacity)
             rises.append((p.value(forKeyPath: "transform.translation.y") as? CGFloat) ?? 0)
-            let chip = inspector.rail.probeChipLayer.presentation() ?? inspector.rail.probeChipLayer
+            let chip = chipLayer.presentation() ?? chipLayer
             chipXs.append(abs(chip.position.y - chipStart.y) + abs(chip.position.x - chipStart.x))
             if frames.count < 8, let image = presentationSnap(inspector.view) { frames.append(image) }
             await settle(0.016)
@@ -651,7 +659,7 @@ enum InspectorLab {
         let chipEnd = chipXs.last ?? 0
         let chipMid = chipXs.contains { $0 > 2 && $0 < chipEnd - 2 }
         check("motion-rail-glide", chipMid && chipTravel > 20,
-              String(format: "the rail chip glided %.0f pt, %d samples mid-flight", chipTravel, chipXs.filter { $0 > 2 && $0 < chipEnd - 2 }.count))
+              String(format: "the switcher chip glided %.0f pt, %d samples mid-flight", chipTravel, chipXs.filter { $0 > 2 && $0 < chipEnd - 2 }.count))
 
         // Growth: Click Sound on reveals its rows; the section grows on the bounce.
         await settle(0.4)

@@ -11,7 +11,8 @@ set -euo pipefail
 # and back. Checks the layout each size class calls for, that every region
 # stays inside and clear of the others, History's matching style, and that
 # the project, selection, undo stack and playback all survive.
-# `--inject ignores-size-class` / `ignores-crease` / `snap-panel` must make it FAIL.
+# `--inject ignores-size-class` / `ignores-crease` / `snap-panel` / `panel-tab-row` /
+# `panel-over-toolbar` / `panel-uncapped` / `drag-grabber-only` must make it FAIL.
 #
 # Env: DEVICE=<simulator udid> (an iPad: the inner display needs the width).
 

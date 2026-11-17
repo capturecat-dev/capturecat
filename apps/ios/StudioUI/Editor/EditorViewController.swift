@@ -16,9 +16,10 @@ import UIKit
 ///     │ +  ✂  🎨 ↖ 📷 🔊 ✨ … │ the tool bar (`EditorToolBar`)
 ///     └──────────────────────┘
 ///
-/// A pane tool opens the inspector's pane as a PANEL sliding up from the
-/// bottom over the timeline and tool bar — never the preview (house growth
-/// bounce at the pushed edge; a cross-fade under Reduce Motion). Selecting
+/// A pane tool opens the inspector's pane as a PANEL growing up from
+/// the tool bar (which stays) — only that pane, fitted and capped so the
+/// preview is never covered; the timeline's lanes compress above it (house
+/// growth bounce at the pushed edge; a cross-fade under Reduce Motion). Selecting
 /// something swaps the tools for its CONTEXT keys (split, duplicate, delete,
 /// speed, its menu, Adjust = its pane). A phone on its side keeps the stage
 /// and timeline in a column with the tool bar as a rail on the trailing edge;
@@ -129,9 +130,14 @@ final class EditorViewController: UIViewController {
     private var inspectorColumn: [NSLayoutConstraint] = []
     private var inspectorBottom: [NSLayoutConstraint] = []
     private var inspectorSide: [NSLayoutConstraint] = []
-    /// Bottom panel: the panel's top relative to the screen's bottom edge
-    /// (0 = closed, below the screen; negative = risen to the timeline).
-    private var panelTop: NSLayoutConstraint!
+    /// Bottom panel: its height (0 = closed). It sits on the tool bar and
+    /// grows UP (the pushed edge), fitted to its pane, capped by `panelCap`.
+    private var panelHeight: NSLayoutConstraint!
+    /// The height the panel is heading for (an animation in flight included).
+    private var panelTarget: CGFloat = 0
+    /// Bottom panel: the timeline's lanes end above the panel (they
+    /// compress and scroll; its container — and so the stage — never moves).
+    private var timelineSquash: NSLayoutConstraint!
     private var expandedSet: [NSLayoutConstraint] = []
     private var lastShowCamera: Bool
     private var lastTrim: (TimeInterval, TimeInterval)
@@ -350,6 +356,16 @@ final class EditorViewController: UIViewController {
         ] + noColumn()
     }
 
+    /// The bottom panel's bottom: on the tool bar's top.
+    private func panelBottom(_ v: UIView) -> NSLayoutConstraint {
+        #if DEBUG
+        if Self.probePanelDefect == .overToolBar {
+            return v.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        }
+        #endif
+        return v.bottomAnchor.constraint(equalTo: toolBar.topAnchor, constant: -CCSpace.xs)
+    }
+
     /// Constrains the inspector's view for each presentation (called once
     /// the inspector is installed).
     private func constrainInspector() {
@@ -362,16 +378,20 @@ final class EditorViewController: UIViewController {
             v.topAnchor.constraint(equalTo: inspectorContainer.topAnchor),
             v.bottomAnchor.constraint(equalTo: inspectorContainer.bottomAnchor),
         ]
-        // The bottom panel runs past the screen's bottom edge (no band under
-        // it, its bottom corners out of sight); its top rises to the
-        // timeline's top — never over the preview.
-        panelTop = v.topAnchor.constraint(equalTo: root.bottomAnchor)
+        // The bottom panel sits directly ABOVE the tool bar (which stays on
+        // screen) and grows up from it; the timeline's lanes give way above
+        // it — never the preview.
+        panelHeight = v.heightAnchor.constraint(equalToConstant: 0)
         inspectorBottom = [
-            v.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            v.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            v.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: StudioInspectorController.sheetOverhang),
-            panelTop,
+            v.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: CCSpace.sm),
+            v.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.sm),
+            panelBottom(v),
+            panelHeight,
         ]
+        timelineSquash = timeline.view.bottomAnchor.constraint(lessThanOrEqualTo: v.topAnchor, constant: -CCSpace.xs)
+        // Strong but not required: at the TALL detent the lanes shrink to nothing.
+        timelineSquash.priority = .init(999)
+        timeline.view.heightAnchor.constraint(greaterThanOrEqualToConstant: 0).isActive = true
         // The side panel rides the slot's leading (pushed) edge, its far
         // side tucked under the rail while the slot is narrow.
         inspectorSide = [
@@ -470,9 +490,10 @@ final class EditorViewController: UIViewController {
             header.titleCenterOffset = 0
         }
         timelineHeightChanged(timeline.intrinsicPanelHeight)
-        if isPanelOpen, inspector.presentation == .bottomPanel, !CCMotion.isAnimating(panelTop), !panning {
-            let target = openPanelTop()
-            if abs(panelTop.constant - target) > 0.5 { panelTop.constant = target }
+        if isPanelOpen, inspector.presentation == .bottomPanel, !CCMotion.isAnimating(panelHeight), !panning {
+            let target = detentHeight(panelDetent)
+            panelTarget = target
+            if abs(panelHeight.constant - target) > 0.5 { panelHeight.constant = target }
         }
     }
 
@@ -488,13 +509,16 @@ final class EditorViewController: UIViewController {
         let wasOpen = isPanelOpen
         NSLayoutConstraint.deactivate(inspectorColumn + inspectorBottom + inspectorSide)
         inspector.setPresentation(presentation)
+        #if DEBUG
+        if Self.probePanelDefect == .tabRow, presentation != .column { inspector.probeShowTabRow() }
+        #endif
         switch presentation {
         case .column: NSLayoutConstraint.activate(inspectorColumn)
         case .bottomPanel: NSLayoutConstraint.activate(inspectorBottom)
         case .sidePanel: NSLayoutConstraint.activate(inspectorSide)
         }
-        // Z-order: the bottom panel covers the tool bar; the side panel
-        // slides out from under the rail.
+        // Z-order: the side panel slides out from under the rail; the
+        // bottom panel never overlaps the tool bar (it sits above it).
         if presentation == .sidePanel {
             view.insertSubview(inspector.view, belowSubview: toolBar)
         } else {
@@ -505,7 +529,9 @@ final class EditorViewController: UIViewController {
         toolBar.docked = arrangement == .stacked || arrangement == .landscapeCompact
         toolBar.showsPaneTools = presentation != .column
         isPanelOpen = false
-        panelTop?.constant = 0
+        panelHeight?.constant = 0
+        panelTarget = 0
+        updateTimelineSquash()
         sideSlotWidth.constant = 0
         inspector.view.isHidden = presentation != .column
         inspector.view.accessibilityElementsHidden = false
@@ -520,46 +546,94 @@ final class EditorViewController: UIViewController {
 
     // MARK: - Panels (portrait and landscape phone)
 
-    /// The bottom panel's top when open: the timeline's top (the panel
-    /// covers the timeline and the tool bar, never the stage or transport).
-    private func openPanelTop() -> CGFloat {
-        let top = timelineContainer.frame.minY
-        return top - view.bounds.height
+    /// The most of the screen's height a bottom panel takes.
+    static let panelMaxShare: CGFloat = 0.40
+    /// What a COMPACT bottom panel always leaves of the timeline above it: the
+    /// ruler and the whole VIDEO lane (its label unclipped) under the playhead.
+    static let minTimelineStrip: CGFloat = StudioTimelineStyle.canvasTopInset + 22 + 48 + 4  // ruler + the whole VIDEO lane
+
+    /// The bottom panel's height cap: ~40% of the screen, and never higher
+    /// than leaves `minTimelineStrip` of the timeline above it — so the
+    /// preview and transport are never covered (overshoot included: the
+    /// strip is wider than the growth bounce's overshoot).
+    func panelCap() -> CGFloat {
+        let toolTop = toolBar.frame.minY
+        let floor = timelineContainer.frame.minY + Self.minTimelineStrip
+        return max(0, min(view.bounds.height * Self.panelMaxShare, toolTop - CCSpace.xs - CCSpace.xs - floor))
+    }
+
+    /// The bottom panel's height for the shown pane: it fits the pane, up
+    /// to the cap (beyond it the pane scrolls inside).
+    func fittedPanelHeight() -> CGFloat {
+        #if DEBUG
+        if Self.probePanelDefect == .uncapped { return inspector.panelFittingHeight }
+        #endif
+        return min(inspector.panelFittingHeight, panelCap()).rounded()
     }
 
     #if DEBUG
     /// Probe seam — INJECTED DEFECT: panels snap open (no growth).
     static var probeSnapPanel = false
+    /// Probe seams — INJECTED DEFECTS for the panel gates: the pane tabs
+    /// repeated inside the panel; the panel over the tool bar; no cap.
+    enum PanelDefect { case none, tabRow, overToolBar, uncapped }
+    static var probePanelDefect = PanelDefect.none
+    /// The last element a panel change moved VoiceOver to (the gates read it).
+    private(set) var probeLastAnnounced: UIView?
     #endif
 
-    /// Opens `tab`'s pane: the bottom panel rises to the timeline's top
-    /// (portrait) or the side panel pushes the column narrower (landscape);
-    /// with an inspector column it just switches the pane.
+    /// Bottom panel: the timeline's lanes end above it.
+    private func updateTimelineSquash() {
+        timelineSquash?.isActive = inspector.presentation == .bottomPanel && !isPreviewExpanded
+    }
+
+    private func setPanelHeight(_ target: CGFloat, animated: Bool, curve: CCMotion.Curve = .bounce,
+                                duration: TimeInterval = 0.42, completion: (() -> Void)? = nil) {
+        panelTarget = target
+        if animated {
+            CCMotion.animate(panelHeight, to: target, in: view, duration: duration, curve: curve, completion: completion)
+        } else {
+            panelHeight.constant = target
+            view.layoutIfNeeded()
+            completion?()
+        }
+    }
+
+    /// Opens `tab`'s pane in the panel: the bottom panel grows up from the
+    /// tool bar to fit it (portrait) or the side panel pushes the column
+    /// narrower (landscape). Already open on another pane: the content
+    /// switches in place (the inspector's cross-fade + rise) and the panel
+    /// resizes to it on the growth curve. With an inspector column it just
+    /// switches the pane.
     func openPanel(_ tab: InspectorTab, animated: Bool = true) {
         guard !isPreviewingVersion else { return }
         selection.inspectorTab = tab
         let presentation = inspector.presentation
         guard presentation != .column else { return }
         canvas.endInlineEdit(commit: true)
-        toolBar.setOpenPane(tab)
         let already = isPanelOpen
-        isPanelOpen = true
-        inspector.view.isHidden = false
-        view.layoutIfNeeded()
-        var animate = animated && view.window != nil && !already
+        var animate = animated && view.window != nil
         #if DEBUG
         if Self.probeSnapPanel { animate = false }
         #endif
+        inspector.view.isHidden = false
+        // The pane now (not on the observation's next turn): its height
+        // sizes the panel. A switch cross-fades the content and resizes the
+        // panel (`panelContentChanged`); a fresh open grows instead.
+        inspector.show(tab, animated: animate && already)
+        toolBar.setOpenPane(tab, animated: animated)
+        // Lay out while still closed (so the layout pass doesn't snap the
+        // panel to its target), then grow it.
+        view.layoutIfNeeded()
+        isPanelOpen = true
         switch presentation {
         case .bottomPanel:
-            let target = openPanelTop()
-            if animate {
-                CCMotion.animate(panelTop, to: target, in: view, duration: 0.42, curve: .bounce)
-            } else {
-                panelTop.constant = target
-                view.layoutIfNeeded()
-            }
+            // A fresh open lands COMPACT; a switch keeps the detent.
+            setDetent(already ? panelDetent : .compact)
+            let target = detentHeight(panelDetent)
+            if abs(target - panelTarget) > 0.5 || !already { setPanelHeight(target, animated: animate) }
         case .sidePanel:
+            guard !already else { break }
             let target = Self.sidePanelWidth + CCSpace.xs + CCSpace.sm
             if animate {
                 CCMotion.animate(sideSlotWidth, to: target, in: view, duration: 0.42, curve: .bounce)
@@ -570,15 +644,17 @@ final class EditorViewController: UIViewController {
         case .column:
             break
         }
-        hideCoveredFromVoiceOver()
-        if !already { UIAccessibility.post(notification: .screenChanged, argument: inspector.closeButton) }
+        // VoiceOver lands on the panel's title (its pane's name, a header):
+        // the panel is announced on open and on every switch.
+        announce(inspector.panelTitle)
     }
 
-    /// Back to the tool bar.
+    /// Closes the panel, back to the tool bar alone.
     func closePanel(animated: Bool = true) {
         guard isPanelOpen else { return }
         isPanelOpen = false
-        toolBar.setOpenPane(nil)
+        let closedTool = toolBar.key(for: .pane(selection.inspectorTab)) ?? toolBar.key(for: .adjust)
+        toolBar.setOpenPane(nil, animated: animated)
         let animate = animated && view.window != nil
         let done = { [weak self] in
             guard let self, !self.isPanelOpen, self.inspector.presentation != .column else { return }
@@ -586,13 +662,9 @@ final class EditorViewController: UIViewController {
         }
         switch inspector.presentation {
         case .bottomPanel:
-            if animate {
-                CCMotion.animate(panelTop, to: 0, in: view, duration: 0.34, curve: .settle, completion: done)
-            } else {
-                panelTop.constant = 0
-                view.layoutIfNeeded()
-                done()
-            }
+            panelDetent = .compact
+            timelineContainer.accessibilityElementsHidden = false
+            setPanelHeight(0, animated: animate, curve: .settle, duration: 0.3, completion: done)
         case .sidePanel:
             if animate {
                 CCMotion.animate(sideSlotWidth, to: 0, in: view, duration: 0.34, curve: .settle, completion: done)
@@ -604,44 +676,165 @@ final class EditorViewController: UIViewController {
         case .column:
             break
         }
-        hideCoveredFromVoiceOver()
-        UIAccessibility.post(notification: .screenChanged, argument: toolBar)
+        // Back on the tool that opened it.
+        announce(closedTool ?? toolBar)
     }
 
-    /// The open bottom panel covers the timeline and the tool bar: VoiceOver
-    /// skips them (the side panel covers nothing).
-    private func hideCoveredFromVoiceOver() {
-        let covered = isPanelOpen && inspector.presentation == .bottomPanel
-        timelineContainer.accessibilityElementsHidden = covered
-        toolBar.accessibilityElementsHidden = covered
-        UIAccessibility.post(notification: .layoutChanged, argument: nil)
+    private func announce(_ element: UIView) {
+        #if DEBUG
+        probeLastAnnounced = element
+        #endif
+        UIAccessibility.post(notification: .layoutChanged, argument: element)
+    }
+
+    /// The shown pane changed (a selection moved it) or grew: the tool bar
+    /// marks it, the bottom panel resizes — on the growth curve for a new
+    /// pane, frame by frame with a pane's own growth.
+    private func panelContentChanged(animated: Bool) {
+        guard isPanelOpen, inspector.presentation != .column else { return }
+        // A new pane is a discrete change: the chip always glides to it.
+        if toolBar.openPane != selection.inspectorTab { toolBar.setOpenPane(selection.inspectorTab, animated: true) }
+        guard inspector.presentation == .bottomPanel, !panning else { return }
+        let target = detentHeight(panelDetent)
+        guard abs(target - panelTarget) > 0.5 else { return }
+        var animate = animated && view.window != nil
+        #if DEBUG
+        if Self.probeSnapPanel { animate = false }
+        #endif
+        if animate || CCMotion.isAnimating(panelHeight) {
+            setPanelHeight(target, animated: animate || view.window != nil)
+        } else {
+            panelTarget = target
+            panelHeight.constant = target
+            view.setNeedsLayout()
+        }
+    }
+
+    // MARK: Detents (bottom panel)
+
+    /// The bottom panel's resting heights: COMPACT fits its pane (capped,
+    /// `fittedPanelHeight`); TALL reaches up to just under the transport row
+    /// — the preview and transport stay visible, the timeline gives way.
+    enum PanelDetent { case compact, tall }
+    private(set) var panelDetent = PanelDetent.compact
+
+    /// TALL: the panel's top on the timeline's top (just under the transport).
+    func tallPanelHeight() -> CGFloat {
+        max(0, toolBar.frame.minY - CCSpace.xs - timelineContainer.frame.minY).rounded(.down)
+    }
+
+    /// TALL is a detent only when it is meaningfully taller than COMPACT.
+    var hasTallDetent: Bool { tallPanelHeight() > fittedPanelHeight() + 12 }
+
+    func detentHeight(_ detent: PanelDetent) -> CGFloat {
+        detent == .tall && hasTallDetent ? tallPanelHeight() : fittedPanelHeight()
+    }
+
+    /// How far a drag may stretch the panel past TALL: never over the stage.
+    private func rubberBandRoom() -> CGFloat {
+        max(0, toolBar.frame.minY - CCSpace.xs - (stageCard.frame.maxY + CCSpace.xs) - tallPanelHeight())
+    }
+
+    private func setDetent(_ detent: PanelDetent) {
+        panelDetent = detent
+        // At TALL the lanes are gone: VoiceOver skips the empty timeline.
+        timelineContainer.accessibilityElementsHidden = isPanelOpen && detent == .tall && hasTallDetent
+        inspector.setPanelExpanded(detent == .tall && hasTallDetent, canExpand: hasTallDetent)
+    }
+
+    /// Moves the open bottom panel to `detent` (growth bounce to COMPACT;
+    /// the settle curve to TALL, so no overshoot reaches the preview).
+    func setPanelDetent(_ detent: PanelDetent, animated: Bool = true) {
+        guard isPanelOpen, inspector.presentation == .bottomPanel else { return }
+        setDetent(detent)
+        var animate = animated && view.window != nil
+        #if DEBUG
+        if Self.probeSnapPanel { animate = false }
+        #endif
+        let target = detentHeight(detent)
+        let curve: CCMotion.Curve = detent == .tall ? .settle : .bounce
+        setPanelHeight(target, animated: animate, curve: curve, duration: detent == .tall ? 0.36 : 0.42)
+        announce(inspector.panelTitle)
+    }
+
+    /// The pill / VoiceOver's Expand-Collapse.
+    func togglePanelDetent() {
+        setPanelDetent(panelDetent == .tall ? .compact : .tall)
     }
 
     private var toolBarRefreshQueued = false
     private var panning = false
     private var panStart: CGFloat = 0
+    /// A flick past this speed (pt/s) picks the next detent however short the travel.
+    static let flickVelocity: CGFloat = 500
 
-    /// A drag on the bottom panel's grabber: the panel follows the finger
-    /// down (never up past the timeline); released past a third, it closes.
-    private func panPanel(_ phase: UIGestureRecognizer.State, _ dy: CGFloat) {
-        guard isPanelOpen, inspector.presentation == .bottomPanel else { return }
-        let open = openPanelTop()
+    /// The panel's drag. Bottom panel: it follows the finger 1:1 (rubber-
+    /// banding past TALL and never over the stage), then snaps — a flick to
+    /// the next detent in its direction (below COMPACT = closed), otherwise
+    /// to the nearest. Side panel: a swipe toward the rail closes it.
+    private func panPanel(_ phase: UIGestureRecognizer.State, _ translation: CGPoint, _ velocity: CGPoint) {
+        guard isPanelOpen else { return }
+        if inspector.presentation == .sidePanel {
+            let rtl = view.effectiveUserInterfaceLayoutDirection == .rightToLeft
+            let toward = rtl ? -translation.x : translation.x
+            if phase == .ended, toward > 60 || (rtl ? -velocity.x : velocity.x) > Self.flickVelocity { closePanel() }
+            return
+        }
+        guard inspector.presentation == .bottomPanel else { return }
         switch phase {
         case .began:
             panning = true
-            panStart = panelTop.constant
+            panStart = panelHeight.constant
+            panelTarget = panStart
         case .changed:
-            panelTop.constant = min(0, max(open, panStart + dy))
+            let raw = panStart - translation.y
+            let tall = max(tallPanelHeight(), fittedPanelHeight())
+            var h = max(0, raw)
+            if raw > tall {
+                // Rubber band: ever-stiffer, capped short of the stage.
+                let room = rubberBandRoom()
+                let over = raw - tall
+                h = tall + (room > 0 ? room * (1 - 1 / (over * 0.5 / room + 1)) : 0)
+            }
+            panelHeight.constant = h
             view.layoutIfNeeded()
         default:
             panning = false
-            if panelTop.constant - open > -open / 3 {
-                closePanel()
+            let h = panelHeight.constant
+            var stops: [(CGFloat, PanelDetent?)] = [(0, nil), (fittedPanelHeight(), .compact)]
+            if hasTallDetent { stops.append((tallPanelHeight(), .tall)) }
+            let pick: (CGFloat, PanelDetent?)
+            if velocity.y < -Self.flickVelocity {
+                pick = stops.first { $0.0 > h + 1 } ?? stops.last!
+            } else if velocity.y > Self.flickVelocity {
+                pick = stops.last { $0.0 < h - 1 } ?? stops.first!
             } else {
-                CCMotion.animate(panelTop, to: open, in: view, duration: 0.3, curve: .settle)
+                pick = stops.min { abs($0.0 - h) < abs($1.0 - h) }!
             }
+            if let detent = pick.1 { setPanelDetent(detent) } else { closePanel() }
         }
     }
+
+    #if DEBUG
+    /// Probe: a finger's drag on the panel — `dy` points (down +) in `steps`
+    /// frames at `velocity` pt/s on release.
+    func probeDragPanel(_ dy: CGFloat, velocity: CGFloat = 0) {
+        panPanel(.began, .zero, .zero)
+        panPanel(.changed, CGPoint(x: 0, y: dy), CGPoint(x: 0, y: velocity))
+        panPanel(.ended, CGPoint(x: 0, y: dy), CGPoint(x: 0, y: velocity))
+    }
+
+    /// Probe: the drag's 1:1 follow — begins, moves `dy`, reports the height,
+    /// then cancels back without snapping.
+    func probeFollow(_ dy: CGFloat) -> (start: CGFloat, now: CGFloat) {
+        panPanel(.began, .zero, .zero)
+        let start = panelHeight.constant
+        panPanel(.changed, CGPoint(x: 0, y: dy), .zero)
+        return (start, panelHeight.constant)
+    }
+
+    func probeSwipePanel(_ dy: CGFloat) { probeDragPanel(dy, velocity: 900) }
+    #endif
 
     // MARK: - Full-screen preview
 
@@ -651,6 +844,7 @@ final class EditorViewController: UIViewController {
         guard expanded != isPreviewExpanded, crease == nil || !expanded else { return }
         if expanded { closePanel(animated: false) }
         isPreviewExpanded = expanded
+        updateTimelineSquash()
         transport.setExpanded(expanded)
         let change = { [self] in
             if let activeArrangement { NSLayoutConstraint.deactivate(constraintSets[activeArrangement] ?? []) }
@@ -684,7 +878,13 @@ final class EditorViewController: UIViewController {
             }
         }
         inspector.onClosePanel = { [weak self] in self?.closePanel() }
-        inspector.onPanelPan = { [weak self] phase, dy in self?.panPanel(phase, dy) }
+        inspector.onPanelPan = { [weak self] phase, translation, velocity in self?.panPanel(phase, translation, velocity) }
+        inspector.onToggleDetent = { [weak self] in self?.togglePanelDetent() }
+        inspector.panelCanGrow = { [weak self] in
+            guard let self else { return false }
+            return self.panelDetent == .compact && self.hasTallDetent
+        }
+        inspector.onPanelContentChange = { [weak self] animated in self?.panelContentChanged(animated: animated) }
     }
 
     /// A tool bar key: the timeline's commands, the panes, History.
@@ -816,11 +1016,17 @@ final class EditorViewController: UIViewController {
         let v = timeline.view!
         v.translatesAutoresizingMaskIntoConstraints = false
         timelineContainer.addSubview(v)
+        // The lanes fill the container unless a bottom panel above the tool
+        // bar needs the room (`timelineSquash`): then they compress and
+        // scroll, the container (and the stage above it) staying put.
+        let fill = v.bottomAnchor.constraint(equalTo: timelineContainer.bottomAnchor)
+        fill.priority = .init(998)
         NSLayoutConstraint.activate([
             v.topAnchor.constraint(equalTo: timelineContainer.topAnchor),
             v.leadingAnchor.constraint(equalTo: timelineContainer.leadingAnchor),
             v.trailingAnchor.constraint(equalTo: timelineContainer.trailingAnchor),
-            v.bottomAnchor.constraint(equalTo: timelineContainer.bottomAnchor),
+            v.bottomAnchor.constraint(lessThanOrEqualTo: timelineContainer.bottomAnchor),
+            fill,
         ])
         timeline.didMove(toParent: self)
         // A fresh text / callout opens the in-place label editor, and Add
