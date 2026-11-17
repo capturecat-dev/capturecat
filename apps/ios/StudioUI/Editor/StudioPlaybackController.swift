@@ -23,7 +23,9 @@ final class StudioPlaybackController {
     private(set) var player: AVPlayer?
     /// The playhead, SOURCE seconds.
     var currentTime: Double = 0
-    var isPlaying = false
+    var isPlaying = false {
+        didSet { if isPlaying != oldValue { displayTicks?.isPaused = !isPlaying } }
+    }
     private(set) var isScrubbing = false
     private(set) var videoSize: CGSize = .zero
     private(set) var cursorEvents: [CursorEvent] = []
@@ -46,6 +48,12 @@ final class StudioPlaybackController {
     @ObservationIgnored private var rawCursorEvents: [CursorEvent] = []
     @ObservationIgnored private var appliedSmoothing: String?
     @ObservationIgnored private var timeObserverToken: Any?
+    /// While playing, the playhead advances once per DISPLAY refresh (120 Hz on
+    /// ProMotion), so the stage's camera, cursor and overlays move at the
+    /// screen's rate; the periodic observer (60 Hz, not vsync-aligned) only
+    /// covers the paused / seeking states.
+    @ObservationIgnored private var displayTicks: CADisplayLink?
+    @ObservationIgnored private var displayTickTarget: DisplayTickTarget?
     @ObservationIgnored private var endObserver: NSObjectProtocol?
     @ObservationIgnored private var pendingPlaybackStartTime: TimeInterval?
     @ObservationIgnored private var pendingScrubTime: TimeInterval?
@@ -128,6 +136,9 @@ final class StudioPlaybackController {
     func teardown() {
         if let token = timeObserverToken { player?.removeTimeObserver(token) }
         timeObserverToken = nil
+        displayTicks?.invalidate()
+        displayTicks = nil
+        displayTickTarget = nil
         if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
         endObserver = nil
         player?.pause()
@@ -160,56 +171,24 @@ final class StudioPlaybackController {
                 // Paused: editor operations publish their own time (a late
                 // decoder timestamp would nudge the playhead after a seek).
                 guard self.isPlaying else { return }
-                let t = time.seconds
-                let previous = self.currentTime
-                self.currentTime = t
-                self.counters.ticks += 1
-
-                // One tick per DISCRETE click crossed (edge-deduped like the ripple).
-                if project.settings.clickSoundEnabled, t > previous, t - previous < 0.35 {
-                    let crossed = ClickRippleOverlay.discreteClickTimes(
-                        from: self.cursorEvents, coordinateSize: self.cursorCoordinateSize
-                    ).contains { $0 > previous && $0 <= t }
-                    if crossed {
-                        ClickSoundPlayer.shared.play(volume: project.settings.clickSoundVolume,
-                                                     style: project.settings.clickSoundStyle)
-                        self.counters.clickSounds += 1
-                    }
-                }
-                if project.settings.keySoundEnabled, t > previous, t - previous < 0.35 {
-                    let crossedKeys = self.keystrokeEvents.lazy
-                        .filter { $0.category != .scroll }
-                        .filter { $0.timestamp > previous && $0.timestamp <= t }
-                        .prefix(3)
-                    for key in crossedKeys {
-                        KeySoundPlayer.shared.play(timestamp: key.timestamp, category: key.category,
-                                                   volume: project.settings.keySoundVolume,
-                                                   style: project.settings.keySoundStyle)
-                        self.counters.keySounds += 1
-                    }
-                }
-                // Live speed: player.rate follows the speed region under the playhead.
-                if let avPlayer, avPlayer.timeControlStatus != .paused {
-                    let targetRate = Float(Self.activeSpeed(for: project, at: t))
-                    if abs(avPlayer.rate - targetRate) > 0.01 {
-                        avPlayer.rate = targetRate
-                        self.counters.rateChanges += 1
-                        if let cam = self.cameraPlayer, cam.rate > 0 { cam.rate = targetRate }
-                    }
-                }
-                // Stop at the trim end, back to the trim start.
-                if project.effectiveTrimEnd > 0, t >= project.effectiveTrimEnd {
-                    self.isPlaying = false
-                    self.currentTime = project.effectiveTrimStart
-                    avPlayer?.pause()
-                    avPlayer?.seek(to: CMTime(seconds: project.effectiveTrimStart, preferredTimescale: 600),
-                                   toleranceBefore: .zero, toleranceAfter: .zero)
-                    self.cameraPlayer?.pause()
-                    self.counters.trimEndStops += 1
-                }
-                self.syncCameraIfNeeded(project: project)
+                // Playing: the display link advances the playhead.
+                guard self.displayTicks == nil else { return }
+                self.advance(to: time.seconds, project: project, player: avPlayer)
             }
         }
+        let target = DisplayTickTarget()
+        target.tick = { [weak self, weak avPlayer] in
+            guard let self, let avPlayer, self.isPlaying,
+                  self.pendingPlaybackStartTime == nil, self.pendingScrubTime == nil else { return }
+            self.advance(to: avPlayer.currentTime().seconds, project: project, player: avPlayer)
+        }
+        let link = CADisplayLink(target: target, selector: #selector(DisplayTickTarget.step))
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        link.isPaused = !isPlaying
+        link.add(to: .main, forMode: .common)
+        displayTicks = link
+        displayTickTarget = target
+
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime, object: avPlayer.currentItem, queue: .main
         ) { [weak self, weak avPlayer] _ in
@@ -222,6 +201,58 @@ final class StudioPlaybackController {
                 self.cameraPlayer?.pause()
             }
         }
+    }
+
+    /// One playhead step while playing — from the display link (or the
+    /// periodic observer when no link is installed).
+    private func advance(to t: Double, project: Project, player avPlayer: AVPlayer?) {
+        let previous = currentTime
+        currentTime = t
+        counters.ticks += 1
+
+        // One tick per DISCRETE click crossed (edge-deduped like the ripple).
+        if project.settings.clickSoundEnabled, t > previous, t - previous < 0.35 {
+            let crossed = ClickRippleOverlay.discreteClickTimes(
+                from: cursorEvents, coordinateSize: cursorCoordinateSize
+            ).contains { $0 > previous && $0 <= t }
+            if crossed {
+                ClickSoundPlayer.shared.play(volume: project.settings.clickSoundVolume,
+                                             style: project.settings.clickSoundStyle)
+                counters.clickSounds += 1
+            }
+        }
+        if project.settings.keySoundEnabled, t > previous, t - previous < 0.35 {
+            let crossedKeys = keystrokeEvents.lazy
+                .filter { $0.category != .scroll }
+                .filter { $0.timestamp > previous && $0.timestamp <= t }
+                .prefix(3)
+            for key in crossedKeys {
+                KeySoundPlayer.shared.play(timestamp: key.timestamp, category: key.category,
+                                           volume: project.settings.keySoundVolume,
+                                           style: project.settings.keySoundStyle)
+                counters.keySounds += 1
+            }
+        }
+        // Live speed: player.rate follows the speed region under the playhead.
+        if let avPlayer, avPlayer.timeControlStatus != .paused {
+            let targetRate = Float(Self.activeSpeed(for: project, at: t))
+            if abs(avPlayer.rate - targetRate) > 0.01 {
+                avPlayer.rate = targetRate
+                counters.rateChanges += 1
+                if let cam = cameraPlayer, cam.rate > 0 { cam.rate = targetRate }
+            }
+        }
+        // Stop at the trim end, back to the trim start.
+        if project.effectiveTrimEnd > 0, t >= project.effectiveTrimEnd {
+            isPlaying = false
+            currentTime = project.effectiveTrimStart
+            avPlayer?.pause()
+            avPlayer?.seek(to: CMTime(seconds: project.effectiveTrimStart, preferredTimescale: 600),
+                           toleranceBefore: .zero, toleranceAfter: .zero)
+            cameraPlayer?.pause()
+            counters.trimEndStops += 1
+        }
+        syncCameraIfNeeded(project: project)
     }
 
     /// A paused seek on a fresh item may not hand the video output a frame
@@ -536,5 +567,14 @@ final class StudioPlaybackController {
         guard let result = try? await generator.image(at: CMTime(seconds: max(0, time), preferredTimescale: 600))
         else { return nil }
         return UIImage(cgImage: result.image, scale: 1, orientation: .up)
+    }
+}
+
+/// The display link's target (CADisplayLink retains its target; the
+/// controller owns this, not the other way round).
+private final class DisplayTickTarget: NSObject {
+    var tick: (@MainActor () -> Void)?
+    @objc func step(_ link: CADisplayLink) {
+        MainActor.assumeIsolated { tick?() }
     }
 }
