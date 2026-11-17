@@ -51,6 +51,57 @@ enum A11yLab {
     /// and add ⌘E to `keyboard(_:)`'s expected commands.
     static var extraScreens: [Screen] = []
 
+    /// The editor redesign's screens and the Export sheet, through the hook:
+    /// the tool bar's Add sheet, its context keys for a selection, a pane's
+    /// panel opened from its TOOL (the key's own action), the full-screen
+    /// preview, and the Export sheet opened from the header's Export key.
+    @available(iOS 26, *)
+    static func registerEditorScreens() {
+        guard !extraScreens.contains(where: { $0.name == "export" }) else { return }
+        extraScreens += [
+            Screen(name: "export", open: { editor in
+                editor.exportButton.sendActions(for: .touchUpInside)
+                await settle(1.0)
+                return nil
+            }, close: { editor in await dismissPresented(editor) }),
+            Screen(name: "tool-add-sheet", open: { editor in
+                editor.toolBar.key(for: .add)?.sendActions(for: .touchUpInside)
+                await settle(0.8)
+                return nil
+            }, close: dismissPresented),
+            Screen(name: "tool-context-keys", open: { editor in
+                editor.timeline.canvas.setOpenLane(.focus, animated: false)
+                editor.selection.selectedHighlightID = editor.project.highlightRegions.first?.id
+                await settle(0.6)
+                return nil
+            }, close: { editor in
+                editor.timeline.clearTimelineSelection()
+                editor.timeline.canvas.setOpenLane(nil, animated: false)
+                await settle(0.4)
+            }),
+            Screen(name: "tool-panel", open: { editor in
+                if let key = editor.toolBar.key(for: .pane(.camera)) {
+                    key.sendActions(for: .touchUpInside)
+                } else {
+                    editor.selection.inspectorTab = .camera
+                }
+                await settle(0.8)
+                return nil
+            }, close: { editor in
+                editor.closePanel(animated: false)
+                await settle(0.3)
+            }),
+            Screen(name: "preview-expanded", open: { editor in
+                editor.transport.expandButton.sendActions(for: .touchUpInside)
+                await settle(0.6)
+                return nil
+            }, close: { editor in
+                editor.setPreviewExpanded(false, animated: false)
+                await settle(0.4)
+            }),
+        ]
+    }
+
     static func start(_ arguments: [String], lab: LabViewController) -> Bool {
         guard let i = arguments.firstIndex(of: "--a11y"), arguments.indices.contains(i + 1) else { return false }
         out = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
@@ -97,6 +148,7 @@ enum A11yLab {
         check("ax-runtime", axLoaded, axLoaded
               ? "UIKit accessibility runtime loaded" : "UIKit accessibility runtime NOT loaded (run through ios-a11y.sh)")
         guard let editor = await openEditor(lab: lab) else { finish(); return }
+        registerEditorScreens()
 
         // An injected defect runs only the part it plants into (gate power, fast);
         // a clean run runs everything.
@@ -188,25 +240,25 @@ enum A11yLab {
         for tab in InspectorTab.allCases {
             list.append(Screen(name: "inspector-\(tab.rawValue.lowercased())", open: { editor in
                 editor.selection.inspectorTab = tab
-                if !editor.inspector.isRegular { editor.inspector.setSheetRaised(true, animated: false) }
+                editor.openPanel(editor.selection.inspectorTab, animated: false)
                 await settle(0.5)
                 return nil
             }, close: { editor in
-                if !editor.inspector.isRegular { editor.inspector.setSheetRaised(false, animated: false) }
+                editor.closePanel(animated: false)
                 await settle(0.2)
             }))
             // The same pane scrolled to its end: every control is measured
             // fully on screen at least once.
             list.append(Screen(name: "inspector-\(tab.rawValue.lowercased())-end", open: { editor in
                 editor.selection.inspectorTab = tab
-                if !editor.inspector.isRegular { editor.inspector.setSheetRaised(true, animated: false) }
+                editor.openPanel(editor.selection.inspectorTab, animated: false)
                 await settle(0.5)
                 scrollInspector(editor, toEnd: true)
                 await settle(0.3)
                 return nil
             }, close: { editor in
                 scrollInspector(editor, toEnd: false)
-                if !editor.inspector.isRegular { editor.inspector.setSheetRaised(false, animated: false) }
+                editor.closePanel(animated: false)
                 await settle(0.2)
             }))
         }
@@ -551,7 +603,15 @@ enum A11yLab {
         func center(_ t: StudioTimelineAccessibilityTarget) -> CGPoint { let f = frame(t); return CGPoint(x: f.midX, y: f.midY) }
         func leftEdge(_ t: StudioTimelineAccessibilityTarget) -> CGPoint { let f = frame(t); return CGPoint(x: f.minX + TimelineCanvasMetrics.handleWidth / 2, y: f.midY) }
         func rightEdge(_ t: StudioTimelineAccessibilityTarget) -> CGPoint { let f = frame(t); return CGPoint(x: f.maxX - TimelineCanvasMetrics.handleWidth / 2, y: f.midY) }
-        func key(_ label: String) { tl.probeKey(label)?.sendActions(for: .touchUpInside) }
+        // The touch path's keys are the EDITOR's tool bar (its context keys
+        // for the selection — the timeline's own toolbar is not in the editor).
+        func key(_ label: String) {
+            let names = ["Delete Selected": "Delete", "Split at Playhead": "Split"]
+            guard let k = editor.toolBar.probeKey(names[label] ?? label) else {
+                log("A11Y note: no tool bar key \(names[label] ?? label) (keys: \(editor.toolBar.probeTitles))"); return
+            }
+            k.sendActions(for: .touchUpInside)
+        }
         let A = StudioTimelineCanvasView.AccessibilityAction.self
         func open(_ lane: TimelineOverlayLane) async { canvas.setOpenLane(lane, animated: false); await settle(0.2) }
 
@@ -701,7 +761,7 @@ enum A11yLab {
 
     @available(iOS 26, *)
     private static func transport(_ editor: EditorViewController) async {
-        let scrubber = editor.transport.scrubber
+        let scrubber = editor.transport.playhead
         let before = editor.playback.currentTime
         scrubber.accessibilityIncrement()
         await settle(0.3)
@@ -860,6 +920,40 @@ enum A11yLab {
         HistoryPresentation.current(in: editor)?.dismiss()
         await settle(0.6)
         await dismissPresented(editor)
+
+        // h. A pane's panel opened from its tool — was the growth bounce.
+        if let key = editor.toolBar.key(for: .pane(.audio)) {
+            let host = editor.view.superview?.layer
+            let before = editor.inspector.view.convert(editor.inspector.view.bounds, to: nil)
+            key.sendActions(for: .touchUpInside)
+            await settle(0.06)
+            let s = sample(editor.view.layer, ghostIn: host)
+            let landed = editor.isPanelOpen && editor.inspector.view.convert(editor.inspector.view.bounds, to: nil) != before
+            midFlight("panel-open", s, needsGhost: true)
+            check("reduce-motion panel-lands", landed, "the panel is at its open place at once (no growth)")
+            await settle(0.5)
+            editor.closePanel(animated: false)
+            await settle(0.3)
+        } else {
+            log("A11Y note: no pane tools here (an inspector column) — the panel cross-fade is checked on iPhone")
+        }
+        // i. The tool bar's tools ⇄ context keys — a rise + fade.
+        editor.selection.selectedHighlightID = editor.project.highlightRegions.first?.id
+        await settle(0.02)
+        var stack: UIView?
+        for _ in 0..<40 {
+            if editor.toolBar.mode != .tools { stack = editor.toolBar.probeVisibleStack; break }
+            await settle(0.004)
+        }
+        if let stack {
+            await settle(0.06)
+            midFlight("toolbar-context", sample(stack.layer))
+        } else {
+            check("reduce-motion toolbar-context", false, "the context keys never came")
+        }
+        await settle(0.4)
+        clearSelection(editor)
+        await settle(0.3)
         _ = window
     }
 
@@ -930,8 +1024,13 @@ enum A11yLab {
               "⌫ \(deleted ? "deleted" : "kept") the selection, ⌘Z \(undone ? "restored it" : "did not restore"); a slider edit: ⌘Z \(sliderUndone ? "undid it" : "did not undo"), ⇧⌘Z \(redone ? "redid it" : "did not redo")")
         // Discoverability titles (the iPad ⌘ overlay lists them).
         let titled = commands().filter { !($0.discoverabilityTitle ?? $0.title).isEmpty }.count
-        check("key titles", titled >= 5, "\(titled) commands carry a title for the ⌘ overlay")
-        log("A11Y note: ⌘E (Export) — no Export entry in this base; add it with the Export sheet (EXPORT HOOK)")
+        check("key titles", titled >= 6, "\(titled) commands carry a title for the ⌘ overlay")
+        // ⌘E: the Export sheet (the header's Export key's twin).
+        let exported = await fire("e", .command)
+        await settle(0.6)
+        let sheetShown = editor.presentedViewController is StudioExportSheetController
+        check("key export", exported && sheetShown, "⌘E \(sheetShown ? "opened the Export sheet" : "did not open the Export sheet")")
+        await dismissPresented(editor)
 
         // Tab focus through the inspector (UIFocus): every control focusable,
         // in one focus group per pane.

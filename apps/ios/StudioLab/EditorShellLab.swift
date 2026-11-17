@@ -59,6 +59,7 @@ enum EditorShellLab {
         case "touch": EditorCanvasView.probeTouchOffset = 2
         case "playing-blur": EditorViewController.probeDefect = .blurWhilePlaying
         case "frozen-frames": EditorViewController.probeDefect = .frozenFrames
+        case "page-follow": StudioTimelineViewController.probePageFollow = true
         case nil: break
         case let other?: print("EDITOR-SHELL FAIL unknown --inject \(other)"); exit(1)
         }

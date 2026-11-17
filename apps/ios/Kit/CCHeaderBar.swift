@@ -49,8 +49,9 @@ final class CCHeaderBar: UIView {
         titleLabel.adjustsFontSizeToFitWidth = style == .large
         titleLabel.minimumScaleFactor = 0.75
         // Big Dynamic Type: a title that no longer fits wraps (the bar grows)
-        // instead of losing its end.
-        titleLabel.numberOfLines = style == .inline ? 2 : 1
+        // instead of losing its end (three lines: a long word breaks at the
+        // largest accessibility sizes on a phone).
+        titleLabel.numberOfLines = style == .inline ? 3 : 1
 
         backButton.accessibilityLabelOverride = "Back"
         backButton.isHidden = true

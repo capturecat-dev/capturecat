@@ -29,11 +29,29 @@ enum FoldProbe {
                         }
                     }
                 }
+                // `--open-pane <Tab>`: that pane's tool tapped (its panel open);
+                // `--select-zoom`: the first zoom block selected (the context keys).
+                let after = arguments.contains("--landscape") ? 3.5 : 2.0
+                if let i = arguments.firstIndex(of: "--open-pane"), arguments.indices.contains(i + 1),
+                   let tab = InspectorTab.allCases.first(where: { $0.rawValue.lowercased() == arguments[i + 1].lowercased() }) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + after) {
+                        if let key = editor.toolBar.key(for: .pane(tab)) { key.sendActions(for: .touchUpInside) } else { editor.openPanel(tab) }
+                    }
+                }
+                if arguments.contains("--select-zoom") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + after) {
+                        editor.timeline.canvas.setOpenLane(.effects, animated: true)
+                        editor.selection.selectedZoomID = editor.project.zoomRegions.first?.id
+                    }
+                }
+                if arguments.contains("--expanded") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + after) { editor.setPreviewExpanded(true) }
+                }
                 for _ in 0..<600 {
                     await LabTime.settle(1.0)
                     let root = editor.view!
                     func f(_ v: UIView) -> CGRect { root.convert(v.bounds, from: v).integral }
-                    print("FOLD-PROBE editor bounds=\(root.bounds.size) arrangement=\(editor.activeArrangement?.rawValue ?? "nil") crease=\(editor.crease.map { "\($0)" } ?? "none") stage=\(f(editor.stageCard)) timeline=\(f(editor.timelineContainer)) inspector=\(f(editor.inspectorContainer)) title=\(f(editor.header.probeTitleView))")
+                    print("FOLD-PROBE editor bounds=\(root.bounds.size) arrangement=\(editor.activeArrangement?.rawValue ?? "nil") crease=\(editor.crease.map { "\($0)" } ?? "none") stage=\(f(editor.stageCard)) timeline=\(f(editor.timelineContainer)) inspector=\(f(editor.inspectorContainer)) toolBar=\(f(editor.toolBar)) panel=\(editor.isPanelOpen ? f(editor.inspector.view) : .zero) title=\(f(editor.header.probeTitleView))")
                 }
             }
             exit(0)
