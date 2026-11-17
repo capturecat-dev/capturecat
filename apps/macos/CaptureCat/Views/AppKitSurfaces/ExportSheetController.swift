@@ -20,9 +20,9 @@ final class ExportSheetController: NSViewController {
 
     /// What the sheet produces. `.image` exists only for still captures in
     /// Image treatment; everything else is pinned to `.video` and sees the
-    /// sheet exactly as before.
-    private enum OutputKind { case image, video }
-    private var outputKind: OutputKind = .video
+    /// sheet exactly as before. The rules are shared with the iOS sheet
+    /// (`ExportSheetSpec`).
+    private var outputKind: ExportSheetSpec.OutputKind = .video
     /// The Image (PNG) | Video (MP4) chooser — built only for image-treatment
     /// stills.
     private var outputKindRow: NSView?
@@ -122,9 +122,9 @@ final class ExportSheetController: NSViewController {
         // Image (PNG) | Video (MP4) — still captures in Image treatment only.
         // With no timed effects the still IS an image, so PNG is the default;
         // any motion (zoom, curtain, …) defaults the sheet back to video.
-        if project.isImageCapture, project.stillTreatment == .image {
-            outputKind = project.hasTimedEffects ? .video : .image
-            outputKindChips.items = ["Image (PNG)", "Video (MP4)"]
+        if ExportSheetSpec.offersImage(project) {
+            outputKind = ExportSheetSpec.defaultOutputKind(for: project)
+            outputKindChips.items = ExportSheetSpec.typeTitles
             outputKindChips.onSelect = { [weak self] index in
                 self?.outputKind = index == 0 ? .image : .video
                 self?.applyOutputKindVisibility()
@@ -136,10 +136,10 @@ final class ExportSheetController: NSViewController {
         }
 
         // Format
-        formatMenu.items = ExportSettings.Format.allCases.map { .init(title: $0.rawValue) }
+        formatMenu.items = ExportSheetSpec.formats.map { .init(title: $0.rawValue) }
         formatMenu.onSelect = { [weak self] index in
             guard let self else { return }
-            self.exportSettings.format = ExportSettings.Format.allCases[index]
+            self.exportSettings.format = ExportSheetSpec.formats[index]
             // GIF: its own caption (GIFExportPolicy size / fps) and no share
             // rows — share links are video-only.
             self.refreshBitrateCaption()
@@ -148,10 +148,10 @@ final class ExportSheetController: NSViewController {
         formatRow = addRow("Format", control: formatMenu)
 
         // Resolution
-        resolutionMenu.items = ExportSettings.Resolution.allCases.map { .init(title: $0.rawValue) }
+        resolutionMenu.items = ExportSheetSpec.resolutions.map { .init(title: $0.rawValue) }
         resolutionMenu.onSelect = { [weak self] index in
             guard let self else { return }
-            self.exportSettings.resolution = ExportSettings.Resolution.allCases[index]
+            self.exportSettings.resolution = ExportSheetSpec.resolutions[index]
             self.dialog.animateContentChange {
                 self.customSizeRow.isHidden = self.exportSettings.resolution != .custom
             }
@@ -172,9 +172,9 @@ final class ExportSheetController: NSViewController {
         customHeightField.delegate = self
 
         // FPS
-        fpsMenu.items = [.init(title: "30 fps"), .init(title: "60 fps")]
+        fpsMenu.items = ExportSheetSpec.frameRates.map { .init(title: ExportSheetSpec.frameRateTitle($0)) }
         fpsMenu.onSelect = { [weak self] index in
-            self?.exportSettings.fps = index == 0 ? 30 : 60
+            self?.exportSettings.fps = ExportSheetSpec.frameRates[index]
             self?.refreshBitrateCaption()
         }
         fpsRow = addRow("Frame Rate", control: fpsMenu)
@@ -268,9 +268,9 @@ final class ExportSheetController: NSViewController {
     /// cannot be shared either: share links carry video only.
     private func applyOutputKindVisibility() {
         let isImage = outputKind == .image
-        let canShare = !isImage && exportSettings.format != .gif
+        let canShare = ExportSheetSpec.canShare(kind: outputKind, format: exportSettings.format)
         outputKindChips.selectedIndex = isImage ? 0 : 1
-        dialog.setTitle(isImage ? "Export Image" : "Export Video")
+        dialog.setTitle(ExportSheetSpec.title(for: outputKind))
         // One animated re-fit for the whole row set (no-ops pre-presentation).
         dialog.animateContentChange {
             self.formatRow?.isHidden = isImage
@@ -283,9 +283,9 @@ final class ExportSheetController: NSViewController {
     }
 
     private func applySettingsToControls() {
-        formatMenu.selectedIndex = ExportSettings.Format.allCases.firstIndex(of: exportSettings.format) ?? 0
-        resolutionMenu.selectedIndex = ExportSettings.Resolution.allCases.firstIndex(of: exportSettings.resolution) ?? 1
-        fpsMenu.selectedIndex = exportSettings.fps == 30 ? 0 : 1
+        formatMenu.selectedIndex = ExportSheetSpec.formats.firstIndex(of: exportSettings.format) ?? 0
+        resolutionMenu.selectedIndex = ExportSheetSpec.resolutions.firstIndex(of: exportSettings.resolution) ?? 1
+        fpsMenu.selectedIndex = ExportSheetSpec.frameRateIndex(exportSettings.fps)
         customWidthField.stringValue = String(exportSettings.customWidth)
         customHeightField.stringValue = String(exportSettings.customHeight)
         customSizeRow.isHidden = exportSettings.resolution != .custom
@@ -299,19 +299,7 @@ final class ExportSheetController: NSViewController {
     }
 
     private func refreshBitrateCaption() {
-        // The letterboxed preview canvas carries the resolved output aspect
-        // (Auto = source aspect) — use it as the source-size stand-in so the
-        // caption's WxH matches what the exporter will actually produce.
-        if exportSettings.format == .gif {
-            bitrateCaption.stringValue = GIFExportPolicy.caption(
-                outputSize: exportSettings.resolvedOutputSize(
-                    for: project.settings.aspectRatio, sourceSize: project.previewCanvasSize),
-                requestedFPS: exportSettings.fps)
-            return
-        }
-        bitrateCaption.stringValue = exportSettings.estimatedBitRateDescription(
-            for: project.settings.aspectRatio,
-            sourceSize: project.previewCanvasSize)
+        bitrateCaption.stringValue = ExportSheetSpec.caption(settings: exportSettings, project: project)
     }
 
     private func observeShareState() {
@@ -435,11 +423,7 @@ final class ExportSheetController: NSViewController {
             return
         }
         let panel = NSSavePanel()
-        let (contentType, ext): (UTType, String) = switch exportSettings.format {
-        case .mp4: (.mpeg4Movie, "mp4")
-        case .mov: (.quickTimeMovie, "mov")
-        case .gif: (.gif, "gif")
-        }
+        let (contentType, ext) = ExportSheetSpec.fileType(kind: .video, format: exportSettings.format)
         panel.allowedContentTypes = [contentType]
         panel.nameFieldStringValue = "\(project.name).\(ext)"
 

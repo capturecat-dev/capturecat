@@ -9,9 +9,22 @@
 #     the same frame count, size and per-frame delays; frames and still
 #     within mean 1/255, ≤ 1% px > 8.
 #  3. StudioLab saves the iOS GIF, PNG and a movie into the Simulator's photo
-#     library through the shipping ExportDelivery and reads each asset back,
-#     then presents the Files export picker and the share sheet
-#     (`--ios-delivery-test`). Photo access is granted with `simctl privacy`.
+#     library through the shipping ExportDelivery, reads each asset's ORIGINAL
+#     resource back out of Photos and checks it is the file that went in
+#     (type; GIF frames / size / delays; PNG size; movie size / duration /
+#     samples), then presents the Files export picker and the share sheet
+#     (`--ios-delivery-test`).
+#
+# Photo access (the read-back needs FULL access; the app asks for add-only):
+# granted before launch with `simctl privacy`, then the photos row in the
+# Simulator's TCC.db is stamped `auth_version = 2`. `simctl privacy grant
+# photos` writes auth_version 1, and on the iOS 26+ Simulator Photos treats
+# that grant as add-only and shows "… is requesting additional access to your
+# Photo Library" (Limit / Allow Full / Keep Add Only) on the first read — the
+# hang this gate used to time out on. A user's "Allow Full Access" tap writes
+# auth_version 2 (measured 2026-11-17: reason 2, version 2, flags 16; version
+# 2 alone is what clears the prompt). The test FAILS, never prompts, if the
+# grant is not in place (PHPhotoLibrary.authorizationStatus is checked first).
 #
 #   apps/ios/scripts/ios-export-delivery.sh
 #
@@ -40,20 +53,26 @@ xcrun simctl install "$DEVICE" "$OUT/dd/Build/Products/Debug-iphonesimulator/Stu
 xcrun simctl launch --console-pty --terminate-running-process "$DEVICE" so.capturecat.ios.studiolab \
   --ios-export-formats "$FIX" --out "$OUT/ios" --reference "$OUT/mac" > "$OUT/formats.log" 2>&1 || true
 grep -E '^EXPORT-FORMATS' "$OUT/formats.log" | sed 's/^/  iOS  /'
-# Both Photos services: add-only (what ExportDelivery asks for) and read
-# (so the test can fetch the saved assets back) — an ungranted service leaves
-# a system prompt waiting for a tap.
+# Both Photos services: add-only (what ExportDelivery asks for) and full
+# (so the test can read the saved assets back) — see the header for why the
+# full grant is re-stamped as version 2.
+xcrun simctl privacy "$DEVICE" reset photos so.capturecat.ios.studiolab 2>/dev/null || true
 xcrun simctl privacy "$DEVICE" grant photos-add so.capturecat.ios.studiolab
 xcrun simctl privacy "$DEVICE" grant photos so.capturecat.ios.studiolab
+TCC="$(xcrun simctl getenv "$DEVICE" HOME)/Library/TCC/TCC.db"
+sqlite3 "$TCC" "update access set auth_version = 2 where service = 'kTCCServicePhotos' and client = 'so.capturecat.ios.studiolab';"
+sqlite3 "$TCC" "select 'photos grant: auth_value ' || auth_value || ', auth_version ' || auth_version from access
+                where service = 'kTCCServicePhotos' and client = 'so.capturecat.ios.studiolab';" | sed 's/^/  /'
 # Watchdog: a test stuck on system UI fails after 180 s instead of hanging.
 xcrun simctl launch --console-pty --terminate-running-process "$DEVICE" so.capturecat.ios.studiolab \
   --ios-delivery-test "$OUT/ios" --movie "$FIX/01-baseline-gradient/export.mp4" > "$OUT/delivery.log" 2>&1 &
 launch=$!
 ( sleep 180; kill "$launch" 2>/dev/null && xcrun simctl terminate "$DEVICE" so.capturecat.ios.studiolab 2>/dev/null \
-    && echo "DELIVERY FAIL timed out after 180 s (system UI waiting?)" >> "$OUT/delivery.log" ) &
+    && echo "DELIVERY FAIL timed out after 180 s (system UI waiting?)" >> "$OUT/delivery.log" ) > /dev/null 2>&1 &
 watchdog=$!
 wait "$launch" || true
 kill "$watchdog" 2>/dev/null || true
+wait "$watchdog" 2>/dev/null || true
 grep -E '^DELIVERY' "$OUT/delivery.log" | sed 's/^/  iOS  /'
 ok=1
 grep -q '^EXPORT-FORMATS WROTE reference' "$OUT/mac.log" || { echo "IOS-EXPORT-DELIVERY FAIL (Mac reference)"; ok=0; }

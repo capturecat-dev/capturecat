@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>so.capturecat.ios.export.*</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -30,6 +34,8 @@
 	<string>CaptureCat finds your Mac on this Wi-Fi so it can record your iPhone screen without a cable.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>CaptureCat records your voice with screen and camera takes, and when you record a voice-over in the editor.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>CaptureCat saves the videos, GIFs and images you export to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>CaptureCat imports the screenshots and screen recordings you choose and saves them to your projects.</string>
 	<key>NSUserActivityTypes</key>
@@ -53,7 +59,5 @@
 			</array>
 		</dict>
 	</dict>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>CaptureCat saves the videos, GIFs and images you export to your photo library.</string>
 </dict>
 </plist>

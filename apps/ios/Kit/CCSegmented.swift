@@ -211,6 +211,12 @@ final class CCSegmented: UIControl {
 
     var probeSelectionLayer: CALayer { selection }
     func probeSegmentRect(_ index: Int) -> CGRect { segmentRect(index) }
+    /// What a finger lifting on segment `index` does (a gate hit-tests the
+    /// segment's rect in the real window first).
+    func probeTap(_ index: Int) {
+        guard isEnabled, labels.indices.contains(index), index != selectedIndex else { return }
+        commit(index)
+    }
 }
 
 /// An accessibility element that runs a closure when VoiceOver activates it.

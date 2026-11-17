@@ -55,6 +55,8 @@ final class EditorViewController: UIViewController {
     private let contextPill = EditorContextPill()
     private let undoButton = CCButton(symbol: "undo", style: .ghost, size: .regular, radius: .full)
     private let redoButton = CCButton(symbol: "redo", style: .ghost, size: .regular, radius: .full)
+    /// Studio 3d: opens the export sheet (`StudioExport`).
+    let exportButton = CCButton(symbol: "share", style: .ghost, size: .regular, radius: .full)
 
     var stage: PreviewStageView { stageCard.stage }
     var canvas: EditorCanvasView { stageCard.canvas }
@@ -132,7 +134,10 @@ final class EditorViewController: UIViewController {
         redoButton.accessibilityLabelOverride = "Redo"
         undoButton.onTap = { [weak self] in self?.performUndo() }
         redoButton.onTap = { [weak self] in self?.performRedo() }
-        header.setTrailing([undoButton, redoButton])
+        exportButton.accessibilityLabelOverride = "Export"
+        exportButton.accessibilityIdentifier = "studio.export"
+        exportButton.onTap = { [weak self] in self?.presentExport() }
+        header.setTrailing([undoButton, redoButton, exportButton])
 
         for container in [timelineContainer, inspectorContainer] {
             container.translatesAutoresizingMaskIntoConstraints = false
@@ -454,6 +459,17 @@ final class EditorViewController: UIViewController {
             let session = StudioVoiceOver.session
             return (session.isRecording, session.recordingStartTime, session.liveSamples)
         }
+    }
+
+    /// Studio 3d: the export sheet over the editor (never while a History
+    /// version is previewed — that would export the live project instead).
+    @discardableResult
+    func presentExport() -> StudioExportSheetController? {
+        guard !isPreviewingVersion, presentedViewController == nil else { return nil }
+        canvas.endInlineEdit(commit: true)
+        playback.setPlaying(false, for: project)
+        saveNow()
+        return StudioExport.present(from: self, project: project)
     }
 
     private func presentVoiceOver() {

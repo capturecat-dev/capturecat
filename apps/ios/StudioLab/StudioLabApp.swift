@@ -88,6 +88,7 @@ final class LabViewController: UIViewController {
         if #available(iOS 26, *), HistoryLab.start(arguments, lab: self) { return }
         if #available(iOS 26, *), CloudSyncLab.start(arguments, lab: self) { return }
         if FeaturesLab.start(arguments, lab: self) { return }
+        if #available(iOS 26, *), ExportSheetLab.start(arguments, lab: self) { return }
         if WhisperProbeLab.start(arguments) { return }
         if AudioDecodeProbe.start(arguments) { return }
         if let i = arguments.firstIndex(of: "--decode-probe"), arguments.indices.contains(i + 1) {
@@ -118,7 +119,11 @@ final class LabViewController: UIViewController {
         if let dir = argValue("--ios-delivery-test") {
             stage.isHidden = true
             let movie = argValue("--movie").map { URL(fileURLWithPath: $0) }
-            Task { @MainActor in await DeliveryLab.run(presenter: self, dir: URL(fileURLWithPath: dir, isDirectory: true), movie: movie) }
+            Task { @MainActor in
+                if #available(iOS 26, *) {
+                    await DeliveryLab.run(presenter: self, dir: URL(fileURLWithPath: dir, isDirectory: true), movie: movie)
+                }
+            }
             return
         }
         if EditorShellLab.handles(arguments, host: self) { return }
@@ -212,10 +217,20 @@ enum ExportLab {
 
 /// `--ios-delivery-test <dir> [--movie <file>]` (Studio 3d): the shipping
 /// ExportDelivery against the real system — saves `<dir>/export.gif`,
-/// `<dir>/still.png` and the movie into the Simulator's photo library and reads
-/// each asset back (type, pixel size, GIF kept as GIF, movie duration), then
-/// presents the Files export picker and the share sheet in this window. The
-/// script grants StudioLab photo access first (`simctl privacy`).
+/// `<dir>/still.png` and the movie into the Simulator's photo library, then
+/// reads each asset's ORIGINAL resource back out of Photos
+/// (`PHAssetResourceManager`) and checks it is the file that went in: the
+/// asset's type and pixel size, the resource's type (a GIF stays a GIF), and
+/// the bytes' own facts — GIF frame count, size and delays; PNG size; the
+/// movie's size, duration and sample count — against the source file. Then it
+/// presents the Files export picker and the share sheet in this window.
+///
+/// Reading back needs FULL photo access (the app itself asks for add-only).
+/// The script grants it before launch (`simctl privacy grant photos`) and
+/// stamps the grant the way a user's "Allow Full Access" tap records it — see
+/// `ios-export-delivery.sh`: the bare simctl grant leaves Photos asking for
+/// "additional access" on the iOS 26+ Simulator.
+@available(iOS 26, *)
 @MainActor
 enum DeliveryLab {
     static func run(presenter: UIViewController, dir: URL, movie: URL?) async {
@@ -224,38 +239,53 @@ enum DeliveryLab {
             if !pass { failures += 1 }
             print("DELIVERY \(pass ? "PASS" : "FAIL") \(name)\(detail.isEmpty ? "" : " — \(detail)")")
         }
-        // Read access to fetch the saved assets back (the test only — the app
-        // itself asks for add-only access).
-        _ = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+        // Never prompt: a test that would wait on system UI fails instead.
+        let read = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        check("full photo access granted before launch (no prompt)", read == .authorized, "status \(read.rawValue)")
         var files = [dir.appendingPathComponent("export.gif"), dir.appendingPathComponent("still.png")]
         if let movie { files.append(movie) }
+        let readBack = FileManager.default.temporaryDirectory.appendingPathComponent("delivery-readback", isDirectory: true)
+        try? FileManager.default.removeItem(at: readBack)
+        try? FileManager.default.createDirectory(at: readBack, withIntermediateDirectories: true)
         for url in files {
             let kind = ExportDelivery.kind(for: url)
+            let name = url.lastPathComponent
             do {
                 let id = try await ExportDelivery.saveToPhotos(url)
-                guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject else {
-                    check("photos: \(url.lastPathComponent) saved and found", false, "no asset for \(id)"); continue
+                guard read == .authorized,
+                      let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject else {
+                    check("photos: \(name) saved and found", false, "no asset for \(id)"); continue
                 }
-                let source = CGImageSourceCreateWithURL(url as CFURL, nil)
-                let image = source.flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) }
-                let resource = PHAssetResource.assetResources(for: asset).first
+                let resources = PHAssetResource.assetResources(for: asset)
+                guard let resource = resources.first(where: { $0.type == (kind == .movie ? .video : .photo) }) else {
+                    check("photos: \(name) has its original resource", false, "\(resources.map(\.type.rawValue))"); continue
+                }
+                let copy = readBack.appendingPathComponent("\(UUID().uuidString.prefix(6))-\(resource.originalFilename)")
+                try await PHAssetResourceManager.default().writeData(for: resource, toFile: copy, options: nil)
                 switch kind {
                 case .movie:
-                    check("photos: \(url.lastPathComponent) is a video", asset.mediaType == .video && asset.duration > 0,
-                          "type \(asset.mediaType.rawValue), \(String(format: "%.2f", asset.duration)) s")
-                case .gif:
-                    check("photos: \(url.lastPathComponent) is an image kept as GIF",
-                          asset.mediaType == .image && resource?.uniformTypeIdentifier == UTType.gif.identifier
-                            && asset.pixelWidth == image?.width && asset.pixelHeight == image?.height,
-                          "type \(asset.mediaType.rawValue), \(resource?.uniformTypeIdentifier ?? "–"), \(asset.pixelWidth)×\(asset.pixelHeight)")
-                case .png:
-                    check("photos: \(url.lastPathComponent) is a PNG image at full size",
-                          asset.mediaType == .image && resource?.uniformTypeIdentifier == UTType.png.identifier
-                            && asset.pixelWidth == image?.width && asset.pixelHeight == image?.height,
-                          "type \(asset.mediaType.rawValue), \(resource?.uniformTypeIdentifier ?? "–"), \(asset.pixelWidth)×\(asset.pixelHeight)")
+                    let a = await ExportSheetLab.movieFacts(copy), b = await ExportSheetLab.movieFacts(url)
+                    check("photos: \(name) landed as the same movie",
+                          asset.mediaType == .video && a != nil && a?.size == b?.size && a?.samples == b?.samples
+                            && abs((a?.duration ?? 0) - (b?.duration ?? -1)) < 1e-3
+                            && abs(asset.duration - (b?.duration ?? -1)) < 0.05,
+                          "asset type \(asset.mediaType.rawValue) \(String(format: "%.2f", asset.duration)) s · read back "
+                            + (a.map { "\(Int($0.size.width))×\(Int($0.size.height)) \(String(format: "%.3f", $0.duration)) s \($0.samples) samples" } ?? "unreadable")
+                            + " · source " + (b.map { "\(Int($0.size.width))×\(Int($0.size.height)) \($0.samples) samples" } ?? "–"))
+                case .gif, .png:
+                    let a = ExportSheetLab.imageFacts(copy), b = ExportSheetLab.imageFacts(url)
+                    let type = kind == .gif ? UTType.gif.identifier : UTType.png.identifier
+                    check("photos: \(name) landed as the same \(kind == .gif ? "animated GIF" : "PNG")",
+                          asset.mediaType == .image && resource.uniformTypeIdentifier == type && a?.type == type
+                            && a?.size == b?.size && a?.frames == b?.frames && a?.delays == b?.delays
+                            && asset.pixelWidth == Int(b?.size.width ?? -1) && asset.pixelHeight == Int(b?.size.height ?? -1)
+                            && (kind == .png || (b?.frames ?? 0) > 1),
+                          "asset \(asset.pixelWidth)×\(asset.pixelHeight) \(resource.uniformTypeIdentifier) · read back "
+                            + (a.map { "\(Int($0.size.width))×\(Int($0.size.height)) \($0.frames) frame(s) \($0.delays.sorted())" } ?? "unreadable")
+                            + " · source " + (b.map { "\($0.frames) frame(s)" } ?? "–"))
                 }
             } catch {
-                check("photos: \(url.lastPathComponent) saved", false, error.localizedDescription)
+                check("photos: \(name) saved and read back", false, error.localizedDescription)
             }
         }
         // System UI in this real window: each controller presents, then goes.
@@ -263,10 +293,17 @@ enum DeliveryLab {
         for (name, controller) in [("files export picker", ExportDelivery.filesPicker(for: file) as UIViewController),
                                    ("share sheet", ExportDelivery.shareSheet(for: file, from: presenter.view))] {
             presenter.present(controller, animated: false)
-            await LabTime.settle(1.0)
-            check("\(name) presents", presenter.presentedViewController === controller,
-                  "\(type(of: presenter.presentedViewController as Any))")
-            presenter.dismiss(animated: false)
+            var shown: UIViewController?
+            let until = Date().addingTimeInterval(5)
+            while Date() < until {
+                shown = presenter.presentedViewController
+                if shown === controller, !controller.isBeingPresented { break }
+                await LabTime.settle(0.1)
+            }
+            check("\(name) presents", shown === controller, shown.map { "\(type(of: $0))" } ?? "nothing presented")
+            await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+                presenter.dismiss(animated: false) { c.resume() }
+            }
             await LabTime.settle(0.5)
         }
         print("DELIVERY-TEST \(failures == 0 ? "PASS" : "FAIL") failures=\(failures)")

@@ -54,6 +54,21 @@ final class VideoExporter {
     var isExporting = false
     private(set) var error: String?
 
+    /// Set by `cancel()`; read once per output frame. Never set by the Mac
+    /// app (its sheet has no Cancel once an export starts), so the Mac's
+    /// export runs exactly as before.
+    private var cancelRequested = false
+
+    /// Stops a running export (the iOS export sheet's Cancel, or the system
+    /// expiring the background export, Studio 3d): the frame loop stops before
+    /// its next frame, the in-flight frames drain, the writer is cancelled and
+    /// the partial output (movie, GIF, temp movie) is removed; `export` then
+    /// throws `CancellationError`. A cancel requested before `export` starts
+    /// applies to it; the flag clears when an export returns or throws.
+    func cancel() {
+        cancelRequested = true
+    }
+
     // NOTE: exports render through the per-export `exportCIContext`
     // (command-queue-backed, built in export(project:to:)). A second eager
     // Metal CIContext used to be allocated here per exporter and never read.
@@ -131,6 +146,7 @@ final class VideoExporter {
         error = nil
 
         defer { isExporting = false }
+        defer { cancelRequested = false }
 
         // Remove existing file — AVAssetWriter requires output URL to not exist
         try? FileManager.default.removeItem(at: outputURL)
@@ -1431,6 +1447,20 @@ final class VideoExporter {
 
 
         for (frameIndex, outputTime) in outputFrameTimes.enumerated() {
+            if cancelRequested {
+                // Cancelled (iOS only): drain, stop the readers and the
+                // writer, and leave no partial file behind.
+                for task in frameTasks { await task.value }
+                frameTasks.removeAll()
+                audioTask?.cancel()
+                audioReader?.cancelReading()
+                _ = try? await audioTask?.value
+                reader2.cancelReading()
+                writer.cancelWriting()
+                try? FileManager.default.removeItem(at: movieURL)
+                if writesGIF { try? FileManager.default.removeItem(at: outputURL) }
+                throw CancellationError()
+            }
             let sourceCMTime = sourceFrameTimes[frameIndex]
             let currentTime = timelineSourceTimes[frameIndex]
 
