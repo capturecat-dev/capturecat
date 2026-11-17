@@ -377,7 +377,10 @@ extension StudioTimelineCanvasView {
         var x = rect.minX
         while x < rect.maxX {
             let probeWidth = max(12, rect.height * first.aspectRatio)
-            let time = sourceStart + Double(((x - rect.minX) + probeWidth / 2) / rect.width) * span
+            var time = sourceStart + Double(((x - rect.minX) + probeWidth / 2) / rect.width) * span
+            #if DEBUG
+            time += StudioTimelineCanvasView.probeFilmstripOffset
+            #endif
             guard let thumb = TimelineThumbnailer.thumbnail(at: time, in: thumbnails) else {
                 x += probeWidth
                 continue

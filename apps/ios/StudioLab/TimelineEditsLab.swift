@@ -72,7 +72,10 @@ enum TimelineEditsLab {
         let dragRig = TimelineEditsRig(parent: parent, out: out)
         await dragRig.mount()
         let dragsOK = await dragRig.touchDragChecks()
-        let pass = failures.isEmpty && laneOK && glideOK && centredOK && dragsOK
+        dragRig.unmount()
+        // The VIDEO lane's filmstrip: real frames, at the right times and places.
+        let filmOK = await FilmstripCheck.run(parent: parent, out: out, inject: inject)
+        let pass = failures.isEmpty && laneOK && glideOK && centredOK && dragsOK && filmOK
         print(pass ? "TIMELINE-GATE PASS" : "TIMELINE-GATE FAIL")
         exit(pass ? 0 : 1)
     }

@@ -11,6 +11,9 @@ final class CCHeaderBar: UIView {
     enum Style {
         case large
         case inline
+        /// The editor's bar (the Mac editor's): back key with a label, the
+        /// title on ONE line right after it (truncating), trailing actions.
+        case editor
     }
 
     let style: Style
@@ -29,17 +32,26 @@ final class CCHeaderBar: UIView {
     }
 
     private let titleLabel: UILabel
-    private let backButton = CCButton(symbol: "chevron-left", style: .ghost, size: .regular, radius: .full)
+    let backButton = CCButton(symbol: "chevron-left", style: .ghost, size: .regular, radius: .full)
     private let trailing = UIStackView()
     private let leading = UIStackView()
     private let hairline = CCDivider()
     private var offsetObservation: NSKeyValueObservation?
     static let barHeight: CGFloat = 56
+    /// The editor bar's row (the Mac editor's 52 pt bar, touch-sized).
+    static let editorBarHeight: CGFloat = 48
+    var rowHeight: CGFloat { style == .editor ? Self.editorBarHeight : Self.barHeight }
 
     init(title: String, style: Style) {
         self.style = style
-        titleLabel = ccLabel(title, font: style == .large ? CCFont.largeTitle : CCFont.header, color: CCTheme.color.foreground,
-                             lines: 1, alignment: style == .large ? .natural : .center)
+        let font: UIFont
+        switch style {
+        case .large: font = CCFont.largeTitle
+        case .inline: font = CCFont.header
+        case .editor: font = CCFont.scaled(15, .semibold, .headline, max: 26)
+        }
+        titleLabel = ccLabel(title, font: font, color: CCTheme.color.foreground,
+                             lines: 1, alignment: style == .inline ? .center : .natural)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         backgroundColor = CCTheme.color.background
@@ -51,6 +63,7 @@ final class CCHeaderBar: UIView {
         // Big Dynamic Type: a title that no longer fits wraps (the bar grows)
         // instead of losing its end.
         titleLabel.numberOfLines = style == .inline ? 2 : 1
+        titleLabel.lineBreakMode = .byTruncatingTail
         applyTitleLineLimit()
         registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (bar: CCHeaderBar, _: UITraitCollection) in
             bar.applyTitleLineLimit()
@@ -84,10 +97,10 @@ final class CCHeaderBar: UIView {
             content.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor),
             content.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
             content.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor),
-            content.heightAnchor.constraint(greaterThanOrEqualToConstant: Self.barHeight),
+            content.heightAnchor.constraint(greaterThanOrEqualToConstant: rowHeight),
             // The bar is exactly one row tall unless big Dynamic Type needs more.
             {
-                let fixed = content.heightAnchor.constraint(equalToConstant: Self.barHeight)
+                let fixed = content.heightAnchor.constraint(equalToConstant: rowHeight)
                 fixed.priority = .defaultHigh
                 return fixed
             }(),
@@ -104,7 +117,7 @@ final class CCHeaderBar: UIView {
             hairline.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
         switch style {
-        case .large:
+        case .large, .editor:
             NSLayoutConstraint.activate([
                 titleLabel.leadingAnchor.constraint(equalTo: leading.trailingAnchor),
                 titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailing.leadingAnchor, constant: -CCSpace.sm),
@@ -130,13 +143,14 @@ final class CCHeaderBar: UIView {
     /// lines as it needs (the bar grows) — with the header's keys beside it,
     /// two lines can't hold a project name at AX sizes. Otherwise ≤ 2 lines.
     private func applyTitleLineLimit() {
-        guard style == .inline else { return }
+        guard style != .large else { return }
         #if DEBUG
         // The injected truncation defect must survive a text-size change
         // (it pins one line; resetting it here left the a11y gate blind).
         if Self.probeTruncateTitle { titleLabel.numberOfLines = 1; return }
         #endif
-        titleLabel.numberOfLines = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? 0 : 2
+        // The editor's title is ONE line (the Mac's) until the accessibility sizes.
+        titleLabel.numberOfLines = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? 0 : (style == .editor ? 1 : 2)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -166,6 +180,15 @@ final class CCHeaderBar: UIView {
         super.layoutSubviews()
     }
     #endif
+
+    /// The back key's face: a kit icon and, where it fits, a label
+    /// ("Captures"); VoiceOver reads `label` either way.
+    func setBack(symbol: String, title: String?, label: String) {
+        backButton.symbol = symbol
+        backButton.title = title ?? ""
+        backButton.accessibilityLabelOverride = label
+        backButton.invalidateIntrinsicContentSize()
+    }
 
     func setTrailing(_ views: [UIView]) {
         trailing.arrangedSubviews.forEach { $0.removeFromSuperview() }

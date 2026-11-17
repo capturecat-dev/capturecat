@@ -63,16 +63,121 @@ final class InspectorPaneView: UIView {
         }
     }
 
+    /// The bar's sub-options for this pane (the drill-down level): each
+    /// opens a SHORT panel of one small group of rows. A section led by a
+    /// chip choice (Background: Gradient, Mesh, ...) offers one option per
+    /// choice; a section of a few rows is one option; a longer one splits
+    /// into one option per titled row (its captions and previews ride along).
+    func panelOptions(_ scope: InspectorScope) -> [InspectorPanelOption] {
+        var out: [InspectorPanelOption] = []
+        var index = 0
+        let all = rows
+        for (spec, view) in sections {
+            let base = index
+            index += view.rows.count
+            guard spec.visible(scope) else { continue }
+            let visible = view.rows.indices.filter { view.rows[$0].isRowVisible(scope) }.map { base + $0 }
+            guard !visible.isEmpty else { continue }
+            if case .choice(let choice)? = spec.rows.first, choice.style == .chips, choice.items.count <= 8,
+               visible.first == base {
+                let current = choice.read(scope)
+                for (i, item) in choice.items.enumerated() {
+                    out.append(InspectorPanelOption(
+                        id: "\(spec.id)#\(i)", title: item, symbol: InspectorPanelOption.symbol(for: item, fallback: tab.icon),
+                        rows: [], choice: .init(row: base, index: i), section: spec.id, isCurrent: current == i))
+                }
+                continue
+            }
+            let title = spec.title ?? tab.rawValue
+            if visible.count <= 3 || spec.title == nil {
+                out.append(InspectorPanelOption(
+                    id: spec.id, title: title, symbol: InspectorPanelOption.symbol(for: title, fallback: tab.icon),
+                    rows: visible, choice: nil, section: spec.id, isCurrent: false))
+                continue
+            }
+            // Chunk: a titled row starts an option; untitled rows (captions,
+            // previews) join the option around them.
+            var chunks: [(title: String, rows: [Int], kind: InspectorRow)] = []
+            var leading: [Int] = []
+            for i in visible {
+                let row = spec.rows[i - base]
+                if let rowTitle = InspectorPanelOption.title(of: row, scope: scope) {
+                    chunks.append((rowTitle, leading + [i], row))
+                    leading = []
+                } else if chunks.isEmpty {
+                    leading.append(i)
+                } else {
+                    chunks[chunks.count - 1].rows.append(i)
+                }
+            }
+            if !leading.isEmpty { chunks.append((title, leading, spec.rows[leading[0] - base])) }
+            for chunk in chunks {
+                out.append(InspectorPanelOption(
+                    id: "\(spec.id)/\(all[chunk.rows.first!].rowID)", title: chunk.title,
+                    symbol: InspectorPanelOption.symbol(for: chunk.title,
+                                                        fallback: InspectorPanelOption.symbol(of: chunk.kind, tab: tab)),
+                    rows: chunk.rows, choice: nil, section: spec.id, isCurrent: false))
+            }
+        }
+        if out.isEmpty {
+            out.append(InspectorPanelOption(id: "\(tab.rawValue).all", title: tab.rawValue, symbol: tab.icon,
+                                            rows: Array(all.indices), choice: nil, section: nil, isCurrent: false))
+        }
+        // One name per key: a repeated title (Cursor's three "Size" rows)
+        // takes its group's first word after the first ("Click Size").
+        var seen = Set<String>()
+        for (i, o) in out.enumerated() {
+            defer { seen.insert(out[i].title) }
+            guard seen.contains(o.title),
+                  let group = sections.first(where: { $0.spec.id == o.section })?.spec.title?.split(separator: " ").first
+            else { continue }
+            out[i] = InspectorPanelOption(id: o.id, title: "\(group) \(o.title)", symbol: o.symbol, rows: o.rows,
+                                          choice: o.choice, section: o.section, isCurrent: o.isCurrent)
+        }
+        return out
+    }
+
+    /// The visible rows of `section` after its leading choice (what a
+    /// choice option's panel shows once the choice is applied).
+    func rowsAfterChoice(section id: String, scope: InspectorScope) -> [Int] {
+        var index = 0
+        for (spec, view) in sections {
+            defer { index += view.rows.count }
+            guard spec.id == id else { continue }
+            let base = index
+            return view.rows.indices.dropFirst().filter { view.rows[$0].isRowVisible(scope) }.map { base + $0 }
+        }
+        return []
+    }
+
     /// Every row, in order.
     var rows: [InspectorRowView] { sections.flatMap { $0.view.rows } }
+
+    /// A panel showing ONE option: only these rows (indices into `rows`);
+    /// nil = the whole pane (the iPad column).
+    private(set) var focus: Set<Int>?
+
+    /// Shows only `rows` (nil = all), without the growth animation.
+    func setFocus(_ rows: Set<Int>?, scope: InspectorScope) {
+        focus = rows
+        for (_, view) in sections { view.showsHeader = rows == nil }
+        let had = hasRefreshed
+        hasRefreshed = false
+        refresh(scope)
+        hasRefreshed = had
+    }
 
     func refresh(_ scope: InspectorScope) {
         var revealed: [UIView] = []
         var grown: (UIView, CGFloat)?
+        var index = 0
         for (spec, view) in sections {
-            let showSection = spec.visible(scope)
+            let specShows = spec.visible(scope)
+            var anyRow = false
             for row in view.rows {
-                let show = showSection && row.isRowVisible(scope)
+                defer { index += 1 }
+                let show = specShows && row.isRowVisible(scope) && (focus?.contains(index) ?? true)
+                if show { anyRow = true }
                 if row.isHidden == show {
                     row.isHidden = !show
                     if show { revealed.append(row) }
@@ -80,6 +185,7 @@ final class InspectorPaneView: UIView {
                 }
                 if show { row.refresh(scope) }
             }
+            let showSection = specShows && (focus == nil || anyRow)
             if view.isHidden == showSection {
                 view.isHidden = !showSection
                 if showSection { revealed.append(view) }
@@ -118,42 +224,146 @@ final class InspectorPaneView: UIView {
     }
 }
 
-/// A section card: optional title above a raised-matte surface holding rows.
+/// A section: a small-caps header over FLAT rows (no card — the panel or
+/// column is the only surface), a hairline between visible rows.
 @MainActor
 final class InspectorSectionView: UIView {
     let rows: [InspectorRowView]
-    private let card = CCSurface(.raisedMatte, tint: CCTheme.color.card, radius: .lg)
     private let stack = UIStackView()
+    private var dividers: [UIView] = []
+    private let header: UILabel?
+    /// Hidden while a panel shows one option (its title is the strip's).
+    var showsHeader = true { didSet { header?.isHidden = !showsHeader || !hasVisibleRow } }
+    private var hasVisibleRow = true
+
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT (`card-in-card`): each section is boxed in
+    /// a rounded card inside the panel again.
+    static var probeBoxedSections = false
+    #endif
 
     init(title: String?, rows: [InspectorRowView]) {
         self.rows = rows
+        if let title {
+            let label = ccLabel(title.uppercased(), font: CCFont.scaled(10, .semibold, .caption2, max: 14),
+                                color: CCTheme.color.faintForeground)
+            label.adjustsFontForContentSizeCategory = true
+            label.attributedText = NSAttributedString(string: title.uppercased(), attributes: [.kern: 0.6])
+            label.accessibilityTraits = .header
+            label.accessibilityLabel = title
+            header = label
+        } else {
+            header = nil
+        }
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         let column = UIStackView()
         column.axis = .vertical
         column.spacing = CCSpace.sm
-        if let title {
-            let label = ccLabel(title.uppercased(), font: CCFont.micro, color: CCTheme.color.mutedForeground)
-            label.adjustsFontForContentSizeCategory = true
-            label.accessibilityTraits = .header
-            label.accessibilityLabel = title
-            column.addArrangedSubview(label)
-        }
+        if let header { column.addArrangedSubview(header) }
         stack.axis = .vertical
-        stack.spacing = CCSpace.md
+        stack.spacing = CCSpace.sm
         stack.alignment = .fill
-        rows.forEach { stack.addArrangedSubview($0) }
-        card.addSubview(stack)
-        pinEdges(stack, to: card, inset: CCSpace.md)
-        column.addArrangedSubview(card)
+        for (i, row) in rows.enumerated() {
+            stack.addArrangedSubview(row)
+            if i < rows.count - 1 {
+                let line = CCDivider()
+                dividers.append(line)
+                stack.addArrangedSubview(line)
+            }
+        }
+        column.addArrangedSubview(stack)
         addSubview(column)
         pinEdges(column, to: self)
+        #if DEBUG
+        if Self.probeBoxedSections {
+            let box = CCSurface(.raisedMatte, tint: CCTheme.color.elevated, radius: .lg)
+            box.isUserInteractionEnabled = false
+            box.accessibilityIdentifier = "probe.boxedSection"
+            insertSubview(box, at: 0)
+            pinEdges(box, to: self)
+        }
+        #endif
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
-    /// The card hides with its last visible row.
+    /// Dividers only BETWEEN visible rows; the header hides with the last row.
     func refreshSeparators() {
-        card.isHidden = !rows.contains { !$0.isHidden }
+        for (i, line) in dividers.enumerated() {
+            let before = !rows[i].isHidden
+            let after = rows[(i + 1)...].contains { !$0.isHidden }
+            let show = before && after
+            if line.isHidden == show { line.isHidden = !show }
+        }
+        hasVisibleRow = rows.contains { !$0.isHidden }
+        header?.isHidden = !showsHeader || !hasVisibleRow
+    }
+}
+
+/// One sub-option on the tool bar's pane level.
+struct InspectorPanelOption: Equatable {
+    struct Choice: Equatable { let row: Int; let index: Int }
+    let id: String
+    let title: String
+    let symbol: String
+    /// Rows its panel shows (indices into the pane's rows); empty for a
+    /// choice, whose panel shows the section's rows once it is applied.
+    let rows: [Int]
+    let choice: Choice?
+    let section: String?
+    /// A choice that is the current value.
+    let isCurrent: Bool
+
+    @MainActor
+    static func title(of row: InspectorRow, scope: InspectorScope) -> String? {
+        switch row {
+        case .slider(let s): return s.title
+        case .toggle(let t): return t.title
+        case .choice(let c): return c.title
+        case .color(let c): return c.title
+        case .colorPair(let title, _, _): return title
+        case .text(let t): return t.title
+        case .action(let a): return a.title(scope)
+        case .actions(let a): return a.first.map { $0.title(scope) }
+        case .feature(let f, _): return f.title
+        case .caption, .custom: return nil
+        }
+    }
+
+    @MainActor
+    static func symbol(of row: InspectorRow, tab: InspectorTab) -> String {
+        switch row {
+        case .slider: return "sliders"
+        case .toggle: return "circle-half"
+        case .choice: return "grid"
+        case .color, .colorPair: return "palette"
+        case .text: return "text"
+        case .action, .actions: return "wand"
+        case .feature: return "sparkles"
+        case .caption, .custom: return CCIcon.has(tab.icon) ? tab.icon : "sliders"
+        }
+    }
+
+    /// A kit icon for a title (keywords), else `fallback`.
+    static func symbol(for title: String, fallback: String) -> String {
+        let t = title.lowercased()
+        let table: [(String, String)] = [
+            ("gradient", "circle-half"), ("mesh", "grid"), ("solid", "circle-fill"), ("wallpaper", "desktop"),
+            ("transparent", "circle-dashed"), ("image", "photo"), ("look", "sliders"), ("frame", "rectangle"),
+            ("menu bar", "window"), ("cursor", "cursor"), ("click", "tap"), ("sound", "speaker"), ("volume", "speaker"),
+            ("audio", "speaker"), ("voice", "mic"), ("mic", "mic"), ("blur", "aperture"), ("pixel", "pixelate"),
+            ("speed", "gauge"), ("motion", "cursor-motion"), ("zoom", "zoom-in"), ("tilt", "tilt"), ("size", "zoom-in"),
+            ("color", "palette"), ("shadow", "circle-half"), ("corner", "rectangle"), ("style", "brush-fill"),
+            ("text", "text"), ("subtitle", "captions"), ("preset", "grid"), ("position", "pin"), ("camera", "camera"),
+            ("shape", "ellipse"), ("tag", "text-bubble"), ("highlight", "highlighter"), ("depth", "aperture"),
+            ("curtain", "curtain"), ("slide", "arrow-right-line"), ("parallax", "showcase"), ("timing", "timer"),
+            ("stroke", "scribble"), ("tap", "tap"), ("brand", "seal-check"), ("logo", "seal-check"),
+            ("overlay", "picture-in-picture"), ("keyboard", "note"), ("shortcut", "note"), ("behavior", "eye"),
+            ("hide", "eye-off"), ("show", "eye"), ("background", "palette"), ("adjust", "sliders"), ("effects", "sparkles"),
+            ("pop", "person-popout"), ("cutout", "person-cutout"), ("padding", "shrink"), ("angle", "rotate-cw"),
+        ]
+        for (key, icon) in table where t.contains(key) { return icon }
+        return CCIcon.has(fallback) ? fallback : "sliders"
     }
 }

@@ -696,6 +696,15 @@ final class InspectorPreviewRow: InspectorCustomRow {
     private let well = CCPreviewPad(showsGridDots: false)
     private let card = CALayer()
     private let dim = CALayer()
+    /// The Cursor pane's preview: the shared cursor artwork
+    /// (`CursorStyleProvider`, the exporter's) at the project's size.
+    let cursorLayer = CALayer()
+    private var lastScope: InspectorScope?
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT (`blank-cursor-preview`): the cursor
+    /// artwork is never set (the blank well the owner saw).
+    static var probeBlankCursor = false
+    #endif
 
     init(id: String, visible: @escaping (InspectorScope) -> Bool) {
         super.init(id: id, visible: visible, host: nil)
@@ -709,15 +718,20 @@ final class InspectorPreviewRow: InspectorCustomRow {
         well.layer.addSublayer(card)
         dim.backgroundColor = UIColor.black.cgColor
         well.layer.addSublayer(dim)
+        cursorLayer.contentsGravity = .resizeAspect
+        well.layer.addSublayer(cursorLayer)
         isAccessibilityElement = false
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     override func refresh(_ scope: InspectorScope) {
+        lastScope = scope
         let s = scope.settings
         let b = well.bounds
+        // Laid out later (a panel opening): `layoutSubviews` runs this again.
         guard b.width > 1 else { return }
+        refreshCursor(s, in: b)
         var scale: CGFloat = 1
         var offset = CGPoint.zero
         var corner: CGFloat = 4
@@ -752,7 +766,34 @@ final class InspectorPreviewRow: InspectorCustomRow {
         CATransaction.commit()
     }
 
+    /// The cursor glyph over the mini window (cursor.preview only). iOS
+    /// layers take a CGImage, never a UIImage (`LayerContents`).
+    private func refreshCursor(_ s: ProjectSettings, in b: CGRect) {
+        guard rowID == "cursor.preview" else { cursorLayer.isHidden = true; return }
+        cursorLayer.isHidden = false
+        let side = min(b.height * 0.6, 22 * CGFloat(max(0.5, min(3, s.cursorScale))))
+        let scale = traitCollection.displayScale > 0 ? traitCollection.displayScale : 3
+        var image = CursorStyleProvider.rasterizedCGImage(for: s.cursorStyle,
+                                                          pixelSize: CGSize(width: side * scale, height: side * scale))
+        #if DEBUG
+        if Self.probeBlankCursor { image = nil }
+        #endif
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        cursorLayer.contents = image.map { LayerContents.contents($0, size: CGSize(width: side, height: side)) }
+        cursorLayer.contentsScale = scale
+        cursorLayer.frame = CGRect(x: b.midX + b.width * 0.08, y: b.midY - side * 0.2, width: side, height: side)
+        cursorLayer.opacity = s.showCursor ? 1 : 0.35
+        CATransaction.commit()
+    }
+
+    private var laidOutWidth: CGFloat = 0
+
     override func layoutSubviews() {
         super.layoutSubviews()
+        if let lastScope, well.bounds.width != laidOutWidth {
+            laidOutWidth = well.bounds.width
+            refresh(lastScope)
+        }
     }
 }

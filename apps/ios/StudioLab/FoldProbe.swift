@@ -16,7 +16,9 @@ enum FoldProbe {
             // `--fold-probe --editor`: the real editor, full screen, left up
             // for a screenshot; logs its arrangement and regions.
             guard arguments.contains("--editor") else { exit(0) }
-            if #available(iOS 26, *), let editor = await EditorResizeLab.openEditor(in: FileManager.default.temporaryDirectory.appendingPathComponent("fold-probe", isDirectory: true)) {
+            let probeDir = FileManager.default.temporaryDirectory.appendingPathComponent("fold-probe", isDirectory: true)
+            if #available(iOS 26, *), let editor = arguments.contains("--demo")
+                ? await EditorResizeLab.openDemoEditor(in: probeDir, portrait: arguments.contains("--portrait")) : await EditorResizeLab.openEditor(in: probeDir) {
                 editor.modalPresentationStyle = .fullScreen
                 lab.present(editor, animated: false)
                 // `--landscape`: a phone on its side (compact height).
@@ -38,9 +40,12 @@ enum FoldProbe {
                         if let key = editor.toolBar.key(for: .pane(tab)) { key.sendActions(for: .touchUpInside) } else { editor.openPanel(tab) }
                     }
                 }
-                // `--tall`: the open panel dragged to its TALL detent.
-                if arguments.contains("--tall") {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + after + 1.0) { editor.setPanelDetent(.tall) }
+                // `--option <Title>`: then that sub-option's key (its short panel open).
+                if let i = arguments.firstIndex(of: "--option"), arguments.indices.contains(i + 1) {
+                    let title = arguments[i + 1]
+                    DispatchQueue.main.asyncAfter(deadline: .now() + after + 1.0) {
+                        editor.toolBar.probeKey(title)?.sendActions(for: .touchUpInside)
+                    }
                 }
                 if arguments.contains("--select-zoom") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + after) {

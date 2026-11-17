@@ -63,14 +63,17 @@ enum EditorResizeLab {
         try? fm.createDirectory(at: out, withIntermediateDirectories: true)
         log("EDITOR-RESIZE out=\(out.path) device=\(UIDevice.current.model) \(UIDevice.current.systemVersion)")
         if let inject {
-            guard ["ignores-size-class", "ignores-crease", "snap-panel", "panel-tab-row", "panel-over-toolbar",
-                   "panel-uncapped", "drag-grabber-only"].contains(inject) else {
+            guard ["ignores-size-class", "ignores-crease", "snap-panel", "panel-over-toolbar", "panel-uncapped",
+                   "bar-snap", "no-back", "panel-card", "card-in-card", "stage-card"].contains(inject) else {
                 log("EDITOR-RESIZE FAIL unknown --inject \(inject)"); exit(1)
             }
             log("EDITOR-RESIZE inject=\(inject)")
             #if DEBUG
-            if inject == "drag-grabber-only" { StudioInspectorController.probeDragOnlyOnGrabber = true }
-            else if inject == "panel-tab-row" { EditorViewController.probePanelDefect = .tabRow }
+            if inject == "bar-snap" { EditorToolBar.probeSnapLevels = true }
+            else if inject == "no-back" { EditorToolBar.probeNoBack = true }
+            else if inject == "panel-card" { StudioInspectorController.probePanelCard = true }
+            else if inject == "card-in-card" { InspectorSectionView.probeBoxedSections = true }
+            else if inject == "stage-card" { EditorStageCardView.probeCard = true; EditorViewController.probeInsetStage = true }
             else if inject == "panel-over-toolbar" { EditorViewController.probePanelDefect = .overToolBar }
             else if inject == "panel-uncapped" { EditorViewController.probePanelDefect = .uncapped }
             else if inject == "snap-panel" { EditorViewController.probeSnapPanel = true } else {
@@ -183,11 +186,11 @@ enum EditorResizeLab {
         await settle(1.0)
         checkLayout(editor, display: landscape)
         checkState(editor, snapshot: snapshot, selectedID: selectedID, after: beforeTurn, step: "landscape")
-        // The context keys show for the selection; Done brings the tools back.
-        if let done = editor.toolBar.key(for: .done) { done.sendActions(for: .touchUpInside) }
-        await settle(0.3)
-        check("landscape-done-clears", editor.toolBar.mode == .tools && !editor.timeline.hasTimelineSelection,
-              "Done → tools (\(editor.toolBar.probeTitles.prefix(4).joined(separator: " · ")) …)")
+        // The context keys show for the selection; ‹ clears it, the tools come back.
+        if let back = editor.toolBar.key(for: .back) { back.sendActions(for: .touchUpInside) }
+        await settle(0.5)
+        check("landscape-back-clears", editor.toolBar.mode == .tools && !editor.timeline.hasTimelineSelection,
+              "‹ → tools (\(editor.toolBar.probeTitles.prefix(4).joined(separator: " · ")) …)")
         await checkPanel(editor, tag: "landscape", injected: inject == "snap-panel")
         editor.selection.selectedAnnotationID = selectedID
         width.constant = outer.size.width
@@ -231,10 +234,19 @@ enum EditorResizeLab {
             let inside = bounds.insetBy(dx: -0.5, dy: -0.5).contains(r) && r.width > 1 && r.height > 1
             check("\(tag)-\(name)-inside", inside, "\(name) \(fmt(r)) in \(fmt(bounds))")
         }
-        // ONE transport row: no scrubber, the time + play + full screen.
-        check("\(tag)-transport-row", abs(transport.height - 48) < 0.5 && abs(transport.width - stage.width) < 1
-                && !editor.transport.playButton.isHidden && !editor.transport.playhead.isHidden,
-              "transport \(fmt(transport)) under the stage, as wide as it")
+        // The Mac's toolbar row heads the timeline region: transport, time,
+        // undo / redo and the edit keys, straight under the stage.
+        let row = editor.transport
+        check("\(tag)-transport-row", abs(transport.height - EditorTransportBar.height) < 0.5 && abs(transport.width - stage.width) < 1
+                && abs(transport.minY - stage.maxY) < 0.5
+                && !row.playButton.isHidden && !row.playhead.isHidden && row.undoButton.window != nil && row.redoButton.window != nil
+                && row.splitButton.window != nil && row.scaleSlider.window != nil,
+              "toolbar row \(fmt(transport)) under the stage, as wide as it, with ⏮ ▶ ⏭ · time · undo/redo · edit keys · zoom")
+        // Flat: the stage is no card (no corners, no border).
+        check("\(tag)-stage-flat", editor.stageCard.layer.cornerRadius < 0.5 && editor.stageCard.layer.borderWidth == 0
+                && editor.timeline.view.layer.cornerRadius < 0.5 && editor.timeline.view.layer.borderWidth == 0,
+              String(format: "stage radius %.0f border %.1f; lanes radius %.0f", editor.stageCard.layer.cornerRadius,
+                     editor.stageCard.layer.borderWidth, editor.timeline.view.layer.cornerRadius))
         // The timeline's playhead: fixed at its viewport's centre, the
         // playhead's time under it (playing or not).
         let tl = editor.timeline
@@ -269,17 +281,23 @@ enum EditorResizeLab {
             check("\(tag)-stacked", stage.maxY <= transport.minY + 0.5 && transport.maxY <= timeline.minY + 0.5
                   && timeline.maxY <= tools.minY + 0.5,
                   "stage \(fmt(stage)) transport \(fmt(transport)) timeline \(fmt(timeline)) tool bar \(fmt(tools))")
-            check("\(tag)-full-width", abs(stage.width - timeline.width) < 1 && stage.width > bounds.width - 40,
-                  "stage width \(Int(stage.width)) of \(Int(bounds.width))")
-            let share = stage.height / bounds.height
-            check("\(tag)-stage-share", share >= EditorViewController.stageShare - 0.02,
-                  String(format: "stage %.0f of %.0f pt = %.0f%% of the height (want ≥ %.0f%%)", stage.height, bounds.height,
-                         share * 100, (EditorViewController.stageShare - 0.02) * 100))
-            // Tools: every pane; with a selection: its context keys.
+            // Edge to edge: stage, toolbar row and timeline span the width.
+            check("\(tag)-full-width", abs(stage.minX) < 0.5 && abs(stage.width - bounds.width) < 0.5
+                    && abs(timeline.minX) < 0.5 && abs(timeline.width - bounds.width) < 0.5 && abs(transport.width - bounds.width) < 0.5,
+                  "stage \(fmt(stage)), timeline \(fmt(timeline)) across \(Int(bounds.width)) pt")
+            // The stage is the canvas at the full width (capped so a panel fits).
+            let wantH = editor.stackedStageHeight()
+            let canvasH = (bounds.width / editor.canvasAspect).rounded()
+            check("\(tag)-stage-aspect", abs(stage.height - wantH) < 1 && (abs(stage.height - canvasH) < 1 || stage.height < canvasH),
+                  String(format: "stage %.0f pt high (canvas at full width %.0f; aspect %.3f)", stage.height, canvasH, editor.canvasAspect))
+            // Tools: every pane; with a selection: its context keys after ‹.
             let keys = editor.toolBar.probeTitles
-            let keysOK = editor.toolBar.mode == .tools
-                ? InspectorTab.allCases.allSatisfy { keys.contains($0.rawValue) }
-                : keys.first == "Done" && keys.contains("Split") && keys.contains("Delete")
+            let keysOK: Bool
+            switch editor.toolBar.mode {
+            case .tools: keysOK = InspectorTab.allCases.allSatisfy { keys.contains($0.rawValue) }
+            case .context: keysOK = keys.first == "Back" && keys.contains("Split") && keys.contains("Delete")
+            default: keysOK = keys.first == "Back"
+            }
             check("\(tag)-tool-bar", abs(tools.maxY - bounds.maxY) < 0.5 && abs(tools.width - bounds.width) < 0.5
                     && editor.toolBar.axis == .horizontal && keysOK
                     && editor.inspector.view.isHidden == !editor.isPanelOpen,
@@ -290,282 +308,204 @@ enum EditorResizeLab {
         log("EDITOR-RESIZE \(tag) layout stage=\(fmt(stage)) transport=\(fmt(transport)) timeline=\(fmt(timeline)) toolBar=\(fmt(tools)) inspector=\(fmt(inspector))")
     }
 
-    /// A pane tool tapped (the key's own action): the panel caught MID-FLIGHT
-    /// growing from its pushed edge, landing where the arrangement puts it —
-    /// bottom panel: its top on the timeline's top, never over the stage
-    /// (overshoot included); side panel: between the column and the rail,
-    /// the column pushed narrower, the stage never covered. The close key
-    /// brings back the tool bar.
+    /// The drill-down bar and its SHORT panels, driven through the keys' own
+    /// actions: a pane tool swaps the bar to that pane's sub-options (the
+    /// swap caught MID-FLIGHT, ‹ first); a sub-option opens a short panel
+    /// above the bar — growing mid-flight, one small group of controls, ≤ 30%
+    /// of the height, flat (only its top corners rounded, full width, no card
+    /// inside it), never over the stage or the toolbar row (every sample),
+    /// the stage never resized, the lanes still showing; a choice applies
+    /// through the shared spec; ✓ closes it; ‹ returns to the root tools
+    /// (mid-flight). Landscape: a side panel between the column and the rail.
     @available(iOS 26, *)
     private static func checkPanel(_ editor: EditorViewController, tag: String, injected: Bool) async {
         let root = editor.view!
         func frame(_ v: UIView) -> CGRect { root.convert(v.bounds, from: v) }
         let panel = editor.inspector.view!
-        guard let key = editor.toolBar.key(for: .pane(.audio)) else {
-            check("\(tag)-panel-tool", false, "no Audio tool (\(editor.toolBar.probeTitles))"); return
+        let inspector = editor.inspector
+        let bar = editor.toolBar
+        guard let key = bar.key(for: .pane(.background)) else {
+            check("\(tag)-panel-tool", false, "no Background tool (\(bar.probeTitles))"); return
         }
-        let side = editor.inspector.presentation == .sidePanel
+        let side = inspector.presentation == .sidePanel
         let stageBefore = frame(editor.stageCard)
+        let transport = frame(editor.transport)
         let timelineTop = frame(editor.timelineContainer).minY
-        var edges: [CGFloat] = [], stageRights: [CGFloat] = []
-        var overlaps = 0
+
+        // 1. The pane tool: the bar drills into its sub-options, mid-flight.
+        func sampleLevel(_ seconds: Double) async -> Int {
+            var mid = 0
+            let t0 = CACurrentMediaTime()
+            while CACurrentMediaTime() - t0 < seconds {
+                let layer = bar.probeVisibleStack.layer
+                let p = layer.presentation() ?? layer
+                let tx = (p.value(forKeyPath: "transform.translation.x") as? CGFloat) ?? 0
+                let ty = (p.value(forKeyPath: "transform.translation.y") as? CGFloat) ?? 0
+                if (p.opacity > 0.05 && p.opacity < 0.95) || abs(tx) > 1 || abs(ty) > 1 { mid += 1 }
+                await settle(0.012)
+            }
+            return mid
+        }
         key.sendActions(for: .touchUpInside)
+        let inMid = await sampleLevel(0.45)
+        let titles = bar.probeTitles
+        check("\(tag)-bar-level-midflight", inMid >= 2 && bar.mode == .pane(.background),
+              "Background → its sub-options, \(inMid) samples of the swap mid-flight")
+        check("\(tag)-bar-level", titles.first == "Back" && bar.key(for: .back)?.accessibilityLabel == "Back"
+                && titles.contains("Gradient") && titles.contains("Blur") && !titles.contains("Cursor")
+                && !editor.isPanelOpen,
+              "keys: \(titles.prefix(9).joined(separator: " · ")) … (\(titles.count))")
+
+        // 2. A slider sub-option (Look ▸ Blur): a SHORT panel of one group.
+        guard let blurKey = bar.probeKey("Blur") else { check("\(tag)-panel-option", false, "no Blur key"); return }
+        var edges: [CGFloat] = []
+        var overlaps = 0, stageMoved = 0
+        blurKey.sendActions(for: .touchUpInside)
         let t0 = CACurrentMediaTime()
         while CACurrentMediaTime() - t0 < 0.6 {
             let p = frame(panel), s = frame(editor.stageCard)
             edges.append(side ? p.minX : p.minY)
-            stageRights.append(s.maxX)
-            // The panel's visible part never lies over the stage.
-            let visible = side ? p.intersection(CGRect(x: 0, y: 0, width: frame(editor.toolBar).minX, height: root.bounds.height)) : p
+            let visible = side ? p.intersection(CGRect(x: 0, y: 0, width: frame(bar).minX, height: root.bounds.height)) : p
             if visible.intersects(s.insetBy(dx: 0.5, dy: 0.5)) { overlaps += 1 }
+            if !side, visible.intersects(frame(editor.transport).insetBy(dx: 0.5, dy: 0.5)) { overlaps += 1 }
+            if !side, s != stageBefore { stageMoved += 1 }
             await settle(0.016)
         }
         let final = frame(panel)
         let start = edges.first ?? 0, end = side ? final.minX : final.minY
         let mid = edges.filter { abs($0 - start) > 2 && abs($0 - end) > 2 }
-        let opened = editor.isPanelOpen && editor.inspector.visiblePane?.tab == .audio && key.isSelected
-        let midOK = mid.count >= 2
-        // (`--inject snap-panel` makes this FAIL: the gate's proof it sees motion.)
-        _ = injected
-        check("\(tag)-panel-open-midflight", midOK && opened,
-              String(format: "Audio tool → %d of %d samples mid-flight (edge %.0f → %.0f); pane %@", mid.count, edges.count, start, end,
-                     editor.inspector.visiblePane?.tab.rawValue ?? "none"))
+        _ = injected  // `--inject snap-panel` makes this FAIL: the gate sees motion.
+        let shownRows = inspector.visiblePane?.rows.filter { !$0.isHidden }.count ?? 0
+        check("\(tag)-panel-open-midflight", mid.count >= 2 && editor.isPanelOpen && blurKey.isSelected,
+              String(format: "Blur → %d of %d samples mid-flight (edge %.0f → %.0f)", mid.count, edges.count, start, end))
+        check("\(tag)-panel-one-group", inspector.panelTitle.text == "Blur" && shownRows >= 1 && shownRows <= 3
+                && !inspector.closeButton.isHidden && inspector.closeButton.accessibilityLabel == "Done",
+              "title \"\(inspector.panelTitle.text ?? "")\", \(shownRows) rows, ✓ labelled \"\(inspector.closeButton.accessibilityLabel ?? "")\"")
+        checkFlat(editor, tag: tag, side: side)
         if side {
-            let stage = frame(editor.stageCard), rail = frame(editor.toolBar)
-            check("\(tag)-side-panel", final.minX >= stage.maxX - 0.5 && final.maxX <= rail.minX + 0.5 + 0.5 && overlaps == 0
+            let stage = frame(editor.stageCard), rail = frame(bar)
+            check("\(tag)-side-panel", final.minX >= stage.maxX - 0.5 && final.maxX <= rail.minX + 1 && overlaps == 0
                     && stage.width < stageBefore.width - 100,
                   String(format: "panel %@ between the stage %@ and the rail %@; stage %.0f → %.0f pt wide; %d overlapping samples",
                          fmt(final), fmt(stage), fmt(rail), stageBefore.width, stage.width, overlaps))
         } else {
-            await checkBottomPanel(editor, tag: tag, final: final, edges: edges, overlaps: overlaps,
-                                   stageBefore: stageBefore, timelineTop: timelineTop)
+            let tools = frame(bar)
+            let lanes = frame(editor.timeline.view)
+            let cap = root.bounds.height * EditorViewController.panelMaxShare
+            check("\(tag)-panel-above-toolbar", final.maxY <= tools.minY + 0.5 && final.maxY >= tools.minY - 2
+                    && !bar.isHidden && abs(tools.maxY - root.bounds.maxY) < 0.5,
+                  String(format: "panel %@ ends at %.0f on the tool bar %@", fmt(final), final.maxY, fmt(tools)))
+            check("\(tag)-panel-short", final.height <= cap + 0.5 && abs(final.height - editor.fittedPanelHeight()) < 1.5
+                    && final.height <= 0.30 * root.bounds.height + 0.5,
+                  String(format: "panel %.0f pt = %.0f%% of %.0f (fits %.0f, cap %.0f)", final.height,
+                         final.height / root.bounds.height * 100, root.bounds.height, inspector.panelFittingHeight, editor.panelCap()))
+            let highest = edges.min() ?? final.minY
+            check("\(tag)-panel-preview-clear", overlaps == 0 && stageMoved == 0 && highest >= transport.maxY - 0.5,
+                  String(format: "highest top %.0f vs the toolbar row's bottom %.0f; %d samples over stage/toolbar row; stage moved in %d",
+                         highest, transport.maxY, overlaps, stageMoved))
+            check("\(tag)-panel-timeline-visible", lanes.minY >= timelineTop - 0.5 && lanes.maxY <= final.minY + 0.5
+                    && lanes.height >= EditorViewController.minTimelineStrip - 0.5 && !editor.timelineContainer.accessibilityElementsHidden,
+                  String(format: "lanes %@ above the panel (≥ %.0f pt)", fmt(lanes), EditorViewController.minTimelineStrip))
         }
-        editor.inspector.closeButton.sendActions(for: .touchUpInside)
-        await settle(0.6)
-        check("\(tag)-panel-closed", !editor.isPanelOpen && panel.isHidden && abs(frame(editor.stageCard).width - stageBefore.width) < 0.5,
-              "Done → tool bar alone, stage \(Int(frame(editor.stageCard).width)) pt wide again")
-        if !side {
-            // Swipe down on the strip closes too.
-            if let k = editor.toolBar.key(for: .pane(.audio)) { k.sendActions(for: .touchUpInside) }
-            await settle(0.6)
-            #if DEBUG
-            editor.probeSwipePanel(160)
-            #endif
-            await settle(0.6)
-            check("\(tag)-panel-swipe-closes", !editor.isPanelOpen && panel.isHidden, "a swipe down the strip closes the panel")
-        }
-    }
 
-    /// Dragging the bottom panel between its detents (COMPACT ⇄ TALL):
-    /// where a drag may start (anywhere but a control — not just the pill),
-    /// the scroll-top handoff, a ±150 pt pan followed 1:1 then snapped to the
-    /// nearest detent, flicks with a short travel picking the next detent —
-    /// every snap caught MID-FLIGHT — TALL never over the preview or
-    /// transport (rubber band included), and a flick down from COMPACT closing.
-    @available(iOS 26, *)
-    private static func checkPanelDrag(_ editor: EditorViewController, tag: String) async {
-        #if DEBUG
-        let root = editor.view!
-        func frame(_ v: UIView) -> CGRect { root.convert(v.bounds, from: v) }
-        let inspector = editor.inspector
-        let stage = frame(editor.stageCard), transport = frame(editor.transport)
-        // Where a drag may start: the strip's title, a pane's non-control
-        // view (its first label), the pill — never a control.
-        let label = firstView(UILabel.self, in: inspector.panes[.audio] ?? inspector.view)
-        let control = firstView(UIControl.self, in: inspector.panes[.audio] ?? inspector.view)
-        let accepts = (title: inspector.panelDragAccepts(inspector.panelTitle),
-                       content: inspector.panelDragAccepts(label),
-                       pill: inspector.panelDragAccepts(inspector.probeGrabber),
-                       control: inspector.panelDragAccepts(control))
-        check("\(tag)-panel-drag-anywhere", accepts.title && accepts.content && accepts.pill && !accepts.control && label != nil,
-              "drag starts on: title \(accepts.title), pane label \(accepts.content), pill \(accepts.pill); a control \(accepts.control) (want false)")
-        // Scroll-top handoff (the pane content): up grows the panel while
-        // COMPACT; at TALL up scrolls the pane; down at scroll-top drags the
-        // panel, down while scrolled scrolls.
-        let upCompact = inspector.panelDragBegins(onContent: true, upward: true)
-        let downTop = inspector.panelDragBegins(onContent: true, upward: false)
-        // Height probes.
-        let compact = editor.detentHeight(.compact), tall = editor.tallPanelHeight()
-        check("\(tag)-panel-detents", editor.hasTallDetent && tall > compact + 12 && editor.panelDetent == .compact,
-              String(format: "COMPACT %.0f pt, TALL %.0f pt", compact, tall))
-        func sampleSnap(_ seconds: Double) async -> [CGFloat] {
-            var hs: [CGFloat] = []
-            let t0 = CACurrentMediaTime()
-            while CACurrentMediaTime() - t0 < seconds {
-                hs.append(frame(inspector.view).height)
-                await settle(0.008)
-            }
-            return hs
-        }
-        func mid(_ hs: [CGFloat], _ a: CGFloat, _ b: CGFloat) -> Int {
-            hs.filter { $0 > min(a, b) + 2 && $0 < max(a, b) - 2 }.count
-        }
-        var highest = CGFloat.greatestFiniteMagnitude
-        // 1:1 follow, then release: −150 pt (up) → rubber-banded past TALL, snaps to TALL.
-        let follow = editor.probeFollow(-40)
-        let followed = abs((follow.now - follow.start) - 40) < 0.5
-        editor.probeDragPanel(-40, velocity: 0)  // re-drive the same drag to release it
-        await settle(0.6)
-        editor.setPanelDetent(.compact, animated: false)
+        // 3. A choice sub-option (Gradient): applied through the shared
+        // spec; its panel shows the rest of its group, in place.
+        editor.project.settings.backgroundType = .solid
         await settle(0.2)
-        editor.probeDragPanel(-150, velocity: 0)
-        highest = min(highest, frame(inspector.view).minY)
-        let upSamples = await sampleSnap(0.5)
-        for _ in upSamples { highest = min(highest, frame(inspector.view).minY) }
-        let atTall = editor.panelDetent == .tall && abs(frame(inspector.view).height - tall) < 1
-        let upTallContent = inspector.panelDragBegins(onContent: true, upward: true)
-        check("\(tag)-panel-pan-up", followed && atTall && mid(upSamples, tall, upSamples.first ?? tall) >= 2,
-              String(format: "drag −40 followed 1:1 (%.0f → %.0f); −150 pt → TALL %.0f, %d samples mid-snap", follow.start, follow.now,
-                     frame(inspector.view).height, mid(upSamples, tall, upSamples.first ?? tall)))
-        let p = frame(inspector.view)
-        check("\(tag)-panel-tall-preview-clear", p.minY >= transport.maxY - 0.5 && highest >= stage.maxY - 0.5 && p.maxY <= frame(editor.toolBar).minY + 0.5,
-              String(format: "TALL top %.0f under the transport (%.0f); highest during the drag %.0f vs the stage's bottom %.0f",
-                     p.minY, transport.maxY, highest, stage.maxY))
-        check("\(tag)-panel-scroll-handoff", upCompact && downTop && !upTallContent,
-              "on the pane: up while COMPACT drags \(upCompact); down at scroll-top drags \(downTop); up at TALL drags \(upTallContent) (want false — it scrolls)")
-        // +150 pt (down) from TALL → nearest = COMPACT.
-        editor.probeDragPanel(150, velocity: 0)
-        let downSamples = await sampleSnap(0.55)
-        check("\(tag)-panel-pan-down", editor.isPanelOpen && editor.panelDetent == .compact && abs(frame(inspector.view).height - compact) < 1
-                && mid(downSamples, compact, tall - 150) >= 2,
-              String(format: "+150 pt from TALL → COMPACT %.0f pt, %d samples mid-snap", frame(inspector.view).height, mid(downSamples, compact, tall - 150)))
-        // Flicks: 20 pt of travel at 900 pt/s picks the next detent.
-        editor.probeDragPanel(-20, velocity: -900)
-        let flickUp = await sampleSnap(0.5)
-        let flickUpOK = editor.panelDetent == .tall && mid(flickUp, compact + 20, tall) >= 2
-        editor.probeDragPanel(20, velocity: 900)
-        let flickDown = await sampleSnap(0.55)
-        let flickDownOK = editor.isPanelOpen && editor.panelDetent == .compact && mid(flickDown, compact, tall - 20) >= 2
-        check("\(tag)-panel-flick", flickUpOK && flickDownOK,
-              "flick up 20 pt @ −900 pt/s → TALL (\(mid(flickUp, compact + 20, tall)) mid); flick down → COMPACT (\(mid(flickDown, compact, tall - 20)) mid)")
-        // A short slow drag snaps back to where it was.
-        editor.probeDragPanel(-15, velocity: 0)
-        await settle(0.5)
-        check("\(tag)-panel-short-drag-returns", editor.panelDetent == .compact && abs(frame(inspector.view).height - compact) < 1,
-              "15 pt slowly → back to COMPACT")
-        // VoiceOver: the pill is a button that toggles; the title has the action.
-        let pill: UIView? = inspector.probeGrabber
-        let pillLabel = pill?.accessibilityLabel ?? ""
-        let titleAction = inspector.panelTitle.accessibilityCustomActions?.first?.name ?? ""
-        _ = pill?.accessibilityActivate()
-        await settle(0.5)
-        let expanded = editor.panelDetent == .tall
-        _ = pill?.accessibilityActivate()
-        await settle(0.6)
-        check("\(tag)-panel-voiceover-expand", pill?.isAccessibilityElement == true && pill?.accessibilityTraits.contains(.button) == true
-                && pillLabel == "Expand panel" && titleAction == "Expand panel" && expanded && editor.panelDetent == .compact,
-              "pill button \"\(pillLabel)\", title action \"\(titleAction)\": activate → TALL \(expanded), again → COMPACT")
-        #endif
-    }
-
-    private static func firstView<T: UIView>(_ type: T.Type, in root: UIView) -> T? {
-        if let v = root as? T, !v.isHidden { return v }
-        for sub in root.subviews where !sub.isHidden { if let v = firstView(type, in: sub) { return v } }
-        return nil
-    }
-
-    /// The bottom panel (portrait): directly ABOVE the tool bar, which stays
-    /// visible and marks the tool; ONLY the tool's pane inside (no tab row);
-    /// fitted to its pane and capped at ~40% of the height; the stage and
-    /// transport never covered (every sample); the timeline's lanes still
-    /// showing above it. Then another tool: the content switches in place
-    /// (cross-fade caught mid-flight) and the panel resizes (mid-flight when
-    /// the heights differ); the active tool again closes it, mid-flight.
-    @available(iOS 26, *)
-    private static func checkBottomPanel(_ editor: EditorViewController, tag: String, final: CGRect, edges: [CGFloat],
-                                         overlaps: Int, stageBefore: CGRect, timelineTop: CGFloat) async {
-        let root = editor.view!
-        func frame(_ v: UIView) -> CGRect { root.convert(v.bounds, from: v) }
-        let tools = frame(editor.toolBar), transport = frame(editor.transport)
-        let lanes = frame(editor.timeline.view)
-        let inspector = editor.inspector
-        // A tab row = any visible pane rail key inside the panel.
-        func visibleRailKeys() -> Int {
-            var n = 0
-            func walk(_ v: UIView, _ shown: Bool) {
-                let s = shown && !v.isHidden && v.alpha > 0.01
-                if s, v is CCIconRailKey, v.bounds.width > 1, v.bounds.height > 1 { n += 1 }
-                v.subviews.forEach { walk($0, s) }
-            }
-            walk(inspector.view, true)
-            return n
+        if let gradient = bar.probeKey("Gradient") {
+            gradient.sendActions(for: .touchUpInside)
+            await settle(0.6)
+            check("\(tag)-choice-applies", editor.project.settings.backgroundType == .gradient && editor.isPanelOpen
+                    && inspector.panelTitle.text == "Gradient" && (bar.probeKey("Gradient")?.isSelected ?? false),
+                  "Gradient → type \(editor.project.settings.backgroundType.rawValue), panel \"\(inspector.panelTitle.text ?? "")\"")
+            // One undo step (the shared session's), and it unwinds.
+            editor.performUndo()
+            await settle(0.2)
+            check("\(tag)-choice-undoes", editor.project.settings.backgroundType == .solid,
+                  "undo → type \(editor.project.settings.backgroundType.rawValue) (want Solid Color)")
+        } else {
+            check("\(tag)-choice-applies", false, "no Gradient key")
         }
-        let railKeys = visibleRailKeys()
-        let cap = root.bounds.height * EditorViewController.panelMaxShare
-        let fit = inspector.panelFittingHeight
-        let toolBarShown = !editor.toolBar.isHidden && editor.toolBar.alpha > 0.99 && !editor.toolBar.accessibilityElementsHidden
-            && abs(tools.maxY - root.bounds.maxY) < 0.5
-        check("\(tag)-panel-above-toolbar", final.maxY <= tools.minY + 0.5 && final.maxY >= tools.minY - 12 && toolBarShown,
-              String(format: "panel %@ ends at %.0f, the tool bar %@ starts at %.0f and stays shown (%@)",
-                     fmt(final), final.maxY, fmt(tools), tools.minY, toolBarShown ? "yes" : "no"))
-        check("\(tag)-panel-no-tab-row", railKeys == 0 && !inspector.panelTitle.isHidden
-                && inspector.panelTitle.text == InspectorTab.audio.rawValue,
-              "\(railKeys) pane-rail keys inside the panel (want 0); title \"\(inspector.panelTitle.text ?? "")\"")
-        check("\(tag)-panel-height-cap", final.height <= cap + 0.5 && final.height <= editor.panelCap() + 0.5
-                && (abs(final.height - min(fit, editor.panelCap()).rounded()) < 1.5),
-              String(format: "panel %.0f pt high: fits %.0f, cap %.0f (40%% = %.0f)", final.height, fit, editor.panelCap(), cap))
-        let highest = edges.min() ?? final.minY
-        check("\(tag)-panel-preview-clear", overlaps == 0 && highest >= transport.maxY - 0.5 && highest >= stageBefore.maxY - 0.5,
-              String(format: "highest panel top %.0f (overshoot included) vs the transport's bottom %.0f; %d samples over the stage",
-                     highest, transport.maxY, overlaps))
-        check("\(tag)-panel-timeline-visible", lanes.minY >= timelineTop - 0.5 && lanes.maxY <= final.minY + 0.5
-                && lanes.height >= EditorViewController.minTimelineStrip - 0.5 && !editor.timelineContainer.accessibilityElementsHidden,
-              String(format: "lanes %@ above the panel (≥ %.0f pt), still VoiceOver-reachable", fmt(lanes), EditorViewController.minTimelineStrip))
 
-        await checkPanelDrag(editor, tag: tag)
+        // 4. A whole pane opened programmatically is still capped (a pane
+        // taller than the cap scrolls inside).
+        if !side {
+            editor.openPanel(.cursor, animated: false)
+            await settle(0.3)
+            let h = frame(panel).height
+            check("\(tag)-panel-height-cap", h <= editor.panelCap() + 0.5 && h <= root.bounds.height * EditorViewController.panelMaxShare + 0.5,
+                  String(format: "whole Cursor pane: panel %.0f pt, fits %.0f, cap %.0f", h, inspector.panelFittingHeight, editor.panelCap()))
+            editor.closePanel(animated: false)
+            await settle(0.2)
+            bar.probeKey("Blur")?.sendActions(for: .touchUpInside)
+            await settle(0.6)
+        }
 
-        // Switch: Audio → the pane that fits lowest (another height, so the
-        // resize is seen), measured with snapped opens first.
-        var fits: [(InspectorTab, CGFloat)] = []
-        for tab in InspectorTab.allCases where tab != .audio {
-            editor.openPanel(tab, animated: false)
-            await settle(0.15)
-            fits.append((tab, inspector.panelFittingHeight))
-        }
-        editor.openPanel(.audio, animated: false)
-        await settle(0.4)
-        let target = fits.min { $0.1 < $1.1 }?.0 ?? .cursor
-        log("EDITOR-RESIZE \(tag) pane fits: " + fits.map { "\($0.0.rawValue) \(Int($0.1))" }.joined(separator: ", ")
-            + String(format: " — cap %.0f; switching to %@", editor.panelCap(), target.rawValue))
-        guard let cursorKey = editor.toolBar.key(for: .pane(target)), let audioKey = editor.toolBar.key(for: .pane(.audio)) else {
-            check("\(tag)-panel-switch", false, "no Cursor tool"); return
-        }
-        var heights: [CGFloat] = [], alphas: [Float] = []
-        var overTransport = 0
-        cursorKey.sendActions(for: .touchUpInside)
-        let t0 = CACurrentMediaTime()
-        while CACurrentMediaTime() - t0 < 0.6 {
-            heights.append(frame(inspector.view).height)
-            if let pane = inspector.panes[target] { alphas.append((pane.layer.presentation() ?? pane.layer).opacity) }
-            if frame(inspector.view).minY < transport.maxY - 0.5 { overTransport += 1 }
-            await settle(0.016)
-        }
-        let after = frame(inspector.view)
-        check("\(tag)-panel-switch-clear", overTransport == 0, "\(overTransport) samples of the switch with the panel over the transport")
-        let startH = heights.first ?? 0
-        let midH = heights.filter { abs($0 - startH) > 2 && abs($0 - after.height) > 2 }
-        let fadeMid = alphas.contains { $0 > 0.05 && $0 < 0.95 }
-        let resized = abs(after.height - startH) > 2
-        check("\(tag)-panel-switch", editor.isPanelOpen && inspector.visiblePane?.tab == target && cursorKey.isSelected
-                && !audioKey.isSelected && fadeMid && ((fits.map(\.1).min() ?? 0) >= editor.panelCap() - 2 || (resized && midH.count >= 2)) && after.maxY <= tools.minY + 0.5
-                && after.height <= min(cap, editor.panelCap()) + 0.5,
-              String(format: "%@ tool → content cross-fade mid-flight %@; panel %.0f → %.0f pt (%d samples mid-resize); it is marked %@, Audio %@", target.rawValue,
-                     fadeMid ? "yes" : "no", startH, after.height, midH.count, cursorKey.isSelected ? "yes" : "no", audioKey.isSelected ? "still" : "no"))
-        // The active tool again closes it (animated).
+        // 5. ✓ closes it (mid-flight), the level stays.
         var closing: [CGFloat] = []
-        cursorKey.sendActions(for: .touchUpInside)
+        inspector.closeButton.sendActions(for: .touchUpInside)
         let c0 = CACurrentMediaTime()
         while CACurrentMediaTime() - c0 < 0.45 {
-            closing.append(frame(inspector.view).height)
+            let p = frame(panel)
+            closing.append(side ? p.minX : p.height)
             await settle(0.016)
         }
-        await settle(0.2)
-        let closeMid = closing.filter { $0 > 2 && $0 < after.height - 2 }
-        check("\(tag)-panel-tool-again-closes", !editor.isPanelOpen && inspector.view.isHidden && closeMid.count >= 2 && !cursorKey.isSelected,
-              "the active tool again → closed, \(closeMid.count) of \(closing.count) samples mid-flight")
-        // Reopen for the caller's Done check.
-        audioKey.sendActions(for: .touchUpInside)
-        await settle(0.6)
+        await settle(0.3)
+        let closeMid = closing.filter { abs($0 - (closing.first ?? 0)) > 2 && abs($0 - (closing.last ?? 0)) > 2 }
+        check("\(tag)-panel-done-closes", !editor.isPanelOpen && panel.isHidden && closeMid.count >= 2 && bar.mode == .pane(.background)
+                && abs(frame(editor.stageCard).width - stageBefore.width) < 0.5,
+              "✓ → closed, \(closeMid.count) samples mid-flight; bar still on Background")
+
+        // 6. ‹ back to the root tools (mid-flight).
+        bar.key(for: .back)?.sendActions(for: .touchUpInside)
+        let backMid = await sampleLevel(0.45)
+        let rootKeys = bar.probeTitles
+        check("\(tag)-back-to-root", bar.mode == .tools && backMid >= 2 && InspectorTab.allCases.allSatisfy { rootKeys.contains($0.rawValue) },
+              "‹ → \(rootKeys.prefix(4).joined(separator: " · ")) …, \(backMid) samples mid-flight")
+    }
+
+    /// The flat look: the stage edge to edge with no rounded card; the
+    /// timeline region one full-width surface; the open panel full width
+    /// with ONLY its top corners rounded (none for a side panel), no border,
+    /// and NO rounded container nested inside it (sections are flat groups).
+    @available(iOS 26, *)
+    private static func checkFlat(_ editor: EditorViewController, tag: String, side: Bool) {
+        let root = editor.view!
+        func frame(_ v: UIView) -> CGRect { root.convert(v.bounds, from: v) }
+        let surface = editor.inspector.surface
+        let p = frame(editor.inspector.view)
+        let topOnly: CACornerMask = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        let shapeOK = side
+            ? surface.layer.cornerRadius < 0.5 && surface.layer.borderWidth == 0
+            : surface.layer.cornerRadius > 0.5 && surface.layer.maskedCorners == topOnly && surface.layer.borderWidth == 0
+                && abs(p.minX) < 0.5 && abs(p.width - root.bounds.width) < 0.5
+        check("\(tag)-panel-flat", shapeOK,
+              String(format: "panel %@ radius %.0f corners %@ border %.1f", fmt(p), surface.layer.cornerRadius,
+                     surface.layer.maskedCorners == topOnly ? "top-only" : "\(surface.layer.maskedCorners.rawValue)",
+                     surface.layer.borderWidth))
+        let nested = nestedCards(in: editor.inspector.view, root: editor.inspector.view)
+        check("\(tag)-panel-no-card-in-card", nested.isEmpty,
+              "\(nested.count) rounded containers inside the panel: \(nested.prefix(3).joined(separator: "; "))")
+    }
+
+    /// Rounded, filled (or bordered) containers inside `view` — cards — that
+    /// are not controls or the house preview tile.
+    static func nestedCards(in view: UIView, root: UIView) -> [String] {
+        var out: [String] = []
+        func walk(_ v: UIView) {
+            guard !v.isHidden, v.alpha > 0.01 else { return }
+            if v !== root, v is UIControl || v is CCPreviewPad { return }
+            let r = v.convert(v.bounds, to: root)
+            let filled = (v.backgroundColor.map { $0.cgColor.alpha > 0.01 } ?? false) || v.layer.borderWidth > 0
+                || (v.layer.sublayers ?? []).contains { $0.name?.hasPrefix("ccmat") == true }
+            if v !== root, v.layer.cornerRadius > 4, filled, r.width > 120, r.height > 40,
+               v !== (root.next as? StudioInspectorController)?.surface {
+                out.append("\(type(of: v)) \(fmt(r))")
+            }
+            v.subviews.forEach(walk)
+        }
+        walk(view)
+        return out
     }
 
     /// Nothing straddles the crease: stage + transport on one side, timeline
@@ -643,6 +583,33 @@ enum EditorResizeLab {
             return nil
         }
         let editor = EditorViewController(folder: folder, initialTime: InspectorValuesTranscript.playhead)
+        editor.onClose = {}
+        return editor
+    }
+
+    /// A demo project for screenshots (`--fold-probe --editor --demo`): an
+    /// 8 s synthetic screen recording (`DemoMovieWriter` — a real filmstrip),
+    /// two zoom blocks on EFFECTS and an annotation on ANNOTATE, like the
+    /// Mac editor's marketing shot.
+    @available(iOS 26, *)
+    static func openDemoEditor(in folder: URL, portrait: Bool = false) async -> EditorViewController? {
+        let dir = folder.appendingPathComponent("demo", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let movie = dir.appendingPathComponent("screen.mov")
+        guard await DemoMovieWriter.write(to: movie, duration: 8, size: portrait ? CGSize(width: 600, height: 1064) : CGSize(width: 960, height: 600)) else { return nil }
+        let project = Project(id: UUID(), name: "Q4 launch video", videoURL: movie, cameraVideoURL: nil,
+                              duration: 8, recordingSourceKind: .window)
+        project.zoomRegions = [
+            ZoomRegion(id: UUID(), startTime: 0.8, endTime: 4.1, zoomLevel: 1.6, focalPoint: CGPoint(x: 0.45, y: 0.4)),
+            ZoomRegion(id: UUID(), startTime: 5.9, endTime: 7.5, zoomLevel: 1.4, focalPoint: CGPoint(x: 0.6, y: 0.5)),
+        ]
+        var label = Annotation(id: UUID(), type: .text, startTime: 6.1, endTime: 7.7)
+        label.text = "Give it a name"
+        project.annotations = [label]
+        guard let data = try? JSONEncoder().encode(project),
+              (try? data.write(to: dir.appendingPathComponent(StudioProjectFolder.documentName))) != nil,
+              let opened = try? StudioProjectFolder.open(dir) else { return nil }
+        let editor = EditorViewController(folder: opened, initialTime: 5.0)
         editor.onClose = {}
         return editor
     }

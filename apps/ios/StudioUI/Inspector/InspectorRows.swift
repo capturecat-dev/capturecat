@@ -140,14 +140,8 @@ final class InspectorChoiceRowView: UIView, InspectorRowView {
             group.accessibilityIdentifier = spec.id
             group.accessibilityLabel = spec.title
             group.onChange = { [weak self] selection in
-                guard let host = self?.host, let index = selection.first else { return }
-                host.session.perform(spec.id, name: spec.title) { spec.write(host.scope, index) }
-                // A Cutout / Pop-out look starts finding the person right away,
-                // in the background (the Mac's segmentation ensureMask). The
-                // Remove Background key is the one that opens the feature.
-                if spec.id == CameraPane.background.id, host.scope.project?.usesCameraLook == true {
-                    host.ensureCameraMask()
-                }
+                guard let index = selection.first else { return }
+                self?.apply(index)
             }
             chips = group
             if Self.labelledChips.contains(spec.id) {
@@ -185,6 +179,19 @@ final class InspectorChoiceRowView: UIView, InspectorRowView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     func isRowVisible(_ scope: InspectorScope) -> Bool { spec.visible(scope) }
+
+    /// Writes choice `index` — the chips' path, also the tool bar's when it
+    /// offers the choices as keys (one undo step, the Mac's name).
+    func apply(_ index: Int) {
+        guard let host else { return }
+        host.session.perform(spec.id, name: spec.title) { spec.write(host.scope, index) }
+        // A Cutout / Pop-out look starts finding the person right away,
+        // in the background (the Mac's segmentation ensureMask). The
+        // Remove Background key is the one that opens the feature.
+        if spec.id == CameraPane.background.id, host.scope.project?.usesCameraLook == true {
+            host.ensureCameraMask()
+        }
+    }
 
     func refresh(_ scope: InspectorScope) {
         let index = spec.read(scope)

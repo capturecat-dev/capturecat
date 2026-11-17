@@ -219,7 +219,10 @@ final class StudioTimelineViewController: UIViewController {
         toolbarScroll.isHidden = chrome == .embedded
         hairline.isHidden = chrome == .embedded
         if chrome == .embedded {
-            root.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+            // Inside the editor the lanes are part of ONE full-width timeline
+            // region under the editor's toolbar row: flat, no card, no border.
+            root.layer.cornerRadius = 0
+            root.layer.borderWidth = 0
         }
         for v in [toolbarScroll, canvasArea, hairline] {
             v.translatesAutoresizingMaskIntoConstraints = false
@@ -269,6 +272,8 @@ final class StudioTimelineViewController: UIViewController {
         // here; the scroll view inside it lays out later in the pass.
         let width = max(0, canvasArea.frame.width - StudioTimelineStyle.labelWidth)
         placeCentrePlayhead(viewportWidth: width)
+        labelColumn.layoutIfNeeded()
+        clipLaneLabels()
         guard width != visibleTrackWidth else { return }
         visibleTrackWidth = width
         // Half a viewport of inset each side: time 0 and the end both reach
@@ -1017,7 +1022,17 @@ final class StudioTimelineViewController: UIViewController {
         }
     }
 
+    /// The loaded filmstrip frames (the filmstrip gate reads them).
+    var probeThumbnails: [TimelineThumbnail] { thumbnails }
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT (`no-filmstrip`): no frames are generated.
+    static var probeNoFilmstrip = false
+    #endif
+
     private func loadThumbnails() async {
+        #if DEBUG
+        if Self.probeNoFilmstrip { thumbnails = []; return }
+        #endif
         guard let url = project.videoURL, FileManager.default.fileExists(atPath: url.path) else { thumbnails = []; return }
         thumbnails = await TimelineThumbnailer.generate(from: url, duration: project.duration, targetCount: 40)
     }
@@ -1061,6 +1076,29 @@ final class StudioTimelineViewController: UIViewController {
         guard playback.canPlay else { return }
         playback.isPlaying.toggle()
     }
+
+    // The editor's toolbar row (Mac toolbar keys) calls these — the same
+    // functions this controller's own toolbar keys call.
+
+    /// ⏮ — the trim start.
+    func goToStart() { seekToSource(project.effectiveTrimStart) }
+    /// ⏭ — the last frame.
+    func goToEnd() { seekToSource(max(project.effectiveTrimStart, project.effectiveTrimEnd - 0.01)) }
+
+    /// The zoom on a 0…1 log scale (the toolbar's slider).
+    var timelineScaleFraction: Double {
+        let lo = log(Double(minTimelineScale)), hi = log(Double(maxTimelineScale))
+        return hi > lo ? (log(Double(timelineScale)) - lo) / (hi - lo) : 0
+    }
+
+    func setTimelineScaleFraction(_ f: Double) {
+        let lo = log(Double(minTimelineScale)), hi = log(Double(maxTimelineScale))
+        setTimelineScale(CGFloat(exp(lo + min(1, max(0, f)) * (hi - lo))))
+    }
+
+    var canZoomTimelineOut: Bool { !project.presentsTimelessTimeline && timelineScale > minTimelineScale }
+    var canZoomTimelineIn: Bool { !project.presentsTimelessTimeline && timelineScale < maxTimelineScale }
+    var canDeleteRegion: Bool { hasDeletableSelection }
 
     private func seekToSource(_ sourceTime: TimeInterval) {
         playback.seek(to: sourceTime)
@@ -1215,10 +1253,26 @@ final class StudioTimelineViewController: UIViewController {
         DispatchQueue.main.async { [weak self] in self?.followPlayhead(animated: true) }
     }
 
+    /// A lane label the lanes' viewport cuts (a panel compressing the
+    /// timeline, a slim landscape strip) hides until its lane is back in
+    /// full: no half-drawn "VOICE".
+    func clipLaneLabels() {
+        let visible = canvasArea.bounds.height
+        guard visible > 0 else { return }
+        let dy = labelColumn.transform.ty
+        for row in labelViews.values {
+            guard let label = row.subviews.first as? UILabel else { continue }
+            let f = label.frame.offsetBy(dx: 0, dy: row.frame.minY + dy)
+            let cut = f.minY < -0.5 || f.maxY > visible + 0.5
+            if label.isHidden != cut { label.isHidden = cut }
+        }
+    }
+
     fileprivate func userScrolled() {
         // The lane labels follow a vertical scroll (a slim timeline).
         let dy = -scrollView.contentOffset.y
         if labelColumn.transform.ty != dy { labelColumn.transform = CGAffineTransform(translationX: 0, y: dy) }
+        clipLaneLabels()
         // Someone else moved the content (a harness reveal): a glide stops.
         guard !writingOffset else { return }
         if let written = glideWritten, abs(written - scrollView.contentOffset.x) > 0.5 { stopGlide() }

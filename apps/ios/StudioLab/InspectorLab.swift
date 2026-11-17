@@ -62,7 +62,14 @@ enum InspectorLab {
         log("INSPECTOR out=\(out.path) device=\(UIDevice.current.model) \(UIDevice.current.systemVersion)")
         if let inject {
             log("INSPECTOR inject=\(inject)")
-            guard inject == "snap" else { log("INSPECTOR-GATE FAIL unknown --inject \(inject)"); exit(1) }
+            guard inject == "snap" || inject == "blank-cursor-preview" else {
+                log("INSPECTOR-GATE FAIL unknown --inject \(inject)"); exit(1)
+            }
+            #if DEBUG
+            if inject == "blank-cursor-preview" { InspectorPreviewRow.probeBlankCursor = true }
+            #endif
+        }
+        if inject == "snap" {
             #if DEBUG
             StudioInspectorController.probeSnapPaneSwitch = true
             InspectorPaneView.probeSnapGrowth = true
@@ -74,7 +81,11 @@ enum InspectorLab {
         if inject == nil {
             await values(lab: lab)
         }
-        await structureAndMotion(lab: lab, injected: inject != nil)
+        if inject == "blank-cursor-preview" {
+            await cursorPreviewOnly(lab: lab)
+        } else {
+            await structureAndMotion(lab: lab, injected: inject != nil)
+        }
 
         try? lines.joined(separator: "\n").write(to: out.appendingPathComponent("run.txt"), atomically: true, encoding: .utf8)
         if failures == 0 {
@@ -447,10 +458,21 @@ enum InspectorLab {
         let timelineTop = editor.timelineContainer.convert(editor.timelineContainer.bounds, to: root).minY
         let toolBarFrame = editor.toolBar.convert(editor.toolBar.bounds, to: root)
         // Closed, the panel is a zero-height strip on the tool bar's top.
-        let closedTop = toolBarFrame.minY - CCSpace.xs
+        let closedTop = toolBarFrame.minY
         var tops: [CGFloat] = []
         var frames: [CGImage] = []
+        // The Cursor tool drills the bar into Cursor's sub-options; the
+        // first (Show Cursor + its preview) opens the short panel.
         key.sendActions(for: .touchUpInside)
+        await settle(0.5)
+        let options = editor.toolBar.probeTitles
+        check("panel-drill-down", editor.toolBar.mode == .pane(.cursor) && options.first == "Back"
+                && options.contains("Show Cursor") && options.contains("Style") && !editor.isPanelOpen,
+              "Cursor → \(options.joined(separator: " · "))")
+        guard let optionKey = editor.toolBar.probeKey("Show Cursor") else {
+            check("panel-option", false, "no Show Cursor key"); return
+        }
+        optionKey.sendActions(for: .touchUpInside)
         let t0 = CACurrentMediaTime()
         while CACurrentMediaTime() - t0 < 0.6 {
             let f = inspector.view.layer.presentation()?.frame ?? inspector.view.frame
@@ -476,17 +498,19 @@ enum InspectorLab {
             // Done in its strip; the timeline still reachable above it.
             let lanes = editor.timeline.view.convert(editor.timeline.view.bounds, to: root)
             check("layout-panel", final.maxY <= toolBarFrame.minY + 0.5 && inspector.rail.isHidden
-                    && inspector.visiblePane?.tab == .cursor && key.isSelected
-                    && inspector.panelTitle.text == "Cursor" && !inspector.closeButton.isHidden
+                    && inspector.visiblePane?.tab == .cursor && optionKey.isSelected
+                    && inspector.panelTitle.text == "Show Cursor" && !inspector.closeButton.isHidden
                     && inspector.closeButton.accessibilityLabel == "Done"
                     && !editor.timelineContainer.accessibilityElementsHidden && !editor.toolBar.accessibilityElementsHidden
                     && lanes.maxY <= final.minY + 0.5 && lanes.height >= EditorViewController.minTimelineStrip - 0.5,
                   String(format: "panel %.0f×%.0f on the tool bar (%.0f ≤ %.0f); rail hidden %@; pane %@; tool selected %@; Done %@; lanes %.0f pt above it; tool bar + timeline VoiceOver-reachable",
                          final.width, final.height, final.maxY, toolBarFrame.minY, inspector.rail.isHidden ? "yes" : "no",
-                         inspector.visiblePane?.tab.rawValue ?? "none", key.isSelected ? "yes" : "no",
+                         inspector.visiblePane?.tab.rawValue ?? "none", optionKey.isSelected ? "yes" : "no",
                          inspector.closeButton.accessibilityLabel ?? "nil", lanes.height))
         }
-        // Done → back to the tool bar.
+        // The preview tile shows the cursor (it rendered blank on iOS).
+        if !injected { cursorPreviewCheck(inspector) }
+        // ✓ (Done) → back to the tool bar.
         tops = []
         inspector.closeButton.sendActions(for: .touchUpInside)
         let c0 = CACurrentMediaTime()
@@ -496,6 +520,8 @@ enum InspectorLab {
         }
         await settle(0.2)
         let closeMid = tops.filter { $0 > final.minY + 2 && $0 < closedTop - 2 }
+        editor.toolBar.key(for: .back)?.sendActions(for: .touchUpInside)
+        await settle(0.5)
         report("motion-panel-close", closeMid.count >= 2 && inspector.view.isHidden && !editor.isPanelOpen, injected: false,
                String(format: "close key → %d of %d samples mid-flight; hidden %@; tool bar back %@", closeMid.count, tops.count,
                       inspector.view.isHidden ? "yes" : "no", editor.toolBar.accessibilityElementsHidden ? "no" : "yes"))
@@ -625,6 +651,13 @@ enum InspectorLab {
         let inspector = editor.inspector
         let selection = editor.selection
         apply(.none, to: selection)
+        if inspector.presentation != .column {
+            await optionSwitchMotion(editor, injected: injected)
+            editor.openPanel(.cursor, animated: false)
+            await settle(0.6)
+            await growthMotion(editor, injected: injected)
+            return
+        }
         editor.openPanel(.background, animated: false)
         selection.inspectorTab = .background
         await settle(0.6)
@@ -661,7 +694,15 @@ enum InspectorLab {
         check("motion-rail-glide", chipMid && chipTravel > 20,
               String(format: "the switcher chip glided %.0f pt, %d samples mid-flight", chipTravel, chipXs.filter { $0 > 2 && $0 < chipEnd - 2 }.count))
 
-        // Growth: Click Sound on reveals its rows; the section grows on the bounce.
+        await growthMotion(editor, injected: injected)
+    }
+
+    /// Growth: Click Sound on reveals its rows; the section grows on the bounce.
+    @available(iOS 26, *)
+    private static func growthMotion(_ editor: EditorViewController, injected: Bool) async {
+        let inspector = editor.inspector
+        guard let cursorPane = inspector.panes[.cursor] else { check("motion-growth", false, "no cursor pane"); return }
+        var frames: [CGImage] = []
         await settle(0.4)
         guard let toggle = find("cursor.clickSound", in: cursorPane) as? CCToggleRow,
               let section = cursorPane.sections.first(where: { $0.spec.id == "cursor.section.click" })?.view else {
@@ -670,7 +711,6 @@ enum InspectorLab {
         }
         let startHeight = section.bounds.height
         var heights: [CGFloat] = [], alphas: [Float] = []
-        frames = []
         toggle.sendActions(for: .touchUpInside)
         await settle(0.001)
         let revealed = cursorPane.rows.first { $0.rowID == "cursor.clickVolume" }
@@ -691,6 +731,97 @@ enum InspectorLab {
                String(format: "section %.0f → %.0f pt; mid-flight height %@ (bounce overshoot %@), revealed row fades %@ (%@)",
                       startHeight, endHeight, midHeight ? "yes" : "no", overshoot ? "yes" : "no", midAlpha ? "yes" : "no",
                       fmt(alphas.map { CGFloat($0) })))
+    }
+
+    /// Phone: switching sub-options in an open panel — the bar's chip glides
+    /// to the new key and the panel's rows rise in under a fade (mid-flight).
+    @available(iOS 26, *)
+    private static func optionSwitchMotion(_ editor: EditorViewController, injected: Bool) async {
+        let inspector = editor.inspector
+        editor.enterPane(.cursor)
+        await settle(0.5)
+        guard let first = editor.toolBar.probeKey("Show Cursor"), let second = editor.toolBar.probeKey("Size"),
+              let cursorPane = inspector.panes[.cursor] else {
+            check("motion-pane-switch", false, "no Show Cursor / Size keys (\(editor.toolBar.probeTitles))"); return
+        }
+        first.sendActions(for: .touchUpInside)
+        await settle(0.6)
+        let chipLayer = editor.toolBar.probeChipLayer
+        let chipStart = (chipLayer.presentation() ?? chipLayer).position
+        var opacities: [Float] = [], rises: [CGFloat] = [], chipXs: [CGFloat] = []
+        var frames: [CGImage] = []
+        second.sendActions(for: .touchUpInside)
+        let t0 = CACurrentMediaTime()
+        while CACurrentMediaTime() - t0 < 0.45 {
+            let p = cursorPane.layer.presentation() ?? cursorPane.layer
+            opacities.append(p.opacity)
+            rises.append((p.value(forKeyPath: "transform.translation.y") as? CGFloat) ?? 0)
+            let chip = chipLayer.presentation() ?? chipLayer
+            chipXs.append(abs(chip.position.y - chipStart.y) + abs(chip.position.x - chipStart.x))
+            if frames.count < 8, let image = presentationSnap(inspector.view) { frames.append(image) }
+            await settle(0.016)
+        }
+        writeStrip(frames, to: out.appendingPathComponent("motion/pane-switch.png"))
+        let midOpacity = opacities.contains { $0 > 0.05 && $0 < 0.95 }
+        let midRise = rises.contains { $0 > 0.5 && $0 < 13.5 }
+        let finalOpacity = (cursorPane.layer.presentation() ?? cursorPane.layer).opacity
+        report("motion-pane-switch", midOpacity && midRise && finalOpacity > 0.99 && inspector.panelTitle.text == "Size",
+               injected: injected,
+               "Show Cursor → Size: \(opacities.count) samples; mid-flight opacity \(midOpacity), rise \(midRise) → \(String(format: "%.2f", finalOpacity)); title \"\(inspector.panelTitle.text ?? "")\"")
+        let chipEnd = chipXs.last ?? 0
+        let chipMid = chipXs.contains { $0 > 2 && $0 < chipEnd - 2 }
+        check("motion-rail-glide", chipMid && (chipXs.max() ?? 0) > 20,
+              String(format: "the bar's chip glided %.0f pt, %d samples mid-flight", chipXs.max() ?? 0,
+                     chipXs.filter { $0 > 2 && $0 < chipEnd - 2 }.count))
+        editor.closePanel(animated: false)
+        editor.toolBar.key(for: .back)?.sendActions(for: .touchUpInside)
+        await settle(0.5)
+    }
+
+    /// The Cursor pane's preview tile must show the cursor: a dark glyph
+    /// inside the well (it rendered as a blank light rectangle on iOS).
+    @available(iOS 26, *)
+    static func cursorPreviewCheck(_ inspector: StudioInspectorController) {
+        guard let pane = inspector.panes[.cursor],
+              let row = pane.rows.first(where: { $0.rowID == "cursor.preview" }) as? InspectorPreviewRow else {
+            check("cursor-preview", false, "no cursor preview row"); return
+        }
+        row.layoutIfNeeded()
+        let b = row.bounds
+        guard b.width > 10, b.height > 10, !row.isHidden else { check("cursor-preview", false, "preview not laid out \(b)"); return }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 2
+        let image = UIGraphicsImageRenderer(size: b.size, format: format).image { ctx in row.layer.render(in: ctx.cgContext) }
+        // Count near-black pixels (the arrow's body) and distinct tones.
+        guard let cg = image.cgImage, let data = cg.dataProvider?.data, let ptr = CFDataGetBytePtr(data) else {
+            check("cursor-preview", false, "no pixels"); return
+        }
+        let bpp = cg.bitsPerPixel / 8, bpr = cg.bytesPerRow
+        var dark = 0, tones = Set<Int>()
+        for y in stride(from: 0, to: cg.height, by: 2) {
+            for x in stride(from: 0, to: cg.width, by: 2) {
+                let o = y * bpr + x * bpp
+                let r = Int(ptr[o]), g = Int(ptr[o + 1]), bl = Int(ptr[o + 2]), a = Int(ptr[o + 3])
+                if a > 200 && r < 40 && g < 40 && bl < 40 { dark += 1 }
+                tones.insert((r / 32) << 6 | (g / 32) << 3 | (bl / 32))
+            }
+        }
+        let hasLayer = row.cursorLayer.contents != nil && !row.cursorLayer.isHidden
+        check("cursor-preview", hasLayer && dark >= 12 && tones.count >= 4,
+              "preview \(Int(b.width))×\(Int(b.height)): cursor artwork \(hasLayer ? "set" : "MISSING"), \(dark) dark glyph samples, \(tones.count) tones")
+    }
+
+    /// `--inject blank-cursor-preview`: only the preview check (it must FAIL).
+    private static func cursorPreviewOnly(lab: LabViewController) async {
+        guard #available(iOS 26, *), let editor = await EditorResizeLab.openEditor(in: out) else { check("cursor-preview", false, "no editor"); return }
+        editor.modalPresentationStyle = .fullScreen
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in lab.present(editor, animated: false) { c.resume() } }
+        await settle(0.8)
+        editor.openPanel(.cursor, animated: false)
+        await settle(0.6)
+        cursorPreviewCheck(editor.inspector)
+        editor.dismiss(animated: false)
+        await settle(0.3)
     }
 
     /// Motion checks: normally they must pass; injected (snapped) they must FAIL.
