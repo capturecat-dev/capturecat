@@ -49,9 +49,12 @@ final class CCHeaderBar: UIView {
         titleLabel.adjustsFontSizeToFitWidth = style == .large
         titleLabel.minimumScaleFactor = 0.75
         // Big Dynamic Type: a title that no longer fits wraps (the bar grows)
-        // instead of losing its end (three lines: a long word breaks at the
-        // largest accessibility sizes on a phone).
-        titleLabel.numberOfLines = style == .inline ? 3 : 1
+        // instead of losing its end.
+        titleLabel.numberOfLines = style == .inline ? 2 : 1
+        applyTitleLineLimit()
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (bar: CCHeaderBar, _: UITraitCollection) in
+            bar.applyTitleLineLimit()
+        }
 
         backButton.accessibilityLabelOverride = "Back"
         backButton.isHidden = true
@@ -121,6 +124,14 @@ final class CCHeaderBar: UIView {
         // A wrapped title (big Dynamic Type) grows the bar; it is never squeezed.
         titleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
         accessibilityElements = [backButton, titleLabel, trailing]
+    }
+
+    /// At the accessibility text sizes an inline title may take as many
+    /// lines as it needs (the bar grows) — with the header's keys beside it,
+    /// two lines can't hold a project name at AX sizes. Otherwise ≤ 2 lines.
+    private func applyTitleLineLimit() {
+        guard style == .inline else { return }
+        titleLabel.numberOfLines = traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? 0 : 2
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }

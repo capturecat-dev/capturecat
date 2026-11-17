@@ -60,7 +60,8 @@ enum AnnotationPane {
 
     // MARK: Header
 
-    /// Undoable: the removed annotation comes back on undo.
+    /// Undoable: the removed annotation comes back on undo at its own index
+    /// (array order is stacking order); redo removes it again.
     static let delete = InspectorAction(
         id: "annotate.delete", title: "Delete", destructive: true,
         run: { scope in
@@ -68,10 +69,8 @@ enum AnnotationPane {
             let removed = project.annotations[idx]
             project.annotations.remove(at: idx)
             scope.annotate?.selectedAnnotationID.wrappedValue = nil
-            scope.annotate?.undoManager?.registerUndo(withTarget: project) { p in
-                p.annotations.append(removed)
-            }
-            scope.annotate?.undoManager?.setActionName("Delete Annotation")
+            UndoStep.removed(scope.annotate?.undoManager, project, \.annotations, removed, at: idx,
+                             name: "Delete Annotation")
         },
         visible: hasSelection)
 

@@ -101,6 +101,9 @@ final class StudioTimelineCanvasView: UIView {
     private var pressState: PressState = .idle
     private var introDragInitialSpan: (start: TimeInterval, end: TimeInterval)?
     private var curtainDragInitialSpan: (start: TimeInterval, end: TimeInterval)?
+    /// The chips' spans at the press of a Slide / Curtain drag — handed back
+    /// on release so the live writes become one undo step (shared routing).
+    private var chipDragBefore: TimelineChipSpans?
     var videoDrag: VideoRowDrag?
     var videoPendingDeselect = false
     var voiceDrag: VoiceRowDrag?
@@ -445,11 +448,13 @@ final class StudioTimelineCanvasView: UIView {
             if abs(point.x - chip.maxX) <= 6 {
                 pressState = .introEdge
                 introDragInitialSpan = (snapshot.introChipStart, snapshot.introChipEnd ?? snapshot.introChipStart)
+                chipDragBefore = callbacks?.chipSpans()
                 return
             }
             if chip.contains(point) {
                 pressState = .introMove(downX: point.x, initialStart: snapshot.introChipStart, didDrag: false)
                 introDragInitialSpan = (snapshot.introChipStart, snapshot.introChipEnd ?? snapshot.introChipStart)
+                chipDragBefore = callbacks?.chipSpans()
                 return
             }
         }
@@ -457,11 +462,13 @@ final class StudioTimelineCanvasView: UIView {
             if abs(point.x - chip.maxX) <= 6 {
                 pressState = .curtainEdge
                 curtainDragInitialSpan = (snapshot.curtainChipStart, snapshot.curtainChipEnd ?? snapshot.curtainChipStart)
+                chipDragBefore = callbacks?.chipSpans()
                 return
             }
             if chip.contains(point) {
                 pressState = .curtainMove(downX: point.x, initialStart: snapshot.curtainChipStart, didDrag: false)
                 curtainDragInitialSpan = (snapshot.curtainChipStart, snapshot.curtainChipEnd ?? snapshot.curtainChipStart)
+                chipDragBefore = callbacks?.chipSpans()
                 return
             }
         }
@@ -565,6 +572,7 @@ final class StudioTimelineCanvasView: UIView {
             introDragInitialSpan = nil
             curtainDragInitialSpan = nil
         }
+        commitChipDragIfAny()
         switch pressState {
         case .idle, .introEdge, .curtainEdge:
             break
@@ -608,6 +616,8 @@ final class StudioTimelineCanvasView: UIView {
     /// A gesture the system took away (a scroll won, the app went inactive):
     /// drop the press without committing.
     func pressCancelled() {
+        // A chip drag writes live: what it already wrote still gets its step.
+        commitChipDragIfAny()
         if case .scrubbing = pressState { overlay.isScrubbing = false }
         pressState = .idle
         videoDrag = nil
@@ -617,6 +627,12 @@ final class StudioTimelineCanvasView: UIView {
         sliceHoverX = nil
         setNeedsDisplay()
         refreshSelectionRing(animated: false)
+    }
+
+    private func commitChipDragIfAny() {
+        guard let before = chipDragBefore else { return }
+        chipDragBefore = nil
+        callbacks?.commitChipDrag(before)
     }
 
     var isPressActive: Bool {

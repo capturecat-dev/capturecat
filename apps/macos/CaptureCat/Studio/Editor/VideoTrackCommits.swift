@@ -58,11 +58,15 @@ struct VideoTrackCommits {
             return
         }
 
-        undoManager?.registerUndo(withTarget: project) { p in
+        let newStart = project.trimStart
+        let newEnd = project.trimEnd
+        UndoStep.register(undoManager, target: project, name: mode == .move ? "Slip Clip" : "Trim", undo: { p in
             p.trimStart = prevStart
             p.trimEnd = prevEnd
-        }
-        undoManager?.setActionName(mode == .move ? "Slip Clip" : "Trim")
+        }, redo: { p in
+            p.trimStart = newStart
+            p.trimEnd = newEnd
+        })
     }
 
     // MARK: Per-clip move / edge resize
@@ -125,12 +129,18 @@ struct VideoTrackCommits {
 
         project.splitPoints = clips.dropFirst().map(\.startTime).sorted()
 
-        undoManager?.registerUndo(withTarget: project) { p in
+        let clipsAfter = project.videoClipSegments
+        let splitsAfter = project.splitPoints
+        let speedAfter = project.speedRegions
+        UndoStep.register(undoManager, target: project, name: actionName, undo: { p in
             p.videoClipSegments = previousClips
             p.splitPoints = previousSplits
             p.speedRegions = previousSpeedRegions
-        }
-        undoManager?.setActionName(actionName)
+        }, redo: { p in
+            p.videoClipSegments = clipsAfter
+            p.splitPoints = splitsAfter
+            p.speedRegions = speedAfter
+        })
     }
 
     /// Port of `updateSpeedRegionsAnchoredToClipEdge`.

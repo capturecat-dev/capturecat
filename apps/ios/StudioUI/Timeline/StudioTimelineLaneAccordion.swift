@@ -26,9 +26,8 @@ final class StudioTimelineLaneAccordion: NSObject {
     private var curve = CCMotion.Curve.bounce.points
 
     /// What cross-fades when Reduce Motion lands a lane change (the
-    /// timeline's canvas area: lane labels + canvas). Product behaviour, so
-    /// outside the DEBUG seams (the 6c merge had put it inside: Release
-    /// did not build).
+    /// timeline's canvas area: lane labels + canvas). Shipping code, not a
+    /// harness seam — it must exist in Release.
     weak var reducedMotionHost: UIView?
 
     #if DEBUG
