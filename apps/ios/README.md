@@ -50,6 +50,7 @@ recording.
 | `StudioUI/` | app, StudioLab | the studio's UIKit surfaces: the stage, the editor (`Editor/`, 4b), the touch timeline (`Timeline/`, 4c), the inspector (`Inspector/`, 4d — see below) |
 | `StudioVectors/` | none (script-built) | the iOS runner for `ios-vectors.sh` — never in a shipping target |
 | `StudioUI/Features/` | app, StudioLab | the editor's four features (Studio 4e) — see "Editor features" below |
+| `StudioUI/Export/` | app, StudioLab | exporting from the editor (Studio 3d) — see "Export" below |
 
 The Xcode project is generated — never hand-edit it:
 
@@ -143,6 +144,41 @@ Simulator transcribes like the Mac (same words; a few word boundaries move
 by ≤ 0.14 s), the iOS 26.2 Simulator mostly returns nothing
 (`StudioLab --whisper-probe`).
 
+## Export (Studio 3d)
+
+The editor header's Export key (`EditorViewController.presentExport`) opens
+`StudioExport.present(from:project:)` — the Mac's export dialog at touch scale, a house
+sheet (scrim + floating `CCCard`; docked to the bottom on compact width, centred on
+regular; every content change re-fits it on the growth bounce, pushed edge only).
+
+- **Choices** come from the SHARED `../macos/CaptureCat/Studio/Editor/ExportSheetSpec`
+  (the Mac's `ExportSheetController` reads the same spec): Type (Image (PNG) / Video,
+  still captures in Image treatment only), Format MP4 / MOV / GIF, Resolution 720p /
+  1080p / 4K / Custom (W × H fields), Frame Rate 30 / 60, Quality, the caption
+  (`GIFExportPolicy` / bit-rate line), Fast export. All of it edits the shared
+  `ExportSettings`. An iPhone opens at **1080p30** (`ExportSheetSpec.phoneDefaults`).
+- **Export** = `StudioExportJob`: the settings become the project's (as on the Mac),
+  then `VideoExporter.export` (movie, or GIF by extension) or
+  `StillImageExporter.exportPNG`, into `tmp/CaptureCat Exports/<uuid>/`. Pipeline depth
+  is `ExportTuning`'s (3b). The bar springs to each progress value; **Cancel Export**
+  calls `VideoExporter.cancel()` (stops before the next frame, cancels the writer,
+  removes the partial movie / GIF / temp movie) and the job removes its folder.
+  Errors arrive as house `CCAlert`s — `ExportError.insufficientMemory` as
+  "Not enough memory to export" with the exporter's message.
+- **Background** = `StudioExportBackground`: a `BGContinuedProcessingTask` request
+  (`<bundle id>.export.<id>`, permitted by `BGTaskSchedulerPermittedIdentifiers`
+  `so.capturecat.ios.export.*` in `Config/App-Info.plist`) asking for `.gpu` when
+  `BGTaskScheduler.supportedResources` offers it (retried without if refused); the
+  system shows its progress and may expire it (→ Cancel). If the request is refused it
+  falls back to `beginBackgroundTask` and the sheet says "Keep CaptureCat open until
+  the export finishes." The Simulator refuses every request ("BGTaskScheduler is not
+  available on this platform"), so the continued path itself is a device check.
+  **Owner:** background GPU needs the
+  `com.apple.developer.background-tasks.continued-processing.gpu` entitlement on the
+  App ID — not added (it would break signing until the capability is enabled).
+- **Delivery** from the finished sheet through `StudioUI/ExportDelivery`: Save to Photos
+  (add-only access), Save to Files (export picker), Share. Done discards the temp file.
+
 ## Contracts it follows
 
 - **Sign-in** = the Mac's flow: loopback (`127.0.0.1`) + PKCE through
@@ -171,6 +207,8 @@ by ≤ 0.14 s), the iOS 26.2 Simulator mostly returns nothing
     apps/ios/scripts/ios-history.sh         # History (Studio 4f): rows, compare, preview, restore, Merge Review vs the Mac's --history-transcript, line for line; motion sequences; INJECT= must FAIL
     apps/ios/scripts/ios-editor-resize.sh   # iPhone Duo fold / unfold: the real editor resized live between the outer (compact) and inner (regular) displays mid-playback — layout per size class, regions inside and clear, History style, project / selection / undo / playback kept; then a crease (top to bottom, then side to side) through FoldingDisplay's seam: stage + transport on one side, timeline over inspector on the other, nothing and no title on the crease (+ injected ignores-size-class / ignores-crease must FAIL)
     # StudioLab --fold-probe                # logs what UIKit reports on the running display: size classes, safe area, verticalBarEdge + bar regions, reserved regions (run on the iPhone Duo simulator)
+    apps/ios/scripts/ios-export-sheet.sh    # the export sheet by touch in the real editor: MP4 / GIF / PNG byte-identical (pre-encode tap) to VideoExporter / StillImageExporter for the same settings, file facts, progress MID-FLIGHT, Cancel leaves no file, background path entered + ended, insufficient-memory alert, delivery controllers, iPhone 1080p30 default (INJECT=wrong-resolution|snap-progress|cancel-leaves-file|no-background must FAIL)
+    apps/ios/scripts/ios-export-delivery.sh # GIF / PNG on iOS vs the Mac, then Photos (each asset's original read back: GIF frames/delays, PNG size, movie size/duration/samples), the Files picker and the share sheet — APP=<unsandboxed Mac build>
     apps/ios/scripts/ios-features.sh        # voice-over, transcription, Auto Zoom, background removal vs the Mac (CaptureCat --features-reference): entries, mix, blocks, subtitles, mask, cutout frames; progress SEQUENCES mid-flight (+ --inject self-tests). WHISPER_BASE=<dir> (model + tokenizer) for transcription; run it on an iOS 27 simulator — the iOS 26.2 Simulator's CPU path decodes base.en to nothing
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
