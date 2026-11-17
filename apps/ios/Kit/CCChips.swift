@@ -51,6 +51,9 @@ final class CCChip: UIControl {
 
     private let label = UILabel()
     private let icon: CCIconView?
+    /// Differentiate Without Color: the selected chip also carries a check.
+    private let check = CCIconView("check", pointSize: 12, weight: .bold)
+    private var showsCheck: Bool { isSelected && CCAccessibility.differentiateWithoutColor }
 
     init(title: String, symbol: String? = nil) {
         icon = symbol.map { CCIconView($0, pointSize: 14, weight: .medium) }
@@ -68,6 +71,11 @@ final class CCChip: UIControl {
             icon.isUserInteractionEnabled = false
             addSubview(icon)
         }
+        check.translatesAutoresizingMaskIntoConstraints = true
+        check.isUserInteractionEnabled = false
+        check.isHidden = true
+        addSubview(check)
+        ccInstallPointerHover { [weak self] in self?.layer.cornerRadius ?? 0 }
         isAccessibilityElement = true
         accessibilityLabel = title
         addAction(UIAction { [weak self] _ in
@@ -88,6 +96,15 @@ final class CCChip: UIControl {
     var contentWidth: CGFloat {
         let text = ceil((title as NSString).size(withAttributes: [.font: label.font as Any]).width)
         return text + (icon == nil ? 0 : CCIcon.side(for: 14) + CCSpace.xs + 2)
+            + (showsCheck ? CCIcon.side(for: 12) + CCSpace.xs : 0)
+    }
+
+    // Keyboard (iPad): Tab / arrows focus the chip; Space or Return picks it.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
     }
 
     var chipHeight: CGFloat { max(Self.height, ceil(label.font.lineHeight) + 16) }
@@ -109,6 +126,12 @@ final class CCChip: UIControl {
         CCMaterial.refit(layer, radius: r)
         let labelHeight = ceil(label.font.lineHeight)
         var x = (bounds.width - contentWidth) / 2
+        check.isHidden = !showsCheck
+        if showsCheck {
+            let side = CCIcon.side(for: 12)
+            check.frame = CGRect(x: x, y: (bounds.height - side) / 2, width: side, height: side)
+            x += side + CCSpace.xs
+        }
         if let icon {
             let side = CCIcon.side(for: 14)
             icon.frame = CGRect(x: x, y: (bounds.height - side) / 2, width: side, height: side)
@@ -121,6 +144,13 @@ final class CCChip: UIControl {
         let colors = CCTheme.color
         label.textColor = colors.foreground
         icon?.tintColor = isSelected ? colors.foreground : colors.mutedForeground
+        check.tintColor = colors.foreground
+        if check.isHidden == showsCheck {
+            invalidateIntrinsicContentSize()
+            superview?.setNeedsLayout()
+            setNeedsLayout()
+        }
+        focusEffect = UIFocusHaloEffect()
         // 2026 look: unselected chips are flat wells; the selected one floats,
         // filled with the `active` wash (CCMaterial composites it over the
         // elevated surface) — exactly the Mac chip.
@@ -139,6 +169,9 @@ final class CCChip: UIControl {
     }
 
     fileprivate var groupPosition: (index: Int, count: Int)? { didSet { refreshAccessibility() } }
+
+    /// Probe seam: the Differentiate Without Color check is on screen.
+    var probeShowsCheck: Bool { !check.isHidden && showsCheck }
 
     private func refreshAccessibility() {
         var traits: UIAccessibilityTraits = .button
@@ -334,6 +367,7 @@ final class CCChipGroup: UIView {
     var probeChips: [CCChip] { chips }
     var probeHeightConstraint: NSLayoutConstraint { heightConstraint }
     func probeTap(_ index: Int) { tap(index) }
+
 }
 
 extension UIView {

@@ -27,8 +27,10 @@ enum CCMaterial {
         defer { CATransaction.commit() }
 
         let dark = CCTheme.isDark(traits)
+        let high = CCAccessibility.highContrast(traits)
         let base = baseLayer(in: layer)
         layer.setValue(dark, forKey: "ccmatDark")
+        layer.setValue(high, forKey: "ccmatHighContrast")
         switch style {
         case .raised(let rawTint), .raisedMatte(let rawTint):
             let tint = solid(rawTint, traits: traits)
@@ -36,7 +38,7 @@ enum CCMaterial {
                 tint.ccBlended(dark ? 0.035 : 0.02, of: .white, traits: traits).cgColor,
                 tint.cgColor,
             ]
-            base.borderColor = hairline(dark: dark, onWell: false).cgColor
+            base.borderColor = hairline(dark: dark, onWell: false, highContrast: high).cgColor
             if case .raised = style, layer.value(forKey: "ccmatNoShadow") == nil {
                 layer.setValue(true, forKey: "ccmatShadow")
             } else {
@@ -46,11 +48,10 @@ enum CCMaterial {
         case .recessed(let rawTint):
             let tint = solid(rawTint, traits: traits)
             base.colors = [tint.cgColor, tint.cgColor]
-            base.borderColor = hairline(dark: dark, onWell: true).cgColor
+            base.borderColor = hairline(dark: dark, onWell: true, highContrast: high).cgColor
             layer.setValue(nil, forKey: "ccmatShadow")
             layer.shadowOpacity = 0
         }
-        base.borderWidth = 0.5
         refit(layer, radius: radius)
     }
 
@@ -64,7 +65,9 @@ enum CCMaterial {
         base.frame = b
         base.cornerRadius = radius
         // The hairline reads as an outline on tiny surfaces — drop it.
-        base.borderWidth = (b.height < 10 || b.width < 10) ? 0 : 0.5
+        // Increase Contrast: a full point of hairline, kept even on tiny surfaces.
+        let high = layer.value(forKey: "ccmatHighContrast") as? Bool ?? false
+        base.borderWidth = high ? 1 : ((b.height < 10 || b.width < 10) ? 0 : 0.5)
         layer.sublayers?.first(where: { $0.name == "ccmat.pressShade" }).map {
             $0.frame = b
             $0.cornerRadius = radius
@@ -127,7 +130,8 @@ enum CCMaterial {
     // MARK: - Internals
 
     /// The 2026 hairline: ink-relative so it reads on any tint, quieter on wells.
-    static func hairline(dark: Bool, onWell: Bool) -> UIColor {
+    static func hairline(dark: Bool, onWell: Bool, highContrast: Bool = false) -> UIColor {
+        if highContrast { return dark ? UIColor.white.withAlphaComponent(0.36) : UIColor.black.withAlphaComponent(0.32) }
         if dark { return UIColor.white.withAlphaComponent(onWell ? 0.06 : 0.09) }
         return UIColor.black.withAlphaComponent(onWell ? 0.05 : 0.07)
     }

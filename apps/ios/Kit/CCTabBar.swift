@@ -125,7 +125,7 @@ final class CCTabBar: UIView {
 
     private func moveChip(animated: Bool) {
         let target = itemRect(selectedIndex)
-        if animated, window != nil, !CCMotion.reduceMotion {
+        if animated, window != nil {
             CCMotion.spring(chip, keyPath: "position", to: NSValue(cgPoint: CGPoint(x: target.midX, y: target.midY)), .snappy)
             CCMotion.spring(chip, keyPath: "bounds", to: NSValue(cgRect: CGRect(origin: .zero, size: target.size)), .snappy)
         } else {
@@ -157,6 +157,15 @@ final class CCTabBar: UIView {
 }
 
 final class CCTabBarItemView: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     private let icon: CCIconView
     private let label: UILabel
     private var isOn = false
@@ -368,6 +377,15 @@ final class CCSidebar: UIView {
 }
 
 final class CCSidebarRow: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     private let icon: CCIconView
     private let label: UILabel
     private let wash = UIView()

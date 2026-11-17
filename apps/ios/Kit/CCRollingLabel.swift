@@ -110,6 +110,8 @@ final class CCRollingLabel: UIView {
         invalidateIntrinsicContentSize()
         superview?.setNeedsLayout()
         let animate = direction != .none && window != nil && !CCMotion.reduceMotion
+        // Reduce Motion: the digits do not roll — the new text dissolves in.
+        if direction != .none, window != nil, CCMotion.reduceMotion { CCMotion.dissolve(layer, from: 0.35) }
         let oldColumns = columns
         let newChars = Array(newText)
         let oldChars = Array(oldText)

@@ -36,6 +36,8 @@ final class CCSegmented: UIControl {
     private var labels: [UILabel] = []
     private var titles: [String]
     private let selection = CALayer()
+    /// Differentiate Without Color: a bar under the chosen segment's label.
+    private let mark = CALayer()
     private var accessibilityItems: [CCAccessibilityAction] = []
 
     init(segments: [String], selectedIndex: Int = 0, size: Size = .regular, radius: CCRadius = .md, onChange: ((Int) -> Void)? = nil) {
@@ -49,6 +51,9 @@ final class CCSegmented: UIControl {
         layer.cornerCurve = .continuous
         selection.cornerCurve = .continuous
         layer.addSublayer(selection)
+        mark.cornerRadius = 1
+        mark.opacity = 0
+        selection.addSublayer(mark)
         for text in segments {
             let label = UILabel()
             label.text = text
@@ -65,6 +70,7 @@ final class CCSegmented: UIControl {
         setContentHuggingPriority(.required, for: .vertical)
         setContentCompressionResistancePriority(.required, for: .vertical)
         isAccessibilityElement = false
+        ccRelayoutOnTextSizeChange()
         ccOnThemeChange { [weak self] in self?.applyTheme() }
         applyTheme()
     }
@@ -116,8 +122,34 @@ final class CCSegmented: UIControl {
         selection.cornerRadius = chipRadius
         CATransaction.commit()
         CCMaterial.refit(selection, radius: chipRadius)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let chip = segmentRect(selectedIndex)
+        mark.frame = CGRect(x: (chip.width - 16) / 2, y: chip.height - 5, width: 16, height: 2)
+        CATransaction.commit()
         rebuildAccessibility()
     }
+
+    /// A 44 pt touch target, however short the well.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let dy = max(0, (44 - bounds.height) / 2)
+        return bounds.insetBy(dx: 0, dy: -dy).contains(point)
+    }
+
+    // Keyboard (iPad, Studio 6a): focusable; ← / → choose the neighbouring segment.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let step = ccArrowStep(presses), isEnabled {
+            let next = min(max(selectedIndex + step, 0), labels.count - 1)
+            if next != selectedIndex { commit(next) }
+            return
+        }
+        super.pressesBegan(presses, with: event)
+    }
+
+    /// Probe seam: the Differentiate Without Color mark shows.
+    var probeShowsCheck: Bool { mark.opacity > 0.5 }
 
     private func applyTheme() {
         let colors = CCTheme.color
@@ -125,6 +157,11 @@ final class CCSegmented: UIControl {
         layer.borderWidth = 1
         layer.borderColor = cc(colors.border)
         CCMaterial.dress(selection, as: .raised(tint: colors.card), radius: chipRadius, traits: traitCollection)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        mark.backgroundColor = cc(colors.foreground)
+        mark.opacity = CCAccessibility.differentiateWithoutColor ? 1 : 0
+        CATransaction.commit()
         for (index, label) in labels.enumerated() {
             label.textColor = index == selectedIndex ? colors.foreground : colors.mutedForeground
         }

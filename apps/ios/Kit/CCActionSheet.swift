@@ -204,7 +204,7 @@ final class CCActionSheetController: UIViewController {
             if dy > 90 || gesture.velocity(in: view).y > 800 {
                 leave(then: nil)
             } else {
-                CCMotion.springViews(.snappy) {
+                CCMotion.springViews(.snappy, crossFading: view) {
                     self.menuCard.transform = .identity
                     self.cancelCard.transform = .identity
                     self.scrim.alpha = 1
@@ -237,6 +237,15 @@ final class CCActionSheetController: UIViewController {
 
 /// One sheet row: press washes it in place; a pick blinks it once.
 final class CCActionRow: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     var onTap: (() -> Void)?
     let isCancel: Bool
     private let item: CCActionSheet.Item

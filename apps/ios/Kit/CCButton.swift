@@ -28,7 +28,8 @@ final class CCButton: UIControl {
         var height: CGFloat {
             switch self {
             case .sm: return 34
-            case .regular: return 42
+            // 44 pt: the regular key is its own touch target (Studio 6a).
+            case .regular: return 44
             case .lg: return 50
             }
         }
@@ -103,8 +104,19 @@ final class CCButton: UIControl {
 
     /// For icon-only buttons (VoiceOver).
     var accessibilityLabelOverride: String? {
-        didSet { accessibilityLabel = accessibilityLabelOverride ?? title }
+        didSet {
+            accessibilityLabel = accessibilityLabelOverride ?? title
+            #if DEBUG
+            if Self.probeDropIconLabels, title.isEmpty { accessibilityLabel = nil }
+            #endif
+        }
     }
+
+    #if DEBUG
+    /// INJECTED DEFECT (`--a11y --inject missing-label`): icon-only buttons
+    /// lose their spoken name.
+    static var probeDropIconLabels = false
+    #endif
 
     /// Replaces the content with a spinner and ignores taps.
     var isBusy = false {
@@ -166,6 +178,10 @@ final class CCButton: UIControl {
         label.adjustsFontForContentSizeCategory = true
         label.lineBreakMode = .byTruncatingTail
         label.textAlignment = .center
+        // Big Dynamic Type in a button of fixed width: the title shrinks to
+        // fit (down to 60%) rather than losing its end.
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.6
         icon.contentMode = .center
         for view in [icon, label, spinner] as [UIView] {
             view.isUserInteractionEnabled = false
@@ -188,6 +204,10 @@ final class CCButton: UIControl {
         }, for: .touchUpInside)
         ccOnThemeChange { [weak self] in self?.applyTheme() }
         applyTheme()
+        // iPad pointer: the house hover highlight, shaped like the button.
+        ccInstallPointerHover { [weak self] in self?.layer.cornerRadius ?? 0 }
+        focusEffect = UIFocusHaloEffect()
+        ccRelayoutOnTextSizeChange()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -214,10 +234,26 @@ final class CCButton: UIControl {
         return CGSize(width: ceil(width), height: size.height)
     }
 
+    #if DEBUG
+    /// INJECTED DEFECT (`--a11y --inject tiny-target`): no 44 pt expansion.
+    static var probeNoTargetExpansion = false
+    #endif
+
     /// Icon-only buttons keep a 44 pt touch target.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        #if DEBUG
+        if Self.probeNoTargetExpansion { return bounds.contains(point) }
+        #endif
         let dx = max(0, (44 - bounds.width) / 2), dy = max(0, (44 - bounds.height) / 2)
         return bounds.insetBy(dx: -dx, dy: -dy).contains(point)
+    }
+
+    // Keyboard (iPad): Tab / arrows focus the button; Space or Return taps it.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && !isBusy }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled, !isBusy { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
     }
 
     override func layoutSubviews() {

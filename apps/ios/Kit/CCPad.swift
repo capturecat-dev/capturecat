@@ -13,6 +13,18 @@ import UIKit
 /// VoiceOver element: label = title, value = `accessibilityValueProvider()`,
 /// adjustable left/right and custom up/down actions nudging by `nudge`.
 class CCPadView: UIControl {
+    // Keyboard (iPad, Studio 6a): focusable; the arrows adjust it exactly as
+    // VoiceOver's swipe up / down does.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let step = ccArrowStep(presses), isEnabled {
+            if step > 0 { accessibilityIncrement() } else { accessibilityDecrement() }
+            return
+        }
+        super.pressesBegan(presses, with: event)
+    }
+
     enum Phase { case began, moved, ended }
 
     /// Raw touches, pad coordinates (Y-down).

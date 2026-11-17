@@ -153,7 +153,7 @@ final class CCIconRail: UIView {
         let target = chipTargetFrame
         guard target.width > 1 else { return }
         let r = CCTheme.radius(.md)
-        if animated, window != nil, !CCMotion.reduceMotion {
+        if animated, window != nil {
             CCMotion.spring(chip, keyPath: "position", to: NSValue(cgPoint: CGPoint(x: target.midX, y: target.midY)), .smooth)
             CATransaction.begin()
             CATransaction.setDisableActions(true)
@@ -190,6 +190,15 @@ final class CCIconRail: UIView {
 /// One rail key: icon over a small label (side by side never — the label is
 /// what makes nine icons legible). Tints in place on press.
 final class CCIconRailKey: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     private let iconView: CCIconView
     private let label: UILabel
     private let item: CCIconRail.Item
@@ -203,7 +212,8 @@ final class CCIconRailKey: UIControl {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         label.adjustsFontSizeToFitWidth = true
-        label.minimumScaleFactor = 0.8
+        label.minimumScaleFactor = 0.65
+        ccRelayoutOnTextSizeChange()
         let column = UIStackView(arrangedSubviews: [iconView, label])
         column.axis = .vertical
         column.alignment = .center

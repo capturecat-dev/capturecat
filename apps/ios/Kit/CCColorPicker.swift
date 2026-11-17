@@ -209,6 +209,18 @@ final class CCAdjustableElement: UIAccessibilityElement {
 /// there, then keep dragging (the Mac's square). VoiceOver: two adjustable
 /// elements, saturation and brightness.
 final class CCColorField: UIControl {
+    // Keyboard (iPad, Studio 6a): focusable; the arrows adjust it exactly as
+    // VoiceOver's swipe up / down does.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let step = ccArrowStep(presses), isEnabled {
+            if step > 0 { accessibilityIncrement() } else { accessibilityDecrement() }
+            return
+        }
+        super.pressesBegan(presses, with: event)
+    }
+
     var hue: Double = 0 { didSet { refreshGradient() } }
     var saturation: Double = 0 { didSet { setNeedsLayout() } }
     var brightness: Double = 1 { didSet { setNeedsLayout() } }
@@ -344,6 +356,18 @@ final class CCColorField: UIControl {
 /// A capsule bar with a knob (hue spectrum, or opacity over the checker).
 /// Touch anywhere to jump, then drag. One adjustable VoiceOver element.
 final class CCColorBar: UIControl {
+    // Keyboard (iPad, Studio 6a): focusable; the arrows adjust it exactly as
+    // VoiceOver's swipe up / down does.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if let step = ccArrowStep(presses), isEnabled {
+            if step > 0 { accessibilityIncrement() } else { accessibilityDecrement() }
+            return
+        }
+        super.pressesBegan(presses, with: event)
+    }
+
     enum Kind {
         case hue
         case opacity
@@ -494,6 +518,15 @@ final class CCColorBar: UIControl {
 /// A round preset swatch: the color over the checker, a quiet rim, and — when
 /// selected — an ink ring that springs in around it. 32 pt, a 44 pt target.
 final class CCColorSwatch: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     let preset: CCColorPreset
     var onPick: ((CCColorPreset) -> Void)?
     static let diameter: CGFloat = 32
@@ -772,6 +805,9 @@ final class CCColorPickerView: UIView, UITextFieldDelegate {
         stack.setCustomSpacing(CCSpace.lg, after: swatchGrid)
         stack.setCustomSpacing(CCSpace.sm, after: customLabel)
         stack.setCustomSpacing(CCSpace.lg, after: field)
+        // 28 pt bars 16 pt apart: each bar's 44 pt target is its own (Studio 6a).
+        stack.setCustomSpacing(CCSpace.lg, after: hueBar)
+        stack.setCustomSpacing(CCSpace.lg, after: opacityBar)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         let fieldHeight = field.heightAnchor.constraint(equalTo: field.widthAnchor, multiplier: 0.5)
@@ -887,6 +923,15 @@ final class CCColorPickerView: UIView, UITextFieldDelegate {
 /// colors, an ink rim). Tap opens the picker — a bottom sheet on compact
 /// width, a card anchored to the well on regular width. 32 pt, 44 pt target.
 final class CCColorWell: UIControl {
+    // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
+    // activates it — the same action a tap sends.
+    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        if ccIsActivation(presses), isEnabled { sendActions(for: .touchUpInside); return }
+        super.pressesEnded(presses, with: event)
+    }
+
     var onChange: ((UIColor) -> Void)?
     var onCommit: ((UIColor) -> Void)?
     var supportsOpacity: Bool { didSet { refresh() } }
@@ -1165,7 +1210,7 @@ final class CCColorPickerController: UIViewController, UIGestureRecognizerDelega
             if dy > 90 || gesture.velocity(in: view).y > 800 {
                 close()
             } else {
-                CCMotion.springViews(.snappy) {
+                CCMotion.springViews(.snappy, crossFading: view) {
                     self.card.transform = .identity
                     self.scrim.alpha = 1
                 }

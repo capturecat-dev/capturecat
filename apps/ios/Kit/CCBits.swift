@@ -281,7 +281,10 @@ final class CCAvatar: UIView {
         clipsToBounds = true
         layer.cornerCurve = .continuous
         initials.textAlignment = .center
-        initials.font = .systemFont(ofSize: side * 0.4, weight: .semibold)
+        // Dynamic Type: initials grow (to half the circle).
+        initials.font = UIFontMetrics(forTextStyle: .footnote).scaledFont(
+            for: .systemFont(ofSize: side * 0.4, weight: CCFont.legible(.semibold)), maximumPointSize: side * 0.5)
+        initials.adjustsFontForContentSizeCategory = true
         initials.textColor = .white
         imageView.contentMode = .scaleAspectFill
         for view in [initials, imageView] {

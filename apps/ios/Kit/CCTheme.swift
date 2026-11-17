@@ -103,22 +103,39 @@ enum CCTheme {
         popover: dyn(light: .white, dark: hex(0x212126)),
         elevated: dyn(light: hex(0xECECEF), dark: hex(0x2A2A30)),
         foreground: dyn(light: hex(0x1D1D1F), dark: UIColor.white.withAlphaComponent(0.94)),
-        mutedForeground: dyn(light: UIColor.black.withAlphaComponent(0.54), dark: UIColor.white.withAlphaComponent(0.58)),
-        faintForeground: dyn(light: UIColor.black.withAlphaComponent(0.32), dark: UIColor.white.withAlphaComponent(0.36)),
+        // Increase Contrast: secondary ink, hairlines and washes get stronger
+        // (the `…HC` values); Reduce Transparency makes the scrim near-opaque.
+        mutedForeground: dyn(light: UIColor.black.withAlphaComponent(0.54), dark: UIColor.white.withAlphaComponent(0.58),
+                             lightHC: UIColor.black.withAlphaComponent(0.74), darkHC: UIColor.white.withAlphaComponent(0.80)),
+        faintForeground: dyn(light: UIColor.black.withAlphaComponent(0.32), dark: UIColor.white.withAlphaComponent(0.36),
+                             lightHC: UIColor.black.withAlphaComponent(0.58), darkHC: UIColor.white.withAlphaComponent(0.62)),
         primary: .systemBlue,
         primaryForeground: .white,
         destructive: .systemRed,
         success: .systemGreen,
         warning: .systemOrange,
-        border: dyn(light: UIColor.black.withAlphaComponent(0.08), dark: UIColor.white.withAlphaComponent(0.08)),
-        ring: dyn(light: UIColor.black.withAlphaComponent(0.55), dark: UIColor.white.withAlphaComponent(0.85)),
-        hover: dyn(light: UIColor.black.withAlphaComponent(0.045), dark: UIColor.white.withAlphaComponent(0.06)),
-        active: dyn(light: UIColor.black.withAlphaComponent(0.08), dark: UIColor.white.withAlphaComponent(0.10)),
-        overlay: dyn(light: UIColor.black.withAlphaComponent(0.25), dark: UIColor.black.withAlphaComponent(0.42))
+        border: dyn(light: UIColor.black.withAlphaComponent(0.08), dark: UIColor.white.withAlphaComponent(0.08),
+                    lightHC: UIColor.black.withAlphaComponent(0.30), darkHC: UIColor.white.withAlphaComponent(0.34)),
+        ring: dyn(light: UIColor.black.withAlphaComponent(0.55), dark: UIColor.white.withAlphaComponent(0.85),
+                  lightHC: UIColor.black.withAlphaComponent(0.85), darkHC: .white),
+        hover: dyn(light: UIColor.black.withAlphaComponent(0.045), dark: UIColor.white.withAlphaComponent(0.06),
+                   lightHC: UIColor.black.withAlphaComponent(0.09), darkHC: UIColor.white.withAlphaComponent(0.12)),
+        active: dyn(light: UIColor.black.withAlphaComponent(0.08), dark: UIColor.white.withAlphaComponent(0.10),
+                    lightHC: UIColor.black.withAlphaComponent(0.16), darkHC: UIColor.white.withAlphaComponent(0.20)),
+        overlay: UIColor { traits in
+            let dark = traits.userInterfaceStyle == .dark
+            if CCAccessibility.reduceTransparency { return UIColor.black.withAlphaComponent(dark ? 0.72 : 0.55) }
+            return UIColor.black.withAlphaComponent(dark ? 0.42 : 0.25)
+        }
     )
 
-    static func dyn(light: UIColor, dark: UIColor) -> UIColor {
-        UIColor { $0.userInterfaceStyle == .dark ? dark : light }
+    /// A light/dark colour, with optional Increase Contrast variants.
+    static func dyn(light: UIColor, dark: UIColor, lightHC: UIColor? = nil, darkHC: UIColor? = nil) -> UIColor {
+        UIColor { traits in
+            let high = CCAccessibility.highContrast(traits)
+            if traits.userInterfaceStyle == .dark { return high ? (darkHC ?? dark) : dark }
+            return high ? (lightHC ?? light) : light
+        }
     }
 
     static func hex(_ value: UInt32, alpha: CGFloat = 1) -> UIColor {
@@ -138,7 +155,17 @@ enum CCTheme {
 /// `adjustsFontForContentSizeCategory = true` and follow the user's size.
 enum CCFont {
     static func scaled(_ size: CGFloat, _ weight: UIFont.Weight, _ style: UIFont.TextStyle, max: CGFloat) -> UIFont {
-        UIFontMetrics(forTextStyle: style).scaledFont(for: .systemFont(ofSize: size, weight: weight), maximumPointSize: max)
+        UIFontMetrics(forTextStyle: style).scaledFont(for: .systemFont(ofSize: size, weight: legible(weight)), maximumPointSize: max)
+    }
+
+    /// Bold Text: every weight steps one up (regular → semibold, medium →
+    /// bold, semibold → bold, bold → heavy).
+    static func legible(_ weight: UIFont.Weight) -> UIFont.Weight {
+        guard CCAccessibility.boldText else { return weight }
+        let w = weight.rawValue
+        if w < UIFont.Weight.medium.rawValue { return .semibold }
+        if w < UIFont.Weight.bold.rawValue { return .bold }
+        return .heavy
     }
 
     // The Mac kit's weight hierarchy (label 12 · chip 13 · header 14 semibold ·
@@ -159,10 +186,10 @@ enum CCFont {
     static var captionMedium: UIFont { scaled(13, .medium, .footnote, max: 20) }
     static var micro: UIFont { scaled(11, .semibold, .caption2, max: 16) }
     static var mono: UIFont {
-        UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .monospacedDigitSystemFont(ofSize: 13, weight: .medium), maximumPointSize: 19)
+        UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .monospacedDigitSystemFont(ofSize: 13, weight: legible(.medium)), maximumPointSize: 19)
     }
     static var monoSmall: UIFont {
-        UIFontMetrics(forTextStyle: .caption2).scaledFont(for: .monospacedDigitSystemFont(ofSize: 11, weight: .semibold), maximumPointSize: 15)
+        UIFontMetrics(forTextStyle: .caption2).scaledFont(for: .monospacedDigitSystemFont(ofSize: 11, weight: legible(.semibold)), maximumPointSize: 15)
     }
 }
 
@@ -205,7 +232,8 @@ extension UIView {
     /// call their `applyTheme()` from here, at init and on window attach.
     @discardableResult
     func ccOnThemeChange(_ apply: @escaping () -> Void) -> UITraitChangeRegistration {
-        registerForTraitChanges([UITraitUserInterfaceStyle.self, UITraitAccessibilityContrast.self]) { (_: UIView, _: UITraitCollection) in
+        registerForTraitChanges([UITraitUserInterfaceStyle.self, UITraitAccessibilityContrast.self,
+                                 UITraitLegibilityWeight.self, CCAccessibilityTrait.self]) { (_: UIView, _: UITraitCollection) in
             apply()
         }
     }

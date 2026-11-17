@@ -386,7 +386,7 @@ final class CCAlertController: UIViewController {
             if dy > 90 || gesture.velocity(in: view).y > 800 {
                 finish(cancelIndex)
             } else {
-                CCMotion.springViews(.snappy) {
+                CCMotion.springViews(.snappy, crossFading: view) {
                     self.card.transform = .identity
                     self.scrim.alpha = 1
                 }
