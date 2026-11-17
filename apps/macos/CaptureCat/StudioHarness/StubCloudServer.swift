@@ -562,3 +562,59 @@ extension StubCloudServer: CloudHistoryTransport {
         return result
     }
 }
+
+// MARK: - Persistence (the Mac ↔ iOS round trip, Studio Phase 5)
+
+extension StubCloudServer {
+    /// Writes the server's state to `directory` — the document, revision and
+    /// clock, the committed manifest and every stored object — so another
+    /// PROCESS (the Mac binary, StudioLab in the Simulator) continues it:
+    /// `apps/ios/scripts/ios-cloud-sync.sh`'s round trip hands one cloud back
+    /// and forth between the real Mac app and the iOS studio. Versions are
+    /// not kept (a merge base comes from each side's sidecar).
+    func save(to directory: URL) throws {
+        let fm = FileManager.default
+        let objects = directory.appendingPathComponent("objects", isDirectory: true)
+        try fm.createDirectory(at: objects, withIntermediateDirectories: true)
+        for (sha, data) in ready where !fm.fileExists(atPath: objects.appendingPathComponent(sha).path) {
+            try data.write(to: objects.appendingPathComponent(sha))
+        }
+        let files = committedFiles.map { file -> [String: Any] in
+            ["path": file.path, "sha256": file.sha256, "bytes": file.bytes, "contentType": file.contentType,
+             "source": file.source ?? NSNull()]
+        }
+        let state: [String: Any] = [
+            "revision": revision, "generation": generation, "ownerUID": ownerUID,
+            "document": document.map { String(decoding: $0, as: UTF8.self) } ?? NSNull(),
+            "updatedAt": updatedAt.map { $0.timeIntervalSince1970 } ?? NSNull(),
+            "files": files,
+        ]
+        try JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted, .sortedKeys])
+            .write(to: directory.appendingPathComponent("server.json"), options: .atomic)
+    }
+
+    /// The server `save(to:)` wrote.
+    static func load(from directory: URL) throws -> StubCloudServer {
+        let data = try Data(contentsOf: directory.appendingPathComponent("server.json"))
+        guard let state = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw CloudSyncError.invalidResponse
+        }
+        let server = StubCloudServer(ownerUID: state["ownerUID"] as? String ?? "stub-owner")
+        server.revision = (state["revision"] as? NSNumber)?.intValue ?? 0
+        server.generation = (state["generation"] as? NSNumber)?.intValue ?? 0
+        server.document = (state["document"] as? String).map { Data($0.utf8) }
+        server.updatedAt = (state["updatedAt"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue) }
+        server.committedFiles = (state["files"] as? [[String: Any]] ?? []).compactMap { entry in
+            guard let path = entry["path"] as? String, let sha = entry["sha256"] as? String,
+                  let bytes = (entry["bytes"] as? NSNumber)?.int64Value, let type = entry["contentType"] as? String
+            else { return nil }
+            return CloudRemoteFile(path: path, sha256: sha, bytes: bytes, contentType: type,
+                                   source: entry["source"] as? String, url: nil)
+        }
+        let objects = directory.appendingPathComponent("objects", isDirectory: true)
+        for name in (try? FileManager.default.contentsOfDirectory(atPath: objects.path)) ?? [] {
+            server.ready[name] = try Data(contentsOf: objects.appendingPathComponent(name))
+        }
+        return server
+    }
+}

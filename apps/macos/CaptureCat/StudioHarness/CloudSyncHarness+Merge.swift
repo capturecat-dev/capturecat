@@ -185,16 +185,16 @@ extension CloudSyncHarness {
         print("attribution (.mcp-history chain)")
         let agent1 = try loadLocal(fixture)
         agent1.name = "Agent renamed"
-        _ = try MCPServer.commitEdit(agent1, to: fixture.json, tool: "set_project", summary: "rename")
+        try agentEdit(agent1, to: fixture.json, tool: "set_project", summary: "rename")
         let agent2 = try loadLocal(fixture)
         agent2.settings.cornerRadius = 3
-        _ = try MCPServer.commitEdit(agent2, to: fixture.json, tool: "set_style", summary: "corner radius")
+        try agentEdit(agent2, to: fixture.json, tool: "set_style", summary: "corner radius")
         server.resetCounters()
         _ = try await sync.push(project: try loadLocal(fixture), projectDirectory: dir)
         expect(server.lastSaveContext?.source == .agent, "two chained MCP writes cover base → current → X-CC-Source agent")
         let agent3 = try loadLocal(fixture)
         agent3.settings.cornerRadius = 9
-        _ = try MCPServer.commitEdit(agent3, to: fixture.json, tool: "set_style", summary: "corner radius")
+        try agentEdit(agent3, to: fixture.json, tool: "set_style", summary: "corner radius")
         _ = try editLocal(fixture) { $0.name = "A human touch after the agent" }
         server.resetCounters()
         _ = try await sync.push(project: try loadLocal(fixture), projectDirectory: dir)
@@ -222,6 +222,39 @@ extension CloudSyncHarness {
         try await reviewChecks(checks, server: server, sync: sync, fixture: fixture, apiBase: apiBase)
         try await historyClientChecks(checks, server: server, sync: sync, fixture: fixture, apiBase: apiBase)
     }
+
+    /// An agent's edit. The Mac: the REAL MCP write path
+    /// (`MCPServer.commitEdit`). iOS has no MCP server: the same file
+    /// contract — the previous project.json snapshotted into `.mcp-history/`
+    /// with `preSHA256` → `postSHA256` meta, then the atomic write — so the
+    /// shared attribution (`CloudAttribution`) reads the same chain.
+    static func agentEdit(_ project: Project, to file: URL, tool: String, summary: String) throws {
+        #if canImport(AppKit)
+        _ = try MCPServer.commitEdit(project, to: file, tool: tool, summary: summary)
+        #else
+        let fm = FileManager.default
+        let data = try JSONEncoder().encode(project)
+        if let previous = try? Data(contentsOf: file) {
+            let dir = file.deletingLastPathComponent().appendingPathComponent(CloudAttribution.directoryName, isDirectory: true)
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            agentSequence = (agentSequence + 1) % 10000
+            let base = String(format: "%013lld-%04d", Int64(Date().timeIntervalSince1970 * 1000), agentSequence)
+            try previous.write(to: dir.appendingPathComponent(base + ".json"), options: .atomic)
+            let meta: [String: Any] = [
+                "tool": tool, "summary": summary, "at": ISO8601DateFormatter().string(from: Date()),
+                "preSHA256": CloudProjectManifest.sha256(of: previous),
+                "postSHA256": CloudProjectManifest.sha256(of: data), "source": "agent",
+            ]
+            try JSONSerialization.data(withJSONObject: meta).write(to: dir.appendingPathComponent(base + ".meta.json"),
+                                                                    options: .atomic)
+        }
+        try ProjectFileIO.writeProjectData(data, to: file)
+        #endif
+    }
+
+    #if !canImport(AppKit)
+    private static var agentSequence = 0
+    #endif
 
     // MARK: - Merge Review (structural conflict, real dialog)
 
