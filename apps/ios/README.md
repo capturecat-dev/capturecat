@@ -47,6 +47,67 @@ Copy that talks about this device ("this iPhone", "Record on iPhone") follows th
 (`ThisDevice.noun`); content badges ("iPhone" on a phone-shaped capture) describe the
 recording.
 
+## Share viewer (share links open in the app)
+
+A CaptureCat share link tapped on an iPhone or iPad with the app opens
+`App/ShareViewer/ShareViewerViewController` — full screen over whatever is up (the
+library, the editor, the sign-in screen: watching needs no account). It does what the
+web share page (`apps/web/src/routes/share.$videoId.tsx`) does, by the same API rules:
+
+- **Player**: the video (`?t=` starts there), the big play key, captions drawn from the
+  share's transcript (the Captions key, only when there is one), reaction emoji rising
+  from their moment. Under it the page's own transport: commenter avatars on a lane above
+  the scrubber (the web's `groupMarkers` rule — close ones stack with a count; tap one to
+  jump), this share's reactions dotted under the track, elapsed / remaining.
+- **Title** (the AI title or the cleaned file name; `capturecat-share-<UUID>` reads
+  "Untitled recording") and "date · length · Shared via CaptureCat". The web shows no
+  author or view count, so neither does the app.
+- **Reactions**: six large round keys (👍 ❤️ 🔥 😂 😮 🎉, the API's set). One reaction per
+  viewer at the current moment, the same one again takes it back; optimistic (highlight,
+  tallies, floater at once) and rolled back if the API refuses. The viewer id is a random
+  per-install value (the web keeps one in localStorage). Tallies follow as chips.
+- **Tabs** Comments · Summary · Transcript, each only when the share has it (comments on;
+  an AI summary or meaningful chapters; a transcript). Comments sort by video time (the
+  web's order), oldest or newest first; each has a timestamp chip that seeks and plays,
+  and Reply (one level, like the web). Transcript lines and chapters seek too; the line
+  being spoken is highlighted.
+- **Composer** pinned above the keyboard: the moment chip (the time when you started
+  writing — the web's draft time; tap to go back to it), "Add a comment…", send. Anyone may
+  comment, as on the web: signed out with an optional name ("Sign in" runs the app's own
+  sign-in, after which comments post as you, with the Owner badge on your own shares).
+- **States**: password (unlock → the token rides on the stream, comments and analytics),
+  expired, view limit, paused, private (with Sign in when signed out), the owner's own
+  private share (plays with their bearer, no social), removed by CaptureCat, comments off
+  (no tab, no composer), missing.
+- **Share menu**: Copy link, Share…, Open in browser, Download (when the owner allows it),
+  Report video (the API's eight reasons; anonymous).
+- **Views**: registered on open and ticked per watched second, as the web's beacon does.
+
+**Links.** `capturecat://share/<id>[?t=]` (also `?id=`) through `scene(_:openURLContexts:)`,
+and universal links `https://capturecat.so/share/<id>` and `www.` through
+`scene(_:continue:)` / the connection options (cold and warm). Any other web URL handed to
+the app goes to the browser. `ShareLink.parse` is the one classifier. The entitlement
+(`applinks:capturecat.so`, `applinks:www.capturecat.so`) is written into
+`Config/App.entitlements` by `gen-xcodeproj.py` (`ASSOCIATED_DOMAINS`). The web half — the
+`apple-app-site-association` file claiming ONLY `/share/*` (not the `.md` twin), its
+`_headers` content type and a Worker route that answers it before the www → apex
+redirect — is `docs/share-viewer-web.patch`.
+
+**Gate**: `scripts/ios-share-viewer.sh` (see Gates). Universal links can't reach a
+Simulator build until the AASA is live, so the gate drives the real `scene(_:continue:)`
+with the same `NSUserActivity` iOS delivers (warm) and `-shareViewerColdLink` (cold, a
+DEBUG seam that feeds the connection options); the custom scheme is exercised with real
+`simctl openurl`, warm and cold.
+
+**Owner actions** (nothing here is live until they are done):
+1. Apple Developer portal → Identifiers → `so.capturecat.ios` → enable **Associated
+   Domains** (signed device / App Store builds fail to provision without it).
+2. Review and apply `docs/share-viewer-web.patch` to `apps/web`, deploy the web Worker,
+   then check `https://capturecat.so/.well-known/apple-app-site-association` and the
+   `www.` one both answer 200 `application/json` with no redirect.
+3. Apple's CDN caches the AASA; links open the app only after it has fetched the live
+   file (fresh installs pick it up; `?mode=developer` helps on a dev device).
+
 ## Layout
 
 | Folder | Target(s) | What |
@@ -365,6 +426,7 @@ row lower — reported, not gated, and open.
     apps/ios/scripts/ios-device-perf.sh <udid> [seconds] [--skip-export]   # editor SPEED on a physical device (optimized build): open → first frame, 120 Hz playback pacing + hitches, seek / step latency, close, export fps — measures, doesn't gate
     apps/ios/scripts/ios-release-check.sh   # App Store readiness (6c) on the Release ARCHIVE: privacy manifests vs the required-reason APIs in the stripped binaries, usage strings vs linked APIs, version/build, encryption key, icons, no harness strings / dev URLs / test keys, entitlements used, zero packaging warnings; SELFTEST=1 injects 16 defects that must each FAIL
     apps/ios/scripts/ios-archive.sh         # signed archive → release check → App Store export (destination: export, never uploads)
+    apps/ios/scripts/ios-share-viewer.sh    # share viewer: universal link + custom scheme (warm, cold, real simctl openurl), playback, markers ±1 pt, seeks, reactions (optimistic / rollback / toggle), anonymous + signed-in comments, sign-in prompt, tabs, captions, every share state, motion mid-flight, Reduce Motion, a11y audit (default + XXXL) vs Tests/mock_api.py; SELFTEST=1 → 5 injected defects must FAIL
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production

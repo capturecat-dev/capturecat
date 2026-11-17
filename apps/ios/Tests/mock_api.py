@@ -33,6 +33,31 @@ devices,video}.ts closely enough to exercise every client path:
   /__session               test-only (GET): a session for the CURRENT token, in
                            /api/desktop/token's shape (gates skip the browser leg)
 
+  The PUBLIC share endpoints the in-app share viewer reads (App/ShareViewer;
+  apps/api/src/routes/{video,hub,analytics,video-report}.ts, same shapes and
+  gates — no account needed; a bearer only attaches who is commenting):
+  /api/video/:id/meta[?token]      open meta | {videoId, fileName, gate, brandAccent} |
+                                   410 {error:"removed", message} | 404 (missing / private)
+  /api/video/:id/unlock            POST {password} → {token} | 403 | 429 (after 10)
+  /api/video/:id[?token&v]         bytes (Range); 403 private unless the owner's bearer;
+                                   403 locked without a valid token; 410 expired
+  /api/video/:id/comments[?token]  GET {comments, viewer} / POST {body, authorName?,
+                                   videoTime?, parentId?} — 404 when comments are off
+  /api/video/:id/reactions         GET ?session → {reactions, mine}; POST {emoji,
+                                   videoTime, sessionId} → {ok, mine} (same emoji toggles off)
+  /api/video/:id/transcript        {segments}
+  /api/video/:id/analytics[?token] POST {sessionId, events} (recorded)
+  /api/video/:id/report            POST {reason, details?} → 201 {reported}
+  /__viewer-share          test-only (POST): seed one such share — {videoId, file (base64
+                           mp4), fileName, durationSeconds, commentsEnabled, allowDownload,
+                           aiTitle, aiSummary, aiChapters, transcript, password, gate
+                           ("expired"|"view_limit"|"paused"), isPrivate, ownedByMock,
+                           removed (message), comments, reactions}
+  /__viewer-control        test-only (POST): {failReactions: n} — the next n reaction
+                           POSTs answer 500; {failComments: n} likewise
+  GET /__state             includes `viewer`: per-share request log (meta, stream, unlock,
+                           comments, reactions, analytics, reports, with the bearer each carried)
+
 Usage: python3 mock_api.py [port]   (binds 127.0.0.1 only)
 """
 import base64
@@ -60,6 +85,10 @@ comments = {"V1": [{"commentId": "C1", "parentId": None, "authorName": "Alex", "
 devices = {}
 shares = {}  # videoId -> {row (GET /api/videos shape), sha}
 LINK_KEY = bytes(range(32))
+viewer = {}  # videoId -> seeded public share (see /__viewer-share)
+viewer_log = []  # [{route, videoId, method, query, authorization, body}]
+viewer_control = {"failReactions": 0, "failComments": 0}
+REACTION_EMOJI = ["\U0001F44D", "\u2764\ufe0f", "\U0001F525", "\U0001F602", "\U0001F62E", "\U0001F389"]
 delete_me = {"next": None, "calls": []}  # /__delete-me control + DELETE /api/me log
 DELETE_ME_BODIES = {
     409: {"error": "You own the team \u201cAcme\u201d with 2 other members. Make another member an owner, or remove them, on the Team page first.",
@@ -119,6 +148,207 @@ class Handler(BaseHTTPRequestHandler):
                 "totalBytes": sum(f["bytes"] for f in p["files"]), "orgId": None, "isOwner": True,
                 "createdAt": p["created"], "updatedAt": p["updated"]}
 
+    # ── public share endpoints (the share viewer)
+    def bearer_is_mock(self):
+        return self.headers.get("Authorization") == f"Bearer {TOKEN}"
+
+    def viewer_token_ok(self, vid, query):
+        return query.get("token") == f"unlock-{vid}"
+
+    def viewer_gate(self, v, vid, query):
+        """apps/api routes/video.ts shareGate: locked / expired / view_limit / paused / open."""
+        if v.get("gate"):
+            return v["gate"]
+        if v.get("password") and not self.viewer_token_ok(vid, query):
+            return "locked"
+        return "open"
+
+    def viewer_log_entry(self, route, vid, raw=b""):
+        try:
+            body = json.loads(raw) if raw else None
+        except Exception:
+            body = None
+        with LOCK:
+            viewer_log.append({"route": route, "videoId": vid, "method": self.command, "query": urlparse(self.path).query,
+                               "authorization": self.headers.get("Authorization"), "body": body})
+
+    def viewer_public_comment(self, v, c):
+        out = {k: c[k] for k in ("commentId", "parentId", "authorName", "authorImage", "body", "videoTime", "createdAt")}
+        out["isOwner"] = bool(c.get("authorUid")) and c.get("authorUid") == v.get("ownerUid")
+        out["annotation"] = None
+        return out
+
+    def viewer_route(self, method, path, query, raw):
+        """True when the request was a seeded share's public endpoint (answered)."""
+        m = re.match(r"^/api/video/([^/]+)(/meta|/unlock|/comments|/reactions|/transcript|/analytics|/report|/download)?$", path)
+        if m and m.group(1) not in viewer and m.group(2) == "/meta":
+            # The real /meta is public: an unknown id is a plain 404 (never a 401).
+            self.send_json(404, {"error": "Video not found"})
+            return True
+        if not m or m.group(1) not in viewer:
+            return False
+        vid, sub = m.group(1), (m.group(2) or "")
+        v = viewer[vid]
+        self.viewer_log_entry(sub.strip("/") or "stream", vid, raw)
+        public = not v.get("isPrivate") and not v.get("removed")
+        if sub == "/meta" and method == "GET":
+            if v.get("isPrivate"):
+                self.send_json(404, {"error": "Video not found"})
+                return True
+            if v.get("removed"):
+                self.send_json(410, {"error": "removed", "message": v["removed"]})
+                return True
+            gate = self.viewer_gate(v, vid, query)
+            if gate != "open":
+                self.send_json(200, {"videoId": vid, "fileName": v["fileName"], "gate": gate, "brandAccent": None})
+                return True
+            self.send_json(200, {
+                "videoId": vid, "fileName": v["fileName"], "contentType": "video/mp4", "fileSizeBytes": len(objects[v["sha"]]),
+                "durationSeconds": v["durationSeconds"], "createdAt": v["createdAt"], "commentsEnabled": v["commentsEnabled"],
+                "allowDownload": v["allowDownload"], "brandAccent": None, "gate": "open", "aiTitle": v.get("aiTitle"),
+                "aiSummary": v.get("aiSummary"), "aiChapters": v.get("aiChapters", []), "hasTranscript": len(v.get("transcript", [])) > 0,
+                "annotations": [], "currentVersion": 1, "showVersionHistory": False, "ctaLabel": None, "ctaUrl": None,
+                "thumbnailUrl": None, "versions": []})
+            return True
+        if sub == "/unlock" and method == "POST":
+            if not public:
+                self.send_json(404, {"error": "Video not found"})
+                return True
+            v["unlockAttempts"] = v.get("unlockAttempts", 0) + 1
+            if v["unlockAttempts"] > 10:
+                self.send_json(429, {"error": "Too many attempts"})
+                return True
+            if not v.get("password"):
+                self.send_json(400, {"error": "Not password protected"})
+                return True
+            data = json.loads(raw or b"{}")
+            if data.get("password") != v["password"]:
+                self.send_json(403, {"error": "Wrong password"})
+                return True
+            self.send_json(200, {"token": f"unlock-{vid}"})
+            return True
+        if sub == "" and method == "GET":
+            owner = v.get("ownedByMock") and self.bearer_is_mock()
+            if v.get("removed") and not owner:
+                self.send_json(410, {"error": "removed", "message": v["removed"]})
+                return True
+            if v.get("isPrivate"):
+                if not owner:
+                    self.send_json(403, {"error": "This video is private"})
+                    return True
+            else:
+                gate = self.viewer_gate(v, vid, query)
+                if gate == "locked":
+                    self.send_json(403, {"error": "Password required"})
+                    return True
+                if gate == "expired":
+                    self.send_json(410, {"error": "This link has expired"})
+                    return True
+                if gate != "open":
+                    self.send_json(403, {"error": "This share is paused" if gate == "paused" else "View limit reached"})
+                    return True
+            self.serve_file(v["sha"])
+            return True
+        commentable = public and v["commentsEnabled"] and self.viewer_gate(v, vid, query) == "open"
+        if sub == "/comments" and method == "GET":
+            if not commentable:
+                self.send_json(404, {"error": "Comments unavailable"})
+                return True
+            me = self.bearer_is_mock()
+            self.send_json(200, {"comments": [self.viewer_public_comment(v, c) for c in v["comments"]],
+                                 "viewer": {"name": "Test User", "image": None, "isOwner": bool(v.get("ownedByMock"))} if me else None})
+            return True
+        if sub == "/comments" and method == "POST":
+            if not commentable:
+                self.send_json(404, {"error": "Comments unavailable"})
+                return True
+            if viewer_control["failComments"] > 0:
+                viewer_control["failComments"] -= 1
+                self.send_json(500, {"error": "Could not post comment"})
+                return True
+            data = json.loads(raw or b"{}")
+            body = data.get("body").strip() if isinstance(data.get("body"), str) else ""
+            if not body or len(body) > 500:
+                self.send_json(400, {"error": "Comment must be 1-500 characters"})
+                return True
+            me = self.bearer_is_mock()
+            typed = data.get("authorName").strip()[:40] if isinstance(data.get("authorName"), str) else ""
+            parent = data.get("parentId")
+            t = data.get("videoTime") if isinstance(data.get("videoTime"), (int, float)) else 0
+            if parent:
+                p = next((c for c in v["comments"] if c["commentId"] == parent and not c["parentId"]), None)
+                if not p:
+                    self.send_json(400, {"error": "Reply target not found"})
+                    return True
+                t = p["videoTime"]
+            c = {"commentId": uuid.uuid4().hex[:16], "parentId": parent or None,
+                 "authorName": "Test User" if me else (typed or "Anonymous"),
+                 "authorImage": None, "authorUid": "mock-user" if me else None, "body": body,
+                 "videoTime": max(0, min(float(t), v["durationSeconds"])), "createdAt": now_iso()}
+            v["comments"].append(c)
+            self.send_json(200, {"comment": self.viewer_public_comment(v, c)})
+            return True
+        if sub == "/reactions":
+            if not public:
+                self.send_json(404, {"error": "Video not found"})
+                return True
+            if method == "GET":
+                session = query.get("session", "")
+                mine = next(({"emoji": r["emoji"], "videoTime": r["videoTime"]} for r in v["reactions"] if r["session"] == session), None)
+                rows = sorted(({"emoji": r["emoji"], "videoTime": r["videoTime"]} for r in v["reactions"]), key=lambda r: r["videoTime"])
+                self.send_json(200, {"reactions": rows, "mine": mine})
+                return True
+            if viewer_control["failReactions"] > 0:
+                viewer_control["failReactions"] -= 1
+                self.send_json(500, {"error": "Internal error"})
+                return True
+            data = json.loads(raw or b"{}")
+            emoji = data.get("emoji", "")
+            if emoji not in REACTION_EMOJI:
+                self.send_json(400, {"error": "Unknown reaction"})
+                return True
+            session = data.get("sessionId") if re.match(r"^[A-Za-z0-9_-]{8,64}$", str(data.get("sessionId", ""))) else "anon"
+            t = data.get("videoTime") if isinstance(data.get("videoTime"), (int, float)) else 0
+            t = round(min(max(0, t), v["durationSeconds"]) * 10) / 10
+            existing = next((r for r in v["reactions"] if r["session"] == session), None)
+            if existing and existing["emoji"] == emoji:
+                v["reactions"].remove(existing)
+                mine = None
+            else:
+                if existing:
+                    v["reactions"].remove(existing)
+                v["reactions"].append({"emoji": emoji, "videoTime": t, "session": session})
+                mine = {"emoji": emoji, "videoTime": t}
+            self.send_json(200, {"ok": True, "mine": mine})
+            return True
+        if sub == "/transcript" and method == "GET":
+            if not public:
+                self.send_json(404, {"error": "Video not found"})
+                return True
+            self.send_json(200, {"segments": v.get("transcript", [])})
+            return True
+        if sub == "/analytics" and method == "POST":
+            if not public or (v.get("password") and not self.viewer_token_ok(vid, query)):
+                self.send_json(404, {"error": "Video not found"})
+                return True
+            self.send_json(200, {"ok": True})
+            return True
+        if sub == "/report" and method == "POST":
+            if not public:
+                self.send_json(404, {"error": "Video not found"})
+                return True
+            data = json.loads(raw or b"{}")
+            if data.get("reason") not in ("spam", "sexual", "violence", "hate", "harassment", "illegal", "copyright", "other"):
+                self.send_json(400, {"error": "Invalid reason"})
+                return True
+            self.send_json(201, {"reported": True})
+            return True
+        if sub == "/download" and method == "GET":
+            self.serve_file(v["sha"])
+            return True
+        self.send_json(404, {"error": "Not found"})
+        return True
+
     # ── routing
     def do_GET(self):
         url = urlparse(self.path)
@@ -145,12 +375,16 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 return self.send_json(200, {"projects": {k: {**v, "document": v["document"]} for k, v in projects.items()},
                                             "objects": {k: len(v) for k, v in objects.items()}, "devices": devices,
-                                            "deleteMe": {"calls": delete_me["calls"], "pending": delete_me["next"]}})
+                                            "deleteMe": {"calls": delete_me["calls"], "pending": delete_me["next"]},
+                                            "viewer": {"log": viewer_log, "shares": {k: {"comments": v["comments"], "reactions": v["reactions"]}
+                                                                                     for k, v in viewer.items()}}})
         if path == "/__session":
             return self.send_json(200, {"token": TOKEN, "expiresAt": "2027-01-01T00:00:00.000Z",
                                         "user": {"id": "mock-user", "email": "tester@example.com", "name": "Test User", "image": None}})
         if path.startswith("/files/"):
             return self.serve_file(path.split("/")[2])
+        if self.viewer_route("GET", path, {k: v[0] for k, v in parse_qs(url.query).items()}, b""):
+            return
         if not self.authed():
             return
         if path == "/api/me":
@@ -201,8 +435,33 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_json(404, {"error": "Not found"})
 
     def do_POST(self):
-        path = urlparse(self.path).path
+        url = urlparse(self.path)
+        path = url.path
         raw = self.body()
+        if path == "/__viewer-share":
+            data = json.loads(raw or b"{}")
+            media = base64.b64decode(data["file"])
+            sha = hashlib.sha256(media).hexdigest()
+            vid = data["videoId"]
+            with LOCK:
+                objects[sha] = media
+                viewer[vid] = {"sha": sha, "fileName": data.get("fileName", "capturecat-share-" + vid + ".mp4"),
+                               "durationSeconds": float(data.get("durationSeconds", 10)), "createdAt": data.get("createdAt", now_iso()),
+                               "commentsEnabled": bool(data.get("commentsEnabled", True)), "allowDownload": bool(data.get("allowDownload", False)),
+                               "aiTitle": data.get("aiTitle"), "aiSummary": data.get("aiSummary"), "aiChapters": data.get("aiChapters", []),
+                               "transcript": data.get("transcript", []), "password": data.get("password"), "gate": data.get("gate"),
+                               "isPrivate": bool(data.get("isPrivate", False)), "ownedByMock": bool(data.get("ownedByMock", False)),
+                               "ownerUid": "mock-user" if data.get("ownedByMock") else "someone-else", "removed": data.get("removed"),
+                               "comments": [{"parentId": None, "authorImage": None, "authorUid": None, **c} for c in data.get("comments", [])],
+                               "reactions": [{"session": "seed-" + str(i), **r} for i, r in enumerate(data.get("reactions", []))]}
+            return self.send_json(200, {"videoId": vid})
+        if path == "/__viewer-control":
+            data = json.loads(raw or b"{}")
+            with LOCK:
+                viewer_control.update({k: int(v) for k, v in data.items() if k in viewer_control})
+            return self.send_json(200, viewer_control)
+        if self.viewer_route("POST", path, {k: v[0] for k, v in parse_qs(url.query).items()}, raw):
+            return
         if path == "/api/desktop/token":
             data = json.loads(raw or b"{}")
             with LOCK:

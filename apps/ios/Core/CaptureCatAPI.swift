@@ -36,6 +36,17 @@ nonisolated enum CaptureCatAPI {
         return "https://app.capturecat.so"
     }
 
+    /// Where share pages live (`/share/<id>`) — the marketing origin, not the
+    /// app host (apps/web/src/routes/share.$videoId.tsx).
+    static var shareOrigin: String {
+        #if DEBUG
+        if let host = URL(string: baseURL)?.host, host == "127.0.0.1" || host == "localhost" {
+            return "http://localhost:3200"
+        }
+        #endif
+        return "https://capturecat.so"
+    }
+
     static func webEditorURL(projectID: String) -> URL {
         #if DEBUG
         let path = webAppOrigin.contains("localhost") ? "/app/editor/" : "/editor/"

@@ -490,7 +490,7 @@ for f, px in loose.items():
 
 FORBIDDEN = [
     (r"^--(editor-shell|features|kit-gallery|inspector|history|ios-|fold-probe|whisper-probe|timeline|preview|export|cloud-sync|inject)", "harness launch flag"),
-    (r"^-(uiFixtures|kitGallery|kitGallerySnapshot|uiSnapshotDebug|apiBaseURL)$", "DEBUG launch argument"),
+    (r"^-(uiFixtures|kitGallery|kitGallerySnapshot|uiSnapshotDebug|apiBaseURL|shareViewerGate|shareViewerColdLink|shareViewerInject)$", "DEBUG launch argument"),
     (r"probe[A-Z]|creaseOverride|FixtureWorld|FixtureDirector|KitGallery|StudioLab|StudioHarness|so\.capturecat\.ios\.studiolab", "probe seam / harness symbol"),
     (r"localhost|0\.0\.0\.0|\.local:|:(3000|3200|8787|8788|8791|8799)\b|workers\.dev|staging\.|\bngrok", "dev host / port"),
     (r"http://(?!127\.0\.0\.1(:|/|$))", "plain-HTTP URL (only the loopback sign-in listener may use http)"),
@@ -516,6 +516,9 @@ ENTITLEMENT_EVIDENCE = {
     # time-sensitive, apps/api/src/routes/devices.ts) to a push-registered app.
     "com.apple.developer.usernotifications.time-sensitive": lambda bs: any(b.has_str("registerForRemoteNotifications") for b in bs),
     "keychain-access-groups": lambda bs: any(b.has_sym("_SecItemCopyMatching", "_SecItemAdd") for b in bs),
+    # Universal links → the share viewer: the scene continues a browsing-web
+    # activity and reads its webpageURL (App/AppShell/SceneDelegate.swift).
+    "com.apple.developer.associated-domains": lambda bs: any(b.has_str("webpageURL") for b in bs),
     "com.apple.developer.background-tasks.continued-processing.gpu": lambda bs: any(
         b.has_sym("_OBJC_CLASS_$_BGContinuedProcessingTask", "_OBJC_CLASS_$_BGContinuedProcessingTaskRequest") for b in bs),
 }

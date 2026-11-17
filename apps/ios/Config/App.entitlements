@@ -10,5 +10,10 @@
 	<string>development</string>
 	<key>com.apple.developer.usernotifications.time-sensitive</key>
 	<true/>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:capturecat.so</string>
+		<string>applinks:www.capturecat.so</string>
+	</array>
 </dict>
 </plist>

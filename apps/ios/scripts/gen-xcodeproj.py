@@ -48,6 +48,15 @@ APP_GROUP = "group.so.capturecat.ios"
 MARKETING_VERSION = "1.0"
 BUILD = "1"
 
+# Universal links (the in-app share viewer, App/ShareViewer): the app claims
+# capturecat.so's SHARE paths only — apps/web/public/.well-known/
+# apple-app-site-association lists `E52HU87CX9.so.capturecat.ios` with
+# `/share/*` (minus the `.md` twins). Written into Config/App.entitlements on
+# every run. OWNER: the App ID needs the Associated Domains capability in the
+# Apple Developer portal before a signed device build will provision, and the
+# AASA must be live on both hosts before a tapped link opens the app.
+ASSOCIATED_DOMAINS = ["applinks:capturecat.so", "applinks:www.capturecat.so"]
+
 # Privacy manifests (PrivacyInfo.xcprivacy), one per shipping bundle, copied
 # into the bundle root by that target's Resources phase. Checked against the
 # Release binaries by scripts/ios-release-check.sh.
@@ -534,7 +543,22 @@ def main():
 
     write_scheme("App", "CaptureCat", "CaptureCat.app")
     write_scheme("Lab", "StudioLab", "StudioLab.app")
+    write_associated_domains()
     print("wrote", OUT)
+
+
+def write_associated_domains():
+    """Keep the app's Associated Domains entitlement equal to ASSOCIATED_DOMAINS."""
+    import plistlib
+    path = os.path.join(ROOT, "Config", "App.entitlements")
+    with open(path, "rb") as f:
+        ents = plistlib.load(f)
+    key = "com.apple.developer.associated-domains"
+    if ents.get(key) == ASSOCIATED_DOMAINS:
+        return
+    ents[key] = list(ASSOCIATED_DOMAINS)
+    with open(path, "wb") as f:
+        plistlib.dump(ents, f, sort_keys=False)
 
 
 if __name__ == "__main__":
