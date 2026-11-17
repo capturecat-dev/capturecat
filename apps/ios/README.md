@@ -162,15 +162,34 @@ one design on every screen:
   a seek while paused glides there. Pinch zooms around the centre. A slim timeline (a phone on
   its side) scrolls its lanes vertically, the labels following.
 - **Tool bar** (`EditorToolBar`, kit rail keys): Add (the effect / focus / annotation menus,
-  voice-over, the slice tool) · Split · Speed | the nine inspector panes | History. A pane tool
-  opens that pane as a PANEL sliding up from the bottom over the timeline and tool bar — never
-  the preview (growth bounce at the pushed edge; a cross-fade under Reduce Motion); the close
-  key, a tap on the grabber or a drag down returns to the tool bar. Selecting something swaps
-  the tools for its CONTEXT keys: Done · Adjust (its pane) · Split · Duplicate · Delete · Speed ·
-  Options (its long-press menu) — the timeline's own commands, never a fork.
+  voice-over, the slice tool) · Split · Speed | the nine inspector panes | History. The tool
+  bar NEVER hides. A pane tool opens a PANEL directly ABOVE it showing ONLY that tool's
+  controls (a strip with a swipe pill, the pane's title and Done — no tab row: the tool bar is
+  the switcher, its active key on a raised chip that glides between keys). The panel's height
+  fits its pane, capped at `panelMaxShare` (40%) of the screen and at whatever leaves
+  `minTimelineStrip` (64 pt) of the timeline above it — so the preview and transport are never
+  covered; beyond that the pane scrolls. The timeline's lanes compress above the panel (they
+  scroll; the stage never moves). Another tool switches the content in place (cross-fade +
+  rise) and the panel resizes on the growth bounce (pushed edge = its top). Two DETENTS:
+  COMPACT (the fitted, capped height above) and TALL (its top just under the transport row —
+  the preview and transport stay visible; the timeline gives way). The WHOLE panel drags
+  (strip, title, section headers, gaps — never a control): it follows the finger 1:1,
+  rubber-bands past TALL (never over the stage), and on release a flick (> 500 pt/s) picks the
+  next detent in its direction, otherwise the nearest; below COMPACT is closed. A drag that
+  starts on the pane hands off like a sheet: up grows it while COMPACT, down at scroll-top
+  shrinks / closes it, otherwise the pane scrolls. Snaps: the settle curve to TALL (no
+  overshoot toward the preview), the growth bounce to COMPACT; a cross-fade under Reduce
+  Motion. The grab pill is a button (tap / VoiceOver: "Expand panel" / "Collapse panel"; the
+  title carries the same action). The active tool again, Done, a drag or flick down from
+  COMPACT, Esc or VoiceOver's escape closes it; VoiceOver lands on the panel's title on open and on every switch, and back
+  on the tool on close. Selecting something swaps the tools for its CONTEXT keys: Done · Adjust
+  (its pane, opened in the same panel; Adjust marked while it is open) · Split · Duplicate ·
+  Delete · Speed · Options (its long-press menu) — the timeline's own commands, never a fork.
+  On a phone the panes are taller than the cap, so the panel usually sits at the cap and scrolls.
 - **Phone on its side** (`landscapeCompact`): stage, transport and a slim timeline in a column;
   the tool bar is a rail on the trailing edge; a pane opens as a side panel between them,
-  pushing the column narrower (the preview shrinks, never covered).
+  pushing the column narrower (the preview shrinks, never covered) — the same strip (title,
+  Done), only the active pane, the active tool again or a swipe toward the rail closes it.
 - **iPad / iPhone Duo crease layouts**: the inspector COLUMN stays (it fits); the same transport
   row and centred-playhead timeline; the tool bar's action keys (no pane tools) sit under the
   timeline.
@@ -185,9 +204,9 @@ Mac panes are built from the same specs, so neither front end can drift: the Mac
 frozen transcript (`StudioHarness/InspectorValuesGoldens`).
 
 - iPad (regular width): a side column in the editor's `inspectorContainer` — pane | rail.
-- iPhone: a PANEL the editor opens from its tool bar (`.bottomPanel` — grabber + close key, rail
-  strip, pane, over the timeline and tool bar; `.sidePanel` on a phone on its side — title + close,
-  pane, beside the tool rail). The editor owns the panel's geometry and motion.
+- iPhone: a PANEL the editor opens from its tool bar (`.bottomPanel` — a strip with a swipe pill,
+  the title and Done, then only the active pane, directly above the tool bar; `.sidePanel` on a
+  phone on its side — the same strip and pane, beside the tool rail; no pane rail in either). The editor owns the panel's geometry and motion.
 - Selection drives the pane (`InspectorTabFollower`, the Mac shell's rule). State comes in
   through ONE observation loop over the shown pane, goes out through the specs' writes.
 - Undo: every edit is one step (`InspectorEditSession`: snapshot at the press, field-level

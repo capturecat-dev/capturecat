@@ -245,6 +245,9 @@ final class InspectorBrandLogoRow: InspectorCustomRow {
         buttons.axis = .vertical
         buttons.alignment = .leading
         buttons.spacing = CCSpace.xs
+        // Room for the keys' 44 pt hit targets (a 34 pt stack would clip them).
+        buttons.isLayoutMarginsRelativeArrangement = true
+        buttons.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 5, leading: 0, bottom: 5, trailing: 0)
         let row = Self.hstack([thumb, buttons, UIView()], spacing: CCSpace.md)
         let column = UIStackView(arrangedSubviews: [row, error])
         column.axis = .vertical

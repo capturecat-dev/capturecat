@@ -38,6 +38,10 @@ enum FoldProbe {
                         if let key = editor.toolBar.key(for: .pane(tab)) { key.sendActions(for: .touchUpInside) } else { editor.openPanel(tab) }
                     }
                 }
+                // `--tall`: the open panel dragged to its TALL detent.
+                if arguments.contains("--tall") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + after + 1.0) { editor.setPanelDetent(.tall) }
+                }
                 if arguments.contains("--select-zoom") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + after) {
                         editor.timeline.canvas.setOpenLane(.effects, animated: true)

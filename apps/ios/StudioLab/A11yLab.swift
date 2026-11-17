@@ -164,6 +164,7 @@ enum A11yLab {
             await timelineActions(editor)
             await stageActions(editor)
             await transport(editor)
+            await panelVoiceOver(editor)
             await reduceMotion(editor)
             await keyboard(editor)
             await settings(editor)
@@ -815,6 +816,62 @@ enum A11yLab {
         check("reduce-motion \(name)", pass,
               String(format: "mid-flight opacity %.2f%@, travel %.2f pt, scale Δ %.3f", s.opacity,
                      s.ghostOpacity.map { String(format: " (ghost %.2f)", $0) } ?? "", s.moved, s.scaled))
+    }
+
+    /// VoiceOver and the tool panel (phone): a pane tool opens the panel
+    /// and VoiceOver lands on its title (announced); the tool bar and the
+    /// timeline stay reachable (nothing covered); another tool switches the
+    /// pane and is announced again; the active tool is `.selected`; Done is
+    /// labelled with a hint; VoiceOver's escape closes and returns focus to
+    /// the tool.
+    @available(iOS 26, *)
+    private static func panelVoiceOver(_ editor: EditorViewController) async {
+        guard let camera = editor.toolBar.key(for: .pane(.camera)), let audio = editor.toolBar.key(for: .pane(.audio)) else {
+            log("A11Y note: no pane tools here (an inspector column) — the panel's VoiceOver is checked on iPhone")
+            return
+        }
+        log("A11Y tool panel")
+        clearSelection(editor)
+        await settle(0.3)
+        let inspector = editor.inspector
+        camera.sendActions(for: .touchUpInside)
+        await settle(0.6)
+        #if DEBUG
+        let announcedOpen = editor.probeLastAnnounced
+        #else
+        let announcedOpen: UIView? = nil
+        #endif
+        check("panel-announced", editor.isPanelOpen && announcedOpen === inspector.panelTitle
+                && inspector.panelTitle.accessibilityTraits.contains(.header) && inspector.panelTitle.text == "Camera",
+              "Camera tool → VoiceOver on the panel's title \"\(inspector.panelTitle.text ?? "")\" (header)")
+        check("panel-covers-nothing", !editor.toolBar.accessibilityElementsHidden && !editor.timelineContainer.accessibilityElementsHidden
+                && camera.accessibilityTraits.contains(.selected) && !audio.accessibilityTraits.contains(.selected),
+              "tool bar + timeline reachable while open; Camera key .selected")
+        let done = inspector.closeButton
+        check("panel-done-key", done.isAccessibilityElement && done.accessibilityLabel == "Done"
+                && (done.accessibilityHint ?? "").contains("Closes")
+                && [CGPoint(x: -21.5, y: -21.5), CGPoint(x: 21.5, y: 21.5)].allSatisfy { done.point(inside: CGPoint(x: done.bounds.midX + $0.x, y: done.bounds.midY + $0.y), with: nil) },
+              "Done: \"\(done.accessibilityLabel ?? "nil")\", hint \"\(done.accessibilityHint ?? "")\", \(Int(done.bounds.width))×\(Int(done.bounds.height)) pt drawn, ≥ 44×44 pt hit target")
+        audio.sendActions(for: .touchUpInside)
+        await settle(0.6)
+        #if DEBUG
+        let announcedSwitch = editor.probeLastAnnounced
+        #else
+        let announcedSwitch: UIView? = nil
+        #endif
+        check("panel-switch-announced", editor.isPanelOpen && inspector.visiblePane?.tab == .audio && announcedSwitch === inspector.panelTitle
+                && inspector.panelTitle.text == "Audio" && audio.accessibilityTraits.contains(.selected)
+                && !camera.accessibilityTraits.contains(.selected),
+              "Audio tool → the pane switches in place, VoiceOver on \"\(inspector.panelTitle.text ?? "")\"")
+        let escaped = inspector.accessibilityPerformEscape()
+        await settle(0.6)
+        #if DEBUG
+        let announcedClose = editor.probeLastAnnounced
+        #else
+        let announcedClose: UIView? = nil
+        #endif
+        check("panel-escape-closes", escaped && !editor.isPanelOpen && inspector.view.isHidden && announcedClose === audio,
+              "escape → closed, VoiceOver back on the Audio tool")
     }
 
     @available(iOS 26, *)

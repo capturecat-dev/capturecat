@@ -61,7 +61,10 @@ final class EditorToolBar: CCSurface {
     private var keys: [(tool: Tool, key: CCIconRailKey)] = []
     private var contextKeys: [(tool: Tool, key: CCIconRailKey)] = []
     private var axisConstraints: [NSLayoutConstraint] = []
-    private var openPane: InspectorTab?
+    private(set) var openPane: InspectorTab?
+    /// The open panel's tool sits on a raised chip that GLIDES between keys
+    /// (the kit rail's selected state) — fades in on open, out on close.
+    private let chip = CALayer()
 
     /// The bar's thickness across its axis (keys + padding), without the
     /// safe-area band a docked bar adds.
@@ -86,8 +89,11 @@ final class EditorToolBar: CCSurface {
             scroll.addSubview(stack)
         }
         contextStack.isHidden = true
-        ccOnThemeChange { [weak self] in self?.hairline.backgroundColor = CCTheme.color.border }
-        hairline.backgroundColor = CCTheme.color.border
+        chip.cornerCurve = .continuous
+        chip.opacity = 0
+        scroll.layer.insertSublayer(chip, at: 0)
+        ccOnThemeChange { [weak self] in self?.restyleChrome() }
+        restyleChrome()
         rebuildTools()
         relayout()
         applyDocking()
@@ -117,7 +123,7 @@ final class EditorToolBar: CCSurface {
         case .add: return "Adds an effect, a focus region, an annotation or a voice over, or arms the slice tool."
         case .split: return "Splits the recording at the playhead."
         case .speed: return "Sets the speed of the part under the playhead."
-        case .pane: return "Opens its settings in a panel."
+        case .pane: return "Opens its settings in a panel above the tool bar; again closes it."
         case .history: return "Shows this project's earlier versions."
         case .done: return "Clears the selection."
         case .adjust: return "Opens the selection's settings."
@@ -243,6 +249,65 @@ final class EditorToolBar: CCSurface {
         NSLayoutConstraint.activate(stackConstraints[ObjectIdentifier(shown)] ?? [])
     }
 
+    private func restyleChrome() {
+        hairline.backgroundColor = CCTheme.color.border
+        CCMaterial.dress(chip, as: .raised(tint: CCTheme.color.elevated), radius: CCTheme.radius(.md), traits: traitCollection)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        placeChip(animated: false)
+    }
+
+    /// The key the chip marks: the open pane's tool, or Adjust among the
+    /// context keys while its panel is open.
+    private var chipKey: CCIconRailKey? {
+        guard let openPane else { return nil }
+        switch mode {
+        case .tools: return keys.first { $0.tool == .pane(openPane) }?.key
+        case .context: return contextKeys.first { $0.tool == .adjust }?.key
+        case .slicing: return nil
+        }
+    }
+
+    private func placeChip(animated: Bool) {
+        let animate = animated && window != nil
+        guard let key = chipKey, key.bounds.width > 1 else {
+            guard chip.opacity > 0 else { return }
+            if animate { CCMotion.fade(chip, keyPath: "opacity", to: Float(0), duration: 0.18) } else { chip.opacity = 0 }
+            return
+        }
+        let target = key.convert(key.bounds, to: scroll).insetBy(dx: 1, dy: 2)
+        let r = CCTheme.radius(.md)
+        let shown = chip.opacity > 0.5
+        if animate, shown {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            chip.bounds = CGRect(origin: .zero, size: target.size)
+            CATransaction.commit()
+            CCMotion.spring(chip, keyPath: "position", to: NSValue(cgPoint: CGPoint(x: target.midX, y: target.midY)), .smooth)
+        } else if chip.frame != target || !shown {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            chip.frame = target
+            CATransaction.commit()
+        }
+        if !shown {
+            if animate {
+                CCMotion.fade(chip, keyPath: "opacity", to: Float(1), duration: 0.2, from: Float(0))
+                CCMotion.enter(chip, .scaleIn)
+            } else {
+                chip.opacity = 1
+            }
+        }
+        chip.cornerRadius = r
+        CCMaterial.refit(chip, radius: r)
+        if animate {
+            scroll.scrollRectToVisible(target.insetBy(dx: axis == .horizontal ? -24 : 0, dy: axis == .vertical ? -24 : 0),
+                                       animated: true)
+        }
+    }
+
     private func applyDocking() {
         radius = docked ? .none : .lg
         hairline.isHidden = !docked
@@ -250,12 +315,16 @@ final class EditorToolBar: CCSurface {
 
     // MARK: State
 
-    /// Marks the pane tool whose panel is open (nil = none).
-    func setOpenPane(_ tab: InspectorTab?) {
+    /// Marks the pane tool whose panel is open (nil = none): the key takes
+    /// the selected state and the chip glides to it (Adjust among the
+    /// context keys).
+    func setOpenPane(_ tab: InspectorTab?, animated: Bool = true) {
         openPane = tab
         for (tool, key) in keys {
             if case .pane(let t) = tool { key.isSelected = t == tab } else { key.isSelected = false }
         }
+        for (tool, key) in contextKeys { key.isSelected = tool == .adjust && tab != nil }
+        placeChip(animated: animated)
     }
 
     /// Tools, the context keys for a selection, or the slice tool's bar.
@@ -287,6 +356,7 @@ final class EditorToolBar: CCSurface {
         outgoing.isHidden = true
         activateSizing()
         layoutIfNeeded()
+        setOpenPane(openPane, animated: false)
         scroll.setContentOffset(.zero, animated: false)
         accessibilityElements = nil
         guard swap, animated, window != nil else { return }
@@ -312,6 +382,9 @@ final class EditorToolBar: CCSurface {
     var probeTitles: [String] {
         (mode == .tools ? keys : contextKeys).compactMap { $0.key.accessibilityLabel }
     }
+
+    /// The open tool's gliding chip (motion probes sample it).
+    var probeChipLayer: CALayer { chip }
 
     /// The stack showing now (motion probes sample its layer).
     var probeVisibleStack: UIView { mode == .tools ? toolsStack : contextStack }
