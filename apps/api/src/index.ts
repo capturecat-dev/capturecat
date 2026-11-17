@@ -36,14 +36,14 @@ import { AGENT_AUDIT_RETENTION_DAYS } from "./lib/agent-tokens";
 import { agentApprovalRoutes } from "./routes/agent-approvals";
 import { webhookRoutes } from "./routes/webhooks";
 import { devicesRoutes } from "./routes/devices";
-import { accountDeleteRoutes } from "./routes/account-delete";
-import { processAccountDeletions } from "./lib/account-deletion";
 import { changelogRoutes } from "./routes/changelog";
 import { oauthRoutes } from "./routes/oauth";
 import { SITE_DOCUMENTS, frontDoorRoutes } from "./routes/front-door";
 import { videoReportRoutes } from "./routes/video-report";
 import { PROD_ISSUER } from "./lib/oauth/config";
 import { WEBHOOK_DELIVERY_RETENTION_DAYS, processWebhookOutbox } from "./lib/webhooks";
+import { accountDeleteRoutes } from "./routes/account-delete";
+import { processAccountDeletions } from "./lib/account-deletion";
 
 const app = new Hono<{ Bindings: Env }>();
 

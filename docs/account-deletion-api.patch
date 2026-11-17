@@ -1,0 +1,1543 @@
+diff --git a/apps/api/README.md b/apps/api/README.md
+index 3d8e8ac..c6f8291 100644
+--- a/apps/api/README.md
++++ b/apps/api/README.md
+@@ -162,6 +162,7 @@ src/
+     upload.ts        # Presigned URL generation + upload completion
+     video.ts         # Video streaming with byte-range support
+     delete.ts        # Video deletion
++    account-delete.ts  # DELETE /api/me — account deletion (lib/account-deletion.ts)
+                      # (Stripe webhooks are NOT here — the Better Auth Stripe
+                      #  plugin serves POST /api/auth/stripe/webhook)
+   middleware/
+@@ -317,6 +318,90 @@ Go-live, in this order:
+    `APNS_TOPIC` (a var, default `so.capturecat.ios`) only needs setting if
+    the iOS bundle id ever changes.
+ 
++## Account deletion (`DELETE /api/me`)
++
++App Store Guideline 5.1.1(v): an account made in an app can be deleted in
++that app. The iOS app (Account → Delete Account) and the web dashboard
++(Settings → Delete account) call `DELETE /api/me`; it is also how support
++deletes an account now (no more emailing contact@). Route:
++`src/routes/account-delete.ts`; logic: `src/lib/account-deletion.ts`;
++schema: `migrations/0043_account_deletion.sql`; tests:
++`src/routes/account-delete.test.ts`.
++
++| Status | Body | Meaning |
++| --- | --- | --- |
++| 200 | `{ deleted: true, jobId, cancelledSubscriptions, cleanup: "pending" }` | Gone. Every session (the caller's too) is dead. |
++| 401 | `{ error }` | No session — also what a retry gets after a lost 200. Clients treat 401 here as "already deleted" and sign out. |
++| 403 | `{ error: "Origin not allowed" }` / `{ error: "Account blocked" }` / `{ code: "agent_token_forbidden" }` | Cookie without a trusted Origin (CSRF), a blocked account (support decides), an agent token. |
++| 409 | `{ code: "team_has_members", team: { id, name, otherMembers } }` | The user owns a team with other members and no co-owner. |
++| 502 | `{ code: "billing_unavailable" }` | Stripe could not cancel the subscription — nothing was deleted. |
++
++Auth is `requireAuth`, exactly like `GET /api/me`: a bearer session (apps)
++or the session cookie with a trusted `Origin` (web). Agent credentials are
++refused first. 5 requests per 10 minutes per user. `X-CC-Client: ios|mac|web`
++names the client in the audit row.
++
++How it runs:
++
++1. **Checks.** A team the user owns that has other members and no other
++   owner → 409 (the owner promotes someone or removes them on the Team page
++   first); a team whose only member is the user is deleted with them. Then
++   **Stripe**: every live subscription — the customer's, plus any id D1 knows
++   (`subscription`, `plan_grants`) — is cancelled **immediately** with the
++   existing Stripe client (no proration refund, no further charges). Any
++   Stripe failure → 502, nothing changes. The Stripe customer itself is kept:
++   it holds the invoices we must keep for tax (privacy policy §6).
++2. **One D1 batch** (a transaction): the R2 keys the user's rows point at are
++   copied into `account_deletion_objects`, then every row is deleted, ending
++   with `user`. From here the account does not exist: sessions, shares,
++   agent/OAuth tokens, webhooks and push tokens are all dead.
++3. **Background**: the queued R2 objects (1000 per call; whole prefixes
++   listed page by page), Cloudflare custom hostnames, metadata cache entries
++   and the user's ShareJobsDO rows are removed — first in `waitUntil` right
++   after the response, then by the hourly cron sweep until the queue is
++   empty. Each finished item leaves the queue, so an interrupted run resumes;
++   a failing outside call is retried once per run, up to 48 runs.
++
++What happens to each table / bucket:
++
++| Data | What happens |
++| --- | --- |
++| `user`, `session`, `account` | deleted (sign-out everywhere; Google/Apple links gone) |
++| `shared_videos`, `video_versions`, `video_views`, `video_events`, `video_reactions`, `video_transcripts`, comments on their videos (anyone's) | deleted; files in **CaptureCat R2** (`videos/{id}.mp4`, `videos/{id}/…`, `thumbs/{id}`) deleted in the background |
++| Their comments on other people's videos | deleted; one with replies from others is redacted in place ("Deleted account" / "This comment was deleted.", no avatar, no annotation) so the thread survives |
++| `video_playlists`, `playlist_videos` | deleted |
++| `cloud_projects` + objects/files/versions/manifests | deleted; `cloud-projects/{uid}/…` in R2 deleted (prefix listing also catches never-finalized uploads) |
++| Other people's cloud projects they edited | kept; `updated_by`, `actor_uid`, `named_by` cleared |
++| `stored_objects`, `screenshot_api_keys`, `screenshot_usage` | deleted; `screenshots/{uid}/…` in R2 deleted |
++| `storage_buckets` (bring-your-own bucket) | **credentials deleted. Objects in the customer's own bucket are never deleted** — the module never calls the S3 API |
++| `custom_domains` | deleted; the Cloudflare custom hostname removed in the background |
++| Teams: sole-member `organization` (+ `member`, `invitation`, `ssoProvider`, `org-logos/{id}`) | deleted; any leftover `org_id` on videos/projects/playlists cleared |
++| Teams with other members | the user's `member` row goes; the team stays (409 if they are its only owner) |
++| `invitation` sent by them / addressed to their email | deleted |
++| `agent_tokens`, `agent_audit_log`, `agent_approvals`, `oauth_grants`, `oauth_codes`, `oauth_refresh_tokens`, `webhook_endpoints`, `webhook_deliveries` | deleted (registered `oauth_clients` are shared and stay) |
++| `user_devices` (APNs tokens), `wireless_links` | deleted |
++| `attest_keys`, `attest_challenges`, `attest_exemptions` | deleted |
++| `subscription`, `plan_grants` | deleted after Stripe cancelled them; later webhooks for them find no row and are ignored |
++| `beta_signups` with their email | deleted |
++| `video_reports` | ones they filed: `reporter_uid` cleared (the hashed reporter stays); open ones about their videos closed as `account_deleted` |
++| `moderation_actions` | kept — the admins' audit trail (a now-meaningless uid, no PII) |
++| ShareJobsDO (per-user upload progress) | purged in the background (`purgeAll`) |
++| `rate_limits` | not touched; keyed by uid, swept within a day |
++| `site_events`, `desktop_auth_requests`, `verification` | not user-keyed; expire on their own |
++| Stripe customer, invoices | kept in Stripe (tax records) |
++
++The audit record is the `account_deletions` row: deleted user id, client,
++time, how many subscriptions were cancelled, counts of what was removed, and
++`email_hmac` = HMAC-SHA256(`BETTER_AUTH_SECRET`, `account-deletion:` +
++lowercased email) — enough for support to answer "was the account for this
++address deleted?" without keeping the address. No name, no email.
++
++Go-live: apply `0043_account_deletion.sql` (`npx wrangler d1 migrations apply
++capturecat --remote`) **before** deploying the Worker — the route writes the
++new tables in its batch, so a Worker ahead of the migration answers 500 and
++deletes nothing (the batch is all-or-nothing). See
++`docs/account-deletion-deploy.md` at the repo root.
++
+ ## Security layers (added 2026-08-02)
+ 
+ Three layers protect paid features and metered resources:
+diff --git a/apps/api/migrations/0043_account_deletion.sql b/apps/api/migrations/0043_account_deletion.sql
+new file mode 100644
+index 0000000..5fb262e
+--- /dev/null
++++ b/apps/api/migrations/0043_account_deletion.sql
+@@ -0,0 +1,50 @@
++-- Account deletion (DELETE /api/me, routes/account-delete.ts,
++-- lib/account-deletion.ts). App Store Guideline 5.1.1(v): an account made in
++-- the app can be deleted in the app.
++--
++-- Additive only: two new tables, nothing else touched. Numbered after 0042
++-- (devices/wireless); production also has 0041 (AI search) — the two are
++-- independent and apply in either order.
++--
++-- The request itself deletes every D1 row the user owns in ONE batch (a
++-- transaction), after first copying the R2 keys those rows point at into
++-- account_deletion_objects. Removing the bytes is the slow part, so it runs
++-- in the background (waitUntil right after the response, then the hourly
++-- cron until the queue is empty) and survives an interrupted Worker.
++
++-- 1. One row per deleted account: the background job's state AND the admin
++--    audit record. Deliberately no name, no email: `email_hmac` is
++--    HMAC-SHA256(BETTER_AUTH_SECRET, lower(email)), enough to answer "was the
++--    account for this address deleted, and when?" without keeping the
++--    address. `user_id` is the deleted account's id — it names nothing once
++--    the user row is gone.
++CREATE TABLE IF NOT EXISTS account_deletions (
++  id                       TEXT PRIMARY KEY,
++  user_id                  TEXT NOT NULL UNIQUE,     -- a second request for the same account is a no-op
++  email_hmac               TEXT,
++  client                   TEXT NOT NULL,            -- 'ios' | 'mac' | 'web' | 'app' (bearer, unnamed)
++  requested_at             TEXT NOT NULL,
++  cancelled_subscriptions  INTEGER NOT NULL DEFAULT 0,
++  counts_json              TEXT NOT NULL DEFAULT '{}', -- what was removed: {"videos":3,"projects":1,...}
++  status                   TEXT NOT NULL DEFAULT 'pending', -- 'pending' (bytes still being removed) | 'done'
++  completed_at             TEXT
++);
++CREATE INDEX IF NOT EXISTS idx_account_deletions_status ON account_deletions (status, requested_at);
++
++-- 2. The background queue: what is left to remove outside D1.
++--    kind 'key'          one object in CaptureCat's R2 bucket
++--         'prefix'       every object under this prefix in CaptureCat's R2
++--                        bucket (listed and deleted 1000 at a time)
++--         'cf_hostname'  a Cloudflare for SaaS custom hostname id
++--         'cache_video' / 'cache_profile'  a per-colo metadata cache entry
++--         'share_jobs'   the user's ShareJobsDO rows
++--    Nothing here ever names an object in a customer's OWN bucket
++--    (storage_buckets, 0029): those files are theirs, and only the
++--    credentials are forgotten.
++CREATE TABLE IF NOT EXISTS account_deletion_objects (
++  user_id   TEXT NOT NULL,
++  kind      TEXT NOT NULL,
++  value     TEXT NOT NULL,
++  attempts  INTEGER NOT NULL DEFAULT 0,
++  PRIMARY KEY (user_id, kind, value)
++);
+diff --git a/apps/api/src/index.ts b/apps/api/src/index.ts
+index 058a6c2..5021c16 100644
+--- a/apps/api/src/index.ts
++++ b/apps/api/src/index.ts
+@@ -42,6 +42,8 @@ import { SITE_DOCUMENTS, frontDoorRoutes } from "./routes/front-door";
+ import { videoReportRoutes } from "./routes/video-report";
+ import { PROD_ISSUER } from "./lib/oauth/config";
+ import { WEBHOOK_DELIVERY_RETENTION_DAYS, processWebhookOutbox } from "./lib/webhooks";
++import { accountDeleteRoutes } from "./routes/account-delete";
++import { processAccountDeletions } from "./lib/account-deletion";
+ 
+ const app = new Hono<{ Bindings: Env }>();
+ 
+@@ -417,6 +419,10 @@ app.route("/api", webhookRoutes);
+ // only — bearer sessions, never cookies or agent tokens. See
+ // src/routes/devices.ts and migration 0042.
+ app.route("/api", devicesRoutes);
++// DELETE /api/me — the signed-in user deletes their account (App Store
++// 5.1.1(v)). Rows go at once; stored files in the background, finished by
++// the hourly sweep. See src/lib/account-deletion.ts and migration 0043.
++app.route("/api", accountDeleteRoutes);
+ // OAuth 2.1 for the MCP server: discovery, /oauth/*, and the consent page's
+ // session API under /api/oauth/*.
+ app.route("/", oauthRoutes);
+@@ -488,6 +494,12 @@ async function sweep(env: Env): Promise<void> {
+   await env.DB.prepare("DELETE FROM agent_audit_log WHERE at < ?")
+     .bind(new Date(Date.now() - AGENT_AUDIT_RETENTION_DAYS * 86_400_000).toISOString()).run();
+   await sweepAgentPhase2(env).catch((err) => console.error("agent sweep failed", err));
++  // Deleted accounts (0043): R2 objects, custom hostnames and caches still
++  // queued after the request's own background run.
++  await processAccountDeletions(env, { budgetMs: 60_000 }).then(
++    (r) => r.accounts > 0 && console.log(`account deletions: ${r.objectsDeleted} objects, ${r.finished}/${r.accounts} finished`),
++    (err) => console.error("account deletion sweep failed", err),
++  );
+   await env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?")
+     .bind(Math.floor(Date.now() / 1000) - 86_400).run();
+   // Site acquisition events (0030) are kept 13 months: a year-on-year view,
+diff --git a/apps/api/src/lib/account-deletion.ts b/apps/api/src/lib/account-deletion.ts
+new file mode 100644
+index 0000000..9542e9d
+--- /dev/null
++++ b/apps/api/src/lib/account-deletion.ts
+@@ -0,0 +1,546 @@
++/**
++ * Deleting an account for good — DELETE /api/me (routes/account-delete.ts).
++ * App Store Guideline 5.1.1(v); the privacy policy's "if you close your
++ * account we delete your personal data".
++ *
++ * THREE PHASES
++ *
++ *  1. Checks, before anything changes:
++ *     - a team the user OWNS that has other members and no other owner is a
++ *       409 (`team_has_members`): deleting it would take the other members'
++ *       shared library with it, and handing it to someone is a choice only
++ *       the owner can make (Team page → make another member an owner, or
++ *       remove them). A team whose only member is the user goes with them.
++ *     - Stripe: every live subscription is cancelled NOW (not at period
++ *       end). Stripe is asked directly — the customer's subscriptions, plus
++ *       every subscription id D1 knows — so a checkout whose webhook has not
++ *       landed yet is cancelled too. Any Stripe failure is a 502 and NOTHING
++ *       is deleted: an account must never be gone while its card is still
++ *       being charged. The Stripe customer itself is kept — Stripe holds the
++ *       invoices we must keep for tax (privacy policy §6).
++ *
++ *  2. One D1 batch (a transaction — all or nothing): first copy every R2 key
++ *     the user's rows point at into `account_deletion_objects`, then delete
++ *     every row the user owns, children before parents, ending with the
++ *     `user` row (its FKs cascade the rest). From the end of this batch the
++ *     account does not exist: every session is gone, shares 404, agent and
++ *     OAuth tokens are dead, webhooks will not fire, pushes cannot be sent.
++ *
++ *  3. Background (waitUntil right after the response, then the hourly cron
++ *     until done): remove the queued R2 objects (batched 1000 per call;
++ *     prefixes listed page by page), Cloudflare custom hostnames, metadata
++ *     cache entries and the ShareJobsDO rows. Each finished item is deleted
++ *     from the queue, so an interrupted run resumes where it stopped.
++ *
++ * NEVER TOUCHED
++ *  - Objects in a customer's OWN bucket (storage_buckets, 0029). Only the
++ *    credentials row is deleted; this module never calls deleteStoredObject
++ *    and only ever passes CaptureCat R2 keys (rows with storage_id IS NULL,
++ *    or our own fixed prefixes) to the R2 binding.
++ *  - Other people's content: comments others wrote on the user's videos go
++ *    with those videos, but the user's comments on OTHER people's videos are
++ *    deleted — or, when someone replied, redacted in place ("Deleted
++ *    account" / "This comment was deleted.") so the replies keep their
++ *    thread. Other people's cloud projects that name the user as an editor
++ *    keep their history, with the user's id cleared.
++ *  - Admin records: moderation_actions (the admins' audit trail) stays;
++ *    open reports against the user's videos are closed as 'account_deleted'.
++ */
++import Stripe from "stripe";
++import type { Env } from "../types";
++import { createStripeClient } from "./stripe";
++import { deleteCustomHostname, saasConfigured } from "./cloudflare-saas";
++import { generateId } from "./id";
++
++// ---------------------------------------------------------------------------
++// Phase 1 — checks
++// ---------------------------------------------------------------------------
++
++export interface TeamBlock {
++  id: string;
++  name: string;
++  otherMembers: number;
++}
++
++/** Better Auth stores a member's roles comma-separated ("owner,admin"). */
++const IS_OWNER = `(',' || REPLACE(m.role, ' ', '') || ',') LIKE '%,owner,%'`;
++
++/**
++ * A team the user owns that would be left with members and no owner, or
++ * null. (Teams where someone else is also an owner simply lose a member.)
++ */
++export async function blockingTeam(db: D1Database, uid: string): Promise<TeamBlock | null> {
++  const row = await db
++    .prepare(
++      `SELECT o.id, o.name,
++              (SELECT COUNT(*) FROM "member" x WHERE x."organizationId" = o.id AND x."userId" != ?1) AS others,
++              (SELECT COUNT(*) FROM "member" x
++                 WHERE x."organizationId" = o.id AND x."userId" != ?1
++                   AND (',' || REPLACE(x.role, ' ', '') || ',') LIKE '%,owner,%') AS other_owners
++         FROM "member" m JOIN "organization" o ON o.id = m."organizationId"
++        WHERE m."userId" = ?1 AND ${IS_OWNER}
++        ORDER BY o."createdAt"`,
++    )
++    .bind(uid)
++    .all<{ id: string; name: string; others: number; other_owners: number }>();
++  const blocked = (row.results ?? []).find((r) => r.others > 0 && r.other_owners === 0);
++  return blocked ? { id: blocked.id, name: blocked.name, otherMembers: blocked.others } : null;
++}
++
++/** Subscriptions that still bill or grant access. */
++const ENDED = new Set(["canceled", "incomplete_expired"]);
++
++/**
++ * Cancel every live subscription of this user, immediately. Returns the ids
++ * cancelled. Throws on any Stripe failure except "no such subscription /
++ * customer" (already gone is the outcome we want).
++ */
++export async function cancelSubscriptionsNow(
++  env: Env,
++  user: { id: string; stripeCustomerId: string | null },
++  stripe: Stripe = createStripeClient(env),
++): Promise<string[]> {
++  const ids = new Set<string>();
++  const { results } = await env.DB
++    .prepare(
++      `SELECT "stripeSubscriptionId" AS id FROM "subscription"
++        WHERE "referenceId" = ? AND "stripeSubscriptionId" IS NOT NULL
++          AND "status" NOT IN ('canceled', 'incomplete_expired')
++       UNION
++       SELECT stripe_subscription_id AS id FROM plan_grants WHERE user_id = ? AND revoked_at IS NULL`,
++    )
++    .bind(user.id, user.id)
++    .all<{ id: string }>();
++  for (const r of results ?? []) ids.add(r.id);
++
++  const live: string[] = [];
++  if (user.stripeCustomerId) {
++    try {
++      for await (const sub of stripe.subscriptions.list({ customer: user.stripeCustomerId, status: "all", limit: 100 })) {
++        ids.delete(sub.id);
++        if (!ENDED.has(sub.status)) live.push(sub.id);
++      }
++    } catch (err) {
++      if (!isMissing(err)) throw err;
++    }
++  }
++  // Ids D1 knows that the customer listing did not return (another customer
++  // object, a grant): ask Stripe about each one.
++  for (const id of ids) {
++    try {
++      const sub = await stripe.subscriptions.retrieve(id);
++      if (!ENDED.has(sub.status)) live.push(sub.id);
++    } catch (err) {
++      if (!isMissing(err)) throw err;
++    }
++  }
++
++  const cancelled: string[] = [];
++  for (const id of live) {
++    try {
++      await stripe.subscriptions.cancel(
++        id,
++        { cancellation_details: { comment: "The customer deleted their CaptureCat account." } },
++        { idempotencyKey: `capturecat-account-delete-${id}` },
++      );
++      cancelled.push(id);
++    } catch (err) {
++      if (!isMissing(err)) throw err;
++    }
++  }
++  return cancelled;
++}
++
++function isMissing(err: unknown): boolean {
++  return (err as { code?: string })?.code === "resource_missing";
++}
++
++// ---------------------------------------------------------------------------
++// Phase 2 — the batch
++// ---------------------------------------------------------------------------
++
++/** Where the request came from, for the audit row. */
++export type DeletionClient = "ios" | "mac" | "web" | "app";
++
++export interface DeletionResult {
++  jobId: string;
++  /** False when this account had already been deleted (a raced repeat). */
++  created: boolean;
++  counts: Record<string, number>;
++}
++
++const COMMENT_REDACTED_NAME = "Deleted account";
++const COMMENT_REDACTED_BODY = "This comment was deleted.";
++
++/** SQL fragments over ?1 = the user id. */
++const MY_VIDEOS = `SELECT video_id FROM shared_videos WHERE uid = ?1`;
++const MY_PROJECTS = `SELECT id FROM cloud_projects WHERE owner_uid = ?1`;
++const MY_PLAYLISTS = `SELECT playlist_id FROM video_playlists WHERE uid = ?1`;
++const MY_GRANTS = `SELECT id FROM oauth_grants WHERE user_id = ?1`;
++/** Teams whose only member is the user: they go with the account. */
++const MY_SOLO_TEAMS = `SELECT m."organizationId" FROM "member" m
++  WHERE m."userId" = ?1
++    AND NOT EXISTS (SELECT 1 FROM "member" o WHERE o."organizationId" = m."organizationId" AND o."userId" != ?1)`;
++
++export async function emailHmac(secret: string | undefined, email: string | null): Promise<string | null> {
++  if (!email || !secret) return null;
++  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
++  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`account-deletion:${email.trim().toLowerCase()}`));
++  return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
++}
++
++/** What the user has, for the audit row (counts only — no names, no ids). */
++async function countOwned(db: D1Database, uid: string): Promise<Record<string, number>> {
++  const row = await db
++    .prepare(
++      `SELECT
++         (SELECT COUNT(*) FROM shared_videos WHERE uid = ?1) AS videos,
++         (SELECT COUNT(*) FROM cloud_projects WHERE owner_uid = ?1) AS projects,
++         (SELECT COUNT(*) FROM video_comments WHERE author_uid = ?1) AS comments,
++         (SELECT COUNT(*) FROM user_devices WHERE user_id = ?1) AS devices,
++         (SELECT COUNT(*) FROM agent_tokens WHERE user_id = ?1) AS agent_tokens,
++         (SELECT COUNT(*) FROM oauth_grants WHERE user_id = ?1) AS oauth_grants,
++         (SELECT COUNT(*) FROM webhook_endpoints WHERE user_id = ?1) AS webhooks,
++         (SELECT COUNT(*) FROM storage_buckets WHERE uid = ?1) AS storage_buckets,
++         (SELECT COUNT(*) FROM custom_domains WHERE uid = ?1) AS custom_domains,
++         (SELECT COUNT(*) FROM (${MY_SOLO_TEAMS})) AS teams`,
++    )
++    .bind(uid)
++    .first<Record<string, number>>();
++  return { ...(row ?? {}) };
++}
++
++/**
++ * Phase 2. Deletes every D1 row the user owns, in one transaction, after
++ * queueing the R2 objects (and other outside state) for phase 3. Safe to run
++ * twice: a repeat finds nothing left and keeps the first audit row.
++ */
++export async function deleteAccountRows(
++  env: Env,
++  user: { id: string; email: string | null; username?: string | null },
++  meta: { client: DeletionClient; cancelledSubscriptions: number },
++): Promise<DeletionResult> {
++  const db = env.DB;
++  const uid = user.id;
++  const now = new Date().toISOString();
++  const counts = await countOwned(db, uid);
++  const jobId = `del_${generateId(20)}`;
++  const hmac = await emailHmac(env.BETTER_AUTH_SECRET, user.email);
++  const email = user.email ?? "";
++
++  const q = (sql: string, ...extra: unknown[]) => db.prepare(sql).bind(uid, ...extra);
++  // Queued only while the user row exists: a raced repeat (the user already
++  // gone) must not re-queue prefixes for a job that has finished.
++  const queue = (kind: string, select: string, ...extra: unknown[]) =>
++    q(`INSERT OR IGNORE INTO account_deletion_objects (user_id, kind, value)
++       SELECT ?1, '${kind}', v FROM (${select})
++        WHERE v IS NOT NULL AND v != ''
++          AND EXISTS (SELECT 1 FROM "user" WHERE id = ?1)`, ...extra);
++
++  const statements: D1PreparedStatement[] = [
++    // --- the audit row / job (first, so a raced repeat keeps the original) ---
++    q(
++      `INSERT OR IGNORE INTO account_deletions (id, user_id, email_hmac, client, requested_at, cancelled_subscriptions, counts_json, status)
++       VALUES (?2, ?1, ?3, ?4, ?5, ?6, ?7, 'pending')`,
++      jobId, hmac, meta.client, now, meta.cancelledSubscriptions, JSON.stringify(counts),
++    ),
++
++    // --- phase-3 queue: CaptureCat R2 only (never storage_id rows) ---------
++    // Share videos: the current file, every version, the legacy key, the
++    // per-video version folder and the poster.
++    queue("key", `SELECT r2_key AS v FROM shared_videos WHERE uid = ?1 AND storage_id IS NULL`),
++    queue(
++      "key",
++      `SELECT vv.r2_key AS v FROM video_versions vv JOIN shared_videos sv ON sv.video_id = vv.video_id
++        WHERE sv.uid = ?1 AND vv.storage_id IS NULL`,
++    ),
++    queue("key", `SELECT 'videos/' || video_id || '.mp4' AS v FROM shared_videos WHERE uid = ?1`),
++    queue("prefix", `SELECT 'videos/' || video_id || '/' AS v FROM shared_videos WHERE uid = ?1`),
++    queue("key", `SELECT 'thumbs/' || video_id AS v FROM shared_videos WHERE uid = ?1`),
++    queue("cache_video", `SELECT video_id AS v FROM shared_videos WHERE uid = ?1`),
++    // Screenshots (0016/0025) and everything under the user's own prefixes —
++    // the prefixes also catch presigned uploads that never got a row.
++    queue("key", `SELECT r2_key AS v FROM stored_objects WHERE uid = ?1`),
++    queue("prefix", `SELECT 'screenshots/' || ?1 || '/' AS v`),
++    // Cloud projects (0026/0027): media, current documents, every version's
++    // snapshot, and the owner's prefix.
++    queue("key", `SELECT r2_key AS v FROM cloud_project_objects WHERE owner_uid = ?1 OR project_id IN (${MY_PROJECTS})`),
++    queue("key", `SELECT r2_key AS v FROM cloud_project_files WHERE project_id IN (${MY_PROJECTS})`),
++    queue("key", `SELECT doc_r2_key AS v FROM cloud_projects WHERE owner_uid = ?1`),
++    queue("key", `SELECT doc_r2_key AS v FROM cloud_project_versions WHERE project_id IN (${MY_PROJECTS})`),
++    queue("prefix", `SELECT 'cloud-projects/' || ?1 || '/' AS v`),
++    // Logos of the teams that go with the account.
++    queue("key", `SELECT 'org-logos/' || t."organizationId" AS v FROM (${MY_SOLO_TEAMS}) t`),
++    // Outside R2: Cloudflare custom hostnames, the profile cache, share jobs.
++    queue("cf_hostname", `SELECT cf_hostname_id AS v FROM custom_domains WHERE uid = ?1`),
++    queue("cache_profile", `SELECT username AS v FROM "user" WHERE id = ?1`),
++    queue("share_jobs", `SELECT ?1 AS v`),
++
++    // --- comments ---------------------------------------------------------
++    // Everyone's comments on the user's videos go with the videos.
++    q(`DELETE FROM video_comments WHERE video_id IN (${MY_VIDEOS})`),
++    // The user's replies elsewhere, then their top-level comments that others
++    // replied to are redacted in place (the thread stays readable), then the
++    // rest of what they wrote.
++    q(`DELETE FROM video_comments WHERE author_uid = ?1 AND parent_id IS NOT NULL`),
++    q(
++      `UPDATE video_comments
++          SET author_name = ?2, body = ?3, annotation_json = NULL, author_uid = NULL, author_image = NULL
++        WHERE author_uid = ?1
++          AND EXISTS (SELECT 1 FROM video_comments r WHERE r.parent_id = video_comments.comment_id)`,
++      COMMENT_REDACTED_NAME, COMMENT_REDACTED_BODY,
++    ),
++    q(`DELETE FROM video_comments WHERE author_uid = ?1`),
++
++    // --- share videos and everything hanging off them ---------------------
++    q(`DELETE FROM video_views WHERE video_id IN (${MY_VIDEOS})`),
++    q(`DELETE FROM video_events WHERE video_id IN (${MY_VIDEOS})`),
++    q(`DELETE FROM video_reactions WHERE video_id IN (${MY_VIDEOS})`),
++    q(`DELETE FROM video_transcripts WHERE uid = ?1 OR video_id IN (${MY_VIDEOS})`),
++    q(`DELETE FROM playlist_videos WHERE video_id IN (${MY_VIDEOS}) OR playlist_id IN (${MY_PLAYLISTS})`),
++    q(`DELETE FROM video_playlists WHERE uid = ?1`),
++    q(`DELETE FROM video_versions WHERE video_id IN (${MY_VIDEOS})`),
++    // Reports the user filed keep their (hashed) reporter, not the account.
++    q(`UPDATE video_reports SET reporter_uid = NULL WHERE reporter_uid = ?1`),
++    // Open reports against the user's videos: the video is gone.
++    q(
++      `UPDATE video_reports SET resolved_at = ?2, resolution = 'account_deleted'
++        WHERE resolved_at IS NULL AND video_id IN (${MY_VIDEOS})`,
++      now,
++    ),
++    q(`DELETE FROM shared_videos WHERE uid = ?1`),
++
++    // --- cloud projects + history -----------------------------------------
++    q(`DELETE FROM cloud_project_versions WHERE project_id IN (${MY_PROJECTS})`),
++    q(`DELETE FROM cloud_project_manifest_objects WHERE project_id IN (${MY_PROJECTS})`),
++    q(`DELETE FROM cloud_project_manifests WHERE project_id IN (${MY_PROJECTS})`),
++    q(`DELETE FROM cloud_project_files WHERE project_id IN (${MY_PROJECTS})`),
++    q(`DELETE FROM cloud_project_objects WHERE owner_uid = ?1 OR project_id IN (${MY_PROJECTS})`),
++    q(`DELETE FROM cloud_projects WHERE owner_uid = ?1`),
++    // Other people's projects the user edited: history stays, the id goes.
++    q(`UPDATE cloud_projects SET updated_by = NULL WHERE updated_by = ?1`),
++    q(`UPDATE cloud_project_versions SET actor_uid = NULL WHERE actor_uid = ?1`),
++    q(`UPDATE cloud_project_versions SET named_by = NULL WHERE named_by = ?1`),
++
++    // --- teams the user was the only member of ----------------------------
++    // (A team with other members only loses this member — the member row
++    // cascades from the user row. One with members and no other owner never
++    // gets here: the route refuses it with team_has_members.)
++    q(`UPDATE shared_videos SET org_id = NULL WHERE org_id IN (${MY_SOLO_TEAMS})`),
++    q(`UPDATE cloud_projects SET org_id = NULL WHERE org_id IN (${MY_SOLO_TEAMS})`),
++    q(`UPDATE video_playlists SET org_id = NULL WHERE org_id IN (${MY_SOLO_TEAMS})`),
++    q(`UPDATE "session" SET "activeOrganizationId" = NULL WHERE "activeOrganizationId" IN (${MY_SOLO_TEAMS})`),
++    q(`DELETE FROM "ssoProvider" WHERE "organizationId" IN (${MY_SOLO_TEAMS}) OR "userId" = ?1`),
++    q(`DELETE FROM "invitation" WHERE "organizationId" IN (${MY_SOLO_TEAMS})`),
++    q(`DELETE FROM "organization" WHERE id IN (${MY_SOLO_TEAMS})`),
++    // Invitations the user sent (other teams) and ones addressed to them.
++    q(`DELETE FROM "invitation" WHERE "inviterId" = ?1 OR (?2 != '' AND lower("email") = lower(?2))`, email),
++    q(`DELETE FROM "member" WHERE "userId" = ?1`),
++
++    // --- storage, domains, screenshots -----------------------------------
++    q(`DELETE FROM stored_objects WHERE uid = ?1`),
++    q(`DELETE FROM custom_domains WHERE uid = ?1`),
++    // Bring-your-own buckets: forget the credentials. The files in the
++    // customer's bucket are theirs and are never deleted.
++    q(`DELETE FROM storage_buckets WHERE uid = ?1`),
++    q(`DELETE FROM screenshot_api_keys WHERE user_id = ?1`),
++    q(`DELETE FROM screenshot_usage WHERE user_id = ?1`),
++
++    // --- agents, OAuth, webhooks ------------------------------------------
++    q(`DELETE FROM oauth_refresh_tokens WHERE grant_id IN (${MY_GRANTS})`),
++    q(`DELETE FROM oauth_codes WHERE user_id = ?1`),
++    q(`DELETE FROM oauth_grants WHERE user_id = ?1`),
++    q(`DELETE FROM agent_approvals WHERE user_id = ?1`),
++    q(`DELETE FROM agent_audit_log WHERE user_id = ?1`),
++    q(`DELETE FROM agent_tokens WHERE user_id = ?1`),
++    q(`DELETE FROM webhook_deliveries WHERE user_id = ?1`),
++    q(`DELETE FROM webhook_endpoints WHERE user_id = ?1`),
++
++    // --- devices, App Attest ---------------------------------------------
++    q(`DELETE FROM user_devices WHERE user_id = ?1`),
++    q(`DELETE FROM wireless_links WHERE user_id = ?1`),
++    q(`DELETE FROM attest_keys WHERE uid = ?1`),
++    q(`DELETE FROM attest_challenges WHERE uid = ?1`),
++    q(`DELETE FROM attest_exemptions WHERE uid = ?1`),
++
++    // --- billing (Stripe already cancelled in phase 1) --------------------
++    q(`DELETE FROM plan_grants WHERE user_id = ?1`),
++    q(`DELETE FROM "subscription" WHERE "referenceId" = ?1`),
++
++    // --- the waitlist row for the same address (0015) ---------------------
++    q(`DELETE FROM beta_signups WHERE ?2 != '' AND lower(email) = lower(?2)`, email),
++
++    // --- identity, last ---------------------------------------------------
++    q(`DELETE FROM "session" WHERE "userId" = ?1`),
++    q(`DELETE FROM "account" WHERE "userId" = ?1`),
++    q(`DELETE FROM "user" WHERE id = ?1`),
++  ];
++
++  await db.batch(statements);
++
++  const row = await db
++    .prepare(`SELECT id FROM account_deletions WHERE user_id = ?`)
++    .bind(uid)
++    .first<{ id: string }>();
++  return { jobId: row?.id ?? jobId, created: row?.id === jobId, counts };
++}
++
++// ---------------------------------------------------------------------------
++// Phase 3 — background cleanup
++// ---------------------------------------------------------------------------
++
++/** A failing outside call (Cloudflare API) is retried this many hourly runs. */
++const MAX_ATTEMPTS = 48;
++/** R2's batch delete takes up to 1000 keys. */
++const R2_BATCH = 1000;
++
++export interface CleanupReport {
++  accounts: number;
++  objectsDeleted: number;
++  finished: number;
++}
++
++/**
++ * Phase 3: work through the queue of pending deletions until it is empty or
++ * the time budget runs out. Called with `userId` right after a deletion
++ * (waitUntil) and without it from the hourly sweep. Every finished item is
++ * removed from the queue as it completes, so a run cut short resumes.
++ */
++export async function processAccountDeletions(
++  env: Env,
++  opts: { userId?: string; budgetMs?: number; now?: () => number } = {},
++): Promise<CleanupReport> {
++  const clock = opts.now ?? Date.now;
++  const deadline = clock() + (opts.budgetMs ?? 25_000);
++  const report: CleanupReport = { accounts: 0, objectsDeleted: 0, finished: 0 };
++
++  const pending = opts.userId
++    ? await env.DB.prepare(`SELECT user_id FROM account_deletions WHERE user_id = ? AND status = 'pending'`)
++        .bind(opts.userId)
++        .all<{ user_id: string }>()
++    : await env.DB.prepare(`SELECT user_id FROM account_deletions WHERE status = 'pending' ORDER BY requested_at LIMIT 20`)
++        .all<{ user_id: string }>();
++
++  for (const { user_id: uid } of pending.results ?? []) {
++    if (clock() > deadline) break;
++    report.accounts++;
++    let drained = false;
++    // Items that failed in THIS run are not retried until the next one, so a
++    // short outage costs one attempt per run, not the whole allowance.
++    const failedThisRun = new Set<string>();
++    while (clock() <= deadline) {
++      const { results } = await env.DB
++        .prepare(
++          `SELECT kind, value, attempts FROM account_deletion_objects
++            WHERE user_id = ? AND attempts < ? ORDER BY attempts, kind, value LIMIT ?`,
++        )
++        .bind(uid, MAX_ATTEMPTS, R2_BATCH)
++        .all<{ kind: string; value: string; attempts: number }>();
++      const items = (results ?? []).filter((i) => !failedThisRun.has(`${i.kind}\n${i.value}`));
++      if ((results ?? []).length === 0) {
++        drained = true;
++        break;
++      }
++      if (items.length === 0) break;
++      const pass = await processItems(env, uid, items);
++      report.objectsDeleted += pass.removed;
++      for (const f of pass.failed) failedThisRun.add(f);
++    }
++    if (!drained) break;
++    const left = await env.DB
++      .prepare(`SELECT COUNT(*) AS n FROM account_deletion_objects WHERE user_id = ?`)
++      .bind(uid)
++      .first<{ n: number }>();
++    if ((left?.n ?? 0) > 0) {
++      // Only items that exhausted their attempts remain: give up on them,
++      // loudly — an admin can see the account stuck in 'pending'.
++      console.error(`account deletion ${uid}: ${left?.n} item(s) failed ${MAX_ATTEMPTS} times`);
++      continue;
++    }
++    await env.DB
++      .prepare(`UPDATE account_deletions SET status = 'done', completed_at = ? WHERE user_id = ? AND status = 'pending'`)
++      .bind(new Date(clock()).toISOString(), uid)
++      .run();
++    report.finished++;
++  }
++  return report;
++}
++
++async function processItems(
++  env: Env,
++  uid: string,
++  items: Array<{ kind: string; value: string; attempts: number }>,
++): Promise<{ removed: number; failed: string[] }> {
++  const failedKeys: string[] = [];
++  const done = (kind: string, values: string[]) =>
++    values.length === 0
++      ? Promise.resolve()
++      : env.DB.batch(
++          values.map((v) =>
++            env.DB.prepare(`DELETE FROM account_deletion_objects WHERE user_id = ? AND kind = ? AND value = ?`).bind(uid, kind, v),
++          ),
++        );
++  const failed = (kind: string, value: string, err: unknown) => {
++    console.error(`account deletion ${uid}: ${kind} failed`, err instanceof Error ? err.message : err);
++    failedKeys.push(`${kind}\n${value}`);
++    return env.DB
++      .prepare(`UPDATE account_deletion_objects SET attempts = attempts + 1 WHERE user_id = ? AND kind = ? AND value = ?`)
++      .bind(uid, kind, value)
++      .run();
++  };
++
++  let removed = 0;
++  // Keys: one R2 call per 1000.
++  const keys = items.filter((i) => i.kind === "key").map((i) => i.value);
++  if (keys.length > 0) {
++    try {
++      await env.R2.delete(keys);
++      removed += keys.length;
++      await done("key", keys);
++    } catch (err) {
++      for (const k of keys) await failed("key", k, err);
++    }
++  }
++
++  for (const item of items) {
++    if (item.kind === "key") continue;
++    try {
++      switch (item.kind) {
++        case "prefix": {
++          // One page per pass: the row stays until a listing comes back empty,
++          // so a prefix of any size drains across passes and runs.
++          const page = await env.R2.list({ prefix: item.value, limit: R2_BATCH });
++          const listed = page.objects.map((o) => o.key);
++          if (listed.length > 0) {
++            await env.R2.delete(listed);
++            removed += listed.length;
++          }
++          if (listed.length === 0 || !page.truncated) await done("prefix", [item.value]);
++          break;
++        }
++        case "cf_hostname":
++          if (saasConfigured(env)) await deleteCustomHostname(env, item.value);
++          await done(item.kind, [item.value]);
++          break;
++        case "cache_video":
++          await caches.default.delete(new Request(`https://meta.internal/video/${item.value}`)).catch(() => false);
++          await done(item.kind, [item.value]);
++          break;
++        case "cache_profile":
++          await caches.default.delete(new Request(`https://meta.internal/profile/${item.value}`)).catch(() => false);
++          await done(item.kind, [item.value]);
++          break;
++        case "share_jobs":
++          await env.SHARE_JOBS.getByName(item.value).purgeAll();
++          await done(item.kind, [item.value]);
++          break;
++        default:
++          // Unknown kind (a newer Worker queued it): leave it for that Worker.
++          await failed(item.kind, item.value, new Error(`unknown kind ${item.kind}`));
++      }
++    } catch (err) {
++      await failed(item.kind, item.value, err);
++    }
++  }
++  return { removed, failed: failedKeys };
++}
+diff --git a/apps/api/src/routes/account-delete.test.ts b/apps/api/src/routes/account-delete.test.ts
+new file mode 100644
+index 0000000..4ea5544
+--- /dev/null
++++ b/apps/api/src/routes/account-delete.test.ts
+@@ -0,0 +1,631 @@
++/**
++ * DELETE /api/me — account deletion (migration 0043) through the REAL Worker
++ * entry (routing, requireAuth's cookie CSRF gate, the agent-token refusal),
++ * the real migrations (node:sqlite) and the real `stripe` SDK talking to an
++ * in-memory Stripe behind a stubbed `fetch`. Nothing leaves the process: no
++ * Stripe, no R2, no Cloudflare API.
++ *
++ * Two users share content: Alice deletes her account; everything she owns
++ * must be gone (a scan of EVERY table and EVERY R2 key for her ids proves
++ * it), Bob's content must be untouched, and Alice's own S3 bucket must never
++ * be called.
++ *
++ * Mocked: Better Auth's session lookup — `Authorization: Bearer <uid>` is
++ * that user's app session, the cookie `cc_session=<uid>` a browser session.
++ */
++import { beforeEach, describe, expect, it, vi } from "vitest";
++import type { Env } from "../types";
++import { createTestD1, type TestD1 } from "../test-support/d1-sqlite.js";
++import { MemoryBucket } from "../test-support/memory-bucket";
++
++vi.mock("cloudflare:workers", () => ({ DurableObject: class {} }));
++vi.mock("../lib/auth", () => ({
++  hasAppleConfig: () => true,
++  hasGoogleConfig: () => true,
++  getAuth: (env: Env) => {
++    const lookup = (uid: string | null | undefined) =>
++      uid
++        ? env.DB.prepare(
++            `SELECT u.id, u.email, u.tester, u.blocked FROM "user" u
++               JOIN "session" s ON s."userId" = u.id WHERE u.id = ? LIMIT 1`,
++          )
++            .bind(uid)
++            .first<{ id: string; email: string; tester: number; blocked: number }>()
++        : Promise.resolve(null);
++    return {
++      api: {
++        // A session exists only while a `session` row does — so deleting the
++        // account really does sign the caller out.
++        getSession: async ({ headers }: { headers: Headers }) => {
++          const bearer = /^Bearer\s+(\S+)$/i.exec(headers.get("Authorization") ?? "")?.[1];
++          const cookie = /(?:^|;\s*)cc_session=([^;]+)/.exec(headers.get("Cookie") ?? "")?.[1];
++          const user = (await lookup(bearer)) ?? (await lookup(cookie));
++          return user
++            ? {
++                session: { expiresAt: new Date(Date.now() + 86_400_000) },
++                user: { id: user.id, email: user.email, tester: user.tester === 1, blocked: user.blocked === 1 },
++              }
++            : null;
++        },
++      },
++    };
++  },
++}));
++
++// ---------------------------------------------------------------------------
++// In-memory Stripe (subscriptions only) + every outbound call recorded
++// ---------------------------------------------------------------------------
++type FakeSub = { id: string; object: "subscription"; customer: string; status: string; metadata: Record<string, string> };
++const stripe = vi.hoisted(() => ({
++  subs: new Map<string, FakeSub>(),
++  fail: false,
++  calls: [] as Array<{ method: string; url: string }>,
++}));
++const cacheDeletes: string[] = [];
++vi.stubGlobal("caches", {
++  default: {
++    match: async () => undefined,
++    put: async () => undefined,
++    delete: async (req: Request) => {
++      cacheDeletes.push(req.url);
++      return true;
++    },
++  },
++});
++const json = (body: unknown, status = 200) =>
++  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
++vi.stubGlobal(
++  "fetch",
++  vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
++    const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
++    const method = init?.method ?? "GET";
++    stripe.calls.push({ method, url: url.href });
++    if (url.hostname !== "api.stripe.com") return json({ error: "unexpected outbound call" }, 599);
++    if (stripe.fail) return json({ error: { type: "api_error", message: "stripe is down" } }, 500);
++    const missing = (id: string) =>
++      json({ error: { type: "invalid_request_error", code: "resource_missing", message: `No such subscription: '${id}'` } }, 404);
++    if (url.pathname === "/v1/subscriptions" && method === "GET") {
++      const customer = url.searchParams.get("customer");
++      const data = [...stripe.subs.values()].filter((s) => s.customer === customer);
++      return json({ object: "list", data, has_more: false, url: "/v1/subscriptions" });
++    }
++    const m = /^\/v1\/subscriptions\/([^/]+)$/.exec(url.pathname);
++    if (m) {
++      const sub = stripe.subs.get(m[1]);
++      if (!sub) return missing(m[1]);
++      if (method === "DELETE") sub.status = "canceled";
++      return json(sub);
++    }
++    return json({ error: { message: `fake stripe: unhandled ${method} ${url.pathname}` } }, 500);
++  }),
++);
++
++const { default: worker } = await import("../index");
++const { deleteAccountRows, processAccountDeletions } = await import("../lib/account-deletion");
++
++// ---------------------------------------------------------------------------
++// Fixtures
++// ---------------------------------------------------------------------------
++const API = "https://api.capturecat.so";
++const WEB = "https://app.capturecat.so";
++const ALICE = "alice";
++const BOB = "bob";
++const CAROL = "carol";
++const CUSTOMER_BUCKET_ENDPOINT = "https://s3.alice-own-bucket.example";
++
++/** R2 with `list` (prefix pages) and an injectable failure. */
++class ListingBucket extends MemoryBucket {
++  failDeletes = 0;
++  deleteCalls = 0;
++  async delete(keys: string | string[]) {
++    this.deleteCalls++;
++    if (this.failDeletes > 0) {
++      this.failDeletes--;
++      throw new Error("R2 unavailable");
++    }
++    return super.delete(keys);
++  }
++  async list(opts: { prefix?: string; limit?: number }) {
++    const all = [...this.objects.keys()].filter((k) => k.startsWith(opts.prefix ?? "")).sort();
++    const limit = opts.limit ?? 1000;
++    return { objects: all.slice(0, limit).map((key) => ({ key })), truncated: all.length > limit, delimitedPrefixes: [] };
++  }
++}
++
++let db: TestD1;
++let r2: ListingBucket;
++let env: Env;
++let waits: Promise<unknown>[];
++let purgedShareJobs: string[];
++const ctx = () =>
++  ({ waitUntil: (p: Promise<unknown>) => waits.push(p), passThroughOnException() {} }) as unknown as ExecutionContext;
++
++function ins(table: string, row: Record<string, unknown>) {
++  const cols = Object.keys(row);
++  db.query(
++    `INSERT INTO "${table}" (${cols.map((c) => `"${c}"`).join(", ")}) VALUES (${cols.map(() => "?").join(", ")})`,
++    ...cols.map((c) => row[c]),
++  );
++}
++
++const now = new Date().toISOString();
++const later = new Date(Date.now() + 86_400_000).toISOString();
++
++function addUser(id: string, customer: string | null) {
++  ins("user", {
++    id, name: id, email: `${id}@test.local`, emailVerified: 1, createdAt: now, updatedAt: now,
++    tester: 0, blocked: 0, role: "user", username: `${id}_handle`, stripeCustomerId: customer,
++    signupCountry: "GB", signupVia: "web",
++  });
++  ins("session", { id: `sess-${id}`, expiresAt: later, token: `tok-${id}`, createdAt: now, updatedAt: now, userId: id });
++  ins("account", { id: `acct-${id}`, accountId: `google-${id}`, providerId: "google", userId: id, createdAt: now, updatedAt: now });
++}
++
++function addVideo(uid: string, videoId: string, opts: { storageId?: string } = {}) {
++  const key = opts.storageId ? `prefix/videos/${videoId}.mp4` : `videos/${videoId}.mp4`;
++  ins("shared_videos", {
++    video_id: videoId, uid, file_name: `${videoId}.mp4`, r2_key: key, url: `https://capturecat.so/share/${videoId}`,
++    status: "ready", created_at: now, storage_id: opts.storageId ?? null, current_version: 2,
++  });
++  ins("video_versions", { version_id: `v1-${videoId}`, video_id: videoId, version_number: 1, r2_key: key, status: "ready", created_at: now, storage_id: opts.storageId ?? null });
++  const v2 = opts.storageId ? `prefix/videos/${videoId}/v2.mp4` : `videos/${videoId}/v2.mp4`;
++  ins("video_versions", { version_id: `v2-${videoId}`, video_id: videoId, version_number: 2, r2_key: v2, status: "ready", created_at: now, storage_id: opts.storageId ?? null });
++  if (!opts.storageId) {
++    r2.put(key, "mp4");
++    r2.put(v2, "mp4 v2");
++  }
++  r2.put(`thumbs/${videoId}`, "jpg");
++  for (const [i, sess] of ["s1", "s2"].entries()) {
++    ins("video_views", { view_id: `view-${videoId}-${i}`, video_id: videoId, session_id: sess, created_at: now });
++    ins("video_events", { event_id: `ev-${videoId}-${i}`, video_id: videoId, session_id: sess, type: "play", created_at: now });
++    ins("video_reactions", { reaction_id: `re-${videoId}-${i}`, video_id: videoId, session_id: sess, emoji: "🎉", created_at: now });
++  }
++  ins("video_transcripts", { video_id: videoId, uid, segments_json: "[]", full_text: "hello", created_at: now });
++}
++
++function addProject(uid: string, id: string) {
++  const base = `cloud-projects/${uid}/${id}`;
++  ins("cloud_projects", { id, owner_uid: uid, name: `${id} project`, doc_r2_key: `${base}/doc/1-a.json`, created_at: now, updated_at: now });
++  ins("cloud_project_objects", { project_id: id, sha256: `sha-${id}`, owner_uid: uid, bytes: 3, content_type: "video/mp4", r2_key: `${base}/objects/sha-${id}`, status: "ready", created_at: now });
++  ins("cloud_project_files", { project_id: id, path: "recording.mp4", sha256: `sha-${id}`, bytes: 3, content_type: "video/mp4", r2_key: `${base}/objects/sha-${id}`, uploaded_at: now });
++  ins("cloud_project_manifests", { project_id: id, manifest_sha: `man-${id}`, files_json: "[]", created_at: now });
++  ins("cloud_project_manifest_objects", { project_id: id, manifest_sha: `man-${id}`, sha256: `sha-${id}` });
++  ins("cloud_project_versions", {
++    id: `ver-${id}`, project_id: id, seq: 1, first_revision: 1, revision: 1, doc_r2_key: `${base}/doc/0-z.json`,
++    doc_bytes: 2, stored_bytes: 2, doc_sha256: "d", kind: "auto", opened_at: now, updated_at: now, actor_uid: uid,
++  });
++  r2.put(`${base}/doc/1-a.json`, "{}");
++  r2.put(`${base}/doc/0-z.json`, "{}");
++  r2.put(`${base}/objects/sha-${id}`, "mp4");
++}
++
++/** Alice owns a lot; Bob and Carol share content with her. */
++function seed() {
++  addUser(ALICE, "cus_alice");
++  addUser(BOB, "cus_bob");
++  addUser(CAROL, null);
++
++  // --- share videos -------------------------------------------------------
++  addVideo(ALICE, "vid-alice-1");
++  // In Alice's OWN bucket: its bytes must never be touched (and are not in R2).
++  ins("storage_buckets", {
++    id: "bucket-alice", uid: ALICE, provider: "s3", endpoint: CUSTOMER_BUCKET_ENDPOINT, region: "us-east-1", bucket: "alice-bucket",
++    path_prefix: "prefix/", access_key_id: "AKIAALICE", secret_ciphertext: "sealed", created_at: now, updated_at: now,
++  });
++  addVideo(ALICE, "vid-alice-own-bucket", { storageId: "bucket-alice" });
++  addVideo(BOB, "vid-bob-1");
++
++  // --- comments -----------------------------------------------------------
++  // On Alice's video (all go with it), including Bob's.
++  ins("video_comments", { comment_id: "cm-on-alice-by-bob", video_id: "vid-alice-1", author_name: "Bob", body: "nice", created_at: now, author_uid: BOB });
++  ins("video_comments", { comment_id: "cm-on-alice-by-alice", video_id: "vid-alice-1", author_name: "Alice", body: "thanks", created_at: now, author_uid: ALICE });
++  // On Bob's video: Alice's top-level with Bob's reply (redacted), Alice's
++  // top-level without replies (deleted), Alice's reply to Bob (deleted),
++  // Bob's own comment (kept), an anonymous comment (kept).
++  ins("video_comments", { comment_id: "cm-replied", video_id: "vid-bob-1", author_name: "Alice", body: "alice's words", created_at: now, author_uid: ALICE, author_image: "https://img/alice.png", annotation_json: '{"x":1}' });
++  ins("video_comments", { comment_id: "cm-bob-reply", video_id: "vid-bob-1", author_name: "Bob", body: "reply to her", created_at: now, author_uid: BOB, parent_id: "cm-replied" });
++  ins("video_comments", { comment_id: "cm-alice-lonely", video_id: "vid-bob-1", author_name: "Alice", body: "alone", created_at: now, author_uid: ALICE });
++  ins("video_comments", { comment_id: "cm-bob-top", video_id: "vid-bob-1", author_name: "Bob", body: "bob top", created_at: now, author_uid: BOB });
++  ins("video_comments", { comment_id: "cm-alice-reply-to-bob", video_id: "vid-bob-1", author_name: "Alice", body: "alice reply", created_at: now, author_uid: ALICE, parent_id: "cm-bob-top" });
++  ins("video_comments", { comment_id: "cm-anon", video_id: "vid-bob-1", author_name: "Guest", body: "anon", created_at: now });
++
++  // --- playlists, reports, moderation ----------------------------------------
++  ins("video_playlists", { playlist_id: "pl-alice", uid: ALICE, name: "Alice's", created_at: now });
++  ins("playlist_videos", { playlist_id: "pl-alice", video_id: "vid-alice-1", created_at: now });
++  ins("video_playlists", { playlist_id: "pl-bob", uid: BOB, name: "Bob's", created_at: now });
++  ins("playlist_videos", { playlist_id: "pl-bob", video_id: "vid-bob-1", created_at: now });
++  ins("video_reports", { id: "rep-filed-by-her", video_id: "vid-bob-1", reason: "spam", reporter_hash: "h1", reporter_uid: ALICE, created_at: now });
++  ins("video_reports", { id: "rep-about-her-video", video_id: "vid-alice-1", reason: "spam", reporter_hash: "h2", reporter_uid: BOB, created_at: now });
++  ins("moderation_actions", { id: "mod-1", video_id: "vid-alice-1", video_owner: ALICE, admin_uid: "admin", action: "restore", created_at: now });
++
++  // --- cloud projects -------------------------------------------------------
++  addProject(ALICE, "proj-alice");
++  addProject(BOB, "proj-bob");
++  // Alice edited Bob's project: his history stays, her id goes.
++  db.query(`UPDATE cloud_projects SET updated_by = ? WHERE id = 'proj-bob'`, ALICE);
++  db.query(`UPDATE cloud_project_versions SET actor_uid = ?, named_by = ? WHERE id = 'ver-proj-bob'`, ALICE, ALICE);
++  // A presigned upload that never got a row — found by the prefix listing.
++  r2.put(`cloud-projects/${ALICE}/proj-alice/objects/stray`, "x");
++
++  // --- screenshots ---------------------------------------------------------
++  ins("stored_objects", { r2_key: `screenshots/${ALICE}/abc.png`, uid: ALICE, kind: "screenshot", bytes: 3, created_at: now });
++  r2.put(`screenshots/${ALICE}/abc.png`, "png");
++  r2.put(`screenshots/${ALICE}/orphan`, "png");
++  r2.put(`screenshots/${BOB}/bob.png`, "png");
++  ins("screenshot_api_keys", { id: "sk-alice", user_id: ALICE, key_hash: "h", created_at: now });
++  ins("screenshot_usage", { user_id: ALICE, yyyymm: "202611", count: 3 });
++
++  // --- domains, attest ----------------------------------------------------
++  ins("custom_domains", { domain: "videos.alice.example", uid: ALICE, verified: 1, created_at: now, cf_hostname_id: "cfh-alice" });
++  ins("attest_keys", { key_id: "ak-alice", uid: ALICE, public_key: "pk", created_at: now });
++  ins("attest_challenges", { uid: ALICE, nonce: "n", expires_at: 1 });
++  ins("attest_exemptions", { uid: ALICE, reason: "r", created_at: now });
++
++  // --- agents, OAuth, webhooks -------------------------------------------
++  ins("agent_tokens", { id: "at-alice", user_id: ALICE, name: "Claude", token_hash: "h", token_prefix: "cc_pat_alice", scopes: "[]", created_at: now });
++  ins("agent_audit_log", { id: "aud-alice", user_id: ALICE, token_id: "at-alice", tool: "list", ok: 1, at: now });
++  ins("agent_approvals", { id: "appr-alice", user_id: ALICE, token_id: "at-alice", tool: "share", args_json: "{}", summary: "s", created_at: now, expires_at: later });
++  ins("oauth_clients", { client_id: "client-shared", kind: "dcr", client_name: "Some MCP client", redirect_uris: "[]", grant_types: "[]", created_at: now });
++  ins("oauth_grants", { id: "grant-alice", user_id: ALICE, client_id: "client-shared", client_name: "Some MCP client", scopes: "[]", resource: "r", created_at: now });
++  ins("oauth_grants", { id: "grant-bob", user_id: BOB, client_id: "client-shared", client_name: "Some MCP client", scopes: "[]", resource: "r", created_at: now });
++  ins("oauth_codes", { id: "code-alice", code_prefix: "cp-alice", code_hash: "h", client_id: "client-shared", user_id: ALICE, redirect_uri: "x", code_challenge: "c", scopes: "[]", resource: "r", created_at: now, expires_at: later });
++  ins("oauth_refresh_tokens", { id: "rt-1", grant_id: "grant-alice", token_prefix: "rtp-1", token_hash: "h", scopes: "[]", created_at: now, expires_at: later });
++  ins("oauth_refresh_tokens", { id: "rt-2", grant_id: "grant-bob", token_prefix: "rtp-2", token_hash: "h", scopes: "[]", created_at: now, expires_at: later });
++  ins("webhook_endpoints", { id: "wh-alice", user_id: ALICE, url: "https://hooks.example/a", secret: "s", events: "[]", created_at: now, updated_at: now });
++  ins("webhook_deliveries", { id: "whd-alice", endpoint_id: "wh-alice", user_id: ALICE, event: "video.ready", payload: "{}", created_at: now });
++
++  // --- devices -------------------------------------------------------------
++  ins("user_devices", { user_id: ALICE, device_id: "phone-alice", platform: "ios", name: "Alice's iPhone", created_at: now, updated_at: now, last_seen_at: now, apns_token: "ab".repeat(32), apns_env: "production" });
++  ins("wireless_links", { user_id: ALICE, key_ciphertext: "sealed", key_id: "kid", created_at: now });
++  ins("user_devices", { user_id: BOB, device_id: "phone-bob", platform: "ios", name: "Bob's iPhone", created_at: now, updated_at: now, last_seen_at: now });
++
++  // --- billing -------------------------------------------------------------
++  ins("subscription", { id: "subrow-alice", plan: "pro", referenceId: ALICE, stripeCustomerId: "cus_alice", stripeSubscriptionId: "sub_alice", status: "active", periodEnd: later });
++  ins("plan_grants", { id: "grant-row-alice", user_id: ALICE, plan: "pro", stripe_subscription_id: "sub_alice_grant", granted_by: "admin", granted_at: now });
++  stripe.subs.set("sub_alice", { id: "sub_alice", object: "subscription", customer: "cus_alice", status: "active", metadata: {} });
++  stripe.subs.set("sub_alice_old", { id: "sub_alice_old", object: "subscription", customer: "cus_alice", status: "canceled", metadata: {} });
++  stripe.subs.set("sub_alice_grant", { id: "sub_alice_grant", object: "subscription", customer: "cus_alice_comp", status: "active", metadata: {} });
++  stripe.subs.set("sub_bob", { id: "sub_bob", object: "subscription", customer: "cus_bob", status: "active", metadata: {} });
++  ins("subscription", { id: "subrow-bob", plan: "pro", referenceId: BOB, stripeCustomerId: "cus_bob", stripeSubscriptionId: "sub_bob", status: "active", periodEnd: later });
++
++  // --- teams ---------------------------------------------------------------
++  // Alice's solo team goes with her; in Bob's team she's only a member.
++  ins("organization", { id: "org-alice-solo", name: "Alice Solo", slug: "alice-solo", createdAt: now, logo: "x" });
++  ins("member", { id: "mem-1", organizationId: "org-alice-solo", userId: ALICE, role: "owner", createdAt: now });
++  ins("invitation", { id: "inv-solo", organizationId: "org-alice-solo", email: "someone@test.local", status: "pending", expiresAt: later, createdAt: now, inviterId: ALICE });
++  r2.put("org-logos/org-alice-solo", "png");
++  ins("organization", { id: "org-bob", name: "Bob Co", slug: "bob-co", createdAt: now });
++  ins("member", { id: "mem-2", organizationId: "org-bob", userId: BOB, role: "owner", createdAt: now });
++  ins("member", { id: "mem-3", organizationId: "org-bob", userId: ALICE, role: "member", createdAt: now });
++  ins("invitation", { id: "inv-to-alice", organizationId: "org-bob", email: "alice@test.local", status: "pending", expiresAt: later, createdAt: now, inviterId: BOB });
++  r2.put("org-logos/org-bob", "png");
++
++  ins("beta_signups", { id: "beta-alice", email: "Alice@Test.local", created_at: now });
++  ins("beta_signups", { id: "beta-bob", email: "bob@test.local", created_at: now });
++}
++
++beforeEach(() => {
++  db = createTestD1();
++  r2 = new ListingBucket();
++  waits = [];
++  purgedShareJobs = [];
++  stripe.subs.clear();
++  stripe.fail = false;
++  stripe.calls.length = 0;
++  cacheDeletes.length = 0;
++  env = {
++    DB: db,
++    R2: r2 as unknown as R2Bucket,
++    SHARE_JOBS: { getByName: (name: string) => ({ purgeAll: async () => void purgedShareJobs.push(name) }) },
++    BETTER_AUTH_URL: API,
++    BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-00",
++    STRIPE_SECRET_KEY: "sk_test_offline",
++    STRIPE_WEBHOOK_SECRET: "whsec_offline",
++  } as unknown as Env;
++  seed();
++});
++
++function del(init: { as?: string | null; cookie?: string; origin?: string; authorization?: string; client?: string } = {}) {
++  const headers: Record<string, string> = { "CF-Connecting-IP": "203.0.113.9" };
++  const as = init.as === undefined ? ALICE : init.as;
++  if (init.authorization) headers.Authorization = init.authorization;
++  else if (as) headers.Authorization = `Bearer ${as}`;
++  if (init.cookie) headers.Cookie = init.cookie;
++  if (init.origin) headers.Origin = init.origin;
++  if (init.client) headers["X-CC-Client"] = init.client;
++  return worker.fetch(new Request(`${API}/api/me`, { method: "DELETE", headers }), env, ctx());
++}
++
++async function settle() {
++  await Promise.all(waits);
++  waits = [];
++}
++
++/** Every row in every table whose text mentions `needle`, as "table.column". */
++function rowsMentioning(needle: string, ignore: string[] = []): string[] {
++  const found: string[] = [];
++  const tables = db.query<{ name: string }>(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`);
++  for (const { name } of tables) {
++    for (const col of db.query<{ name: string }>(`PRAGMA table_info("${name}")`)) {
++      const ref = `${name}.${col.name}`;
++      if (ignore.includes(ref) || ignore.includes(name)) continue;
++      const n = db.query<{ n: number }>(`SELECT COUNT(*) AS n FROM "${name}" WHERE lower(CAST("${col.name}" AS TEXT)) LIKE ?`, `%${needle}%`)[0].n;
++      if (n > 0) found.push(`${ref} (${n})`);
++    }
++  }
++  return found;
++}
++
++/** Every row (as "table JSON") with any column mentioning `needle`. */
++function rowsInvolving(needle: string): string[] {
++  const out: string[] = [];
++  const tables = db.query<{ name: string }>(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`);
++  for (const { name } of tables) {
++    for (const row of db.query<Record<string, unknown>>(`SELECT * FROM "${name}"`)) {
++      const text = JSON.stringify(row);
++      if (text.toLowerCase().includes(needle)) out.push(`${name} ${text}`);
++    }
++  }
++  return out.sort();
++}
++
++const count = (sql: string, ...p: unknown[]) => (db.query<{ n: number }>(sql, ...p)[0]?.n ?? 0);
++const stripeWrites = () => stripe.calls.filter((c) => c.method !== "GET").map((c) => `${c.method} ${new URL(c.url).pathname}`);
++
++// ---------------------------------------------------------------------------
++
++describe("DELETE /api/me", () => {
++  it("deletes everything Alice owns, leaves Bob untouched, cancels Stripe, never touches her own bucket", async () => {
++    // Every row of Bob's that does not involve Alice, byte for byte.
++    const bobBefore = rowsInvolving("bob").filter((r) => !r.includes("alice"));
++    const bobKeysBefore = [...r2.objects.keys()].filter((k) => k.includes("bob")).sort();
++    // The scan below is not vacuous: before deletion it finds her in ~40
++    // table columns (every table the fixture seeds).
++    const SCAN_IGNORE = ["account_deletions.user_id", "moderation_actions", "rate_limits", "video_reports.video_id"];
++    expect(rowsMentioning("alice", SCAN_IGNORE).length).toBeGreaterThan(40);
++
++    const res = await del({ client: "ios" });
++    const body = (await res.json()) as Record<string, unknown>;
++    expect(res.status, JSON.stringify(body)).toBe(200);
++    expect(body).toMatchObject({ deleted: true, cancelledSubscriptions: 2, cleanup: "pending" });
++    expect(String(body.jobId)).toMatch(/^del_/);
++
++    // Stripe: both live subscriptions (the customer's and the grant D1 knew)
++    // cancelled immediately; the already-cancelled one and Bob's untouched.
++    expect(stripeWrites().sort()).toEqual(["DELETE /v1/subscriptions/sub_alice", "DELETE /v1/subscriptions/sub_alice_grant"]);
++    expect(stripe.subs.get("sub_alice")!.status).toBe("canceled");
++    expect(stripe.subs.get("sub_bob")!.status).toBe("active");
++
++    // Rows: gone the moment the response is sent — before any background work.
++    expect(count(`SELECT COUNT(*) AS n FROM "user" WHERE id = ?`, ALICE)).toBe(0);
++    expect(count(`SELECT COUNT(*) AS n FROM "session" WHERE "userId" = ?`, ALICE)).toBe(0);
++    expect(count(`SELECT COUNT(*) AS n FROM shared_videos WHERE uid = ?`, ALICE)).toBe(0);
++
++    await settle();
++
++    // THE structural check: no row anywhere still names Alice — her id, her
++    // email, her handle, her videos, projects, devices, tokens. Allowed:
++    // the audit row (pseudonymous id only), the admins' moderation trail and
++    // the per-uid rate-limit counter (swept within a day).
++    // (video_reports.video_id: a closed report keeps the id of the video it
++    // was about — a random id in production, "vid-alice-1" only here.)
++    expect(
++      rowsMentioning("alice", ["account_deletions.user_id", "moderation_actions", "rate_limits", "video_reports.video_id"]),
++    ).toEqual([]);
++    // Nothing of Bob's that did not involve Alice changed.
++    const bobAfter = new Set(rowsInvolving("bob"));
++    expect(bobBefore.filter((r) => !bobAfter.has(r))).toEqual([]);
++    expect(bobBefore.length).toBeGreaterThan(20);
++
++    // R2: no object of Alice's left — the prefix listing caught the strays —
++    // and every one of Bob's still there.
++    expect([...r2.objects.keys()].filter((k) => k.includes("alice"))).toEqual([]);
++    expect([...r2.objects.keys()].filter((k) => k.includes("bob")).sort()).toEqual(bobKeysBefore);
++
++    // Her OWN bucket: never called. The only outbound calls were to Stripe.
++    expect(stripe.calls.every((c) => new URL(c.url).hostname === "api.stripe.com")).toBe(true);
++    expect(stripe.calls.some((c) => c.url.startsWith(CUSTOMER_BUCKET_ENDPOINT))).toBe(false);
++
++    // Comments: Bob's thread under Alice's redacted comment survives.
++    expect(db.query(`SELECT comment_id, author_name, body, author_uid, author_image, annotation_json FROM video_comments WHERE video_id = 'vid-bob-1' ORDER BY comment_id`)).toEqual([
++      { comment_id: "cm-anon", author_name: "Guest", body: "anon", author_uid: null, author_image: null, annotation_json: null },
++      { comment_id: "cm-bob-reply", author_name: "Bob", body: "reply to her", author_uid: BOB, author_image: null, annotation_json: null },
++      { comment_id: "cm-bob-top", author_name: "Bob", body: "bob top", author_uid: BOB, author_image: null, annotation_json: null },
++      { comment_id: "cm-replied", author_name: "Deleted account", body: "This comment was deleted.", author_uid: null, author_image: null, annotation_json: null },
++    ]);
++
++    // Teams: the solo team is gone; Bob's team lost only Alice.
++    expect(count(`SELECT COUNT(*) AS n FROM "organization" WHERE id = 'org-alice-solo'`)).toBe(0);
++    expect(db.query(`SELECT "userId" FROM "member" WHERE "organizationId" = 'org-bob'`)).toEqual([{ userId: BOB }]);
++
++    // Shared things that are not hers stay: the OAuth client registration,
++    // Bob's grant + refresh token, Bob's project history (her id cleared).
++    expect(count(`SELECT COUNT(*) AS n FROM oauth_clients`)).toBe(1);
++    expect(db.query(`SELECT id FROM oauth_refresh_tokens`)).toEqual([{ id: "rt-2" }]);
++    expect(db.query(`SELECT actor_uid, named_by FROM cloud_project_versions WHERE id = 'ver-proj-bob'`)).toEqual([{ actor_uid: null, named_by: null }]);
++    // Reports: hers anonymised, the open one against her video closed.
++    expect(db.query(`SELECT id, reporter_uid, resolution FROM video_reports ORDER BY id`)).toEqual([
++      { id: "rep-about-her-video", reporter_uid: BOB, resolution: "account_deleted" },
++      { id: "rep-filed-by-her", reporter_uid: null, resolution: null },
++    ]);
++
++    // Background state: queue drained, audit row done, outside state purged.
++    expect(count(`SELECT COUNT(*) AS n FROM account_deletion_objects`)).toBe(0);
++    const [audit] = db.query<Record<string, unknown>>(`SELECT * FROM account_deletions`);
++    expect(audit).toMatchObject({ user_id: ALICE, client: "ios", status: "done", cancelled_subscriptions: 2 });
++    expect(audit.email_hmac).toMatch(/^[0-9a-f]{64}$/);
++    expect(JSON.stringify(audit)).not.toContain("alice@test.local");
++    expect(JSON.parse(String(audit.counts_json))).toMatchObject({ videos: 2, projects: 1, comments: 4, devices: 1, teams: 1 });
++    expect(purgedShareJobs).toEqual([ALICE]);
++    expect(cacheDeletes).toEqual(
++      expect.arrayContaining([
++        "https://meta.internal/video/vid-alice-1",
++        "https://meta.internal/video/vid-alice-own-bucket",
++        "https://meta.internal/profile/alice_handle",
++      ]),
++    );
++  });
++
++  it("is idempotent: the retry after a lost response is a 401, and a raced repeat changes nothing", async () => {
++    expect((await del()).status).toBe(200);
++    await settle();
++    const writes = stripeWrites().length;
++
++    // The session died with the account.
++    const again = await del();
++    expect(again.status).toBe(401);
++    expect(stripeWrites().length).toBe(writes);
++
++    // A repeat that got past auth before the first finished: harmless, and
++    // the original audit row is kept.
++    const [first] = db.query<{ id: string }>(`SELECT id FROM account_deletions`);
++    const repeat = await deleteAccountRows(env, { id: ALICE, email: "alice@test.local" }, { client: "web", cancelledSubscriptions: 0 });
++    expect(repeat).toMatchObject({ jobId: first.id, created: false });
++    expect(db.query(`SELECT id, client FROM account_deletions`)).toEqual([{ id: first.id, client: "app" }]);
++    expect(await processAccountDeletions(env)).toMatchObject({ accounts: 0 });
++    expect(count(`SELECT COUNT(*) AS n FROM "user" WHERE id = ?`, BOB)).toBe(1);
++  });
++
++  it("requires a session; agent tokens are refused", async () => {
++    // No credentials at all: a non-GET without Origin is the CSRF gate's 403.
++    expect((await del({ as: null })).status).toBe(403);
++    expect((await del({ authorization: "Bearer not-a-session" })).status).toBe(401);
++    const agent = await del({ authorization: `Bearer cc_pat_${"a".repeat(40)}` });
++    expect(agent.status).toBe(403);
++    expect(await agent.json()).toMatchObject({ code: "agent_token_forbidden" });
++    expect(count(`SELECT COUNT(*) AS n FROM "user" WHERE id = ?`, ALICE)).toBe(1);
++    expect(stripe.calls).toEqual([]);
++  });
++
++  it("cookie sessions need a trusted Origin (CSRF); with one, the web can delete", async () => {
++    const noOrigin = await del({ as: null, cookie: `cc_session=${ALICE}` });
++    expect(noOrigin.status).toBe(403);
++    const evil = await del({ as: null, cookie: `cc_session=${ALICE}`, origin: "https://evil.example" });
++    expect(evil.status).toBe(403);
++    expect(count(`SELECT COUNT(*) AS n FROM "user" WHERE id = ?`, ALICE)).toBe(1);
++
++    const ok = await del({ as: null, cookie: `cc_session=${ALICE}`, origin: WEB });
++    expect(ok.status).toBe(200);
++    expect(count(`SELECT COUNT(*) AS n FROM "user" WHERE id = ?`, ALICE)).toBe(0);
++    await settle();
++    expect(db.query(`SELECT client FROM account_deletions`)).toEqual([{ client: "web" }]);
++  });
++
++  it("refuses to orphan a team: an owner with other members and no co-owner gets 409 and nothing changes", async () => {
++    ins("organization", { id: "org-alice-team", name: "Acme", slug: "acme", createdAt: now });
++    ins("member", { id: "mem-4", organizationId: "org-alice-team", userId: ALICE, role: "owner", createdAt: now });
++    ins("member", { id: "mem-5", organizationId: "org-alice-team", userId: BOB, role: "member", createdAt: now });
++    ins("member", { id: "mem-6", organizationId: "org-alice-team", userId: CAROL, role: "admin", createdAt: now });
++
++    const res = await del();
++    expect(res.status).toBe(409);
++    const body = (await res.json()) as Record<string, unknown>;
++    expect(body).toMatchObject({ code: "team_has_members", team: { id: "org-alice-team", name: "Acme", otherMembers: 2 } });
++    expect(String(body.error)).toContain("Acme");
++    expect(stripe.calls).toEqual([]);
++    expect(count(`SELECT COUNT(*) AS n FROM "user" WHERE id = ?`, ALICE)).toBe(1);
++    expect(count(`SELECT COUNT(*) AS n FROM account_deletions`)).toBe(0);
++
++    // With a co-owner the team survives her leaving.
++    db.query(`UPDATE "member" SET role = 'admin,owner' WHERE id = 'mem-6'`);
++    expect((await del()).status).toBe(200);
++    expect(db.query(`SELECT "userId" FROM "member" WHERE "organizationId" = 'org-alice-team' ORDER BY "userId"`)).toEqual([
++      { userId: BOB },
++      { userId: CAROL },
++    ]);
++    await settle();
++  });
++
++  it("when Stripe cannot cancel, nothing is deleted (502)", async () => {
++    stripe.fail = true;
++    const res = await del();
++    expect(res.status).toBe(502);
++    expect(await res.json()).toMatchObject({ code: "billing_unavailable" });
++    expect(count(`SELECT COUNT(*) AS n FROM "user" WHERE id = ?`, ALICE)).toBe(1);
++    expect(count(`SELECT COUNT(*) AS n FROM shared_videos WHERE uid = ?`, ALICE)).toBe(2);
++    expect(count(`SELECT COUNT(*) AS n FROM account_deletions`)).toBe(0);
++    expect(r2.objects.has("videos/vid-alice-1.mp4")).toBe(true);
++
++    stripe.fail = false;
++    expect((await del()).status).toBe(200);
++    await settle();
++  });
++
++  it("a user with no Stripe customer and no subscription deletes without any Stripe call", async () => {
++    const res = await del({ as: CAROL });
++    expect(res.status).toBe(200);
++    expect(await res.json()).toMatchObject({ cancelledSubscriptions: 0 });
++    expect(stripe.calls).toEqual([]);
++    await settle();
++    expect(rowsMentioning("carol", ["account_deletions.user_id", "rate_limits"])).toEqual([]);
++  });
++
++  it("a failing batch (e.g. a Worker deployed ahead of 0043) deletes nothing and says so", async () => {
++    db.query(`DROP TABLE account_deletion_objects`);
++    const res = await del();
++    expect(res.status).toBe(500);
++    expect(await res.json()).toMatchObject({ code: "delete_failed", error: expect.stringContaining("subscription was cancelled") });
++    // All-or-nothing: every row is still there.
++    expect(count(`SELECT COUNT(*) AS n FROM "user" WHERE id = ?`, ALICE)).toBe(1);
++    expect(count(`SELECT COUNT(*) AS n FROM "session" WHERE "userId" = ?`, ALICE)).toBe(1);
++    expect(count(`SELECT COUNT(*) AS n FROM shared_videos WHERE uid = ?`, ALICE)).toBe(2);
++    expect(count(`SELECT COUNT(*) AS n FROM account_deletions`)).toBe(0);
++  });
++});
++
++describe("background cleanup", () => {
++  it("survives R2 failures and interrupted runs; the hourly sweep finishes the job", async () => {
++    // Lots of strays under one prefix: more than one 1000-key page.
++    for (let i = 0; i < 2500; i++) r2.put(`cloud-projects/${ALICE}/proj-alice/objects/bulk-${i}`, "x");
++    // R2 is down for the request's own background run: every delete fails.
++    r2.failDeletes = 1_000;
++    const res = await del();
++    expect(res.status).toBe(200);
++    await settle();
++    expect(db.query(`SELECT status FROM account_deletions`)).toEqual([{ status: "pending" }]);
++    expect(count(`SELECT COUNT(*) AS n FROM account_deletion_objects WHERE kind IN ('key', 'prefix') AND attempts = 1`)).toBeGreaterThan(0);
++    // ...and the outside state that did not need R2 is already done.
++    expect(count(`SELECT COUNT(*) AS n FROM account_deletion_objects WHERE kind NOT IN ('key', 'prefix')`)).toBe(0);
++    expect(r2.objects.has("videos/vid-alice-1.mp4")).toBe(true);
++
++    // R2 is back, but the next run is cut short after two passes.
++    r2.failDeletes = 0;
++    let t = 0;
++    const tick = () => (t += 1);
++    await processAccountDeletions(env, { userId: ALICE, budgetMs: 3, now: tick });
++    expect(count(`SELECT COUNT(*) AS n FROM account_deletion_objects`)).toBeGreaterThan(0);
++    expect(db.query(`SELECT status FROM account_deletions`)).toEqual([{ status: "pending" }]);
++    // Already gone from D1, so nothing is reachable meanwhile.
++    expect(count(`SELECT COUNT(*) AS n FROM shared_videos WHERE uid = ?`, ALICE)).toBe(0);
++
++    // The hourly cron's sweep picks it up and drains it.
++    const sweepWaits: Promise<unknown>[] = [];
++    await worker.scheduled!(
++      { cron: "17 * * * *", scheduledTime: Date.now(), noRetry() {} } as unknown as ScheduledController,
++      env,
++      { waitUntil: (p: Promise<unknown>) => sweepWaits.push(p), passThroughOnException() {} } as unknown as ExecutionContext,
++    );
++    await Promise.all(sweepWaits);
++    await Promise.all(waits);
++
++    expect(count(`SELECT COUNT(*) AS n FROM account_deletion_objects`)).toBe(0);
++    expect(db.query(`SELECT status FROM account_deletions`)).toEqual([{ status: "done" }]);
++    expect([...r2.objects.keys()].filter((k) => k.includes("alice"))).toEqual([]);
++    expect(r2.objects.has(`cloud-projects/${BOB}/proj-bob/objects/sha-proj-bob`)).toBe(true);
++  });
++
++  it("a failing item is retried once per run, not burned in a loop", async () => {
++    // Only the custom hostname is outstanding, and Cloudflare is down.
++    env.CF_ZONE_ID = "zone";
++    env.CF_SAAS_API_TOKEN = "token";
++    db.query(
++      `INSERT INTO account_deletions (id, user_id, client, requested_at, status) VALUES ('del_x', 'gone-user', 'app', ?, 'pending')`,
++      now,
++    );
++    db.query(`INSERT INTO account_deletion_objects (user_id, kind, value) VALUES ('gone-user', 'cf_hostname', 'cfh-1')`);
++    await processAccountDeletions(env);
++    await processAccountDeletions(env);
++    expect(db.query(`SELECT attempts FROM account_deletion_objects`)).toEqual([{ attempts: 2 }]);
++    expect(db.query(`SELECT status FROM account_deletions WHERE id = 'del_x'`)).toEqual([{ status: "pending" }]);
++  });
++});
+diff --git a/apps/api/src/routes/account-delete.ts b/apps/api/src/routes/account-delete.ts
+new file mode 100644
+index 0000000..5d8bce2
+--- /dev/null
++++ b/apps/api/src/routes/account-delete.ts
+@@ -0,0 +1,134 @@
++/**
++ * DELETE /api/me — the signed-in user deletes their own account, for good.
++ *
++ * App Store Guideline 5.1.1(v): the iOS app (Account → Delete Account), the
++ * web dashboard (Settings → Delete account) and any future client call this.
++ * Everything it does is in lib/account-deletion.ts; this file is the gate.
++ *
++ * AUTH: requireAuth, exactly as GET /api/me — a Bearer session token from the
++ * apps, or the session cookie from the web (whose requireAuth CSRF check
++ * insists on a trusted Origin for any non-GET). Agent credentials (cc_pat_ /
++ * cc_oat_) are refused first: no agent may ever delete its owner's account.
++ * A blocked account gets requireAuth's 403 — deleting one is a support
++ * decision (it may be evidence), not self-serve.
++ *
++ * RESPONSES
++ *   200 { deleted: true, jobId, cancelledSubscriptions, cleanup: "pending" }
++ *       The account no longer exists; every session (this one included) is
++ *       gone. Stored files are removed in the background.
++ *   401 no session — which is ALSO what a retry gets after a response that
++ *       was lost on the way back: clients treat 401 here as "already deleted".
++ *   409 { code: "team_has_members", team: { id, name, otherMembers } }
++ *   502 { code: "billing_unavailable" } — Stripe could not cancel the
++ *       subscription; nothing was deleted.
++ *   500 { code: "delete_failed" } — the D1 batch failed (a transaction:
++ *       nothing deleted). Billing may already be cancelled; a retry is safe.
++ */
++import { Hono } from "hono";
++import type { Env, Variables } from "../types";
++import { requireAuth } from "../middleware/auth";
++import { refuseAgentCredentials } from "../middleware/session-only";
++import { bearerToken } from "../lib/agent-tokens";
++import { userRateLimit } from "../lib/entitlement";
++import {
++  blockingTeam,
++  cancelSubscriptionsNow,
++  deleteAccountRows,
++  processAccountDeletions,
++  type DeletionClient,
++} from "../lib/account-deletion";
++
++export const accountDeleteRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
++
++/** The client that asked, for the audit row: X-CC-Client when it names one
++ *  we know, else bearer = "app" and cookie = "web". */
++function clientOf(header: string | undefined, bearer: boolean): DeletionClient {
++  const named = header?.trim().toLowerCase();
++  if (named === "ios" || named === "mac" || named === "web") return named;
++  return bearer ? "app" : "web";
++}
++
++accountDeleteRoutes.delete(
++  "/me",
++  refuseAgentCredentials,
++  requireAuth,
++  userRateLimit({ limit: 5, windowSec: 600, scope: "account-delete" }),
++  async (c) => {
++    const uid = c.get("user").uid;
++    const user = await c.env.DB
++      .prepare(`SELECT id, email, username, "stripeCustomerId" FROM "user" WHERE id = ?`)
++      .bind(uid)
++      .first<{ id: string; email: string | null; username: string | null; stripeCustomerId: string | null }>();
++    if (!user) {
++      // The session resolved but the row is gone: a raced repeat.
++      return c.json({ error: "Invalid or expired session" }, 401);
++    }
++
++    const team = await blockingTeam(c.env.DB, uid);
++    if (team) {
++      const others = team.otherMembers === 1 ? "1 other member" : `${team.otherMembers} other members`;
++      return c.json(
++        {
++          error: `You own the team “${team.name}” with ${others}. Make another member an owner, or remove them, on the Team page — then delete your account.`,
++          code: "team_has_members",
++          team,
++        },
++        409,
++      );
++    }
++
++    let cancelled: string[];
++    try {
++      cancelled = await cancelSubscriptionsNow(c.env, user);
++    } catch (err) {
++      console.error("account delete: Stripe cancel failed", err instanceof Error ? err.message : err);
++      return c.json(
++        {
++          error: "We couldn't cancel your subscription, so nothing was deleted. Try again in a moment.",
++          code: "billing_unavailable",
++        },
++        502,
++      );
++    }
++
++    let result: Awaited<ReturnType<typeof deleteAccountRows>>;
++    try {
++      result = await deleteAccountRows(c.env, user, {
++        client: clientOf(c.req.header("X-CC-Client"), bearerToken(c.req.header("Authorization")) !== null),
++        cancelledSubscriptions: cancelled.length,
++      });
++    } catch (err) {
++      // The batch is a transaction: nothing was deleted. Billing has already
++      // stopped (that is safe to repeat — a retry finds nothing live).
++      console.error("account delete: D1 batch failed", err instanceof Error ? err.message : err);
++      return c.json(
++        {
++          error:
++            cancelled.length > 0
++              ? "Your subscription was cancelled, but your account couldn't be deleted. Nothing else changed — try again in a moment."
++              : "Your account couldn't be deleted. Nothing changed — try again in a moment.",
++          code: "delete_failed",
++        },
++        500,
++      );
++    }
++
++    // Stored files go in the background; the hourly sweep finishes whatever
++    // this run does not.
++    const cleanup = processAccountDeletions(c.env, { userId: uid }).catch((err) =>
++      console.error("account delete: background cleanup failed", err),
++    );
++    try {
++      c.executionCtx.waitUntil(cleanup);
++    } catch {
++      // No ExecutionContext (unit tests): the promise still runs.
++    }
++
++    return c.json({
++      deleted: true,
++      jobId: result.jobId,
++      cancelledSubscriptions: cancelled.length,
++      cleanup: "pending",
++    });
++  },
++);
+diff --git a/apps/api/src/share-jobs.ts b/apps/api/src/share-jobs.ts
+index 27c6377..f5b326d 100644
+--- a/apps/api/src/share-jobs.ts
++++ b/apps/api/src/share-jobs.ts
+@@ -131,6 +131,13 @@ export class ShareJobsDO extends DurableObject<Env> {
+     return this.getJob(id);
+   }
+ 
++  /** The account was deleted (lib/account-deletion.ts): forget every job
++   *  and the housekeeping alarm. */
++  async purgeAll(): Promise<void> {
++    this.ctx.storage.sql.exec("DELETE FROM jobs");
++    await this.ctx.storage.deleteAlarm();
++  }
++
+   /** Sweep: stale uploads → failed; old finished rows → deleted. */
+   async alarm(): Promise<void> {
+     const now = Date.now();
