@@ -143,6 +143,24 @@ Simulator transcribes like the Mac (same words; a few word boundaries move
 by ≤ 0.14 s), the iOS 26.2 Simulator mostly returns nothing
 (`StudioLab --whisper-probe`).
 
+## Cursor art
+
+The studio draws the Mac's cursors. Arrow, White Arrow, Dot and Ring are vector art drawn
+by the same paths on both platforms (`Studio/Platform/CursorArt.swift`; the Dot and Ring
+build AppKit's own oval, not `UIBezierPath(ovalIn:)`, whose curves differ). The Hand is
+macOS's `NSCursor.pointingHand` bitmap (32 × 32 pt, hotspot 13, 8; a 32 px and a 64 px
+rep), and iOS has no system cursors, so the app and StudioLab bundle the Mac's own
+rasters of it: `StudioResources/Cursors/hand@{1,2}x.rgba`, the premultiplied RGBA8
+bytes `CaptureCat --web-cursor-sprites` writes (the web editor ships the same bytes),
+added by `gen-xcodeproj.py`. `CursorArt` draws them the way NSImage does (the 32 px rep up
+to 32 px, the 64 px rep above, high-quality interpolation), so every exported pixel grid
+matches the Mac byte for byte (`ios-vectors.sh`'s cursor-raster check;
+`ios-export-parity.sh` fixture `06-cursor-hand-physics`). If the Mac's cursor ever
+changes, regenerate them from `--web-cursor-sprites` (the check fails until you do).
+Every style is byte-identical to the Mac at every grid that check tries but one: the
+arrows at 21 × 29 px (raster scale ≈ 1.03), where the Mac's NSImage draw lands about a
+row lower — reported, not gated, and open.
+
 ## Contracts it follows
 
 - **Sign-in** = the Mac's flow: loopback (`127.0.0.1`) + PKCE through
@@ -165,7 +183,7 @@ by ≤ 0.14 s), the iOS 26.2 Simulator mostly returns nothing
     apps/ios/scripts/wireless-loopback.sh   # real iOS sender ↔ test Mac listener: Bonjour, TLS-PSK, H.264 decode, rotation, wrong key refused
     apps/ios/scripts/mac-interop.sh         # real iOS sender ↔ the REAL Mac receiver (WirelessServer): presence, requestBroadcast, one phone, keyframe-on-record, 70/70 frames, clock mapping, rotation, openProject ack
     apps/ios/scripts/studio-canary.sh       # Studio/ typechecks for iOS on its own (fast)
-    apps/ios/scripts/ios-vectors.sh         # the Mac's golden vectors run INSIDE the iOS Simulator vs the Mac's output (exact / ≤1e-12; known iOS differences listed)
+    apps/ios/scripts/ios-vectors.sh         # the Mac's golden vectors run INSIDE the iOS Simulator vs the Mac's output (exact / ≤1e-12; known iOS differences listed) + every cursor raster vs the Mac's --web-cursor-sprites, byte for byte
     apps/ios/scripts/kit-gallery.sh         # the studio controls, every state, both themes, iPhone + iPad: PNGs, structure, behaviour, motion SEQUENCES mid-flight (+ injected-snap self-test)
     apps/ios/scripts/ios-inspector.sh       # the inspector: every control of the 9 panes vs the Mac's frozen transcript, one undo step per edit, touch targets, VoiceOver, Dynamic Type, re-theme, column/sheet layout, motion SEQUENCES (+ injected-snap self-test)
     apps/ios/scripts/ios-history.sh         # History (Studio 4f): rows, compare, preview, restore, Merge Review vs the Mac's --history-transcript, line for line; motion sequences; INJECT= must FAIL
