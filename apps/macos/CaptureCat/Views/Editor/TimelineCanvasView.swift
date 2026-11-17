@@ -195,6 +195,9 @@ final class TimelineCanvasView: NSView {
     /// overlapping then (a joined Slide co-spans its block) stay exempt from
     /// the no-overlap clamp, mirroring the lane's legacy-grace rule.
     private var introDragInitialSpan: (start: TimeInterval, end: TimeInterval)?
+    /// The chips' spans at the press of a Slide / Curtain drag — handed back
+    /// on release so the live writes become one undo step.
+    private var chipDragBefore: TimelineChipSpans?
 
     private typealias DragTarget = TimelineBlockDragTarget
     private typealias BlockDrag = TimelineBlockDrag
@@ -594,11 +597,13 @@ final class TimelineCanvasView: NSView {
             if abs(point.x - chipRect.maxX) <= 6 {
                 draggingIntroEdge = true
                 introDragInitialSpan = (snapshot.introChipStart, snapshot.introChipEnd ?? snapshot.introChipStart)
+                chipDragBefore = callbacks?.chipSpans()
                 return
             }
             if chipRect.contains(point) {
                 introMove = (point.x, snapshot.introChipStart, false)
                 introDragInitialSpan = (snapshot.introChipStart, snapshot.introChipEnd ?? snapshot.introChipStart)
+                chipDragBefore = callbacks?.chipSpans()
                 return
             }
         }
@@ -610,11 +615,13 @@ final class TimelineCanvasView: NSView {
             if abs(point.x - chipRect.maxX) <= 6 {
                 draggingCurtainEdge = true
                 curtainDragInitialSpan = (snapshot.curtainChipStart, snapshot.curtainChipEnd ?? snapshot.curtainChipStart)
+                chipDragBefore = callbacks?.chipSpans()
                 return
             }
             if chipRect.contains(point) {
                 curtainMove = (point.x, snapshot.curtainChipStart, false)
                 curtainDragInitialSpan = (snapshot.curtainChipStart, snapshot.curtainChipEnd ?? snapshot.curtainChipStart)
+                chipDragBefore = callbacks?.chipSpans()
                 return
             }
         }
@@ -746,6 +753,10 @@ final class TimelineCanvasView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        if let before = chipDragBefore {
+            chipDragBefore = nil
+            callbacks?.commitChipDrag(before)
+        }
         if draggingIntroEdge {
             draggingIntroEdge = false
             introDragInitialSpan = nil

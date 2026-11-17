@@ -69,8 +69,13 @@ enum InspectorPaneContexts {
             ),
             onDeleteHighlight: {
                 guard let id = selection.selectedHighlightID else { return }
+                let previous = project.highlightRegions
                 project.highlightRegions.removeAll { $0.id == id }
                 selection.selectedHighlightID = nil
+                // The one inspector delete that registered no step at all.
+                let after = project.highlightRegions
+                UndoStep.register(undoManager, target: project, name: "Remove Highlight",
+                                  undo: { $0.highlightRegions = previous }, redo: { $0.highlightRegions = after })
             },
             tiltRegion: Ref(
                 get: {
@@ -89,8 +94,9 @@ enum InspectorPaneContexts {
                 let previous = project.tiltRegions
                 project.tiltRegions.removeAll { $0.id == id }
                 selection.selectedTiltID = nil
-                undoManager?.registerUndo(withTarget: project) { $0.tiltRegions = previous }
-                undoManager?.setActionName("Remove Tilt")
+                let after = project.tiltRegions
+                UndoStep.register(undoManager, target: project, name: "Remove Tilt",
+                                  undo: { $0.tiltRegions = previous }, redo: { $0.tiltRegions = after })
             },
             zoomRegion: Ref(
                 get: {
@@ -109,8 +115,9 @@ enum InspectorPaneContexts {
                 let previous = project.zoomRegions
                 project.zoomRegions.removeAll { $0.id == id }
                 selection.selectedZoomID = nil
-                undoManager?.registerUndo(withTarget: project) { $0.zoomRegions = previous }
-                undoManager?.setActionName("Remove Zoom")
+                let after = project.zoomRegions
+                UndoStep.register(undoManager, target: project, name: "Remove Zoom",
+                                  undo: { $0.zoomRegions = previous }, redo: { $0.zoomRegions = after })
             },
             onAddTiltToBlock: {
                 addTiltToSelectedBlock(project: project, selection: selection, undoManager: undoManager)
@@ -126,10 +133,7 @@ enum InspectorPaneContexts {
                 project.zoomRegions.append(region)
                 selection.selectedTiltID = nil
                 selection.selectedZoomID = region.id
-                undoManager?.registerUndo(withTarget: project) { project in
-                    project.zoomRegions.removeAll { $0.id == region.id }
-                }
-                undoManager?.setActionName("Add Zoom")
+                UndoStep.added(undoManager, project, \.zoomRegions, region, name: "Add Zoom")
             },
             onJoinSlideToSelectedBlock: {
                 let span: (TimeInterval, TimeInterval)?
@@ -173,8 +177,9 @@ enum InspectorPaneContexts {
                 let previous = project.focusRegions
                 project.focusRegions.removeAll { $0.id == id }
                 selection.selectedDepthFocusID = nil
-                undoManager?.registerUndo(withTarget: project) { $0.focusRegions = previous }
-                undoManager?.setActionName("Remove Depth Focus")
+                let after = project.focusRegions
+                UndoStep.register(undoManager, target: project, name: "Remove Depth Focus",
+                                  undo: { $0.focusRegions = previous }, redo: { $0.focusRegions = after })
             },
             blurRegion: Ref(
                 get: {
@@ -193,8 +198,9 @@ enum InspectorPaneContexts {
                 let previous = project.blurRegions
                 project.blurRegions.removeAll { $0.id == id }
                 selection.selectedBlurID = nil
-                undoManager?.registerUndo(withTarget: project) { $0.blurRegions = previous }
-                undoManager?.setActionName("Remove Blur")
+                let after = project.blurRegions
+                UndoStep.register(undoManager, target: project, name: "Remove Blur",
+                                  undo: { $0.blurRegions = previous }, redo: { $0.blurRegions = after })
             },
             onAddTiltBlockAtPlayhead: {
                 guard let slot = freeEffectSlot(project: project, at: currentTime()) else {
@@ -204,10 +210,7 @@ enum InspectorPaneContexts {
                 project.tiltRegions.append(region)
                 selection.selectedZoomID = nil
                 selection.selectedTiltID = region.id
-                undoManager?.registerUndo(withTarget: project) { project in
-                    project.tiltRegions.removeAll { $0.id == region.id }
-                }
-                undoManager?.setActionName("Add Tilt")
+                UndoStep.added(undoManager, project, \.tiltRegions, region, name: "Add Tilt")
             }
         )
     }
@@ -281,10 +284,7 @@ enum InspectorPaneContexts {
         project.tiltRegions.append(region)
         selection.selectedTiltID = region.id
 
-        undoManager?.registerUndo(withTarget: project) { project in
-            project.tiltRegions.removeAll { $0.id == region.id }
-        }
-        undoManager?.setActionName("Add Tilt to Block")
+        UndoStep.added(undoManager, project, \.tiltRegions, region, name: "Add Tilt to Block")
     }
 
     /// Adds a zoom that exactly co-spans the selected tilt.
@@ -306,9 +306,6 @@ enum InspectorPaneContexts {
         project.zoomRegions.append(region)
         selection.selectedZoomID = region.id
 
-        undoManager?.registerUndo(withTarget: project) { project in
-            project.zoomRegions.removeAll { $0.id == region.id }
-        }
-        undoManager?.setActionName("Add Zoom to Block")
+        UndoStep.added(undoManager, project, \.zoomRegions, region, name: "Add Zoom to Block")
     }
 }

@@ -340,8 +340,8 @@ extension TimelineHosting {
     }
 
     /// Output-time callbacks from the canvas, converted to source time here
-    /// and routed into the shared undo-registered operations. The FOCUS
-    /// commit mirrors the old direct binding write. `trackWidth` is baked into
+    /// and routed into the shared undo-registered operations (one step per
+    /// edit, FOCUS drags and chip drags included). `trackWidth` is baked into
     /// the scrub/seek closures BY VALUE — rebuild the table when it changes.
     func timelineCanvasCallbacks(trackWidth scaledWidth: CGFloat) -> TimelineCanvasCallbacks {
         let map = fullTimeMap
@@ -377,6 +377,8 @@ extension TimelineHosting {
             },
             resizeCurtain: { [self] end in resizeCurtainUnveil(end: end) },
             moveCurtain: { [self] start in moveCurtainUnveil(start: start) },
+            chipSpans: { [self] in chipSpans },
+            commitChipDrag: { [self] before in commitChipDrag(from: before) },
             commitEffectTimes: { [self] zoomID, tiltID, start, end in
                 commitEffectBlockTimes(
                     zoomID: zoomID,
@@ -465,7 +467,7 @@ extension TimelineHosting {
             commitClipEdge: { clip, side, resolved in
                 commits.commitClipEdge(clip, side: side, resolvedOutput: resolved)
             },
-            toggleMute: { [self] in project.settings.muteRecordedAudio.toggle() },
+            toggleMute: { [self] in toggleRecordedAudioMute() },
             addSpeedRange: { [self] start, end, speed in addSpeedRegion(start: start, end: end, speed: speed) },
             changeSpeed: { [self] id, speed in changeSpeedRegion(id: id, speed: speed) },
             deleteSpeed: { [self] id in deleteSpeedRegion(id: id) },
@@ -481,15 +483,15 @@ extension TimelineHosting {
 
     /// VOICE-row callbacks: clip moves/trims through `VoiceTrackCommits`.
     func timelineVoiceCallbacks() -> TimelineVoiceCallbacks {
-        let commits = VoiceTrackCommits(project: project, timeMap: fullTimeMap)
+        let map = fullTimeMap
         return TimelineVoiceCallbacks(
             selectClip: { [self] id in
                 selectedVoiceOverID = id
                 // Clicking the canvas must not strand keyboard focus.
                 timelineRequestFocus()
             },
-            commitClip: { id, outputValue in
-                commits.commit(id: id, outputValue: outputValue)
+            commitClip: { [self] id, outputValue in
+                commitVoiceClip(id: id, outputValue: outputValue, timeMap: map)
             },
             deleteClip: { [self] id in deleteVoiceOverClip(id: id) }
         )

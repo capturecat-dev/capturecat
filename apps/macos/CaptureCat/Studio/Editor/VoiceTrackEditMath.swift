@@ -113,9 +113,8 @@ struct VoiceTrackEditMath {
 /// `VoiceOverTrackContent.outputBinding(for:)` so the SwiftUI row and the
 /// native canvas row commit IDENTICALLY.
 ///
-/// Deliberately registers NO undo: the SwiftUI voice block never did (only
-/// `deleteVoiceOverClip` registers, and that path is untouched). Preserving
-/// that exactly is part of the port's contract.
+/// The mapping + write only: the timeline's `commitVoiceClip` wraps it in the
+/// drag's one undo step (the web vectors call it bare).
 @MainActor
 struct VoiceTrackCommits {
     let project: Project

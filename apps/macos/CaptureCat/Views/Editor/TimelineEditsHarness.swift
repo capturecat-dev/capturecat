@@ -230,8 +230,10 @@ private final class TimelineRig {
         // Intro slide + curtain chips
         op("delete intro (canvas)") { self.cb.deleteIntro() }
         op("enable intro (menu)") { self.vc.enableIntroSlide() }
-        op("resize intro") { self.cb.resizeIntro(2.2) }
-        op("move intro past the end clamps") { self.cb.moveIntro(30) }
+        // Slide chip drags as the canvas runs them (spans at mouse-down, live
+        // writes, the one undo step at mouse-up) — iOS drives real drags here.
+        op("resize intro") { self.chipDrag { self.cb.resizeIntro(2.2) } }
+        op("move intro past the end clamps") { self.chipDrag { self.cb.moveIntro(30) } }
         op("open intro") { self.cb.openIntro() }
         op("delete intro via Delete key") { self.keyDown(51) }
         op("enable curtain (menu)") { self.vc.enableCurtainUnveil() }
@@ -260,6 +262,15 @@ private final class TimelineRig {
         }
         out.append("== unwound \(n) step(s); canUndo=\(undo.canUndo)")
         window.orderOut(nil)
+    }
+
+    /// A Slide / Curtain chip drag: press-time spans, the live writes, the
+    /// release's commit (TimelineCanvasView mouseDown / mouseUp).
+    private func chipDrag(_ live: () -> Void) {
+        let before = cb.chipSpans()
+        live()
+        settle()
+        cb.commitChipDrag(before)
     }
 
     private func menu(_ regionID: UUID, _ title: String) {

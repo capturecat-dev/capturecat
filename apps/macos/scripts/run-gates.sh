@@ -43,6 +43,7 @@ GATES=(
   --raster-golden
   --preview-gesture-test
   --timeline-edits-test
+  --undo-integrity-test
   --editor-shell-shot
   --inspector-probe
   --inspector-values-test
