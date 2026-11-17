@@ -135,6 +135,10 @@ final class HistoryPreviewSession {
                 banner.transform = CGAffineTransform(translationX: 0, y: Self.bannerTravel)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + CCMotion.paced(0.22)) { banner.removeFromSuperview() }
+        } else if animated {
+            // Reduce Motion: the banner fades out where it is.
+            CCMotion.fadeAlpha(banner, to: 0, duration: 0.2)
+            DispatchQueue.main.asyncAfter(deadline: .now() + CCMotion.paced(0.22)) { banner.removeFromSuperview() }
         } else {
             banner.removeFromSuperview()
         }

@@ -53,6 +53,11 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
         zoomPill.onZoomIn = { [weak self] in self?.stepZoom(1) }
         zoomPill.onReset = { [weak self] in self?.setZoom(1, pan: .zero) }
         zoomPill.update(zoom: 1, canZoomOut: true, canZoomIn: true)
+        // VoiceOver: stage objects never claim the pill's corner.
+        canvas.accessibilityExclusions = { [weak self] in
+            guard let self, !self.zoomPill.isHidden else { return [] }
+            return [self.zoomPill.convert(self.zoomPill.bounds, to: self.canvas).insetBy(dx: -4, dy: -4)]
+        }
 
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(pinched(_:)))
         pinch.delegate = self
@@ -140,9 +145,9 @@ final class EditorZoomPill: CCSurface {
     var onZoomIn: (() -> Void)?
     var onReset: (() -> Void)?
 
-    private let minus = CCButton(symbol: "minus", style: .ghost, size: .sm, radius: .full)
-    private let plus = CCButton(symbol: "plus", style: .ghost, size: .sm, radius: .full)
-    private let percent = CCButton(title: "100%", style: .ghost, size: .sm, radius: .full)
+    private let minus = CCButton(symbol: "minus", style: .ghost, size: .regular, radius: .full)
+    private let plus = CCButton(symbol: "plus", style: .ghost, size: .regular, radius: .full)
+    private let percent = CCButton(title: "100%", style: .ghost, size: .regular, radius: .full)
 
     init() {
         super.init(.raised, tint: CCTheme.color.popover, radius: .full)
@@ -158,10 +163,10 @@ final class EditorZoomPill: CCSurface {
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
         NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
-            row.topAnchor.constraint(equalTo: topAnchor, constant: 2),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 1),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -1),
+            row.topAnchor.constraint(equalTo: topAnchor, constant: 1),
+            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
             percent.widthAnchor.constraint(greaterThanOrEqualToConstant: 58),
         ])
     }

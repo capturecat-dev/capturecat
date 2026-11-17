@@ -27,6 +27,9 @@ final class StudioTimelineLaneAccordion: NSObject {
 
     /// Harness seam: forces the Reduce Motion path.
     var probeReduceMotion: Bool?
+    /// What cross-fades when Reduce Motion lands a lane change (the
+    /// timeline's canvas area: lane labels + canvas).
+    weak var reducedMotionHost: UIView?
     /// Harness defect injection (`--inject accordion-snap`): every retarget
     /// snaps — the motion check must FAIL with this set.
     var probeForceSnap = false
@@ -53,9 +56,19 @@ final class StudioTimelineLaneAccordion: NSObject {
             onChange?()
             return
         }
+        // Reduce Motion: the lanes land at once under a cross-fade of the
+        // timeline (labels + canvas) — still animated, nothing grows.
+        if reduceMotion, let host = reducedMotionHost, host.window != nil {
+            stop()
+            CCMotion.crossFade(host) {
+                openness = to
+                onChange?()
+            }
+            return
+        }
         from = openness
         began = now
-        // Reduce Motion: a short symmetric glide, no overshoot.
+        // Reduce Motion without a host: a short symmetric glide, no overshoot.
         curve = reduceMotion ? CCMotion.Curve.glide.points : CCMotion.Curve.bounce.points
         duration = CCMotion.paced(reduceMotion ? 0.16 : 0.28)
         if link == nil {

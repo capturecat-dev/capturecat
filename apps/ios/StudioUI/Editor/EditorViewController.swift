@@ -788,9 +788,9 @@ final class EditorViewController: UIViewController {
         if canvas.inlineEditingID == nil {
             commands += [
                 UIKeyCommand(title: "Play / Pause", action: #selector(keyPlay), input: " ", modifierFlags: []),
-                UIKeyCommand(input: UIKeyCommand.inputLeftArrow, modifierFlags: [], action: #selector(keyStepBack)),
-                UIKeyCommand(input: UIKeyCommand.inputRightArrow, modifierFlags: [], action: #selector(keyStepForward)),
-                UIKeyCommand(input: UIKeyCommand.inputDelete, modifierFlags: [], action: #selector(keyDelete)),
+                UIKeyCommand(title: "Previous Frame", action: #selector(keyStepBack), input: UIKeyCommand.inputLeftArrow),
+                UIKeyCommand(title: "Next Frame", action: #selector(keyStepForward), input: UIKeyCommand.inputRightArrow),
+                UIKeyCommand(title: "Delete Selection", action: #selector(keyDelete), input: UIKeyCommand.inputDelete),
             ]
         }
         return commands

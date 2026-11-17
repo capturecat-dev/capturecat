@@ -27,8 +27,12 @@ final class InspectorPaneView: UIView {
         column.axis = .vertical
         column.spacing = CCSpace.lg
         column.alignment = .fill
+        // Keyboard (iPad): the pane is one focus group and each row its own,
+        // so Tab steps row to row and the arrows move within a row.
+        focusGroupIdentifier = "studio.inspector.\(tab.rawValue)"
         for spec in tab.sections {
             let rows = spec.rows.map { Self.makeRow($0, host: host) }
+            for row in rows { row.focusGroupIdentifier = "studio.inspector.\(tab.rawValue).\(row.rowID)" }
             let view = InspectorSectionView(title: spec.title, rows: rows)
             view.accessibilityIdentifier = spec.id
             column.addArrangedSubview(view)
@@ -84,7 +88,7 @@ final class InspectorPaneView: UIView {
             view.refreshSeparators()
         }
         defer { hasRefreshed = true }
-        guard hasRefreshed, window != nil, grown != nil, !CCMotion.reduceMotion else {
+        guard hasRefreshed, window != nil, grown != nil else {
             layoutIfNeeded()
             return
         }
@@ -96,6 +100,12 @@ final class InspectorPaneView: UIView {
         #endif
         let root = ccLayoutRoot
         let before = grown!
+        if CCMotion.reduceMotion {
+            // Reduce Motion: the rows land under a cross-fade — no growth.
+            CCMotion.crossFade(root) { root.layoutIfNeeded() }
+            lastGrowth = (before.0, before.1, before.0.bounds.height)
+            return
+        }
         // Growth lands on the bounce; revealed rows fade in as they open.
         for view in revealed { view.alpha = 0 }
         CCMotion.run(duration: 0.38, curve: .bounce, {

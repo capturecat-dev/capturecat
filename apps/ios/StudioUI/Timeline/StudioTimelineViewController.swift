@@ -284,10 +284,20 @@ final class StudioTimelineViewController: UIViewController {
             let row = UIView()
             row.translatesAutoresizingMaskIntoConstraints = false
             let label = UILabel()
-            label.attributedText = NSAttributedString(string: name, attributes: [
-                .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
-                .foregroundColor: CCTheme.color.faintForeground, .kern: 0.6,
-            ])
+            // Dynamic Type: 10 pt grows to 13 (what the 84 pt column and an
+            // 18 pt closed strip hold), re-set on every size change.
+            func setLaneTitle(_ label: UILabel) {
+                label.attributedText = NSAttributedString(string: name, attributes: [
+                    .font: UIFontMetrics(forTextStyle: .caption2).scaledFont(
+                        for: .systemFont(ofSize: 10, weight: CCFont.legible(.semibold)), maximumPointSize: 13,
+                        compatibleWith: label.traitCollection),
+                    .foregroundColor: CCTheme.color.faintForeground, .kern: 0.6,
+                ])
+            }
+            setLaneTitle(label)
+            label.registerForTraitChanges([UITraitPreferredContentSizeCategory.self, CCAccessibilityTrait.self]) { (label: UILabel, _: UITraitCollection) in
+                setLaneTitle(label)
+            }
             label.translatesAutoresizingMaskIntoConstraints = false
             row.addSubview(label)
             labelColumn.addSubview(row)
@@ -301,6 +311,21 @@ final class StudioTimelineViewController: UIViewController {
                 row.tag = lane.rawValue + 1
             }
             labelViews[name] = row
+            // VoiceOver: each lane label reads as its lane; an overlay lane's
+            // label is the key that opens or closes it.
+            row.isAccessibilityElement = true
+            row.accessibilityLabel = name.capitalized + " lane"
+            row.accessibilityTraits = lane == nil ? .header : .button
+            if let lane {
+                // Its height IS the lane's (an 18 pt strip while closed): the
+                // a11y gate takes the toggle as a custom action instead.
+                row.accessibilityIdentifier = CCAccessibility.dataGeometryPrefix + "lane"
+                row.accessibilityHint = "Opens or closes the lane."
+                row.accessibilityCustomActions = [UIAccessibilityCustomAction(name: "Open or close lane") { [weak self] _ in
+                    self?.performLaneLabelTap(lane)
+                    return true
+                }]
+            }
             NSLayoutConstraint.activate([
                 row.leadingAnchor.constraint(equalTo: labelColumn.leadingAnchor),
                 row.trailingAnchor.constraint(equalTo: labelColumn.trailingAnchor),
@@ -315,6 +340,8 @@ final class StudioTimelineViewController: UIViewController {
         scrollView.delaysContentTouches = false
         scrollView.addSubview(canvas)
         canvas.onLaneLayoutChange = { [weak self] layout in self?.applyLaneLabelLayout(layout) }
+        canvas.laneAccordion.reducedMotionHost = canvasArea
+        canvas.accessibilityController = self
 
         // Gestures: a drag that starts on a block / clip / chip / the ruler is
         // the timeline's (the scroll view waits for it to fail); anywhere else
@@ -343,6 +370,7 @@ final class StudioTimelineViewController: UIViewController {
             labelHeights[lane]?.constant = layout.laneHeight(lane)
             labelTops[name]?.constant = layout.laneY(lane)
             labelViews[name]?.alpha = 0.7 + 0.3 * min(1, max(0, layout.openness(lane)))
+            labelViews[name]?.accessibilityValue = canvas.openOverlayLane == lane ? "Open" : "Closed"
         }
     }
 
@@ -402,17 +430,21 @@ final class StudioTimelineViewController: UIViewController {
     private func buildToolbar() {
         toolbar.axis = .horizontal
         toolbar.alignment = .center
-        toolbar.spacing = 4
+        // 34 pt keys, 10 pt apart and 5 pt in from the ends: each 44 pt
+        // target is its own and inside the bar (Studio 6a).
+        toolbar.spacing = 10
+        toolbar.isLayoutMarginsRelativeArrangement = true
+        toolbar.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 0, leading: 5, bottom: 0, trailing: 5)
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         toolbarScroll.showsHorizontalScrollIndicator = false
         toolbarScroll.addSubview(toolbar)
         NSLayoutConstraint.activate([
-            toolbar.leadingAnchor.constraint(equalTo: toolbarScroll.contentLayoutGuide.leadingAnchor, constant: 10),
-            toolbar.trailingAnchor.constraint(equalTo: toolbarScroll.contentLayoutGuide.trailingAnchor, constant: -10),
+            toolbar.leadingAnchor.constraint(equalTo: toolbarScroll.contentLayoutGuide.leadingAnchor, constant: 5),
+            toolbar.trailingAnchor.constraint(equalTo: toolbarScroll.contentLayoutGuide.trailingAnchor, constant: -5),
             toolbar.topAnchor.constraint(equalTo: toolbarScroll.contentLayoutGuide.topAnchor),
             toolbar.bottomAnchor.constraint(equalTo: toolbarScroll.contentLayoutGuide.bottomAnchor),
             toolbar.heightAnchor.constraint(equalTo: toolbarScroll.frameLayoutGuide.heightAnchor),
-            toolbar.widthAnchor.constraint(greaterThanOrEqualTo: toolbarScroll.frameLayoutGuide.widthAnchor, constant: -20),
+            toolbar.widthAnchor.constraint(greaterThanOrEqualTo: toolbarScroll.frameLayoutGuide.widthAnchor, constant: -10),
         ])
         let toStart = key("backward.end.fill", "Go to Start") { [weak self] in
             guard let self else { return }
@@ -427,18 +459,29 @@ final class StudioTimelineViewController: UIViewController {
         for v in [toStart, play, toEnd] { toolbar.addArrangedSubview(v) }
         toolbar.addArrangedSubview(separator())
 
-        timecodeCurrent.font = .monospacedDigitSystemFont(ofSize: 14, weight: .semibold)
+        // Dynamic Type, capped to what the 44 pt bar holds.
+        func timecodeFont(_ size: CGFloat, _ weight: UIFont.Weight, max: CGFloat) -> UIFont {
+            UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .monospacedDigitSystemFont(ofSize: size, weight: CCFont.legible(weight)), maximumPointSize: max)
+        }
+        timecodeCurrent.font = timecodeFont(14, .semibold, max: 19)
+        timecodeCurrent.adjustsFontForContentSizeCategory = true
         timecodeCurrent.textColor = CCTheme.color.foreground
         let divider = UILabel()
         divider.text = "/"
-        divider.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        divider.font = timecodeFont(12, .regular, max: 17)
+        divider.adjustsFontForContentSizeCategory = true
         divider.textColor = CCTheme.color.faintForeground
-        timecodeTotal.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        timecodeTotal.font = timecodeFont(12, .medium, max: 17)
+        timecodeTotal.adjustsFontForContentSizeCategory = true
         timecodeTotal.textColor = CCTheme.color.mutedForeground
         let timecode = UIStackView(arrangedSubviews: [timecodeCurrent, divider, timecodeTotal])
         timecode.spacing = 4
         timecode.isLayoutMarginsRelativeArrangement = true
         timecode.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8)
+        // VoiceOver: one element, the playhead time in words.
+        timecode.isAccessibilityElement = true
+        timecode.accessibilityLabel = "Playhead time"
+        timecode.accessibilityTraits = .updatesFrequently
         toolbar.addArrangedSubview(timecode)
         let spacer = UIView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -494,6 +537,7 @@ final class StudioTimelineViewController: UIViewController {
         timecodeTotal.isHidden = hidesTime
         timecodeCurrent.text = visibleCurrentTime.formattedTimecode
         timecodeTotal.text = visibleDuration.formattedTimecode
+        timecodeCurrent.superview?.accessibilityValue = "\(CCAccessibility.spokenTime(visibleCurrentTime)) of \(CCAccessibility.spokenTime(visibleDuration))"
         setEnabled(deleteButton, hasDeletableSelection)
         // What `duplicateSelectedRegion` can copy: EFFECTS blocks, blur,
         // highlight and speed regions.

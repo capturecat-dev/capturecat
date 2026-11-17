@@ -389,6 +389,12 @@ final class HistoryPanelController: UIViewController {
         listPage.layer.setValue(0, forKeyPath: "transform.translation.x")
         CCMotion.fadeAlpha(listPage, to: 1, duration: 0.22)
         CCMotion.spring(listPage.layer, keyPath: "transform.translation.x", from: -width * 0.3, to: 0, .arrive)
+        if CCMotion.reduceMotion {
+            // Reduce Motion: Compare fades away where it is.
+            CCMotion.fadeAlpha(page, to: 0, duration: 0.2)
+            DispatchQueue.main.asyncAfter(deadline: .now() + CCMotion.paced(0.22)) { page.removeFromSuperview() }
+            return
+        }
         CCMotion.run(duration: 0.24, curve: .glide, {
             page.transform = CGAffineTransform(translationX: width, y: 0)
         }, completion: { page.removeFromSuperview() })
