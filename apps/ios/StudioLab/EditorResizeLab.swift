@@ -418,6 +418,11 @@ enum EditorResizeLab {
             check("\(tag)-choice-applies", editor.project.settings.backgroundType == .gradient && editor.isPanelOpen
                     && inspector.panelTitle.text == "Gradient" && (bar.probeKey("Gradient")?.isSelected ?? false),
                   "Gradient → type \(editor.project.settings.backgroundType.rawValue), panel \"\(inspector.panelTitle.text ?? "")\"")
+            // One undo step (the shared session's), and it unwinds.
+            editor.performUndo()
+            await settle(0.2)
+            check("\(tag)-choice-undoes", editor.project.settings.backgroundType == .solid,
+                  "undo → type \(editor.project.settings.backgroundType.rawValue) (want Solid Color)")
         } else {
             check("\(tag)-choice-applies", false, "no Gradient key")
         }
@@ -587,11 +592,11 @@ enum EditorResizeLab {
     /// two zoom blocks on EFFECTS and an annotation on ANNOTATE, like the
     /// Mac editor's marketing shot.
     @available(iOS 26, *)
-    static func openDemoEditor(in folder: URL) async -> EditorViewController? {
+    static func openDemoEditor(in folder: URL, portrait: Bool = false) async -> EditorViewController? {
         let dir = folder.appendingPathComponent("demo", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let movie = dir.appendingPathComponent("screen.mov")
-        guard await DemoMovieWriter.write(to: movie, duration: 8) else { return nil }
+        guard await DemoMovieWriter.write(to: movie, duration: 8, size: portrait ? CGSize(width: 600, height: 1064) : CGSize(width: 960, height: 600)) else { return nil }
         let project = Project(id: UUID(), name: "Q4 launch video", videoURL: movie, cameraVideoURL: nil,
                               duration: 8, recordingSourceKind: .window)
         project.zoomRegions = [

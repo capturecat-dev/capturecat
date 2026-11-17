@@ -35,6 +35,12 @@ enum StudioTimelineHit {
 final class StudioTimelineCanvasView: UIView {
     typealias M = TimelineCanvasMetrics
 
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT (`filmstrip-offset`): the filmstrip draws
+    /// frames from this many seconds later than the lane's time.
+    static var probeFilmstripOffset: TimeInterval = 0
+    #endif
+
     // MARK: Inputs
 
     private(set) var snapshot = TimelineCanvasSnapshot(

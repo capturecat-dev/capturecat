@@ -680,7 +680,7 @@ final class EditorViewController: UIViewController {
         guard !isPreviewingVersion, inspector.presentation != .column else { return }
         let tab = selection.inspectorTab
         inspector.show(tab, animated: false)
-        inspector.setFocus(option)
+        inspector.setFocus(option, animated: isPanelOpen && animated)
         if case .pane = toolBar.mode { toolBar.setOptions(inspector.panelOptions(for: tab)) }
         guard inspector.optionHasRows(option, in: tab) else {
             // Applied (e.g. Transparent): nothing to adjust — no panel.

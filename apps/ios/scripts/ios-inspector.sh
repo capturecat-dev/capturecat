@@ -11,8 +11,12 @@ set -euo pipefail
 # Mac's frozen transcript (StudioHarness/InspectorValuesGoldens, recorded by
 # the Mac `--inspector-values-test`), one undo step per edit, structure
 # (touch targets, VoiceOver, Dynamic Type, live re-theme, layout) and motion
-# SEQUENCES asserted mid-flight. Then, on the first device, `--inject snap`
-# snaps the pane switch and the growth: the motion checks must catch it.
+# SEQUENCES asserted mid-flight. On the phone the panel is the drill-down
+# bar's SHORT panel (Cursor → its sub-options → Show Cursor), and the Cursor
+# pane's preview tile must show the cursor glyph (not a blank well). Then, on
+# the first device, `--inject snap` snaps the pane switch and the growth (the
+# motion checks must catch it) and `--inject blank-cursor-preview` blanks the
+# tile (the preview check must catch it).
 #
 # Env: DEVICES="<udid> <udid>" (default: the Studio 4d iPad + iPhone).
 
@@ -54,6 +58,14 @@ if grep -q '^INSPECTOR-GATE PASS' "$OUT/inject/run.log" && grep -q 'catches-snap
   echo "  → the snap was caught"
 else
   echo "  → the snap was NOT caught"; status=1
+fi
+
+echo "ios-inspector: injected blank-cursor-preview on $first (the preview-tile check must catch it)"
+run "$first" "$OUT/inject-cursor" --inject blank-cursor-preview
+if grep -q '^INSPECTOR cursor-preview FAIL' "$OUT/inject-cursor/run.log"; then
+  echo "  → the blank tile was caught"
+else
+  echo "  → the blank tile was NOT caught"; status=1
 fi
 
 echo "ios-inspector: transcripts $OUT/<device>/lab/ios-transcript.txt · captures $OUT/<device>/lab/{dark,light,xl,motion}"

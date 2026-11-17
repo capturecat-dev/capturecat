@@ -391,7 +391,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     /// Shows only `option`'s rows in the panel (nil = the whole pane); a
     /// choice option is applied first (one undo step) and its panel then
     /// shows the rest of its section.
-    func setFocus(_ option: InspectorPanelOption?, apply: Bool = true) {
+    func setFocus(_ option: InspectorPanelOption?, apply: Bool = true, animated: Bool = false) {
+        let switching = animated && shownOption != nil && shownOption?.id != option?.id && view.window != nil
         shownOption = option
         guard let tab = shownTab, let pane = panes[tab] else { refreshPanelTitle(); return }
         var rows = option.map { Set($0.rows) }
@@ -406,6 +407,16 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         view.layoutIfNeeded()
         switchingPane = false
         reportedContentHeight = scroll.contentSize.height
+        // Another option in an open panel: its rows rise in under a fade (the
+        // pane switch's motion; a dissolve alone under Reduce Motion).
+        var snap = !switching
+        #if DEBUG
+        if Self.probeSnapPaneSwitch { snap = true }
+        #endif
+        if !snap {
+            CCMotion.fadeAlpha(pane, to: 1, duration: 0.22, delay: 0.04, from: 0)
+            CCMotion.enter(pane.layer, .slideUp(distance: 14))
+        }
     }
 
     /// Whether `option` has rows to show once applied (a choice like

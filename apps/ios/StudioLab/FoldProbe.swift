@@ -18,7 +18,7 @@ enum FoldProbe {
             guard arguments.contains("--editor") else { exit(0) }
             let probeDir = FileManager.default.temporaryDirectory.appendingPathComponent("fold-probe", isDirectory: true)
             if #available(iOS 26, *), let editor = arguments.contains("--demo")
-                ? await EditorResizeLab.openDemoEditor(in: probeDir) : await EditorResizeLab.openEditor(in: probeDir) {
+                ? await EditorResizeLab.openDemoEditor(in: probeDir, portrait: arguments.contains("--portrait")) : await EditorResizeLab.openEditor(in: probeDir) {
                 editor.modalPresentationStyle = .fullScreen
                 lab.present(editor, animated: false)
                 // `--landscape`: a phone on its side (compact height).

@@ -10,9 +10,16 @@ set -euo pipefail
 # selection, an edit, playback running), resized live to the inner display
 # and back. Checks the layout each size class calls for, that every region
 # stays inside and clear of the others, History's matching style, and that
-# the project, selection, undo stack and playback all survive.
-# `--inject ignores-size-class` / `ignores-crease` / `snap-panel` / `panel-tab-row` /
-# `panel-over-toolbar` / `panel-uncapped` / `drag-grabber-only` must make it FAIL.
+# the project, selection, undo stack and playback all survive. The phone
+# layouts are checked FLAT (stage edge to edge at its canvas aspect, no
+# rounded card) and the drill-down tool bar end to end: a pane tool swaps
+# the bar to its sub-options (caught mid-flight, ‹ first), a sub-option opens
+# a SHORT panel (one group, ≤ 30%, full width with only its top corners
+# rounded, no card inside it, never over the stage or the toolbar row,
+# mid-flight), a choice applies + undoes, ✓ closes, ‹ returns to the root.
+# `--inject ignores-size-class` / `ignores-crease` / `snap-panel` /
+# `panel-over-toolbar` / `panel-uncapped` / `bar-snap` / `no-back` /
+# `panel-card` / `card-in-card` / `stage-card` must make it FAIL.
 #
 # Env: DEVICE=<simulator udid> (an iPad: the inner display needs the width).
 

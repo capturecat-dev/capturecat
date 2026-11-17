@@ -1020,7 +1020,17 @@ final class StudioTimelineViewController: UIViewController {
         }
     }
 
+    /// The loaded filmstrip frames (the filmstrip gate reads them).
+    var probeThumbnails: [TimelineThumbnail] { thumbnails }
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT (`no-filmstrip`): no frames are generated.
+    static var probeNoFilmstrip = false
+    #endif
+
     private func loadThumbnails() async {
+        #if DEBUG
+        if Self.probeNoFilmstrip { thumbnails = []; return }
+        #endif
         guard let url = project.videoURL, FileManager.default.fileExists(atPath: url.path) else { thumbnails = []; return }
         thumbnails = await TimelineThumbnailer.generate(from: url, duration: project.duration, targetCount: 40)
     }

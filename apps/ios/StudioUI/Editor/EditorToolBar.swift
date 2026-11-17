@@ -270,7 +270,6 @@ final class EditorToolBar: UIView {
                 if self?.probeOutgoing === ghost { self?.probeOutgoing = nil }
             }
         }
-        UIAccessibility.post(notification: .layoutChanged, argument: keys.first?.key)
     }
 
     // MARK: Layout
@@ -421,7 +420,18 @@ final class EditorToolBar: UIView {
         mode = newMode
         openTool = nil
         rebuild(animated: animated, direction: direction)
+        // VoiceOver lands on the new level's first key (‹ on a sub-level).
+        let first = keys.first?.key
+        #if DEBUG
+        probeLastAnnounced = first
+        #endif
+        if window != nil { UIAccessibility.post(notification: .layoutChanged, argument: first) }
     }
+
+    #if DEBUG
+    /// The last key a level change moved VoiceOver to (the a11y gate reads it).
+    private(set) var probeLastAnnounced: UIView?
+    #endif
 
     /// The pane level's options: rebuilt in place when they change (a value
     /// that reveals more rows), the level kept.

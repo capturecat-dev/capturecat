@@ -82,6 +82,12 @@ enum A11yLab {
             Screen(name: "tool-panel", open: { editor in
                 if let key = editor.toolBar.key(for: .pane(.camera)) {
                     key.sendActions(for: .touchUpInside)
+                    await settle(0.6)
+                    // The pane's level: its first sub-option opens a short panel.
+                    if !editor.isPanelOpen, let first = editor.toolBar.options.first,
+                       let option = editor.toolBar.key(for: .option(first.id)) {
+                        option.sendActions(for: .touchUpInside)
+                    }
                 } else {
                     editor.selection.inspectorTab = .camera
                 }
@@ -89,7 +95,8 @@ enum A11yLab {
                 return nil
             }, close: { editor in
                 editor.closePanel(animated: false)
-                await settle(0.3)
+                if case .pane = editor.toolBar.mode { editor.toolBar.key(for: .back)?.sendActions(for: .touchUpInside) }
+                await settle(0.4)
             }),
             Screen(name: "preview-expanded", open: { editor in
                 editor.transport.expandButton.sendActions(for: .touchUpInside)
@@ -818,15 +825,17 @@ enum A11yLab {
                      s.ghostOpacity.map { String(format: " (ghost %.2f)", $0) } ?? "", s.moved, s.scaled))
     }
 
-    /// VoiceOver and the tool panel (phone): a pane tool opens the panel
-    /// and VoiceOver lands on its title (announced); the tool bar and the
-    /// timeline stay reachable (nothing covered); another tool switches the
-    /// pane and is announced again; the active tool is `.selected`; Done is
-    /// labelled with a hint; VoiceOver's escape closes and returns focus to
-    /// the tool.
+    /// VoiceOver and the drill-down bar (phone): a pane tool swaps in its
+    /// sub-options and VoiceOver lands on the level's first key — the back
+    /// key, labelled "Back" with a hint, a 44 pt target; a sub-option opens
+    /// its short panel and VoiceOver lands on the panel's title (a header);
+    /// the tool bar and timeline stay reachable (nothing covered); another
+    /// sub-option switches in place, announced again, `.selected` moving
+    /// with it; ✓ is labelled "Done" with a hint; VoiceOver's escape closes
+    /// and returns focus to the key; back returns to the tools, announced.
     @available(iOS 26, *)
     private static func panelVoiceOver(_ editor: EditorViewController) async {
-        guard let camera = editor.toolBar.key(for: .pane(.camera)), let audio = editor.toolBar.key(for: .pane(.audio)) else {
+        guard let camera = editor.toolBar.key(for: .pane(.camera)) else {
             log("A11Y note: no pane tools here (an inspector column) — the panel's VoiceOver is checked on iPhone")
             return
         }
@@ -834,7 +843,25 @@ enum A11yLab {
         clearSelection(editor)
         await settle(0.3)
         let inspector = editor.inspector
+        let bar = editor.toolBar
         camera.sendActions(for: .touchUpInside)
+        await settle(0.6)
+        #if DEBUG
+        let announcedLevel = bar.probeLastAnnounced
+        #else
+        let announcedLevel: UIView? = nil
+        #endif
+        let back = bar.key(for: .back)
+        check("bar-level-announced", back != nil && announcedLevel === back && back?.accessibilityLabel == "Back"
+                && !(back?.accessibilityHint ?? "").isEmpty && back?.accessibilityTraits.contains(.button) == true
+                && back.map { k in [CGPoint(x: -21.5, y: -21.5), CGPoint(x: 21.5, y: 21.5)].allSatisfy { k.point(inside: CGPoint(x: k.bounds.midX + $0.x, y: k.bounds.midY + $0.y), with: nil) } } == true,
+              "Camera → its sub-options, VoiceOver on \"\(announcedLevel?.accessibilityLabel ?? "nil")\" (hint \"\(back?.accessibilityHint ?? "")\")")
+        let options = bar.options
+        guard options.count >= 2, let firstKey = bar.key(for: .option(options[0].id)),
+              let secondKey = bar.key(for: .option(options[1].id)) else {
+            check("panel-announced", false, "Camera has \(options.count) sub-options"); return
+        }
+        if !editor.isPanelOpen { firstKey.sendActions(for: .touchUpInside) }
         await settle(0.6)
         #if DEBUG
         let announcedOpen = editor.probeLastAnnounced
@@ -842,27 +869,27 @@ enum A11yLab {
         let announcedOpen: UIView? = nil
         #endif
         check("panel-announced", editor.isPanelOpen && announcedOpen === inspector.panelTitle
-                && inspector.panelTitle.accessibilityTraits.contains(.header) && inspector.panelTitle.text == "Camera",
-              "Camera tool → VoiceOver on the panel's title \"\(inspector.panelTitle.text ?? "")\" (header)")
-        check("panel-covers-nothing", !editor.toolBar.accessibilityElementsHidden && !editor.timelineContainer.accessibilityElementsHidden
-                && camera.accessibilityTraits.contains(.selected) && !audio.accessibilityTraits.contains(.selected),
-              "tool bar + timeline reachable while open; Camera key .selected")
+                && inspector.panelTitle.accessibilityTraits.contains(.header) && inspector.panelTitle.text == options[0].title,
+              "\(options[0].title) → VoiceOver on the panel's title \"\(inspector.panelTitle.text ?? "")\" (header)")
+        check("panel-covers-nothing", !bar.accessibilityElementsHidden && !editor.timelineContainer.accessibilityElementsHidden
+                && firstKey.accessibilityTraits.contains(.selected) && !secondKey.accessibilityTraits.contains(.selected),
+              "tool bar + timeline reachable while open; \(options[0].title) key .selected")
         let done = inspector.closeButton
         check("panel-done-key", done.isAccessibilityElement && done.accessibilityLabel == "Done"
                 && (done.accessibilityHint ?? "").contains("Closes")
                 && [CGPoint(x: -21.5, y: -21.5), CGPoint(x: 21.5, y: 21.5)].allSatisfy { done.point(inside: CGPoint(x: done.bounds.midX + $0.x, y: done.bounds.midY + $0.y), with: nil) },
-              "Done: \"\(done.accessibilityLabel ?? "nil")\", hint \"\(done.accessibilityHint ?? "")\", \(Int(done.bounds.width))×\(Int(done.bounds.height)) pt drawn, ≥ 44×44 pt hit target")
-        audio.sendActions(for: .touchUpInside)
+              "✓: \"\(done.accessibilityLabel ?? "nil")\", hint \"\(done.accessibilityHint ?? "")\", \(Int(done.bounds.width))×\(Int(done.bounds.height)) pt drawn, ≥ 44×44 pt hit target")
+        secondKey.sendActions(for: .touchUpInside)
         await settle(0.6)
         #if DEBUG
         let announcedSwitch = editor.probeLastAnnounced
         #else
         let announcedSwitch: UIView? = nil
         #endif
-        check("panel-switch-announced", editor.isPanelOpen && inspector.visiblePane?.tab == .audio && announcedSwitch === inspector.panelTitle
-                && inspector.panelTitle.text == "Audio" && audio.accessibilityTraits.contains(.selected)
-                && !camera.accessibilityTraits.contains(.selected),
-              "Audio tool → the pane switches in place, VoiceOver on \"\(inspector.panelTitle.text ?? "")\"")
+        check("panel-switch-announced", editor.isPanelOpen && announcedSwitch === inspector.panelTitle
+                && inspector.panelTitle.text == options[1].title && secondKey.accessibilityTraits.contains(.selected)
+                && !firstKey.accessibilityTraits.contains(.selected),
+              "\(options[1].title) → switches in place, VoiceOver on \"\(inspector.panelTitle.text ?? "")\"")
         let escaped = inspector.accessibilityPerformEscape()
         await settle(0.6)
         #if DEBUG
@@ -870,8 +897,17 @@ enum A11yLab {
         #else
         let announcedClose: UIView? = nil
         #endif
-        check("panel-escape-closes", escaped && !editor.isPanelOpen && inspector.view.isHidden && announcedClose === audio,
-              "escape → closed, VoiceOver back on the Audio tool")
+        check("panel-escape-closes", escaped && !editor.isPanelOpen && inspector.view.isHidden && announcedClose === secondKey,
+              "escape → closed, VoiceOver back on the \(options[1].title) key")
+        bar.key(for: .back)?.sendActions(for: .touchUpInside)
+        await settle(0.6)
+        #if DEBUG
+        let announcedRoot = bar.probeLastAnnounced
+        #else
+        let announcedRoot: UIView? = nil
+        #endif
+        check("bar-back-announced", bar.mode == .tools && announcedRoot != nil && announcedRoot === bar.key(for: .pane(.background)),
+              "Back → the tools, VoiceOver on \"\(announcedRoot?.accessibilityLabel ?? "nil")\"")
     }
 
     @available(iOS 26, *)
@@ -979,7 +1015,11 @@ enum A11yLab {
         await dismissPresented(editor)
 
         // h. A pane's panel opened from its tool — was the growth bounce.
-        if let key = editor.toolBar.key(for: .pane(.audio)) {
+        if editor.toolBar.key(for: .pane(.audio)) != nil {
+            editor.enterPane(.audio, animated: false)
+            editor.closePanel(animated: false)
+            await settle(0.3)
+            let key = editor.toolBar.options.first.flatMap { editor.toolBar.key(for: .option($0.id)) } ?? UIControl()
             let host = editor.view.superview?.layer
             let before = editor.inspector.view.convert(editor.inspector.view.bounds, to: nil)
             key.sendActions(for: .touchUpInside)
@@ -990,7 +1030,8 @@ enum A11yLab {
             check("reduce-motion panel-lands", landed, "the panel is at its open place at once (no growth)")
             await settle(0.5)
             editor.closePanel(animated: false)
-            await settle(0.3)
+            editor.toolBar.key(for: .back)?.sendActions(for: .touchUpInside)
+            await settle(0.4)
         } else {
             log("A11Y note: no pane tools here (an inspector column) — the panel cross-fade is checked on iPhone")
         }

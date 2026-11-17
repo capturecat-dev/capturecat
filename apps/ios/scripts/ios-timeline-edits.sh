@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ios-timeline-edits.sh — the touch timeline's gate (Studio 4c).
 #
-#   apps/ios/scripts/ios-timeline-edits.sh [outDir] [--inject accordion-snap|selection-snap|touch-offset]
+#   apps/ios/scripts/ios-timeline-edits.sh [outDir] [--inject accordion-snap|selection-snap|touch-offset|filmstrip-offset|no-filmstrip]
 #
 # Builds StudioLab, installs it on the iPad simulator and runs
 # `--timeline-edits`: the Mac `--timeline-edits-test` script replayed through
@@ -11,7 +11,9 @@ set -euo pipefail
 # long-press house menus, toolbar keys, hardware-key commands, Undo key),
 # scored against the Mac's frozen transcript (StudioHarness/TimelineEditsGoldens)
 # with the shared recorder; then the lane open/close SEQUENCE and selection
-# glide mid-flight checks, and real touch drags against the Mac's values.
+# glide mid-flight checks, real touch drags against the Mac's values, and the
+# VIDEO lane's FILMSTRIP (real frames from a synthetic recording: loaded, on an
+# even time grid, each image the second it claims, each tile drawn at its x).
 # `--inject` must make it FAIL (proves the motion checks can).
 #
 # Env: DEVICE=<simulator udid> (default: the iPad Pro 11 the studio uses).
@@ -38,7 +40,7 @@ echo "ios-timeline-edits: running on $DEVICE ${INJECT[*]+"${INJECT[*]}"}"
 xcrun simctl launch --console-pty --terminate-running-process "$DEVICE" so.capturecat.ios.studiolab \
   --timeline-edits "$RUN" ${INJECT[@]+"${INJECT[@]}"} > "$RUN/run.log" 2>&1 || true
 
-grep -E '^(DRIVE|TIMELINE-EDITS (PASS|FAIL)|LANE-MOTION|SELECTION-GLIDE|TOUCH-DRAG|PROBLEM|FAIL)' "$RUN/run.log" | head -80 || true
+grep -E '^(DRIVE|TIMELINE-EDITS (PASS|FAIL)|LANE-MOTION|SELECTION-GLIDE|TOUCH-DRAG|FILMSTRIP|PROBLEM|FAIL)' "$RUN/run.log" | head -80 || true
 echo "ios-timeline-edits: transcript $RUN/ios-transcript.txt · drive log $RUN/drive.txt · frames $RUN/*.png"
 grep -q '^TIMELINE-GATE PASS' "$RUN/run.log" && { echo "IOS-TIMELINE-EDITS PASS"; exit 0; }
 echo "IOS-TIMELINE-EDITS FAIL"
