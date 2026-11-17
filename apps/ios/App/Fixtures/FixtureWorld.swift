@@ -171,7 +171,7 @@ final class FixtureWorld: CloudAPI {
         await latency(UInt64(180 + 70 * ((index ?? 0) % 4)))
         guard let index else { throw notFound() }
         let project = projects[index]
-        let file = CloudRemoteFile(path: "recording.mp4", sha256: "fixture", bytes: project.bytes, contentType: "video/mp4",
+        let file = LibraryCloudFile(path: "recording.mp4", sha256: "fixture", bytes: project.bytes, contentType: "video/mp4",
                                    source: nil, url: Self.movieURL(project.id))
         return CloudProjectDetail(projectId: project.id, name: project.name, revision: project.revision,
                                   access: project.isOwner ? "owner" : "member", document: documents[project.id],

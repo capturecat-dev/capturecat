@@ -1,4 +1,6 @@
+#if canImport(AppKit)
 import AppKit
+#endif
 import Foundation
 
 /// `--cloud-sync-test`, project-history part (docs/project-history.md
@@ -259,6 +261,7 @@ extension CloudSyncHarness {
                "nothing is written or saved until the conflict is reviewed")
         expect(review.author?.name == "Ana" && review.author?.clientLabel == "Web", "Merge Review knows who edited (Ana on the web)")
 
+#if canImport(AppKit)
         // The REAL dialog over a real window (the editor's transparent-titlebar style).
         let content = NSViewController()
         content.view = NSView()
@@ -304,6 +307,13 @@ extension CloudSyncHarness {
         expect(box.choices == [conflict?.id ?? "": .mine], "Apply hands back the user's choice (\(String(describing: box.choices)))")
         expect(card.window?.isVisible != true, "the dialog is gone after Apply")
 
+#else
+        // iOS: the Mac's dialog is not here — the same choice (Mine) goes
+        // straight to resolve; the iOS Merge Review runs in --ios-cloud-sync.
+        final class Box { var choices: [String: MergeSide]? }
+        let box = Box()
+        box.choices = conflict.map { [$0.id: MergeSide.mine] }
+#endif
         guard let choices = box.choices else { return }
         let resolved = try await sync.resolve(review, choices: choices, projectDirectory: dir)
         guard case .merged(_, let report) = resolved else {
@@ -314,8 +324,10 @@ extension CloudSyncHarness {
         expect(try Data(contentsOf: fixture.json) == server.document, "disk and cloud end byte-identical after review")
         expect(server.lastSaveContext?.checkpoint == .merge && report.conflictsResolved == 1,
                "saved as a merge checkpoint; the report counts the resolved conflict")
+#if canImport(AppKit)
         expect(MergeReviewDialog.detail(for: conflict!, theirs: "Ana").contains("Deleted on this Mac"),
                "the row explains which side deleted what")
+#endif
         _ = id
     }
 
@@ -377,8 +389,13 @@ extension CloudSyncHarness {
             try await client.delete(projectID: id, versionID: server.versions.last!.id)
             expect(false, "the head version can't be deleted")
         } catch {
+            #if canImport(AppKit)
+            let words = CloudHistoryClient.message(for: error)
+            #else
+            let words = CloudHistoryClient.historyMessage(for: error)
+            #endif
             expect((error as? CloudSyncError)?.apiCode == "head_version"
-                   && CloudHistoryClient.message(for: error) == "The current version can't be deleted.",
+                   && words == "The current version can't be deleted.",
                    "the head version can't be deleted (409 head_version, in words)")
         }
         server.access = "member"
@@ -426,11 +443,14 @@ extension CloudSyncHarness {
                "a 409 revision_conflict body parses with its headVersionId and updatedAt")
         let preview = try await client.previewProject(projectID: id, versionID: upload.id, projectDirectory: dir)
         expect(preview.isPreview && preview.id == id, "a version opens as a read-only preview project")
+#if canImport(AppKit)
         expect(try !ProjectStore.persists(preview) && ProjectStore.persists(try loadLocal(fixture)),
                "ProjectStore's save gate refuses a preview project (and only a preview)")
+#endif
         _ = fm
     }
 
+#if canImport(AppKit)
     /// Synthesized click at `point` (view coordinates) through the view's
     /// REAL mouseDown/mouseUp path.
     static func clickAt(_ view: NSView, _ point: NSPoint) {
@@ -446,4 +466,5 @@ extension CloudSyncHarness {
             view.mouseUp(with: up)
         }
     }
+#endif
 }

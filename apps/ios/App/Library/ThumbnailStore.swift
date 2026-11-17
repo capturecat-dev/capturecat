@@ -61,7 +61,7 @@ final class ThumbnailStore {
     }
 
     /// The main recording among the project's files.
-    static func recordingFile(in detail: CloudProjectDetail, facts: ProjectDocument.Facts?) -> CloudRemoteFile? {
+    static func recordingFile(in detail: CloudProjectDetail, facts: ProjectDocument.Facts?) -> LibraryCloudFile? {
         if let name = facts?.videoFileName, let match = detail.files.first(where: { $0.path == name || $0.path.hasSuffix("/" + name) }) {
             return match
         }

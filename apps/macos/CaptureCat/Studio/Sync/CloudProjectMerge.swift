@@ -11,7 +11,8 @@ nonisolated struct CloudSaveContext: Equatable, Sendable {
     enum Checkpoint: String, Sendable { case merge, restore, push, upload, named }
     enum Source: String, Sendable { case human, agent, mixed }
 
-    /// `X-CC-Client` — always `mac` from this app.
+    /// `X-CC-Client` — `mac` from the Mac, `ios` from the iOS studio
+    /// (`CloudProjectSync.clientKind`).
     var client = "mac"
     /// `X-CC-Client-Id` — the per-install id (`CloudClientIdentity`).
     var clientID: String
@@ -282,6 +283,7 @@ extension CloudProjectSync {
         projectDirectory: URL
     ) -> CloudSaveContext {
         CloudSaveContext(
+            client: clientKind,
             clientID: clientID,
             source: attributedSource(state: state, mine: document, projectDirectory: projectDirectory),
             change: Self.changeHeader(from: base, to: document),
@@ -529,7 +531,7 @@ extension CloudProjectSync {
             }
             progress(Progress(phase: .saving, fraction: 0.6, message: "Saving the merge…"))
             let context = CloudSaveContext(
-                clientID: clientID, source: review.source,
+                client: clientKind, clientID: clientID, source: review.source,
                 change: Self.changeHeader(from: review.theirsDocument, to: final),
                 checkpoint: .merge, mergedFrom: review.theirsRevision)
             switch try await transport.save(projectID: projectID, document: final,
