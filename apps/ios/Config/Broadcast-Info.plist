@@ -16,7 +16,7 @@
 		<string>_ccwireless._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>CaptureCat finds your Mac on this Wi-Fi so it can record your iPhone screen without a cable.</string>
+	<string>CaptureCat looks for your Mac on this Wi-Fi network so your Mac can record this screen without a cable.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CCAAC8AEEE08016D758E8137 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DE24378D234F0E15F11B2CA3 /* Privacy/App/PrivacyInfo.xcprivacy */; };
+		A23E94C1D1DCE0B7A9C51953 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 752085E2034579F51CB7A23D /* Privacy/Broadcast/PrivacyInfo.xcprivacy */; };
+		12FCAE2CC348A72D01D05916 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = E039BF679838D709CBC588D6 /* Privacy/Share/PrivacyInfo.xcprivacy */; };
 		795E5776E0E7F0FC5C30EF59 /* OAuthPKCE.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381B37FD93AAD13C67DC1743 /* OAuthPKCE.swift */; };
 		93037B569A519E102E41DC95 /* LoopbackAuthServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FAB168C087A95139429BB2C /* LoopbackAuthServer.swift */; };
 		27CFBD5786DA7D5D1E02C8CF /* CCIconSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEAD2697ABA359FDCB7873A9 /* CCIconSet.swift */; };
@@ -74,6 +77,9 @@
 		2728A17568F171B1D233156D /* Share-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Share-Info.plist"; sourceTree = "<group>"; };
 		31C932E7E1C39C3000DA3659 /* Share.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Share.entitlements"; sourceTree = "<group>"; };
 		3CDC6021D2E4DFC68B44E44F /* Lab-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Lab-Info.plist"; sourceTree = "<group>"; };
+		DE24378D234F0E15F11B2CA3 /* Privacy/App/PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "App-PrivacyInfo.xcprivacy"; path = "Privacy/App/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+		752085E2034579F51CB7A23D /* Privacy/Broadcast/PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "Broadcast-PrivacyInfo.xcprivacy"; path = "Privacy/Broadcast/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+		E039BF679838D709CBC588D6 /* Privacy/Share/PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "Share-PrivacyInfo.xcprivacy"; path = "Privacy/Share/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -227,6 +233,9 @@
 				2728A17568F171B1D233156D /* Share-Info.plist */,
 				31C932E7E1C39C3000DA3659 /* Share.entitlements */,
 				3CDC6021D2E4DFC68B44E44F /* Lab-Info.plist */,
+				DE24378D234F0E15F11B2CA3 /* Privacy/App/PrivacyInfo.xcprivacy */,
+				752085E2034579F51CB7A23D /* Privacy/Broadcast/PrivacyInfo.xcprivacy */,
+				E039BF679838D709CBC588D6 /* Privacy/Share/PrivacyInfo.xcprivacy */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -393,6 +402,7 @@
 			files = (
 				1E4FC5147389E22B8F07E98A /* hand@1x.rgba in Resources */,
 				57E5EF4442851C26597141A1 /* hand@2x.rgba in Resources */,
+				CCAAC8AEEE08016D758E8137 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -400,6 +410,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A23E94C1D1DCE0B7A9C51953 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -407,6 +418,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				12FCAE2CC348A72D01D05916 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -25,6 +25,7 @@ final class StudioTimelineLaneAccordion: NSObject {
     private var duration: TimeInterval = 0.28
     private var curve = CCMotion.Curve.bounce.points
 
+    #if DEBUG
     /// Harness seam: forces the Reduce Motion path.
     var probeReduceMotion: Bool?
     /// What cross-fades when Reduce Motion lands a lane change (the
@@ -36,6 +37,15 @@ final class StudioTimelineLaneAccordion: NSObject {
     /// Harness seam: a fixed clock (`nil` = CACurrentMediaTime), so a probe
     /// can sample the sequence at exact times.
     var probeClock: (() -> CFTimeInterval)?
+    private var now: CFTimeInterval { probeClock?() ?? CACurrentMediaTime() }
+    private var reducesMotion: Bool { probeReduceMotion ?? CCMotion.reduceMotion }
+    private var forcesSnap: Bool { probeForceSnap }
+    #else
+    // Release: no harness seams (ios-release-check.sh).
+    private var now: CFTimeInterval { CACurrentMediaTime() }
+    private var reducesMotion: Bool { CCMotion.reduceMotion }
+    private var forcesSnap: Bool { false }
+    #endif
 
     var isAnimating: Bool { link != nil }
 
@@ -43,14 +53,13 @@ final class StudioTimelineLaneAccordion: NSObject {
         TimelineOverlayLane.allCases.map { $0 == lane ? 1 : 0 }
     }
 
-    private var now: CFTimeInterval { probeClock?() ?? CACurrentMediaTime() }
 
     func setTarget(_ lane: TimelineOverlayLane?, animated: Bool) {
         guard lane != target else { return }
         target = lane
         to = Self.openness(for: lane)
-        let reduceMotion = probeReduceMotion ?? CCMotion.reduceMotion
-        guard animated, !probeForceSnap else {
+        let reduceMotion = reducesMotion
+        guard animated, !forcesSnap else {
             stop()
             openness = to
             onChange?()

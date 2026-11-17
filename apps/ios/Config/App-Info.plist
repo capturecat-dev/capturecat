@@ -30,16 +30,12 @@
 	<array>
 		<string>_ccwireless._tcp</string>
 	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>CaptureCat records video from your camera when you start a camera take.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>CaptureCat finds your Mac on this Wi-Fi so it can record your iPhone screen without a cable.</string>
+	<string>CaptureCat looks for your Mac on this Wi-Fi network so your Mac can record this screen without a cable.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>CaptureCat records your voice with screen and camera takes, and when you record a voice-over in the editor.</string>
+	<string>CaptureCat records your voice when you record a voice-over in the editor, and with a screen recording when you turn the microphone on.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>CaptureCat saves the videos, GIFs and images you export to your photo library.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>CaptureCat imports the screenshots and screen recordings you choose and saves them to your projects.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>so.capturecat.openProject</string>

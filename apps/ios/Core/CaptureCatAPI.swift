@@ -26,14 +26,22 @@ nonisolated enum CaptureCatAPI {
 
     /// The web app's origin, for "Open on the web" links.
     static var webAppOrigin: String {
-        guard let host = URL(string: baseURL)?.host, host == "127.0.0.1" || host == "localhost" else {
-            return "https://app.capturecat.so"
+        #if DEBUG
+        // A loopback API override pairs with the local web app (Debug only:
+        // Release never carries a dev origin).
+        if let host = URL(string: baseURL)?.host, host == "127.0.0.1" || host == "localhost" {
+            return "http://localhost:3200"
         }
-        return "http://localhost:3200"
+        #endif
+        return "https://app.capturecat.so"
     }
 
     static func webEditorURL(projectID: String) -> URL {
+        #if DEBUG
         let path = webAppOrigin.contains("localhost") ? "/app/editor/" : "/editor/"
+        #else
+        let path = "/editor/"
+        #endif
         return URL(string: webAppOrigin + path + projectID.uppercased())!
     }
 

@@ -82,7 +82,12 @@ final class AppEnvironment {
     let session: SessionGateway
     let inbox: InboxFeed
     let capture: CaptureFeed
+    #if DEBUG
     let isFixture: Bool
+    #else
+    /// Fixtures (`-uiFixtures`, `-kitGallery`) exist in Debug builds only.
+    var isFixture: Bool { false }
+    #endif
 
     private init() {
         #if DEBUG
@@ -100,7 +105,9 @@ final class AppEnvironment {
         session = LiveSession()
         inbox = UploadCenter.shared
         capture = LiveCaptureFeed()
+        #if DEBUG
         isFixture = false
+        #endif
     }
 }
 

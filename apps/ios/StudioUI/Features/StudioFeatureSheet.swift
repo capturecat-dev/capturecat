@@ -64,7 +64,9 @@ final class StudioFeatureProgressRow: UIView {
         bar.isHidden = !showsBar
         bar.isIndeterminate = value == nil
         if let value {
+            #if DEBUG
             if probeValuesShown.last != value { probeValuesShown.append(value) }
+            #endif
             bar.value = value
         }
     }
@@ -72,8 +74,10 @@ final class StudioFeatureProgressRow: UIView {
     /// Probe seams: the fill the bar draws now, and every value it was told
     /// to show (a snapped bar only ever draws one of those).
     var probeDrawnWidth: CGFloat { bar.probeFillWidth }
+    #if DEBUG
     private(set) var probeValuesShown: [Double] = [0]
     var probeTargetWidths: [CGFloat] {
         probeValuesShown.map { bar.bounds.width * CGFloat(min(max($0, 0), 1)) }
     }
+    #endif
 }

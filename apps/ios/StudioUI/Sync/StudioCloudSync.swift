@@ -144,11 +144,13 @@ final class StudioCloudSync {
     private var pendingToast: String?
     private var observers: [NSObjectProtocol] = []
     private(set) lazy var historyService = StudioCloudHistory(sync: self)
+    #if DEBUG
     /// Probe seams: the Merge Review / two-way choice this session put up.
     private(set) weak var probeReview: StudioMergeReviewController?
     private(set) weak var probeTwoWay: CCAlert?
     /// The last merge put up for review (the round trip records its triple).
     private(set) var probeLastReview: CloudMergeReview?
+    #endif
     var probeBadge: StudioSyncBadge? { badge }
 
     var documentURL: URL { directory.appendingPathComponent(StudioProjectFolder.documentName) }
@@ -526,7 +528,9 @@ final class StudioCloudSync {
     /// cloud and the disk hold by then).
     private func presentReview(_ review: CloudMergeReview) {
         status = .review
+        #if DEBUG
         probeLastReview = review
+        #endif
         guard let editor, editor.viewIfLoaded?.window != nil else {
             pendingReview = review
             return
@@ -535,7 +539,7 @@ final class StudioCloudSync {
             base: review.base, mine: review.mine, theirs: review.theirs, mineWins: review.mineWins,
             choices: review.choices, theirsAuthor: review.author, theirsFallback: "The cloud version")
         Self.trace?("merge review: \(review.unresolved.count) conflict(s) to review")
-        probeReview = StudioHistory.reviewMerge(from: editor, session: session, onApply: { [weak self] resolved in
+        let shown = StudioHistory.reviewMerge(from: editor, session: session, onApply: { [weak self] resolved in
             guard let self else { return }
             self.enqueue { [weak self] in await self?.runResolve(review, choices: resolved.choices) }
         }, onCancel: { [weak self] in
@@ -545,6 +549,11 @@ final class StudioCloudSync {
             Self.trace?("merge review cancelled")
             self.status = .pending
         })
+        #if DEBUG
+        probeReview = shown
+        #else
+        _ = shown
+        #endif
     }
 
     private func runResolve(_ review: CloudMergeReview, choices: [String: MergeSide]) async {
@@ -594,7 +603,9 @@ final class StudioCloudSync {
             _ = try await self.exclusive { [self] in await self.runPull(force: true) }
         }
         alert.addButton("Not now", role: .cancel)
+        #if DEBUG
         probeTwoWay = alert
+        #endif
         alert.present(from: editor) { [weak self] index in
             if index == 2 { self?.status = .pending }
         }

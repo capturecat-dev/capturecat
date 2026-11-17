@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  CaptureCat broadcast (so.capturecat.ios.broadcast) — the ReplayKit upload extension. It sends nothing to CaptureCat's servers: it streams to the user's own Mac over the local network, or writes the take into the App Group for the app to upload.
+  Source of truth for what this bundle collects and which required-reason APIs it
+  calls. apps/ios/scripts/ios-release-check.sh checks it against the Release
+  binary; docs/ios-app-store.md mirrors it as the App Store privacy answers.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!-- The per-install device id in the App Group suite shared with the app. -->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
