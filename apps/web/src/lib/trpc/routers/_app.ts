@@ -1,4 +1,5 @@
 import { createTRPCRouter } from "@/lib/trpc/init";
+import { accountRouter } from "./account";
 import { authRouter } from "./auth";
 import { videosRouter } from "./videos";
 import { billingRouter } from "./billing";
@@ -13,6 +14,7 @@ import { webhooksRouter } from "./webhooks";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
+  account: accountRouter,
   videos: videosRouter,
   billing: billingRouter,
   profile: profileRouter,

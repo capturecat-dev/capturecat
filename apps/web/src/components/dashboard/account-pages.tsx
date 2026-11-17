@@ -6,6 +6,7 @@
 import { AgentAccessCard } from "@/components/dashboard/agent-access-card";
 import { BillingStatus } from "@/components/dashboard/billing-status";
 import { CustomDomainsCard } from "@/components/dashboard/custom-domains-card";
+import { DeleteAccountSection } from "@/components/dashboard/delete-account-section";
 import { ProfileCard } from "@/components/dashboard/profile-card";
 import { StorageBucketCard } from "@/components/dashboard/storage-bucket-card";
 import { PageHeader, Sections } from "@/components/dashboard/studio";
@@ -18,7 +19,7 @@ export function SettingsPageBody() {
       <PageHeader
         eyebrow="Account"
         title="Settings"
-        description="Your public profile, the domains your share links live on, where their videos are stored, and which agents can reach them."
+        description="Your public profile, the domains your share links live on, where their videos are stored, which agents can reach them, and deleting your account."
       />
       <Sections className="max-w-3xl">
         <ProfileCard />
@@ -26,6 +27,7 @@ export function SettingsPageBody() {
         <StorageBucketCard />
         <AgentAccessCard />
         <WebhooksCard />
+        <DeleteAccountSection />
       </Sections>
     </div>
   );

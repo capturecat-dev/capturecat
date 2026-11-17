@@ -21,6 +21,17 @@ devices,video}.ts closely enough to exercise every client path:
   /__share                 test-only: publish a share of a seeded project's video
                            ({projectId, videoId?, fileName?, isPrivate?}); it lists
                            in /api/videos and streams from /api/video/:id
+  DELETE /api/me           account deletion (apps/api account-deletion contract):
+                           200 {deleted, jobId, cancelledSubscriptions, cleanup}
+                           and the session token stops working (a retry is 401)
+  /__delete-me             test-only (POST): how the NEXT DELETE /api/me answers —
+                           {"status": 409|502|403|429|500} with the API's body, or
+                           {"mode": "drop"} (connection closed, no response), for
+                           the next "count" calls (default 1); then back to 200.
+                           GET /__state reports `deleteMe` (calls, answers, the
+                           bearer each carried)
+  /__session               test-only (GET): a session for the CURRENT token, in
+                           /api/desktop/token's shape (gates skip the browser leg)
 
 Usage: python3 mock_api.py [port]   (binds 127.0.0.1 only)
 """
@@ -49,6 +60,15 @@ comments = {"V1": [{"commentId": "C1", "parentId": None, "authorName": "Alex", "
 devices = {}
 shares = {}  # videoId -> {row (GET /api/videos shape), sha}
 LINK_KEY = bytes(range(32))
+delete_me = {"next": None, "calls": []}  # /__delete-me control + DELETE /api/me log
+DELETE_ME_BODIES = {
+    409: {"error": "You own the team \u201cAcme\u201d with 2 other members. Make another member an owner, or remove them, on the Team page first.",
+          "code": "team_has_members", "team": {"id": "org-acme", "name": "Acme", "otherMembers": 2}},
+    502: {"error": "We couldn't cancel your subscription, so nothing was deleted. Try again in a moment.", "code": "billing_unavailable"},
+    403: {"error": "Account blocked"},
+    429: {"error": "Too many requests"},
+    500: {"error": "Internal error"},
+}
 
 
 def b64url(data):
@@ -124,7 +144,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/__state":
             with LOCK:
                 return self.send_json(200, {"projects": {k: {**v, "document": v["document"]} for k, v in projects.items()},
-                                            "objects": {k: len(v) for k, v in objects.items()}, "devices": devices})
+                                            "objects": {k: len(v) for k, v in objects.items()}, "devices": devices,
+                                            "deleteMe": {"calls": delete_me["calls"], "pending": delete_me["next"]}})
+        if path == "/__session":
+            return self.send_json(200, {"token": TOKEN, "expiresAt": "2027-01-01T00:00:00.000Z",
+                                        "user": {"id": "mock-user", "email": "tester@example.com", "name": "Test User", "image": None}})
         if path.startswith("/files/"):
             return self.serve_file(path.split("/")[2])
         if not self.authed():
@@ -232,6 +256,11 @@ class Handler(BaseHTTPRequestHandler):
                        "thumbnailType": None, "thumbnailUrl": None, "removed": None}
                 shares[vid] = {"row": row, "sha": f["sha256"]}
             return self.send_json(200, {"videoId": vid})
+        if path == "/__delete-me":
+            data = json.loads(raw or b"{}")
+            with LOCK:
+                delete_me["next"] = data or None
+            return self.send_json(200, {"next": delete_me["next"]})
         if path.startswith("/__bump/"):
             pid = path.split("/")[2].upper()
             with LOCK:
@@ -366,7 +395,33 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_json(404, {"error": "Not found"})
 
     def do_DELETE(self):
+        global TOKEN
         path = urlparse(self.path).path
+        if path == "/api/me":
+            with LOCK:
+                behaviour = delete_me["next"] or {}
+                remaining = int(behaviour.get("count", 1)) - 1
+                delete_me["next"] = {**behaviour, "count": remaining} if behaviour and remaining > 0 else None
+                valid = self.headers.get("Authorization") == f"Bearer {TOKEN}"
+                answer = "drop" if behaviour.get("mode") == "drop" else (int(behaviour.get("status", 200)) if valid else 401)
+                delete_me["calls"].append({"authorization": self.headers.get("Authorization"), "valid": valid, "answer": answer})
+            if answer == "drop":
+                # No response at all: the client sees the connection go.
+                self.close_connection = True
+                self.connection.shutdown(2)
+                return
+            if answer == 401:
+                return self.send_json(401, {"error": "Invalid or expired session"})
+            if answer != 200:
+                return self.send_json(answer, DELETE_ME_BODIES.get(answer, {"error": "Error"}))
+            with LOCK:
+                # Everything the account owned goes, and the session dies with it.
+                projects.clear()
+                shares.clear()
+                devices.clear()
+                TOKEN = "mock-session-token-" + uuid.uuid4().hex
+            return self.send_json(200, {"deleted": True, "jobId": "job-" + uuid.uuid4().hex[:8],
+                                        "cancelledSubscriptions": 1, "cleanup": "pending"})
         if not self.authed():
             return
         m = re.match(r"^/api/cloud-projects/([^/]+)$", path)

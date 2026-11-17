@@ -25,6 +25,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         #if DEBUG
         FixtureDirector.shared.start(in: window)
         AppPerfProbe.start(in: window)
+        AccountDeleteGate.startIfRequested(in: window)
         #endif
     }
 

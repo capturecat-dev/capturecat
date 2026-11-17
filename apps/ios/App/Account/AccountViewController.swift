@@ -1,8 +1,9 @@
 import UIKit
 
 /// Account: who's signed in, the plan and storage meter, "Forget my
-/// devices…" (rotates the account's Wi-Fi link key) and Sign out — every
-/// consequential action behind a house confirm.
+/// devices…" (rotates the account's Wi-Fi link key), Sign out and Delete
+/// Account (AccountDeletion.swift) — every consequential action behind a
+/// house confirm.
 final class AccountViewController: UIViewController {
     private let header = CCHeaderBar(title: "Account", style: .large)
     private let scrollView = UIScrollView()
@@ -59,6 +60,7 @@ final class AccountViewController: UIViewController {
         let signOut = CCButton(title: "Sign out", symbol: "arrow-right-line", style: .secondary, size: .lg, radius: .lg)
         signOut.onTap = { [weak self] in self?.confirmSignOut() }
         column.addArrangedSubview(signOut)
+        column.addArrangedSubview(section("Delete account", makeDeleteCard()))
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         column.addArrangedSubview(ccLabel("CaptureCat for iPhone and iPad \(version) (\(build))", font: CCFont.caption,
@@ -149,6 +151,22 @@ final class AccountViewController: UIViewController {
         return padded(stack, in: CCCard())
     }
 
+    private let deleteButton = CCButton(title: "Delete Account…", symbol: "trash", style: .destructive, size: .regular)
+    /// Gate seam: the Delete Account entry.
+    var probeDeleteButton: CCButton { deleteButton }
+
+    private func makeDeleteCard() -> UIView {
+        let detail = ccLabel("Permanently delete your CaptureCat account, your shared videos and cloud projects. An active subscription is cancelled immediately.",
+                             font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
+        deleteButton.onTap = { [weak self] in self?.confirmDeleteAccount() }
+        deleteButton.accessibilityHint = "Asks you to confirm. Deletes your account and its data, and cancels your subscription."
+        let buttonRow = UIStackView(arrangedSubviews: [deleteButton, UIView()])
+        let stack = UIStackView(arrangedSubviews: [detail, buttonRow])
+        stack.axis = .vertical
+        stack.spacing = CCSpace.md
+        return padded(stack, in: CCCard())
+    }
+
     // MARK: - Data
 
     private func renderUser() {
@@ -228,6 +246,10 @@ final class AccountViewController: UIViewController {
                 AppToaster.shared.show(title: "Devices forgotten", message: "They'll relink when CaptureCat opens on them.", variant: .success, symbol: "wifi")
             }
         )
+    }
+
+    private func confirmDeleteAccount() {
+        AccountDeletion.presentConfirmation(from: self)
     }
 
     private func confirmSignOut() {
