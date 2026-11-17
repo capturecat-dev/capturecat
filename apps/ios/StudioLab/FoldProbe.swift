@@ -19,6 +19,16 @@ enum FoldProbe {
             if #available(iOS 26, *), let editor = await EditorResizeLab.openEditor(in: FileManager.default.temporaryDirectory.appendingPathComponent("fold-probe", isDirectory: true)) {
                 editor.modalPresentationStyle = .fullScreen
                 lab.present(editor, animated: false)
+                // `--landscape`: a phone on its side (compact height).
+                if arguments.contains("--landscape") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else { return }
+                        editor.setNeedsUpdateOfSupportedInterfaceOrientations()
+                        scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { error in
+                            print("FOLD-PROBE landscape refused: \(error)")
+                        }
+                    }
+                }
                 for _ in 0..<600 {
                     await LabTime.settle(1.0)
                     let root = editor.view!

@@ -29,7 +29,7 @@ protocol CloudAPI: AnyObject {
 
 /// Extra share fields from `GET /api/videos` (gap: Core's SharedVideo has
 /// no profileVisible / hasPassword).
-struct ShareExtras: Equatable, Sendable {
+struct ShareExtras: Codable, Equatable, Sendable {
     var profileVisible: Bool
     var hasPassword: Bool
 }

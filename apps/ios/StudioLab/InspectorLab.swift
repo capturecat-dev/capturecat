@@ -414,9 +414,18 @@ enum InspectorLab {
             check("layout-column", frame.equalTo(container) && inspector.rail.axis == .vertical && frame.width >= 300,
                   String(format: "side column %.0f×%.0f fills the inspector container; rail vertical", frame.width, frame.height))
         } else {
-            check("layout-sheet", abs(frame.maxY - container.maxY) < 0.5 && abs(frame.minY - container.minY) < 0.5
+            // Docked on the container's top and sides; runs past the
+            // screen's bottom edge (no band under it), with the scroll's
+            // last row kept clear of the home indicator.
+            let screenBottom = editor.view.bounds.maxY
+            let clearance = inspector.scroll.adjustedContentInset.bottom
+            let needed = (frame.maxY - screenBottom) + editor.view.safeAreaInsets.bottom
+            check("layout-sheet", abs(frame.minY - container.minY) < 0.5
+                    && abs(frame.minX - container.minX) < 0.5 && abs(frame.maxX - container.maxX) < 0.5
+                    && frame.maxY >= screenBottom + 0.5 && clearance >= needed - 0.5
                     && inspector.rail.axis == .horizontal,
-                  String(format: "docked sheet %.0f×%.0f on the container; rail across the top", frame.width, frame.height))
+                  String(format: "docked sheet %.0f×%.0f from the container's top past the screen's bottom (%.0f beyond); scroll inset %.0f ≥ %.0f; rail across the top",
+                         frame.width, frame.height, frame.maxY - screenBottom, clearance, needed))
         }
     }
 

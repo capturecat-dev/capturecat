@@ -124,7 +124,23 @@ final class LibraryStore {
         refresh()
     }
 
+    /// The last listing this account saw, shown at launch while the network
+    /// refresh runs (measured on an iPhone: without it the library showed no
+    /// projects — and so no thumbnails — for ~2 s after every launch).
+    private func restoreSavedListing() {
+        guard projects.isEmpty, shares.isEmpty, phase == .idle,
+              let user = AppEnvironment.shared.session.user,
+              let saved = cache.listing(forUser: user.id) else { return }
+        projects = saved.projects
+        storage = saved.storage
+        shares = saved.shares
+        shareExtras = saved.shareExtras
+        phase = .loaded
+        loadCachedFacts()
+    }
+
     private func performRefresh() async {
+        restoreSavedListing()
         isRefreshing = true
         if phase == .idle || (phase != .loaded && projects.isEmpty) { phase = .loading }
         defer { isRefreshing = false }
@@ -138,6 +154,10 @@ final class LibraryStore {
             if listing.extras != shareExtras { shareExtras = listing.extras }
             phase = .loaded
             lastRefresh = Date()
+            if let user = AppEnvironment.shared.session.user {
+                cache.storeListing(.init(userID: user.id, projects: projects, storage: storage,
+                                         shares: shares, shareExtras: shareExtras))
+            }
             loadCachedFacts()
             ThumbnailStore.shared.retryFailed()
             // Drop in-memory details whose revision moved (an edit landed).
@@ -338,7 +358,35 @@ final class LibraryDiskCache {
         root.appendingPathComponent("thumbs/\(safe(key)).jpg")
     }
 
+    /// The last project + share listing, tagged with the account it belongs
+    /// to (another account never reads it; sign-out deletes it).
+    struct Listing: Codable {
+        var userID: String
+        var projects: [CloudProjectSummary]
+        var storage: StorageUsage?
+        var shares: [SharedVideo]
+        var shareExtras: [String: ShareExtras]
+    }
+
+    private var listingURL: URL { root.appendingPathComponent("listing.json") }
+
+    func listing(forUser id: String) -> Listing? {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        guard let data = try? Data(contentsOf: listingURL),
+              let listing = try? decoder.decode(Listing.self, from: data), listing.userID == id else { return nil }
+        return listing
+    }
+
+    func storeListing(_ listing: Listing) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        guard let data = try? encoder.encode(listing) else { return }
+        try? data.write(to: listingURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
     func clear() {
+        try? FileManager.default.removeItem(at: listingURL)
         for sub in ["facts", "thumbs"] {
             let url = root.appendingPathComponent(sub)
             try? FileManager.default.removeItem(at: url)

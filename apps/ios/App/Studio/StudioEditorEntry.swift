@@ -81,6 +81,21 @@ enum StudioEditorEntry {
     @MainActor
     private static func open(id: UUID, directory: URL, from presenter: UIViewController,
                              onPushed: ((Int) -> Void)? = nil) {
+        adoptLiveEnvironment()
+        // Already current here: open now, check the cloud once it's up
+        // (measured: the pull-first open waited ~0.8 s on the network).
+        if let local = StudioCloudSync.openCurrentLocal(
+            projectID: id, directory: directory,
+            listedRevision: LibraryStore.shared.project(id.uuidString)?.revision) {
+            let sync = local.sync
+            if let onPushed { sync.onPushed = onPushed }
+            let editor = EditorViewController(folder: local.folder)
+            CCAlert.topmost(from: presenter).present(editor, animated: true) {
+                sync.attach(editor)
+                Task { @MainActor in await sync.checkRemote() }
+            }
+            return
+        }
         let progress = AppToaster.shared.show(title: "Preparing the editor…", symbol: "film")
         Task { @MainActor in
             do {

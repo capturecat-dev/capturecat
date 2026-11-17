@@ -234,6 +234,22 @@ final class StudioCloudSync {
         return (try StudioProjectFolder.open(directory), session)
     }
 
+    /// The fast way in: the local copy already holds the revision the
+    /// library just listed, so it opens with no network wait — the head check
+    /// (`checkRemote`) runs once the editor is attached, and pulls through the
+    /// usual merge path if the cloud moved meanwhile. Nil whenever the slow,
+    /// careful `open` is needed (no copy, an unsynced first open, the listed
+    /// revision differs, or the folder doesn't open — e.g. media missing).
+    static func openCurrentLocal(projectID: UUID, directory: URL, listedRevision: Int?) -> (folder: StudioProjectFolder, sync: StudioCloudSync)? {
+        guard let listedRevision, let session = session(projectID: projectID, directory: directory),
+              FileManager.default.fileExists(atPath: directory.appendingPathComponent(StudioProjectFolder.documentName).path),
+              let state = CloudSyncState.load(from: directory, projectID: projectID, apiBaseURL: session.engine.apiBaseURL),
+              state.revision == listedRevision,
+              let folder = try? StudioProjectFolder.open(directory) else { return nil }
+        session.refreshStatus()
+        return (folder, session)
+    }
+
     enum Prepared: Equatable {
         case cloned(revision: Int)
         case ready

@@ -29,7 +29,7 @@ nonisolated struct AccountInfo: Sendable, Equatable {
 }
 
 /// One row of `GET /api/cloud-projects`.
-nonisolated struct CloudProjectSummary: Decodable, Sendable, Equatable, Hashable {
+nonisolated struct CloudProjectSummary: Codable, Sendable, Equatable, Hashable {
     var projectId: String
     var name: String
     var revision: Int
@@ -42,7 +42,7 @@ nonisolated struct CloudProjectSummary: Decodable, Sendable, Equatable, Hashable
     var updatedAt: Date
 }
 
-nonisolated struct StorageUsage: Decodable, Sendable, Equatable {
+nonisolated struct StorageUsage: Codable, Sendable, Equatable {
     var usedBytes: Int64
     var limitBytes: Int64
 }
@@ -109,7 +109,7 @@ nonisolated enum SaveOutcome: Sendable {
 }
 
 /// One row of `GET /api/videos` — a share (exported video with a link).
-nonisolated struct SharedVideo: Decodable, Sendable, Equatable, Hashable {
+nonisolated struct SharedVideo: Codable, Sendable, Equatable, Hashable {
     var videoId: String
     var fileName: String
     var contentType: String?
@@ -124,7 +124,7 @@ nonisolated struct SharedVideo: Decodable, Sendable, Equatable, Hashable {
     var thumbnailUrl: URL?
     var removed: Removed?
 
-    nonisolated struct Removed: Decodable, Sendable, Equatable, Hashable {
+    nonisolated struct Removed: Codable, Sendable, Equatable, Hashable {
         var at: String
         var reason: String?
     }

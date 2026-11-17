@@ -22,6 +22,13 @@ final class ThumbnailStore {
     @ObservationIgnored private let concurrency = 2
     @ObservationIgnored private var cache: LibraryDiskCache { LibraryStore.shared.cache }
 
+    #if DEBUG
+    /// Speed probe counters (AppPerfProbe).
+    struct ProbeStats { var diskHits = 0; var diskTime = 0.0; var loads = 0; var loadTime = 0.0; var loadMax = 0.0 }
+    @ObservationIgnored private(set) var probeStats = ProbeStats()
+    var probeIdle: Bool { inFlight.isEmpty && queue.isEmpty && running == 0 }
+    #endif
+
     static func key(for project: CloudProjectSummary) -> String {
         "p:" + LibraryStore.key(project.projectId, project.revision)
     }
@@ -75,11 +82,18 @@ final class ThumbnailStore {
         // Disk first (off the main thread).
         let url = cache.thumbnailURL(key)
         Task { @MainActor in
+            #if DEBUG
+            let diskStart = CACurrentMediaTime()
+            #endif
             let cached = await Task.detached(priority: .userInitiated) { () -> UIImage? in
                 guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else { return nil }
                 return image.preparingForDisplay() ?? image
             }.value
             if let cached {
+                #if DEBUG
+                self.probeStats.diskHits += 1
+                self.probeStats.diskTime += CACurrentMediaTime() - diskStart
+                #endif
                 self.images[key] = cached
                 self.inFlight.remove(key)
                 return
@@ -94,7 +108,16 @@ final class ThumbnailStore {
             let next = queue.removeFirst()
             running += 1
             Task { @MainActor in
+                #if DEBUG
+                let loadStart = CACurrentMediaTime()
+                #endif
                 let image = await next.job()
+                #if DEBUG
+                let spent = CACurrentMediaTime() - loadStart
+                self.probeStats.loads += 1
+                self.probeStats.loadTime += spent
+                self.probeStats.loadMax = max(self.probeStats.loadMax, spent)
+                #endif
                 self.running -= 1
                 self.inFlight.remove(next.key)
                 if let image {

@@ -235,6 +235,28 @@ final class EditorViewController: UIViewController {
         // inspector below.
         let hTimelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 180)
         timelineHeights[.splitAtHorizontalCrease] = hTimelineHeight
+        // A phone on its side (compact height): the height is what limits the
+        // video, so the inspector takes a column beside it at no cost to the
+        // stage; the stage fills the rest of the left column above a slim,
+        // scrolling timeline.
+        let lTimelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 110)
+        timelineHeights[.landscapeCompact] = lTimelineHeight
+        constraintSets[.landscapeCompact] = [
+            stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.xs),
+            stageCard.trailingAnchor.constraint(equalTo: inspectorContainer.leadingAnchor, constant: -CCSpace.md),
+            stageCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 120),
+            // The timeline's own toolbar (play, skip, time) is the transport
+            // here; the stage takes the transport row's height.
+            timelineContainer.topAnchor.constraint(equalTo: stageCard.bottomAnchor, constant: CCSpace.sm),
+            timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
+            timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
+            timelineContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.xs),
+            lTimelineHeight,
+            inspectorContainer.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.xs),
+            inspectorContainer.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
+            inspectorContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.xs),
+            inspectorContainer.widthAnchor.constraint(equalToConstant: 300),
+        ]
         constraintSets[.splitAtHorizontalCrease] = [
             stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
             stageCard.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
@@ -261,6 +283,9 @@ final class EditorViewController: UIViewController {
         case splitAtVerticalCrease
         /// A crease side to side: stage over timeline and inspector.
         case splitAtHorizontalCrease
+        /// Compact height (a phone on its side): stage over a slim timeline,
+        /// the inspector a column beside them.
+        case landscapeCompact
     }
 
     /// The arrangement for the current size classes and fold. A crease
@@ -269,7 +294,9 @@ final class EditorViewController: UIViewController {
         switch crease {
         case .vertical?: return .splitAtVerticalCrease
         case .horizontal?: return .splitAtHorizontalCrease
-        case nil: return usesRegularLayout ? .sideBySide : .stacked
+        case nil:
+            if usesRegularLayout { return .sideBySide }
+            return traitCollection.verticalSizeClass == .compact ? .landscapeCompact : .stacked
         }
     }
 
@@ -308,8 +335,10 @@ final class EditorViewController: UIViewController {
             NSLayoutConstraint.activate(constraintSets[arrangement] ?? [])
             activeArrangement = arrangement
         }
+        transport.isHidden = arrangement == .landscapeCompact
         // The inspector is a column whenever it has a pane of its own.
-        inspector.setRegularWidth(arrangement == .sideBySide || arrangement == .splitAtVerticalCrease)
+        inspector.setRegularWidth(arrangement == .sideBySide || arrangement == .splitAtVerticalCrease
+                                  || arrangement == .landscapeCompact)
         // The centred title moves off a vertical crease, over the stage's half.
         if case .vertical(let c)? = crease {
             let rtl = view.effectiveUserInterfaceLayoutDirection == .rightToLeft
@@ -423,9 +452,10 @@ final class EditorViewController: UIViewController {
             .stacked: max(180, h / 3),
             .splitAtVerticalCrease: max(220, h / 2),
             .splitAtHorizontalCrease: max(160, (h - (crease?.rect.maxY ?? 0)) / 2),
+            .landscapeCompact: max(96, h * 0.3),
         ]
         for (arrangement, constraint) in timelineHeights {
-            let floor: CGFloat = arrangement == .splitAtHorizontalCrease ? 160 : 180
+            let floor: CGFloat = arrangement == .splitAtHorizontalCrease ? 160 : arrangement == .landscapeCompact ? 96 : 180
             let constant = min(max(height, floor), caps[arrangement] ?? floor)
             if constraint.constant != constant { constraint.constant = constant }
         }

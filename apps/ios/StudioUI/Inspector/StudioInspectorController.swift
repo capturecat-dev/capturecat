@@ -226,6 +226,9 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         startObserving()
     }
 
+    /// How far the compact sheet runs below the screen (≥ its corner radius).
+    static let sheetOverhang: CGFloat = 40
+
     /// Mounts the inspector in the editor: the column fills the inspector
     /// container; the sheet docks on it and can rise to the header.
     @available(iOS 26, *)
@@ -243,10 +246,14 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             view.topAnchor.constraint(equalTo: container.topAnchor),
             view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ]
+        // Compact: the sheet runs past the screen's bottom edge, so no black
+        // band shows under it (the home-indicator strip) and its own bottom
+        // corners are out of sight; its scroll view keeps the last row clear
+        // of the home indicator (automatic safe-area inset).
         hostCompact = [
             view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            view.bottomAnchor.constraint(equalTo: editor.view.bottomAnchor, constant: Self.sheetOverhang),
             top,
         ]
         let header = editor.header
@@ -271,6 +278,12 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         NSLayoutConstraint.activate(regular ? hostRegular : hostCompact)
         rail.axis = regular ? .vertical : .horizontal
         grabber.isHidden = regular
+        // The compact sheet runs `sheetOverhang` below the screen; its last
+        // row must still scroll into view (the safe-area inset alone stops at
+        // the screen's edge).
+        let overhang = regular ? 0 : Self.sheetOverhang
+        scroll.contentInset.bottom = overhang
+        scroll.verticalScrollIndicatorInsets.bottom = overhang
         if regular { sheetTop?.constant = 0; isSheetRaised = false }
         view.setNeedsLayout()
     }

@@ -22,6 +22,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         handle(connectionOptions.urlContexts)
         #if DEBUG
         FixtureDirector.shared.start(in: window)
+        AppPerfProbe.start(in: window)
         #endif
     }
 
