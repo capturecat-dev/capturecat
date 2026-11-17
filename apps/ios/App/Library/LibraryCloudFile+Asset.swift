@@ -1,7 +1,7 @@
 import AVFoundation
 import UniformTypeIdentifiers
 
-extension CloudRemoteFile {
+extension LibraryCloudFile {
     /// What the bytes are, for AVFoundation. R2 object keys carry no file
     /// extension, so without this the player knows the format only from the
     /// response's Content-Type, and a generic one ("application/octet-stream")

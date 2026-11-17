@@ -45,11 +45,12 @@ recording.
 | `Broadcast/` | broadcast extension | ReplayKit: stream to Mac (H.264) or record locally |
 | `ShareExtension/` | share extension | "Save to CaptureCat" |
 | `../macos/CaptureCat/Shared/` | all three | files that must build for macOS AND iOS — the Wi-Fi wire protocol |
-| `../macos/CaptureCat/Studio/` | app | the studio core shared with the Mac app — models, renderers, exporter, compositor, timeline edits (docs/ios-studio-plan.md) |
+| `../macos/CaptureCat/Studio/` | app | the studio core shared with the Mac app — models, renderers, exporter, compositor, timeline edits, history, cloud sync (`Sync/`) (docs/ios-studio-plan.md) |
 | a few Mac files by reference | see `scripts/gen-xcodeproj.py` | `OAuthPKCE`, `LoopbackAuthServer`, `CCIconSet`; the extensions also take `StillMovieWriter` |
 | `StudioUI/` | app, StudioLab | the studio's UIKit surfaces: the stage, the editor (`Editor/`, 4b), the touch timeline (`Timeline/`, 4c), the inspector (`Inspector/`, 4d — see below) |
 | `StudioVectors/` | none (script-built) | the iOS runner for `ios-vectors.sh` — never in a shipping target |
 | `StudioUI/Features/` | app, StudioLab | the editor's four features (Studio 4e) — see "Editor features" below |
+| `StudioUI/Sync/` | app, StudioLab | local studio projects kept in sync with the cloud (Studio Phase 5) — see "Studio sync" below |
 
 The Xcode project is generated — never hand-edit it:
 
@@ -118,8 +119,50 @@ inspector column on iPad); the editor calls `StudioHistory.attach(_:)` on load. 
 words, menus, Compare groups and the three-way merge are the Mac's shared code
 (`Studio/ProjectHistory/`). Preview puts a version READ-ONLY on the live stage
 (`EditorViewController.stageProjectOverride`); Restore and merges are one undo step.
-Cloud history and sync (Phase 5) plug in behind `ProjectHistoryService` and hand Merge
-Review (`StudioHistory.reviewMerge`) a `ProjectMergeSession`.
+Since Phase 5 a synced project's History lists the CLOUD's versions
+(`StudioCloudHistory`, behind `ProjectHistoryService`; `StudioHistory.service(of:)`
+picks it) — restore runs on the server, as on the Mac — and falls back to the
+on-device history offline; sync merges hand Merge Review a `ProjectMergeSession`.
+
+## Studio sync (Phase 5)
+
+A studio project is a LOCAL folder (`Application Support/Studio/Projects/<ID>/`)
+kept in sync with its cloud project by the Mac's own engine — `CloudProjectSync`,
+`CloudHistoryClient`, the three-way merge and the HTTP transport live in
+`../macos/CaptureCat/Studio/Sync/` and compile into both apps.
+`StudioUI/Sync/StudioCloudSync` drives it for an editor:
+
+- **Open** (`StudioCloudSync.open`, used by `App/Studio/StudioEditorEntry`): a
+  project not on this device is cloned (every file verified before project.json
+  lands); one that is here is pulled, and edits made here that never synced
+  merge three-way with the cloud's (base: the `.cloudsync-base.json` sidecar the
+  Mac keeps too). The pre-Phase-5 `.studio-download.json` marker becomes a sidecar.
+- **Edit**: each editor save schedules a push 3 s later (a burst is one push):
+  media uploads, then project.json with `If-Match` the agreed revision,
+  `X-CC-Client: ios`, no checkpoint (autosaves coalesce into the head version,
+  as the web editor's do; the first upload, merges and restores still open
+  their own). Saves that only re-spell the JSON are not written.
+- **Concurrent change**: the editor polls the head (20 s) and on foreground; a
+  lost race (409) or a pull over unsent edits merges three-way; a clean merge
+  lands in the editor as ONE undo step ("Merge Changes"), structural conflicts
+  open Merge Review, and with no base anywhere the user keeps this device's
+  version or takes the cloud's.
+- **Offline**: unsent edits ARE the queue (project.json ≠ the merge base); a push
+  that cannot reach the API retries with backoff, when the network returns
+  (`NWPathMonitor`), on foreground, and at the next launch
+  (`StudioEditorEntry.resumePending`). The header's status dot (beside the back
+  key, `CCHeaderBar.setLeadingAccessory`) says synced / waiting / syncing /
+  offline / failed; tap it for words.
+- **Media paths**: project.json holds absolute file URLs; opening re-points them
+  into the folder (the Mac's clone rule), so a moved container (restore from
+  backup) still opens; pulls re-point what they write.
+- **Inbox takes (5c)**: a capture still in the inbox (offline, or its upload
+  failed) has an Edit key: it becomes a studio project (`StudioInboxImport`:
+  media cloned in, the document its upload would publish, written last); the
+  studio's first push uploads it, and the take leaves the inbox.
+
+The API stores `X-CC-Client` values it knows (`mac`, `web`); `ios` is kept as
+`unknown` until the API learns it (History shows "Other" for iOS saves).
 
 ## Editor features (Studio 4e)
 
@@ -169,6 +212,7 @@ by ≤ 0.14 s), the iOS 26.2 Simulator mostly returns nothing
     apps/ios/scripts/kit-gallery.sh         # the studio controls, every state, both themes, iPhone + iPad: PNGs, structure, behaviour, motion SEQUENCES mid-flight (+ injected-snap self-test)
     apps/ios/scripts/ios-inspector.sh       # the inspector: every control of the 9 panes vs the Mac's frozen transcript, one undo step per edit, touch targets, VoiceOver, Dynamic Type, re-theme, column/sheet layout, motion SEQUENCES (+ injected-snap self-test)
     apps/ios/scripts/ios-history.sh         # History (Studio 4f): rows, compare, preview, restore, Merge Review vs the Mac's --history-transcript, line for line; motion sequences; INJECT= must FAIL
+    apps/ios/scripts/ios-cloud-sync.sh      # sync (Phase 5): the Mac's --cloud-sync-test engine sections replayed on iOS (every line == the Mac's), the iOS studio's sync in the real editor (clone, debounced If-Match pushes, merges, Merge Review, cloud History, offline queue, moved container, inbox take, status dot mid-flight), and a Mac ↔ iOS round trip with the REAL Mac binary; INJECT=drop-if-match|merge-wrong-side|lose-unknown-key must FAIL
     apps/ios/scripts/ios-editor-resize.sh   # iPhone Duo fold / unfold: the real editor resized live between the outer (compact) and inner (regular) displays mid-playback — layout per size class, regions inside and clear, History style, project / selection / undo / playback kept; then a crease (top to bottom, then side to side) through FoldingDisplay's seam: stage + transport on one side, timeline over inspector on the other, nothing and no title on the crease (+ injected ignores-size-class / ignores-crease must FAIL)
     # StudioLab --fold-probe                # logs what UIKit reports on the running display: size classes, safe area, verticalBarEdge + bar regions, reserved regions (run on the iPhone Duo simulator)
     apps/ios/scripts/ios-features.sh        # voice-over, transcription, Auto Zoom, background removal vs the Mac (CaptureCat --features-reference): entries, mix, blocks, subtitles, mask, cutout frames; progress SEQUENCES mid-flight (+ --inject self-tests). WHISPER_BASE=<dir> (model + tokenizer) for transcription; run it on an iOS 27 simulator — the iOS 26.2 Simulator's CPU path decodes base.en to nothing

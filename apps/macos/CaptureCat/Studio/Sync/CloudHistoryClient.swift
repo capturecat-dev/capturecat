@@ -176,82 +176,6 @@ nonisolated enum CloudHistoryParse {
     }
 }
 
-extension HTTPCloudProjectTransport: CloudHistoryTransport {
-    func head(projectID: UUID) async throws -> CloudHead? {
-        let (data, http) = try await send(try request("GET", "/\(projectID.uuidString)/head"))
-        if http.statusCode == 404 { return nil }
-        guard http.statusCode == 200 else { throw apiError(data, http) }
-        guard let head = CloudHistoryParse.head(data) else { throw CloudSyncError.invalidResponse }
-        return head
-    }
-
-    func versions(projectID: UUID, before: Int?, limit: Int) async throws -> CloudVersionPage? {
-        var path = "/\(projectID.uuidString)/versions?limit=\(max(1, min(limit, 200)))"
-        if let before { path += "&before=\(before)" }
-        let (data, http) = try await send(try request("GET", path))
-        if http.statusCode == 404 { return nil }
-        guard http.statusCode == 200 else { throw apiError(data, http) }
-        guard let page = CloudHistoryParse.page(data) else { throw CloudSyncError.invalidResponse }
-        return page
-    }
-
-    func version(projectID: UUID, versionID: String) async throws -> CloudVersionDetail {
-        let (data, http) = try await send(try request("GET", "/\(projectID.uuidString)/versions/\(Self.escape(versionID))"))
-        guard http.statusCode == 200 else { throw apiError(data, http) }
-        guard let detail = CloudHistoryParse.detail(data) else { throw CloudSyncError.invalidResponse }
-        return detail
-    }
-
-    func renameVersion(projectID: UUID, versionID: String, label: String?) async throws -> CloudVersion? {
-        var request = try request("PATCH", "/\(projectID.uuidString)/versions/\(Self.escape(versionID))")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body: [String: Any] = ["label": (label?.isEmpty == false ? label! : NSNull()) as Any]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        let (data, http) = try await send(request)
-        guard http.statusCode == 200 else { throw apiError(data, http) }
-        return CloudHistoryParse.version(((try? json(data)) ?? [:])["version"])
-    }
-
-    func restoreVersion(projectID: UUID, versionID: String, baseRevision: Int,
-                        context: CloudSaveContext) async throws -> CloudRestoreResult {
-        var request = try request("POST", "/\(projectID.uuidString)/versions/\(Self.escape(versionID))/restore")
-        request.setValue("\"\(baseRevision)\"", forHTTPHeaderField: "If-Match")
-        // Restore takes the client headers only (it is always its own version).
-        for name in ["X-CC-Client", "X-CC-Client-Id", "X-CC-Source"] {
-            if let value = context.headers[name] { request.setValue(value, forHTTPHeaderField: name) }
-        }
-        let (data, http) = try await send(request)
-        if http.statusCode == 409, let object = try? json(data) {
-            switch object["code"] as? String {
-            case "revision_conflict": return .conflict(Self.conflict(object))
-            case "files_changed": return .filesChanged
-            default: throw apiError(data, http) // version_media_missing
-            }
-        }
-        guard http.statusCode == 200 else { throw apiError(data, http) }
-        let object = try json(data)
-        guard let revision = CloudJSON.int(object["revision"]) else { throw CloudSyncError.invalidResponse }
-        return .restored(revision: revision, documentSHA256: object["documentSha256"] as? String,
-                         version: Self.savedVersion(object["version"]))
-    }
-
-    func deleteVersion(projectID: UUID, versionID: String) async throws {
-        let (data, http) = try await send(try request("DELETE", "/\(projectID.uuidString)/versions/\(Self.escape(versionID))"))
-        guard (200...299).contains(http.statusCode) else { throw apiError(data, http) }
-    }
-
-    func freeUp(projectID: UUID) async throws -> CloudFreeUpResult {
-        let (data, http) = try await send(try request("POST", "/\(projectID.uuidString)/history/free-up"))
-        guard http.statusCode == 200 else { throw apiError(data, http) }
-        guard let result = CloudHistoryParse.freeUp(data) else { throw CloudSyncError.invalidResponse }
-        return result
-    }
-
-    private static func escape(_ id: String) -> String {
-        id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))) ?? id
-    }
-}
-
 // MARK: - Local sync status
 
 /// The "On this Mac — not synced" pseudo-row: project.json vs the merge base.
@@ -310,11 +234,6 @@ final class CloudHistoryClient {
         self.sync = sync
     }
 
-    static func live() -> CloudHistoryClient {
-        let transport = HTTPCloudProjectTransport()
-        return CloudHistoryClient(transport: transport, sync: CloudProjectSync(transport: transport))
-    }
-
     func page(projectID: UUID, before: Int? = nil) async throws -> CloudVersionPage? {
         try await transport.versions(projectID: projectID, before: before, limit: 50)
     }
@@ -369,7 +288,7 @@ final class CloudHistoryClient {
             state = CloudSyncState.load(from: dir, projectID: projectID, apiBaseURL: sync.apiBaseURL)
         }
         guard var agreed = state else { throw CloudSyncError.invalidResponse }
-        let context = CloudSaveContext(clientID: sync.clientID, source: .human, checkpoint: .restore)
+        let context = CloudSaveContext(client: sync.clientKind, clientID: sync.clientID, source: .human, checkpoint: .restore)
         for attempt in 0..<3 {
             switch try await transport.restoreVersion(projectID: projectID, versionID: versionID,
                                                       baseRevision: agreed.revision, context: context) {
@@ -406,8 +325,9 @@ final class CloudHistoryClient {
         return project
     }
 
-    /// History refusals in the user's words; everything else as the sync says.
-    static func message(for error: Error) -> String {
+    /// History refusals in the user's words; nil for anything else (each
+    /// app words those its own way — the Mac: `message(for:)`).
+    nonisolated static func historyMessage(for error: Error) -> String? {
         switch (error as? CloudSyncError)?.apiCode {
         case "named_version_limit":
             return "Your plan's named-version limit is reached. Unname an older version first."
@@ -424,7 +344,7 @@ final class CloudHistoryClient {
         case "version_not_found":
             return "That version no longer exists — History may have been pruned."
         default:
-            return CloudSyncController.message(for: error)
+            return nil
         }
     }
 }

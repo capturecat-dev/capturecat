@@ -616,17 +616,7 @@ final class AuthService: NSObject {
     /// Pulls a human-readable message out of an API error body without ever
     /// echoing raw HTML or a whole response back into an alert.
     static func errorMessage(from data: Data) -> String? {
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            for key in ["error", "message", "error_description"] {
-                if let value = json[key] as? String, !value.isEmpty {
-                    return String(value.prefix(300))
-                }
-            }
-        }
-        guard let text = String(data: data, encoding: .utf8) else { return nil }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !trimmed.hasPrefix("<") else { return nil }
-        return String(trimmed.prefix(300))
+        CloudAPIErrorText.message(from: data)
     }
 
     static func parseDate(_ value: Any?) -> Date? {

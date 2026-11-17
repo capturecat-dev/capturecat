@@ -52,8 +52,10 @@ nonisolated struct CloudProjectList: Decodable, Sendable {
     var storage: StorageUsage?
 }
 
-/// A committed file with a short-lived presigned GET.
-nonisolated struct CloudRemoteFile: Decodable, Sendable, Equatable {
+/// A committed file with a short-lived presigned GET, as the library reads it.
+/// (Was `CloudRemoteFile`; renamed in Studio Phase 5 — the studio's shared
+/// sync core, Studio/Sync, owns that name for the Mac's wire type.)
+nonisolated struct LibraryCloudFile: Decodable, Sendable, Equatable {
     var path: String
     var sha256: String
     var bytes: Int64
@@ -70,7 +72,7 @@ nonisolated struct CloudProjectDetail: Decodable, Sendable {
     var access: String
     /// The raw project.json text exactly as last saved (nil before the first save).
     var document: String?
-    var files: [CloudRemoteFile]
+    var files: [LibraryCloudFile]
     var urlsExpireAt: Date
     var updatedAt: Date
 }

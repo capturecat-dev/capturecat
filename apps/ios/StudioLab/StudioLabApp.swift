@@ -86,6 +86,7 @@ final class LabViewController: UIViewController {
         if EditorResizeLab.start(arguments, lab: self) { return }
         if FoldProbe.start(arguments, lab: self) { return }
         if #available(iOS 26, *), HistoryLab.start(arguments, lab: self) { return }
+        if #available(iOS 26, *), CloudSyncLab.start(arguments, lab: self) { return }
         if FeaturesLab.start(arguments, lab: self) { return }
         if WhisperProbeLab.start(arguments) { return }
         if AudioDecodeProbe.start(arguments) { return }

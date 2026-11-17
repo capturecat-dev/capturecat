@@ -885,6 +885,13 @@ if CommandLine.arguments.contains("--cloud-sync-test") {
     MainActor.assumeIsolated { CloudSyncHarness.run() }
 }
 
+// The Mac's steps of the iOS studio's Mac ↔ iOS cloud round trip (Studio
+// Phase 5, apps/ios/scripts/ios-cloud-sync.sh): the real sync engine against
+// a stub cloud persisted in the given folder. Never reached in a normal launch.
+if CommandLine.arguments.contains("--cloud-sync-roundtrip") {
+    MainActor.assumeIsolated { CloudSyncRoundTripRunner.run() }
+}
+
 // iPhone over Wi-Fi gate: the real TLS-PSK listener + hub on loopback
 // with a test link (never the account's), fake iPhones speaking the wire
 // contract (VideoToolbox H.264), the real recorder/stitcher, the API

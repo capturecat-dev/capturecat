@@ -129,6 +129,17 @@ final class CCHeaderBar: UIView {
         views.forEach(trailing.addArrangedSubview)
     }
 
+    /// A small view right after the back key (a status dot); nil removes it.
+    /// The title keeps clear of it (it sits in the leading group).
+    func setLeadingAccessory(_ view: UIView?) {
+        leadingAccessory?.removeFromSuperview()
+        leadingAccessory = view
+        guard let view else { return }
+        leading.addArrangedSubview(view)
+        accessibilityElements = [backButton, view, titleLabel, trailing]
+    }
+    private(set) var leadingAccessory: UIView?
+
     /// Fade the bottom hairline in once `scrollView` content passes under.
     func track(_ scrollView: UIScrollView) {
         offsetObservation = scrollView.observe(\.contentOffset, options: [.new]) { [weak self] scrollView, _ in
