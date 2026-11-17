@@ -1,0 +1,140 @@
+diff --git a/apps/web/public/.well-known/apple-app-site-association b/apps/web/public/.well-known/apple-app-site-association
+new file mode 100644
+index 0000000..03105dc
+--- /dev/null
++++ b/apps/web/public/.well-known/apple-app-site-association
+@@ -0,0 +1,14 @@
++{
++  "applinks": {
++    "details": [
++      {
++        "appIDs": ["E52HU87CX9.so.capturecat.ios"],
++        "components": [
++          { "/": "/share/*.md", "exclude": true, "comment": "the share page's Markdown twin stays on the web" },
++          { "/": "/share/*/*", "exclude": true },
++          { "/": "/share/*", "comment": "share links open the iPhone / iPad app's share viewer" }
++        ]
++      }
++    ]
++  }
++}
+diff --git a/apps/web/public/_headers b/apps/web/public/_headers
+new file mode 100644
+index 0000000..80cafc3
+--- /dev/null
++++ b/apps/web/public/_headers
+@@ -0,0 +1,7 @@
++# Workers Static Assets headers. The Apple app-site-association file has no
++# extension, so it would otherwise go out as application/octet-stream; Apple's
++# CDN reads it as JSON. (src/server/apple-app-site-association.ts serves the
++# same bytes from the Worker if a request ever reaches it.)
++/.well-known/apple-app-site-association
++  Content-Type: application/json
++  Cache-Control: public, max-age=3600
+diff --git a/apps/web/src/server.ts b/apps/web/src/server.ts
+index 3b73290..a17e5dd 100644
+--- a/apps/web/src/server.ts
++++ b/apps/web/src/server.ts
+@@ -24,6 +24,7 @@ import {
+   appHostMarkdownResponse,
+   htmlRenderable,
+ } from "@/server/agent-discovery";
++import { AASA_PATH, appleAppSiteAssociationResponse } from "@/server/apple-app-site-association";
+ 
+ const startHandler = createStartHandler({ handler: defaultStreamHandler });
+ 
+@@ -103,6 +104,18 @@ async function rewrite(request: Request): Promise<Request | Response> {
+     return new Response("Misdirected request", { status: 421 });
+   }
+ 
++  // Universal links for the iOS app's share viewer — BEFORE the www → apex
++  // redirect: Apple's CDN fetches this path on each host and never follows a
++  // redirect. Normally the static asset (public/_headers sets its type) answers
++  // first; this covers a request that reaches the Worker.
++  if (
++    path === AASA_PATH &&
++    isFirstPartyHost(host) &&
++    (request.method === "GET" || request.method === "HEAD")
++  ) {
++    return appleAppSiteAssociationResponse(request);
++  }
++
+   // One canonical origin for the marketing site: https, no www, no trailing
+   // slash. Permanent (301/308) so search engines merge the variants instead
+   // of indexing duplicates. GET/HEAD only; /api/ is left alone.
+diff --git a/apps/web/src/server/apple-app-site-association.test.ts b/apps/web/src/server/apple-app-site-association.test.ts
+new file mode 100644
+index 0000000..2dca875
+--- /dev/null
++++ b/apps/web/src/server/apple-app-site-association.test.ts
+@@ -0,0 +1,37 @@
++import { describe, expect, it } from "vitest";
++
++import { AASA_PATH, appleAppSiteAssociation, appleAppSiteAssociationResponse } from "./apple-app-site-association";
++
++interface Component {
++  "/": string;
++  exclude?: boolean;
++}
++
++describe("apple-app-site-association", () => {
++  const parsed = JSON.parse(appleAppSiteAssociation) as {
++    applinks: { details: { appIDs: string[]; components: Component[] }[] };
++  };
++
++  it("names the iOS app (team E52HU87CX9, bundle so.capturecat.ios) and nothing else", () => {
++    expect(parsed.applinks.details).toHaveLength(1);
++    expect(parsed.applinks.details[0].appIDs).toEqual(["E52HU87CX9.so.capturecat.ios"]);
++  });
++
++  it("claims ONLY share pages (the .md twin and deeper paths excluded first)", () => {
++    const components = parsed.applinks.details[0].components;
++    const claimed = components.filter((c) => !c.exclude).map((c) => c["/"]);
++    expect(claimed).toEqual(["/share/*"]);
++    const excludes = components.filter((c) => c.exclude).map((c) => c["/"]);
++    expect(excludes).toEqual(["/share/*.md", "/share/*/*"]);
++    // Excludes must come before the claim: iOS takes the first match.
++    expect(components.findIndex((c) => !c.exclude)).toBe(components.length - 1);
++  });
++
++  it("is served as application/json at the well-known path", async () => {
++    expect(AASA_PATH).toBe("/.well-known/apple-app-site-association");
++    const res = appleAppSiteAssociationResponse(new Request(`https://capturecat.so${AASA_PATH}`));
++    expect(res.status).toBe(200);
++    expect(res.headers.get("Content-Type")).toBe("application/json");
++    expect(JSON.parse(await res.text())).toEqual(parsed);
++  });
++});
+diff --git a/apps/web/src/server/apple-app-site-association.ts b/apps/web/src/server/apple-app-site-association.ts
+new file mode 100644
+index 0000000..f33a5b5
+--- /dev/null
++++ b/apps/web/src/server/apple-app-site-association.ts
+@@ -0,0 +1,27 @@
++/**
++ * Universal links for the CaptureCat iPhone / iPad app: a share link
++ * (capturecat.so/share/<id>) tapped on a device with the app opens its
++ * in-app share viewer (apps/ios/App/ShareViewer). Every other path stays on
++ * the web — the file claims share pages only.
++ *
++ * The file itself is public/.well-known/apple-app-site-association (static
++ * assets, Content-Type set in public/_headers). This serves the SAME bytes from
++ * the Worker, so the path answers JSON on capturecat.so and www.capturecat.so
++ * even when a request reaches the Worker instead of the asset layer (no
++ * redirect: Apple's CDN does not follow one to the apex).
++ */
++import aasa from "../../public/.well-known/apple-app-site-association?raw";
++
++export const AASA_PATH = "/.well-known/apple-app-site-association";
++
++export const appleAppSiteAssociation = aasa;
++
++export function appleAppSiteAssociationResponse(request: Request): Response {
++  return new Response(request.method === "HEAD" ? null : aasa, {
++    status: 200,
++    headers: {
++      "Content-Type": "application/json",
++      "Cache-Control": "public, max-age=3600",
++    },
++  });
++}
