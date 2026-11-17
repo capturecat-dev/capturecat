@@ -536,7 +536,7 @@ const VersionItem = z.object({
   label: z.string().nullable().describe("The name a person gave this version, or null."),
   author: z.string().nullable(),
   source: z.enum(["human", "agent", "mixed"]).describe("agent: made through an agent (this server, WebMCP or the Mac MCP server)."),
-  client: z.enum(["mac", "web", "unknown"]),
+  client: z.enum(["mac", "web", "ios", "unknown"]),
   revision: z.number().describe("The revision this version ends at."),
   openedAt: z.string(),
   updatedAt: z.string(),

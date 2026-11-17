@@ -349,7 +349,7 @@ export async function deleteCloudProject(projectId: string, opts: RequestOptions
 // Project history (docs/project-history.md §6 — the wire contract)
 // ---------------------------------------------------------------------------
 
-export type HistoryClientKind = "mac" | "web" | "unknown";
+export type HistoryClientKind = "mac" | "web" | "ios" | "unknown";
 export type HistorySource = "human" | "agent" | "mixed";
 export type HistoryCheckpoint = "merge" | "restore" | "push" | "upload" | "named";
 export type VersionKind = "upload" | "edit" | "merge" | "restore";
@@ -567,7 +567,7 @@ export function decodeVersion(v: unknown): ProjectVersion | null {
     namedAt: str(o.namedAt),
     actorUid: actor.uid,
     actorName: actor.name,
-    clientKind: client === "mac" || client === "web" ? client : "unknown",
+    clientKind: client === "mac" || client === "web" || client === "ios" ? client : "unknown",
     source: o.source === "agent" || o.source === "mixed" ? o.source : "human",
     change: o.change && typeof o.change === "object" ? o.change : null,
     restoredFrom: str(o.restoredFrom),

@@ -155,7 +155,7 @@ describe("parseSaveHeaders", () => {
 
   it("junk degrades to neutral and never throws", () => {
     const h = headersOf({
-      "X-CC-Client": "ios",
+      "X-CC-Client": "android",
       "X-CC-Client-Id": "has space",
       "X-CC-Source": "robot",
       "X-CC-Change": "!!!not-base64",
@@ -164,6 +164,7 @@ describe("parseSaveHeaders", () => {
     });
     expect(h).toEqual({ clientKind: "unknown", clientId: null, source: "human", change: null, checkpoint: null, mergedFrom: null });
     expect(headersOf({ "X-CC-Client-Id": "x".repeat(65) }).clientId).toBeNull();
+    expect(headersOf({ "X-CC-Client": "iOS" }).clientKind).toBe("ios"); // the iOS studio (Phase 5)
     expect(headersOf({ "X-CC-Change": "A".repeat(CHANGE_HEADER_MAX_BYTES + 1) }).change).toBeNull();
   });
 });

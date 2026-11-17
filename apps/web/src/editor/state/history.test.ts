@@ -80,6 +80,7 @@ describe("history presentation", () => {
 
   it("badges, author line, captions", () => {
     expect(versionBadges(version("a", 1, { clientKind: "mac" })).map((b) => b.text)).toEqual(["Mac"]);
+    expect(versionBadges(version("a", 1, { clientKind: "ios" })).map((b) => b.text)).toEqual(["iOS"]);
     expect(versionBadges(version("a", 1, { source: "agent" })).map((b) => b.text)).toEqual(["Web", "Agent"]);
     expect(versionAuthor(version("a", 1))).toBe("Ana on Web");
     expect(versionAuthor(version("a", 1, { source: "agent", clientKind: "mac" }))).toBe("Agent via Mac (Ana)");

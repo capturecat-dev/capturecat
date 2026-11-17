@@ -176,7 +176,7 @@ export function registerProjectAdminRoutes(app: App): void {
         shareUrl: `${shareBaseURL(c.env)}/share/${v.video_id}`,
       })),
       versions: versions?.n ?? 0,
-      lastEditedIn: versions?.last_client === "mac" || versions?.last_client === "web" ? versions.last_client : null,
+      lastEditedIn: versions?.last_client === "mac" || versions?.last_client === "web" || versions?.last_client === "ios" ? versions.last_client : null,
     });
   });
 }

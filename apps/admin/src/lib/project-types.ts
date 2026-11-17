@@ -33,5 +33,5 @@ export interface AdminProjectDetail {
   /** The file the console plays (the screen recording), if any. */
   videos: Array<{ videoId: string; title: string; status: string; createdAt: string; removed: boolean; shareUrl: string }>;
   versions: number;
-  lastEditedIn: "mac" | "web" | null;
+  lastEditedIn: "mac" | "web" | "ios" | null;
 }

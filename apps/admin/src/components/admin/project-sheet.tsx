@@ -8,7 +8,7 @@ import { Facts, Section } from "@/components/admin/user-activity-sheet";
 import { formatBytes, plural, relativeTime } from "@/lib/format";
 import { trpc } from "@/lib/trpc/client";
 
-const EDITED_IN: Record<"mac" | "web", string> = { mac: "Mac app", web: "web editor" };
+const EDITED_IN: Record<"mac" | "web" | "ios", string> = { mac: "Mac app", web: "web editor", ios: "iPhone/iPad app" };
 
 /**
  * One cloud project, read-only and METADATA ONLY: who made it, its size and

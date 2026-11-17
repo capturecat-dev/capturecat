@@ -87,16 +87,16 @@ export function formatTime(iso: string): string {
   return d ? TIME.format(d) : "";
 }
 
-/** The device the version was saved from: "Mac" / "Web" (null = unknown client). */
+/** The device the version was saved from: "Mac" / "Web" / "iOS" (null = unknown client). */
 export function clientName(v: Pick<ProjectVersion, "clientKind">): string | null {
-  return v.clientKind === "mac" ? "Mac" : v.clientKind === "web" ? "Web" : null;
+  return v.clientKind === "mac" ? "Mac" : v.clientKind === "web" ? "Web" : v.clientKind === "ios" ? "iOS" : null;
 }
 
 /** The row badges: client, then "Agent" when an agent made (some of) it. */
 export function versionBadges(v: Pick<ProjectVersion, "clientKind" | "source">): Array<{ text: string; tone: "client" | "agent"; title: string }> {
   const out: Array<{ text: string; tone: "client" | "agent"; title: string }> = [];
   const client = clientName(v);
-  if (client) out.push({ text: client, tone: "client", title: `Saved from ${client === "Mac" ? "the Mac app" : "the web editor"}` });
+  if (client) out.push({ text: client, tone: "client", title: `Saved from ${client === "Mac" ? "the Mac app" : client === "iOS" ? "the iPhone or iPad app" : "the web editor"}` });
   if (v.source === "agent") out.push({ text: "Agent", tone: "agent", title: `Made by an AI agent${client ? ` via ${client}` : ""}` });
   if (v.source === "mixed") out.push({ text: "Agent", tone: "agent", title: `Edited by a person and an AI agent${client ? ` on ${client}` : ""}` });
   return out;

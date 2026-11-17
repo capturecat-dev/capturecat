@@ -466,7 +466,7 @@ export const VERSIONS_PAGE_DEFAULT = 50;
 export const VERSIONS_PAGE_MAX = 200;
 
 export type VersionKind = "upload" | "edit" | "merge" | "restore";
-export type ClientKind = "mac" | "web" | "unknown";
+export type ClientKind = "mac" | "web" | "ios" | "unknown";
 export type SaveSource = "human" | "agent" | "mixed";
 export type Checkpoint = "merge" | "restore" | "push" | "upload" | "named";
 
@@ -495,7 +495,7 @@ export function parseSaveHeaders(get: (name: string) => string | undefined | nul
   const merged = get("X-CC-Merged-From")?.trim() ?? "";
   const mergedFrom = /^\d{1,12}$/.test(merged) ? Number(merged) : null;
   return {
-    clientKind: client === "mac" || client === "web" ? client : "unknown",
+    clientKind: client === "mac" || client === "web" || client === "ios" ? client : "unknown",
     clientId: CLIENT_ID_RE.test(clientId) ? clientId : null,
     source: source === "agent" || source === "mixed" ? source : "human",
     change:
