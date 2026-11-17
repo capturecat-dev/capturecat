@@ -113,6 +113,12 @@ final class StudioTimelineCanvasView: UIView {
     // MARK: Layers
 
     private let overlay = StudioTimelinePlayheadOverlay()
+    /// False with the centred playhead (the editor's timeline): the playhead
+    /// is a fixed marker over the scroll view's centre, not drawn here.
+    var drawsPlayhead = true { didSet { overlay.drawsPlayhead = drawsPlayhead } }
+    /// False with the centred playhead: a drag on the ruler scrolls (and so
+    /// scrubs) like any empty lane instead of dragging a playhead handle.
+    var rulerScrubs = true
     /// The selection outline — a layer, so it can glide between blocks.
     let selectionRing = CAShapeLayer()
     private var ringKey: String?
@@ -178,10 +184,22 @@ final class StudioTimelineCanvasView: UIView {
         if voiceAssets.renderKey != self.voiceAssets.renderKey { dirty = true }
         self.voiceAssets = voiceAssets
         if snapshot != self.snapshot {
+            // The playhead moving (every display frame while playing) changes
+            // only the playhead fields, which the lanes never draw: no lane
+            // redraw then — with the centred playhead nothing at all redraws,
+            // the scroll offset alone moves the content (hitch-free at 120 Hz).
+            var lanesOnly = snapshot
+            lanesOnly.playheadOutputTime = self.snapshot.playheadOutputTime
+            lanesOnly.scrubLabel = self.snapshot.scrubLabel
+            let playheadOnly = lanesOnly == self.snapshot && !snapshot.sliceArmed
             self.snapshot = snapshot
-            overlay.snapshot = snapshot
-            dirty = true
-            reportLaneLayout()
+            if playheadOnly {
+                if drawsPlayhead { overlay.snapshot = snapshot } else { overlay.setSnapshotQuietly(snapshot) }
+            } else {
+                overlay.snapshot = snapshot
+                dirty = true
+                reportLaneLayout()
+            }
         }
         if dirty {
             setNeedsDisplay()
@@ -364,7 +382,7 @@ final class StudioTimelineCanvasView: UIView {
     /// the scroll view. Empty lane space scrolls.
     func ownsDrag(startingAt point: CGPoint) -> Bool {
         guard snapshot.outputDuration > 0 else { return false }
-        if point.y < M.videoLaneY { return true }                       // ruler scrub
+        if point.y < M.videoLaneY { return rulerScrubs }                // ruler scrub (centred: the scroll scrubs)
         if let model = videoModel, videoLaneRect.contains(point) {
             if snapshot.sliceArmed { return true }
             return videoDragKind(at: point, model: model) != nil
@@ -1146,9 +1164,20 @@ final class StudioTimelineCanvasView: UIView {
 final class StudioTimelinePlayheadOverlay: UIView {
     private typealias M = TimelineCanvasMetrics
     weak var canvas: StudioTimelineCanvasView?
-    var snapshot: TimelineCanvasSnapshot? { didSet { setNeedsDisplay() } }
+    var snapshot: TimelineCanvasSnapshot? { didSet { if !quiet { setNeedsDisplay() } } }
     var snapGuideTime: TimeInterval? { didSet { setNeedsDisplay() } }
-    var isScrubbing = false { didSet { if isScrubbing != oldValue { setNeedsDisplay() } } }
+    var isScrubbing = false { didSet { if isScrubbing != oldValue, drawsPlayhead { setNeedsDisplay() } } }
+    /// False with the centred playhead (no playhead, no scrub bubble here).
+    var drawsPlayhead = true { didSet { setNeedsDisplay() } }
+
+    /// Takes a snapshot whose only change is the playhead without a redraw
+    /// (nothing this overlay draws depends on it when `drawsPlayhead` is off).
+    func setSnapshotQuietly(_ snapshot: TimelineCanvasSnapshot) {
+        quiet = true
+        self.snapshot = snapshot
+        quiet = false
+    }
+    private var quiet = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -1177,7 +1206,7 @@ final class StudioTimelinePlayheadOverlay: UIView {
             context.closePath()
             context.fillPath()
         }
-        if snapshot.timelessVideo && !isScrubbing { return }
+        if !drawsPlayhead || (snapshot.timelessVideo && !isScrubbing) { return }
         let x = playheadX
         context.setFillColor((snapshot.playheadIsRed ? UIColor.systemRed : StudioTimelineStyle.playhead).cgColor)
         context.fill(CGRect(x: x - 1, y: 0, width: 2, height: tracksBottom))

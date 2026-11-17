@@ -35,6 +35,11 @@ final class EditorTimelinePlayback: StudioTimelinePlayback {
 
     var canPlay: Bool { playback.player != nil }
 
+    var onDisplayTick: (() -> Void)? {
+        get { playback.onDisplayTick }
+        set { playback.onDisplayTick = newValue }
+    }
+
     /// Voice-over recording state (Studio 4e forwards these to its session).
     var isRecordingVoiceOver: Bool { voiceOverState?().isRecording ?? false }
     var voiceOverRecordingStartTime: TimeInterval? { voiceOverState?().startTime }

@@ -15,8 +15,23 @@ import UIKit
 ///
 /// Standalone and embeddable: the editor shell (4b) hands in its project,
 /// selection, playback and undo manager, and wires the outward hooks below.
+///
+/// The playhead is FIXED at the horizontal centre of the track viewport (the
+/// editor redesign): the content scrolls under it. Dragging the timeline
+/// (an empty lane, the ruler) scrolls and so scrubs; playback scrolls the
+/// content from the display link (`StudioTimelinePlayback.onDisplayTick`),
+/// one offset write per frame and no lane redraw; a seek glides the content
+/// to the new time. Content insets of half the viewport let the first and
+/// last frame reach the centre. Edits are untouched: every gesture still
+/// lands at the same canvas point through the same entry points.
+///
+/// `.embedded` (the editor) drops the toolbar: its commands live in the
+/// editor's tool bar (`EditorToolBar`), which calls the same functions.
 @MainActor
 final class StudioTimelineViewController: UIViewController {
+    /// Standalone (own toolbar — the gate's host) or inside the editor.
+    enum Chrome { case standalone, embedded }
+    let chrome: Chrome
     let project: Project
     let selection: EditorShellSelection
     let playback: StudioTimelinePlayback
@@ -35,6 +50,9 @@ final class StudioTimelineViewController: UIViewController {
     var onArmBlurDraw: ((BlurStyle) -> Void)?
     /// The panel's height changed (EFFECTS sub-rows) — re-lay the stage.
     var onPreferredHeightChange: ((CGFloat) -> Void)?
+    /// Something about the selection or the edit commands' availability
+    /// changed (the editor's contextual tool bar follows it).
+    var onCommandStateChange: (() -> Void)?
 
     // MARK: Shims onto shared state (the Mac controller's, verbatim)
 
@@ -67,7 +85,7 @@ final class StudioTimelineViewController: UIViewController {
         set { selection.selectedBlurID = newValue; applySelectionExclusivity(.blur, newValue) }
     }
     var selectedCameraLayoutID: UUID? {
-        didSet { applySelectionExclusivity(.cameraLayout, selectedCameraLayoutID); rebuildCanvas() }
+        didSet { applySelectionExclusivity(.cameraLayout, selectedCameraLayoutID); rebuildCanvas(); refreshToolbar() }
     }
     var selectedVoiceOverID: UUID? {
         didSet { applySelectionExclusivity(.voiceOver, selectedVoiceOverID); rebuildCanvas(); refreshToolbar() }
@@ -94,6 +112,14 @@ final class StudioTimelineViewController: UIViewController {
     private var visibleTrackWidth: CGFloat = 0
     private var effectsLaneRowCount = 1
     private var applyingExclusivity = false
+    /// The centred playhead's seek glide (content offset, display-link driven).
+    private var glideDriver: CCDisplayDriver?
+    private var glideWritten: CGFloat?
+    private var writingOffset = false
+    /// The canvas x last scrubbed to by a scroll (a vertical-only scroll
+    /// never scrubs).
+    private var lastScrubX: CGFloat = 0
+    private var scrubbedThisScroll = false
 
     let minTimelineScale: CGFloat = 1
     let maxTimelineScale: CGFloat = 30
@@ -102,6 +128,8 @@ final class StudioTimelineViewController: UIViewController {
 
     let canvas = StudioTimelineCanvasView()
     let scrollView = UIScrollView()
+    /// The fixed playhead over the viewport's centre.
+    let centrePlayhead = StudioTimelineCentrePlayhead()
     private let toolbarScroll = UIScrollView()
     private let toolbar = UIStackView()
     private let canvasArea = UIView()
@@ -145,8 +173,10 @@ final class StudioTimelineViewController: UIViewController {
         project: Project,
         selection: EditorShellSelection,
         playback: StudioTimelinePlayback,
-        undoManager: UndoManager? = nil
+        undoManager: UndoManager? = nil,
+        chrome: Chrome = .standalone
     ) {
+        self.chrome = chrome
         self.project = project
         self.selection = selection
         self.playback = playback
@@ -163,8 +193,10 @@ final class StudioTimelineViewController: UIViewController {
     /// Total panel height: toolbar + gap + lanes (sized for the tallest
     /// accordion state, so opening a lane never re-lays out the stage) + 8.
     var intrinsicPanelHeight: CGFloat {
-        StudioTimelineStyle.toolbarHeight + StudioTimelineStyle.canvasTopInset + timelineCanvasHeight + 8
+        toolbarHeight + StudioTimelineStyle.canvasTopInset + timelineCanvasHeight + 8
     }
+
+    private var toolbarHeight: CGFloat { chrome == .standalone ? StudioTimelineStyle.toolbarHeight : 0 }
 
     private var timelineCanvasHeight: CGFloat {
         TimelineLaneLayout.maxTracksBottom(effectsRows: effectsLaneRowCount, annotateRows: 1) + TimelineCanvasMetrics.bottomInset
@@ -184,17 +216,26 @@ final class StudioTimelineViewController: UIViewController {
         buildCanvasArea()
         let hairline = UIView()
         hairline.backgroundColor = CCTheme.color.border
+        toolbarScroll.isHidden = chrome == .embedded
+        hairline.isHidden = chrome == .embedded
+        if chrome == .embedded {
+            root.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        }
         for v in [toolbarScroll, canvasArea, hairline] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
+        // A container shorter than the lanes (a phone on its side) keeps the
+        // canvas area inside it; the lanes then scroll vertically (the label
+        // column follows, `scrollViewDidScroll`).
         let height = canvasArea.heightAnchor.constraint(equalToConstant: timelineCanvasHeight)
+        height.priority = .defaultHigh
         canvasAreaHeight = height
         NSLayoutConstraint.activate([
             toolbarScroll.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             toolbarScroll.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             toolbarScroll.topAnchor.constraint(equalTo: root.topAnchor),
-            toolbarScroll.heightAnchor.constraint(equalToConstant: StudioTimelineStyle.toolbarHeight),
+            toolbarScroll.heightAnchor.constraint(equalToConstant: toolbarHeight),
             hairline.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             hairline.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             hairline.topAnchor.constraint(equalTo: toolbarScroll.bottomAnchor, constant: -1),
@@ -203,6 +244,7 @@ final class StudioTimelineViewController: UIViewController {
             canvasArea.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -StudioTimelineStyle.sideInset),
             canvasArea.topAnchor.constraint(equalTo: toolbarScroll.bottomAnchor, constant: StudioTimelineStyle.canvasTopInset),
             height,
+            canvasArea.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor, constant: -4),
         ])
         root.registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: UIView, _: UITraitCollection) in
             view.layer.borderColor = CCTheme.color.border.resolvedColor(with: view.traitCollection).cgColor
@@ -226,15 +268,31 @@ final class StudioTimelineViewController: UIViewController {
         // The canvas area is the root's direct child, so its frame is final
         // here; the scroll view inside it lays out later in the pass.
         let width = max(0, canvasArea.frame.width - StudioTimelineStyle.labelWidth)
+        placeCentrePlayhead(viewportWidth: width)
         guard width != visibleTrackWidth else { return }
         visibleTrackWidth = width
+        // Half a viewport of inset each side: time 0 and the end both reach
+        // the centre.
+        scrollView.contentInset = UIEdgeInsets(top: 0, left: width / 2, bottom: 0, right: width / 2)
         layoutCanvasDocument()
         // The scrub/seek closures bake the track width in by value.
         rebuildCanvas()
+        canvasArea.layoutIfNeeded()
+        followPlayhead(animated: false)
+    }
+
+    /// The fixed playhead: a line + ringed diamond over the viewport's centre.
+    private func placeCentrePlayhead(viewportWidth: CGFloat) {
+        let x = StudioTimelineStyle.labelWidth + viewportWidth / 2
+        let frame = CGRect(x: (x - StudioTimelineCentrePlayhead.width / 2).rounded(), y: 0,
+                           width: StudioTimelineCentrePlayhead.width, height: canvasArea.bounds.height)
+        if centrePlayhead.frame != frame { centrePlayhead.frame = frame }
     }
 
     /// Breaks the controller ⇄ canvas cycle (the callback tables capture self).
     func tearDown() {
+        stopGlide()
+        playback.onDisplayTick = nil
         observation?.cancel()
         observation = nil
         thumbnailTask?.cancel(); audioTask?.cancel(); voiceTask?.cancel()
@@ -336,9 +394,19 @@ final class StudioTimelineViewController: UIViewController {
         }
 
         scrollView.showsVerticalScrollIndicator = false
+        scrollView.showsHorizontalScrollIndicator = false
         scrollView.alwaysBounceHorizontal = true
         scrollView.delaysContentTouches = false
+        scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.isDirectionalLockEnabled = true
+        labelColumn.clipsToBounds = false
+        canvasArea.clipsToBounds = true
+        scrollView.delegate = self
         scrollView.addSubview(canvas)
+        canvas.drawsPlayhead = false
+        canvas.rulerScrubs = false
+        centrePlayhead.isUserInteractionEnabled = false
+        canvasArea.addSubview(centrePlayhead)
         canvas.onLaneLayoutChange = { [weak self] layout in self?.applyLaneLabelLayout(layout) }
         canvas.laneAccordion.reducedMotionHost = canvasArea
         canvas.accessibilityController = self
@@ -522,6 +590,83 @@ final class StudioTimelineViewController: UIViewController {
         for v in [zoomOutButton!, zoomInButton!, fitButton!] { toolbar.addArrangedSubview(v) }
     }
 
+    // MARK: - Commands (the editor's tool bar calls these — the same
+    // functions this toolbar's keys and the hardware keys call)
+
+    var isSliceArmed: Bool { sliceMode }
+    func toggleSliceTool() { sliceMode.toggle() }
+
+    /// What `duplicateSelectedRegion` can copy: EFFECTS blocks, blur,
+    /// highlight and speed regions.
+    var canDuplicateSelection: Bool {
+        selectedZoomID != nil || selectedTiltID != nil || selectedBlurID != nil
+            || selectedHighlightID != nil || selectedSpeedID != nil
+    }
+
+    var canDeleteSelection: Bool { hasDeletableSelection || selectedAnnotationID != nil }
+
+    /// Anything selected on the timeline (or on the stage — the selection
+    /// is shared).
+    var hasTimelineSelection: Bool {
+        selection.selectedZoomID != nil || selection.selectedTiltID != nil || selection.selectedBlurID != nil
+            || selection.selectedHighlightID != nil || selection.selectedDepthFocusID != nil
+            || selection.selectedAnnotationID != nil || selection.introSelected || selection.curtainSelected
+            || selectedClipID != nil || selectedVoiceOverID != nil || selectedSpeedID != nil
+            || selectedCameraLayoutID != nil
+    }
+
+    /// Deletes the selection (a region, block, clip, chip — or an annotation).
+    func deleteSelection() {
+        if let id = selectedAnnotationID, !hasDeletableSelection {
+            deleteAnnotation(id: id)
+        } else {
+            _ = deleteSelectedRegion()
+        }
+    }
+
+    /// Clears every timeline selection (the contextual bar's Done).
+    func clearTimelineSelection() {
+        selection.selectedZoomID = nil
+        selection.selectedTiltID = nil
+        selection.selectedBlurID = nil
+        selection.selectedHighlightID = nil
+        selection.selectedDepthFocusID = nil
+        selection.selectedAnnotationID = nil
+        selection.introSelected = false
+        selection.curtainSelected = false
+        selectedClipID = nil
+        selectedVoiceOverID = nil
+        selectedSpeedID = nil
+        selectedCameraLayoutID = nil
+    }
+
+    /// The selected item's long-press menu (the same house sheet), anchored
+    /// on `source`; false when nothing selected has one.
+    @discardableResult
+    func showSelectionMenu(from source: UIView?) -> Bool {
+        guard let frame = canvas.selectedBlockFrame() else { return false }
+        let hit = canvas.hit(at: CGPoint(x: frame.rect.midX, y: frame.rect.midY))
+        let present: (CCActionSheet) -> Void = { [weak self, weak source] sheet in self?.present(sheet, from: source) }
+        guard let sheet = StudioTimelineMenus.sheet(for: hit, canvas: canvas, present: present) else { return false }
+        present(sheet)
+        return true
+    }
+
+    /// The speed rows for the part of the recording under the playhead (the
+    /// VIDEO segment's long-press menu: Set / Change / Remove Speed).
+    @discardableResult
+    func showSpeedMenu(from source: UIView?) -> Bool {
+        let point = CGPoint(x: playheadCanvasX, y: TimelineCanvasMetrics.videoLaneY + TimelineCanvasMetrics.trackHeight / 2)
+        let present: (CCActionSheet) -> Void = { [weak self, weak source] sheet in self?.present(sheet, from: source) }
+        guard case .videoSegment = canvas.hit(at: point),
+              let sheet = StudioTimelineMenus.sheet(for: canvas.hit(at: point), canvas: canvas, present: present) else { return false }
+        present(sheet)
+        return true
+    }
+
+    /// The mic key's action (nil = voice-over is not offered here).
+    func toggleVoiceOverRecording() { onToggleVoiceOverRecording?() }
+
     private var duplicateButton: CCButton?
     private var effectsButton: CCButton?
     private var focusButton: CCButton?
@@ -553,6 +698,7 @@ final class StudioTimelineViewController: UIViewController {
         }
         setEnabled(undoButton, timelineUndoManager.canUndo)
         setEnabled(redoButton, timelineUndoManager.canRedo)
+        onCommandStateChange?()
     }
 
     // MARK: - Menus (house sheets, never system menus)
@@ -789,9 +935,16 @@ final class StudioTimelineViewController: UIViewController {
         refreshToolbar()
         rebuildCanvas()
         restartLoadersIfNeeded()
+        centrePlayhead.isHidden = project.hidesTimelinePlayhead
         if lastCurrentTime != playback.currentTime {
             lastCurrentTime = playback.currentTime
-            followPlayheadIfNeeded()
+            // Playing: the display tick moves the content (same vsync as the
+            // frame). Paused: a jump glides there.
+            if !playback.isPlaying { followPlayhead(animated: true) }
+        }
+        let wantsTicks = playback.isPlaying
+        if wantsTicks != (playback.onDisplayTick != nil) {
+            playback.onDisplayTick = wantsTicks ? { [weak self] in self?.displayTick() } : nil
         }
     }
 
@@ -914,32 +1067,235 @@ final class StudioTimelineViewController: UIViewController {
     func setTimelineScale(_ newScale: CGFloat) {
         let clamped = project.presentsTimelessTimeline ? minTimelineScale : min(maxTimelineScale, max(minTimelineScale, newScale))
         guard abs(clamped - timelineScale) > 0.0001 else { return }
-        let oldWidth = scaledTrackWidth
-        let fraction = outputDuration > 0 ? fullTimeMap.outputTime(forSource: currentTime) / outputDuration : 0
-        let visible = scrollView.bounds
-        let playheadScreenX = oldWidth * fraction - visible.minX
         timelineScale = clamped
-        let newWidth = max(visibleTrackWidth, visibleTrackWidth * clamped)
-        let anchorScreenX = min(max(playheadScreenX, 0), max(0, visible.width))
-        let targetX = max(0, min(newWidth - visible.width, newWidth * fraction - anchorScreenX))
+        // The playhead keeps its place on screen — the centre.
         layoutCanvasDocument()
-        scrollView.contentOffset = CGPoint(x: targetX, y: scrollView.contentOffset.y)
+        stopGlide()
+        writeOffset(centredOffsetX)
         rebuildCanvas()
         refreshToolbar()
     }
 
-    /// Keep the playhead in view while playing — page-jump when it leaves.
-    private func followPlayheadIfNeeded() {
+    // MARK: - Centred playhead
+
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT: the old page-jump follow (the playhead
+    /// walks across the viewport and the content jumps a page at a time).
+    static var probePageFollow = false
+    #endif
+
+    /// Canvas x of the playhead (output time over the scaled track).
+    var playheadCanvasX: CGFloat {
+        guard outputDuration > 0 else { return 0 }
+        return scaledTrackWidth * CGFloat(fullTimeMap.outputTime(forSource: currentTime) / outputDuration)
+    }
+
+    /// The scroll offset that puts the playhead at the viewport's centre.
+    var centredOffsetX: CGFloat { playheadCanvasX - scrollView.bounds.width / 2 }
+
+    /// Where the playhead's time sits relative to the viewport's centre, in
+    /// points (0 = under the fixed marker) — what the gates sample.
+    var playheadOffsetFromCentre: CGFloat {
+        playheadCanvasX - scrollView.contentOffset.x - scrollView.bounds.width / 2
+    }
+
+    /// A finger is scrolling the content (or it is still coasting).
+    var isUserScrolling: Bool {
+        #if DEBUG
+        if fingerScrollProbe { return true }
+        #endif
+        return scrollView.isTracking || scrollView.isDragging || scrollView.isDecelerating
+    }
+
+    #if DEBUG
+    /// Harness seam: a finger's scroll, step by step — UIKit's own
+    /// delegate path (begin dragging → content moves → end dragging) with
+    /// the "a finger is on it" state the gate cannot fake through touches.
+    private var fingerScrollProbe = false
+    func probeFingerScroll(by dxs: [CGFloat]) async {
+        fingerScrollProbe = true
+        scrollViewWillBeginDragging(scrollView)
+        for dx in dxs {
+            scrollView.contentOffset.x += dx
+            try? await Task.sleep(nanoseconds: 16_000_000)
+        }
+        fingerScrollProbe = false
+        scrollViewDidEndDragging(scrollView, willDecelerate: false)
+    }
+    #endif
+
+    /// A seek's glide is running (harness seam).
+    var isGliding: Bool { glideDriver != nil }
+
+    /// One display frame while playing: the content moves under the fixed
+    /// playhead — one offset write, nothing redrawn.
+    private func displayTick() {
+        followPlayhead(animated: false)
+    }
+
+    /// Puts the playhead's time under the centre marker — at once (playing,
+    /// layout), or gliding there (a seek while paused). Never while a finger
+    /// scrolls the content.
+    func followPlayhead(animated: Bool) {
+        guard isViewLoaded, scrollView.bounds.width > 0, !isUserScrolling else { return }
+        #if DEBUG
+        if Self.probePageFollow { pageFollow(); return }
+        #endif
+        let target = centredOffsetX
+        let start = scrollView.contentOffset.x
+        guard abs(target - start) > 0.01 else { stopGlide(); return }
+        stopGlide()
+        if !animated || view.window == nil || abs(target - start) < 1 || playback.isPlaying {
+            writeOffset(target)
+            return
+        }
+        if CCMotion.reduceMotion {
+            // Reduce Motion: the content lands under a cross-fade.
+            CCMotion.crossFade(scrollView) { self.writeOffset(target) }
+            return
+        }
+        let points = CCMotion.Curve.settle.points
+        let driver = CCDisplayDriver(duration: CCMotion.paced(0.28)) { [weak self] t in
+            guard let self else { return }
+            // The live target: the playhead may move again mid-glide.
+            let end = self.centredOffsetX
+            self.writeOffset(start + (end - start) * CCMotion.bezierY(t, points))
+            self.glideWritten = self.scrollView.contentOffset.x
+        } completion: { [weak self] in
+            self?.glideDriver = nil
+            self?.glideWritten = nil
+        }
+        glideDriver = driver
+        driver.start()
+    }
+
+    fileprivate func stopGlide() {
+        glideDriver?.stop()
+        glideDriver = nil
+        glideWritten = nil
+    }
+
+    private func writeOffset(_ x: CGFloat) {
+        writingOffset = true
+        scrollView.contentOffset = CGPoint(x: x, y: scrollView.contentOffset.y)
+        writingOffset = false
+    }
+
+    #if DEBUG
+    private func pageFollow() {
         let visible = scrollView.bounds
         guard playback.isPlaying, visible.width > 0, outputDuration > 0 else { return }
-        let width = scaledTrackWidth
-        guard width > visible.width + 1 else { return }
-        let playheadX = width * (fullTimeMap.outputTime(forSource: currentTime) / outputDuration)
-        if playheadX > visible.maxX - 24 || playheadX < visible.minX {
-            scrollView.contentOffset.x = max(0, min(width - visible.width, playheadX - 24))
+        let x = playheadCanvasX
+        if x > visible.maxX - 24 || x < visible.minX {
+            writeOffset(max(-scrollView.contentInset.left, x - 24))
         }
     }
+    #endif
+
+    /// Canvas x under the fixed playhead for the current scroll offset.
+    fileprivate var centreCanvasX: CGFloat { scrollView.contentOffset.x + scrollView.bounds.width / 2 }
+
+    /// The finger let go and the content came to rest: an exact seek to the
+    /// time under the playhead, then (clamped to the trim window) re-centre.
+    fileprivate func settleScrub() {
+        guard scaledTrackWidth > 0, scrubbedThisScroll else { return }
+        scrubbedThisScroll = false
+        canvas.callbacks?.seek(min(max(0, centreCanvasX), scaledTrackWidth))
+        DispatchQueue.main.async { [weak self] in self?.followPlayhead(animated: true) }
+    }
+
+    fileprivate func userScrolled() {
+        // The lane labels follow a vertical scroll (a slim timeline).
+        let dy = -scrollView.contentOffset.y
+        if labelColumn.transform.ty != dy { labelColumn.transform = CGAffineTransform(translationX: 0, y: dy) }
+        // Someone else moved the content (a harness reveal): a glide stops.
+        guard !writingOffset else { return }
+        if let written = glideWritten, abs(written - scrollView.contentOffset.x) > 0.5 { stopGlide() }
+        guard isUserScrolling, scaledTrackWidth > 0 else { return }
+        // Only a horizontal move scrubs (a vertical scroll keeps the time).
+        let x = min(max(0, centreCanvasX), scaledTrackWidth)
+        guard abs(x - lastScrubX) > 0.25 else { return }
+        lastScrubX = x
+        scrubbedThisScroll = true
+        canvas.callbacks?.scrub(x)
+    }
+
+    fileprivate func noteScrollBegan() {
+        lastScrubX = min(max(0, centreCanvasX), scaledTrackWidth)
+        scrubbedThisScroll = false
+    }
 }
+
+// MARK: - Scrolling scrubs
+
+extension StudioTimelineViewController: UIScrollViewDelegate {
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        stopGlide()
+        noteScrollBegan()
+    }
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard scrollView === self.scrollView else { return }
+        userScrolled()
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        if !decelerate { settleScrub() }
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) { settleScrub() }
+}
+
+/// The centred playhead: a 2 pt line over every lane with the ringed
+/// diamond on the ruler's edge (the Mac playhead's drawing), fixed while the
+/// content moves under it. Touch passes through.
+@MainActor
+final class StudioTimelineCentrePlayhead: UIView {
+    static let width: CGFloat = 20
+    private let line = CALayer()
+    private let diamond = CAShapeLayer()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isOpaque = false
+        isAccessibilityElement = false
+        accessibilityIdentifier = "timeline.centrePlayhead"
+        layer.addSublayer(line)
+        layer.addSublayer(diamond)
+        diamond.lineWidth = 1
+        ccOnThemeChange { [weak self] in self?.applyTheme() }
+        applyTheme()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    private func applyTheme() {
+        line.backgroundColor = StudioTimelineStyle.playhead.cgColor
+        diamond.fillColor = StudioTimelineStyle.playhead.cgColor
+        diamond.strokeColor = UIColor.white.withAlphaComponent(0.9).cgColor
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let mid = bounds.midX
+        line.frame = CGRect(x: mid - 1, y: 0, width: 2, height: bounds.height)
+        let cy = TimelineCanvasMetrics.rulerHeight
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: mid, y: cy - 8))
+        path.addLine(to: CGPoint(x: mid + 8, y: cy))
+        path.addLine(to: CGPoint(x: mid, y: cy + 8))
+        path.addLine(to: CGPoint(x: mid - 8, y: cy))
+        path.closeSubpath()
+        diamond.path = path
+        CATransaction.commit()
+    }
+
+    /// The marker's centre line in `view` coordinates (the gates measure it).
+    func centreX(in view: UIView) -> CGFloat { convert(CGPoint(x: bounds.midX, y: 0), to: view).x }
+}
+
 
 // MARK: - TimelineHosting
 
