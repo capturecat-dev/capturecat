@@ -977,6 +977,16 @@ final class EditorViewController: UIViewController {
     }
 
     private func wireTransport() {
+        // VoiceOver: the timeline's zoom (a pinch) as the playhead's actions.
+        transport.playhead.accessibilityCustomActions = [
+            UIAccessibilityCustomAction(name: "Zoom in timeline") { [weak self] _ in self?.timeline.zoomTimeline(in: true); return true },
+            UIAccessibilityCustomAction(name: "Zoom out timeline") { [weak self] _ in self?.timeline.zoomTimeline(in: false); return true },
+            UIAccessibilityCustomAction(name: "Fit timeline") { [weak self] _ in
+                guard let self else { return false }
+                self.timeline.setTimelineScale(self.timeline.minTimelineScale)
+                return true
+            },
+        ]
         transport.onToggleExpanded = { [weak self] in
             guard let self else { return }
             self.setPreviewExpanded(!self.isPreviewExpanded)

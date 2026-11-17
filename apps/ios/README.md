@@ -130,16 +130,49 @@ Color, Bold Text, an iPad keyboard (and Full Keyboard Access) and an iPad pointe
   are elements whose actions run the TOUCH path (gesture entry points, toolbar
   commands): Move earlier/later, Start/End earlier/later, Duplicate, Delete, Split
   at playhead; Move left/right/up/down, Make larger/smaller, Edit text. Same
-  snapping, same undo step as a finger. The playhead is adjustable ("6.5 seconds of
-  20 seconds"). Elements sized by their data carry the `a11y.data.` identifier
+  snapping, same undo step as a finger. The playhead (the transport's time readout) is adjustable
+  ("6.5 seconds of 20 seconds"). The tool bar's keys are buttons labelled by their titles; an
+  open bottom panel hides the timeline and tool bar it covers from VoiceOver. Elements sized by their data carry the `a11y.data.` identifier
   prefix (the 44 pt rule is replaced by "offers the actions").
 - **Dynamic Type**: fixed-width labels shrink to fit (buttons, sliders, rails),
   lists wrap names and stack rows at the accessibility sizes
   (`ccWrapsAtAccessibilitySizes`, `ccStacksAtAccessibilitySizes`), screens scroll.
-- **Keyboard (iPad)**: space play/pause, ⌘Z / ⇧⌘Z, ← / → frame step, ⌫ delete,
-  ⌘D / ⌘B on the timeline (all titled for the ⌘ overlay); kit controls are
+- **Keyboard (iPad)**: space play/pause, ⌘Z / ⇧⌘Z, ← / → frame step, ⌫ delete, ⌘E export,
+  Esc closes a panel / the full-screen preview, ⌘D / ⌘B on the timeline (all titled for the ⌘
+  overlay); kit controls are
   focusable (Space / Return activate, arrows adjust), inspector panes and rows are
   focus groups; buttons and chips have a pointer hover.
+
+## Editor layout (the editor redesign)
+
+`StudioUI/Editor/EditorViewController` lays the editor out the way mobile video editors are,
+one design on every screen:
+
+- **Header**: back, sync dot, title, Undo, Redo, Export (⌘E).
+- **Stage** (the preview card): the larger share of a portrait phone's height — the timeline
+  gives way on short screens so the stage keeps `EditorViewController.stageShare` (40%).
+- **ONE transport row** (`EditorTransportBar`): the time (VoiceOver's adjustable playhead,
+  ← / → with a keyboard), frame step · play/pause · frame step centred, full-screen preview
+  (the preview takes the editor; Esc or the key again returns). No scrubber — the timeline is it.
+- **Timeline with the playhead FIXED at the centre** (`StudioTimelineViewController`): the
+  content scrolls under the marker; dragging an empty lane or the ruler scrolls AND scrubs
+  (exact seek on release); playback scrolls the content from the playback controller's
+  display link (`onDisplayTick`, same vsync as the frame — one offset write, no lane redraw);
+  a seek while paused glides there. Pinch zooms around the centre. A slim timeline (a phone on
+  its side) scrolls its lanes vertically, the labels following.
+- **Tool bar** (`EditorToolBar`, kit rail keys): Add (the effect / focus / annotation menus,
+  voice-over, the slice tool) · Split · Speed | the nine inspector panes | History. A pane tool
+  opens that pane as a PANEL sliding up from the bottom over the timeline and tool bar — never
+  the preview (growth bounce at the pushed edge; a cross-fade under Reduce Motion); the close
+  key, a tap on the grabber or a drag down returns to the tool bar. Selecting something swaps
+  the tools for its CONTEXT keys: Done · Adjust (its pane) · Split · Duplicate · Delete · Speed ·
+  Options (its long-press menu) — the timeline's own commands, never a fork.
+- **Phone on its side** (`landscapeCompact`): stage, transport and a slim timeline in a column;
+  the tool bar is a rail on the trailing edge; a pane opens as a side panel between them,
+  pushing the column narrower (the preview shrinks, never covered).
+- **iPad / iPhone Duo crease layouts**: the inspector COLUMN stays (it fits); the same transport
+  row and centred-playhead timeline; the tool bar's action keys (no pane tools) sit under the
+  timeline.
 
 ## Studio inspector (4d)
 
@@ -151,8 +184,9 @@ Mac panes are built from the same specs, so neither front end can drift: the Mac
 frozen transcript (`StudioHarness/InspectorValuesGoldens`).
 
 - iPad (regular width): a side column in the editor's `inspectorContainer` — pane | rail.
-- iPhone (compact): a bottom sheet docked on that container — grabber, rail strip, pane; drag
-  or tap the grabber to raise it to the header.
+- iPhone: a PANEL the editor opens from its tool bar (`.bottomPanel` — grabber + close key, rail
+  strip, pane, over the timeline and tool bar; `.sidePanel` on a phone on its side — title + close,
+  pane, beside the tool rail). The editor owns the panel's geometry and motion.
 - Selection drives the pane (`InspectorTabFollower`, the Mac shell's rule). State comes in
   through ONE observation loop over the shown pane, goes out through the specs' writes.
 - Undo: every edit is one step (`InspectorEditSession`: snapshot at the press, field-level
@@ -316,11 +350,11 @@ row lower — reported, not gated, and open.
     apps/ios/scripts/studio-canary.sh       # Studio/ typechecks for iOS on its own (fast)
     apps/ios/scripts/ios-vectors.sh         # the Mac's golden vectors run INSIDE the iOS Simulator vs the Mac's output (exact / ≤1e-12; known iOS differences listed) + every cursor raster vs the Mac's --web-cursor-sprites, byte for byte
     apps/ios/scripts/kit-gallery.sh         # the studio controls, every state, both themes, iPhone + iPad: PNGs, structure, behaviour, motion SEQUENCES mid-flight (+ injected-snap self-test)
-    apps/ios/scripts/ios-inspector.sh       # the inspector: every control of the 9 panes vs the Mac's frozen transcript, one undo step per edit, touch targets, VoiceOver, Dynamic Type, re-theme, column/sheet layout, motion SEQUENCES (+ injected-snap self-test)
+    apps/ios/scripts/ios-inspector.sh       # the inspector: every control of the 9 panes vs the Mac's frozen transcript, one undo step per edit, touch targets, VoiceOver, Dynamic Type, re-theme, column layout / the panel a pane tool opens (mid-flight, never over the stage), motion SEQUENCES (+ injected-snap self-test)
     apps/ios/scripts/ios-history.sh         # History (Studio 4f): rows, compare, preview, restore, Merge Review vs the Mac's --history-transcript, line for line; motion sequences; INJECT= must FAIL
     apps/ios/scripts/ios-cloud-sync.sh      # sync (Phase 5): the Mac's --cloud-sync-test engine sections replayed on iOS (every line == the Mac's), the iOS studio's sync in the real editor (clone, debounced If-Match pushes, merges, Merge Review, cloud History, offline queue, moved container, inbox take, status dot mid-flight), and a Mac ↔ iOS round trip with the REAL Mac binary; INJECT=drop-if-match|merge-wrong-side|lose-unknown-key must FAIL
-    apps/ios/scripts/ios-editor-resize.sh   # iPhone Duo fold / unfold: the real editor resized live between the outer (compact) and inner (regular) displays mid-playback — layout per size class, regions inside and clear, History style, project / selection / undo / playback kept; then a crease (top to bottom, then side to side) through FoldingDisplay's seam: stage + transport on one side, timeline over inspector on the other, nothing and no title on the crease (+ injected ignores-size-class / ignores-crease must FAIL)
-    apps/ios/scripts/ios-a11y.sh            # Studio 6a: StudioLab --a11y (every studio screen in the real window chain, default + largest text size: VoiceOver labels / traits / values, MEASURED 44 pt targets via UIWindow.hitTest, no overlapping focusable frames, text fits / grows / never overlaps; timeline + stage actions == the touch path, one undo step; Reduce Motion sampled mid-flight; keyboard commands; focus; pointer; contrast / transparency / colour / weight) + the app's -uiFixtures -uiA11yAudit (library, project, share, capture + inbox, account, dialog, sheet, toast, sign-in); INJECT=missing-label|tiny-target|truncation|snap-under-reduce-motion|action-not-undoable must FAIL. Turns the simulators' app-accessibility runtime on for the run (and off after). New studio screens (the Export sheet) register in A11yLab.extraScreens
+    apps/ios/scripts/ios-editor-resize.sh   # iPhone Duo fold / unfold: the real editor resized live between the outer (compact) and inner (regular) displays mid-playback — layout per size class, regions inside and clear, History style, project / selection / undo / playback kept; then a crease (top to bottom, then side to side) through FoldingDisplay's seam: stage + transport on one side, timeline / tool bar / inspector on the other, nothing and no title on the crease; then on its side (compact height: the tool rail + side panel). Every arrangement: the one transport row, the timeline's playhead on its viewport's centre, the tool bar's place; a pane tool's panel caught MID-FLIGHT and never over the stage (+ injected ignores-size-class / ignores-crease / snap-panel must FAIL)
+    apps/ios/scripts/ios-a11y.sh            # Studio 6a: StudioLab --a11y (every studio screen in the real window chain, default + largest text size: VoiceOver labels / traits / values, MEASURED 44 pt targets via UIWindow.hitTest, no overlapping focusable frames, text fits / grows / never overlaps; timeline + stage actions == the touch path, one undo step; Reduce Motion sampled mid-flight; keyboard commands; focus; pointer; contrast / transparency / colour / weight) + the app's -uiFixtures -uiA11yAudit (library, project, share, capture + inbox, account, dialog, sheet, toast, sign-in); INJECT=missing-label|tiny-target|truncation|snap-under-reduce-motion|action-not-undoable must FAIL. Turns the simulators' app-accessibility runtime on for the run (and off after). New studio screens register in A11yLab.extraScreens (the Export sheet, the tool bar's Add sheet and context keys, a tool's panel, the full-screen preview); ⌘E; Reduce Motion samples of the panel and the tool bar's context swap
     # StudioLab --fold-probe                # logs what UIKit reports on the running display: size classes, safe area, verticalBarEdge + bar regions, reserved regions (run on the iPhone Duo simulator)
     apps/ios/scripts/ios-export-sheet.sh    # the export sheet by touch in the real editor: MP4 / GIF / PNG byte-identical (pre-encode tap) to VideoExporter / StillImageExporter for the same settings, file facts, progress MID-FLIGHT, Cancel leaves no file, background path entered + ended, insufficient-memory alert, delivery controllers, iPhone 1080p30 default (INJECT=wrong-resolution|snap-progress|cancel-leaves-file|no-background must FAIL)
     apps/ios/scripts/ios-export-delivery.sh # GIF / PNG on iOS vs the Mac, then Photos (each asset's original read back: GIF frames/delays, PNG size, movie size/duration/samples), the Files picker and the share sheet — APP=<unsandboxed Mac build>

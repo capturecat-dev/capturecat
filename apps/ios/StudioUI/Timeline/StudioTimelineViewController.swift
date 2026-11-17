@@ -883,8 +883,19 @@ final class StudioTimelineViewController: UIViewController {
             UIKeyCommand(title: "Play", action: #selector(keyPlay), input: " "),
             UIKeyCommand(title: "Back", action: #selector(keyLeft), input: UIKeyCommand.inputLeftArrow),
             UIKeyCommand(title: "Forward", action: #selector(keyRight), input: UIKeyCommand.inputRightArrow),
+            // The zoom keys' twins (pinch stays the touch way).
+            UIKeyCommand(title: "Zoom In Timeline", action: #selector(keyZoomIn), input: "=", modifierFlags: .command),
+            UIKeyCommand(title: "Zoom Out Timeline", action: #selector(keyZoomOut), input: "-", modifierFlags: .command),
+            UIKeyCommand(title: "Fit Timeline", action: #selector(keyZoomFit), input: "0", modifierFlags: .command),
         ]
     }
+
+    @objc private func keyZoomIn() { zoomTimeline(in: true) }
+    @objc private func keyZoomOut() { zoomTimeline(in: false) }
+    @objc private func keyZoomFit() { setTimelineScale(minTimelineScale) }
+
+    /// One zoom-key step (×1.5), the toolbar keys' rule.
+    func zoomTimeline(in zoomIn: Bool) { setTimelineScale(zoomIn ? timelineScale * 1.5 : timelineScale / 1.5) }
 
     @objc private func keyDuplicate() { duplicateSelectedRegion() }
     @objc private func keySplit() { splitAtPlayhead() }
