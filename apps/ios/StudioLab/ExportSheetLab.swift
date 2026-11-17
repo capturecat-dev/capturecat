@@ -199,6 +199,14 @@ final class ExportSheetRun {
         self.inject = inject
     }
 
+    /// What the window shows now, for a look by eye (`<out>/shots/`).
+    private func shot(_ name: String) {
+        guard let window = editor?.view.window ?? lab.view.window, let image = LabCapture.view(window, scale: 1) else { return }
+        let dir = out.appendingPathComponent("shots", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? LabCapture.png(image).write(to: dir.appendingPathComponent("\(isPhone ? "iphone" : "ipad")-\(name).png"))
+    }
+
     private func check(_ name: String, _ pass: Bool, _ detail: String = "") {
         checks += 1
         if !pass { failures += 1 }
@@ -357,6 +365,28 @@ final class ExportSheetRun {
         check("entrance caught mid-flight (\(sheet.isDocked ? "rises from the bottom" : "scales in"))", mid.count >= 2,
               "\(mid.count) of \(samples.count) samples off rest; first \(samples.prefix(4).map { String(format: "%.3f", $0) })")
         await LabTime.settle(0.4)
+        shot("form")
+        // Structure: wrapped labels hug their text (a label measured at the
+        // wrong width stretches and leaves its text centred in a gap).
+        var stretched: [String] = []
+        func walk(_ v: UIView) {
+            if let label = v as? UILabel, label.numberOfLines == 0, !label.isHidden, label.window != nil,
+               label.bounds.width > 0 {
+                let fit = label.sizeThatFits(CGSize(width: label.bounds.width, height: .greatestFiniteMagnitude)).height
+                if abs(label.bounds.height - fit) > 1.5 { stretched.append("\"\(label.text ?? "")\" \(label.bounds.height) vs \(fit)") }
+            }
+            v.subviews.forEach(walk)
+        }
+        walk(sheet.card)
+        check("wrapped labels hug their text", stretched.isEmpty, stretched.joined(separator: "; "))
+        // …and the rows hug their content: the toggle row (only a ≥ 44 pt
+        // minimum) must not stretch into a gap.
+        let row = sheet.fastExportRow
+        let rowFit = row.systemLayoutSizeFitting(CGSize(width: row.bounds.width, height: 0),
+                                                 withHorizontalFittingPriority: .required,
+                                                 verticalFittingPriority: .fittingSizeLevel).height
+        check("rows hug their content (no stretched gaps)", abs(row.bounds.height - rowFit) <= 1,
+              "Fast export row \(row.bounds.height) pt vs \(rowFit) pt")
         check("docked on compact width, centred on regular", sheet.isDocked == isPhone,
               "docked=\(sheet.isDocked) compact=\(isPhone)")
         let window = sheet.view.window?.bounds ?? .zero
@@ -418,6 +448,10 @@ final class ExportSheetRun {
         backgroundLog.removeAll()
         touch("Export", ExportSheetLab.tap(sheet.exportButton))
         let job = sheet.job
+        Task { @MainActor [weak self] in
+            await LabTime.settle(0.8)
+            self?.shot("exporting-\(label)")
+        }
         let progress = await sampleProgress(sheet) {
             if case .running? = job?.state { return false }
             return true
@@ -483,6 +517,7 @@ final class ExportSheetRun {
         }
         try? fm.removeItem(at: reference)
         await LabTime.settle(0.8)
+        shot("done-\(label)")
         check("[\(label)] the sheet shows the finished export", sheet.phase == .done
               && !sheet.photosButton.isHidden && !sheet.filesButton.isHidden && !sheet.shareButton.isHidden,
               "phase \(sheet.phase.rawValue) · \(sheet.summary.text ?? "")")

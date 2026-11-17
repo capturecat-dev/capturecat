@@ -179,6 +179,12 @@ final class StudioExportSheetController: UIViewController {
 
         scrollHeight = scroll.heightAnchor.constraint(equalTo: content.heightAnchor)
         scrollHeight.priority = .required - 2
+        // Rows with only a minimum height (the toggle row's ≥ 44) would
+        // otherwise stretch to whatever the free-height card resolves to: the
+        // content always takes its smallest valid height.
+        let hug = content.heightAnchor.constraint(equalToConstant: 0)
+        hug.priority = .fittingSizeLevel
+        hug.isActive = true
         NSLayoutConstraint.activate([
             scrim.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrim.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -367,6 +373,33 @@ final class StudioExportSheetController: UIViewController {
         UIAccessibility.post(notification: .layoutChanged, argument: titleLabel)
     }
 
+    // MARK: - Wrapping labels
+
+    /// Multi-line labels inside the scroll view measure their height at their
+    /// laid-out width (the scroll view gives them no width to wrap against on
+    /// the first pass, which left tall labels with their text centred in gaps).
+    @discardableResult
+    private func refreshLabelWidths() -> Bool {
+        var changed = false
+        func walk(_ v: UIView) {
+            if let label = v as? UILabel, label.numberOfLines == 0, !label.isHidden {
+                let width = label.bounds.width > 0 ? label.bounds.width : scroll.bounds.width
+                if width > 0, abs(label.preferredMaxLayoutWidth - width) > 0.5 {
+                    label.preferredMaxLayoutWidth = width
+                    changed = true
+                }
+            }
+            v.subviews.forEach(walk)
+        }
+        walk(content)
+        return changed
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if refreshLabelWidths() { view.setNeedsLayout() }
+    }
+
     // MARK: - Motion
 
     override func viewDidAppear(_ animated: Bool) {
@@ -412,6 +445,8 @@ final class StudioExportSheetController: UIViewController {
         let start = card.bounds.height
         heightPin?.isActive = false
         changes()
+        view.layoutIfNeeded()
+        if refreshLabelWidths() { view.layoutIfNeeded() }
         let target = fittedHeight()
         let height = card.heightAnchor.constraint(equalToConstant: start)
         height.priority = .required - 1
