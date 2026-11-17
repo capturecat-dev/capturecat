@@ -163,7 +163,9 @@ final class EditorToolBar: UIView {
         switch tool {
         case .pane(let tab): key.accessibilityIdentifier = "studio.tool.\(tab.rawValue.lowercased())"
         case .back: key.accessibilityIdentifier = "studio.tool.back"
-        case .option(let id): key.accessibilityIdentifier = "studio.option.\(id)"
+        case .option(let id):
+            key.accessibilityIdentifier = "studio.option.\(id)"
+            key.growsToFit = axis == .horizontal
         default: break
         }
         key.addAction(UIAction { [weak self, weak key] _ in

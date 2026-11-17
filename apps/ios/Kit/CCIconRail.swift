@@ -203,6 +203,31 @@ final class CCIconRailKey: UIControl {
     private let label: UILabel
     private let item: CCIconRail.Item
     var compact = false { didSet { setNeedsLayout() } }
+    /// A key whose label may be long (a drill-down bar's sub-options): it
+    /// grows past `keyWidth` to fit its title instead of truncating it —
+    /// at the large text sizes too.
+    var growsToFit = false {
+        didSet {
+            guard growsToFit != oldValue else { return }
+            fixedWidth.isActive = !growsToFit
+            minWidth.isActive = growsToFit
+            invalidateIntrinsicContentSize()
+        }
+    }
+    private var fixedWidth: NSLayoutConstraint!
+    private var minWidth: NSLayoutConstraint!
+
+    override var intrinsicContentSize: CGSize {
+        guard growsToFit else { return super.intrinsicContentSize }
+        let text = (label.text ?? "") as NSString
+        let w = ceil(text.size(withAttributes: [.font: label.font as Any]).width) + 12
+        return CGSize(width: max(CCIconRail.keyWidth, w), height: UIView.noIntrinsicMetric)
+    }
+
+    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+        super.traitCollectionDidChange(previous)
+        if growsToFit { invalidateIntrinsicContentSize() }
+    }
 
     init(item: CCIconRail.Item) {
         self.item = item
@@ -214,6 +239,8 @@ final class CCIconRailKey: UIControl {
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.65
         ccRelayoutOnTextSizeChange()
+        fixedWidth = widthAnchor.constraint(equalToConstant: CCIconRail.keyWidth)
+        minWidth = widthAnchor.constraint(greaterThanOrEqualToConstant: CCIconRail.keyWidth)
         let column = UIStackView(arrangedSubviews: [iconView, label])
         column.axis = .vertical
         column.alignment = .center
@@ -222,7 +249,7 @@ final class CCIconRailKey: UIControl {
         column.translatesAutoresizingMaskIntoConstraints = false
         addSubview(column)
         NSLayoutConstraint.activate([
-            widthAnchor.constraint(equalToConstant: CCIconRail.keyWidth),
+            fixedWidth,
             heightAnchor.constraint(greaterThanOrEqualToConstant: CCIconRail.keyHeight),
             column.centerXAnchor.constraint(equalTo: centerXAnchor),
             column.centerYAnchor.constraint(equalTo: centerYAnchor),

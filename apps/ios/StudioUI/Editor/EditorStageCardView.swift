@@ -207,8 +207,8 @@ final class EditorZoomPill: UIView {
             row.topAnchor.constraint(equalTo: topAnchor),
             row.bottomAnchor.constraint(equalTo: bottomAnchor),
             percent.widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
-            minus.widthAnchor.constraint(equalToConstant: 40),
-            plus.widthAnchor.constraint(equalToConstant: 40),
+            minus.widthAnchor.constraint(equalToConstant: 44),
+            plus.widthAnchor.constraint(equalToConstant: 44),
         ])
         layer.cornerCurve = .continuous
         ccOnThemeChange { [weak self] in self?.restyle() }
