@@ -3,6 +3,10 @@
 /// 3dfa6a1) before its edit operations moved into the shared TimelineEditing
 /// extension. Regenerate ONLY for a behaviour change you meant —
 /// `CaptureCat --timeline-edits-test --print` — and read the line diff first.
+/// Refrozen once (undo integrity, owner-approved): FOCUS drags and the Slide /
+/// Curtain enables and Slide chip drags now register a step, deletes undo
+/// back at their index, and Move Effect's undo restores the joined Slide — every changed line is
+/// one of those (docs/ios-studio-plan.md, "Undo integrity").
 enum TimelineEditsGoldens {
     static let transcript = #"""
 == timeline edits (fixture: 20 s, linked zoom+tilt 2–5, zoom 8–10, blur 1–3, highlight 6–8, depth 11–13, camera 14–17, intro slide on the linked block)
@@ -201,19 +205,19 @@ timeline.32 select nothing via FOCUS
    events: changed
    selection: zoom=nil tilt=nil blur=nil hl=nil depth=nil ann=nil cam=nil voice=nil speed=nil clip=nil intro=false curtain=false tab=Background inspector=true
 timeline.33 commit highlight times
-   undo top:  (unchanged)
+   undo top: Move Highlight
    events: changed
    hl[0]: 6.500000–7.500000 Highlight [0.200000,0.180000 0.420000x0.200000] o=0.550000
 timeline.34 commit focus times
-   undo top:  (unchanged)
+   undo top: Move Depth Focus
    events: changed
    focus[0]: 11.500000–12.500000 [0.280000,0.300000 0.440000x0.340000] i=0.700000
 timeline.35 commit camera times
-   undo top:  (unchanged)
+   undo top: Move Camera Layout
    events: changed
    cam[0]: 14.500000–16.000000 mode=sideBySide look=nil side=nil split=nil
 timeline.36 commit blur times
-   undo top:  (unchanged)
+   undo top: Move Blur
    events: changed
    blur[0]: 1.250000–2.750000 Blur [0.300000,0.300000 0.400000x0.150000] i=0.600000 Blur
 timeline.37 menu: Camera on Left
@@ -436,20 +440,20 @@ timeline.83 delete intro (canvas)
    events: changed
    intro: Off start=3.000000 dur=3.000000
 timeline.84 enable intro (menu)
-   undo top: 
+   undo top: Add Slide
    events: changed
    intro: Bottom start=3.000000 dur=3.000000
    selection: zoom=nil tilt=nil blur=nil hl=nil depth=nil ann=nil cam=nil voice=nil speed=speed[1] clip=nil intro=true curtain=false tab=Effects inspector=true
 timeline.85 resize intro
-   undo top:  (unchanged)
+   undo top: Resize Slide
    events: changed
    intro: Bottom start=3.000000 dur=0.300000
 timeline.86 move intro past the end clamps
-   undo top:  (unchanged)
+   undo top: Move Slide
    events: changed
    intro: Bottom start=20.700000 dur=0.300000
 timeline.87 open intro
-   undo top:  (unchanged)
+   undo top: 
    events: -
 timeline.88 delete intro via Delete key
    undo top: Delete Slide
@@ -457,12 +461,12 @@ timeline.88 delete intro via Delete key
    intro: Off start=20.700000 dur=0.300000
    selection: zoom=nil tilt=nil blur=nil hl=nil depth=nil ann=nil cam=nil voice=nil speed=speed[1] clip=nil intro=false curtain=false tab=Effects inspector=true
 timeline.89 enable curtain (menu)
-   undo top: 
+   undo top: Add Curtain Unveil
    events: changed
    curtain: Top Left start=0.000000 dur=1.600000
    selection: zoom=nil tilt=nil blur=nil hl=nil depth=nil ann=nil cam=nil voice=nil speed=speed[1] clip=nil intro=false curtain=true tab=Effects inspector=true
 timeline.90 resize curtain
-   undo top:  (unchanged)
+   undo top: 
    events: changed
    curtain: Top Left start=0.000000 dur=2.400000
 timeline.91 move curtain
@@ -507,13 +511,17 @@ unwind.04 undo: Delete Curtain Unveil
 unwind.05 undo: 
 unwind.06 undo: 
 unwind.07 undo: 
-unwind.08 undo: 
+unwind.08 undo: Add Curtain Unveil
+   curtain: Off start=4.000000 dur=2.400000
 unwind.09 undo: Delete Slide
    intro: Bottom start=20.700000 dur=0.300000
 unwind.10 undo: 
-unwind.11 undo: 
-unwind.12 undo: 
-unwind.13 undo: 
+unwind.11 undo: Move Slide
+   intro: Bottom start=3.000000 dur=0.300000
+unwind.12 undo: Resize Slide
+   intro: Bottom start=3.000000 dur=3.000000
+unwind.13 undo: Add Slide
+   intro: Off start=3.000000 dur=3.000000
 unwind.14 undo: Delete Slide
    intro: Bottom start=3.000000 dur=3.000000
 unwind.15 undo: Delete Voice Over
@@ -541,9 +549,15 @@ unwind.26 undo: Split Clip
 unwind.27 undo: Split Clip
    clips:  | effective 0.000000–20.000000 | splits []
 unwind.28 undo: Delete Annotation
-   ann[9]: text 9.000000–12.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
+   ann[2]: text 9.000000–12.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
+   ann[3]: arrow 10.000000–13.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
+   ann[4]: callout 11.000000–14.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Look here"
+   ann[5]: rectangle 12.000000–15.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=off bgColor=1.000,1.000,1.000,0.250 size=4.000000 text="Label"
+   ann[6]: ellipse 13.000000–16.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=off bgColor=1.000,1.000,1.000,0.250 size=4.000000 text="Label"
+   ann[7]: drawing 14.000000–20.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
+   ann[8]: tap 19.500000–20.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=40.000000 text="Label"
+   ann[9]: arrow 16.000000–19.000000 color=0.100,0.200,0.900,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
 unwind.29 undo: Add Arrow
-   ann[8]: text 9.000000–12.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
    ann[9]: <gone>
 unwind.30 undo: 
 unwind.31 undo: 
@@ -562,22 +576,16 @@ unwind.42 undo:
 unwind.43 undo: Edit Annotation Timing
    ann[0]: text 1.000000–4.000000 color=1.000,1.000,1.000,1.000 font=Avenir weight=Bold bg=on bgColor=0.200,0.300,0.400,0.800 size=6.000000 text="Hello"
 unwind.44 undo: Add Tap
-   ann[7]: text 9.000000–12.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
    ann[8]: <gone>
 unwind.45 undo: Add Drawing
-   ann[6]: text 9.000000–12.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
    ann[7]: <gone>
 unwind.46 undo: Add Ellipse
-   ann[5]: text 9.000000–12.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
    ann[6]: <gone>
 unwind.47 undo: Add Rectangle
-   ann[4]: text 9.000000–12.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
    ann[5]: <gone>
 unwind.48 undo: Add Look here
-   ann[3]: text 9.000000–12.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
    ann[4]: <gone>
 unwind.49 undo: Add Arrow
-   ann[2]: text 9.000000–12.000000 color=1.000,1.000,1.000,1.000 font=nil weight=Semibold bg=on bgColor=0.000,0.000,0.000,0.550 size=4.000000 text="Label"
    ann[3]: <gone>
 unwind.50 undo: Add Label
    ann[2]: <gone>
@@ -587,28 +595,35 @@ unwind.51 undo: Delete Blur
    blur[2]: 0.000000–1.000000 Pixelate [0.100000,0.200000 0.300000x0.250000] i=0.600000 Pixelate
    blur[3]: 11.000000–13.000000 Blur [0.300000,0.300000 0.400000x0.150000] i=0.600000 Blur
 unwind.52 undo: Delete Camera Layout
-   cam[2]: 14.500000–16.000000 mode=sideBySide look=nil side=nil split=nil
+   cam[0]: 14.500000–16.000000 mode=sideBySide look=nil side=nil split=nil
+   cam[1]: 13.000000–14.000000 mode=sideBySide look=nil side=leading split=full
+   cam[2]: 17.000000–18.000000 mode=bubble look=cutout side=nil split=nil
 unwind.53 undo: Delete Depth Focus
-   focus[1]: 11.500000–12.500000 [0.280000,0.300000 0.440000x0.340000] i=0.700000
+   focus[0]: 11.500000–12.500000 [0.280000,0.300000 0.440000x0.340000] i=0.700000
+   focus[1]: 18.000000–20.000000 [0.280000,0.300000 0.440000x0.340000] i=0.700000
 unwind.54 undo: Delete Highlight
    hl[0]: 6.500000–7.500000 Highlight [0.200000,0.180000 0.420000x0.200000] o=0.550000
    hl[1]: 8.000000–11.000000 Highlight [0.200000,0.180000 0.420000x0.200000] o=0.550000
    hl[2]: 13.000000–15.000000 Highlight [0.200000,0.180000 0.420000x0.200000] o=0.550000
 unwind.55 undo: Paste Layout
-   cam[0]: 13.000000–14.000000 mode=sideBySide look=nil side=nil split=nil
+   cam[1]: 13.000000–14.000000 mode=sideBySide look=nil side=nil split=nil
 unwind.56 undo: Tiles
-   cam[2]: 14.500000–16.000000 mode=sideBySide look=nil side=nil split=full
+   cam[0]: 14.500000–16.000000 mode=sideBySide look=nil side=nil split=full
 unwind.57 undo: Camera on Right
-   cam[2]: 14.500000–16.000000 mode=sideBySide look=nil side=leading split=full
+   cam[0]: 14.500000–16.000000 mode=sideBySide look=nil side=leading split=full
 unwind.58 undo: 
 unwind.59 undo: Full Height
-   cam[2]: 14.500000–16.000000 mode=sideBySide look=nil side=leading split=nil
+   cam[0]: 14.500000–16.000000 mode=sideBySide look=nil side=leading split=nil
 unwind.60 undo: Camera on Left
-   cam[2]: 14.500000–16.000000 mode=sideBySide look=nil side=nil split=nil
-unwind.61 undo: 
-unwind.62 undo: 
-unwind.63 undo: 
-unwind.64 undo: 
+   cam[0]: 14.500000–16.000000 mode=sideBySide look=nil side=nil split=nil
+unwind.61 undo: Move Blur
+   blur[0]: 1.000000–3.000000 Blur [0.300000,0.300000 0.400000x0.150000] i=0.600000 Blur
+unwind.62 undo: Move Camera Layout
+   cam[0]: 14.000000–17.000000 mode=sideBySide look=nil side=nil split=nil
+unwind.63 undo: Move Depth Focus
+   focus[0]: 11.000000–13.000000 [0.280000,0.300000 0.440000x0.340000] i=0.700000
+unwind.64 undo: Move Highlight
+   hl[0]: 6.000000–8.000000 Highlight [0.200000,0.180000 0.420000x0.200000] o=0.550000
 unwind.65 undo: 
 unwind.66 undo: 
 unwind.67 undo: 
@@ -621,15 +636,12 @@ unwind.71 undo:
 unwind.72 undo: 
 unwind.73 undo: 
 unwind.74 undo: Add Cutout
-   cam[1]: 14.500000–16.000000 mode=sideBySide look=nil side=nil split=nil
    cam[2]: <gone>
 unwind.75 undo: Add Camera Layout
-   cam[0]: 14.500000–16.000000 mode=sideBySide look=nil side=nil split=nil
    cam[1]: <gone>
 unwind.76 undo: Add Pixelate
    blur[2]: <gone>
 unwind.77 undo: Add Depth Focus
-   focus[0]: 11.500000–12.500000 [0.280000,0.300000 0.440000x0.340000] i=0.700000
    focus[1]: <gone>
 unwind.78 undo: Add Highlight
    hl[1]: <gone>
@@ -677,6 +689,7 @@ unwind.88 undo:
 unwind.89 undo: Move Effect
    zoom[0]: 2.000000–5.000000 level=1.800000 focal=(0.400000,0.400000) anim=nil off=nil,nil
    tilt[0]: 2.000000–5.000000 p=12.000000 y=-4.000000 r=1.000000
+   intro: Bottom start=2.000000 dur=3.000000
 unwind.90 undo: Add Zoom to Block
    zoom[5]: <gone>
 unwind.91 undo: Add Tilt to Block

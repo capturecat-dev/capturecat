@@ -113,6 +113,11 @@ struct TimelineCanvasCallbacks {
     var resizeCurtain: (TimeInterval) -> Void = { _ in }
     /// Live drag of the whole Curtain chip — new START in output seconds.
     var moveCurtain: (TimeInterval) -> Void = { _ in }
+    /// A chip drag (Slide or Curtain, edge or body) is starting: the canvas
+    /// keeps these spans and hands them back to `commitChipDrag` on release,
+    /// which registers the drag's ONE undo step.
+    var chipSpans: () -> TimelineChipSpans = { TimelineChipSpans() }
+    var commitChipDrag: (TimelineChipSpans) -> Void = { _ in }
     var commitEffectTimes: (UUID?, UUID?, TimeInterval, TimeInterval) -> Void
     var setZoomLevel: (UUID, Double) -> Void
     var addZoomToBlock: (UUID) -> Void

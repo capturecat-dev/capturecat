@@ -478,10 +478,10 @@ enum A11yLab {
         if !ok { problems.append("the action reported failure") }
         if expectsChange {
             if !changedA { problems.append("no project change") }
-            // ONE undo step — or exactly what the touch path registers where
-            // the shared edit registers none (the Mac's FOCUS-lane drags).
-            if stepsA != 1, stepsA != stepsT { problems.append("\(stepsA) undo steps (want 1)") }
-            if stepsT == 0 { lines.append("   note \(label): the touch path registers no undo step (shared Mac behaviour) — the action matches it") }
+            // ONE undo step on both paths (since the undo-integrity fix the
+            // shared edits register one for every lane, FOCUS drags included).
+            if stepsA != 1 { problems.append("\(stepsA) undo steps (want 1)") }
+            if stepsT == 0 { problems.append("the touch path registers no undo step") }
         } else if changedA {
             problems.append("changed the project (\(keys.joined(separator: ",")))")
         }
@@ -492,7 +492,7 @@ enum A11yLab {
         if restoredA != restoredT {
             problems.append("undo restores the opening project \(restoredA ? "" : "not ")after the action but \(restoredT ? "" : "not ")after the touch")
         } else if stepsA > 0, !restoredA {
-            lines.append("   note \(label): undo does not restore the opening bytes on either path (shared Mac behaviour: the undo re-appends at the end)")
+            problems.append("undo does not restore the opening bytes on either path")
         }
         check("action \(label)", problems.isEmpty,
               problems.isEmpty ? (expectsChange ? "\(keys.joined(separator: ",")) changed exactly as by touch; \(stepsA) undo step\(stepsA == 1 ? "" : "s") (touch: \(stepsT))" : "selects, as a tap does; no edit")
@@ -910,9 +910,10 @@ enum A11yLab {
         let deleted = encoded(editor.project) != before
         let countBefore = editor.project.annotations.count
         let undo = await fire("z", .command)
-        // (The shared delete's undo re-appends the annotation at the end.)
+        // The shared delete's undo puts the annotation back AT ITS INDEX
+        // (stacking order) — the whole project byte-equal to before.
         let undone = editor.project.annotations.count == countBefore + 1
-            && editor.project.annotations.contains { $0.id == rectangle }
+            && encoded(editor.project) == before
         // Redo needs an edit that registers its inverse: an inspector slider.
         editor.selection.inspectorTab = .background
         await settle(0.4)

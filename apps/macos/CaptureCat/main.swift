@@ -215,6 +215,14 @@ if CommandLine.arguments.contains("--timeline-edits-test") {
     MainActor.assumeIsolated { TimelineEditsHarness.run() }
 }
 
+// Undo integrity: every lane edit is ONE undo step whose undo restores the
+// exact prior model (byte-equal JSON, middle deletes back at their index) and
+// whose redo re-applies it. `--inject <defect>` proves the gate (DEBUG).
+// Never reached in a normal launch.
+if CommandLine.arguments.contains("--undo-integrity-test") {
+    MainActor.assumeIsolated { UndoIntegrityHarness.run() }
+}
+
 // The preview-parity fixture as data, for the iOS harness app (StudioLab).
 // Never reached in a normal launch.
 if CommandLine.arguments.contains("--preview-parity-fixtures") {

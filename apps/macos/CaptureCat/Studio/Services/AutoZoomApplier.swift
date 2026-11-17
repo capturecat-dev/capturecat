@@ -76,10 +76,9 @@ extension AutoZoomApplier {
         guard created > 0 else { return 0 }
         onApplied()
 
-        undoManager?.registerUndo(withTarget: project) { project in
-            project.zoomRegions = previousRegions
-        }
-        undoManager?.setActionName("Auto Zoom")
+        let regions = project.zoomRegions
+        UndoStep.register(undoManager, target: project, name: "Auto Zoom",
+                          undo: { $0.zoomRegions = previousRegions }, redo: { $0.zoomRegions = regions })
         return created
     }
 }
