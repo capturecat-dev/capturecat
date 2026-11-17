@@ -54,6 +54,7 @@ GATES=(
   --export-tuning-test
   --render-only-test
   --audio-role-test
+  --transcription-audio-test
 )
 
 failed=0

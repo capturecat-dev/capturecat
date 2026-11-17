@@ -808,6 +808,13 @@ if CommandLine.arguments.contains("--autozoom-test") {
     AutoZoomHarness.run()
 }
 
+// Transcription's shared 16 kHz conversion (Studio/Services/TranscriptionAudio):
+// streaming exactness, lengths, pass band, alias rejection. Never reached in a
+// normal launch.
+if CommandLine.arguments.contains("--transcription-audio-test") {
+    TranscriptionAudioHarness.run()
+}
+
 // Studio 4e features gate, Mac half: each feature's fixture plus the Mac's own
 // results (Auto Zoom blocks, a synthetic voice take and its mix, a transcript,
 // the person mask and the cutout's preview/export frames) for StudioLab

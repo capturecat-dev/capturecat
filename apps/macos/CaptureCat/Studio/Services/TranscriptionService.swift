@@ -152,7 +152,10 @@ final class TranscriptionService {
         return SubtitleSegment.groupWords(segments)
     }
 
-    /// Extract audio to 16kHz mono WAV using AVAssetReader (sandbox-safe, no Process)
+    /// Extract audio to 16 kHz mono 16-bit WAV: AVAssetReader decodes the
+    /// track to float at its own rate and channel count; the conversion to
+    /// the engine's format is `TranscriptionAudio` (ours, identical on every
+    /// platform — AVAssetReader's built-in resample is not; see that file).
     func extractAudio(from videoURL: URL, to wavURL: URL) async throws {
         let asset = AVURLAsset(url: videoURL)
         // Prefer mic track (last) over system audio (first) for speech transcription
@@ -163,48 +166,44 @@ final class TranscriptionService {
         let reader = try AVAssetReader(asset: asset)
         let outputSettings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: 16000,
-            AVNumberOfChannelsKey: 1,
-            AVLinearPCMBitDepthKey: 16,
-            AVLinearPCMIsFloatKey: false,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
             AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false,
         ]
         let readerOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: outputSettings)
         reader.add(readerOutput)
         reader.startReading()
 
-        // Write WAV file
-        var pcmData = Data()
+        var resampler: TranscriptionAudio.Resampler?
+        var samples: [Int16] = []
         while let sampleBuffer = readerOutput.copyNextSampleBuffer(),
               let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) {
+            if resampler == nil {
+                guard let format = CMSampleBufferGetFormatDescription(sampleBuffer),
+                      let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(format)?.pointee,
+                      asbd.mSampleRate > 0, asbd.mChannelsPerFrame > 0 else {
+                    throw TranscriptionError.audioExtractionFailed("Unreadable audio format")
+                }
+                resampler = TranscriptionAudio.Resampler(inputRate: Int(asbd.mSampleRate.rounded()),
+                                                         channels: Int(asbd.mChannelsPerFrame))
+            }
             var length = 0
             var dataPointer: UnsafeMutablePointer<Int8>?
             CMBlockBufferGetDataPointer(blockBuffer, atOffset: 0, lengthAtOffsetOut: nil,
                                         totalLengthOut: &length, dataPointerOut: &dataPointer)
             if let dataPointer, length > 0 {
-                pcmData.append(UnsafeBufferPointer(start: dataPointer, count: length))
+                let floats = dataPointer.withMemoryRebound(to: Float.self, capacity: length / 4) {
+                    UnsafeBufferPointer(start: $0, count: length / 4)
+                }
+                samples.append(contentsOf: resampler!.push(floats))
             }
         }
-
-        // Build WAV header + write
-        var wav = Data()
-        let headerSize: UInt32 = 44
-        let dataSize = UInt32(pcmData.count)
-        wav.append("RIFF".data(using: .ascii)!)
-        wav.append(withUnsafeBytes(of: (headerSize - 8 + dataSize).littleEndian) { Data($0) })
-        wav.append("WAVE".data(using: .ascii)!)
-        wav.append("fmt ".data(using: .ascii)!)
-        wav.append(withUnsafeBytes(of: UInt32(16).littleEndian) { Data($0) })  // chunk size
-        wav.append(withUnsafeBytes(of: UInt16(1).littleEndian) { Data($0) })   // PCM
-        wav.append(withUnsafeBytes(of: UInt16(1).littleEndian) { Data($0) })   // mono
-        wav.append(withUnsafeBytes(of: UInt32(16000).littleEndian) { Data($0) }) // sample rate
-        wav.append(withUnsafeBytes(of: UInt32(32000).littleEndian) { Data($0) }) // byte rate
-        wav.append(withUnsafeBytes(of: UInt16(2).littleEndian) { Data($0) })   // block align
-        wav.append(withUnsafeBytes(of: UInt16(16).littleEndian) { Data($0) })  // bits per sample
-        wav.append("data".data(using: .ascii)!)
-        wav.append(withUnsafeBytes(of: dataSize.littleEndian) { Data($0) })
-        wav.append(pcmData)
-        try wav.write(to: wavURL)
+        if reader.status == .failed {
+            throw TranscriptionError.audioExtractionFailed(reader.error?.localizedDescription ?? "Audio decode failed")
+        }
+        if var r = resampler { samples.append(contentsOf: r.finish()) }
+        try TranscriptionAudio.wav(samples).write(to: wavURL)
     }
 }
 

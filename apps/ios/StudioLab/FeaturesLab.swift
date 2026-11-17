@@ -311,6 +311,7 @@ enum FeaturesLab {
             let sha = FeaturesHarness.sha256(try Data(contentsOf: wav))
             let macSHA = mac["wavSHA256"] as? String ?? ""
             var detail = ""
+            var inputMatches = false
             if sha != macSHA, let a = try? Data(contentsOf: wav), let b = try? Data(contentsOf: ref.appendingPathComponent(F.macInput)) {
                 let n = min(a.count, b.count) / 2
                 var worst = 0, differing = 0
@@ -318,9 +319,16 @@ enum FeaturesLab {
                     let ia = pa.bindMemory(to: Int16.self), ib = pb.bindMemory(to: Int16.self)
                     for i in 22..<n { let d = abs(Int(ia[i]) - Int(ib[i])); if d > 0 { differing += 1; worst = max(worst, d) } }
                 } }
-                detail = " — \(a.count) vs \(b.count) bytes; \(differing) of \(n - 22) samples differ, max \(worst) LSB (AVAssetReader's AAC decode / 48→16 kHz resample)"
+                detail = " — \(a.count) vs \(b.count) bytes; \(differing) of \(n - 22) samples differ, max \(worst) LSB"
+                // The conversion is shared (TranscriptionAudio); only the
+                // system's AAC decode may differ, far below one 16-bit step
+                // before rounding — so at most ±1 LSB, never a length change.
+                inputMatches = a.count == b.count && worst <= 1
+            } else {
+                inputMatches = sha == macSHA
             }
-            report.note("engine input (16 kHz WAV) \(sha == macSHA ? "byte-identical to" : "DIFFERS from") the Mac's (\(sha.prefix(12)) vs \(macSHA.prefix(12)))\(detail)")
+            report.check("engine input (16 kHz WAV) matches the Mac's within 1 LSB", inputMatches,
+                         "\(sha == macSHA ? "byte-identical" : "differs") (\(sha.prefix(12)) vs \(macSHA.prefix(12)))\(detail)")
         } catch {
             report.check("audio extraction", false, "\(error)")
         }
