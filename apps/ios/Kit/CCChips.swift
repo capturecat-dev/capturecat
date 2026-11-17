@@ -107,7 +107,11 @@ final class CCChip: UIControl {
         super.pressesEnded(presses, with: event)
     }
 
-    var chipHeight: CGFloat { max(Self.height, ceil(label.font.lineHeight) + 16) }
+    /// Grows with big type; once it grows it is a full 44 pt (its own target).
+    var chipHeight: CGFloat {
+        let needed = ceil(label.font.lineHeight) + 16
+        return needed > Self.height ? max(needed, 44) : Self.height
+    }
 
     override var intrinsicContentSize: CGSize {
         CGSize(width: contentWidth + horizontalPadding * 2, height: chipHeight)
@@ -237,6 +241,8 @@ final class CCChipGroup: UIView {
         self.mode = mode
         selection = mode == .single ? Set(selected.prefix(1)) : selected
         super.init(frame: .zero)
+        // Big type re-flows the chips (heights and wraps).
+        ccRelayoutOnTextSizeChange()
         translatesAutoresizingMaskIntoConstraints = false
         heightConstraint = heightAnchor.constraint(equalToConstant: CCChip.height)
         heightConstraint.isActive = true

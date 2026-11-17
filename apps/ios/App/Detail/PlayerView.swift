@@ -378,6 +378,8 @@ final class PlayerScrubber: UIControl {
         isAccessibilityElement = true
         accessibilityLabel = "Playback position"
         accessibilityTraits = .adjustable
+        // Before the player knows its duration it still speaks a position.
+        accessibilityValue = "0 seconds"
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
