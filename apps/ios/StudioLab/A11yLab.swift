@@ -98,13 +98,24 @@ enum A11yLab {
               ? "UIKit accessibility runtime loaded" : "UIKit accessibility runtime NOT loaded (run through ios-a11y.sh)")
         guard let editor = await openEditor(lab: lab) else { finish(); return }
 
-        await screensAudit(editor)
-        await timelineActions(editor)
-        await stageActions(editor)
-        await transport(editor)
-        await reduceMotion(editor)
-        await keyboard(editor)
-        await settings(editor)
+        // An injected defect runs only the part it plants into (gate power, fast);
+        // a clean run runs everything.
+        switch inject {
+        case "missing-label"?, "tiny-target"?, "truncation"?:
+            await screensAudit(editor, only: ["editor", "inspector-background"])
+        case "snap-under-reduce-motion"?:
+            await reduceMotion(editor)
+        case "action-not-undoable"?:
+            await timelineActions(editor)
+        default:
+            await screensAudit(editor)
+            await timelineActions(editor)
+            await stageActions(editor)
+            await transport(editor)
+            await reduceMotion(editor)
+            await keyboard(editor)
+            await settings(editor)
+        }
         await close(editor)
         finish()
     }
@@ -312,9 +323,9 @@ enum A11yLab {
     }
 
     @available(iOS 26, *)
-    private static func screensAudit(_ editor: EditorViewController) async {
+    private static func screensAudit(_ editor: EditorViewController, only: Set<String>? = nil) async {
         guard let window = editor.view.window else { check("window", false, "the editor is not in a window"); return }
-        for screen in screens(editor) {
+        for screen in screens(editor) where only?.contains(screen.name) ?? true {
             let root = await screen.open(editor)
             await settle(0.3)
             audit(screen.name, window: window, root: root ?? window, size: "default")
