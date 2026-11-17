@@ -38,7 +38,17 @@ def normalise(line):
 
 
 def checks(lines):
-    return [normalise(l) for l in lines if l.startswith("  ✓ ") or l.startswith("  ✘ ") or re.match(r"^[a-z]", l)]
+    out = []
+    for l in lines:
+        # A system log line (ImageIO's "unrecognised property key", …) can land
+        # on the same console line in front of a check: keep the check.
+        for mark in ("  ✓ ", "  ✘ "):
+            at = l.find(mark)
+            if at > 0:
+                l = l[at:]
+        if l.startswith("  ✓ ") or l.startswith("  ✘ "):
+            out.append(normalise(l))
+    return out
 
 
 def main():
