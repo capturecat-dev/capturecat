@@ -219,7 +219,10 @@ final class StudioTimelineViewController: UIViewController {
         toolbarScroll.isHidden = chrome == .embedded
         hairline.isHidden = chrome == .embedded
         if chrome == .embedded {
-            root.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+            // Inside the editor the lanes are part of ONE full-width timeline
+            // region under the editor's toolbar row: flat, no card, no border.
+            root.layer.cornerRadius = 0
+            root.layer.borderWidth = 0
         }
         for v in [toolbarScroll, canvasArea, hairline] {
             v.translatesAutoresizingMaskIntoConstraints = false
@@ -1061,6 +1064,29 @@ final class StudioTimelineViewController: UIViewController {
         guard playback.canPlay else { return }
         playback.isPlaying.toggle()
     }
+
+    // The editor's toolbar row (Mac toolbar keys) calls these — the same
+    // functions this controller's own toolbar keys call.
+
+    /// ⏮ — the trim start.
+    func goToStart() { seekToSource(project.effectiveTrimStart) }
+    /// ⏭ — the last frame.
+    func goToEnd() { seekToSource(max(project.effectiveTrimStart, project.effectiveTrimEnd - 0.01)) }
+
+    /// The zoom on a 0…1 log scale (the toolbar's slider).
+    var timelineScaleFraction: Double {
+        let lo = log(Double(minTimelineScale)), hi = log(Double(maxTimelineScale))
+        return hi > lo ? (log(Double(timelineScale)) - lo) / (hi - lo) : 0
+    }
+
+    func setTimelineScaleFraction(_ f: Double) {
+        let lo = log(Double(minTimelineScale)), hi = log(Double(maxTimelineScale))
+        setTimelineScale(CGFloat(exp(lo + min(1, max(0, f)) * (hi - lo))))
+    }
+
+    var canZoomTimelineOut: Bool { !project.presentsTimelessTimeline && timelineScale > minTimelineScale }
+    var canZoomTimelineIn: Bool { !project.presentsTimelessTimeline && timelineScale < maxTimelineScale }
+    var canDeleteRegion: Bool { hasDeletableSelection }
 
     private func seekToSource(_ sourceTime: TimeInterval) {
         playback.seek(to: sourceTime)

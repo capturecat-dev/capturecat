@@ -15,6 +15,12 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
     /// The user changed the magnification (pinch or pill); 1 = fit.
     var onZoomChange: ((CGFloat) -> Void)?
 
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT (`stage-card`): the stage is an inset
+    /// rounded card again (the editor also insets it).
+    static var probeCard = false
+    #endif
+
     static let zoomSteps: [CGFloat] = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0]
     private var pinchStartZoom: CGFloat = 1
     private var pinchStartPan: CGPoint = .zero
@@ -24,10 +30,17 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
     override init(frame: CGRect) {
         super.init(frame: frame)
         translatesAutoresizingMaskIntoConstraints = false
-        backgroundColor = CCTheme.color.card
-        layer.cornerRadius = CCTheme.radii.lg
-        layer.cornerCurve = .continuous
+        // Edge to edge and flat (no inset card): the canvas fills the region
+        // at its own aspect; any spare band is the editor's ground.
+        backgroundColor = CCTheme.color.background
         clipsToBounds = true
+        #if DEBUG
+        if Self.probeCard {
+            layer.cornerRadius = CCTheme.radii.lg
+            layer.borderWidth = 1
+            layer.borderColor = UIColor.gray.cgColor
+        }
+        #endif
         accessibilityIdentifier = "studio.stageCard"
 
         for view in [stage, canvas] as [UIView] {
@@ -46,8 +59,8 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
 
         addSubview(zoomPill)
         NSLayoutConstraint.activate([
-            zoomPill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            zoomPill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            zoomPill.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -8),
+            zoomPill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
         ])
         zoomPill.onZoomOut = { [weak self] in self?.stepZoom(-1) }
         zoomPill.onZoomIn = { [weak self] in self?.stepZoom(1) }
@@ -138,43 +151,64 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
     }
 }
 
-/// − / 100 % / + — the Mac's `PreviewZoomPill`, dressed as a raised kit
-/// surface. Tapping the percentage returns to fit.
-final class EditorZoomPill: CCSurface {
+/// ⊖ 100% ⊕ — the Mac's `PreviewZoomPill`: a small dark chip with the
+/// magnifier icons and the percentage (tap it to fit). Keys draw small and
+/// answer across 44 pt; spaced so their targets never overlap.
+final class EditorZoomPill: UIView {
     var onZoomOut: (() -> Void)?
     var onZoomIn: (() -> Void)?
     var onReset: (() -> Void)?
 
-    private let minus = CCButton(symbol: "minus", style: .ghost, size: .regular, radius: .full)
-    private let plus = CCButton(symbol: "plus", style: .ghost, size: .regular, radius: .full)
-    private let percent = CCButton(title: "100%", style: .ghost, size: .regular, radius: .full)
+    private let minus = CCButton(symbol: "minus.magnifyingglass", style: .ghost, size: .sm, radius: .full)
+    private let plus = CCButton(symbol: "plus.magnifyingglass", style: .ghost, size: .sm, radius: .full)
+    private let percent = CCButton(title: "100%", style: .ghost, size: .sm, radius: .full)
 
     init() {
-        super.init(.raised, tint: CCTheme.color.popover, radius: .full)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        accessibilityIdentifier = "studio.zoomPill"
         minus.accessibilityLabelOverride = "Zoom out"
         plus.accessibilityLabelOverride = "Zoom in"
-        percent.accessibilityLabelOverride = "Fit"
         minus.onTap = { [weak self] in self?.onZoomOut?() }
         plus.onTap = { [weak self] in self?.onZoomIn?() }
         percent.onTap = { [weak self] in self?.onReset?() }
+        percent.accessibilityLabelOverride = "Fit"
         let row = UIStackView(arrangedSubviews: [minus, percent, plus])
-        row.spacing = 0
+        row.spacing = 5
         row.alignment = .center
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
         NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 1),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -1),
-            row.topAnchor.constraint(equalTo: topAnchor, constant: 1),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
-            percent.widthAnchor.constraint(greaterThanOrEqualToConstant: 58),
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: 0),
+            row.topAnchor.constraint(equalTo: topAnchor),
+            row.bottomAnchor.constraint(equalTo: bottomAnchor),
+            percent.widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            minus.widthAnchor.constraint(equalToConstant: 34),
+            plus.widthAnchor.constraint(equalToConstant: 34),
         ])
+        layer.cornerCurve = .continuous
+        ccOnThemeChange { [weak self] in self?.restyle() }
+        restyle()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    private func restyle() {
+        // The Mac chip: a dark translucent capsule over the canvas.
+        backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        layer.borderWidth = 0.5
+        layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layer.cornerRadius = bounds.height / 2
+    }
+
     func update(zoom: CGFloat, canZoomOut: Bool, canZoomIn: Bool) {
         percent.title = "\(Int((zoom * 100).rounded()))%"
+        percent.accessibilityValue = percent.title
         minus.isEnabled = canZoomOut
         plus.isEnabled = canZoomIn
     }

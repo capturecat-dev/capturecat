@@ -1,35 +1,45 @@
 import UIKit
 
-/// The editor's tool bar (the editor redesign): one row of icon + label
-/// tools along the bottom of a portrait phone, a rail down the trailing edge
+/// The editor's tool bar — a DRILL-DOWN bar in the Mac inspector rail's
+/// dress (icon over a small label, the open key on a gliding raised chip):
+/// a row along the bottom of a portrait phone, a rail down the trailing edge
 /// of a landscape phone, a row under the timeline on iPad.
 ///
-///   Tools:    Add · Split · Speed | Background · Cursor · … · Annotate | History
-///   Context:  Done · Adjust · Split · Duplicate · Delete · Speed · Options
-///   Slicing:  Done · Split
+///   Root:     Background · Cursor · … · Annotate | Add · Split · Speed | History
+///   A pane:   ‹ · its sub-options (Background: Gradient · Mesh · Solid · … · Look · Frame)
+///   Context:  ‹ · Adjust · Split · Duplicate · Delete · Speed · Options
+///   Slicing:  ‹ · Split
 ///
-/// The pane tools (`showsPaneTools`) open the inspector's panes as a panel
-/// (the editor decides how); where an inspector column is always on screen
-/// (iPad, the iPhone Duo's crease layouts) they are left out. When something
-/// is selected on the timeline or the stage, the CONTEXT keys take the tools'
-/// place — the timeline's own commands (`StudioTimelineViewController`'s
-/// split / duplicate / delete / speed / item menu), never a fork of them.
+/// Tapping a pane tool REPLACES the bar's keys with that pane's sub-options
+/// (`setOptions`, built from the shared inspector specs); a sub-option opens
+/// a SHORT panel above the bar (the editor decides). The back key (‹, far
+/// leading) goes up a level. A selection swaps in its CONTEXT keys — the
+/// timeline's own commands, never a fork of them. Level changes slide in
+/// place from the side they lead to (a cross-fade under Reduce Motion), and
+/// VoiceOver lands on the new level's first key.
 ///
 /// Keys are the kit's rail keys (`CCIconRailKey`: ≥ 64 × 56 pt, VoiceOver
 /// buttons labelled by their titles, keyboard-focusable). The bar scrolls
-/// along its axis. Swapping tools ⇄ context cross-fades with a short rise
-/// (a cross-fade alone under Reduce Motion).
+/// along its axis. Where an inspector column is always on screen (iPad, the
+/// iPhone Duo's crease layouts) the pane tools are left out.
 @MainActor
-final class EditorToolBar: CCSurface {
+final class EditorToolBar: UIView {
     enum Axis { case horizontal, vertical }
 
     enum Tool: Equatable {
         case add, split, speed, pane(InspectorTab), history
-        case done, adjust, duplicate, delete, options
+        /// ‹ — up a level (out of a pane, clear a selection, disarm slicing).
+        case back
+        /// A pane level's sub-option (`InspectorPanelOption.id`).
+        case option(String)
+        case adjust, duplicate, delete, options
     }
 
     enum Mode: Equatable {
+        /// The root tools.
         case tools
+        /// A pane's sub-options.
+        case pane(InspectorTab)
         /// Something is selected: which context keys apply.
         case context(Context)
         /// The slice tool is armed (tap the VIDEO lane to cut).
@@ -47,32 +57,44 @@ final class EditorToolBar: CCSurface {
     /// A key was tapped (the key itself anchors any sheet it opens).
     var onTool: ((Tool, UIView) -> Void)?
 
-    var axis: Axis = .horizontal { didSet { if axis != oldValue { relayout() } } }
-    var showsPaneTools = true { didSet { if showsPaneTools != oldValue { rebuildTools() } } }
-    /// Docked to the screen's edge (no corners, a hairline on the inner
-    /// edge, keys kept inside the safe area) or a floating card (iPad).
+    var axis: Axis = .horizontal { didSet { if axis != oldValue { relayout(); rebuild(animated: false, direction: 0) } } }
+    var showsPaneTools = true { didSet { if showsPaneTools != oldValue { rebuild(animated: false, direction: 0) } } }
+    /// Docked to the screen's edge (a hairline on the inner edge, keys kept
+    /// inside the safe area) or a row on the region (iPad).
     var docked = true { didSet { if docked != oldValue { applyDocking() } } }
     private(set) var mode: Mode = .tools
+    /// The pane level's options (as last set).
+    private(set) var options: [InspectorPanelOption] = []
 
     private let scroll = UIScrollView()
-    private let toolsStack = UIStackView()
-    private let contextStack = UIStackView()
+    private var stack = UIStackView()
     private let hairline = UIView()
     private var keys: [(tool: Tool, key: CCIconRailKey)] = []
-    private var contextKeys: [(tool: Tool, key: CCIconRailKey)] = []
     private var axisConstraints: [NSLayoutConstraint] = []
-    private(set) var openPane: InspectorTab?
-    /// The open panel's tool sits on a raised chip that GLIDES between keys
-    /// (the kit rail's selected state) — fades in on open, out on close.
+    private var stackConstraints: [NSLayoutConstraint] = []
+    /// The key whose panel is open (an option, Adjust, a pane tool).
+    private(set) var openTool: Tool?
+    /// The open key sits on a raised chip that GLIDES between keys (the kit
+    /// rail's selected state) — fades in on open, out on close.
     private let chip = CALayer()
+    /// The outgoing level while a level change animates (probes sample it).
+    private(set) var probeOutgoing: UIView?
 
     /// The bar's thickness across its axis (keys + padding), without the
     /// safe-area band a docked bar adds.
     static let thickness: CGFloat = CCIconRail.keyHeight + 8
     static let railWidth: CGFloat = CCIconRail.keyWidth + 8
 
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT (`bar-snap`): level changes snap.
+    static var probeSnapLevels = false
+    /// Probe seam — INJECTED DEFECT (`no-back`): a pane level has no back key.
+    static var probeNoBack = false
+    #endif
+
     init() {
-        super.init(.raisedMatte, tint: CCTheme.color.card, radius: .none)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
         accessibilityIdentifier = "studio.toolBar"
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.showsHorizontalScrollIndicator = false
@@ -82,20 +104,13 @@ final class EditorToolBar: CCSurface {
         hairline.translatesAutoresizingMaskIntoConstraints = false
         hairline.isUserInteractionEnabled = false
         addSubview(hairline)
-        for stack in [toolsStack, contextStack] {
-            stack.translatesAutoresizingMaskIntoConstraints = false
-            stack.spacing = 4
-            stack.alignment = .center
-            scroll.addSubview(stack)
-        }
-        contextStack.isHidden = true
         chip.cornerCurve = .continuous
         chip.opacity = 0
         scroll.layer.insertSublayer(chip, at: 0)
         ccOnThemeChange { [weak self] in self?.restyleChrome() }
         restyleChrome()
-        rebuildTools()
         relayout()
+        rebuild(animated: false, direction: 0)
         applyDocking()
     }
 
@@ -103,14 +118,17 @@ final class EditorToolBar: CCSurface {
 
     // MARK: Keys
 
-    private static func item(for tool: Tool) -> CCIconRail.Item {
+    private func item(for tool: Tool) -> CCIconRail.Item {
         switch tool {
         case .add: return .init(title: "Add", symbol: "plus")
         case .split: return .init(title: "Split", symbol: "scissors")
         case .speed: return .init(title: "Speed", symbol: "gauge.with.needle")
         case .pane(let tab): return .init(title: tab.rawValue, symbol: tab.icon)
         case .history: return .init(title: InspectorFeature.showHistory.title, symbol: InspectorFeature.showHistory.symbol)
-        case .done: return .init(title: "Done", symbol: "checkmark")
+        case .back: return .init(title: "Back", symbol: "chevron-left")
+        case .option(let id):
+            let o = options.first { $0.id == id }
+            return .init(title: o?.title ?? id, symbol: o?.symbol ?? "sliders")
         case .adjust: return .init(title: "Adjust", symbol: "slider.horizontal.3")
         case .duplicate: return .init(title: "Duplicate", symbol: "square.fill.on.square")
         case .delete: return .init(title: "Delete", symbol: "trash")
@@ -118,14 +136,20 @@ final class EditorToolBar: CCSurface {
         }
     }
 
-    private static func hint(for tool: Tool) -> String? {
+    private func hint(for tool: Tool) -> String? {
         switch tool {
         case .add: return "Adds an effect, a focus region, an annotation or a voice over, or arms the slice tool."
         case .split: return "Splits the recording at the playhead."
         case .speed: return "Sets the speed of the part under the playhead."
-        case .pane: return "Opens its settings in a panel above the tool bar; again closes it."
+        case .pane: return "Shows its settings on the tool bar."
         case .history: return "Shows this project's earlier versions."
-        case .done: return "Clears the selection."
+        case .back:
+            switch mode {
+            case .context: return "Clears the selection."
+            case .slicing: return "Puts the slice tool away."
+            default: return "Back to the tools."
+            }
+        case .option: return "Opens its controls above the tool bar."
         case .adjust: return "Opens the selection's settings."
         case .duplicate: return "Duplicates the selection."
         case .delete: return "Deletes the selection."
@@ -134,9 +158,14 @@ final class EditorToolBar: CCSurface {
     }
 
     private func makeKey(_ tool: Tool) -> CCIconRailKey {
-        let key = CCIconRailKey(item: Self.item(for: tool))
-        key.accessibilityHint = Self.hint(for: tool)
-        if case .pane(let tab) = tool { key.accessibilityIdentifier = "studio.tool.\(tab.rawValue.lowercased())" }
+        let key = CCIconRailKey(item: item(for: tool))
+        key.accessibilityHint = hint(for: tool)
+        switch tool {
+        case .pane(let tab): key.accessibilityIdentifier = "studio.tool.\(tab.rawValue.lowercased())"
+        case .back: key.accessibilityIdentifier = "studio.tool.back"
+        case .option(let id): key.accessibilityIdentifier = "studio.option.\(id)"
+        default: break
+        }
         key.addAction(UIAction { [weak self, weak key] _ in
             guard let self, let key else { return }
             CCHaptics.selection()
@@ -154,44 +183,103 @@ final class EditorToolBar: CCSurface {
         return line
     }
 
-    private func rebuildTools() {
-        for v in toolsStack.arrangedSubviews { v.removeFromSuperview() }
-        keys = []
-        var tools: [Tool] = [.add, .split, .speed]
-        if showsPaneTools { tools += InspectorTab.allCases.map { .pane($0) } + [.history] }
-        for (i, tool) in tools.enumerated() {
-            if showsPaneTools, i == 3 || tool == .history { toolsStack.addArrangedSubview(separator()) }
-            let key = makeKey(tool)
-            keys.append((tool, key))
-            toolsStack.addArrangedSubview(key)
+    /// The level's tools, with separators (nil) between groups.
+    private func tools(for mode: Mode) -> [Tool?] {
+        switch mode {
+        case .tools:
+            var t: [Tool?] = []
+            if showsPaneTools { t += InspectorTab.allCases.map { .pane($0) } + [nil] }
+            t += [.add, .split, .speed]
+            if showsPaneTools { t += [nil, .history] }
+            return t
+        case .pane:
+            var t: [Tool?] = [.back, nil]
+            #if DEBUG
+            if Self.probeNoBack { t = [] }
+            #endif
+            return t + options.map { .option($0.id) }
+        case .slicing:
+            return [.back, nil, .split]
+        case .context(let c):
+            var t: [Tool?] = [.back, nil]
+            if c.adjust { t.append(.adjust) }
+            t.append(.split)
+            if c.duplicate { t.append(.duplicate) }
+            if c.delete { t.append(.delete) }
+            if c.speed { t.append(.speed) }
+            if c.options { t.append(.options) }
+            return t
         }
-        setOpenPane(openPane)
     }
 
-    private func rebuildContext(_ tools: [Tool]) {
-        for v in contextStack.arrangedSubviews { v.removeFromSuperview() }
-        contextKeys = []
-        for tool in tools {
+    /// Builds the level's keys in a fresh stack; animated, the old level
+    /// slides out toward `direction` (−1 back, +1 deeper) as the new slides in.
+    private func rebuild(animated: Bool, direction: CGFloat) {
+        let old = stack
+        let new = UIStackView()
+        new.translatesAutoresizingMaskIntoConstraints = false
+        new.spacing = 4
+        new.alignment = .center
+        new.axis = axis == .horizontal ? .horizontal : .vertical
+        keys = []
+        for tool in tools(for: mode) {
+            guard let tool else { new.addArrangedSubview(separator()); continue }
             let key = makeKey(tool)
-            contextKeys.append((tool, key))
-            contextStack.addArrangedSubview(key)
+            keys.append((tool, key))
+            new.addArrangedSubview(key)
         }
+        var animate = animated && window != nil && old.superview != nil
+        #if DEBUG
+        if Self.probeSnapLevels { animate = false }
+        #endif
+        // The outgoing level leaves as a snapshot over the bar (the scroll
+        // content follows only the new level).
+        var ghost: UIView?
+        if animate, let snap = old.snapshotView(afterScreenUpdates: false) {
+            snap.frame = old.convert(old.bounds, to: self)
+            snap.isUserInteractionEnabled = false
+            snap.isAccessibilityElement = false
+            addSubview(snap)
+            ghost = snap
+        }
+        old.removeFromSuperview()
+        stack = new
+        scroll.addSubview(new)
+        activateStackConstraints()
+        layoutIfNeeded()
+        scroll.setContentOffset(.zero, animated: false)
+        placeChip(animated: false)
+        accessibilityElements = nil
+        guard animate else { return }
+        let horizontal = axis == .horizontal
+        let rtl = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let travel: CGFloat = 44 * direction * (horizontal && rtl ? -1 : 1)
+        let keyPath = horizontal ? "transform.translation.x" : "transform.translation.y"
+        if direction != 0 {
+            CCMotion.spring(new.layer, keyPath: keyPath, from: travel, to: 0, .smooth)
+        } else {
+            CCMotion.enter(new.layer, horizontal ? .slideUp(distance: 10) : .fade)
+        }
+        CCMotion.fadeAlpha(new, to: 1, duration: 0.22, from: 0)
+        if let ghost {
+            probeOutgoing = ghost
+            CCMotion.fadeAlpha(ghost, to: 0, duration: 0.18)
+            if direction != 0 { CCMotion.spring(ghost.layer, keyPath: keyPath, to: -travel / 2, .snappy) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) { [weak self, weak ghost] in
+                ghost?.removeFromSuperview()
+                if self?.probeOutgoing === ghost { self?.probeOutgoing = nil }
+            }
+        }
+        UIAccessibility.post(notification: .layoutChanged, argument: keys.first?.key)
     }
 
     // MARK: Layout
 
     private func relayout() {
-        NSLayoutConstraint.deactivate(axisConstraints + stackConstraints.values.flatMap { $0 })
-        let horizontal = axis == .horizontal
-        for stack in [toolsStack, contextStack] {
-            stack.axis = horizontal ? .horizontal : .vertical
-        }
-        // Separators follow the axis.
-        rebuildTools()
+        NSLayoutConstraint.deactivate(axisConstraints)
         let guide = safeAreaLayoutGuide
-        let pad: CGFloat = 4
         var c: [NSLayoutConstraint] = []
-        if horizontal {
+        if axis == .horizontal {
             c += [
                 scroll.leadingAnchor.constraint(equalTo: guide.leadingAnchor),
                 scroll.trailingAnchor.constraint(equalTo: guide.trailingAnchor),
@@ -214,42 +302,32 @@ final class EditorToolBar: CCSurface {
                 hairline.widthAnchor.constraint(equalToConstant: 1),
             ]
         }
-        stackConstraints = [:]
-        for stack in [toolsStack, contextStack] {
-            // Only the stack on show sizes the scroll content (two stacks of
-            // different lengths would fight over it).
-            var own = [
-                stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: pad),
-                stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: pad),
-            ]
-            let sizing = [
-                stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -pad),
-                stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -pad),
-            ]
-            if horizontal {
-                own.append(stack.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor, constant: -2 * pad))
-            } else {
-                own.append(stack.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor, constant: -2 * pad))
-            }
-            c += own
-            stackConstraints[ObjectIdentifier(stack)] = sizing
-        }
         axisConstraints = c
         NSLayoutConstraint.activate(c)
-        activateSizing()
         setNeedsLayout()
     }
 
-    private var stackConstraints: [ObjectIdentifier: [NSLayoutConstraint]] = [:]
-
-    private func activateSizing() {
-        let shown = mode == .tools ? toolsStack : contextStack
-        let hidden = mode == .tools ? contextStack : toolsStack
-        NSLayoutConstraint.deactivate(stackConstraints[ObjectIdentifier(hidden)] ?? [])
-        NSLayoutConstraint.activate(stackConstraints[ObjectIdentifier(shown)] ?? [])
+    private func activateStackConstraints() {
+        NSLayoutConstraint.deactivate(stackConstraints)
+        let pad: CGFloat = 4
+        var c = [
+            stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: pad),
+            stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: pad),
+            stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -pad),
+            stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -pad),
+        ]
+        if axis == .horizontal {
+            c.append(stack.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor, constant: -2 * pad))
+        } else {
+            c.append(stack.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor, constant: -2 * pad))
+        }
+        stackConstraints = c
+        NSLayoutConstraint.activate(c)
     }
 
     private func restyleChrome() {
+        // The Mac inspector rail's tone: the editor's ground, a hairline edge.
+        backgroundColor = CCTheme.color.background
         hairline.backgroundColor = CCTheme.color.border
         CCMaterial.dress(chip, as: .raised(tint: CCTheme.color.elevated), radius: CCTheme.radius(.md), traits: traitCollection)
     }
@@ -259,15 +337,9 @@ final class EditorToolBar: CCSurface {
         placeChip(animated: false)
     }
 
-    /// The key the chip marks: the open pane's tool, or Adjust among the
-    /// context keys while its panel is open.
     private var chipKey: CCIconRailKey? {
-        guard let openPane else { return nil }
-        switch mode {
-        case .tools: return keys.first { $0.tool == .pane(openPane) }?.key
-        case .context: return contextKeys.first { $0.tool == .adjust }?.key
-        case .slicing: return nil
-        }
+        guard let openTool else { return nil }
+        return keys.first { $0.tool == openTool }?.key
     }
 
     private func placeChip(animated: Bool) {
@@ -309,83 +381,78 @@ final class EditorToolBar: CCSurface {
     }
 
     private func applyDocking() {
-        radius = docked ? .none : .lg
         hairline.isHidden = !docked
     }
 
     // MARK: State
 
-    /// Marks the pane tool whose panel is open (nil = none): the key takes
-    /// the selected state and the chip glides to it (Adjust among the
-    /// context keys).
-    func setOpenPane(_ tab: InspectorTab?, animated: Bool = true) {
-        openPane = tab
-        for (tool, key) in keys {
-            if case .pane(let t) = tool { key.isSelected = t == tab } else { key.isSelected = false }
-        }
-        for (tool, key) in contextKeys { key.isSelected = tool == .adjust && tab != nil }
+    /// Marks the key whose panel is open (nil = none): it takes the
+    /// selected state and the chip glides to it.
+    func setOpen(_ tool: Tool?, animated: Bool = true) {
+        openTool = tool
+        refreshSelection()
         placeChip(animated: animated)
     }
 
-    /// Tools, the context keys for a selection, or the slice tool's bar.
+    private func refreshSelection() {
+        for (tool, key) in keys {
+            var selected = tool == openTool
+            if case .option(let id) = tool, options.first(where: { $0.id == id })?.isCurrent == true { selected = true }
+            key.isSelected = selected
+        }
+    }
+
+    /// The open pane (compat: the pane tool, or Adjust among the context keys).
+    var openPane: InspectorTab? {
+        if case .pane(let tab)? = openTool { return tab }
+        return nil
+    }
+
+    /// Changes level: the keys slide in place (deeper from the trailing
+    /// side, back from the leading side; a context swap rises).
     func setMode(_ newMode: Mode, animated: Bool) {
         guard newMode != mode else { return }
-        let wasTools = mode == .tools
-        mode = newMode
-        switch newMode {
-        case .tools:
-            break
-        case .slicing:
-            rebuildContext([.done, .split])
-        case .context(let c):
-            var tools: [Tool] = [.done]
-            if c.adjust { tools.append(.adjust) }
-            tools.append(.split)
-            if c.duplicate { tools.append(.duplicate) }
-            if c.delete { tools.append(.delete) }
-            if c.speed { tools.append(.speed) }
-            if c.options { tools.append(.options) }
-            rebuildContext(tools)
+        let direction: CGFloat
+        switch (mode, newMode) {
+        case (.tools, .pane), (.tools, .context), (.tools, .slicing), (.pane, .context): direction = 1
+        case (.pane, .tools), (.context, .tools), (.slicing, .tools), (.context, .pane): direction = -1
+        default: direction = 0
         }
-        let showContext = newMode != .tools
-        let incoming = showContext ? contextStack : toolsStack
-        let outgoing = showContext ? toolsStack : contextStack
-        // Context → context (another selection): the keys change in place.
-        let swap = showContext == wasTools
-        incoming.isHidden = false
-        outgoing.isHidden = true
-        activateSizing()
-        layoutIfNeeded()
-        setOpenPane(openPane, animated: false)
-        scroll.setContentOffset(.zero, animated: false)
-        accessibilityElements = nil
-        guard swap, animated, window != nil else { return }
-        CCMotion.fadeAlpha(incoming, to: 1, duration: 0.2, from: 0)
-        CCMotion.enter(incoming.layer, axis == .horizontal ? .slideUp(distance: 10) : .fade)
-        UIAccessibility.post(notification: .layoutChanged, argument: incoming.arrangedSubviews.first)
+        mode = newMode
+        openTool = nil
+        rebuild(animated: animated, direction: direction)
+    }
+
+    /// The pane level's options: rebuilt in place when they change (a value
+    /// that reveals more rows), the level kept.
+    func setOptions(_ newOptions: [InspectorPanelOption]) {
+        guard newOptions != options else { return }
+        let sameKeys = newOptions.map(\.id) == options.map(\.id) && newOptions.map(\.title) == options.map(\.title)
+        options = newOptions
+        guard case .pane = mode else { return }
+        if sameKeys { refreshSelection(); return }
+        if case .option(let id)? = openTool, !newOptions.contains(where: { $0.id == id }) { openTool = nil }
+        rebuild(animated: false, direction: 0)
     }
 
     // MARK: Probe
 
     /// The visible key titled `title` (the gates press keys by their labels).
     func probeKey(_ title: String) -> CCIconRailKey? {
-        let pool = mode == .tools ? keys : contextKeys
-        return pool.first { $0.key.accessibilityLabel == title }?.key
+        keys.first { $0.key.accessibilityLabel == title }?.key
     }
 
-    /// The key for a tool in the CURRENT mode.
+    /// The key for a tool on the CURRENT level.
     func key(for tool: Tool) -> CCIconRailKey? {
-        (mode == .tools ? keys : contextKeys).first { $0.tool == tool }?.key
+        keys.first { $0.tool == tool }?.key
     }
 
     /// Visible key titles, in order.
-    var probeTitles: [String] {
-        (mode == .tools ? keys : contextKeys).compactMap { $0.key.accessibilityLabel }
-    }
+    var probeTitles: [String] { keys.compactMap { $0.key.accessibilityLabel } }
 
-    /// The open tool's gliding chip (motion probes sample it).
+    /// The open key's gliding chip (motion probes sample it).
     var probeChipLayer: CALayer { chip }
 
-    /// The stack showing now (motion probes sample its layer).
-    var probeVisibleStack: UIView { mode == .tools ? toolsStack : contextStack }
+    /// The level showing now (motion probes sample its layer).
+    var probeVisibleStack: UIView { stack }
 }

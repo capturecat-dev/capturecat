@@ -70,6 +70,8 @@ final class CCButton: UIControl {
     var haptics: Bool
 
     var style: Style { didSet { applyTheme(animated: true) } }
+    /// Icon ink other than the style's (the Mac toolbar's red trash key).
+    var tintOverride: UIColor? { didSet { applyTheme() } }
     var size: Size {
         didSet {
             label.font = size.font
@@ -317,7 +319,7 @@ final class CCButton: UIControl {
             }
         }
         label.textColor = isHighlighted && style == .link ? text.withAlphaComponent(0.6) : text
-        icon.tintColor = label.textColor
+        icon.tintColor = tintOverride ?? label.textColor
         spinner.color = text
         layer.borderWidth = (style == .outline || style == .secondary) ? 1 : 0
         layer.borderColor = cc(border)

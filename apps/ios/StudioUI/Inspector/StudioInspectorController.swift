@@ -65,19 +65,27 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     let rail: CCIconRail
     let scroll = UIScrollView()
     private let content = UIView()
-    private let card = CCSurface(.raisedMatte, tint: CCTheme.color.card, radius: .lg)
-    /// Clips the card's contents while the panel grows (the card keeps its
-    /// material and shadow unclipped).
-    private let clip = UIView()
+    /// The inspector's ONE surface — flat (the house rule against
+    /// card-in-card): a column is a plain region with a hairline on its
+    /// leading edge; the bottom panel spans the width with only its top
+    /// corners rounded; the side panel is a plain region.
+    let surface = UIView()
     private let hairline = UIView()
-    private let grabber = InspectorGrabber()
-    /// The panel's Done key (both panel presentations) — closes it.
-    let closeButton = CCButton(title: "Done", style: .ghost, size: .sm, radius: .full)
-    /// The panel's title (its pane's name; the tool bar selects the pane).
-    let panelTitle = ccLabel("", font: CCFont.header, color: CCTheme.color.foreground)
+    /// The panel's edge hairline (top for the bottom panel, leading for a
+    /// column or side panel).
+    private let edgeLine = UIView()
+    /// The panel's strip: the option's title centred, ✓ (Done) trailing.
+    let strip = UIView()
+    /// The panel's ✓ key (both panel presentations) — confirms and closes.
+    let closeButton = CCButton(symbol: "checkmark", style: .ghost, size: .sm, radius: .md)
+    /// The panel's title (the option's name, or its pane's).
+    let panelTitle = ccLabel("", font: CCFont.scaled(14, .semibold, .subheadline, max: 22), color: CCTheme.color.foreground,
+                             alignment: .center)
     private(set) var panes: [InspectorTab: InspectorPaneView] = [:]
     private var paneBottoms: [InspectorTab: NSLayoutConstraint] = [:]
     private(set) var shownTab: InspectorTab?
+    /// The option a panel shows (nil = the whole pane).
+    private(set) var shownOption: InspectorPanelOption?
     private var observations: [SurfaceObservation] = []
     private var follower = InspectorTabFollower()
     /// How the editor shows the inspector.
@@ -89,22 +97,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     private var compactLayout: [NSLayoutConstraint] = []
     private var sideLayout: [NSLayoutConstraint] = []
     private var activeLayout: [NSLayoutConstraint] = []
-    /// The panel's Done key, a pull down past the pane's top, VoiceOver's
-    /// escape (the editor closes the panel).
+    /// The panel's ✓, VoiceOver's escape (the editor closes the panel).
     var onClosePanel: (() -> Void)?
-    /// A drag on the panel's strip: the editor moves the panel with the finger.
-    var onPanelPan: ((UIGestureRecognizer.State, _ translation: CGPoint, _ velocity: CGPoint) -> Void)?
-    /// The grab pill tapped / VoiceOver's Expand-Collapse: the editor toggles the detent.
-    var onToggleDetent: (() -> Void)?
-    /// Whether the panel can still grow (an upward drag on the pane moves it).
-    var panelCanGrow: (() -> Bool)?
-    /// The whole panel's drag (controls excluded) — `panelDragAccepts`.
-    private(set) lazy var panelPan = UIPanGestureRecognizer(target: self, action: #selector(panelPanned(_:)))
-    #if DEBUG
-    /// Probe seam — INJECTED DEFECT: only the grab pill's strip drags.
-    static var probeDragOnlyOnGrabber = false
-    var probeGrabber: UIView { grabber }
-    #endif
     /// The shown pane or its height changed (`animated`: a pane switch —
     /// the panel resizes on the growth curve; else it follows the pane's own
     /// growth frame by frame).
@@ -115,6 +109,9 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     #if DEBUG
     /// Probe seam — INJECTED DEFECT: the pane switch snaps (no crossfade).
     static var probeSnapPaneSwitch = false
+    /// Probe seam — INJECTED DEFECT (`panel-card`): the panel is an inset
+    /// floating card again (all corners rounded, a border, inset from the edges).
+    static var probePanelCard = false
     #endif
 
     init(project: Project, selection: EditorShellSelection, undoManager: @escaping () -> UndoManager?,
@@ -186,35 +183,34 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         root.backgroundColor = .clear
         view = root
         view.accessibilityIdentifier = "studio.inspector"
-        card.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(card)
-        pinEdges(card, to: root)
-        clip.translatesAutoresizingMaskIntoConstraints = false
-        clip.clipsToBounds = true
-        clip.layer.cornerRadius = CCTheme.radius(.lg)
-        clip.layer.cornerCurve = .continuous
-        card.addSubview(clip)
-        pinEdges(clip, to: card)
+        surface.translatesAutoresizingMaskIntoConstraints = false
+        surface.clipsToBounds = true
+        surface.layer.cornerCurve = .continuous
+        surface.accessibilityIdentifier = "studio.inspector.surface"
+        root.addSubview(surface)
+        pinEdges(surface, to: root)
 
         scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.alwaysBounceVertical = true
+        scroll.alwaysBounceVertical = false
         scroll.showsVerticalScrollIndicator = true
         scroll.keyboardDismissMode = .interactive
         scroll.delegate = self
         content.translatesAutoresizingMaskIntoConstraints = false
         scroll.addSubview(content)
-        hairline.translatesAutoresizingMaskIntoConstraints = false
-        rail.translatesAutoresizingMaskIntoConstraints = false
-        grabber.translatesAutoresizingMaskIntoConstraints = false
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        for v in [hairline, edgeLine, rail, strip, closeButton, panelTitle] as [UIView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+        }
         closeButton.accessibilityLabelOverride = "Done"
         closeButton.accessibilityIdentifier = "inspector.close"
         closeButton.accessibilityHint = "Closes the panel."
-        panelTitle.translatesAutoresizingMaskIntoConstraints = false
         panelTitle.accessibilityTraits = .header
+        panelTitle.adjustsFontForContentSizeCategory = true
         panelTitle.adjustsFontSizeToFitWidth = true
         panelTitle.minimumScaleFactor = 0.7
-        for v in [grabber, scroll, hairline, rail, panelTitle, closeButton] as [UIView] { clip.addSubview(v) }
+        strip.addSubview(panelTitle)
+        strip.addSubview(closeButton)
+        for v in [strip, scroll, hairline, rail, edgeLine] as [UIView] { surface.addSubview(v) }
+        edgeLine.isUserInteractionEnabled = false
 
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
@@ -222,74 +218,91 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             content.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
             content.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
             content.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
+            // The strip: title centred, ✓ trailing; it grows with big text.
+            panelTitle.centerXAnchor.constraint(equalTo: strip.centerXAnchor),
+            panelTitle.leadingAnchor.constraint(greaterThanOrEqualTo: strip.leadingAnchor, constant: 56),
+            panelTitle.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -CCSpace.sm),
+            panelTitle.topAnchor.constraint(greaterThanOrEqualTo: strip.topAnchor, constant: 6),
+            panelTitle.bottomAnchor.constraint(lessThanOrEqualTo: strip.bottomAnchor, constant: -6),
+            panelTitle.centerYAnchor.constraint(equalTo: strip.centerYAnchor),
+            closeButton.centerYAnchor.constraint(equalTo: strip.centerYAnchor),
+            closeButton.trailingAnchor.constraint(equalTo: strip.trailingAnchor, constant: -CCSpace.sm),
+            strip.heightAnchor.constraint(greaterThanOrEqualToConstant: Self.panelStripHeight),
         ])
-        // Regular: pane | hairline | rail (the Mac column).
+        panelTitle.setContentCompressionResistancePriority(.required, for: .vertical)
+        // Column: pane | hairline | rail (the Mac column), flat.
         regularLayout = [
-            grabber.heightAnchor.constraint(equalToConstant: 0),
-            grabber.topAnchor.constraint(equalTo: card.topAnchor),
-            grabber.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-            grabber.trailingAnchor.constraint(equalTo: card.trailingAnchor),
-            scroll.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-            scroll.topAnchor.constraint(equalTo: card.topAnchor),
-            scroll.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            edgeLine.leadingAnchor.constraint(equalTo: surface.leadingAnchor),
+            edgeLine.topAnchor.constraint(equalTo: surface.topAnchor),
+            edgeLine.bottomAnchor.constraint(equalTo: surface.bottomAnchor),
+            edgeLine.widthAnchor.constraint(equalToConstant: 1),
+            strip.heightAnchor.constraint(equalToConstant: 0),
+            strip.topAnchor.constraint(equalTo: surface.topAnchor),
+            strip.leadingAnchor.constraint(equalTo: surface.leadingAnchor),
+            strip.trailingAnchor.constraint(equalTo: surface.trailingAnchor),
+            scroll.leadingAnchor.constraint(equalTo: surface.leadingAnchor, constant: 1),
+            scroll.topAnchor.constraint(equalTo: surface.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: surface.bottomAnchor),
             hairline.leadingAnchor.constraint(equalTo: scroll.trailingAnchor),
             hairline.widthAnchor.constraint(equalToConstant: 1),
-            hairline.topAnchor.constraint(equalTo: card.topAnchor, constant: CCSpace.md),
-            hairline.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -CCSpace.md),
+            hairline.topAnchor.constraint(equalTo: surface.topAnchor),
+            hairline.bottomAnchor.constraint(equalTo: surface.bottomAnchor),
             rail.leadingAnchor.constraint(equalTo: hairline.trailingAnchor),
-            rail.trailingAnchor.constraint(equalTo: card.trailingAnchor),
-            rail.topAnchor.constraint(equalTo: card.topAnchor),
-            rail.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            rail.trailingAnchor.constraint(equalTo: surface.trailingAnchor),
+            rail.topAnchor.constraint(equalTo: surface.topAnchor),
+            rail.bottomAnchor.constraint(equalTo: surface.bottomAnchor),
             rail.widthAnchor.constraint(equalToConstant: CCIconRail.keyWidth + 12),
         ]
-        // Both panels: a strip (swipe pill, the pane's title, Done), a
-        // hairline, then ONLY the active tool's pane — no pane rail (the
-        // editor's tool bar beside or under the panel is the switcher).
-        func panelLayout() -> [NSLayoutConstraint] {
-            [
-                grabber.topAnchor.constraint(equalTo: card.topAnchor),
-                grabber.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-                grabber.trailingAnchor.constraint(equalTo: card.trailingAnchor),
-                grabber.heightAnchor.constraint(greaterThanOrEqualToConstant: Self.panelStripHeight),
-                // The title sits under the pill band (a large text size grows the strip).
-                panelTitle.topAnchor.constraint(greaterThanOrEqualTo: grabber.topAnchor, constant: 20),
-                panelTitle.bottomAnchor.constraint(lessThanOrEqualTo: grabber.bottomAnchor, constant: -4),
-                panelTitle.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: CCSpace.lg),
-                { let c = panelTitle.centerYAnchor.constraint(equalTo: grabber.centerYAnchor, constant: 3); c.priority = .defaultLow; return c }(),
-                { let c = grabber.heightAnchor.constraint(equalToConstant: Self.panelStripHeight); c.priority = .init(700); return c }(),
-                panelTitle.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -CCSpace.sm),
-                closeButton.centerYAnchor.constraint(equalTo: panelTitle.centerYAnchor),
-                closeButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -CCSpace.sm),
-                hairline.topAnchor.constraint(equalTo: grabber.bottomAnchor),
+        // Panels: the strip, a hairline, then ONLY the option's rows — no
+        // pane rail (the tool bar is the switcher), no grabber (no drag).
+        func panelLayout(side: Bool) -> [NSLayoutConstraint] {
+            var c: [NSLayoutConstraint] = [
+                strip.topAnchor.constraint(equalTo: surface.topAnchor),
+                strip.leadingAnchor.constraint(equalTo: surface.leadingAnchor),
+                strip.trailingAnchor.constraint(equalTo: surface.trailingAnchor),
+                { let c = strip.heightAnchor.constraint(equalToConstant: Self.panelStripHeight); c.priority = .init(700); return c }(),
+                hairline.topAnchor.constraint(equalTo: strip.bottomAnchor),
                 hairline.heightAnchor.constraint(equalToConstant: 1),
-                hairline.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: CCSpace.md),
-                hairline.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -CCSpace.md),
+                hairline.leadingAnchor.constraint(equalTo: surface.leadingAnchor),
+                hairline.trailingAnchor.constraint(equalTo: surface.trailingAnchor),
                 scroll.topAnchor.constraint(equalTo: hairline.bottomAnchor),
-                scroll.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-                scroll.trailingAnchor.constraint(equalTo: card.trailingAnchor),
-                scroll.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+                scroll.leadingAnchor.constraint(equalTo: surface.leadingAnchor),
+                scroll.trailingAnchor.constraint(equalTo: surface.trailingAnchor),
+                scroll.bottomAnchor.constraint(equalTo: surface.bottomAnchor),
             ]
+            if side {
+                c += [edgeLine.leadingAnchor.constraint(equalTo: surface.leadingAnchor),
+                      edgeLine.topAnchor.constraint(equalTo: surface.topAnchor),
+                      edgeLine.bottomAnchor.constraint(equalTo: surface.bottomAnchor),
+                      edgeLine.widthAnchor.constraint(equalToConstant: 1)]
+            } else {
+                c += [edgeLine.topAnchor.constraint(equalTo: surface.topAnchor),
+                      edgeLine.leadingAnchor.constraint(equalTo: surface.leadingAnchor),
+                      edgeLine.trailingAnchor.constraint(equalTo: surface.trailingAnchor),
+                      edgeLine.heightAnchor.constraint(equalToConstant: 1)]
+            }
+            return c
         }
-        compactLayout = panelLayout()
-        sideLayout = panelLayout()
+        compactLayout = panelLayout(side: false)
+        sideLayout = panelLayout(side: true)
         NSLayoutConstraint.activate(regularLayout)
         activeLayout = regularLayout
-        grabber.isHidden = true
-        closeButton.isHidden = true
-        panelTitle.isHidden = true
+        strip.isHidden = true
 
         rail.onSelect = { [weak self] index in
             self?.selection.inspectorTab = InspectorTab.allCases[index]
         }
         rail.onTrailing = { [weak self] in self?.runFeature(.showHistory) }
-        grabber.onTap = { [weak self] in self?.onToggleDetent?() }
-        panelPan.delegate = self
-        card.addGestureRecognizer(panelPan)
-        // The pane scrolls only once the panel drag declined the touch.
-        scroll.panGestureRecognizer.require(toFail: panelPan)
         closeButton.onTap = { [weak self] in self?.onClosePanel?() }
+        surface.ccOnThemeChange { [weak self] in self?.restyleSurface() }
+        restyleSurface()
+    }
 
+    private func restyleSurface() {
+        surface.backgroundColor = CCTheme.color.card
         hairline.backgroundColor = CCTheme.color.border
+        edgeLine.backgroundColor = CCTheme.color.border
+        surface.layer.borderColor = surface.cc(CCTheme.color.border)
     }
 
     override func viewDidLoad() {
@@ -299,44 +312,19 @@ final class StudioInspectorController: UIViewController, InspectorHost {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        // The pane's own growth (a section opening) resizes the panel with it.
+        // The pane's own growth (a row appearing) resizes the panel with it.
         let h = scroll.contentSize.height
         guard presentation == .bottomPanel, !switchingPane, abs(h - reportedContentHeight) > 0.5 else { return }
         reportedContentHeight = h
         onPanelContentChange?(false)
     }
 
-    /// The panel strip's height (swipe pill, title, Done).
-    static let panelStripHeight: CGFloat = 48
+    /// The panel strip's height (title, ✓).
+    static let panelStripHeight: CGFloat = 44
 
-    /// The height the panel needs to show its whole pane without scrolling.
+    /// The height the panel needs to show its rows without scrolling.
     var panelFittingHeight: CGFloat {
-        max(Self.panelStripHeight, grabber.bounds.height) + 1 + scroll.contentSize.height + scroll.contentInset.bottom
-    }
-
-    #if DEBUG
-    /// Probe seam — INJECTED DEFECT: the pane tabs repeated inside the panel
-    /// (the old sheet's row, under the strip, over the pane).
-    func probeShowTabRow() {
-        rail.isHidden = false
-        rail.axis = .horizontal
-        NSLayoutConstraint.activate([
-            rail.topAnchor.constraint(equalTo: grabber.bottomAnchor),
-            rail.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-            rail.trailingAnchor.constraint(equalTo: card.trailingAnchor),
-            rail.heightAnchor.constraint(equalToConstant: CCIconRail.keyHeight + 12),
-        ])
-    }
-    #endif
-
-    /// The bottom panel is at its TALL detent: the pill reads Collapse, and
-    /// the title carries the matching VoiceOver action.
-    func setPanelExpanded(_ tall: Bool, canExpand: Bool) {
-        grabber.accessibilityLabel = tall ? "Collapse panel" : "Expand panel"
-        grabber.isAccessibilityElement = presentation == .bottomPanel && (tall || canExpand)
-        let name = tall ? "Collapse panel" : "Expand panel"
-        panelTitle.accessibilityCustomActions = presentation == .bottomPanel && (tall || canExpand)
-            ? [UIAccessibilityCustomAction(name: name) { [weak self] _ in self?.onToggleDetent?(); return true }] : nil
+        max(Self.panelStripHeight, strip.bounds.height) + 1 + scroll.contentSize.height + scroll.contentInset.bottom
     }
 
     /// VoiceOver's escape (two-finger scrub) closes a panel.
@@ -356,7 +344,7 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         didMove(toParent: editor)
     }
 
-    /// Lays the card out for `presentation`.
+    /// Lays the surface out for `presentation`.
     func setPresentation(_ presentation: Presentation) {
         loadViewIfNeeded()
         guard presentation != self.presentation || activeLayout.isEmpty else { return }
@@ -371,21 +359,60 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         rail.axis = .vertical
         // A panel never repeats the pane tabs: the tool bar is the switcher.
         rail.isHidden = presentation != .column
-        grabber.isHidden = presentation == .column
-        grabber.showsPill = presentation == .bottomPanel
-        grabber.isAccessibilityElement = presentation == .bottomPanel
-        closeButton.isHidden = presentation == .column
-        panelTitle.isHidden = presentation == .column
+        strip.isHidden = presentation == .column
+        // Only the bottom panel's top corners round, where it meets the timeline.
+        surface.layer.cornerRadius = presentation == .bottomPanel ? CCTheme.radius(.lg) : 0
+        surface.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        surface.layer.borderWidth = 0
+        #if DEBUG
+        if Self.probePanelCard, presentation != .column {
+            surface.layer.cornerRadius = CCTheme.radius(.lg)
+            surface.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+            surface.layer.borderWidth = 1
+        }
+        #endif
+        if presentation == .column { setFocus(nil) }
         refreshPanelTitle()
-        // The last row scrolls clear of the panel's bottom edge (its 44 pt
-        // hit target stays inside the pane).
-        scroll.contentInset.bottom = presentation == .column ? 0 : CCSpace.md
+        // The last row scrolls clear of the panel's bottom edge.
+        scroll.contentInset.bottom = presentation == .column ? 0 : CCSpace.sm
         reportedContentHeight = -1
         view.setNeedsLayout()
     }
 
     private func refreshPanelTitle() {
-        panelTitle.text = shownTab?.rawValue ?? selection.inspectorTab.rawValue
+        panelTitle.text = shownOption?.title ?? shownTab?.rawValue ?? selection.inspectorTab.rawValue
+    }
+
+    /// The sub-options the tool bar offers for `tab` (its drill-down level).
+    func panelOptions(for tab: InspectorTab) -> [InspectorPanelOption] {
+        pane(tab).panelOptions(scope)
+    }
+
+    /// Shows only `option`'s rows in the panel (nil = the whole pane); a
+    /// choice option is applied first (one undo step) and its panel then
+    /// shows the rest of its section.
+    func setFocus(_ option: InspectorPanelOption?, apply: Bool = true) {
+        shownOption = option
+        guard let tab = shownTab, let pane = panes[tab] else { refreshPanelTitle(); return }
+        var rows = option.map { Set($0.rows) }
+        if let option, let section = option.section, let choice = option.choice {
+            if apply, choice.index != (pane.rows[choice.row] as? InspectorChoiceRowView)?.spec.read(scope) { (pane.rows[choice.row] as? InspectorChoiceRowView)?.apply(choice.index) }
+            rows = Set(pane.rowsAfterChoice(section: section, scope: scope))
+        }
+        pane.setFocus(rows, scope: scope)
+        refreshPanelTitle()
+        scroll.setContentOffset(.zero, animated: false)
+        switchingPane = true
+        view.layoutIfNeeded()
+        switchingPane = false
+        reportedContentHeight = scroll.contentSize.height
+    }
+
+    /// Whether `option` has rows to show once applied (a choice like
+    /// Transparent with nothing to adjust just applies).
+    func optionHasRows(_ option: InspectorPanelOption, in tab: InspectorTab) -> Bool {
+        guard option.choice != nil, let section = option.section else { return !option.rows.isEmpty }
+        return !pane(tab).rowsAfterChoice(section: section, scope: scope).isEmpty
     }
 
     // MARK: Panes
@@ -397,9 +424,9 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         NSLayoutConstraint.activate([
             pane.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: CCSpace.lg),
             pane.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -CCSpace.lg),
-            pane.topAnchor.constraint(equalTo: content.topAnchor, constant: CCSpace.lg),
+            pane.topAnchor.constraint(equalTo: content.topAnchor, constant: CCSpace.md),
         ])
-        paneBottoms[tab] = pane.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -CCSpace.xl)
+        paneBottoms[tab] = pane.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -CCSpace.md)
         pane.isHidden = true
         panes[tab] = pane
         return pane
@@ -413,6 +440,9 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         if let shownTab { paneBottoms[shownTab]?.isActive = false }
         paneBottoms[tab]?.isActive = true
         shownTab = tab
+        // A new pane shows whole until the tool bar picks one of its options.
+        shownOption = nil
+        new.setFocus(nil, scope: scope)
         refreshPanelTitle()
         rail.setSelectedIndex(InspectorTab.allCases.firstIndex(of: tab) ?? 0, animated: animated)
         new.isHidden = false
@@ -498,125 +528,4 @@ final class StudioInspectorController: UIViewController, InspectorHost {
 }
 
 
-extension StudioInspectorController: UIScrollViewDelegate, UIGestureRecognizerDelegate {
-    /// A touch the panel drag may take: anywhere on the panel but a control
-    /// (sliders, toggles, Done keep their touches) — the strip and its pill,
-    /// the title, section headers, the gaps between rows.
-    func panelDragAccepts(_ hit: UIView?) -> Bool {
-        guard presentation != .column, let hit else { return false }
-        #if DEBUG
-        if Self.probeDragOnlyOnGrabber { return hit === grabber }
-        #endif
-        var v: UIView? = hit
-        while let view = v, view !== self.view {
-            if view === grabber { return true }
-            if view is UIControl { return false }
-            v = view.superview
-        }
-        return true
-    }
-
-    /// Whether a drag starting on the pane's scroll content moves the panel
-    /// (the scroll-to-drag handoff of a sheet): UP only while the panel can
-    /// still grow (compact); DOWN only with the pane scrolled to its top.
-    func panelDragBegins(onContent: Bool, upward: Bool) -> Bool {
-        guard onContent else { return true }
-        if upward { return panelCanGrow?() ?? false }
-        return scroll.contentOffset.y <= -scroll.adjustedContentInset.top + 0.5
-    }
-
-    func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        guard g === panelPan else { return true }
-        return panelDragAccepts(touch.view)
-    }
-
-    func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
-        guard g === panelPan, let pan = g as? UIPanGestureRecognizer else { return true }
-        let v = pan.velocity(in: view)
-        switch presentation {
-        case .column:
-            return false
-        case .sidePanel:
-            // A swipe toward the rail, from the strip.
-            return abs(v.x) > abs(v.y) && grabber.bounds.contains(pan.location(in: grabber))
-        case .bottomPanel:
-            guard abs(v.y) > abs(v.x) else { return false }
-            let onContent = scroll.bounds.contains(pan.location(in: scroll))
-            return panelDragBegins(onContent: onContent, upward: v.y < 0)
-        }
-    }
-
-    @objc func panelPanned(_ g: UIPanGestureRecognizer) {
-        onPanelPan?(g.state, g.translation(in: view.superview), g.velocity(in: view.superview))
-    }
-}
-
-/// The panel's strip and its grab pill. The whole panel drags (the
-/// inspector's pan); this is its visible affordance and, for VoiceOver and
-/// a tap, a button that expands / collapses the panel.
-@MainActor
-final class InspectorGrabber: UIControl {
-    var onTap: (() -> Void)?
-    private let pill = CALayer()
-
-    init() {
-        super.init(frame: .zero)
-        layer.addSublayer(pill)
-        addAction(UIAction { [weak self] _ in
-            guard let self, self.pillBand.insetBy(dx: 0, dy: -8).contains(self.touchPoint) else { return }
-            self.onTap?()
-        }, for: .touchUpInside)
-        isAccessibilityElement = true
-        accessibilityTraits = .button
-        accessibilityLabel = "Expand panel"
-        accessibilityHint = "Or drag the panel up or down."
-        accessibilityIdentifier = "inspector.grabber"
-        ccOnThemeChange { [weak self] in self?.applyTheme() }
-        applyTheme()
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    private func applyTheme() { pill.backgroundColor = cc(CCTheme.color.mutedForeground) }
-
-    var showsPill = true { didSet { pill.isHidden = !showsPill } }
-
-    /// The pill's band: a 120 × 20 pt key over the strip's top (VoiceOver's
-    /// frame; the title and Done sit under it).
-    var pillBand: CGRect { CGRect(x: bounds.midX - 60, y: 0, width: 120, height: 20) }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        pill.frame = CGRect(x: bounds.midX - 20, y: 7, width: 40, height: 5)
-        pill.cornerRadius = 2.5
-    }
-
-    /// A tap on the pill's band toggles; the rest of the strip only drags.
-    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        bounds.contains(point)
-    }
-
-    private var touchPoint: CGPoint = .zero
-    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-        touchPoint = touch.location(in: self)
-        return super.beginTracking(touch, with: event)
-    }
-
-    override var accessibilityFrame: CGRect {
-        get { UIAccessibility.convertToScreenCoordinates(pillBand, in: self) }
-        set {}
-    }
-
-    override func accessibilityActivate() -> Bool {
-        onTap?()
-        return true
-    }
-
-    // Keyboard: Space / Return toggles, as a tap does.
-    override var canBecomeFocused: Bool { isEnabled && !isHidden && isUserInteractionEnabled && showsPill }
-
-    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        if ccIsActivation(presses), isEnabled { onTap?(); return }
-        super.pressesEnded(presses, with: event)
-    }
-}
+extension StudioInspectorController: UIScrollViewDelegate {}
