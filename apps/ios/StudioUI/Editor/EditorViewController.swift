@@ -1219,6 +1219,11 @@ final class EditorViewController: UIViewController {
         stage.onRender = { [weak self] frame in
             guard let self else { return }
             self.canvas.context = self.stage.core.hitContext(for: frame, selectedBlurID: self.selection.selectedBlurID)
+            // The zoom chip never sits over the camera bubble.
+            let camera = self.canvas.context?.cameraRect.map {
+                self.stageCard.convert(self.stage.viewRect(fromCanvas: $0.standardized), from: self.stage).standardized
+            }
+            self.stageCard.keepZoomPillClear(of: camera)
         }
     }
 

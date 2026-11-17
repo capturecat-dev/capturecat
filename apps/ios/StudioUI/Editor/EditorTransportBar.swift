@@ -6,9 +6,9 @@ import UIKit
 ///   ⏮ ▶ ⏭ │ 0:05 / 0:07        ⟲ ⟳ │ 🗑 │ ✨ ◎ ✂ ◫ ✎ │ 🎙 │ ⊖ ━━○━━ ⊕ │ ⤢
 ///
 /// The Mac's icons (the shared icon kit), its compact ghost keys and its
-/// timecode type; on a phone the row scrolls sideways. Keys draw at 34 pt and
-/// answer across 44 pt (`CCButton.point(inside:)` + `CCWindow`), 10 pt
-/// apart so no two targets overlap. The commands are the timeline's own
+/// timecode type; on a phone the row scrolls sideways. Each key is its own
+/// 44 pt target (a ghost key: only the icon draws), side by side, so a key
+/// at the row's scrolled edge keeps its whole target. The commands are the timeline's own
 /// (the editor wires `onCommand` to `StudioTimelineViewController`), never a
 /// fork. Times are OUTPUT seconds (after trim and speed, through the shared
 /// `SpeedTimeMap`); the playhead itself stays in SOURCE seconds.
@@ -58,7 +58,7 @@ final class EditorTransportBar: UIView {
     static let height: CGFloat = 44
 
     static func key(_ symbol: String, _ label: String) -> CCButton {
-        let b = CCButton(symbol: symbol, style: .ghost, size: .sm, radius: .md)
+        let b = CCButton(symbol: symbol, style: .ghost, size: .regular, radius: .md)
         b.accessibilityLabelOverride = label
         return b
     }
@@ -100,7 +100,7 @@ final class EditorTransportBar: UIView {
 
         row.axis = .horizontal
         row.alignment = .center
-        row.spacing = 10
+        row.spacing = 0
         row.translatesAutoresizingMaskIntoConstraints = false
         func sep() -> UIView {
             let line = CCDivider(vertical: true)
@@ -232,6 +232,7 @@ final class EditorScaleSlider: UIControl {
         isAccessibilityElement = true
         accessibilityLabel = "Timeline zoom"
         accessibilityTraits = .adjustable
+        accessibilityValue = "0 percent"
         ccOnThemeChange { [weak self] in self?.restyle() }
         restyle()
     }

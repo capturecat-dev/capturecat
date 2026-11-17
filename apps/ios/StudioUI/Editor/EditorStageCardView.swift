@@ -58,9 +58,11 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
         stage.inlineEditingIDProvider = { [weak canvas] in canvas?.inlineEditingID }
 
         addSubview(zoomPill)
+        pillTrailing = zoomPill.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -4)
+        pillLeading = zoomPill.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 4)
         NSLayoutConstraint.activate([
-            zoomPill.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -8),
-            zoomPill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            pillTrailing,
+            zoomPill.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
         ])
         zoomPill.onZoomOut = { [weak self] in self?.stepZoom(-1) }
         zoomPill.onZoomIn = { [weak self] in self?.stepZoom(1) }
@@ -83,6 +85,27 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    private var pillTrailing: NSLayoutConstraint!
+    private var pillLeading: NSLayoutConstraint!
+    /// The zoom chip sits bottom-trailing (the Mac's corner); the stage is
+    /// edge to edge, so when the camera bubble (or anything the editor
+    /// names) is under that corner the chip moves to the leading corner —
+    /// it never covers what you would grab.
+    func keepZoomPillClear(of rect: CGRect?) {
+        guard let rect, !rect.isEmpty else {
+            if !pillTrailing.isActive { pillLeading.isActive = false; pillTrailing.isActive = true }
+            return
+        }
+        let size = zoomPill.bounds.size
+        let trailingSlot = CGRect(x: bounds.maxX - safeAreaInsets.right - 4 - size.width, y: bounds.maxY - 2 - size.height,
+                                  width: size.width, height: size.height)
+        let useLeading = trailingSlot.intersects(rect)
+        guard useLeading != pillLeading.isActive else { return }
+        pillTrailing.isActive = !useLeading
+        pillLeading.isActive = useLeading
+        setNeedsLayout()
+    }
 
     // MARK: - Magnification
 
@@ -159,8 +182,8 @@ final class EditorZoomPill: UIView {
     var onZoomIn: (() -> Void)?
     var onReset: (() -> Void)?
 
-    private let minus = CCButton(symbol: "minus.magnifyingglass", style: .ghost, size: .sm, radius: .full)
-    private let plus = CCButton(symbol: "plus.magnifyingglass", style: .ghost, size: .sm, radius: .full)
+    private let minus = CCButton(symbol: "minus.magnifyingglass", style: .ghost, size: .regular, radius: .full)
+    private let plus = CCButton(symbol: "plus.magnifyingglass", style: .ghost, size: .regular, radius: .full)
     private let percent = CCButton(title: "100%", style: .ghost, size: .sm, radius: .full)
 
     init() {
@@ -174,7 +197,7 @@ final class EditorZoomPill: UIView {
         percent.onTap = { [weak self] in self?.onReset?() }
         percent.accessibilityLabelOverride = "Fit"
         let row = UIStackView(arrangedSubviews: [minus, percent, plus])
-        row.spacing = 5
+        row.spacing = 0
         row.alignment = .center
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
@@ -184,8 +207,8 @@ final class EditorZoomPill: UIView {
             row.topAnchor.constraint(equalTo: topAnchor),
             row.bottomAnchor.constraint(equalTo: bottomAnchor),
             percent.widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
-            minus.widthAnchor.constraint(equalToConstant: 34),
-            plus.widthAnchor.constraint(equalToConstant: 34),
+            minus.widthAnchor.constraint(equalToConstant: 40),
+            plus.widthAnchor.constraint(equalToConstant: 40),
         ])
         layer.cornerCurve = .continuous
         ccOnThemeChange { [weak self] in self?.restyle() }
@@ -194,16 +217,24 @@ final class EditorZoomPill: UIView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    /// The visible capsule: the Mac chip's height, inside the 44 pt keys.
+    private let capsule = CALayer()
+
     private func restyle() {
         // The Mac chip: a dark translucent capsule over the canvas.
-        backgroundColor = UIColor.black.withAlphaComponent(0.55)
-        layer.borderWidth = 0.5
-        layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
+        if capsule.superlayer == nil { layer.insertSublayer(capsule, at: 0) }
+        capsule.backgroundColor = UIColor.black.withAlphaComponent(0.55).cgColor
+        capsule.borderWidth = 0.5
+        capsule.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        layer.cornerRadius = bounds.height / 2
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        capsule.frame = bounds.insetBy(dx: 0, dy: 7)
+        capsule.cornerRadius = capsule.frame.height / 2
+        CATransaction.commit()
     }
 
     func update(zoom: CGFloat, canZoomOut: Bool, canZoomIn: Bool) {

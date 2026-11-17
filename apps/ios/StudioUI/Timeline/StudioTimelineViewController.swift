@@ -272,6 +272,8 @@ final class StudioTimelineViewController: UIViewController {
         // here; the scroll view inside it lays out later in the pass.
         let width = max(0, canvasArea.frame.width - StudioTimelineStyle.labelWidth)
         placeCentrePlayhead(viewportWidth: width)
+        labelColumn.layoutIfNeeded()
+        clipLaneLabels()
         guard width != visibleTrackWidth else { return }
         visibleTrackWidth = width
         // Half a viewport of inset each side: time 0 and the end both reach
@@ -1251,10 +1253,26 @@ final class StudioTimelineViewController: UIViewController {
         DispatchQueue.main.async { [weak self] in self?.followPlayhead(animated: true) }
     }
 
+    /// A lane label the lanes' viewport cuts (a panel compressing the
+    /// timeline, a slim landscape strip) hides until its lane is back in
+    /// full: no half-drawn "VOICE".
+    func clipLaneLabels() {
+        let visible = canvasArea.bounds.height
+        guard visible > 0 else { return }
+        let dy = labelColumn.transform.ty
+        for row in labelViews.values {
+            guard let label = row.subviews.first as? UILabel else { continue }
+            let f = label.frame.offsetBy(dx: 0, dy: row.frame.minY + dy)
+            let cut = f.minY < -0.5 || f.maxY > visible + 0.5
+            if label.isHidden != cut { label.isHidden = cut }
+        }
+    }
+
     fileprivate func userScrolled() {
         // The lane labels follow a vertical scroll (a slim timeline).
         let dy = -scrollView.contentOffset.y
         if labelColumn.transform.ty != dy { labelColumn.transform = CGAffineTransform(translationX: 0, y: dy) }
+        clipLaneLabels()
         // Someone else moved the content (a harness reveal): a glide stops.
         guard !writingOffset else { return }
         if let written = glideWritten, abs(written - scrollView.contentOffset.x) > 0.5 { stopGlide() }

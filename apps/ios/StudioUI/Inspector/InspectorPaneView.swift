@@ -123,6 +123,17 @@ final class InspectorPaneView: UIView {
             out.append(InspectorPanelOption(id: "\(tab.rawValue).all", title: tab.rawValue, symbol: tab.icon,
                                             rows: Array(all.indices), choice: nil, section: nil, isCurrent: false))
         }
+        // One name per key: a repeated title (Cursor's three "Size" rows)
+        // takes its group's first word after the first ("Click Size").
+        var seen = Set<String>()
+        for (i, o) in out.enumerated() {
+            defer { seen.insert(out[i].title) }
+            guard seen.contains(o.title),
+                  let group = sections.first(where: { $0.spec.id == o.section })?.spec.title?.split(separator: " ").first
+            else { continue }
+            out[i] = InspectorPanelOption(id: o.id, title: "\(group) \(o.title)", symbol: o.symbol, rows: o.rows,
+                                          choice: o.choice, section: o.section, isCurrent: o.isCurrent)
+        }
         return out
     }
 
