@@ -86,7 +86,10 @@ final class HistoryPresentation {
         editor.addChild(panel)
         panel.view.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(panel.view)
-        let width = max(Self.panelWidth, editor.inspectorContainer.bounds.width)
+        // Over the inspector column exactly (it never reaches into the
+        // stage column, whose transport row ends in a key); no column: 360.
+        let column = editor.inspectorContainer.bounds.width
+        let width = column >= 300 ? column : Self.panelWidth
         NSLayoutConstraint.activate([
             card.trailingAnchor.constraint(equalTo: root.safeAreaLayoutGuide.trailingAnchor, constant: -CCSpace.md),
             card.widthAnchor.constraint(equalToConstant: min(width, 420)),

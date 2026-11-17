@@ -22,7 +22,8 @@
 #                                relaunches replace each other.
 #      OUT=<dir>                 default: $TMPDIR/capturecat-ios-editor-shell
 #      ONLY=a,b                  scenarios (annotations,regions,zoom,tilt,chrome,stack,blurDraw,playback)
-#      INJECT=touch|playing-blur|frozen-frames   an injected defect; the gate must FAIL
+#      INJECT=touch|playing-blur|frozen-frames|page-follow   an injected defect; the gate must FAIL
+#                                (page-follow: the timeline pages instead of keeping the playhead centred)
 set -euo pipefail
 
 IOS="$(cd "$(dirname "$0")/.." && pwd)"
@@ -57,7 +58,7 @@ args=(--editor-shell "$FIX" --transcript "$OUT/mac-transcript.txt" --out "$OUT/r
 xcrun simctl launch --console-pty --terminate-running-process "$DEVICE" so.capturecat.ios.studiolab \
   "${args[@]}" > "$OUT/run.log" 2>&1 || true
 
-grep -E '^(SCENARIO|TRANSCRIPT|PLAYBACK|FAIL|    line|               ios|   note|   real|   zoom-in)' "$OUT/run.log" || true
+grep -E '^(SCENARIO|TRANSCRIPT|PLAYBACK|CENTRED-PLAYBACK|FAIL|    line|               ios|   note|   real|   zoom-in)' "$OUT/run.log" || true
 grep -E '^EDITOR-SHELL (PASS|FAIL)' "$OUT/run.log" || { tail -20 "$OUT/run.log"; echo "IOS-EDITOR-SHELL FAIL (no result)"; exit 1; }
 echo "ios-editor-shell: full log $OUT/run.log · transcripts $OUT/run/ios-transcript*.txt · playback captures $OUT/run/playback/"
 grep -q '^EDITOR-SHELL PASS' "$OUT/run.log"

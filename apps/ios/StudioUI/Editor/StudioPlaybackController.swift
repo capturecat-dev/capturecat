@@ -70,6 +70,10 @@ final class StudioPlaybackController {
         var trimEndStops = 0
     }
     @ObservationIgnored private(set) var counters = Counters()
+    /// Called on every display-link tick while playing, right after the
+    /// playhead advanced — the timeline keeps its centred playhead in step
+    /// with the frame on screen (display-link driven, not observation).
+    @ObservationIgnored var onDisplayTick: (() -> Void)?
 
     init() {}
 
@@ -181,6 +185,9 @@ final class StudioPlaybackController {
             guard let self, let avPlayer, self.isPlaying,
                   self.pendingPlaybackStartTime == nil, self.pendingScrubTime == nil else { return }
             self.advance(to: avPlayer.currentTime().seconds, project: project, player: avPlayer)
+            // Same vsync, after the playhead moved: the timeline's centred
+            // follow scrolls here (no observation hop, no frame of lag).
+            self.onDisplayTick?()
         }
         let link = CADisplayLink(target: target, selector: #selector(DisplayTickTarget.step))
         link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)

@@ -1,24 +1,38 @@
 import AVFoundation
 import UIKit
 
-/// The iOS studio's editor screen (docs/ios-studio-plan.md Phase 4b) — the
-/// UIKit twin of the Mac's `EditorShellViewController` +
-/// `EditorStageViewController`:
+/// The iOS studio's editor screen — the UIKit twin of the Mac's
+/// `EditorShellViewController` + `EditorStageViewController`, laid out the
+/// way mobile video editors are (the editor redesign):
 ///
-///     [ top bar: close · title · undo · redo                          ]
-///     [ stage card (live preview + touch editing)  │                  ]
-///     [ transport (step · play · scrub · time)     │   inspector      ]
-///     [ timeline container                         │   container      ]
+///     ┌──────────────────────┐
+///     │ ‹  Title       ⟲ ⟳ ⇪ │ header: back, sync dot, title, undo, redo, export
+///     │     VIDEO PREVIEW    │ the stage card — the larger share of the height
+///     │  0:06 / 0:20  ‹▶›  ⤢ │ ONE transport row (time, frame steps, play, full screen)
+///     │ ─────────┃────────── │ the timeline: the playhead FIXED at the centre,
+///     │ ▓▓▓▓▓▓▓▓▓┃▓▓▓▓▓▓▓▓▓▓ │ dragging scrolls + scrubs, playback scrolls the
+///     │   ▬▬     ┃   ▬▬      │ content under it (pinch zooms)
+///     ├──────────────────────┤
+///     │ +  ✂  🎨 ↖ 📷 🔊 ✨ … │ the tool bar (`EditorToolBar`)
+///     └──────────────────────┘
 ///
-/// On a compact width (iPhone portrait) the column stacks under the
-/// timeline. The two containers are EMPTY here: the timeline (4c) and the
-/// inspector panes (4d) mount into `timelineContainer` / `inspectorContainer`.
+/// A pane tool opens the inspector's pane as a PANEL sliding up from the
+/// bottom over the timeline and tool bar — never the preview (house growth
+/// bounce at the pushed edge; a cross-fade under Reduce Motion). Selecting
+/// something swaps the tools for its CONTEXT keys (split, duplicate, delete,
+/// speed, its menu, Adjust = its pane). A phone on its side keeps the stage
+/// and timeline in a column with the tool bar as a rail on the trailing edge;
+/// its panes open as a side panel that pushes the column narrower. iPad and
+/// the iPhone Duo's crease layouts keep the inspector COLUMN (it fits) with
+/// the same transport row, centred-playhead timeline and the tool bar's
+/// action keys under the timeline.
 ///
 /// State flows in through `withObservationTracking` loops (`SurfaceObservation`)
 /// over the project, the playback controller and the shared selection
 /// (`EditorShellSelection`), and out through callbacks — the house rule.
 /// Rendering is the shared compositor (`PreviewStageView`), editing the
-/// shared gesture core (`EditorCanvasView`), playback `StudioPlaybackController`.
+/// shared gesture core (`EditorCanvasView`) and the shared timeline edits,
+/// playback `StudioPlaybackController`.
 @available(iOS 26, *)
 final class EditorViewController: UIViewController {
     let folder: StudioProjectFolder
@@ -27,7 +41,7 @@ final class EditorViewController: UIViewController {
     let selection = EditorShellSelection()
     private let editorUndo = UndoManager()
 
-    /// Where the shared timeline edits run (TODO(4c): the iOS timeline).
+    /// Where the shared timeline edits run for the stage's callbacks.
     lazy var timelineEdits: TimelineEditing = EditorDefaultEdits(
         project: project, selection: selection,
         undoManager: { [weak self] in self?.editorUndo },
@@ -37,10 +51,14 @@ final class EditorViewController: UIViewController {
     let header: CCHeaderBar
     let stageCard = EditorStageCardView()
     let transport = EditorTransportBar()
-    /// 4c mounts the timeline here.
+    /// The timeline (Studio 4c) mounts here.
     let timelineContainer = UIView()
-    /// 4d mounts the inspector panes here.
+    /// The inspector's COLUMN (iPad, the Duo's crease layouts); zero-sized
+    /// where the inspector is a panel the tool bar opens.
     let inspectorContainer = UIView()
+    /// Tools / context keys (bottom row, landscape rail, or under the
+    /// timeline beside an inspector column).
+    let toolBar = EditorToolBar()
     /// The inspector (Studio 4d) — its `on…` feature hooks are wired by 4e/4f.
     private(set) lazy var inspector = StudioInspectorController(
         project: project, selection: selection,
@@ -51,7 +69,8 @@ final class EditorViewController: UIViewController {
     private(set) lazy var timelinePlayback = EditorTimelinePlayback(
         playback: playback, project: { [unowned self] in self.project })
     private(set) lazy var timeline = StudioTimelineViewController(
-        project: project, selection: selection, playback: timelinePlayback, undoManager: editorUndo)
+        project: project, selection: selection, playback: timelinePlayback, undoManager: editorUndo,
+        chrome: .embedded)
     private let contextPill = EditorContextPill()
     private let undoButton = CCButton(symbol: "undo", style: .ghost, size: .regular, radius: .full)
     private let redoButton = CCButton(symbol: "redo", style: .ghost, size: .regular, radius: .full)
@@ -98,13 +117,33 @@ final class EditorViewController: UIViewController {
     private let creaseGuide = UILayoutGuide()
     private let stageTopSpace = UILayoutGuide()
     private let stageBottomSpace = UILayoutGuide()
+    /// Landscape: the side panel's slot between the column and the rail
+    /// (its width grows from 0 as the panel opens — the pushed edge).
+    private let sidePanelGuide = UILayoutGuide()
     private var creaseLeft: NSLayoutConstraint!
     private var creaseTop: NSLayoutConstraint!
     private var creaseWidth: NSLayoutConstraint!
     private var creaseHeight: NSLayoutConstraint!
+    private var sideSlotWidth: NSLayoutConstraint!
+    /// The inspector view's constraints per presentation.
+    private var inspectorColumn: [NSLayoutConstraint] = []
+    private var inspectorBottom: [NSLayoutConstraint] = []
+    private var inspectorSide: [NSLayoutConstraint] = []
+    /// Bottom panel: the panel's top relative to the screen's bottom edge
+    /// (0 = closed, below the screen; negative = risen to the timeline).
+    private var panelTop: NSLayoutConstraint!
+    private var expandedSet: [NSLayoutConstraint] = []
     private var lastShowCamera: Bool
     private var lastTrim: (TimeInterval, TimeInterval)
     private var lastVoiceClips: [VoiceOverClip]?
+
+    /// A pane's panel is open (portrait / landscape phone).
+    private(set) var isPanelOpen = false
+    /// The full-screen preview: timeline, tool bar and inspector away.
+    private(set) var isPreviewExpanded = false
+
+    /// The side panel's width (landscape phone).
+    static let sidePanelWidth: CGFloat = 300
 
     init(folder: StudioProjectFolder, initialTime: TimeInterval? = nil) {
         self.folder = folder
@@ -145,25 +184,26 @@ final class EditorViewController: UIViewController {
         }
         timelineContainer.accessibilityIdentifier = "studio.timelineContainer"
         inspectorContainer.accessibilityIdentifier = "studio.inspectorContainer"
-        for v in [header, stageCard, transport, timelineContainer, inspectorContainer, contextPill] as [UIView] {
+        for v in [header, stageCard, transport, timelineContainer, inspectorContainer, toolBar, contextPill] as [UIView] {
             root.addSubview(v)
         }
         contextPill.isHidden = true
 
         let guide = root.safeAreaLayoutGuide
-        for g in [creaseGuide, stageTopSpace, stageBottomSpace] { root.addLayoutGuide(g) }
+        for g in [creaseGuide, stageTopSpace, stageBottomSpace, sidePanelGuide] { root.addLayoutGuide(g) }
         // The crease's frame (zero when there is none), set in layout.
         creaseLeft = creaseGuide.leftAnchor.constraint(equalTo: root.leftAnchor)
         creaseTop = creaseGuide.topAnchor.constraint(equalTo: root.topAnchor)
         creaseWidth = creaseGuide.widthAnchor.constraint(equalToConstant: 0)
         creaseHeight = creaseGuide.heightAnchor.constraint(equalToConstant: 0)
+        sideSlotWidth = sidePanelGuide.widthAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
             creaseLeft, creaseTop, creaseWidth, creaseHeight,
             header.topAnchor.constraint(equalTo: root.topAnchor),
             header.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             header.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             stageCard.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: CCSpace.md),
-            transport.topAnchor.constraint(equalTo: stageCard.bottomAnchor, constant: CCSpace.sm),
+            transport.topAnchor.constraint(equalTo: stageCard.bottomAnchor, constant: CCSpace.xs),
             transport.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
             transport.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
             transport.heightAnchor.constraint(equalToConstant: 48),
@@ -173,18 +213,51 @@ final class EditorViewController: UIViewController {
             c.priority = .defaultHigh
             return c
         }
-        // Timeline under the stage, as wide as it (both size-class layouts).
-        func timelineUnderStage() -> [NSLayoutConstraint] {
-            [stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
-             timelineContainer.topAnchor.constraint(equalTo: transport.bottomAnchor, constant: CCSpace.sm),
-             timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
-             timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor)]
+        // A zero-sized inspector container where the inspector is a panel
+        // (it stays inside the editor, under the tool bar).
+        func noColumn() -> [NSLayoutConstraint] {
+            [inspectorContainer.leadingAnchor.constraint(equalTo: toolBar.leadingAnchor),
+             inspectorContainer.topAnchor.constraint(equalTo: toolBar.topAnchor),
+             inspectorContainer.widthAnchor.constraint(equalToConstant: 0),
+             inspectorContainer.heightAnchor.constraint(equalToConstant: 0)]
         }
+        // The tool bar as a row beside an inspector column: under the
+        // timeline, as wide as it, a floating card.
+        func actionRow(under view: UIView, bottom: NSLayoutYAxisAnchor) -> [NSLayoutConstraint] {
+            [toolBar.topAnchor.constraint(equalTo: view.bottomAnchor, constant: CCSpace.sm),
+             toolBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+             toolBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+             toolBar.heightAnchor.constraint(equalToConstant: EditorToolBar.thickness),
+             toolBar.bottomAnchor.constraint(lessThanOrEqualTo: bottom, constant: -CCSpace.sm)]
+        }
+
+        // Portrait phone: stage, transport, timeline, then the tool bar
+        // docked to the screen's bottom edge (its keys above the home
+        // indicator). The stage takes what the rest leaves.
+        let timelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 180)
+        timelineHeights[.stacked] = timelineHeight
+        constraintSets[.stacked] = [
+            stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
+            stageCard.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
+            timelineContainer.topAnchor.constraint(equalTo: transport.bottomAnchor, constant: CCSpace.xs),
+            timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
+            timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
+            timelineHeight,
+            toolBar.topAnchor.constraint(equalTo: timelineContainer.bottomAnchor, constant: CCSpace.sm),
+            toolBar.topAnchor.constraint(equalTo: guide.bottomAnchor, constant: -EditorToolBar.thickness),
+            toolBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            toolBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            toolBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+        ] + noColumn()
         // Regular width: the inspector is a 340 pt column (the Mac's 340…480,
-        // ideal 380, scaled to a tablet), stage + timeline to its left. The
-        // card takes a 16:9 share of the width when there is room; the
-        // timeline keeps at least 220 pt and takes what is left.
-        constraintSets[.sideBySide] = timelineUnderStage() + [
+        // ideal 380, scaled to a tablet), stage + transport + timeline + the
+        // tool bar's action row to its left. The card takes a 16:9 share of
+        // the width when there is room; the timeline keeps at least 220 pt.
+        constraintSets[.sideBySide] = [
+            stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
+            timelineContainer.topAnchor.constraint(equalTo: transport.bottomAnchor, constant: CCSpace.xs),
+            timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
+            timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
             inspectorContainer.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
             inspectorContainer.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
             inspectorContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
@@ -193,24 +266,11 @@ final class EditorViewController: UIViewController {
             sixteenByNine(),
             stageCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 160),
             timelineContainer.heightAnchor.constraint(greaterThanOrEqualToConstant: 220),
-            timelineContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
-        ]
-        // Compact: one column — stage, transport, timeline, inspector.
-        let timelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 180)
-        timelineHeights[.stacked] = timelineHeight
-        constraintSets[.stacked] = timelineUnderStage() + [
-            stageCard.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
-            sixteenByNine(),
-            stageCard.heightAnchor.constraint(lessThanOrEqualTo: guide.heightAnchor, multiplier: 0.45),
-            timelineHeight,
-            inspectorContainer.topAnchor.constraint(equalTo: timelineContainer.bottomAnchor, constant: CCSpace.sm),
-            inspectorContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
-            inspectorContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
-            inspectorContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
-        ]
+            toolBar.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
+        ] + actionRow(under: timelineContainer, bottom: guide.bottomAnchor)
         // A crease top to bottom (iPhone Duo unfolded): the stage and its
-        // transport fill one half, centred in it; the timeline and the
-        // inspector take the other half — nothing straddles the fold.
+        // transport fill one half, centred in it; the timeline, the action
+        // row and the inspector take the other half — nothing straddles it.
         let vTimelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 220)
         timelineHeights[.splitAtVerticalCrease] = vTimelineHeight
         constraintSets[.splitAtVerticalCrease] = [
@@ -226,37 +286,15 @@ final class EditorViewController: UIViewController {
             timelineContainer.leadingAnchor.constraint(equalTo: creaseGuide.trailingAnchor, constant: CCSpace.md),
             timelineContainer.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
             vTimelineHeight,
-            inspectorContainer.topAnchor.constraint(equalTo: timelineContainer.bottomAnchor, constant: CCSpace.sm),
+            inspectorContainer.topAnchor.constraint(equalTo: toolBar.bottomAnchor, constant: CCSpace.sm),
             inspectorContainer.leadingAnchor.constraint(equalTo: timelineContainer.leadingAnchor),
             inspectorContainer.trailingAnchor.constraint(equalTo: timelineContainer.trailingAnchor),
             inspectorContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
-        ]
-        // A crease side to side: stage and transport above it; timeline and
-        // inspector below.
+        ] + actionRow(under: timelineContainer, bottom: inspectorContainer.topAnchor)
+        // A crease side to side: stage and transport above it; timeline,
+        // action row and inspector below.
         let hTimelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 180)
         timelineHeights[.splitAtHorizontalCrease] = hTimelineHeight
-        // A phone on its side (compact height): the height is what limits the
-        // video, so the inspector takes a column beside it at no cost to the
-        // stage; the stage fills the rest of the left column above a slim,
-        // scrolling timeline.
-        let lTimelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 110)
-        timelineHeights[.landscapeCompact] = lTimelineHeight
-        constraintSets[.landscapeCompact] = [
-            stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.xs),
-            stageCard.trailingAnchor.constraint(equalTo: inspectorContainer.leadingAnchor, constant: -CCSpace.md),
-            stageCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 120),
-            // The timeline's own toolbar (play, skip, time) is the transport
-            // here; the stage takes the transport row's height.
-            timelineContainer.topAnchor.constraint(equalTo: stageCard.bottomAnchor, constant: CCSpace.sm),
-            timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
-            timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
-            timelineContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.xs),
-            lTimelineHeight,
-            inspectorContainer.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.xs),
-            inspectorContainer.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
-            inspectorContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.xs),
-            inspectorContainer.widthAnchor.constraint(equalToConstant: 300),
-        ]
         constraintSets[.splitAtHorizontalCrease] = [
             stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
             stageCard.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
@@ -266,16 +304,88 @@ final class EditorViewController: UIViewController {
             timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
             timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
             hTimelineHeight,
-            inspectorContainer.topAnchor.constraint(equalTo: timelineContainer.bottomAnchor, constant: CCSpace.sm),
+            inspectorContainer.topAnchor.constraint(equalTo: toolBar.bottomAnchor, constant: CCSpace.sm),
             inspectorContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
             inspectorContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
             inspectorContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
+        ] + actionRow(under: timelineContainer, bottom: inspectorContainer.topAnchor)
+        // A phone on its side (compact height): the height limits the video,
+        // so the tool bar is a rail down the trailing edge and the stage,
+        // transport and a slim timeline fill the column beside it. A pane
+        // opens as a side panel between them, pushing the column narrower.
+        let lTimelineHeight = timelineContainer.heightAnchor.constraint(equalToConstant: 110)
+        timelineHeights[.landscapeCompact] = lTimelineHeight
+        constraintSets[.landscapeCompact] = [
+            toolBar.topAnchor.constraint(equalTo: header.bottomAnchor),
+            toolBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            toolBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            toolBar.leadingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -EditorToolBar.railWidth),
+            sidePanelGuide.trailingAnchor.constraint(equalTo: toolBar.leadingAnchor),
+            sidePanelGuide.topAnchor.constraint(equalTo: header.bottomAnchor),
+            sidePanelGuide.bottomAnchor.constraint(equalTo: guide.bottomAnchor),
+            sideSlotWidth,
+            stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.xs),
+            stageCard.trailingAnchor.constraint(equalTo: sidePanelGuide.leadingAnchor, constant: -CCSpace.md),
+            stageCard.heightAnchor.constraint(greaterThanOrEqualToConstant: 100),
+            timelineContainer.topAnchor.constraint(equalTo: transport.bottomAnchor, constant: CCSpace.xs),
+            timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
+            timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
+            timelineContainer.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.xs),
+            lTimelineHeight,
+        ] + noColumn()
+        // The full-screen preview: the stage and its transport take the
+        // whole editor under the header (any arrangement without a crease).
+        expandedSet = [
+            stageCard.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.sm),
+            stageCard.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
+            transport.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
+            timelineContainer.topAnchor.constraint(equalTo: root.bottomAnchor),
+            timelineContainer.leadingAnchor.constraint(equalTo: stageCard.leadingAnchor),
+            timelineContainer.trailingAnchor.constraint(equalTo: stageCard.trailingAnchor),
+            timelineContainer.heightAnchor.constraint(equalToConstant: 1),
+            toolBar.topAnchor.constraint(equalTo: root.bottomAnchor),
+            toolBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            toolBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            toolBar.heightAnchor.constraint(equalToConstant: 1),
+        ] + noColumn()
+    }
+
+    /// Constrains the inspector's view for each presentation (called once
+    /// the inspector is installed).
+    private func constrainInspector() {
+        let v = inspector.view!
+        let root = view!
+        let guide = root.safeAreaLayoutGuide
+        inspectorColumn = [
+            v.leadingAnchor.constraint(equalTo: inspectorContainer.leadingAnchor),
+            v.trailingAnchor.constraint(equalTo: inspectorContainer.trailingAnchor),
+            v.topAnchor.constraint(equalTo: inspectorContainer.topAnchor),
+            v.bottomAnchor.constraint(equalTo: inspectorContainer.bottomAnchor),
         ]
+        // The bottom panel runs past the screen's bottom edge (no band under
+        // it, its bottom corners out of sight); its top rises to the
+        // timeline's top — never over the preview.
+        panelTop = v.topAnchor.constraint(equalTo: root.bottomAnchor)
+        inspectorBottom = [
+            v.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            v.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            v.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: StudioInspectorController.sheetOverhang),
+            panelTop,
+        ]
+        // The side panel rides the slot's leading (pushed) edge, its far
+        // side tucked under the rail while the slot is narrow.
+        inspectorSide = [
+            v.leadingAnchor.constraint(equalTo: sidePanelGuide.leadingAnchor, constant: CCSpace.xs),
+            v.widthAnchor.constraint(equalToConstant: Self.sidePanelWidth),
+            v.topAnchor.constraint(equalTo: header.bottomAnchor, constant: CCSpace.xs),
+            v.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.xs),
+        ]
+        NSLayoutConstraint.activate(inspectorColumn)
     }
 
     /// How the editor's regions are laid out.
     enum Arrangement: String {
-        /// Compact size classes: one column.
+        /// Compact size classes: one column, the tool bar along the bottom.
         case stacked
         /// Both size classes regular: an inspector column beside the stage.
         case sideBySide
@@ -284,7 +394,7 @@ final class EditorViewController: UIViewController {
         /// A crease side to side: stage over timeline and inspector.
         case splitAtHorizontalCrease
         /// Compact height (a phone on its side): stage over a slim timeline,
-        /// the inspector a column beside them.
+        /// the tool bar a rail on the trailing edge.
         case landscapeCompact
     }
 
@@ -312,13 +422,22 @@ final class EditorViewController: UIViewController {
     /// classes regular — iPad full screen and the iPhone Duo's inner display.
     /// Size classes, not a width breakpoint: they follow fold / unfold, Split
     /// View and Stage Manager, and keep a landscape phone (regular width,
-    /// compact height) on the stacked layout that fits its height. Read here
-    /// in layout, UIKit's automatic trait tracking re-lays out on a change.
+    /// compact height) on the layout that fits its height. Read here in
+    /// layout, UIKit's automatic trait tracking re-lays out on a change.
     var usesRegularLayout: Bool {
         #if DEBUG
         if Self.probeDefect == .ignoresSizeClass { return false }
         #endif
         return traitCollection.horizontalSizeClass == .regular && traitCollection.verticalSizeClass == .regular
+    }
+
+    /// How the inspector shows in an arrangement.
+    func inspectorPresentation(for arrangement: Arrangement) -> StudioInspectorController.Presentation {
+        switch arrangement {
+        case .stacked: return .bottomPanel
+        case .landscapeCompact: return .sidePanel
+        case .sideBySide, .splitAtVerticalCrease, .splitAtHorizontalCrease: return .column
+        }
     }
 
     override func viewWillLayoutSubviews() {
@@ -330,15 +449,17 @@ final class EditorViewController: UIViewController {
         if creaseTop.constant != r.minY { creaseTop.constant = r.minY }
         if creaseWidth.constant != r.width { creaseWidth.constant = r.width }
         if creaseHeight.constant != r.height { creaseHeight.constant = r.height }
+        // A crease never takes the full-screen preview (it would straddle).
+        if isPreviewExpanded, crease != nil { isPreviewExpanded = false; transport.setExpanded(false) }
         if arrangement != activeArrangement {
-            if let activeArrangement { NSLayoutConstraint.deactivate(constraintSets[activeArrangement] ?? []) }
-            NSLayoutConstraint.activate(constraintSets[arrangement] ?? [])
+            let previous = activeArrangement
+            if let previous { NSLayoutConstraint.deactivate(constraintSets[previous] ?? []) }
+            NSLayoutConstraint.deactivate(expandedSet)
+            NSLayoutConstraint.activate(isPreviewExpanded ? expandedSet : constraintSets[arrangement] ?? [])
             activeArrangement = arrangement
+            applyPresentation(arrangement, keepPanelOpen: previous != nil && isPanelOpen)
         }
-        transport.isHidden = arrangement == .landscapeCompact
-        // The inspector is a column whenever it has a pane of its own.
-        inspector.setRegularWidth(arrangement == .sideBySide || arrangement == .splitAtVerticalCrease
-                                  || arrangement == .landscapeCompact)
+        transport.expandButton.isHidden = crease != nil
         // The centred title moves off a vertical crease, over the stage's half.
         if case .vertical(let c)? = crease {
             let rtl = view.effectiveUserInterfaceLayoutDirection == .rightToLeft
@@ -349,11 +470,276 @@ final class EditorViewController: UIViewController {
             header.titleCenterOffset = 0
         }
         timelineHeightChanged(timeline.intrinsicPanelHeight)
+        if isPanelOpen, inspector.presentation == .bottomPanel, !CCMotion.isAnimating(panelTop), !panning {
+            let target = openPanelTop()
+            if abs(panelTop.constant - target) > 0.5 { panelTop.constant = target }
+        }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         repositionContextPill()
+    }
+
+    /// The inspector's presentation, the tool bar's shape and the panel's
+    /// state for an arrangement.
+    private func applyPresentation(_ arrangement: Arrangement, keepPanelOpen: Bool) {
+        let presentation = inspectorPresentation(for: arrangement)
+        let wasOpen = isPanelOpen
+        NSLayoutConstraint.deactivate(inspectorColumn + inspectorBottom + inspectorSide)
+        inspector.setPresentation(presentation)
+        switch presentation {
+        case .column: NSLayoutConstraint.activate(inspectorColumn)
+        case .bottomPanel: NSLayoutConstraint.activate(inspectorBottom)
+        case .sidePanel: NSLayoutConstraint.activate(inspectorSide)
+        }
+        // Z-order: the bottom panel covers the tool bar; the side panel
+        // slides out from under the rail.
+        if presentation == .sidePanel {
+            view.insertSubview(inspector.view, belowSubview: toolBar)
+        } else {
+            view.insertSubview(inspector.view, aboveSubview: toolBar)
+        }
+        view.bringSubviewToFront(contextPill)
+        toolBar.axis = arrangement == .landscapeCompact ? .vertical : .horizontal
+        toolBar.docked = arrangement == .stacked || arrangement == .landscapeCompact
+        toolBar.showsPaneTools = presentation != .column
+        isPanelOpen = false
+        panelTop?.constant = 0
+        sideSlotWidth.constant = 0
+        inspector.view.isHidden = presentation != .column
+        inspector.view.accessibilityElementsHidden = false
+        timelineContainer.accessibilityElementsHidden = false
+        toolBar.accessibilityElementsHidden = false
+        toolBar.setOpenPane(nil)
+        if presentation != .column, wasOpen, keepPanelOpen {
+            openPanel(selection.inspectorTab, animated: false)
+        }
+        refreshToolBarMode(animated: false)
+    }
+
+    // MARK: - Panels (portrait and landscape phone)
+
+    /// The bottom panel's top when open: the timeline's top (the panel
+    /// covers the timeline and the tool bar, never the stage or transport).
+    private func openPanelTop() -> CGFloat {
+        let top = timelineContainer.frame.minY
+        return top - view.bounds.height
+    }
+
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT: panels snap open (no growth).
+    static var probeSnapPanel = false
+    #endif
+
+    /// Opens `tab`'s pane: the bottom panel rises to the timeline's top
+    /// (portrait) or the side panel pushes the column narrower (landscape);
+    /// with an inspector column it just switches the pane.
+    func openPanel(_ tab: InspectorTab, animated: Bool = true) {
+        guard !isPreviewingVersion else { return }
+        selection.inspectorTab = tab
+        let presentation = inspector.presentation
+        guard presentation != .column else { return }
+        canvas.endInlineEdit(commit: true)
+        toolBar.setOpenPane(tab)
+        let already = isPanelOpen
+        isPanelOpen = true
+        inspector.view.isHidden = false
+        view.layoutIfNeeded()
+        var animate = animated && view.window != nil && !already
+        #if DEBUG
+        if Self.probeSnapPanel { animate = false }
+        #endif
+        switch presentation {
+        case .bottomPanel:
+            let target = openPanelTop()
+            if animate {
+                CCMotion.animate(panelTop, to: target, in: view, duration: 0.42, curve: .bounce)
+            } else {
+                panelTop.constant = target
+                view.layoutIfNeeded()
+            }
+        case .sidePanel:
+            let target = Self.sidePanelWidth + CCSpace.xs + CCSpace.sm
+            if animate {
+                CCMotion.animate(sideSlotWidth, to: target, in: view, duration: 0.42, curve: .bounce)
+            } else {
+                sideSlotWidth.constant = target
+                view.layoutIfNeeded()
+            }
+        case .column:
+            break
+        }
+        hideCoveredFromVoiceOver()
+        if !already { UIAccessibility.post(notification: .screenChanged, argument: inspector.closeButton) }
+    }
+
+    /// Back to the tool bar.
+    func closePanel(animated: Bool = true) {
+        guard isPanelOpen else { return }
+        isPanelOpen = false
+        toolBar.setOpenPane(nil)
+        let animate = animated && view.window != nil
+        let done = { [weak self] in
+            guard let self, !self.isPanelOpen, self.inspector.presentation != .column else { return }
+            self.inspector.view.isHidden = true
+        }
+        switch inspector.presentation {
+        case .bottomPanel:
+            if animate {
+                CCMotion.animate(panelTop, to: 0, in: view, duration: 0.34, curve: .settle, completion: done)
+            } else {
+                panelTop.constant = 0
+                view.layoutIfNeeded()
+                done()
+            }
+        case .sidePanel:
+            if animate {
+                CCMotion.animate(sideSlotWidth, to: 0, in: view, duration: 0.34, curve: .settle, completion: done)
+            } else {
+                sideSlotWidth.constant = 0
+                view.layoutIfNeeded()
+                done()
+            }
+        case .column:
+            break
+        }
+        hideCoveredFromVoiceOver()
+        UIAccessibility.post(notification: .screenChanged, argument: toolBar)
+    }
+
+    /// The open bottom panel covers the timeline and the tool bar: VoiceOver
+    /// skips them (the side panel covers nothing).
+    private func hideCoveredFromVoiceOver() {
+        let covered = isPanelOpen && inspector.presentation == .bottomPanel
+        timelineContainer.accessibilityElementsHidden = covered
+        toolBar.accessibilityElementsHidden = covered
+        UIAccessibility.post(notification: .layoutChanged, argument: nil)
+    }
+
+    private var toolBarRefreshQueued = false
+    private var panning = false
+    private var panStart: CGFloat = 0
+
+    /// A drag on the bottom panel's grabber: the panel follows the finger
+    /// down (never up past the timeline); released past a third, it closes.
+    private func panPanel(_ phase: UIGestureRecognizer.State, _ dy: CGFloat) {
+        guard isPanelOpen, inspector.presentation == .bottomPanel else { return }
+        let open = openPanelTop()
+        switch phase {
+        case .began:
+            panning = true
+            panStart = panelTop.constant
+        case .changed:
+            panelTop.constant = min(0, max(open, panStart + dy))
+            view.layoutIfNeeded()
+        default:
+            panning = false
+            if panelTop.constant - open > -open / 3 {
+                closePanel()
+            } else {
+                CCMotion.animate(panelTop, to: open, in: view, duration: 0.3, curve: .settle)
+            }
+        }
+    }
+
+    // MARK: - Full-screen preview
+
+    /// The preview takes the editor (the transport stays under it); again
+    /// returns to the arrangement. A cross-fade between the two layouts.
+    func setPreviewExpanded(_ expanded: Bool, animated: Bool = true) {
+        guard expanded != isPreviewExpanded, crease == nil || !expanded else { return }
+        if expanded { closePanel(animated: false) }
+        isPreviewExpanded = expanded
+        transport.setExpanded(expanded)
+        let change = { [self] in
+            if let activeArrangement { NSLayoutConstraint.deactivate(constraintSets[activeArrangement] ?? []) }
+            NSLayoutConstraint.deactivate(expandedSet)
+            NSLayoutConstraint.activate(expanded ? expandedSet : constraintSets[arrangement] ?? [])
+            activeArrangement = arrangement
+            for v in [timelineContainer, toolBar, inspectorContainer] as [UIView] { v.isHidden = expanded }
+            inspector.view.isHidden = expanded || inspector.presentation != .column
+            view.layoutIfNeeded()
+        }
+        if animated, view.window != nil {
+            CCMotion.crossFade(view, change)
+        } else {
+            change()
+        }
+        UIAccessibility.post(notification: .screenChanged, argument: transport.expandButton)
+    }
+
+    // MARK: - Tool bar
+
+    private func wireToolBar() {
+        toolBar.onTool = { [weak self] tool, key in self?.runTool(tool, from: key) }
+        // Coalesced to the end of the turn: the timeline's canvas has taken
+        // the new selection by then (the Options key reads its geometry).
+        timeline.onCommandStateChange = { [weak self] in
+            guard let self, !self.toolBarRefreshQueued else { return }
+            self.toolBarRefreshQueued = true
+            DispatchQueue.main.async {
+                self.toolBarRefreshQueued = false
+                self.refreshToolBarMode(animated: true)
+            }
+        }
+        inspector.onClosePanel = { [weak self] in self?.closePanel() }
+        inspector.onPanelPan = { [weak self] phase, dy in self?.panPanel(phase, dy) }
+    }
+
+    /// A tool bar key: the timeline's commands, the panes, History.
+    func runTool(_ tool: EditorToolBar.Tool, from key: UIView) {
+        guard !isPreviewingVersion else { return }
+        switch tool {
+        case .add: presentAddSheet(from: key)
+        case .split: timeline.splitAtPlayhead()
+        case .speed: if !timeline.showSpeedMenu(from: key) { CCHaptics.warning() }
+        case .pane(let tab):
+            if isPanelOpen, selection.inspectorTab == tab { closePanel() } else { openPanel(tab) }
+        case .history: inspector.onShowHistory?()
+        case .done:
+            if timeline.isSliceArmed { timeline.toggleSliceTool() } else { timeline.clearTimelineSelection() }
+        case .adjust: openPanel(selection.inspectorTab)
+        case .duplicate: timeline.duplicateSelectedRegion()
+        case .delete:
+            timeline.deleteSelection()
+            renderStage()
+        case .options: if !timeline.showSelectionMenu(from: key) { CCHaptics.warning() }
+        }
+    }
+
+    /// The Add sheet: the timeline's add menus (effects, focus, annotation —
+    /// the same house sheets its toolbar opened), voice-over and the slice tool.
+    private func presentAddSheet(from key: UIView) {
+        let sheet = CCActionSheet(title: "Add")
+        sheet.addAction("Effect", symbol: "sparkles") { [weak self, weak key] in self?.timeline.showEffectsMenu(from: key) }
+        sheet.addAction("Focus or Blur", symbol: "scope") { [weak self, weak key] in self?.timeline.showFocusMenu(from: key) }
+        sheet.addAction("Annotation", symbol: "pencil.tip") { [weak self, weak key] in self?.timeline.showAnnotationMenu(from: key) }
+        sheet.addAction("Voice Over", symbol: "mic.fill") { [weak self] in self?.presentVoiceOver() }
+        sheet.addAction("Slice Tool", symbol: "rectangle.split.2x1") { [weak self] in self?.timeline.toggleSliceTool() }
+        sheet.present(from: self, source: key)
+    }
+
+    /// Tools, or the selection's context keys (or the slice tool's bar).
+    private func refreshToolBarMode(animated: Bool) {
+        guard isViewLoaded else { return }
+        let mode: EditorToolBar.Mode
+        if timeline.isSliceArmed {
+            mode = .slicing
+        } else if timeline.hasTimelineSelection {
+            let s = selection
+            let hasPane = s.selectedZoomID != nil || s.selectedTiltID != nil || s.selectedBlurID != nil
+                || s.selectedHighlightID != nil || s.selectedDepthFocusID != nil || s.selectedAnnotationID != nil
+            mode = .context(.init(
+                adjust: hasPane && inspector.presentation != .column,
+                duplicate: timeline.canDuplicateSelection,
+                delete: timeline.canDeleteSelection,
+                speed: timeline.selectedClipID != nil || timeline.selectedSpeedID != nil,
+                options: timeline.canvas.selectedBlockFrame() != nil))
+        } else {
+            mode = .tools
+        }
+        toolBar.setMode(mode, animated: animated)
     }
 
     // MARK: - Lifecycle
@@ -364,7 +750,9 @@ final class EditorViewController: UIViewController {
         wireTransport()
         installTimeline()
         inspector.install(in: self)
+        constrainInspector()
         wireFeatures()
+        wireToolBar()
         contextPill.onEditText = { [weak self] in
             guard let self, let id = self.selection.selectedAnnotationID else { return }
             self.canvas.beginInlineEdit(annotationID: id)
@@ -443,25 +831,35 @@ final class EditorViewController: UIViewController {
         timelineHeightChanged(timeline.intrinsicPanelHeight)
     }
 
-    /// iPhone: the timeline gets its full height, up to a third of the screen
-    /// (it scrolls beyond); iPad: it takes what the stage leaves. Beside a
-    /// crease it may take up to half its pane; the inspector gets the rest.
+    /// The share of the height the stage keeps on a portrait phone.
+    static let stageShare: CGFloat = 0.40
+
+    /// Portrait phone: the timeline gets its full height while the stage
+    /// keeps `stageShare` of the screen (the timeline gives way on short
+    /// screens); landscape: a slim strip; iPad: it takes what the stage
+    /// leaves. Beside a crease it may take up to half its pane.
     private func timelineHeightChanged(_ height: CGFloat) {
         let h = view.bounds.height
+        let headerBottom = header.frame.maxY > 0 ? header.frame.maxY : view.safeAreaInsets.top + CCHeaderBar.barHeight
+        // Stacked: what lies between the header and the tool bar, less the
+        // transport row and the gaps, less the stage's share.
+        let stackedRoom = h - view.safeAreaInsets.bottom - EditorToolBar.thickness - headerBottom
+            - CCSpace.sm - CCSpace.xs - 48 - CCSpace.xs - CCSpace.sm
         let caps: [Arrangement: CGFloat] = [
-            .stacked: max(180, h / 3),
+            .stacked: max(140, stackedRoom - h * Self.stageShare),
             .splitAtVerticalCrease: max(220, h / 2),
-            .splitAtHorizontalCrease: max(160, (h - (crease?.rect.maxY ?? 0)) / 2),
-            .landscapeCompact: max(96, h * 0.3),
+            .splitAtHorizontalCrease: max(160, (h - (crease?.rect.maxY ?? 0)) / 2 - EditorToolBar.thickness),
+            .landscapeCompact: max(96, h * 0.32),
         ]
         for (arrangement, constraint) in timelineHeights {
-            let floor: CGFloat = arrangement == .splitAtHorizontalCrease ? 160 : arrangement == .landscapeCompact ? 96 : 180
+            let floor: CGFloat = arrangement == .splitAtHorizontalCrease ? 160 : arrangement == .landscapeCompact ? 96
+                : arrangement == .stacked ? 140 : 180
             let constant = min(max(height, floor), caps[arrangement] ?? floor)
             if constraint.constant != constant { constraint.constant = constant }
         }
     }
 
-    /// The feature keys: the inspector's (4d) and the timeline's mic and
+    /// The feature keys: the inspector's (4d), the tool bar's and the timeline's mic and
     /// camera-mask hooks open the features (4e) and History (4f), each a
     /// sheet over the editor with one undo step on the editor's stack.
     private func wireFeatures() {
@@ -579,6 +977,20 @@ final class EditorViewController: UIViewController {
     }
 
     private func wireTransport() {
+        // VoiceOver: the timeline's zoom (a pinch) as the playhead's actions.
+        transport.playhead.accessibilityCustomActions = [
+            UIAccessibilityCustomAction(name: "Zoom in timeline") { [weak self] _ in self?.timeline.zoomTimeline(in: true); return true },
+            UIAccessibilityCustomAction(name: "Zoom out timeline") { [weak self] _ in self?.timeline.zoomTimeline(in: false); return true },
+            UIAccessibilityCustomAction(name: "Fit timeline") { [weak self] _ in
+                guard let self else { return false }
+                self.timeline.setTimelineScale(self.timeline.minTimelineScale)
+                return true
+            },
+        ]
+        transport.onToggleExpanded = { [weak self] in
+            guard let self else { return }
+            self.setPreviewExpanded(!self.isPreviewExpanded)
+        }
         transport.onTogglePlay = { [weak self] in
             guard let self else { return }
             self.canvas.endInlineEdit(commit: true)
@@ -812,7 +1224,8 @@ final class EditorViewController: UIViewController {
             selection.selectedTiltID = nil
         }
         canvas.isUserInteractionEnabled = editable
-        for container in [timelineContainer, inspectorContainer] {
+        if !editable { closePanel(animated: false) }
+        for container in [timelineContainer, inspectorContainer, toolBar] as [UIView] {
             container.isUserInteractionEnabled = editable
             container.alpha = editable ? 1 : 0.45
         }
@@ -830,6 +1243,7 @@ final class EditorViewController: UIViewController {
             escape,
             UIKeyCommand(title: "Undo", action: #selector(keyUndo), input: "z", modifierFlags: .command),
             UIKeyCommand(title: "Redo", action: #selector(keyRedo), input: "z", modifierFlags: [.command, .shift]),
+            UIKeyCommand(title: "Export…", action: #selector(keyExport), input: "e", modifierFlags: .command),
         ]
         if canvas.inlineEditingID == nil {
             commands += [
@@ -842,7 +1256,12 @@ final class EditorViewController: UIViewController {
         return commands
     }
 
-    @objc private func keyEscape() { canvas.escape() }
+    @objc private func keyEscape() {
+        if isPanelOpen { closePanel(); return }
+        if isPreviewExpanded { setPreviewExpanded(false); return }
+        canvas.escape()
+    }
+    @objc private func keyExport() { presentExport() }
     @objc private func keyUndo() { performUndo() }
     @objc private func keyRedo() { performRedo() }
     @objc private func keyPlay() { transport.onTogglePlay?() }

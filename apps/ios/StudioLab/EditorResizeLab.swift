@@ -7,13 +7,18 @@ import UIKit
 /// The editor is hosted at the outer display's size and size classes, given
 /// state (a playhead, a selection, an edit on the undo stack, playback
 /// running), then resized live to the inner display and back. Each step
-/// checks the layout the size classes call for (stacked with a bottom-sheet
-/// inspector when compact; an inspector column beside the stage when regular),
+/// checks the layout the size classes call for (the editor redesign: stacked
+/// with the tool bar along the bottom and panes as panels when compact; an
+/// inspector column beside the stage with the tool bar's action row under the
+/// timeline when regular; a tool rail and side panel on its side), the ONE
+/// transport row, the timeline's playhead centred in its viewport, a pane
+/// tool opening its panel caught MID-FLIGHT (never over the stage),
 /// that every region stays inside the editor and clear of the others, that
 /// History would open in the matching style, and that nothing was lost:
 /// project, selection, undo stack, and playback still running and advancing.
 /// `--inject ignores-size-class` pins the editor to its compact layout: the
-/// unfold checks must then FAIL (proof the gate can see a missed resize).
+/// unfold checks must then FAIL (proof the gate can see a missed resize);
+/// `--inject snap-panel` snaps the panels open: the mid-flight checks FAIL.
 ///
 /// Unfolded, the inner display has a crease (a `.division` reserved region).
 /// The simulator can only fold from its window's hardware menu, so the gate
@@ -58,12 +63,14 @@ enum EditorResizeLab {
         try? fm.createDirectory(at: out, withIntermediateDirectories: true)
         log("EDITOR-RESIZE out=\(out.path) device=\(UIDevice.current.model) \(UIDevice.current.systemVersion)")
         if let inject {
-            guard inject == "ignores-size-class" || inject == "ignores-crease" else {
+            guard ["ignores-size-class", "ignores-crease", "snap-panel"].contains(inject) else {
                 log("EDITOR-RESIZE FAIL unknown --inject \(inject)"); exit(1)
             }
             log("EDITOR-RESIZE inject=\(inject)")
             #if DEBUG
-            EditorViewController.probeDefect = inject == "ignores-crease" ? .ignoresCrease : .ignoresSizeClass
+            if inject == "snap-panel" { EditorViewController.probeSnapPanel = true } else {
+                EditorViewController.probeDefect = inject == "ignores-crease" ? .ignoresCrease : .ignoresSizeClass
+            }
             #endif
         }
 
@@ -108,6 +115,7 @@ enum EditorResizeLab {
 
         // Folded: the outer display.
         checkLayout(editor, display: outer)
+        await checkPanel(editor, tag: "outer", injected: inject == "snap-panel")
 
         // State: a playhead, a selection, one edit on the undo stack, playing.
         let project = editor.project
@@ -159,6 +167,30 @@ enum EditorResizeLab {
         checkLayout(editor, display: outer)
         checkState(editor, snapshot: snapshot, selectedID: selectedID, after: playheadBeforeFold, step: "fold")
 
+        // On its side: compact height (a landscape phone) — the tool rail
+        // and the side panel, mid-playback.
+        let landscape = Display(name: "landscape", size: CGSize(width: min(844, available.width - 40), height: 390),
+                                horizontal: .compact, vertical: .compact)
+        let beforeTurn = editor.playback.currentTime
+        width.constant = landscape.size.width
+        containerHeight.constant = landscape.size.height
+        apply(landscape, to: host)
+        await settle(1.0)
+        checkLayout(editor, display: landscape)
+        checkState(editor, snapshot: snapshot, selectedID: selectedID, after: beforeTurn, step: "landscape")
+        // The context keys show for the selection; Done brings the tools back.
+        if let done = editor.toolBar.key(for: .done) { done.sendActions(for: .touchUpInside) }
+        await settle(0.3)
+        check("landscape-done-clears", editor.toolBar.mode == .tools && !editor.timeline.hasTimelineSelection,
+              "Done → tools (\(editor.toolBar.probeTitles.prefix(4).joined(separator: " · ")) …)")
+        await checkPanel(editor, tag: "landscape", injected: inject == "snap-panel")
+        editor.selection.selectedAnnotationID = selectedID
+        width.constant = outer.size.width
+        containerHeight.constant = outer.size.height
+        apply(outer, to: host)
+        await settle(1.0)
+        checkLayout(editor, display: outer)
+
         // The edit made before the folds still undoes.
         editor.playback.setPlaying(false, for: project)
         editor.performUndo()
@@ -175,34 +207,140 @@ enum EditorResizeLab {
     private static func checkLayout(_ editor: EditorViewController, display: Display) {
         let tag = display.name
         let wantRegular = display.horizontal == .regular && display.vertical == .regular
+        let wantLandscape = display.vertical == .compact
         check("\(tag)-size-class", editor.usesRegularLayout == wantRegular,
               "usesRegularLayout=\(editor.usesRegularLayout) for \(display.horizontal == .regular ? "regular" : "compact") width")
+        let want: EditorViewController.Arrangement = wantRegular ? .sideBySide : wantLandscape ? .landscapeCompact : .stacked
+        check("\(tag)-arrangement", editor.activeArrangement == want,
+              "arrangement \(editor.activeArrangement?.rawValue ?? "nil") (want \(want.rawValue))")
         let root = editor.view!
         let bounds = root.bounds
         func frame(_ v: UIView) -> CGRect { root.convert(v.bounds, from: v) }
+        let header = frame(editor.header)
         let stage = frame(editor.stageCard), transport = frame(editor.transport)
         let timeline = frame(editor.timelineContainer), inspector = frame(editor.inspectorContainer)
-        let regions = ["stage": stage, "transport": transport, "timeline": timeline, "inspector": inspector]
+        let tools = frame(editor.toolBar)
+        var regions = ["stage": stage, "transport": transport, "timeline": timeline, "toolbar": tools]
+        if wantRegular { regions["inspector"] = inspector }
         for (name, r) in regions.sorted(by: { $0.key < $1.key }) {
             let inside = bounds.insetBy(dx: -0.5, dy: -0.5).contains(r) && r.width > 1 && r.height > 1
             check("\(tag)-\(name)-inside", inside, "\(name) \(fmt(r)) in \(fmt(bounds))")
         }
+        // ONE transport row: no scrubber, the time + play + full screen.
+        check("\(tag)-transport-row", abs(transport.height - 48) < 0.5 && abs(transport.width - stage.width) < 1
+                && !editor.transport.playButton.isHidden && !editor.transport.playhead.isHidden,
+              "transport \(fmt(transport)) under the stage, as wide as it")
+        // The timeline's playhead: fixed at its viewport's centre, the
+        // playhead's time under it (playing or not).
+        let tl = editor.timeline
+        let marker = tl.centrePlayhead.centreX(in: root)
+        let viewport = tl.scrollView.convert(tl.scrollView.bounds, to: root)
+        check("\(tag)-centred-playhead", abs(marker - viewport.midX) < 0.75 && abs(tl.playheadOffsetFromCentre) < 1,
+              String(format: "marker x %.1f, viewport centre %.1f (%@); playhead %.2f pt from it",
+                     marker, viewport.midX, fmt(viewport), tl.playheadOffsetFromCentre))
         if wantRegular {
-            // The inspector column beside the stage and timeline.
+            // The inspector column beside the stage and timeline; the tool
+            // bar's action row under the timeline, no pane tools (the
+            // column's rail has them).
             check("\(tag)-inspector-column", abs(inspector.width - 340) < 1 && inspector.minX >= stage.maxX - 0.5
-                  && inspector.minX >= timeline.maxX - 0.5, "inspector \(fmt(inspector)), stage \(fmt(stage)), timeline \(fmt(timeline))")
+                  && inspector.minX >= timeline.maxX - 0.5 && editor.inspector.presentation == .column,
+                  "inspector \(fmt(inspector)), stage \(fmt(stage)), timeline \(fmt(timeline))")
             check("\(tag)-timeline-height", timeline.height >= 219.5, "timeline height \(Int(timeline.height)) (want ≥ 220)")
+            check("\(tag)-action-row", tools.minY >= timeline.maxY - 0.5 && abs(tools.width - timeline.width) < 1
+                    && !editor.toolBar.showsPaneTools && tools.maxX <= inspector.minX + 0.5,
+                  "tool bar \(fmt(tools)) under the timeline \(fmt(timeline)); keys \(editor.toolBar.probeTitles)")
+        } else if wantLandscape {
+            // A rail down the trailing edge under the header; the stage,
+            // transport and timeline in the column beside it.
+            check("\(tag)-tool-rail", editor.toolBar.axis == .vertical && abs(tools.maxX - bounds.maxX) < 0.5
+                    && tools.minY >= header.maxY - 0.5 && abs(tools.maxY - bounds.maxY) < 0.5
+                    && stage.maxX <= tools.minX + 0.5 && timeline.maxX <= tools.minX + 0.5 && editor.toolBar.showsPaneTools,
+                  "rail \(fmt(tools)); stage \(fmt(stage)) timeline \(fmt(timeline))")
+            check("\(tag)-column", stage.maxY <= transport.minY + 0.5 && transport.maxY <= timeline.minY + 0.5,
+                  "stage \(fmt(stage)) transport \(fmt(transport)) timeline \(fmt(timeline))")
         } else {
-            // Stacked: stage, transport, timeline, then the inspector sheet's dock.
+            // Stacked: stage, transport, timeline, then the tool bar docked
+            // to the screen's bottom edge; the stage keeps its share.
             check("\(tag)-stacked", stage.maxY <= transport.minY + 0.5 && transport.maxY <= timeline.minY + 0.5
-                  && timeline.maxY <= inspector.minY + 0.5,
-                  "stage \(fmt(stage)) transport \(fmt(transport)) timeline \(fmt(timeline)) inspector \(fmt(inspector))")
+                  && timeline.maxY <= tools.minY + 0.5,
+                  "stage \(fmt(stage)) transport \(fmt(transport)) timeline \(fmt(timeline)) tool bar \(fmt(tools))")
             check("\(tag)-full-width", abs(stage.width - timeline.width) < 1 && stage.width > bounds.width - 40,
                   "stage width \(Int(stage.width)) of \(Int(bounds.width))")
+            let share = stage.height / bounds.height
+            check("\(tag)-stage-share", share >= EditorViewController.stageShare - 0.02,
+                  String(format: "stage %.0f of %.0f pt = %.0f%% of the height (want ≥ %.0f%%)", stage.height, bounds.height,
+                         share * 100, (EditorViewController.stageShare - 0.02) * 100))
+            // Tools: every pane; with a selection: its context keys.
+            let keys = editor.toolBar.probeTitles
+            let keysOK = editor.toolBar.mode == .tools
+                ? InspectorTab.allCases.allSatisfy { keys.contains($0.rawValue) }
+                : keys.first == "Done" && keys.contains("Split") && keys.contains("Delete")
+            check("\(tag)-tool-bar", abs(tools.maxY - bounds.maxY) < 0.5 && abs(tools.width - bounds.width) < 0.5
+                    && editor.toolBar.axis == .horizontal && keysOK
+                    && editor.inspector.view.isHidden == !editor.isPanelOpen,
+                  "tool bar \(fmt(tools)) to the screen's bottom edge; keys \(keys.joined(separator: " · "))")
         }
         let history = HistoryPresentation.style(for: editor)
         check("\(tag)-history-style", (history == .sidePanel) == wantRegular, "History would open as \(history)")
-        log("EDITOR-RESIZE \(tag) layout stage=\(fmt(stage)) timeline=\(fmt(timeline)) inspector=\(fmt(inspector))")
+        log("EDITOR-RESIZE \(tag) layout stage=\(fmt(stage)) transport=\(fmt(transport)) timeline=\(fmt(timeline)) toolBar=\(fmt(tools)) inspector=\(fmt(inspector))")
+    }
+
+    /// A pane tool tapped (the key's own action): the panel caught MID-FLIGHT
+    /// growing from its pushed edge, landing where the arrangement puts it —
+    /// bottom panel: its top on the timeline's top, never over the stage
+    /// (overshoot included); side panel: between the column and the rail,
+    /// the column pushed narrower, the stage never covered. The close key
+    /// brings back the tool bar.
+    @available(iOS 26, *)
+    private static func checkPanel(_ editor: EditorViewController, tag: String, injected: Bool) async {
+        let root = editor.view!
+        func frame(_ v: UIView) -> CGRect { root.convert(v.bounds, from: v) }
+        let panel = editor.inspector.view!
+        guard let key = editor.toolBar.key(for: .pane(.audio)) else {
+            check("\(tag)-panel-tool", false, "no Audio tool (\(editor.toolBar.probeTitles))"); return
+        }
+        let side = editor.inspector.presentation == .sidePanel
+        let stageBefore = frame(editor.stageCard)
+        let timelineTop = frame(editor.timelineContainer).minY
+        var edges: [CGFloat] = [], stageRights: [CGFloat] = []
+        var overlaps = 0
+        key.sendActions(for: .touchUpInside)
+        let t0 = CACurrentMediaTime()
+        while CACurrentMediaTime() - t0 < 0.6 {
+            let p = frame(panel), s = frame(editor.stageCard)
+            edges.append(side ? p.minX : p.minY)
+            stageRights.append(s.maxX)
+            // The panel's visible part never lies over the stage.
+            let visible = side ? p.intersection(CGRect(x: 0, y: 0, width: frame(editor.toolBar).minX, height: root.bounds.height)) : p
+            if visible.intersects(s.insetBy(dx: 0.5, dy: 0.5)) { overlaps += 1 }
+            await settle(0.016)
+        }
+        let final = frame(panel)
+        let start = edges.first ?? 0, end = side ? final.minX : final.minY
+        let mid = edges.filter { abs($0 - start) > 2 && abs($0 - end) > 2 }
+        let opened = editor.isPanelOpen && editor.inspector.visiblePane?.tab == .audio && key.isSelected
+        let midOK = mid.count >= 2
+        // (`--inject snap-panel` makes this FAIL: the gate's proof it sees motion.)
+        _ = injected
+        check("\(tag)-panel-open-midflight", midOK && opened,
+              String(format: "Audio tool → %d of %d samples mid-flight (edge %.0f → %.0f); pane %@", mid.count, edges.count, start, end,
+                     editor.inspector.visiblePane?.tab.rawValue ?? "none"))
+        if side {
+            let stage = frame(editor.stageCard), rail = frame(editor.toolBar)
+            check("\(tag)-side-panel", final.minX >= stage.maxX - 0.5 && final.maxX <= rail.minX + 0.5 + 0.5 && overlaps == 0
+                    && stage.width < stageBefore.width - 100,
+                  String(format: "panel %@ between the stage %@ and the rail %@; stage %.0f → %.0f pt wide; %d overlapping samples",
+                         fmt(final), fmt(stage), fmt(rail), stageBefore.width, stage.width, overlaps))
+        } else {
+            check("\(tag)-bottom-panel", abs(final.minY - timelineTop) < 0.5 && overlaps == 0 && final.maxY > root.bounds.maxY
+                    && editor.timelineContainer.accessibilityElementsHidden,
+                  String(format: "panel top %.0f = the timeline's top %.0f; highest %.0f vs the stage's bottom %.0f; %d overlapping samples",
+                         final.minY, timelineTop, edges.min() ?? 0, stageBefore.maxY, overlaps))
+        }
+        editor.inspector.closeButton.sendActions(for: .touchUpInside)
+        await settle(0.6)
+        check("\(tag)-panel-closed", !editor.isPanelOpen && panel.isHidden && abs(frame(editor.stageCard).width - stageBefore.width) < 0.5,
+              "close key → tool bar back, stage \(Int(frame(editor.stageCard).width)) pt wide again")
     }
 
     /// Nothing straddles the crease: stage + transport on one side, timeline
@@ -220,7 +358,8 @@ enum EditorResizeLab {
         let stage = frame(editor.stageCard), transport = frame(editor.transport)
         let timeline = frame(editor.timelineContainer), inspector = frame(editor.inspectorContainer)
         let title = frame(editor.header.probeTitleView)
-        let regions = ["stage": stage, "transport": transport, "timeline": timeline, "inspector": inspector]
+        let tools = frame(editor.toolBar)
+        let regions = ["stage": stage, "transport": transport, "timeline": timeline, "inspector": inspector, "toolbar": tools]
         for (name, r) in regions.sorted(by: { $0.key < $1.key }) {
             let inside = bounds.insetBy(dx: -0.5, dy: -0.5).contains(r) && r.width > 1 && r.height > 1
             check("\(tag)-\(name)-inside", inside, "\(name) \(fmt(r)) in \(fmt(bounds))")
@@ -230,17 +369,21 @@ enum EditorResizeLab {
         if vertical {
             check("\(tag)-stage-side", stage.maxX <= crease.minX + 0.5 && transport.maxX <= crease.minX + 0.5,
                   "stage \(fmt(stage)) transport \(fmt(transport)) left of \(Int(crease.minX))")
-            check("\(tag)-panel-side", timeline.minX >= crease.maxX - 0.5 && inspector.minX >= crease.maxX - 0.5,
-                  "timeline \(fmt(timeline)) inspector \(fmt(inspector)) right of \(Int(crease.maxX))")
+            check("\(tag)-panel-side", timeline.minX >= crease.maxX - 0.5 && inspector.minX >= crease.maxX - 0.5
+                    && tools.minX >= crease.maxX - 0.5,
+                  "timeline \(fmt(timeline)) tool bar \(fmt(tools)) inspector \(fmt(inspector)) right of \(Int(crease.maxX))")
             check("\(tag)-stage-fills-half", stage.width >= crease.minX - 40,
                   "stage width \(Int(stage.width)) of a \(Int(crease.minX)) pt half")
         } else {
             check("\(tag)-stage-side", stage.maxY <= crease.minY + 0.5 && transport.maxY <= crease.minY + 0.5,
                   "stage \(fmt(stage)) transport \(fmt(transport)) above \(Int(crease.minY))")
-            check("\(tag)-panel-side", timeline.minY >= crease.maxY - 0.5 && inspector.minY >= crease.maxY - 0.5,
-                  "timeline \(fmt(timeline)) inspector \(fmt(inspector)) below \(Int(crease.maxY))")
+            check("\(tag)-panel-side", timeline.minY >= crease.maxY - 0.5 && inspector.minY >= crease.maxY - 0.5
+                    && tools.minY >= crease.maxY - 0.5,
+                  "timeline \(fmt(timeline)) tool bar \(fmt(tools)) inspector \(fmt(inspector)) below \(Int(crease.maxY))")
         }
-        check("\(tag)-timeline-over-inspector", timeline.maxY <= inspector.minY + 0.5 && timeline.height >= 159.5
+        check("\(tag)-centred-playhead", abs(editor.timeline.playheadOffsetFromCentre) < 1,
+              String(format: "playhead %.2f pt from the timeline's centre", editor.timeline.playheadOffsetFromCentre))
+        check("\(tag)-timeline-over-inspector", timeline.maxY <= tools.minY + 0.5 && tools.maxY <= inspector.minY + 0.5 && timeline.height >= 159.5
               && inspector.height >= 120, "timeline \(fmt(timeline)) inspector \(fmt(inspector))")
         check("\(tag)-title-off-crease", !title.isEmpty && !title.intersects(crease),
               "title \(fmt(title)) vs crease \(fmt(crease))")

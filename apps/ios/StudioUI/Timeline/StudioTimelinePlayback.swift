@@ -20,6 +20,9 @@ protocol StudioTimelinePlayback: AnyObject {
     func scrub(to sourceTime: TimeInterval, for project: Project, exact: Bool)
     /// Frame-exact jump (selecting an off-screen annotation, Home/End).
     func seek(to sourceTime: TimeInterval)
+    /// Called once per display refresh while playing, right after the
+    /// playhead advanced (the centred playhead's follow); nil = no player.
+    var onDisplayTick: (() -> Void)? { get set }
 }
 
 /// A bare playhead with no player — the timeline on its own, and the gate.
@@ -32,6 +35,7 @@ final class StudioTimelinePlayhead: StudioTimelinePlayback {
     var isRecordingVoiceOver = false
     var voiceOverRecordingStartTime: TimeInterval?
     var liveVoiceOverSamples: [Float] = []
+    @ObservationIgnored var onDisplayTick: (() -> Void)?
 
     init() {}
 

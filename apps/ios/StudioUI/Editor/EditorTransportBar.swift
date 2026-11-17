@@ -1,72 +1,94 @@
 import UIKit
 
-/// The editor's transport: step back · play/pause · step forward, a scrubber
-/// over the OUTPUT timeline (after trim and speed, the length the export
-/// will have) and the time readout. Times convert through the shared
-/// `SpeedTimeMap`; the playhead itself stays in SOURCE seconds (the
-/// playback controller), like everything the edit tools write.
+/// The editor's ONE transport row (the editor redesign):
 ///
-/// TODO(4a): swap `EditorScrubber` for the kit's scrubber/slider when Kit/
-/// gains one; it is dressed with the kit's materials meanwhile.
+///     [ 0:06.50 / 0:20.00 ]      [ ‹ ]  [ ▶ ]  [ › ]      [ ⤢ ]
+///
+/// the playhead time (VoiceOver's adjustable playhead — swipe up / down
+/// moves a second; ← / → with a keyboard), frame step · play/pause · frame
+/// step centred on the row, and the full-screen preview key. There is no
+/// scrubber: the timeline under it IS the scrubber (its playhead is fixed at
+/// the centre and dragging the content scrubs). Times are OUTPUT seconds
+/// (after trim and speed, through the shared `SpeedTimeMap`); the playhead
+/// itself stays in SOURCE seconds (the playback controller).
 final class EditorTransportBar: UIView {
     var onTogglePlay: (() -> Void)?
     var onStep: ((Int) -> Void)?
-    /// Scrub to an OUTPUT time; `exact` on release.
+    /// Move to an OUTPUT time (the readout's adjust: exact).
     var onScrub: ((TimeInterval, Bool) -> Void)?
+    /// The full-screen preview key.
+    var onToggleExpanded: (() -> Void)?
 
     let playButton = CCButton(symbol: "play-fill", style: .primary, size: .regular, radius: .full)
     let backButton = CCButton(symbol: "chevron-left", style: .ghost, size: .regular, radius: .full)
     let forwardButton = CCButton(symbol: "chevron-right", style: .ghost, size: .regular, radius: .full)
-    let scrubber = EditorScrubber()
-    let timeLabel = ccLabel("0:00.00 / 0:00.00", font: CCFont.monoSmall, color: CCTheme.color.mutedForeground)
+    let expandButton = CCButton(symbol: "display", style: .ghost, size: .regular, radius: .full)
+    /// The time readout, VoiceOver's adjustable playhead.
+    let playhead = EditorPlayheadReadout()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         translatesAutoresizingMaskIntoConstraints = false
+        accessibilityIdentifier = "studio.transport"
         playButton.accessibilityLabelOverride = "Play"
         playButton.accessibilityIdentifier = "studio.play"
         backButton.accessibilityLabelOverride = "Previous frame"
         forwardButton.accessibilityLabelOverride = "Next frame"
+        expandButton.accessibilityIdentifier = "studio.expand"
+        setExpanded(false)
         playButton.onTap = { [weak self] in self?.onTogglePlay?() }
         backButton.onTap = { [weak self] in self?.onStep?(-1) }
         forwardButton.onTap = { [weak self] in self?.onStep?(1) }
-        scrubber.onScrub = { [weak self] t, exact in self?.onScrub?(t, exact) }
-        timeLabel.setContentHuggingPriority(.required, for: .horizontal)
-        timeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
-        timeLabel.accessibilityIdentifier = "studio.time"
-        // VoiceOver: the playhead (adjustable) speaks the time; the readout
-        // would only repeat it. Play starts media (VoiceOver goes quiet).
-        timeLabel.isAccessibilityElement = false
+        expandButton.onTap = { [weak self] in self?.onToggleExpanded?() }
+        playhead.onScrub = { [weak self] t in self?.onScrub?(t, true) }
+        // Play starts media (VoiceOver goes quiet).
         playButton.accessibilityTraits = [.button, .startsMediaSession]
         playButton.accessibilityHint = "Plays or pauses the recording."
         backButton.accessibilityHint = "Steps the playhead back one frame."
         forwardButton.accessibilityHint = "Steps the playhead forward one frame."
 
-        let row = UIStackView(arrangedSubviews: [backButton, playButton, forwardButton, scrubber, timeLabel])
-        row.spacing = CCSpace.sm
-        row.setCustomSpacing(CCSpace.md, after: forwardButton)
-        row.setCustomSpacing(CCSpace.md, after: scrubber)
-        row.alignment = .center
-        row.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(row)
+        let group = UIStackView(arrangedSubviews: [backButton, playButton, forwardButton])
+        group.spacing = CCSpace.xs
+        group.alignment = .center
+        for v in [playhead, group, expandButton] as [UIView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(v)
+        }
+        let centred = group.centerXAnchor.constraint(equalTo: centerXAnchor)
+        centred.priority = .defaultHigh
+        playhead.setContentCompressionResistancePriority(.required, for: .horizontal)
         NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor),
-            row.topAnchor.constraint(equalTo: topAnchor),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor),
+            playhead.leadingAnchor.constraint(equalTo: leadingAnchor),
+            playhead.centerYAnchor.constraint(equalTo: centerYAnchor),
+            playhead.heightAnchor.constraint(equalToConstant: 44),
+            group.centerYAnchor.constraint(equalTo: centerYAnchor),
+            centred,
+            group.leadingAnchor.constraint(greaterThanOrEqualTo: playhead.trailingAnchor, constant: CCSpace.xs),
+            expandButton.leadingAnchor.constraint(greaterThanOrEqualTo: group.trailingAnchor, constant: CCSpace.xs),
+            expandButton.trailingAnchor.constraint(equalTo: trailingAnchor),
+            expandButton.centerYAnchor.constraint(equalTo: centerYAnchor),
             playButton.widthAnchor.constraint(equalTo: playButton.heightAnchor),
-            scrubber.heightAnchor.constraint(equalToConstant: 32),
         ])
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     func update(isPlaying: Bool, outputTime: TimeInterval, outputDuration: TimeInterval) {
-        playButton.symbol = isPlaying ? "pause-fill" : "play-fill"
-        playButton.accessibilityLabelOverride = isPlaying ? "Pause" : "Play"
-        playButton.accessibilityTraits = [.button, .startsMediaSession]
-        scrubber.update(value: outputTime, duration: outputDuration)
-        timeLabel.text = "\(Self.format(outputTime)) / \(Self.format(outputDuration))"
+        let symbol = isPlaying ? "pause-fill" : "play-fill"
+        if playButton.symbol != symbol { playButton.symbol = symbol }
+        let label = isPlaying ? "Pause" : "Play"
+        if playButton.accessibilityLabelOverride != label {
+            playButton.accessibilityLabelOverride = label
+            playButton.accessibilityTraits = [.button, .startsMediaSession]
+        }
+        playhead.update(value: outputTime, duration: outputDuration)
+    }
+
+    /// The full-screen key's face: expand, or return to the editor.
+    func setExpanded(_ expanded: Bool) {
+        expandButton.symbol = expanded ? "arrow.down.right.and.arrow.up.left" : "display"
+        expandButton.accessibilityLabelOverride = expanded ? "Exit full-screen preview" : "Full-screen preview"
+        expandButton.accessibilityHint = expanded ? "Shows the timeline and tools again." : "Hides the timeline and tools; the preview takes the screen."
     }
 
     /// m:ss.cc (output time).
@@ -77,54 +99,52 @@ final class EditorTransportBar: UIView {
     }
 }
 
-/// A recessed track with a raised knob; drag or tap anywhere to scrub.
-final class EditorScrubber: UIControl {
-    var onScrub: ((TimeInterval, Bool) -> Void)?
+/// "0:06.50 / 0:20.00" — the playhead time, and VoiceOver's adjustable
+/// playhead ("6.5 seconds of 20 seconds"; swipe up / down moves a second).
+/// Focusable with a keyboard (← / → move a second, as VoiceOver's swipes).
+final class EditorPlayheadReadout: UIControl {
+    var onScrub: ((TimeInterval) -> Void)?
 
-    private let track = CCSurface(.recessed, tint: CCTheme.color.elevated, radius: .full)
-    private let fill = UIView()
-    private let knob = CCSurface(.raised, tint: .white, radius: .full)
-    private var value: TimeInterval = 0
-    private var duration: TimeInterval = 0
-    private(set) var isTracking_ = false
+    private let current = ccLabel("0:00.00", font: CCFont.mono, color: CCTheme.color.foreground)
+    private let total = ccLabel("/ 0:00.00", font: CCFont.monoSmall, color: CCTheme.color.mutedForeground)
+    private(set) var value: TimeInterval = 0
+    private(set) var duration: TimeInterval = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        translatesAutoresizingMaskIntoConstraints = false
-        accessibilityIdentifier = "studio.scrubber"
+        accessibilityIdentifier = "studio.time"
         isAccessibilityElement = true
         accessibilityTraits = [.adjustable, .updatesFrequently]
         accessibilityLabel = "Playhead"
         accessibilityHint = "Swipe up or down to move a second."
-        track.isUserInteractionEnabled = false
-        fill.isUserInteractionEnabled = false
-        knob.isUserInteractionEnabled = false
-        fill.backgroundColor = CCTheme.color.primary
-        fill.layer.cornerCurve = .continuous
-        addSubview(track)
-        track.addSubview(fill)
-        addSubview(knob)
+        for label in [current, total] {
+            label.adjustsFontForContentSizeCategory = true
+            label.setContentCompressionResistancePriority(.required, for: .horizontal)
+            label.setContentHuggingPriority(.required, for: .horizontal)
+        }
+        let row = UIStackView(arrangedSubviews: [current, total])
+        row.spacing = 4
+        row.alignment = .firstBaseline
+        row.isUserInteractionEnabled = false
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        NSLayoutConstraint.activate([
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2),
+            row.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        let h: CGFloat = 6
-        track.frame = CGRect(x: 0, y: (bounds.height - h) / 2, width: bounds.width, height: h)
-        let f = duration > 0 ? CGFloat(min(1, max(0, value / duration))) : 0
-        fill.frame = CGRect(x: 0, y: 0, width: bounds.width * f, height: h)
-        fill.layer.cornerRadius = h / 2
-        let k: CGFloat = 18
-        knob.frame = CGRect(x: f * (bounds.width - k), y: (bounds.height - k) / 2, width: k, height: k)
-    }
-
     func update(value: TimeInterval, duration: TimeInterval) {
-        guard !isTracking_ else { return }
         self.value = value
         self.duration = duration
+        let text = EditorTransportBar.format(value)
+        if current.text != text { current.text = text }
+        let totalText = "/ " + EditorTransportBar.format(duration)
+        if total.text != totalText { total.text = totalText }
         accessibilityValue = Self.spoken(value, of: duration)
-        setNeedsLayout()
     }
 
     /// "6.5 seconds of 20 seconds" — what VoiceOver says for the playhead.
@@ -132,13 +152,6 @@ final class EditorScrubber: UIControl {
         "\(CCAccessibility.spokenTime(value)) of \(CCAccessibility.spokenTime(duration))"
     }
 
-    /// A 44 pt touch target around the 32 pt track.
-    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        let dy = max(0, (44 - bounds.height) / 2)
-        return bounds.insetBy(dx: 0, dy: -dy).contains(point)
-    }
-
-    // Keyboard (iPad): focusable; ← / → scrub a second (as VoiceOver's swipes).
     override var canBecomeFocused: Bool { !isHidden }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
@@ -149,40 +162,12 @@ final class EditorScrubber: UIControl {
         super.pressesBegan(presses, with: event)
     }
 
-    private func time(at x: CGFloat) -> TimeInterval {
-        guard duration > 0, bounds.width > 18 else { return 0 }
-        let f = min(1, max(0, (x - 9) / (bounds.width - 18)))
-        return Double(f) * duration
-    }
-
-    override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-        isTracking_ = true
-        scrub(to: time(at: touch.location(in: self).x), exact: false)
-        return true
-    }
-
-    override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
-        scrub(to: time(at: touch.location(in: self).x), exact: false)
-        return true
-    }
-
-    override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
-        isTracking_ = false
-        scrub(to: touch.map { time(at: $0.location(in: self).x) } ?? value, exact: true)
-    }
-
-    override func cancelTracking(with event: UIEvent?) {
-        isTracking_ = false
-        scrub(to: value, exact: true)
-    }
-
-    private func scrub(to t: TimeInterval, exact: Bool) {
+    private func scrub(to t: TimeInterval) {
         value = t
         accessibilityValue = Self.spoken(t, of: duration)
-        setNeedsLayout()
-        onScrub?(t, exact)
+        onScrub?(t)
     }
 
-    override func accessibilityIncrement() { scrub(to: min(duration, value + 1), exact: true) }
-    override func accessibilityDecrement() { scrub(to: max(0, value - 1), exact: true) }
+    override func accessibilityIncrement() { scrub(to: min(duration, value + 1)) }
+    override func accessibilityDecrement() { scrub(to: max(0, value - 1)) }
 }

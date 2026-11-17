@@ -18,8 +18,11 @@ import UIKit
 ///    targets (≥ 44 pt), VoiceOver labels / values / traits, Dynamic Type
 ///    (accessibility sizes grow the type, nothing leaves the pane, rows
 ///    never overlap), live re-theme (every dressed surface re-resolves), and
-///    the layout: a side column on a regular width, a docked bottom sheet on
-///    a compact one (raised and lowered).
+///    the layout: a side column on a regular width; on a compact one the
+///    panel a pane TOOL opens (tapped through the key's own action): caught
+///    mid-flight rising to the timeline's top, never over the stage, past the
+///    screen's bottom, the covered timeline + tool bar hidden from VoiceOver;
+///    the close key brings the tool bar back (also sampled).
 /// 3. **Motion**, captured as SEQUENCES and asserted mid-flight: a pane
 ///    switch (crossfade + rise), a growth (a toggle revealing rows lands on
 ///    the bounce), the rail's chip glide. `--inject snap` snaps the pane
@@ -63,6 +66,7 @@ enum InspectorLab {
             #if DEBUG
             StudioInspectorController.probeSnapPaneSwitch = true
             InspectorPaneView.probeSnapGrowth = true
+            EditorViewController.probeSnapPanel = true
             #endif
         }
         lab.view.window?.overrideUserInterfaceStyle = .dark
@@ -377,11 +381,10 @@ enum InspectorLab {
         let inspector = editor.inspector
         let window = editor.view.window!
         let regular = editor.usesRegularLayout
-        log("INSPECTOR layout \(regular ? "regular (side column)" : "compact (bottom sheet)") window=\(Int(window.bounds.width))×\(Int(window.bounds.height))")
+        log("INSPECTOR layout \(regular ? "regular (side column)" : "compact (panel from the tool bar)") window=\(Int(window.bounds.width))×\(Int(window.bounds.height))")
 
         if !injected {
             layoutChecks(editor, regular: regular)
-            if !regular { await sheetChecks(editor) }
             for tab in InspectorTab.allCases {
                 switch tab {
                 case .effects: apply(.zoom(1), to: editor.selection); editor.selection.selectedTiltID = nil
@@ -394,13 +397,14 @@ enum InspectorLab {
                     check("\(tab)-shown", false, "pane did not show")
                     continue
                 }
-                if !regular { inspector.setSheetRaised(true, animated: false); await settle(0.3) }
+                if !regular { editor.openPanel(tab, animated: false); await settle(0.3) }
                 structure(pane, tab: tab, inspector: inspector)
                 await dynamicType(pane, tab: tab, inspector: inspector, window: window)
                 await retheme(pane, tab: tab, inspector: inspector, window: window)
-                if !regular { inspector.setSheetRaised(false, animated: false) }
+                if !regular { editor.closePanel(animated: false) }
             }
         }
+        if !regular { await panelChecks(editor, injected: injected) }
         await motion(editor, injected: injected)
         await close(editor)
     }
@@ -411,41 +415,84 @@ enum InspectorLab {
         let frame = inspector.view.convert(inspector.view.bounds, to: editor.view)
         let container = editor.inspectorContainer.convert(editor.inspectorContainer.bounds, to: editor.view)
         if regular {
-            check("layout-column", frame.equalTo(container) && inspector.rail.axis == .vertical && frame.width >= 300,
+            check("layout-column", frame.equalTo(container) && inspector.rail.axis == .vertical && frame.width >= 300
+                    && !inspector.view.isHidden,
                   String(format: "side column %.0f×%.0f fills the inspector container; rail vertical", frame.width, frame.height))
         } else {
-            // Docked on the container's top and sides; runs past the
-            // screen's bottom edge (no band under it), with the scroll's
-            // last row kept clear of the home indicator.
-            let screenBottom = editor.view.bounds.maxY
-            let clearance = inspector.scroll.adjustedContentInset.bottom
-            let needed = (frame.maxY - screenBottom) + editor.view.safeAreaInsets.bottom
-            check("layout-sheet", abs(frame.minY - container.minY) < 0.5
-                    && abs(frame.minX - container.minX) < 0.5 && abs(frame.maxX - container.maxX) < 0.5
-                    && frame.maxY >= screenBottom + 0.5 && clearance >= needed - 0.5
-                    && inspector.rail.axis == .horizontal,
-                  String(format: "docked sheet %.0f×%.0f from the container's top past the screen's bottom (%.0f beyond); scroll inset %.0f ≥ %.0f; rail across the top",
-                         frame.width, frame.height, frame.maxY - screenBottom, clearance, needed))
+            // Closed: the panel is away (hidden, below the screen) and the
+            // tool bar offers every pane.
+            let tools = editor.toolBar.probeTitles
+            let panes = InspectorTab.allCases.map(\.rawValue)
+            check("layout-panel-closed", inspector.view.isHidden && !editor.isPanelOpen && panes.allSatisfy(tools.contains),
+                  "panel hidden=\(inspector.view.isHidden); tool bar: \(tools.joined(separator: " · "))")
         }
     }
 
+    /// Opens a pane from its TOOL the way a finger does (the key's own
+    /// action) and samples the panel as a SEQUENCE: it must be caught
+    /// between closed and open (the growth), land with its top on the
+    /// timeline's top, never rise over the stage, and show the tool's pane.
+    /// The close key brings back the tool bar, again mid-flight.
     @available(iOS 26, *)
-    private static func sheetChecks(_ editor: EditorViewController) async {
+    private static func panelChecks(_ editor: EditorViewController, injected: Bool) async {
         let inspector = editor.inspector
-        let docked = inspector.view.convert(inspector.view.bounds, to: editor.view)
-        inspector.setSheetRaised(true, animated: true)
-        await settle(0.12)
-        let mid = (inspector.view.layer.presentation() ?? inspector.view.layer).frame
-        await settle(0.6)
-        let raised = inspector.view.convert(inspector.view.bounds, to: editor.view)
-        let header = editor.header.convert(editor.header.bounds, to: editor.view)
-        check("sheet-raise", raised.minY < docked.minY - 100 && raised.minY >= header.maxY - 0.5,
-              String(format: "raised from y=%.0f to y=%.0f (header ends %.0f); mid-flight frame y=%.0f",
-                     docked.minY, raised.minY, header.maxY, mid.minY))
-        inspector.setSheetRaised(false, animated: true)
-        await settle(0.7)
-        let lowered = inspector.view.convert(inspector.view.bounds, to: editor.view)
-        check("sheet-lower", abs(lowered.minY - docked.minY) < 0.5, String(format: "back to y=%.0f", lowered.minY))
+        apply(.none, to: editor.selection)
+        await settle(0.3)
+        guard let key = editor.toolBar.key(for: .pane(.cursor)) else {
+            check("panel-tool", false, "no Cursor tool on the tool bar (\(editor.toolBar.probeTitles))")
+            return
+        }
+        let root = editor.view!
+        let stage = editor.stageCard.convert(editor.stageCard.bounds, to: root)
+        let timelineTop = editor.timelineContainer.convert(editor.timelineContainer.bounds, to: root).minY
+        let closedTop = root.bounds.maxY
+        var tops: [CGFloat] = []
+        var frames: [CGImage] = []
+        key.sendActions(for: .touchUpInside)
+        let t0 = CACurrentMediaTime()
+        while CACurrentMediaTime() - t0 < 0.6 {
+            let f = inspector.view.layer.presentation()?.frame ?? inspector.view.frame
+            tops.append(f.minY)
+            if frames.count < 8, let image = presentationSnap(root) { frames.append(image) }
+            await settle(0.016)
+        }
+        writeStrip(frames, to: out.appendingPathComponent("motion/panel-open.png"))
+        let final = inspector.view.frame
+        let mid = tops.filter { $0 < closedTop - 2 && $0 > final.minY + 2 }
+        let highest = tops.min() ?? closedTop
+        report("motion-panel-open", mid.count >= 2 && abs(final.minY - timelineTop) < 0.5, injected: injected,
+               String(format: "Cursor tool → panel top %.0f → %.0f (timeline top %.0f); %d of %d samples mid-flight (%@); highest %.0f",
+                      closedTop, final.minY, timelineTop, mid.count, tops.count, fmt(tops), highest))
+        if !injected {
+            check("panel-never-covers-stage", highest >= stage.maxY - 0.5,
+                  String(format: "panel's highest top %.0f (overshoot included) vs the stage's bottom %.0f", highest, stage.maxY))
+            // The panel's layout: past the screen's bottom (no band), its
+            // last row clear of the home indicator, the rail across its top,
+            // the tool's pane shown and the tool marked.
+            let screenBottom = root.bounds.maxY
+            let clearance = inspector.scroll.adjustedContentInset.bottom
+            let needed = (final.maxY - screenBottom) + root.safeAreaInsets.bottom
+            check("layout-panel", final.maxY >= screenBottom + 0.5 && clearance >= needed - 0.5
+                    && inspector.rail.axis == .horizontal && inspector.visiblePane?.tab == .cursor && key.isSelected
+                    && editor.timelineContainer.accessibilityElementsHidden && editor.toolBar.accessibilityElementsHidden,
+                  String(format: "panel %.0f×%.0f to %.0f beyond the screen's bottom; scroll inset %.0f ≥ %.0f; rail across the top; pane %@; tool selected %@; timeline + tool bar hidden from VoiceOver %@",
+                         final.width, final.height, final.maxY - screenBottom, clearance, needed,
+                         inspector.visiblePane?.tab.rawValue ?? "none", key.isSelected ? "yes" : "no",
+                         editor.timelineContainer.accessibilityElementsHidden ? "yes" : "no"))
+        }
+        // Close key → back to the tool bar.
+        tops = []
+        inspector.closeButton.sendActions(for: .touchUpInside)
+        let c0 = CACurrentMediaTime()
+        while CACurrentMediaTime() - c0 < 0.5 {
+            tops.append((inspector.view.layer.presentation()?.frame ?? inspector.view.frame).minY)
+            await settle(0.016)
+        }
+        await settle(0.2)
+        let closeMid = tops.filter { $0 > final.minY + 2 && $0 < closedTop - 2 }
+        report("motion-panel-close", closeMid.count >= 2 && inspector.view.isHidden && !editor.isPanelOpen, injected: false,
+               String(format: "close key → %d of %d samples mid-flight; hidden %@; tool bar back %@", closeMid.count, tops.count,
+                      inspector.view.isHidden ? "yes" : "no", editor.toolBar.accessibilityElementsHidden ? "no" : "yes"))
     }
 
     // MARK: Structure
@@ -572,7 +619,7 @@ enum InspectorLab {
         let inspector = editor.inspector
         let selection = editor.selection
         apply(.none, to: selection)
-        if !editor.usesRegularLayout { inspector.setSheetRaised(true, animated: false) }
+        editor.openPanel(.background, animated: false)
         selection.inspectorTab = .background
         await settle(0.6)
 

@@ -94,8 +94,25 @@ enum EditorPlaybackProbe {
         print("   idle (paused) renders in 1 s: \(idleRenders)")
         if idleRenders > 3 { failures.append("playback: the paused stage kept rendering (\(idleRenders) renders in 1 s)") }
 
-        // Playing, before the zoom: frames must advance.
+        // Playing, before the zoom: frames must advance — and the timeline's
+        // playhead must stay on the viewport's centre the whole time while
+        // the content scrolls under it (sampled between display ticks).
+        let timeline = editor.timeline
+        var centreOffsets: [CGFloat] = []
+        var contentXs: [CGFloat] = []
+        var markerXs: [CGFloat] = []
+        var sampling = true
         editor.playback.setPlaying(true, for: editor.project)
+        let sampler = Task { @MainActor in
+            while sampling {
+                if editor.playback.isPlaying, editor.playback.currentTime < 3.8 {
+                    centreOffsets.append(timeline.playheadOffsetFromCentre)
+                    contentXs.append(timeline.scrollView.contentOffset.x)
+                    markerXs.append(timeline.centrePlayhead.centreX(in: editor.view))
+                }
+                await LabTime.settle(0.008)
+            }
+        }
         var run: [Sample] = []
         var i = 1
         while i < 40 {
@@ -106,6 +123,17 @@ enum EditorPlaybackProbe {
             run.append(s)
             i += 1
         }
+        sampling = false
+        _ = await sampler.value
+        let worst = centreOffsets.map(abs).max() ?? .infinity
+        let moves = zip(contentXs, contentXs.dropFirst()).filter { $1 > $0 + 0.01 }.count
+        let backwards = zip(contentXs, contentXs.dropFirst()).filter { $1 < $0 - 0.01 }.count
+        let markerSpread = (markerXs.max() ?? 0) - (markerXs.min() ?? 0)
+        let centredOK = centreOffsets.count >= 30 && worst <= 1.0 && moves >= centreOffsets.count / 3 && backwards == 0 && markerSpread < 0.5
+        print(String(format: "CENTRED-PLAYBACK %@ %d samples while playing: playhead within %.2f pt of the centre (bar 1.0); content moved in %d steps, back in %d; marker spread %.2f pt; content x %.1f → %.1f",
+                     centredOK ? "PASS" : "FAIL", centreOffsets.count, worst, moves, backwards, markerSpread,
+                     contentXs.first ?? 0, contentXs.last ?? 0))
+        if !centredOK { failures.append(String(format: "playback: the timeline's playhead left the centre while playing (worst %.1f pt, %d samples)", worst, centreOffsets.count)) }
         if run.count < 8 { failures.append("playback: only \(run.count) playing captures before the zoom (want ≥ 8)") }
         for (a, b) in zip(run, run.dropFirst()) {
             if !(b.time > a.time) { failures.append(String(format: "playback: playhead did not advance (%.3f → %.3f)", a.time, b.time)) }

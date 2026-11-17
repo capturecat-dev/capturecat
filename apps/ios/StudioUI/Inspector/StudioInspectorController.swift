@@ -6,12 +6,20 @@ import UniformTypeIdentifiers
 /// the Mac's panes, built from the shared specs (Studio/Editor/Inspector) —
 /// every control writes exactly what the Mac pane writes.
 ///
-///   iPad (regular width): a side column in the editor's inspector container
-///   — the pane scrolls, the pane rail runs down its trailing edge, like the
-///   Mac's column.
-///   iPhone (compact): a bottom sheet docked over that container — a grabber,
-///   the pane rail across the top, the pane below. Drag (or tap) the grabber
-///   to raise it over the timeline and stage; it springs to the nearest stop.
+///   `.column` (iPad, the iPhone Duo's layouts): a side column in the
+///   editor's inspector container — the pane scrolls, the pane rail runs down
+///   its trailing edge, like the Mac's column.
+///   `.bottomPanel` (portrait phone): a PANEL the editor slides up from the
+///   bottom over the timeline and tool bar (never the preview) when a tool is
+///   tapped — a grabber strip with a close key, the pane rail across the top,
+///   the pane below. Tap or drag the grabber down (or the close key) to go
+///   back to the tool bar.
+///   `.sidePanel` (landscape phone): the same panel beside the editor's
+///   vertical tool rail — a title + close strip and the pane (the rail beside
+///   it selects the pane).
+///
+/// The editor owns the panel's geometry and motion (`EditorViewController`);
+/// this controller only lays out its card for the presentation.
 ///
 /// Selection drives the pane (InspectorTabFollower, the Mac shell's rule).
 /// State flows in through observation loops and out through the specs'
@@ -59,20 +67,28 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     private let card = CCSurface(.raisedMatte, tint: CCTheme.color.card, radius: .lg)
     private let hairline = UIView()
     private let grabber = InspectorGrabber()
+    /// The panel's close key (both panel presentations).
+    let closeButton = CCButton(symbol: "xmark", style: .ghost, size: .sm, radius: .full)
+    /// The side panel's title (its pane's name; the rail beside it selects).
+    private let panelTitle = ccLabel("", font: CCFont.header, color: CCTheme.color.foreground)
     private(set) var panes: [InspectorTab: InspectorPaneView] = [:]
     private var paneBottoms: [InspectorTab: NSLayoutConstraint] = [:]
     private(set) var shownTab: InspectorTab?
     private var observations: [SurfaceObservation] = []
     private var follower = InspectorTabFollower()
-    private(set) var isRegular = true
+    /// How the editor shows the inspector.
+    enum Presentation { case column, bottomPanel, sidePanel }
+    private(set) var presentation: Presentation = .column
+    /// A column (always on screen) — as opposed to a panel the tool bar opens.
+    var isRegular: Bool { presentation == .column }
     private var regularLayout: [NSLayoutConstraint] = []
     private var compactLayout: [NSLayoutConstraint] = []
-    private var hostRegular: [NSLayoutConstraint] = []
-    private var hostCompact: [NSLayoutConstraint] = []
-    private var sheetTop: NSLayoutConstraint?
-    private weak var hostRoot: UIView?
-    private var sheetMaxRaise: () -> CGFloat = { 0 }
-    private(set) var isSheetRaised = false
+    private var sideLayout: [NSLayoutConstraint] = []
+    private var activeLayout: [NSLayoutConstraint] = []
+    /// The panel's close key / grabber tap (the editor closes the panel).
+    var onClosePanel: (() -> Void)?
+    /// A drag on the grabber: the editor moves the panel with the finger.
+    var onPanelPan: ((UIGestureRecognizer.State, CGFloat) -> Void)?
 
     #if DEBUG
     /// Probe seam — INJECTED DEFECT: the pane switch snaps (no crossfade).
@@ -161,7 +177,19 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         hairline.translatesAutoresizingMaskIntoConstraints = false
         rail.translatesAutoresizingMaskIntoConstraints = false
         grabber.translatesAutoresizingMaskIntoConstraints = false
-        for v in [grabber, scroll, hairline, rail] as [UIView] { card.addSubview(v) }
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.accessibilityLabelOverride = "Close panel"
+        closeButton.accessibilityIdentifier = "inspector.close"
+        closeButton.accessibilityHint = "Returns to the tool bar."
+        panelTitle.translatesAutoresizingMaskIntoConstraints = false
+        panelTitle.accessibilityTraits = .header
+        panelTitle.adjustsFontSizeToFitWidth = true
+        panelTitle.minimumScaleFactor = 0.7
+        for v in [grabber, scroll, hairline, rail, panelTitle, closeButton] as [UIView] { card.addSubview(v) }
+        let closeKey = [
+            closeButton.centerYAnchor.constraint(equalTo: grabber.centerYAnchor),
+            closeButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -CCSpace.sm),
+        ]
 
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
@@ -208,16 +236,39 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             scroll.leadingAnchor.constraint(equalTo: card.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: card.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: card.bottomAnchor),
-        ]
+        ] + closeKey
+        // Side panel: title + close strip, hairline, pane (no rail — the
+        // editor's tool rail beside it selects the pane).
+        sideLayout = [
+            grabber.topAnchor.constraint(equalTo: card.topAnchor),
+            grabber.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            grabber.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            grabber.heightAnchor.constraint(equalToConstant: 48),
+            panelTitle.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: CCSpace.lg),
+            panelTitle.centerYAnchor.constraint(equalTo: grabber.centerYAnchor),
+            panelTitle.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -CCSpace.sm),
+            hairline.topAnchor.constraint(equalTo: grabber.bottomAnchor),
+            hairline.heightAnchor.constraint(equalToConstant: 1),
+            hairline.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: CCSpace.md),
+            hairline.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -CCSpace.md),
+            scroll.topAnchor.constraint(equalTo: hairline.bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+        ] + closeKey
         NSLayoutConstraint.activate(regularLayout)
+        activeLayout = regularLayout
         grabber.isHidden = true
+        closeButton.isHidden = true
+        panelTitle.isHidden = true
 
         rail.onSelect = { [weak self] index in
             self?.selection.inspectorTab = InspectorTab.allCases[index]
         }
         rail.onTrailing = { [weak self] in self?.runFeature(.showHistory) }
-        grabber.onTap = { [weak self] in self?.setSheetRaised(!(self?.isSheetRaised ?? true), animated: true) }
-        grabber.onPan = { [weak self] phase, dy in self?.panSheet(phase, dy) }
+        grabber.onTap = { [weak self] in self?.onClosePanel?() }
+        grabber.onPan = { [weak self] phase, dy in self?.onPanelPan?(phase, dy) }
+        closeButton.onTap = { [weak self] in self?.onClosePanel?() }
 
         hairline.backgroundColor = CCTheme.color.border
     }
@@ -227,112 +278,52 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         startObserving()
     }
 
-    /// How far the compact sheet runs below the screen (≥ its corner radius).
+    /// How far the bottom panel runs below the screen (≥ its corner radius):
+    /// no band shows under it and its bottom corners are out of sight.
     static let sheetOverhang: CGFloat = 40
 
-    /// Mounts the inspector in the editor: the column fills the inspector
-    /// container; the sheet docks on it and can rise to the header.
+    /// Mounts the inspector in the editor as a child; the editor constrains
+    /// its view for each presentation.
     @available(iOS 26, *)
     func install(in editor: EditorViewController) {
         editor.addChild(self)
         editor.view.addSubview(view)
         view.translatesAutoresizingMaskIntoConstraints = false
-        let container = editor.inspectorContainer
-        hostRoot = editor.view
-        let top = view.topAnchor.constraint(equalTo: container.topAnchor)
-        sheetTop = top
-        hostRegular = [
-            view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            view.topAnchor.constraint(equalTo: container.topAnchor),
-            view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-        ]
-        // Compact: the sheet runs past the screen's bottom edge, so no black
-        // band shows under it (the home-indicator strip) and its own bottom
-        // corners are out of sight; its scroll view keeps the last row clear
-        // of the home indicator (automatic safe-area inset).
-        hostCompact = [
-            view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            view.bottomAnchor.constraint(equalTo: editor.view.bottomAnchor, constant: Self.sheetOverhang),
-            top,
-        ]
-        let header = editor.header
-        sheetMaxRaise = { [weak container, weak header, weak editor] in
-            guard let container, let header, let root = editor?.view else { return 0 }
-            let containerTop = container.convert(container.bounds, to: root).minY
-            let limit = header.convert(header.bounds, to: root).maxY + CCSpace.sm
-            return max(0, containerTop - limit)
-        }
-        NSLayoutConstraint.activate(hostRegular)
         didMove(toParent: editor)
     }
 
-    /// The editor's width class (its own ≥ 700 pt rule).
-    func setRegularWidth(_ regular: Bool) {
-        guard regular != isRegular || (hostRegular.first?.isActive != true && hostCompact.first?.isActive != true) else { return }
-        isRegular = regular
+    /// Lays the card out for `presentation`.
+    func setPresentation(_ presentation: Presentation) {
         loadViewIfNeeded()
-        NSLayoutConstraint.deactivate(regular ? compactLayout : regularLayout)
-        NSLayoutConstraint.activate(regular ? regularLayout : compactLayout)
-        NSLayoutConstraint.deactivate(regular ? hostCompact : hostRegular)
-        NSLayoutConstraint.activate(regular ? hostRegular : hostCompact)
-        rail.axis = regular ? .vertical : .horizontal
-        grabber.isHidden = regular
-        // The compact sheet runs `sheetOverhang` below the screen; its last
+        guard presentation != self.presentation || activeLayout.isEmpty else { return }
+        self.presentation = presentation
+        NSLayoutConstraint.deactivate(activeLayout)
+        switch presentation {
+        case .column: activeLayout = regularLayout
+        case .bottomPanel: activeLayout = compactLayout
+        case .sidePanel: activeLayout = sideLayout
+        }
+        NSLayoutConstraint.activate(activeLayout)
+        rail.axis = presentation == .column ? .vertical : .horizontal
+        rail.isHidden = presentation == .sidePanel
+        grabber.isHidden = presentation == .column
+        grabber.showsPill = presentation == .bottomPanel
+        // VoiceOver closes through the close key (the strip would overlap it).
+        grabber.isAccessibilityElement = false
+        closeButton.isHidden = presentation == .column
+        panelTitle.isHidden = presentation != .sidePanel
+        refreshPanelTitle()
+        // The bottom panel runs `sheetOverhang` below the screen; its last
         // row must still scroll into view (the safe-area inset alone stops at
         // the screen's edge).
-        let overhang = regular ? 0 : Self.sheetOverhang
+        let overhang = presentation == .bottomPanel ? Self.sheetOverhang : 0
         scroll.contentInset.bottom = overhang
         scroll.verticalScrollIndicatorInsets.bottom = overhang
-        if regular { sheetTop?.constant = 0; isSheetRaised = false }
         view.setNeedsLayout()
     }
 
-    // MARK: Sheet
-
-    func setSheetRaised(_ raised: Bool, animated: Bool) {
-        guard !isRegular, let sheetTop else { return }
-        isSheetRaised = raised
-        let target = raised ? -sheetMaxRaise() : 0
-        if animated {
-            CCMotion.animate(sheetTop, to: target, in: hostRoot, duration: 0.42, curve: raised ? .bounce : .settle)
-        } else {
-            sheetTop.constant = target
-            hostRoot?.layoutIfNeeded()
-        }
-        grabber.accessibilityValue = raised ? "Expanded" : "Collapsed"
-        hideCoveredFromVoiceOver(raised ? target : nil)
-    }
-
-    /// The raised sheet covers the stage, transport and timeline: VoiceOver
-    /// skips what lies under it (everything in the editor below its top but
-    /// the sheet itself); lowered, all of it reads again.
-    private func hideCoveredFromVoiceOver(_ raisedBy: CGFloat?) {
-        guard let root = hostRoot else { return }
-        let containerTop = view.superview.map { _ in view.frame.minY - (sheetTop?.constant ?? 0) } ?? 0
-        let sheetTopY = containerTop + (raisedBy ?? 0)
-        for sibling in root.subviews where sibling !== view {
-            let covered = raisedBy != nil && sibling.frame.maxY > sheetTopY + 1 && sibling.frame.minY >= sheetTopY - 1
-            if sibling.accessibilityElementsHidden != covered { sibling.accessibilityElementsHidden = covered }
-        }
-        UIAccessibility.post(notification: .layoutChanged, argument: nil)
-    }
-
-    private var panStart: CGFloat = 0
-
-    private func panSheet(_ phase: UIGestureRecognizer.State, _ dy: CGFloat) {
-        guard !isRegular, let sheetTop else { return }
-        let maxRaise = sheetMaxRaise()
-        switch phase {
-        case .began:
-            panStart = sheetTop.constant
-        case .changed:
-            sheetTop.constant = min(0, max(-maxRaise, panStart + dy))
-            hostRoot?.layoutIfNeeded()
-        default:
-            setSheetRaised(-sheetTop.constant > maxRaise / 2, animated: true)
-        }
+    private func refreshPanelTitle() {
+        panelTitle.text = shownTab?.rawValue ?? selection.inspectorTab.rawValue
     }
 
     // MARK: Panes
@@ -360,6 +351,7 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         if let shownTab { paneBottoms[shownTab]?.isActive = false }
         paneBottoms[tab]?.isActive = true
         shownTab = tab
+        refreshPanelTitle()
         rail.setSelectedIndex(InspectorTab.allCases.firstIndex(of: tab) ?? 0, animated: animated)
         new.isHidden = false
         new.refresh(scope)
@@ -400,7 +392,6 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             guard let self else { return }
             if let tab = self.follower.update(self.selection) {
                 self.selection.inspectorTab = tab
-                if !self.isRegular, !self.isSheetRaised { /* the docked sheet already shows the pane */ }
             }
         })
         // The tab, then the shown pane's values and rules — ONE loop, so what
@@ -439,8 +430,9 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     }
 }
 
-/// The sheet's grabber: a pill on a 22 pt strip; drag moves the sheet, a tap
-/// toggles it. One VoiceOver button ("Inspector sheet", Expanded/Collapsed).
+/// The panel's grabber: a pill on a 44 pt strip; a drag down closes the
+/// panel with the finger, a tap closes it. One VoiceOver button ("Close
+/// panel") on the bottom panel; the side panel's strip is just its header.
 @MainActor
 final class InspectorGrabber: UIControl {
     // Keyboard (iPad, Studio 6a): Tab / arrows focus it; Space or Return
@@ -463,8 +455,7 @@ final class InspectorGrabber: UIControl {
         let pan = UIPanGestureRecognizer(target: self, action: #selector(panned(_:)))
         addGestureRecognizer(pan)
         isAccessibilityElement = true
-        accessibilityLabel = "Inspector sheet"
-        accessibilityValue = "Collapsed"
+        accessibilityLabel = "Close panel"
         accessibilityTraits = .button
         accessibilityIdentifier = "inspector.grabber"
         ccOnThemeChange { [weak self] in self?.applyTheme() }
@@ -474,6 +465,8 @@ final class InspectorGrabber: UIControl {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     private func applyTheme() { pill.backgroundColor = cc(CCTheme.color.faintForeground) }
+
+    var showsPill = true { didSet { pill.isHidden = !showsPill } }
 
     override func layoutSubviews() {
         super.layoutSubviews()

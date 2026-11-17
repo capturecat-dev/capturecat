@@ -65,13 +65,14 @@ enum TimelineEditsLab {
         #endif
         let laneOK = await rig.laneMotionCheck()
         let glideOK = await rig.selectionGlideCheck()
+        let centredOK = await rig.centredPlayheadCheck()
         rig.unmount()
 
         // Real drags through the view on a fresh fixture, against the Mac's values.
         let dragRig = TimelineEditsRig(parent: parent, out: out)
         await dragRig.mount()
         let dragsOK = await dragRig.touchDragChecks()
-        let pass = failures.isEmpty && laneOK && glideOK && dragsOK
+        let pass = failures.isEmpty && laneOK && glideOK && centredOK && dragsOK
         print(pass ? "TIMELINE-GATE PASS" : "TIMELINE-GATE FAIL")
         exit(pass ? 0 : 1)
     }
@@ -965,6 +966,58 @@ private final class TimelineEditsRig {
 
     /// Select one block, then another: the outline must be caught between
     /// the two (strictly), then land on the second.
+    /// The centred playhead (the editor redesign): the marker sits on the
+    /// viewport's centre; a seek GLIDES the content until the playhead's
+    /// time is under it (caught mid-flight); a finger's scroll scrubs the
+    /// time under the marker and lands on an exact seek there; a ruler drag
+    /// belongs to the scroll, not to a playhead handle.
+    func centredPlayheadCheck() async -> Bool {
+        var ok = true
+        func report(_ name: String, _ pass: Bool, _ detail: String) {
+            if !pass { ok = false }
+            print("CENTRED-PLAYHEAD \(name) \(pass ? "PASS" : "FAIL") \(detail)")
+        }
+        let scroll = vc.scrollView
+        playhead.currentTime = 4
+        await settle(0.6)
+        let marker = vc.centrePlayhead.centreX(in: scroll.superview!)
+        let viewportCentre = scroll.frame.midX
+        report("marker", abs(marker - viewportCentre) < 0.75 && !vc.centrePlayhead.isHidden,
+               String(format: "marker x %.1f, viewport centre %.1f", marker, viewportCentre))
+        report("at-rest", abs(vc.playheadOffsetFromCentre) < 0.5,
+               String(format: "playhead 4.00 s sits %.2f pt from the centre", vc.playheadOffsetFromCentre))
+        // A seek glides: sampled as a sequence.
+        playhead.currentTime = 14
+        var offsets: [CGFloat] = []
+        let t0 = CACurrentMediaTime()
+        while CACurrentMediaTime() - t0 < 0.5 {
+            offsets.append(vc.playheadOffsetFromCentre)
+            await settle(0.012)
+        }
+        let start = offsets.first ?? 0
+        let mid = offsets.filter { abs($0) > 2 && abs($0) < abs(start) - 2 }
+        report("seek-glides", abs(start) > 100 && mid.count >= 2 && abs(offsets.last ?? 99) < 0.5,
+               String(format: "4 → 14 s: %.0f pt off-centre at the seek, %d of %d samples mid-glide, %.2f pt at rest",
+                      start, mid.count, offsets.count, offsets.last ?? 0))
+        // A finger scroll scrubs (left = earlier) and lands exactly.
+        let before = playhead.currentTime
+        let dx: CGFloat = -150
+        #if DEBUG
+        await vc.probeFingerScroll(by: Array(repeating: dx / 6, count: 6))
+        #endif
+        await settle(0.5)
+        let outBefore = vc.fullTimeMap.outputTime(forSource: before)
+        let want = min(max(vc.fullTimeMap.sourceTime(forOutput: outBefore + Double(dx / canvas.bounds.width) * vc.outputDuration),
+                           project.effectiveTrimStart), project.effectiveTrimEnd)
+        report("scroll-scrubs", abs(playhead.currentTime - want) < 0.02 && abs(vc.playheadOffsetFromCentre) < 0.5,
+               String(format: "scrolled %.0f pt: playhead %.3f → %.3f s (want %.3f), %.2f pt from the centre",
+                      dx, before, playhead.currentTime, want, vc.playheadOffsetFromCentre))
+        // The ruler is the scroll's: no playhead handle to drag there.
+        let rulerPoint = CGPoint(x: vc.playheadCanvasX + 40, y: TimelineCanvasMetrics.rulerHeight / 2)
+        report("ruler-scrolls", !vc.dragBelongsToTimeline(at: rulerPoint), "a drag on the ruler scrolls the content")
+        return ok
+    }
+
     func selectionGlideCheck() async -> Bool {
         await openLane(.annotate)
         let items = canvas.snapshot.annotateItems.sorted { $0.startTime < $1.startTime }
