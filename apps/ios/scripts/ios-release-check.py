@@ -352,10 +352,7 @@ USAGE = {
 # Strings declared AHEAD of the code that uses them, each naming the work that
 # links it. Without this the gate would demand removing a key the next merge
 # needs (iOS terminates an app that touches Photos with no usage string).
-PENDING = {
-    ("App", "NSPhotoLibraryAddUsageDescription"):
-        "StudioUI/ExportDelivery (save to Photos, add-only) — reached by the in-flight Export sheet; StudioLab only today",
-}
+PENDING = {}  # e.g. {("App", "NSPhotoLibraryAddUsageDescription"): "the work that links it"}
 infos = {}
 for name, (bundle, exe, _, _) in BUNDLES.items():
     info = plist(os.path.join(bundle, "Info.plist"))
@@ -437,8 +434,16 @@ MODE_EVIDENCE = {
 bad_modes = [m for m in modes if m not in MODE_EVIDENCE or not any(MODE_EVIDENCE[m](b) for b in binaries["App"])]
 check("background-modes", not bad_modes, f"{modes or 'none'}" + (f" — unused/unknown: {bad_modes}" if bad_modes else ""))
 bg_ids = app.get("BGTaskSchedulerPermittedIdentifiers") or []
-uses_scheduler = any(b.has_sym("_OBJC_CLASS_$_BGTaskScheduler") for b in binaries["App"])
-unreferenced = [i for i in bg_ids if not any(any(s.startswith(i.rstrip("*").rstrip(".")) for s in b.strings) for b in binaries["App"])]
+uses_scheduler = any(b.has_sym("_OBJC_CLASS_$_BGTaskScheduler", "_OBJC_CLASS_$_BGContinuedProcessingTaskRequest")
+                     for b in binaries["App"])
+# An identifier is accounted for when the binary carries its literal prefix,
+# or when it is scoped under this app's bundle id and the binary schedules
+# tasks (StudioExportBackground builds "<bundle id>.export.<uuid>" at run
+# time, so the short ".export" literal never appears whole).
+bundle_id = app.get("CFBundleIdentifier", "")
+unreferenced = [i for i in bg_ids
+                if not any(any(s.startswith(i.rstrip("*").rstrip(".")) for s in b.strings) for b in binaries["App"])
+                and not (uses_scheduler and i.startswith(bundle_id + "."))]
 check("bgtask-identifiers", (bool(bg_ids) == uses_scheduler) and not unreferenced,
       f"identifiers {bg_ids or 'none'}, BGTaskScheduler {'used' if uses_scheduler else 'unused'}"
       + (f"; not referenced by the binary: {unreferenced}" if unreferenced else ""))

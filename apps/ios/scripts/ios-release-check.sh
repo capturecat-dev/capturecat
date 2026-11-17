@@ -90,7 +90,8 @@ inject() { # <defect> <archive copy> <entitlements copy dir>
     weak-ats)            plutil -insert NSAppTransportSecurity.NSAllowsArbitraryLoads -bool YES "$app/Info.plist" ;;
     studiolab-embedded)  mkdir -p "$app/StudioLab.app" && cp "$app/Info.plist" "$app/StudioLab.app/Info.plist" ;;
     dead-entitlement)    /usr/libexec/PlistBuddy -c "Add :com.apple.developer.healthkit bool true" "$e/App.entitlements" ;;
-    unused-bgtask)       plutil -insert BGTaskSchedulerPermittedIdentifiers -json '["so.capturecat.ios.nothing"]' "$app/Info.plist" ;;
+    unused-bgtask)       plutil -remove BGTaskSchedulerPermittedIdentifiers "$app/Info.plist" > /dev/null 2>&1 || true
+                         plutil -insert BGTaskSchedulerPermittedIdentifiers -json '["com.example.refresh"]' "$app/Info.plist" ;;
   esac
 }
 

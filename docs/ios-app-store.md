@@ -309,11 +309,12 @@ Distribute App, or Transporter.
 | `NSMicrophoneUsageDescription` | Kept: editor voice-over (`VoiceOverSession`, AVAudioRecorder) and the broadcast's microphone toggle. Reworded — there are no camera takes on iOS. |
 | `NSCameraUsageDescription` | **Removed**: no iOS code opens a camera (camera footage comes from the Mac). |
 | `NSPhotoLibraryUsageDescription` | **Removed**: imports use the system photo picker, which needs no permission; nothing reads the library. |
-| `NSPhotoLibraryAddUsageDescription` | Kept: saving exports (`StudioUI/ExportDelivery`, add-only). Today only StudioLab reaches it; the Export sheet in flight wires it into the app — the gate lists it as PENDING until the binary links it. |
+| `NSPhotoLibraryAddUsageDescription` | Kept: the Export sheet saves to Photos with add-only access (`StudioUI/ExportDelivery`, Studio 3d). |
 | `NSLocalNetworkUsageDescription` + `NSBonjourServices` (`_ccwireless._tcp`) | Kept in the app and the broadcast extension (both browse for the Mac). Reworded for iPad ("this screen"). The share extension has neither. |
 | `NSAppTransportSecurity` | Only `NSAllowsLocalNetworking` (the 127.0.0.1 sign-in listener and Debug's loopback API); no arbitrary loads, no exception domains. |
 | `ITSAppUsesNonExemptEncryption` | NO (above). |
-| `UIBackgroundModes` | None. Uploads and sync use `beginBackgroundTask`. **Expected after merge:** the export work adds a `BGContinuedProcessingTask` identifier to `BGTaskSchedulerPermittedIdentifiers` (and possibly the `com.apple.developer.background-tasks.continued-processing.gpu` entitlement); the gate already accepts both when the binary references `BGTaskScheduler` / `BGContinuedProcessingTask` and the identifier. |
+| `UIBackgroundModes` | None. Uploads and sync use `beginBackgroundTask`. |
+| `BGTaskSchedulerPermittedIdentifiers` | `so.capturecat.ios.export.*` — background export (`BGContinuedProcessingTaskRequest`, `StudioExportBackground`, Studio 3d; ids are `<bundle id>.export.<uuid>`). Keep it. If GPU export in the background is wanted later, add the `com.apple.developer.background-tasks.continued-processing.gpu` entitlement (the gate accepts it when the binary uses `BGContinuedProcessingTask`). |
 | Orientations | iPhone: portrait + both landscapes; iPad: all four, no `UIRequiresFullScreen` → Split View, Slide Over and Stage Manager. |
 | Launch screen | `UILaunchScreen` (empty: the system background in the current appearance, no art). |
 | Display names | App and broadcast: "CaptureCat"; share extension: "Save to CaptureCat". |
