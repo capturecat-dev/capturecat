@@ -31,12 +31,8 @@ KNOWN = {
     "annotationTextMetrics": "system font metrics differ on iOS",
     "keystrokeOverlayDrawRecipe": "system font metrics differ on iOS",
     "keystrokeOverlayPillMetrics": "system font metrics differ on iOS",
-    # iOS rasterizes its own arrow (CursorArt); the Mac uses the real 32×32
-    # system cursor bitmap. Plan: bundle the Mac's byte-exact rasters.
-    "cursorStyleAssets": "cursor art: iOS draws its own arrow",
-    "exportCursorCGFallback": "cursor art: iOS draws its own arrow",
-    "exportCursorComposite": "cursor art: iOS draws its own arrow",
-    "exportCursorSetup": "cursor art: iOS draws its own arrow",
+    # (Cursor art is no longer here: iOS bundles the Mac's NSCursor hand
+    # bitmap, so cursorStyleAssets / exportCursor* are gated like the rest.)
 }
 # GPU-rendered 8-bit samples may differ by ±1 between macOS and iOS Core
 # Image; every other value in these units must still match exactly.

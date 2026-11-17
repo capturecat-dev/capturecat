@@ -8,13 +8,16 @@ import UIKit
 /// mapping, hotspots and caches). The Mac branch is the provider's NSCursor /
 /// NSBezierPath / NSBitmapImageRep code, verbatim.
 enum CursorArt {
-    /// The system pointing-hand cursor and its hotspot. nil on iOS, which has
-    /// no system cursor; the provider draws the arrow there instead.
+    /// The system pointing-hand cursor and its hotspot. iOS has no system
+    /// cursors: there it is the Mac's own NSCursor.pointingHand, bundled byte
+    /// for byte (`BundledHand`). nil only if those resources are missing — the
+    /// provider then draws the arrow.
     static func systemPointingHand() -> (image: PlatformImage, hotSpot: CGPoint)? {
         #if canImport(AppKit)
         return (NSCursor.pointingHand.image, NSCursor.pointingHand.hotSpot)
         #else
-        return nil
+        guard let hand = BundledHand.shared else { return nil }
+        return (hand.image, BundledHand.hotSpot)
         #endif
     }
 
@@ -123,6 +126,11 @@ enum CursorArt {
 
         return bitmap.cgImage
         #else
+        // The Hand is a bitmap on the Mac too: draw the Mac's rep the way
+        // NSImage does (`BundledHand.rasterize`).
+        if style == .hand, let hand = BundledHand.shared {
+            return hand.rasterize(pixelWidth: pixelWidth, pixelHeight: pixelHeight)
+        }
         // The Mac redraws its vector NSImage at the scaled CTM; a UIImage is
         // already a raster, so redraw the same vector paths instead.
         let size = image.size
@@ -143,7 +151,7 @@ enum CursorArt {
         ctx.scaleBy(x: CGFloat(pixelWidth) / size.width, y: CGFloat(pixelHeight) / size.height)
         UIGraphicsPushContext(ctx)
         switch style {
-        case .system, .hand:
+        case .system, .hand:  // .hand only without the bundled hand: the arrow stands in
             drawArrowPath(fill: .black, outline: .white, outerOutline: .black)
         case .inverted:
             drawArrowPath(fill: .white, outline: .black)
@@ -258,20 +266,20 @@ enum CursorArt {
         path.fill()
     }
 
-    /// The dot / ring, into the current UIKit context. Both are symmetric
-    /// about the centre, so the Mac's unflipped image needs no flip here.
+    /// The dot / ring, into the current UIKit context, on the Mac's ovals
+    /// (`appKitOval`).
     private static func drawDotPath(filled: Bool) {
         if filled {
-            let outer = UIBezierPath(ovalIn: CGRect(x: 1.5, y: 1.5, width: 21, height: 21))
+            let outer = appKitOval(CGRect(x: 1.5, y: 1.5, width: 21, height: 21))
             UIColor.black.withAlphaComponent(0.55).setStroke()
             outer.lineWidth = 1.5
             outer.stroke()
             UIColor.white.setFill()
-            UIBezierPath(ovalIn: CGRect(x: 2.5, y: 2.5, width: 19, height: 19)).fill()
+            appKitOval(CGRect(x: 2.5, y: 2.5, width: 19, height: 19)).fill()
             UIColor.black.withAlphaComponent(0.25).setFill()
-            UIBezierPath(ovalIn: CGRect(x: 8.5, y: 8.5, width: 7, height: 7)).fill()
+            appKitOval(CGRect(x: 8.5, y: 8.5, width: 7, height: 7)).fill()
         } else {
-            let ring = UIBezierPath(ovalIn: CGRect(x: 3, y: 3, width: 18, height: 18))
+            let ring = appKitOval(CGRect(x: 3, y: 3, width: 18, height: 18))
             UIColor.black.withAlphaComponent(0.55).setStroke()
             ring.lineWidth = 5
             ring.stroke()
@@ -281,6 +289,36 @@ enum CursorArt {
         }
     }
 
+    /// `NSBezierPath(ovalIn:)` of the Mac's unflipped 24 × 24 pt dot image,
+    /// placed in UIKit's y-down drawing space. Not `UIBezierPath(ovalIn:)`:
+    /// that is CGPath's ellipse (starts at 0°, closed), while AppKit's oval is
+    /// four 90° arcs from −45°, counter-clockwise in its y-up space, and OPEN —
+    /// the stroke's start/end and every curve's flattening differ, which moved
+    /// the ring's and dot's anti-aliased edges by up to 36/255 (measured by
+    /// ios-vectors.sh's cursor rasters). Points match AppKit's within 1e-14;
+    /// mirrored (y → 24 − y) so they land on the Mac's bitmap pixels.
+    private static func appKitOval(_ r: CGRect) -> UIBezierPath {
+        let cx = r.midX, cy = r.midY, rx = r.width / 2, ry = r.height / 2
+        let k = 4.0 / 3.0 * tan(Double.pi / 8)
+        func p(_ t: Double) -> CGPoint { CGPoint(x: cx + rx * cos(t), y: cy + ry * sin(t)) }
+        func d(_ t: Double) -> CGVector { CGVector(dx: -rx * sin(t), dy: ry * cos(t)) }
+        func uikit(_ q: CGPoint) -> CGPoint { CGPoint(x: q.x, y: 24 - q.y) }
+        let path = UIBezierPath()
+        var t0 = -Double.pi / 4
+        path.move(to: uikit(p(t0)))
+        for _ in 0..<4 {
+            let t1 = t0 + Double.pi / 2
+            let a = p(t0), b = p(t1), da = d(t0), db = d(t1)
+            path.addCurve(
+                to: uikit(b),
+                controlPoint1: uikit(CGPoint(x: a.x + k * da.dx, y: a.y + k * da.dy)),
+                controlPoint2: uikit(CGPoint(x: b.x - k * db.dx, y: b.y - k * db.dy))
+            )
+            t0 = t1
+        }
+        return path
+    }
+
     /// The point-size image's own raster; export redraws the paths at the
     /// exact pixel size (`rasterize`), so this only feeds point sizes.
     private static func rasterFormat() -> UIGraphicsImageRendererFormat {
@@ -288,6 +326,68 @@ enum CursorArt {
         format.scale = 2
         format.opaque = false
         return format
+    }
+
+    /// macOS's `NSCursor.pointingHand`, which iOS does not have: a 32 × 32 pt
+    /// cursor, hotspot (13, 8), with a 32 px and a 64 px bitmap rep. Bundled as
+    /// those reps exactly as the Mac's `rasterize` draws them at 1× and 2× —
+    /// the premultiplied RGBA8 bytes (rows top-down) that the Mac's
+    /// `--web-cursor-sprites` writes, the same bytes the web editor ships
+    /// (apps/web/public/editor/cursors/manifest.json) — as `hand@1x.rgba` /
+    /// `hand@2x.rgba` (apps/ios/StudioResources/Cursors/, added to the app and
+    /// StudioLab by gen-xcodeproj.py). Raw bytes, not PNG: no decoder or
+    /// re-premultiplication touches them.
+    private struct BundledHand {
+        static let hotSpot = CGPoint(x: 13, y: 8)
+        static let shared: BundledHand? = load()
+
+        let small: CGImage  // the 32 px rep
+        let large: CGImage  // the 64 px rep
+        /// The cursor at its 32 × 32 pt size (the 64 px rep at scale 2).
+        let image: UIImage
+
+        private static func load() -> BundledHand? {
+            guard let small = rep("hand@1x", pixels: 32),
+                  let large = rep("hand@2x", pixels: 64) else { return nil }
+            return BundledHand(
+                small: small, large: large,
+                image: UIImage(cgImage: large, scale: 2, orientation: .up)
+            )
+        }
+
+        /// A bundled raw raster as a CGImage over exactly its bytes:
+        /// device RGB (the Mac raster's space), premultiplied last.
+        private static func rep(_ name: String, pixels: Int) -> CGImage? {
+            guard let url = Bundle.main.url(forResource: name, withExtension: "rgba"),
+                  let data = try? Data(contentsOf: url),
+                  data.count == pixels * pixels * 4,
+                  let provider = CGDataProvider(data: data as CFData)
+            else { return nil }
+            return CGImage(
+                width: pixels, height: pixels, bitsPerComponent: 8, bitsPerPixel: 32,
+                bytesPerRow: pixels * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent
+            )
+        }
+
+        /// The Mac's `rasterize` of the hand: NSImage draws the rep that fits
+        /// the destination's pixels — the 32 px rep up to 32 px, the 64 px rep
+        /// above — scaled onto the grid with high-quality interpolation and
+        /// `.copy` into a premultiplied device-RGB bitmap.
+        func rasterize(pixelWidth: Int, pixelHeight: Int) -> CGImage? {
+            let rep = pixelWidth <= small.width && pixelHeight <= small.height ? small : large
+            guard let ctx = CGContext(
+                data: nil, width: pixelWidth, height: pixelHeight,
+                bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return nil }
+            ctx.interpolationQuality = .high
+            ctx.setBlendMode(.copy)
+            ctx.draw(rep, in: CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight))
+            return ctx.makeImage()
+        }
     }
     #endif
 }

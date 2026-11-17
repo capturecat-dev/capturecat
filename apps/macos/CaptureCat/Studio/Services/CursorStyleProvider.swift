@@ -31,8 +31,8 @@ enum CursorStyleProvider {
             // silhouette as vector artwork instead.
             built = (CursorArt.systemArrow(), CGPoint(x: 2, y: 2))
         case .hand:
-            // Only reached where the platform has no system hand (iOS): the
-            // drawn arrow stands in.
+            // Only reached when there is no hand art (iOS without its bundled
+            // copy of the Mac's cursor): the drawn arrow stands in.
             built = CursorArt.systemPointingHand() ?? (CursorArt.systemArrow(), CGPoint(x: 2, y: 2))
         case .inverted:
             built = (CursorArt.invertedArrow(), CGPoint(x: 2, y: 2))
