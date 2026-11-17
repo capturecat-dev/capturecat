@@ -75,7 +75,7 @@ lab() {  # lab <device> <dir> [args…] — one StudioLab --a11y run; prints its
   local device="$1" dir="$2"; shift 2
   rm -rf "$dir" && mkdir -p "$dir"
   xcrun simctl launch --console-pty --terminate-running-process "$device" "$LAB" --a11y "$dir/lab" "$@" > "$dir/run.log" 2>&1 || true
-  grep -aE '^A11Y-GATE' "$dir/run.log" | tail -1 || echo "A11Y-GATE (no result)"
+  grep -aE '^A11Y-GATE' "$dir/run.log" | tail -1 | tr -d '\r' || echo "A11Y-GATE (no result)"
 }
 
 first=""
@@ -99,7 +99,7 @@ for device in $DEVICES; do
     xcrun simctl launch --console-pty --terminate-running-process "$device" "$APPID" \
       -uiFixtures -uiA11yAudit > "$OUT/$device/app/run.log" 2>&1 || true
     grep -aE '^APPA11Y [a-z].* FAIL' "$OUT/$device/app/run.log" | cut -c1-400 || true
-    appverdict="$(grep -aE '^APPA11Y-GATE' "$OUT/$device/app/run.log" | tail -1 || true)"
+    appverdict="$(grep -aE '^APPA11Y-GATE' "$OUT/$device/app/run.log" | tail -1 | tr -d '\r' || true)"
     echo "  app checks: $(grep -acE '^APPA11Y [a-z].* PASS' "$OUT/$device/app/run.log") pass, $(grep -acE '^APPA11Y [a-z].* FAIL' "$OUT/$device/app/run.log") fail — ${appverdict:-APPA11Y-GATE (no result)}"
     [[ "$appverdict" == "APPA11Y-GATE PASS" ]] || status=1
   fi
