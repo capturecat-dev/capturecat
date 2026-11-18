@@ -77,8 +77,16 @@ final class AppToaster {
     /// when its result arrives instead of lingering in the stack behind it.
     @discardableResult
     func show(title: String, message: String? = nil, variant: CCToast.Variant = .default, symbol: String? = nil, action: CCToast.Action? = nil) -> CCToast? {
-        toaster?.show(title: title, message: message, variant: variant, symbol: symbol, action: action)
+        #if DEBUG
+        Self.probeShown.append(title)
+        #endif
+        return toaster?.show(title: title, message: message, variant: variant, symbol: symbol, action: action)
     }
+
+    #if DEBUG
+    /// Every toast title shown (gates).
+    static var probeShown: [String] = []
+    #endif
 
     func bringToFront() { toaster?.bringToFront() }
 }

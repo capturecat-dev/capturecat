@@ -7,7 +7,14 @@ import UIKit
 ///
 ///  • the video, with a captions toggle when the share has a transcript;
 ///    commenter avatars on the scrubber at their moments, reactions dotted
-///    under it; elapsed / remaining;
+///    under it, the owner's annotation markers as ranges on the track (a tap
+///    inside one jumps to its start) with their labels as pills and Summary
+///    rows; elapsed / remaining;
+///  • comment drawings over the picture (a comment's "Drawing", its avatar
+///    on the scrubber, or a fresh post shows it, paused on its frame) — on
+///    the picture's real rect, letterboxed or pinch-filled — and drawing one
+///    while writing a comment (pen, highlighter, arrow, box, ellipse, text;
+///    colours, sizes, undo / redo), posted in the web's exact format;
 ///  • the title (AI title or the cleaned file name) and "date · length ·
 ///    Shared via CaptureCat";
 ///  • six reaction keys — one reaction per viewer at the current moment, the
@@ -67,6 +74,21 @@ final class ShareViewerViewController: DetailPageViewController {
     private let landscapeControls = UIStackView()
     private var landscapeConstraints: [NSLayoutConstraint] = []
     private(set) var isLandscapePlayer = false
+    private var landscapeTap: UITapGestureRecognizer?
+    private var landscapePinch: UIPinchGestureRecognizer?
+    /// The owner's labelled markers as pills under the transport (the web's strip).
+    private let markerPills = UIStackView()
+    private let markerPillsScroll = UIScrollView()
+    private var renderedPills: [ShareAnnotationMarker] = []
+    /// The posted comment whose drawing is on the frame (the web's `shown`).
+    private(set) var shownComment: VideoComment?
+    /// The composer's unposted drawing, anchored to `draftTime`.
+    private(set) var draftShapes: [ShareAnnotationShape] = []
+    private(set) var drawingEditor: ShareDrawingEditor?
+    private(set) var drawingToolbar: ShareDrawingToolbar?
+    private var toolbarConstraints: [NSLayoutConstraint] = []
+    var isDrawing: Bool { drawingEditor != nil }
+    private var overlayKey = ""
 
     enum Tab: String { case comments = "Comments", summary = "Summary", transcript = "Transcript" }
     enum Sort: String, CaseIterable { case videoTime = "Video order", oldest = "Oldest first", newest = "Newest first" }
@@ -108,7 +130,7 @@ final class ShareViewerViewController: DetailPageViewController {
         buildDetails()
         buildComposer()
         column.spacing = CCSpace.md
-        for view in [stateHost, surface, timeline, transportRow, titleLabel, bylineLabel, ctaButton, reactionBar, tabsHost, panel] as [UIView] {
+        for view in [stateHost, surface, timeline, transportRow, markerPillsScroll, titleLabel, bylineLabel, ctaButton, reactionBar, tabsHost, panel] as [UIView] {
             column.addArrangedSubview(view)
         }
         column.setCustomSpacing(CCSpace.xs, after: surface)
@@ -174,6 +196,8 @@ final class ShareViewerViewController: DetailPageViewController {
         surface.addGestureRecognizer(tap)
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(pinchLandscape(_:)))
         surface.addGestureRecognizer(pinch)
+        landscapeTap = tap
+        landscapePinch = pinch
     }
 
     /// Pinch out → fill the screen's width; pinch in → the whole frame.
@@ -183,7 +207,7 @@ final class ShareViewerViewController: DetailPageViewController {
     }
 
     @objc private func toggleLandscapeControls() {
-        guard isLandscapePlayer else { return }
+        guard isLandscapePlayer, !isDrawing else { return }
         let show = landscapeControls.alpha < 0.5
         UIView.animate(withDuration: CCMotion.reduceMotion ? 0 : 0.2) { self.landscapeControls.alpha = show ? 1 : 0 }
     }
@@ -241,6 +265,10 @@ final class ShareViewerViewController: DetailPageViewController {
         }
         setNeedsStatusBarAppearanceUpdate()
         setNeedsUpdateOfHomeIndicatorAutoHidden()
+        if isDrawing {
+            placeDrawingToolbar()
+            landscapeControls.isHidden = want
+        }
         view.layoutIfNeeded()
     }
 
@@ -256,11 +284,14 @@ final class ShareViewerViewController: DetailPageViewController {
     }
 
     @objc private func keyTogglePlay() {
-        guard !composer.field.isFirstResponder, !composer.nameField.isFirstResponder else { return }
+        guard !composer.field.isFirstResponder, !composer.nameField.isFirstResponder, !isDrawing else { return }
         surface.togglePlay()
     }
 
-    @objc private func keyClose() { close() }
+    @objc private func keyClose() {
+        if isDrawing { cancelDrawing(); return }
+        close()
+    }
 
     func close() {
         surface.pause()
@@ -278,6 +309,11 @@ final class ShareViewerViewController: DetailPageViewController {
         surface.onTime = { [weak self] time in self?.timeChanged(time) }
         surface.onPlayingChange = { [weak self] playing in
             guard let self else { return }
+            // Drawing holds the frame still; nothing may start it underneath.
+            if playing, self.isDrawing { self.surface.pause(); return }
+            // Playing takes a drawing off the frame (the web's onPlay).
+            if playing { self.shownComment = nil }
+            self.refreshOverlay()
             self.playKey.symbol = playing ? "pause-fill" : "play-fill"
             self.playKey.accessibilityLabelOverride = playing ? "Pause" : "Play"
             self.model.track(playing ? "play" : "pause", at: self.surface.currentTime)
@@ -299,6 +335,23 @@ final class ShareViewerViewController: DetailPageViewController {
             if ended { self.model.track("seek", at: time) }
         }
         timeline.onJump = { [weak self] comment in self?.jump(to: comment) }
+        timeline.onMarker = { [weak self] marker in self?.jumpToMarker(marker) }
+        markerPills.axis = .horizontal
+        markerPills.spacing = CCSpace.sm
+        markerPills.alignment = .center
+        markerPills.translatesAutoresizingMaskIntoConstraints = false
+        markerPillsScroll.showsHorizontalScrollIndicator = false
+        markerPillsScroll.clipsToBounds = false
+        markerPillsScroll.translatesAutoresizingMaskIntoConstraints = false
+        markerPillsScroll.addSubview(markerPills)
+        NSLayoutConstraint.activate([
+            markerPills.leadingAnchor.constraint(equalTo: markerPillsScroll.contentLayoutGuide.leadingAnchor),
+            markerPills.trailingAnchor.constraint(equalTo: markerPillsScroll.contentLayoutGuide.trailingAnchor),
+            markerPills.topAnchor.constraint(equalTo: markerPillsScroll.contentLayoutGuide.topAnchor),
+            markerPills.bottomAnchor.constraint(equalTo: markerPillsScroll.contentLayoutGuide.bottomAnchor),
+            markerPillsScroll.frameLayoutGuide.heightAnchor.constraint(equalTo: markerPills.heightAnchor),
+        ])
+        markerPillsScroll.isHidden = true
         playKey.accessibilityLabelOverride = "Play"
         playKey.onTap = { [weak self] in self?.surface.togglePlay() }
         captionsKey.accessibilityLabelOverride = "Captions"
@@ -353,6 +406,7 @@ final class ShareViewerViewController: DetailPageViewController {
             self.seek(to: self.draftTime ?? self.surface.currentTime, play: false)
         }
         composer.cancelReply.onTap = { [weak self] in self?.setReply(nil) }
+        composer.drawButton.onTap = { [weak self] in self?.startDrawing() }
         composer.signInButton.onTap = { [weak self] in self?.signIn() }
     }
 
@@ -400,6 +454,7 @@ final class ShareViewerViewController: DetailPageViewController {
         for view in [surface, timeline, transportRow, titleLabel, bylineLabel, reactionBar, tabsHost, panel] as [UIView] {
             view.isHidden = !open
         }
+        if !open { markerPillsScroll.isHidden = true }
         ctaButton.isHidden = !open || model.meta?.ctaLabel?.isEmpty != false || model.meta?.ctaUrl == nil
         let showComposer = open && model.commentsEnabled
         if composer.isHidden == showComposer {
@@ -447,6 +502,8 @@ final class ShareViewerViewController: DetailPageViewController {
         }
         timeline.setTime(surface.currentTime, duration: surface.duration > 0 ? surface.duration : (meta.durationSeconds ?? 0))
         timeline.setContent(comments: model.comments, reactions: model.reactions)
+        timeline.setAnnotationMarkers(model.markers, accent: model.accent)
+        renderMarkerPills()
         reactionBar.render(counts: model.reactionCounts, mine: model.myEmoji)
         if let pulse = model.reactionPulse, pulse.serial != lastSeenPulse {
             lastSeenPulse = pulse.serial
@@ -579,9 +636,10 @@ final class ShareViewerViewController: DetailPageViewController {
     }
 
     private func makeRow(_ comment: VideoComment, reply: Bool) -> ShareCommentRow {
-        let row = ShareCommentRow(comment: comment, reply: reply)
+        let row = ShareCommentRow(comment: comment, reply: reply, aspect: aspect)
         row.onSeek = { [weak self] time in self?.seekFromChip(time) }
         row.onReply = { [weak self] comment in self?.setReply(comment) }
+        row.onShowDrawing = { [weak self] comment in self?.showComment(comment) }
         return row
     }
 
@@ -602,7 +660,8 @@ final class ShareViewerViewController: DetailPageViewController {
     }
 
     private func jump(to comment: VideoComment) {
-        seek(to: comment.videoTime ?? 0, play: false)
+        guard !isDrawing else { return }
+        if comment.drawing != nil { showComment(comment) } else { seek(to: comment.videoTime ?? 0, play: false) }
         select(tab: .comments)
         if let row = commentRows().first(where: { $0.comment.commentId == comment.commentId }) {
             row.backgroundColor = CCTheme.color.active
@@ -621,14 +680,24 @@ final class ShareViewerViewController: DetailPageViewController {
             summaryStack.setCustomSpacing(CCSpace.md, after: summaryStack.arrangedSubviews.last!)
         }
         let chapters = meta.meaningfulChapters
-        if !chapters.isEmpty {
+        let markers = model.isOwnerPrivate ? [] : meta.pillMarkers
+        if !chapters.isEmpty || !markers.isEmpty {
             let heading = ccLabel("Chapters", font: CCFont.labelSemibold, color: CCTheme.color.mutedForeground)
             heading.accessibilityTraits = .header
             summaryStack.addArrangedSubview(heading)
-            for chapter in chapters {
+            var rows: [(start: Double, row: ShareTimedRow)] = chapters.map { chapter in
                 let row = ShareTimedRow(time: chapter.start, text: chapter.label)
                 row.onTap = { [weak self] in self?.seekFromChip(chapter.start) }
-                summaryStack.addArrangedSubview(row)
+                return (chapter.start, row)
+            }
+            rows += markers.map { marker in
+                let label = marker.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let row = ShareTimedRow(time: marker.start, text: label.isEmpty ? "Annotation" : label)
+                row.onTap = { [weak self] in self?.jumpToMarker(marker) }
+                return (marker.start, row)
+            }
+            for item in rows.enumerated().sorted(by: { ($0.element.start, $0.offset) < ($1.element.start, $1.offset) }) {
+                summaryStack.addArrangedSubview(item.element.row)
             }
         }
     }
@@ -696,6 +765,11 @@ final class ShareViewerViewController: DetailPageViewController {
     }
 
     private func timeChanged(_ time: Double) {
+        // A drawing belongs to its frame: moving away takes it off the player.
+        if let shown = shownComment, abs(time - (shown.videoTime ?? 0)) > ShareAnnotationMath.drawingSnap {
+            shownComment = nil
+        }
+        refreshOverlay()
         let duration = surface.duration > 0 ? surface.duration : (model.meta?.durationSeconds ?? 0)
         timeline.setTime(time, duration: duration)
         model.tick(time, playing: surface.isPlaying)
@@ -791,14 +865,26 @@ final class ShareViewerViewController: DetailPageViewController {
         let parent = replyingTo
         let time = parent == nil ? (draftTime ?? surface.currentTime) : nil
         let name = model.signedInName == nil ? composer.nameField.text?.trimmingCharacters(in: .whitespaces) : nil
+        // The drawing, in the web's exact serialized form (replies carry none).
+        let serialized = parent == nil ? ShareAnnotationMath.serialize(draftShapes) : ShareAnnotationMath.serialize([])
+        guard !serialized.tooLarge else {
+            composer.showError("That drawing is too detailed to post — undo a few marks.")
+            return
+        }
         composer.sendButton.isBusy = true
         Task { @MainActor [weak self] in
             guard let self else { return }
             defer { self.composer.sendButton.isBusy = false }
             do {
-                let comment = try await self.model.post(body: text, authorName: name, at: time, replyTo: parent?.commentId)
+                let comment = try await self.model.post(body: text, authorName: name, at: time, replyTo: parent?.commentId,
+                                                        annotation: serialized.json)
                 self.composer.field.text = ""
                 self.draftTime = nil
+                self.draftShapes = []
+                self.composer.setDraftMarks(0)
+                // The drawing stays up, now as the posted comment's.
+                if comment.drawing != nil { self.shownComment = comment }
+                self.refreshOverlay()
                 self.setReply(nil)
                 _ = self.composer.field.resignFirstResponder()
                 self.select(tab: .comments, animated: false)
@@ -809,6 +895,182 @@ final class ShareViewerViewController: DetailPageViewController {
                 self.composer.showError(error.localizedDescription)
             }
         }
+    }
+
+    // MARK: - Markers
+
+    private func renderMarkerPills() {
+        let pills = model.isOwnerPrivate ? [] : (model.meta?.pillMarkers ?? [])
+        guard pills != renderedPills else { return }
+        renderedPills = pills
+        markerPills.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for marker in pills {
+            let label = marker.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let pill = CCButton(title: label.isEmpty ? Format.duration(marker.start) : "\(Format.duration(marker.start))  \(label)",
+                                symbol: "play-fill", style: .secondary, size: .sm, radius: .full)
+            pill.accessibilityLabelOverride = "\(label.isEmpty ? "Annotation" : label), at \(Format.spokenDuration(marker.start))"
+            pill.accessibilityHint = "Plays from here"
+            pill.onTap = { [weak self] in self?.jumpToMarker(marker) }
+            markerPills.addArrangedSubview(pill)
+        }
+        markerPillsScroll.isHidden = pills.isEmpty
+    }
+
+    /// The web's jumpToMarker: its start, playing.
+    func jumpToMarker(_ marker: ShareAnnotationMarker) {
+        guard !isDrawing else { return }
+        seekFromChip(marker.start)
+    }
+
+    // MARK: - Drawings on the frame
+
+    /// Put a posted comment's drawing on the player: its exact frame, paused
+    /// (the web's showComment).
+    func showComment(_ comment: VideoComment) {
+        guard !isDrawing, comment.drawing != nil else { return }
+        surface.pause()
+        seek(to: comment.videoTime ?? 0, play: false)
+        shownComment = comment
+        refreshOverlay()
+        if isLandscapePlayer { landscapeControls.alpha = 1 }
+        CCAccessibility.announce("Showing \(comment.authorName)'s drawing at \(Format.spokenDuration(comment.videoTime ?? 0))")
+    }
+
+    /// What the frame shows: a posted comment's drawing, else the composer's
+    /// own unposted one while paused on its frame, else nothing.
+    private func refreshOverlay() {
+        if isDrawing {
+            if !overlayKey.isEmpty { overlayKey = ""; surface.hideDrawing() }
+            return
+        }
+        if let shown = shownComment, let shapes = shown.drawing {
+            let text = "\(shown.authorName) drew at \(Format.duration(shown.videoTime ?? 0))"
+            let key = "shown|" + shown.commentId
+            guard key != overlayKey else { return }
+            overlayKey = key
+            let hide = CCButton(symbol: "close", style: .ghost, size: .regular, radius: .full)
+            hide.accessibilityLabelOverride = "Hide drawing"
+            hide.onTap = { [weak self] in
+                self?.shownComment = nil
+                self?.refreshOverlay()
+            }
+            surface.showDrawing(shapes, pill: text, action: hide)
+            return
+        }
+        let onFrame = !draftShapes.isEmpty && !surface.isPlaying && draftTime.map { abs(surface.currentTime - $0) <= ShareAnnotationMath.drawingSnap } == true
+        if onFrame {
+            let key = "draft|\(draftShapes.count)|\(draftShapes.hashValue)"
+            guard key != overlayKey else { return }
+            overlayKey = key
+            let edit = CCButton(title: "Edit", style: .secondary, size: .sm, radius: .full)
+            edit.accessibilityLabelOverride = "Edit your drawing"
+            edit.onTap = { [weak self] in self?.startDrawing() }
+            surface.showDrawing(draftShapes, pill: "Your drawing · not posted yet", action: edit)
+            return
+        }
+        if !overlayKey.isEmpty {
+            overlayKey = ""
+            surface.hideDrawing()
+        }
+    }
+
+    // MARK: - Drawing mode
+
+    /// Pause on the moment and draw on it (the web's startDrawing): a new
+    /// drawing pins the comment to this frame; editing returns to ITS frame.
+    func startDrawing() {
+        guard model.commentsEnabled, !isDrawing, replyingTo == nil else { return }
+        view.endEditing(true)
+        surface.pause()
+        shownComment = nil
+        if !draftShapes.isEmpty, let time = draftTime {
+            seek(to: time, play: false)
+        } else {
+            draftTime = surface.currentTime
+            composer.timeChip.title = Format.duration(draftTime!)
+        }
+        let time = draftTime ?? surface.currentTime
+        let editor = ShareDrawingEditor(color: drawingEditor?.color ?? model.accent)
+        editor.open(draftShapes)
+        drawingEditor = editor
+        refreshOverlay()
+        let drawing = ShareDrawingSurface(editor: editor, accent: model.accent, time: time) { [weak self] in
+            self?.surface.videoRect ?? .zero
+        }
+        surface.drawingSurface = drawing
+        let toolbar = ShareDrawingToolbar(editor: editor, accent: model.accent, time: time)
+        toolbar.cancelButton.onTap = { [weak self] in self?.cancelDrawing() }
+        toolbar.doneButton.onTap = { [weak self] in self?.finishDrawing() }
+        editor.onChange = { [weak drawing, weak toolbar] in
+            drawing?.refresh()
+            toolbar?.refresh()
+        }
+        drawing.refresh()
+        view.addSubview(toolbar)
+        drawingToolbar = toolbar
+        placeDrawingToolbar()
+        toolbar.enter()
+        scrollView.isScrollEnabled = false
+        landscapeTap?.isEnabled = false
+        landscapePinch?.isEnabled = false
+        if isLandscapePlayer { landscapeControls.isHidden = true }
+        if !isLandscapePlayer {
+            scrollView.setContentOffset(CGPoint(x: 0, y: -scrollView.adjustedContentInset.top), animated: !CCMotion.reduceMotion)
+        }
+        UIAccessibility.post(notification: .screenChanged, argument: drawing)
+    }
+
+    /// Under the frame in portrait; over the bottom of the full-width player
+    /// in landscape.
+    private func placeDrawingToolbar() {
+        guard let toolbar = drawingToolbar else { return }
+        NSLayoutConstraint.deactivate(toolbarConstraints)
+        let guide = view.safeAreaLayoutGuide
+        let fill = toolbar.widthAnchor.constraint(equalTo: guide.widthAnchor, constant: -CCSpace.gutter * 2)
+        fill.priority = .required - 1
+        toolbarConstraints = [
+            toolbar.centerXAnchor.constraint(equalTo: guide.centerXAnchor),
+            toolbar.leadingAnchor.constraint(greaterThanOrEqualTo: guide.leadingAnchor, constant: CCSpace.gutter),
+            fill,
+            isLandscapePlayer
+                ? toolbar.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm)
+                : toolbar.topAnchor.constraint(equalTo: surface.bottomAnchor, constant: CCSpace.sm),
+        ]
+        NSLayoutConstraint.activate(toolbarConstraints)
+        view.bringSubviewToFront(toolbar)
+    }
+
+    private func endDrawingMode() {
+        drawingEditor = nil
+        surface.drawingSurface = nil
+        NSLayoutConstraint.deactivate(toolbarConstraints)
+        toolbarConstraints = []
+        drawingToolbar?.removeFromSuperview()
+        drawingToolbar = nil
+        scrollView.isScrollEnabled = true
+        landscapeTap?.isEnabled = true
+        landscapePinch?.isEnabled = true
+        landscapeControls.isHidden = false
+        composer.setDraftMarks(draftShapes.count)
+        refreshOverlay()
+    }
+
+    /// Done: the drawing waits with the comment (shown on its frame), and
+    /// the field takes the words.
+    func finishDrawing() {
+        guard isDrawing, let drawing = surface.drawingSurface else { return }
+        draftShapes = drawing.finish()
+        endDrawingMode()
+        CCHaptics.success()
+        if !isLandscapePlayer { _ = composer.field.becomeFirstResponder() }
+        CCAccessibility.announce(draftShapes.isEmpty ? "No drawing" : "Drawing kept with your comment")
+    }
+
+    /// Cancel: the drawing goes back to what it was before.
+    func cancelDrawing() {
+        guard isDrawing else { return }
+        endDrawingMode()
+        if draftShapes.isEmpty, composer.field.text?.isEmpty != false { draftTime = nil }
     }
 
     // MARK: - Sign in
@@ -906,6 +1168,14 @@ final class ShareViewerViewController: DetailPageViewController {
     var probeTranscriptRows: [ShareTimedRow] { transcriptStack.arrangedSubviews.compactMap { $0 as? ShareTimedRow } }
     var probeSummaryText: [String] {
         summaryStack.arrangedSubviews.compactMap { ($0 as? UILabel)?.text ?? ($0 as? ShareTimedRow)?.text }
+    }
+    var probeMarkerPills: [CCButton] { markerPills.arrangedSubviews.compactMap { $0 as? CCButton } }
+    var probeLandscapeControls: UIStackView { landscapeControls }
+    func probeSetDraft(_ shapes: [ShareAnnotationShape], at time: Double) {
+        draftShapes = shapes
+        draftTime = time
+        composer.setDraftMarks(shapes.count)
+        refreshOverlay()
     }
     #endif
 }

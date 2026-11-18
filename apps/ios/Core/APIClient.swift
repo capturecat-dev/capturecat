@@ -171,6 +171,17 @@ nonisolated final class APIClient: Sendable {
         return reply.comment
     }
 
+    /// Viewer comments on or off for one of the account's shares
+    /// (`PATCH /api/video/:id/comments-enabled`, owner only). On needs a plan
+    /// with comments: 403 `upgrade_required` with a sentence to show.
+    /// → the value the API stored.
+    func setCommentsEnabled(videoID: String, enabled: Bool) async throws -> Bool {
+        struct Body: Encodable { let commentsEnabled: Bool }
+        struct Reply: Decodable { let commentsEnabled: Bool }
+        let reply: Reply = try await decode("PATCH", "/api/video/\(videoID)/comments-enabled", json: Body(commentsEnabled: enabled))
+        return reply.commentsEnabled
+    }
+
     /// The share's video bytes (`GET /api/video/:id`, Range-capable). Private
     /// shares need the Authorization header — see `authorizedHeaders`.
     func videoStreamURL(videoID: String) -> URL {

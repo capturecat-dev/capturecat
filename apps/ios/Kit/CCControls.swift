@@ -268,6 +268,15 @@ final class CCToggleRow: UIControl {
         accessibilityValue = on ? "On" : "Off"
     }
 
+    /// Change (or clear) the muted detail line.
+    func setDetail(_ text: String?) {
+        guard detailLabel.text != (text ?? "") || detailLabel.isHidden != (text == nil) else { return }
+        detailLabel.text = text ?? ""
+        detailLabel.isHidden = text == nil
+    }
+
+    var detailText: String? { detailLabel.isHidden ? nil : detailLabel.text }
+
     override var isHighlighted: Bool {
         didSet { toggle.setStretched(isHighlighted && isEnabled) }
     }

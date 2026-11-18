@@ -21,9 +21,19 @@ import UIKit
 ///  • motion sampled MID-FLIGHT (the reaction pop, the floater's rise) and
 ///    Reduce Motion (the floater fades in place);
 ///  • the accessibility audit (CCAccessibilityAudit) over the open viewer at
-///    the default and the largest text size.
+///    the default and the largest text size;
+///  • the owner's annotation markers (ranges at the right x, pills, Summary
+///    rows, a tap snapping to a range's start); a seeded comment drawing on
+///    the picture's REAL pixels (captures diffed along a row and a column)
+///    in portrait, landscape fit and landscape fill, plus the finger's mapping
+///    in the cropped picture; drawing → post (the body carries the
+///    serializer's exact bytes; the script runs the WEB serializer over the
+///    raw marks and compares); the share-detail "Allow comments" switch
+///    (optimistic, PATCH with the bearer, rolled back + toast on a 500,
+///    disabled with the reason on a plan without comments).
 ///
-/// `-shareViewerInject marker-offset|no-rollback|seek-ignored|drop-token|snap|no-landscape`
+/// `-shareViewerInject marker-offset|no-rollback|seek-ignored|drop-token|snap|no-landscape|
+/// annotation-marker-offset|drawing-box-rect|drawing-ignores-fill|serializer-drift|toggle-no-rollback`
 /// puts a defect in the shipping path: the gate must FAIL.
 /// Prints `SHAREVIEWER <check> PASS|FAIL …`, `SHAREVIEWER-GATE PASS|FAIL`,
 /// writes Documents/share-viewer/{gate.txt,*.png}, exits.
@@ -154,6 +164,7 @@ final class ShareViewerGate {
         }
         if let inject = ShareViewerModel.probeInject { print("SHAREVIEWER inject \(inject)") }
         if ShareViewerModel.probeInject == "snap" { CCMotion.probeSnap = true }
+        if ShareViewerModel.probeInject == "serializer-drift" { ShareAnnotationMath.probeDrift = true }
         SessionStore.clear()
         try? FileManager.default.removeItem(at: ShareLinkRouter.probeLogURL)
         ShareLinkRouter.probeRoutes = []
@@ -448,6 +459,11 @@ final class ShareViewerGate {
         // 14. The custom scheme (warm, the SceneDelegate path) → each state.
         await states()
 
+        // 14b. Annotations: markers, drawings on the picture, drawing a
+        // comment, and the share-detail comments switch.
+        await annotations()
+        await commentsSwitch()
+
         // 15. A REAL `simctl openurl` while running (the script fires it).
         await closeViewer()
         print("SHAREVIEWER await-openurl capturecat://share/svQuiet01?t=1")
@@ -522,6 +538,352 @@ final class ShareViewerGate {
             record("second-link-replaces", next?.videoID == "svOpen01" && next !== v, "svQuiet01 → \(next?.videoID ?? "-")")
             await closeViewer()
         }
+    }
+
+    // MARK: - Annotations (markers, drawings, the comments switch)
+
+    /// An RGBA8 bitmap of the window at the screen's scale.
+    private struct Bitmap {
+        var bytes: [UInt8]
+        var width: Int
+        var height: Int
+        var scale: CGFloat
+
+        func pixel(_ p: CGPoint) -> (Int, Int, Int)? {
+            let x = Int(p.x * scale), y = Int(p.y * scale)
+            guard x >= 0, y >= 0, x < width, y < height else { return nil }
+            let i = (y * width + x) * 4
+            return (Int(bytes[i]), Int(bytes[i + 1]), Int(bytes[i + 2]))
+        }
+    }
+
+    private func bitmap() -> Bitmap {
+        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        let cg = image.cgImage!
+        let w = cg.width, h = cg.height
+        var bytes = [UInt8](repeating: 0, count: w * h * 4)
+        bytes.withUnsafeMutableBytes { raw in
+            let ctx = CGContext(data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        }
+        return Bitmap(bytes: bytes, width: w, height: h, scale: CGFloat(w) / window.bounds.width)
+    }
+
+    /// Runs of pixels that differ between two captures along a segment
+    /// (window points) → each run's centre, as a distance along the segment.
+    private func diffRuns(_ a: Bitmap, _ b: Bitmap, from p0: CGPoint, to p1: CGPoint) -> [CGFloat] {
+        let length = hypot(p1.x - p0.x, p1.y - p0.y)
+        let step = 1 / a.scale
+        var centres: [CGFloat] = []
+        var runStart: CGFloat?
+        var t: CGFloat = 0
+        while t <= length {
+            let p = CGPoint(x: p0.x + (p1.x - p0.x) * t / length, y: p0.y + (p1.y - p0.y) * t / length)
+            var changed = false
+            if let x = a.pixel(p), let y = b.pixel(p) {
+                changed = max(abs(x.0 - y.0), abs(x.1 - y.1), abs(x.2 - y.2)) > 60
+            }
+            if changed, runStart == nil { runStart = t }
+            if !changed, let start = runStart { centres.append((start + t - step) / 2); runStart = nil }
+            t += step
+        }
+        if let start = runStart { centres.append((start + length) / 2) }
+        return centres
+    }
+
+    /// Where the picture is, worked out HERE from the player layer's own
+    /// gravity, bounds and the item's presentation size (not the app's maths).
+    private func expectedVideoRect(_ s: ShareVideoSurface) -> CGRect {
+        let layer = s.layer as! AVPlayerLayer
+        let media = s.player.currentItem?.presentationSize ?? .zero
+        let b = s.bounds
+        guard media.width > 0, media.height > 0 else { return s.convert(b, to: window) }
+        let k = layer.videoGravity == .resizeAspectFill ? max(b.width / media.width, b.height / media.height)
+                                                         : min(b.width / media.width, b.height / media.height)
+        let w = media.width * k, h = media.height * k
+        return s.convert(CGRect(x: (b.width - w) / 2, y: (b.height - h) / 2, width: w, height: h), to: window)
+    }
+
+    /// The seeded drawing (a box from 0.3,0.3 to 0.7,0.6 of the frame) must
+    /// land on exactly those pixels of the picture: captures with and without
+    /// it, diffed along a row and a column through the box.
+    private func drawingLands(_ v: ShareViewerViewController, _ name: String) async {
+        let s = v.probeSurface
+        let r = expectedVideoRect(s)
+        let canvas = s.annotationCanvas.convert(s.annotationCanvas.bounds, to: window)
+        // Nothing else may change between the captures: the play key, the
+        // pill and (landscape) the floating controls stay out of both.
+        let pill = s.drawingPill
+        s.playButton.isHidden = true
+        pill?.isHidden = true
+        let controls = v.probeLandscapeControls
+        let controlsAlpha = controls.alpha
+        controls.alpha = 0
+        await sleep(350)
+        let with = bitmap()
+        s.annotationCanvas.isHidden = true
+        await sleep(250)
+        let without = bitmap()
+        s.annotationCanvas.isHidden = false
+        s.playButton.isHidden = false
+        pill?.isHidden = false
+        controls.alpha = controlsAlpha
+        let visible = r.intersection(s.convert(s.bounds, to: window)).intersection(window.bounds)
+        let rowY = r.minY + r.height * 0.45, colX = r.minX + r.width * 0.5
+        let row = diffRuns(without, with, from: CGPoint(x: visible.minX + 1, y: rowY), to: CGPoint(x: visible.maxX - 1, y: rowY))
+            .map { visible.minX + 1 + $0 }
+        let col = diffRuns(without, with, from: CGPoint(x: colX, y: visible.minY + 1), to: CGPoint(x: colX, y: visible.maxY - 1))
+            .map { visible.minY + 1 + $0 }
+        let want = (x: [r.minX + r.width * 0.3, r.minX + r.width * 0.7], y: [r.minY + r.height * 0.3, r.minY + r.height * 0.6])
+        let tol: CGFloat = 2.5
+        let ok = row.count == 2 && col.count == 2
+            && zip(row, want.x).allSatisfy { abs($0 - $1) <= tol } && zip(col, want.y).allSatisfy { abs($0 - $1) <= tol }
+            && abs(canvas.minX - r.minX) < 0.75 && abs(canvas.width - r.width) < 0.75 && abs(canvas.minY - r.minY) < 0.75 && abs(canvas.height - r.height) < 0.75
+        let f = { (xs: [CGFloat]) in xs.map { String(format: "%.1f", $0) }.joined(separator: ",") }
+        let gravity = (s.layer as! AVPlayerLayer).videoGravity == .resizeAspectFill ? "fill" : "fit"
+        record("drawing-\(name)", ok,
+               String(format: "%@ · picture %.1f,%.1f %.1f×%.1f (AVPlayerLayer.videoRect %@) · box edges x [%@] want [%@], y [%@] want [%@] (±%.1f pt) · canvas %.1f,%.1f %.1f×%.1f",
+                      gravity, r.minX, r.minY, r.width, r.height, NSCoder.string(for: (s.layer as! AVPlayerLayer).videoRect),
+                      f(row), f(want.x), f(col), f(want.y), tol, canvas.minX, canvas.minY, canvas.width, canvas.height))
+    }
+
+    /// Ask the script for a REAL simulator screenshot (video pixels included).
+    private func shot(_ name: String) async {
+        print("SHAREVIEWER await-shot \(name)")
+        fflush(stdout)
+        await sleep(2200)
+    }
+
+    private func rotate(landscape: Bool) async {
+        guard let scene = window.windowScene else { return }
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: landscape ? .landscapeRight : .portrait)) { _ in }
+        _ = await waitFor(4000) { scene.effectiveGeometry.interfaceOrientation.isLandscape == landscape }
+        await sleep(900)
+    }
+
+    /// A drawing as the WEB's serializer takes it (raw, un-canonicalised).
+    private func webShapes(_ shapes: [ShareAnnotationShape]) -> [[String: Any]] {
+        shapes.map { shape -> [String: Any] in
+            switch shape {
+            case let .stroke(kind, color, size, points):
+                return ["kind": kind.rawValue, "color": color, "size": size, "points": points.map { [Double($0.x), Double($0.y)] }]
+            case let .box(kind, color, size, from, to):
+                return ["kind": kind.rawValue, "color": color, "size": size, "from": [Double(from.x), Double(from.y)], "to": [Double(to.x), Double(to.y)]]
+            case let .text(color, size, at, text):
+                return ["kind": "text", "color": color, "size": size, "at": [Double(at.x), Double(at.y)], "text": text]
+            }
+        }
+    }
+
+    private func annotations() async {
+        guard let v = await open("capturecat://share/svDraw01", universal: false) else {
+            record("annotation-markers-x", false, "no viewer for svDraw01")
+            return
+        }
+        _ = await waitReady(v)
+        _ = await waitFor(3000) { v.model.commentsLoaded }
+        await sleep(500)
+
+        // 1. The owner's markers: ranges at the right x on the track, labels
+        //    as pills + Summary rows, a pill seeks and plays, a tap inside a
+        //    range snaps to its start.
+        let timeline = v.probeTimeline
+        let scrub = timeline.scrubber
+        let duration = timeline.duration
+        let markers = v.model.markers
+        var errors: [String] = []
+        for (range, marker) in zip(scrub.ranges, markers) {
+            let frame = range.convert(range.bounds, to: timeline)
+            let usable = scrub.bounds.width - scrub.trackInset * 2
+            let left = scrub.frame.minX + scrub.trackInset + CGFloat(marker.start / duration) * usable
+            let width = max(CGFloat((min(marker.end, duration) - marker.start) / duration) * usable, usable * 0.008)
+            if abs(frame.minX - left) > 1 || abs(frame.width - width) > 1 {
+                errors.append(String(format: "%.1f–%.1f s at x=%.1f w=%.1f, want x=%.1f w=%.1f", marker.start, marker.end, frame.minX, frame.width, left, width))
+            }
+        }
+        let pills = v.probeMarkerPills.map(\.title)
+        v.probeSurface.seek(to: 0)
+        scrub.onScrub?(CGFloat(3.0 / duration), true)  // a tap (no drag) inside "Intro" (2–4 s)
+        await sleep(300)
+        let snapped = v.probeSurface.currentTime
+        v.probeMarkerPills.first { $0.title.contains("Settings") }?.sendActions(for: .touchUpInside)
+        await sleep(600)
+        let pillTime = v.probeSurface.currentTime, pillPlaying = v.probeSurface.isPlaying
+        v.probeSurface.pause()
+        v.select(tab: .summary, animated: false)
+        await sleep(300)
+        let summary = v.probeSummaryText
+        v.select(tab: .comments, animated: false)
+        record("annotation-markers-x", scrub.ranges.count == 3 && errors.isEmpty && pills.count == 2
+                   && pills[0].hasSuffix("Intro") && pills[1].hasSuffix("Settings")
+                   && summary.contains("Intro") && summary.contains("Settings")
+                   && abs(snapped - 2) < 0.1 && abs(pillTime - 7.5) < 0.6 && pillPlaying,
+               "\(scrub.ranges.count) ranges on a \(Int(scrub.bounds.width)) pt track (\(errors.isEmpty ? "each on its moment ±1 pt, 0.8 % minimum" : errors.joined(separator: "; "))) · pills \(pills) · Summary \(summary) · tap at 0:03 → \(String(format: "%.2f", snapped)) s (snaps to 0:02) · Settings pill → \(String(format: "%.2f", pillTime)) s playing=\(pillPlaying)")
+
+        // 2. A seeded drawing on the frame, on the picture's real pixels —
+        //    portrait, then the full-width landscape player fit AND fill.
+        guard let row = v.commentRows().first(where: { $0.comment.commentId == "d1" }), let show = row.drawingButton else {
+            record("drawing-portrait", false, "no Drawing key on d1")
+            await closeViewer()
+            return
+        }
+        show.sendActions(for: .touchUpInside)
+        _ = await waitFor(2000) { v.probeSurface.isShowingDrawing }
+        await sleep(500)
+        let pillText = v.probeSurface.drawingPill?.label.text ?? ""
+        record("drawing-shown", v.shownComment?.commentId == "d1" && !v.probeSurface.isPlaying && abs(v.probeSurface.currentTime - 5) < 0.1
+                   && pillText == "Riley Chen drew at 0:05",
+               "Drawing → paused at \(String(format: "%.2f", v.probeSurface.currentTime)) s, pill \"\(pillText)\"")
+        await drawingLands(v, "portrait")
+        await shot("viewer-drawing-portrait")
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            await rotate(landscape: true)
+            if !v.probeSurface.isShowingDrawing { v.showComment(row.comment); await sleep(500) }
+            await drawingLands(v, "landscape-fit")
+            await shot("viewer-drawing-landscape")
+            v.probeSurface.fillsWidth = true
+            await sleep(700)
+            await drawingLands(v, "landscape-fill")
+            await shot("viewer-drawing-landscape-fill")
+            // The finger's mapping in the cropped picture: a point drawn at
+            // 25 % / 50 % of the frame IS 25 % / 50 % of the frame.
+            v.startDrawing()
+            await sleep(500)
+            if let drawing = v.probeSurface.drawingSurface {
+                let r = expectedVideoRect(v.probeSurface)
+                let target = window.convert(CGPoint(x: r.minX + r.width * 0.25, y: r.minY + r.height * 0.5), to: drawing)
+                let n = drawing.probeNormalized(target)
+                record("drawing-touch-maps-to-frame", abs(n.x - 0.25) < 0.002 && abs(n.y - 0.5) < 0.002 && v.drawingToolbar?.window != nil,
+                       String(format: "fill-cropped landscape: a touch at the picture's 25%%,50%% → %.4f,%.4f; toolbar docked=%@",
+                              n.x, n.y, v.drawingToolbar?.window != nil ? "yes" : "no"))
+                v.cancelDrawing()
+            } else {
+                record("drawing-touch-maps-to-frame", false, "Draw didn't open the drawing surface in landscape")
+            }
+            v.probeSurface.fillsWidth = false
+            await rotate(landscape: false)
+        }
+
+        // 3. Draw while writing a comment → post → the web's exact bytes.
+        v.probeSurface.seek(to: 8)
+        await sleep(300)
+        v.probeComposer.drawButton.sendActions(for: .touchUpInside)
+        _ = await waitFor(2000) { v.isDrawing && v.probeSurface.drawingSurface != nil }
+        await sleep(400)
+        guard let drawing = v.probeSurface.drawingSurface, let toolbar = v.drawingToolbar, let editor = v.drawingEditor else {
+            record("drawing-post-payload", false, "Draw opened nothing")
+            await closeViewer()
+            return
+        }
+        toolbar.toolButtons.first { $0.0 == .arrow }?.1.sendActions(for: .touchUpInside)
+        drawing.probeDraw([CGPoint(x: 0.2, y: 0.8), CGPoint(x: 0.41234567, y: 0.6), CGPoint(x: 0.6, y: 0.35)])
+        toolbar.toolButtons.first { $0.0 == .pen }?.1.sendActions(for: .touchUpInside)
+        toolbar.swatches.first { $0.preset.name == "Blue" }?.sendActions(for: .touchUpInside)
+        toolbar.sizeButton.sendActions(for: .touchUpInside)  // M → L
+        drawing.probeDraw((0..<120).map { i in
+            let t = Double(i) / 119
+            return CGPoint(x: 0.15 + 0.5 * t, y: 0.3 + 0.1 * sin(t * .pi * 3) + 0.00002 * Double(i % 7))
+        })
+        toolbar.toolButtons.first { $0.0 == .rect }?.1.sendActions(for: .touchUpInside)
+        drawing.probeDraw([CGPoint(x: 0.7, y: 0.7), CGPoint(x: 0.7001, y: 0.7)])  // an accidental tap: dropped
+        toolbar.toolButtons.first { $0.0 == .text }?.1.sendActions(for: .touchUpInside)
+        drawing.openLabel(at: CGPoint(x: 0.55, y: 0.18))
+        drawing.labelField?.text = "  Fix \"this\"\nhere "
+        drawing.commitLabel()
+        toolbar.undoButton.sendActions(for: .touchUpInside)
+        toolbar.redoButton.sendActions(for: .touchUpInside)
+        await sleep(300)
+        let marks = editor.shapes.count
+        await shot("drawing-composer")
+        snapshot("drawing-composer-gate.png")
+        toolbar.doneButton.sendActions(for: .touchUpInside)
+        await sleep(500)
+        let draftPill = v.probeSurface.drawingPill?.label.text ?? ""
+        let raw = editor.probeRawCommits
+        try? JSONSerialization.data(withJSONObject: webShapes(raw)).write(to: out.appendingPathComponent("drawn-raw.json"))
+        let composer = v.probeComposer
+        _ = composer.field.becomeFirstResponder()
+        composer.field.insertText("Look at this")
+        composer.sendButton.sendActions(for: .touchUpInside)
+        _ = await waitFor(4000) { v.model.comments.contains { $0.body == "Look at this" } }
+        await sleep(600)
+        let state = await viewerState()
+        let post = state.log.last { ($0["route"] as? String) == "comments" && ($0["method"] as? String) == "POST" && ($0["videoId"] as? String) == "svDraw01" }
+        let rawBody = post?["raw"] as? String ?? ""
+        let expected = ShareAnnotationMath.serialize(raw).json ?? "-"
+        let posted = v.model.comments.first { $0.body == "Look at this" }
+        let bodyTime = (post?["body"] as? [String: Any])?["videoTime"] as? Double ?? -1
+        record("drawing-post-payload", marks == 3 && raw.count == 3 && draftPill == "Your drawing · not posted yet"
+                   && rawBody.hasPrefix("{\"annotation\":" + expected + ",") && abs(bodyTime - 8) < 0.3
+                   && posted?.drawing?.count == 3 && v.shownComment?.commentId == posted?.commentId && v.draftShapes.isEmpty,
+               "3 marks drawn (arrow, pen stroke, label; a stray tap dropped; undo + redo) at 0:08 · draft pill \"\(draftPill)\" · body starts with the serializer's bytes=\(rawBody.hasPrefix("{\"annotation\":" + expected + ",")) · posted drawing \(posted?.drawing?.count ?? 0) shapes, shown after posting=\(v.shownComment?.commentId == posted?.commentId) (the web serializer is compared by the script)")
+        await shot("viewer-posted-drawing")
+        await closeViewer()
+    }
+
+    /// The share-detail "Allow comments" switch: flips at once, lands, rolls
+    /// back (with a toast) on a 500, and is disabled with the reason on a
+    /// plan without comments.
+    private func commentsSwitch() async {
+        await LibraryStore.shared.refresh().value
+        guard LibraryStore.shared.share("svToggle01") != nil, let root else {
+            record("toggle-flips-and-rolls-back", false, "svToggle01 isn't in the library (signed in=\(SessionStore.load() != nil))")
+            return
+        }
+        func present() async -> (UINavigationController, ShareDetailViewController) {
+            let detail = ShareDetailViewController(videoID: "svToggle01", coordinator: nil)
+            let nav = UINavigationController(rootViewController: detail)
+            nav.setNavigationBarHidden(true, animated: false)
+            nav.modalPresentationStyle = .fullScreen
+            root.present(nav, animated: false)
+            AppToaster.shared.attach(to: nav.view)
+            _ = await waitFor(3000) { detail.planAllowsComments != nil }
+            await sleep(500)
+            return (nav, detail)
+        }
+        var (nav, detail) = await present()
+        let toggle = detail.probeCommentsToggle
+        let startOff = !toggle.isOn && !detail.probeOffNote.isHidden && detail.probeComposer.isHidden && toggle.isEnabled
+        AppToaster.probeShown = []
+        toggle.sendActions(for: .touchUpInside)
+        let optimisticOn = toggle.isOn && LibraryStore.shared.share("svToggle01")?.commentsEnabled == true && !detail.probeComposer.isHidden
+        _ = await waitFor(3000) { AppToaster.probeShown.contains("Comments on") }
+        await sleep(300)
+        let state = await viewerState()
+        let landed = state.log.last { ($0["route"] as? String) == "comments-enabled" }
+        let landedOK = (landed?["body"] as? [String: Any])?["commentsEnabled"] as? Bool == true
+            && (landed?["authorization"] as? String)?.hasPrefix("Bearer ") == true && toggle.isOn
+        await shot("share-detail-toggle")
+        snapshot("share-detail-toggle-gate.png")
+        _ = await mock("POST", "/__viewer-control", json: ["failCommentsToggle": 1])
+        AppToaster.probeShown = []
+        toggle.sendActions(for: .touchUpInside)
+        let optimisticOff = !toggle.isOn && LibraryStore.shared.share("svToggle01")?.commentsEnabled == false && detail.probeComposer.isHidden
+        _ = await waitFor(3000) { !AppToaster.probeShown.isEmpty }
+        await sleep(500)
+        let rolledBack = toggle.isOn && LibraryStore.shared.share("svToggle01")?.commentsEnabled == true && !detail.probeComposer.isHidden
+            && AppToaster.probeShown == ["Couldn't turn comments off"]
+        await shot("share-detail-toggle-rollback")
+        record("toggle-flips-and-rolls-back", startOff && optimisticOn && landedOK && optimisticOff && rolledBack,
+               "off at first=\(startOff) · tap → on at once=\(optimisticOn), PATCH {commentsEnabled: true} with the bearer=\(landedOK) · tap → off at once=\(optimisticOff), 500 → back on with toast \(AppToaster.probeShown)=\(rolledBack)")
+        // Off again, then a plan without comments: on is out of reach, with the reason.
+        toggle.sendActions(for: .touchUpInside)
+        _ = await waitFor(3000) { LibraryStore.shared.share("svToggle01")?.commentsEnabled == false && toggle.isEnabled }
+        nav.dismiss(animated: false)
+        await sleep(300)
+        _ = await mock("POST", "/__viewer-control", json: ["noCommentsPlan": 1])
+        (nav, detail) = await present()
+        let gated = !detail.probeCommentsToggle.isEnabled && !detail.probeCommentsToggle.isOn
+            && (detail.probeCommentsToggle.detailText ?? "").contains("doesn't include viewer comments")
+        record("toggle-plan-gate", gated, "plan without comments: switch disabled=\(!detail.probeCommentsToggle.isEnabled), says \"\(detail.probeCommentsToggle.detailText ?? "")\"")
+        snapshot("share-detail-toggle-plan.png")
+        _ = await mock("POST", "/__viewer-control", json: ["noCommentsPlan": 0])
+        nav.dismiss(animated: false)
+        AppToaster.shared.attach(to: root.view)
+        await sleep(300)
     }
 
     private func audit(_ v: ShareViewerViewController) async {

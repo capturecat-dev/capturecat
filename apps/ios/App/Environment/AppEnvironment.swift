@@ -19,6 +19,8 @@ protocol CloudAPI: AnyObject {
     func shares() async throws -> ShareListing
     func comments(videoID: String) async throws -> [VideoComment]
     func postComment(videoID: String, body: String, videoTime: Double?, parentID: String?) async throws -> VideoComment
+    /// Owner: viewer comments on / off for a share → what the API stored.
+    func setCommentsEnabled(videoID: String, enabled: Bool) async throws -> Bool
     /// The share's video (private shares need the bearer header).
     func streamAsset(videoID: String) -> AVURLAsset
     /// A share's custom thumbnail (`thumbnailUrl`), when it has one.
@@ -157,6 +159,10 @@ final class LiveCloudAPI: CloudAPI {
 
     func postComment(videoID: String, body: String, videoTime: Double?, parentID: String?) async throws -> VideoComment {
         try await client.postComment(videoID: videoID, body: body, videoTime: videoTime, parentID: parentID)
+    }
+
+    func setCommentsEnabled(videoID: String, enabled: Bool) async throws -> Bool {
+        try await client.setCommentsEnabled(videoID: videoID, enabled: enabled)
     }
 
     func streamAsset(videoID: String) -> AVURLAsset {

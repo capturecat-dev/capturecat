@@ -73,6 +73,16 @@ web share page (`apps/web/src/routes/share.$videoId.tsx`) does, by the same API 
   web's order), oldest or newest first; each has a timestamp chip that seeks and plays,
   and Reply (one level, like the web). Transcript lines and chapters seek too; the line
   being spoken is highlighted.
+- **Annotations** (the web's two kinds; maths in `Core/ShareAnnotation.swift`, a port of
+  `apps/web/src/lib/share/annotation.ts` held to the web's own
+  `annotation.fixtures.json` by `scripts/core-selftest.sh`): the owner's markers as accent
+  ranges on the scrubber (a tap inside one jumps to its start), their labels as pills under
+  the transport and as Summary rows; and drawings attached to comments — a comment's
+  "Drawing" key, its avatar on the scrubber or a fresh post puts the marks on the frame,
+  paused on its moment, on the picture's real rect (letterboxed, or pinch-filled in
+  landscape). The composer's pencil draws one (pen, highlighter, arrow, box, ellipse,
+  text; the accent + five colours; three sizes; undo / redo) on a floating glass toolbar;
+  it posts in the web serializer's exact bytes.
 - **Composer** pinned above the keyboard: the moment chip (the time when you started
   writing — the web's draft time; tap to go back to it), "Add a comment…", send. Anyone may
   comment, as on the web: signed out with an optional name ("Sign in" runs the app's own
@@ -83,6 +93,9 @@ web share page (`apps/web/src/routes/share.$videoId.tsx`) does, by the same API 
   (no tab, no composer), missing.
 - **Share menu**: Copy link, Share…, Open in browser, Download (when the owner allows it),
   Report video (the API's eight reasons; anonymous).
+- **Share detail** (your own share, from the library): "Allow comments" switches viewer
+  comments on or off (`PATCH /api/video/:id/comments-enabled`) — at once, rolled back with
+  a toast if the API refuses, disabled with the reason when the plan has no comments.
 - **Views**: registered on open and ticked per watched second, as the web's beacon does.
 
 **Links.** `capturecat://share/<id>[?t=]` (also `?id=`) through `scene(_:openURLContexts:)`,
@@ -448,7 +461,7 @@ row lower — reported, not gated, and open.
     apps/ios/scripts/ios-device-perf.sh <udid> [seconds] [--skip-export]   # editor SPEED on a physical device (optimized build): open → first frame, 120 Hz playback pacing + hitches, seek / step latency, close, export fps — measures, doesn't gate
     apps/ios/scripts/ios-release-check.sh   # App Store readiness (6c) on the Release ARCHIVE: privacy manifests vs the required-reason APIs in the stripped binaries, usage strings vs linked APIs, version/build, encryption key, icons, no harness strings / dev URLs / test keys, entitlements used, zero packaging warnings; SELFTEST=1 injects 16 defects that must each FAIL
     apps/ios/scripts/ios-archive.sh         # signed archive → release check → App Store export (destination: export, never uploads)
-    apps/ios/scripts/ios-share-viewer.sh    # share viewer: universal link + custom scheme (warm, cold, real simctl openurl), playback, markers ±1 pt, seeks, reactions (optimistic / rollback / toggle), anonymous + signed-in comments, sign-in prompt, tabs, captions, every share state, motion mid-flight, Reduce Motion, a11y audit (default + XXXL) vs Tests/mock_api.py; SELFTEST=1 → 5 injected defects must FAIL
+    apps/ios/scripts/ios-share-viewer.sh    # share viewer: universal link + custom scheme (warm, cold, real simctl openurl), playback, markers ±1 pt, seeks, reactions (optimistic / rollback / toggle), anonymous + signed-in comments, sign-in prompt, tabs, captions, every share state, motion mid-flight, Reduce Motion, a11y audit (default + XXXL) vs Tests/mock_api.py; markers + drawings on the picture's pixels (portrait, landscape fit/fill), drawing → post vs the WEB serializer, the Allow-comments switch; SELFTEST=1 → 11 injected defects must FAIL
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production

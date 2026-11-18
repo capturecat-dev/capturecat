@@ -60,7 +60,12 @@ final class ShareViewerModel {
         guard let text = meta?.aiSummary?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
         return text
     }
-    var hasSummaryTab: Bool { summary != nil || !(meta?.meaningfulChapters.isEmpty ?? true) }
+    var hasSummaryTab: Bool {
+        summary != nil || !(meta?.meaningfulChapters.isEmpty ?? true) || (!isOwnerPrivate && !(meta?.pillMarkers.isEmpty ?? true))
+    }
+    /// The owner's annotation markers (none on the owner's private view).
+    var markers: [ShareAnnotationMarker] { isOwnerPrivate ? [] : meta?.markers ?? [] }
+    var accent: String { meta?.accent ?? ShareAnnotationMath.defaultAccent }
     var reactionsEnabled: Bool { phase == .open && !isOwnerPrivate }
 
     /// Per-emoji totals for the tally chips.
@@ -205,9 +210,10 @@ final class ShareViewerModel {
 
     // MARK: - Comments
 
-    func post(body: String, authorName: String?, at time: Double?, replyTo parentID: String?) async throws -> VideoComment {
+    func post(body: String, authorName: String?, at time: Double?, replyTo parentID: String?,
+              annotation: String? = nil) async throws -> VideoComment {
         let comment = try await api.postComment(videoID, token: shareToken, body: body, authorName: authorName,
-                                                videoTime: time, parentID: parentID)
+                                                videoTime: time, parentID: parentID, annotation: annotation)
         comments.append(comment)
         return comment
     }
@@ -253,7 +259,9 @@ final class ShareViewerModel {
     #if DEBUG
     /// `-shareViewerInject <defect>` (ShareViewerGate): a defect in the
     /// shipping path the gate must catch — `no-rollback`, `drop-token`,
-    /// `marker-offset`, `seek-ignored`.
+    /// `marker-offset`, `seek-ignored`, `annotation-marker-offset`,
+    /// `drawing-box-rect`, `drawing-ignores-fill`, `serializer-drift`,
+    /// `toggle-no-rollback`.
     static var probeInject: String?
     /// What the highlight showed the instant a reaction was tapped (before the API answered).
     static var probeOptimistic: [String] = []

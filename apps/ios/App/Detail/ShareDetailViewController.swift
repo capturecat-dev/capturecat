@@ -3,9 +3,12 @@ import UIKit
 
 /// A shared video: the exported file in the house player (the stream URL
 /// with the bearer header — private shares need it), its link (copy, system
-/// share sheet), privacy, and the comment thread: one-level threads, author,
-/// relative time, a timestamp chip that seeks the player, and a composer that
-/// posts at the current playhead (or a quiet note when comments are off).
+/// share sheet), privacy, the "Allow comments" switch (PATCH /api/video/:id/
+/// comments-enabled: the change shows at once, rolls back with a toast if the
+/// API refuses; disabled with the reason when the plan has no comments), and
+/// the comment thread: one-level threads, author, relative time, a timestamp
+/// chip that seeks the player, and a composer that posts at the current
+/// playhead (or a quiet note when comments are off).
 final class ShareDetailViewController: DetailPageViewController {
     let videoID: String
     private weak var coordinator: LibraryCoordinator?
@@ -27,7 +30,15 @@ final class ShareDetailViewController: DetailPageViewController {
     private let composerField = CCField(placeholder: "Add a comment…")
     private let timeChip = CCBadge("at 0:00", symbol: "timer")
     private let postButton = CCButton(title: "Post", style: .primary, size: .regular)
-    private let offNote = CCCallout(message: "Comments are off for this video. Turn them on in the share settings on the web.", variant: .info)
+    private let offNote = CCCallout(message: "Comments are off. Viewers of this link can't read or add comments.", variant: .info)
+    private let commentsToggle = CCToggleRow(title: "Allow comments", detail: ShareDetailViewController.commentsDetail)
+    /// The plan includes viewer comments (GET /api/me); nil until known.
+    private(set) var planAllowsComments: Bool?
+    private var planName = "current"
+    /// A switch the API hasn't answered yet (the toggle shows it meanwhile).
+    private var pendingComments: Bool?
+    static let commentsDetail = "Viewers can leave timestamped comments and drawings."
+
     private var comments: [VideoComment] = []
     private var observation: SurfaceObservation?
     private var didLoadPlayer = false
@@ -76,7 +87,17 @@ final class ShareDetailViewController: DetailPageViewController {
             commentsStack.topAnchor.constraint(equalTo: commentsCard.topAnchor, constant: CCSpace.lg),
             commentsStack.bottomAnchor.constraint(equalTo: commentsCard.bottomAnchor, constant: -CCSpace.lg),
         ])
-        let commentsSection = UIStackView(arrangedSubviews: [commentsTitle, offNote, commentsCard])
+        commentsToggle.onChange = { [weak self] on in self?.setComments(on) }
+        let toggleCard = CCCard(radius: .lg)
+        commentsToggle.translatesAutoresizingMaskIntoConstraints = false
+        toggleCard.addSubview(commentsToggle)
+        NSLayoutConstraint.activate([
+            commentsToggle.leadingAnchor.constraint(equalTo: toggleCard.leadingAnchor, constant: CCSpace.lg),
+            commentsToggle.trailingAnchor.constraint(equalTo: toggleCard.trailingAnchor, constant: -CCSpace.lg),
+            commentsToggle.topAnchor.constraint(equalTo: toggleCard.topAnchor, constant: CCSpace.xs),
+            commentsToggle.bottomAnchor.constraint(equalTo: toggleCard.bottomAnchor, constant: -CCSpace.xs),
+        ])
+        let commentsSection = UIStackView(arrangedSubviews: [commentsTitle, toggleCard, offNote, commentsCard])
         commentsSection.axis = .vertical
         commentsSection.spacing = CCSpace.sm
         offNote.isHidden = true
@@ -98,6 +119,57 @@ final class ShareDetailViewController: DetailPageViewController {
         }
         observation = SurfaceObservation { [weak self] in self?.render() }
         loadComments()
+        loadPlan()
+    }
+
+    // MARK: - Allow comments
+
+    /// Which plan governs the switch (turning comments ON needs `comments`).
+    private func loadPlan() {
+        Task { @MainActor [weak self] in
+            guard let info = try? await AppEnvironment.shared.api.me() else { return }
+            self?.planAllowsComments = info.features["comments"] == true && info.features["cloudShare"] != false
+            self?.planName = info.planDisplayName
+            self?.render()
+        }
+    }
+
+    /// Optimistic: the thread opens / closes at once; a refusal puts it back
+    /// and says why (a CCKit toast).
+    func setComments(_ on: Bool) {
+        guard pendingComments == nil, let share = LibraryStore.shared.share(videoID) else { return }
+        let before = share.commentsEnabled == true
+        guard on != before else { return }
+        pendingComments = on
+        LibraryStore.shared.setCommentsEnabled(videoID, on)
+        render()  // at once: the thread opens / closes under the finger
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let stored = try await AppEnvironment.shared.api.setCommentsEnabled(videoID: self.videoID, enabled: on)
+                self.pendingComments = nil
+                LibraryStore.shared.setCommentsEnabled(self.videoID, stored)
+                self.render()
+                if stored { self.loadComments() }
+                AppToaster.shared.show(title: stored ? "Comments on" : "Comments off",
+                                       message: stored ? "Anyone with the link can comment." : "Viewers can't read or add comments.",
+                                       variant: .success)
+            } catch {
+                #if DEBUG
+                if ShareViewerModel.probeInject == "toggle-no-rollback" {
+                    self.pendingComments = nil
+                    return
+                }
+                #endif
+                self.pendingComments = nil
+                LibraryStore.shared.setCommentsEnabled(self.videoID, before)
+                self.commentsToggle.setOn(before, animated: true)
+                self.render()
+                CCHaptics.warning()
+                AppToaster.shared.show(title: on ? "Couldn't turn comments on" : "Couldn't turn comments off",
+                                       message: error.localizedDescription, variant: .destructive)
+            }
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -207,7 +279,14 @@ final class ShareDetailViewController: DetailPageViewController {
         linkLabel.text = share.url.absoluteString
         privacyExplain.text = privacy.explanation
         openProjectButton.isHidden = share.projectId.flatMap { store.project($0) } == nil
-        let enabled = share.commentsEnabled == true
+        let enabled = pendingComments ?? (share.commentsEnabled == true)
+        if commentsToggle.isOn != enabled { commentsToggle.setOn(enabled, animated: commentsToggle.window != nil) }
+        // Off can always be switched; on needs a plan with comments.
+        let blocked = planAllowsComments == false && !enabled
+        commentsToggle.isEnabled = !blocked && pendingComments == nil
+        let reason = "Your \(planName) plan doesn't include viewer comments. Upgrade at app.capturecat.so/billing to turn them on."
+        commentsToggle.accessibilityHint = blocked ? reason : Self.commentsDetail
+        commentsToggle.setDetail(blocked ? reason : Self.commentsDetail)
         offNote.isHidden = enabled
         composer.isHidden = !enabled
         if enabled {
@@ -321,6 +400,9 @@ final class ShareDetailViewController: DetailPageViewController {
     // Probe seams.
     var probePlayerCard: PlayerCard { playerCard }
     var probeComposerField: CCField { composerField }
+    var probeCommentsToggle: CCToggleRow { commentsToggle }
+    var probeComposer: UIView { composer }
+    var probeOffNote: CCCallout { offNote }
 }
 
 /// One comment: avatar, author (+ "Owner"), relative time, timestamp chip

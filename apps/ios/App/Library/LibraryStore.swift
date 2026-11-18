@@ -57,6 +57,13 @@ final class LibraryStore {
 
     func share(_ videoID: String) -> SharedVideo? { shares.first { $0.videoId == videoID } }
 
+    /// A share's comments switch, locally (the share-detail toggle shows its
+    /// change at once and rolls back here if the API refuses).
+    func setCommentsEnabled(_ videoID: String, _ on: Bool) {
+        guard let index = shares.firstIndex(where: { $0.videoId == videoID }), shares[index].commentsEnabled != on else { return }
+        shares[index].commentsEnabled = on
+    }
+
     /// The newest share exported from this project.
     func share(linkedTo projectID: String) -> SharedVideo? {
         shares.filter { $0.projectId?.caseInsensitiveCompare(projectID) == .orderedSame && $0.removed == nil }

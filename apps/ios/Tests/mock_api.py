@@ -42,7 +42,13 @@ devices,video}.ts closely enough to exercise every client path:
   /api/video/:id[?token&v]         bytes (Range); 403 private unless the owner's bearer;
                                    403 locked without a valid token; 410 expired
   /api/video/:id/comments[?token]  GET {comments, viewer} / POST {body, authorName?,
-                                   videoTime?, parentId?} — 404 when comments are off
+                                   videoTime?, parentId?, annotation?} — 404 when comments are off;
+                                   the annotation (a drawing, {v: 1, shapes}) is stored as sent
+                                   and the raw request body is logged (`raw`)
+  PATCH /api/video/:id/comments-enabled  owner (bearer) of a LISTED share: {commentsEnabled}
+                                   → {videoId, commentsEnabled}; 403 upgrade_required when the
+                                   plan has no comments (control noCommentsPlan); 500 while
+                                   failCommentsToggle > 0
   /api/video/:id/reactions         GET ?session → {reactions, mine}; POST {emoji,
                                    videoTime, sessionId} → {ok, mine} (same emoji toggles off)
   /api/video/:id/transcript        {segments}
@@ -52,9 +58,12 @@ devices,video}.ts closely enough to exercise every client path:
                            mp4), fileName, durationSeconds, commentsEnabled, allowDownload,
                            aiTitle, aiSummary, aiChapters, transcript, password, gate
                            ("expired"|"view_limit"|"paused"), isPrivate, ownedByMock,
-                           removed (message), comments, reactions}
+                           removed (message), comments (each may carry an annotation),
+                           reactions, annotations (the owner's markers), brandAccent,
+                           listed (also a row of the signed-in user's GET /api/videos)}
   /__viewer-control        test-only (POST): {failReactions: n} — the next n reaction
-                           POSTs answer 500; {failComments: n} likewise
+                           POSTs answer 500; {failComments: n}, {failCommentsToggle: n} likewise;
+                           {noCommentsPlan: 1} — /api/me's plan loses comments
   GET /__state             includes `viewer`: per-share request log (meta, stream, unlock,
                            comments, reactions, analytics, reports, with the bearer each carried)
 
@@ -87,7 +96,7 @@ shares = {}  # videoId -> {row (GET /api/videos shape), sha}
 LINK_KEY = bytes(range(32))
 viewer = {}  # videoId -> seeded public share (see /__viewer-share)
 viewer_log = []  # [{route, videoId, method, query, authorization, body}]
-viewer_control = {"failReactions": 0, "failComments": 0}
+viewer_control = {"failReactions": 0, "failComments": 0, "failCommentsToggle": 0, "noCommentsPlan": 0}
 REACTION_EMOJI = ["\U0001F44D", "\u2764\ufe0f", "\U0001F525", "\U0001F602", "\U0001F62E", "\U0001F389"]
 delete_me = {"next": None, "calls": []}  # /__delete-me control + DELETE /api/me log
 DELETE_ME_BODIES = {
@@ -170,12 +179,13 @@ class Handler(BaseHTTPRequestHandler):
             body = None
         with LOCK:
             viewer_log.append({"route": route, "videoId": vid, "method": self.command, "query": urlparse(self.path).query,
-                               "authorization": self.headers.get("Authorization"), "body": body})
+                               "authorization": self.headers.get("Authorization"), "body": body,
+                               "raw": raw.decode("utf-8", "replace") if raw else None})
 
     def viewer_public_comment(self, v, c):
         out = {k: c[k] for k in ("commentId", "parentId", "authorName", "authorImage", "body", "videoTime", "createdAt")}
         out["isOwner"] = bool(c.get("authorUid")) and c.get("authorUid") == v.get("ownerUid")
-        out["annotation"] = None
+        out["annotation"] = c.get("annotation")
         return out
 
     def viewer_route(self, method, path, query, raw):
@@ -205,9 +215,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(200, {
                 "videoId": vid, "fileName": v["fileName"], "contentType": "video/mp4", "fileSizeBytes": len(objects[v["sha"]]),
                 "durationSeconds": v["durationSeconds"], "createdAt": v["createdAt"], "commentsEnabled": v["commentsEnabled"],
-                "allowDownload": v["allowDownload"], "brandAccent": None, "gate": "open", "aiTitle": v.get("aiTitle"),
+                "allowDownload": v["allowDownload"], "brandAccent": v.get("brandAccent"), "gate": "open", "aiTitle": v.get("aiTitle"),
                 "aiSummary": v.get("aiSummary"), "aiChapters": v.get("aiChapters", []), "hasTranscript": len(v.get("transcript", [])) > 0,
-                "annotations": [], "currentVersion": 1, "showVersionHistory": False, "ctaLabel": None, "ctaUrl": None,
+                "annotations": v.get("annotations", []), "currentVersion": 1, "showVersionHistory": False, "ctaLabel": None, "ctaUrl": None,
                 "thumbnailUrl": None, "versions": []})
             return True
         if sub == "/unlock" and method == "POST":
@@ -281,10 +291,16 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(400, {"error": "Reply target not found"})
                     return True
                 t = p["videoTime"]
+            annotation = data.get("annotation")
+            if annotation is not None and (parent or not isinstance(annotation, dict) or annotation.get("v") != 1
+                                           or not isinstance(annotation.get("shapes"), list) or not annotation["shapes"]):
+                self.send_json(400, {"error": "Invalid drawing"})
+                return True
             c = {"commentId": uuid.uuid4().hex[:16], "parentId": parent or None,
                  "authorName": "Test User" if me else (typed or "Anonymous"),
                  "authorImage": None, "authorUid": "mock-user" if me else None, "body": body,
-                 "videoTime": max(0, min(float(t), v["durationSeconds"])), "createdAt": now_iso()}
+                 "videoTime": max(0, min(float(t), v["durationSeconds"])), "createdAt": now_iso(),
+                 "annotation": annotation}
             v["comments"].append(c)
             self.send_json(200, {"comment": self.viewer_public_comment(v, c)})
             return True
@@ -390,7 +406,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/me":
             return self.send_json(200, {"uid": "mock-user", "email": "tester@example.com", "tier": "pro", "tester": False,
                                         "blocked": False, "plan": {"name": "pro", "displayName": "Pro"},
-                                        "features": {"cloudShare": True, "commercialUse": True},
+                                        "features": {"cloudShare": True, "commercialUse": True,
+                                                     "comments": not viewer_control["noCommentsPlan"]},
                                         "limits": {"maxTotalStorageBytes": 107374182400},
                                         "sessionExpiresAt": "2027-01-01T00:00:00.000Z"})
         if path == "/api/cloud-projects":
@@ -452,8 +469,16 @@ class Handler(BaseHTTPRequestHandler):
                                "transcript": data.get("transcript", []), "password": data.get("password"), "gate": data.get("gate"),
                                "isPrivate": bool(data.get("isPrivate", False)), "ownedByMock": bool(data.get("ownedByMock", False)),
                                "ownerUid": "mock-user" if data.get("ownedByMock") else "someone-else", "removed": data.get("removed"),
-                               "comments": [{"parentId": None, "authorImage": None, "authorUid": None, **c} for c in data.get("comments", [])],
-                               "reactions": [{"session": "seed-" + str(i), **r} for i, r in enumerate(data.get("reactions", []))]}
+                               "comments": [{"parentId": None, "authorImage": None, "authorUid": None, "annotation": None, **c} for c in data.get("comments", [])],
+                               "reactions": [{"session": "seed-" + str(i), **r} for i, r in enumerate(data.get("reactions", []))],
+                               "annotations": data.get("annotations", []), "brandAccent": data.get("brandAccent")}
+                if data.get("listed"):
+                    shares[vid] = {"sha": sha, "row": {
+                        "videoId": vid, "fileName": viewer[vid]["fileName"], "contentType": "video/mp4", "fileSizeBytes": len(media),
+                        "durationSeconds": viewer[vid]["durationSeconds"], "isPrivate": False, "createdAt": viewer[vid]["createdAt"],
+                        "url": f"https://capturecat.so/share/{vid}", "projectId": None, "allowDownload": False, "hasPassword": False,
+                        "expiresAt": None, "maxViews": None, "commentsEnabled": viewer[vid]["commentsEnabled"], "profileVisible": False,
+                        "thumbnailType": None, "thumbnailUrl": None, "removed": None}}
             return self.send_json(200, {"videoId": vid})
         if path == "/__viewer-control":
             data = json.loads(raw or b"{}")
@@ -566,6 +591,35 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/wireless/link/rotate":
             return self.send_json(200, {"key": b64url(LINK_KEY), "keyId": key_id(LINK_KEY), "createdAt": now_iso()})
         return self.send_json(404, {"error": "Not found"})
+
+    def do_PATCH(self):
+        path = urlparse(self.path).path
+        raw = self.body()
+        m = re.match(r"^/api/video/([^/]+)/comments-enabled$", path)
+        if not m:
+            return self.send_json(404, {"error": "Not found"})
+        vid = m.group(1)
+        if vid in viewer:
+            self.viewer_log_entry("comments-enabled", vid, raw)
+        if not self.authed():
+            return
+        data = json.loads(raw or b"{}")
+        if not isinstance(data.get("commentsEnabled"), bool):
+            return self.send_json(400, {"error": "commentsEnabled must be a boolean"})
+        with LOCK:
+            share = shares.get(vid)
+            if not share:
+                return self.send_json(404, {"error": "Video not found"})
+            if viewer_control["failCommentsToggle"] > 0:
+                viewer_control["failCommentsToggle"] -= 1
+                return self.send_json(500, {"error": "Internal error"})
+            if data["commentsEnabled"] and viewer_control["noCommentsPlan"]:
+                return self.send_json(403, {"error": "Viewer comments isn't included in the account's Free plan. The account owner can upgrade at https://app.capturecat.so/billing.",
+                                            "code": "upgrade_required", "feature": "comments", "plan": "free"})
+            share["row"]["commentsEnabled"] = data["commentsEnabled"]
+            if vid in viewer:
+                viewer[vid]["commentsEnabled"] = data["commentsEnabled"]
+        return self.send_json(200, {"videoId": vid, "commentsEnabled": data["commentsEnabled"]})
 
     def do_PUT(self):
         path = urlparse(self.path).path

@@ -28,6 +28,30 @@ final class ShareVideoSurface: UIView {
     private let spinner = CCSpinner(diameter: 30)
     private let captionLabel = PaddedLabel()
     private let floaters = UIView()
+    /// A comment's drawing (or the composer's own) over the picture.
+    let annotationCanvas = ShareAnnotationCanvas()
+    private(set) var drawingPill: ShareDrawingPill?
+    /// The drawing surface while a viewer draws (the controller owns it).
+    var drawingSurface: ShareDrawingSurface? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            if let drawingSurface { insertSubview(drawingSurface, belowSubview: playButton); setNeedsLayout() }
+            refreshPlayButton()
+            refreshAccessibilityElements()
+        }
+    }
+
+    /// VoiceOver: the drawing surface while drawing, the pill's words and
+    /// key over a shown drawing, then the play key.
+    private func refreshAccessibilityElements() {
+        var items: [Any] = []
+        if let drawingSurface { items.append(drawingSurface); items.append(contentsOf: drawingSurface.labelField.map { [$0] } ?? []) }
+        if let pill = drawingPill { items.append(pill.label); items.append(pill.actionButton) }
+        if drawingSurface == nil { items.append(playButton) }
+        accessibilityElements = items
+    }
+    /// The video's own size (AVPlayerItem.presentationSize), once known.
+    private(set) var mediaSize: CGSize?
     private var timeObserver: Any?
     private var observations: [NSKeyValueObservation] = []
     private var itemObservations: [NSKeyValueObservation] = []
@@ -60,6 +84,8 @@ final class ShareVideoSurface: UIView {
         floaters.isUserInteractionEnabled = false
         floaters.translatesAutoresizingMaskIntoConstraints = false
         addSubview(floaters)
+        annotationCanvas.alpha = 0
+        addSubview(annotationCanvas)
 
         playButton.translatesAutoresizingMaskIntoConstraints = false
         playButton.addAction(UIAction { [weak self] _ in self?.togglePlay() }, for: .touchUpInside)
@@ -116,13 +142,72 @@ final class ShareVideoSurface: UIView {
             CATransaction.setAnimationDuration(CCMotion.reduceMotion ? 0 : 0.25)
             playerLayer.videoGravity = fillsWidth ? .resizeAspectFill : .resizeAspect
             CATransaction.commit()
+            // The marks ride the picture through the same 0.25 s re-fit.
+            UIView.animate(withDuration: CCMotion.reduceMotion ? 0 : 0.25) {
+                self.annotationCanvas.frame = self.videoRect
+                self.drawingSurface?.setNeedsLayout()
+                self.drawingSurface?.layoutIfNeeded()
+            }
         }
+    }
+
+    /// Where the picture is, in this view: aspect-fit (letterboxed) or, when
+    /// pinched to fill, aspect-fill (larger than the view, cropped) — the
+    /// AVPlayerLayer's own gravity, so marks sit on the pixels it shows.
+    var videoRect: CGRect {
+        #if DEBUG
+        if ShareViewerModel.probeInject == "drawing-box-rect" { return bounds }
+        if ShareViewerModel.probeInject == "drawing-ignores-fill" {
+            return ShareAnnotationMath.containRect(box: bounds.size, media: mediaSize).offsetBy(dx: bounds.minX, dy: bounds.minY)
+        }
+        #endif
+        let rect = fillsWidth ? ShareAnnotationMath.coverRect(box: bounds.size, media: mediaSize)
+                              : ShareAnnotationMath.containRect(box: bounds.size, media: mediaSize)
+        return rect.offsetBy(dx: bounds.minX, dy: bounds.minY)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         layer.cornerRadius = fullBleed ? 0 : CCTheme.radius(.lg)
+        if annotationCanvas.layer.animationKeys()?.isEmpty ?? true { annotationCanvas.frame = videoRect }
+        drawingSurface?.frame = bounds
     }
+
+    // MARK: Drawings
+
+    /// Put `shapes` on the picture with a pill saying whose they are (`text`)
+    /// and one key (put it away, or Edit). Same shapes + text = no change.
+    func showDrawing(_ shapes: [ShareAnnotationShape], pill text: String, action: CCButton) {
+        let fresh = annotationCanvas.alpha < 0.5 || drawingPill?.label.text != text
+        annotationCanvas.shapes = shapes
+        annotationCanvas.frame = videoRect
+        if drawingPill?.label.text != text {
+            drawingPill?.removeFromSuperview()
+            let pill = ShareDrawingPill(text: text, action: action)
+            insertSubview(pill, belowSubview: playButton)
+            NSLayoutConstraint.activate([
+                pill.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: CCSpace.md),
+                pill.topAnchor.constraint(equalTo: safeAreaLayoutGuide.topAnchor, constant: CCSpace.md),
+                pill.trailingAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.trailingAnchor, constant: -CCSpace.md),
+            ])
+            drawingPill = pill
+            if !CCMotion.reduceMotion { CCMotion.fade(pill.layer, keyPath: "opacity", to: 1, duration: 0.2, from: 0) }
+        }
+        if fresh { CCMotion.fadeAlpha(annotationCanvas, to: 1, duration: 0.2, from: 0) }
+        refreshPlayButton()
+        refreshAccessibilityElements()
+    }
+
+    func hideDrawing() {
+        guard annotationCanvas.alpha > 0 || drawingPill != nil else { return }
+        CCMotion.fadeAlpha(annotationCanvas, to: 0, duration: 0.16)
+        drawingPill?.removeFromSuperview()
+        drawingPill = nil
+        refreshPlayButton()
+        refreshAccessibilityElements()
+    }
+
+    var isShowingDrawing: Bool { annotationCanvas.alpha > 0.5 && !annotationCanvas.shapes.isEmpty }
 
     func load(_ asset: AVURLAsset, startAt: Double, knownDuration: Double?) {
         let item = AVPlayerItem(asset: asset)
@@ -134,7 +219,11 @@ final class ShareVideoSurface: UIView {
             item.observe(\.presentationSize, options: [.new]) { [weak self] item, _ in
                 MainActor.assumeIsolated {
                     let size = item.presentationSize
-                    if size.width > 0, size.height > 0 { self?.onPresentationSize?(size) }
+                    if size.width > 0, size.height > 0 {
+                        self?.mediaSize = size
+                        self?.setNeedsLayout()
+                        self?.onPresentationSize?(size)
+                    }
                 }
             },
         ]
@@ -214,8 +303,11 @@ final class ShareVideoSurface: UIView {
         let playing = player.timeControlStatus != .paused
         playButton.symbol = playing ? "pause-fill" : "play-fill"
         playButton.accessibilityLabel = playing ? "Pause" : "Play"
-        // The big key steps aside while the video plays (the frame is the point).
-        CCMotion.fadeAlpha(playButton, to: playing ? 0 : 1, duration: playing ? 0.3 : 0.18)
+        // The big key steps aside while the video plays (the frame is the
+        // point), for a drawing on the frame, and while a viewer draws.
+        let away = playing || drawingSurface != nil || (drawingPill != nil && annotationCanvas.alpha > 0)
+        CCMotion.fadeAlpha(playButton, to: away ? 0 : 1, duration: away ? 0.3 : 0.18)
+        playButton.isUserInteractionEnabled = drawingSurface == nil
     }
 
     @objc private func tapped() { togglePlay() }
@@ -361,7 +453,14 @@ final class ShareTimelineView: UIView {
         scrubber.translatesAutoresizingMaskIntoConstraints = false
         scrubber.onScrub = { [weak self] fraction, ended in
             guard let self, self.duration > 0 else { return }
-            self.onSeek?(Double(fraction) * self.duration, ended)
+            var time = Double(fraction) * self.duration
+            // A tap on a highlighted range jumps to its beginning (the web's
+            // seekTo snap); a drag lands where the finger lets go.
+            if ended, !self.scrubber.didMove,
+               let index = ShareAnnotationMath.marker(at: time, in: self.scrubber.annotationMarkers) {
+                time = self.scrubber.annotationMarkers[index].start
+            }
+            self.onSeek?(time, ended)
         }
         scrubber.onAccessibilityStep = { [weak self] delta in
             guard let self else { return }
@@ -401,6 +500,23 @@ final class ShareTimelineView: UIView {
         remainingLabel.text = "-" + Format.duration(max(0, duration - time))
         if changedDuration { setNeedsLayout(); rebuildMarkers(animated: false) }
     }
+
+    /// The owner's annotation markers and the share's accent.
+    func setAnnotationMarkers(_ markers: [ShareAnnotationMarker], accent: String) {
+        scrubber.accent = UIColor.ccHex(accent) ?? scrubber.accent
+        guard markers != scrubber.annotationMarkers else { return }
+        scrubber.annotationMarkers = markers
+        scrubber.accessibilityCustomActions = markers.enumerated().map { index, marker in
+            UIAccessibilityCustomAction(name: "Jump to \(marker.label?.isEmpty == false ? marker.label! : "annotation") at \(Format.spokenDuration(marker.start))") { [weak self] _ in
+                guard let self else { return false }
+                self.onMarker?(self.scrubber.annotationMarkers[index])
+                return true
+            }
+        }
+    }
+
+    /// A marker was chosen (VoiceOver's jump action).
+    var onMarker: ((ShareAnnotationMarker) -> Void)?
 
     func setContent(comments: [VideoComment], reactions: [ShareReaction]) {
         let commentsChanged = comments != self.comments
@@ -549,6 +665,14 @@ final class ShareScrubber: UIControl {
     private let knob = UIView()
     private var dots: [UIImageView] = []
     private var dragging = false
+    /// The owner's annotation markers: accent ranges on the track (the web's
+    /// scrubber ranges, 0.7 opacity, at least 0.8 % wide).
+    var annotationMarkers: [ShareAnnotationMarker] = [] { didSet { if annotationMarkers != oldValue { rebuildRanges() } } }
+    var accent: UIColor = UIColor.ccHex(ShareAnnotationMath.defaultAccent)! { didSet { ranges.forEach { $0.backgroundColor = accent } } }
+    private(set) var ranges: [UIView] = []
+    /// The finger moved since it landed (a drag, not a tap).
+    private(set) var didMove = false
+    private var touchStartX: CGFloat = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -599,6 +723,28 @@ final class ShareScrubber: UIControl {
             dot.sizeToFit()
             dot.center = CGPoint(x: trackX(for: reaction.videoTime), y: y + h + 9)
         }
+        for (range, marker) in zip(ranges, annotationMarkers) {
+            guard var span = ShareAnnotationMath.markerSpan(marker, duration: duration) else { range.isHidden = true; continue }
+            #if DEBUG
+            if ShareViewerModel.probeInject == "annotation-marker-offset" { span.left = min(1, span.left + 0.06) }
+            #endif
+            range.isHidden = false
+            range.frame = CGRect(x: trackInset + CGFloat(span.left) * width, y: y, width: CGFloat(span.width) * width, height: h)
+        }
+    }
+
+    private func rebuildRanges() {
+        ranges.forEach { $0.removeFromSuperview() }
+        ranges = annotationMarkers.map { _ in
+            let range = UIView()
+            range.backgroundColor = accent
+            range.alpha = 0.7
+            range.isUserInteractionEnabled = false
+            range.isAccessibilityElement = false
+            insertSubview(range, aboveSubview: fill)
+            return range
+        }
+        setNeedsLayout()
     }
 
     private func rebuildDots() {
@@ -622,12 +768,15 @@ final class ShareScrubber: UIControl {
 
     override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
         dragging = true
+        didMove = false
+        touchStartX = touch.location(in: self).x
         CCMotion.spring(knob.layer, keyPath: "transform.scale", to: 1.45, .bouncy)
         onScrub?(fraction(for: touch), false)
         return true
     }
 
     override func continueTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+        if abs(touch.location(in: self).x - touchStartX) > 6 { didMove = true }
         onScrub?(fraction(for: touch), false)
         return true
     }
@@ -787,10 +936,12 @@ final class ShareCommentRow: UIView {
     let comment: VideoComment
     var onSeek: ((Double) -> Void)?
     var onReply: ((VideoComment) -> Void)?
+    var onShowDrawing: ((VideoComment) -> Void)?
     private(set) var timeChip: CCButton?
     private(set) var replyButton: CCButton?
+    private(set) var drawingButton: CCButton?
 
-    init(comment: VideoComment, reply: Bool) {
+    init(comment: VideoComment, reply: Bool, aspect: CGFloat = 9.0 / 16.0) {
         self.comment = comment
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
@@ -825,6 +976,17 @@ final class ShareCommentRow: UIView {
             }
             replyButton = replyKey
             actions.append(replyKey)
+            if let shapes = comment.drawing {
+                let thumb = ShareAnnotationThumb(shapes: shapes, aspect: aspect, width: 44)
+                let show = CCButton(title: "Drawing", symbol: "draw", style: .ghost, size: .sm, radius: .full)
+                show.accessibilityLabelOverride = "Show \(comment.authorName)'s drawing at \(Format.spokenDuration(time))"
+                show.onTap = { [weak self] in
+                    guard let self else { return }
+                    self.onShowDrawing?(self.comment)
+                }
+                drawingButton = show
+                actions.insert(contentsOf: [thumb, show], at: 1)
+            }
         }
         actions.append(UIView())
         let actionRow = UIStackView(arrangedSubviews: actions)
@@ -878,6 +1040,8 @@ final class ShareComposerView: UIView {
     let replyLabel = ccLabel("", font: CCFont.captionMedium, color: CCTheme.color.foreground)
     let cancelReply = CCButton(symbol: "close", style: .ghost, size: .sm, radius: .full)
     let timeChip = CCButton(title: "0:00", symbol: "timer", style: .secondary, size: .sm, radius: .full)
+    /// Draw on the frame the comment is pinned to (the web's pencil).
+    let drawButton = CCButton(symbol: "draw", style: .ghost, size: .regular, radius: .full)
     let field = CCField(placeholder: "Add a comment…")
     let sendButton = CCButton(symbol: "arrow-up-line", style: .primary, size: .regular, radius: .full)
     let errorLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.destructive, lines: 0)
@@ -914,7 +1078,10 @@ final class ShareComposerView: UIView {
         timeChip.setContentCompressionResistancePriority(.required, for: .horizontal)
         sendButton.accessibilityLabelOverride = "Post comment"
         sendButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        let main = UIStackView(arrangedSubviews: [timeChip, field, sendButton])
+        drawButton.accessibilityLabelOverride = "Draw on the video"
+        drawButton.accessibilityHint = "Pauses on this moment so you can mark it up"
+        drawButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let main = UIStackView(arrangedSubviews: [timeChip, drawButton, field, sendButton])
         main.spacing = CCSpace.sm
         main.alignment = .center
         errorLabel.isHidden = true
@@ -971,6 +1138,13 @@ final class ShareComposerView: UIView {
             }
         }
         timeChip.isHidden = show  // a reply carries its parent's moment
+        drawButton.isHidden = show  // and replies carry no drawing (the API's rule)
+    }
+
+    /// The Draw key says when a drawing waits to be posted.
+    func setDraftMarks(_ count: Int) {
+        drawButton.style = count > 0 ? .secondary : .ghost
+        drawButton.accessibilityValue = count > 0 ? (count == 1 ? "1 mark" : "\(count) marks") : nil
     }
 
     func showError(_ text: String?) {
