@@ -243,7 +243,11 @@ final class ShareVideoSurface: UIView {
             travel.duration = CCMotion.paced(1.6)
             travel.timingFunction = CCMotion.glide
             label.layer.position.y -= rise
-            if !CCMotion.probeSnap { label.layer.add(travel, forKey: "rise") }
+            var snap = false
+            #if DEBUG
+            snap = CCMotion.probeSnap
+            #endif
+            if !snap { label.layer.add(travel, forKey: "rise") }
             CCMotion.fade(label.layer, keyPath: "opacity", to: 0, duration: 0.5, delay: 1.1, from: 1)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + CCMotion.paced(1.8)) { label.removeFromSuperview() }
