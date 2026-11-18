@@ -711,7 +711,7 @@ final class InspectorPreviewRow: InspectorCustomRow {
 
     init(id: String, visible: @escaping (InspectorScope) -> Bool) {
         super.init(id: id, visible: visible, host: nil)
-        well.heightAnchor.constraint(equalToConstant: 84).isActive = true
+        well.ccInspectorHeight(84, compact: InspectorPadSize.compact(84))
         addSubview(well)
         pinEdges(well, to: self)
         card.backgroundColor = UIColor.white.withAlphaComponent(0.85).cgColor

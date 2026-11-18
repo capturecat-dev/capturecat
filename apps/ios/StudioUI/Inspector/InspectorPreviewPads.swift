@@ -38,7 +38,8 @@ final class InspectorLivePreviewRow: InspectorCustomRow {
 
     init(id: String, visible: @escaping (InspectorScope) -> Bool, host: InspectorHost) {
         super.init(id: id, visible: visible, host: host)
-        well.heightAnchor.constraint(equalToConstant: id == "motion.speedPad" ? 84 : 96).isActive = true
+        let wellHeight: CGFloat = id == "motion.speedPad" ? 84 : 96
+        well.ccInspectorHeight(wellHeight, compact: InspectorPadSize.compact(wellHeight))
         well.clipsToBounds = true
         addSubview(well)
         pinEdges(well, to: self)

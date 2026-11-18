@@ -127,6 +127,10 @@ final class InspectorPaneView: UIView {
                     rows: chunk.rows, choice: nil, section: spec.id, isCurrent: false))
             }
         }
+        // A phone's short panel has a height budget: an option whose rows
+        // would overflow it splits into further keys (never clipped, never
+        // scrolled).
+        if let budget = panelBudget, budget > 0 { out = split(out, budget: budget, scope: scope) }
         if out.isEmpty {
             out.append(InspectorPanelOption(id: "\(tab.rawValue).all", title: tab.rawValue, symbol: tab.icon,
                                             rows: Array(all.indices), choice: nil, section: nil, isCurrent: false))
@@ -145,6 +149,164 @@ final class InspectorPaneView: UIView {
         return out
     }
 
+    /// The room a phone's short panel has for one option's rows (nil = no
+    /// limit: the iPad column, a side panel). Set by the inspector.
+    var panelBudget: CGFloat?
+
+    /// The air above and below a short panel's rows (the pane's inset in it).
+    static let panelVerticalPadding: CGFloat = 2 * CCSpace.md
+
+    /// Splits every option whose rows overflow `budget` into keys that each
+    /// fit: a titled row and the untitled rows riding with it (its preview,
+    /// its caption) stay together. A choice group's overflow becomes keys
+    /// after the group's choices (shared by every choice).
+    private func split(_ options: [InspectorPanelOption], budget: CGFloat, scope: InspectorScope) -> [InspectorPanelOption] {
+        var out: [InspectorPanelOption] = []
+        var pending: [InspectorPanelOption] = []
+        var splitSections = Set<String>()
+        for (n, o) in options.enumerated() {
+            let isChoice = o.choice != nil
+            let indices = isChoice ? o.section.map { rowsAfterChoice(section: $0, scope: scope) } ?? [] : o.rows
+            let chunks = chunk(indices, budget: budget, scope: scope)
+            if chunks.count > 1 {
+                out.append(InspectorPanelOption(id: o.id, title: o.title, symbol: o.symbol, rows: chunks[0],
+                                                choice: o.choice, section: o.section, isCurrent: o.isCurrent))
+                let section = o.section ?? o.id
+                if !isChoice || !splitSections.contains(section) {
+                    splitSections.insert(section)
+                    let extra = chunks.dropFirst().enumerated().map { k, rows in
+                        overflowOption(of: o, rows: rows, number: k + 2, scope: scope)
+                    }
+                    if isChoice { pending += extra } else { out += extra }
+                }
+            } else {
+                out.append(o)
+            }
+            // A choice group's extra keys follow its last choice.
+            let next = options.indices.contains(n + 1) ? options[n + 1] : nil
+            if !pending.isEmpty, !(next?.choice != nil && next?.section == o.section) {
+                out += pending
+                pending = []
+            }
+        }
+        return out + pending
+    }
+
+    private func overflowOption(of o: InspectorPanelOption, rows: [Int], number: Int,
+                                scope: InspectorScope) -> InspectorPanelOption {
+        let specs = specRows
+        let titled = rows.lazy.compactMap { InspectorPanelOption.title(of: specs[$0], scope: scope) }.first
+        let title = titled ?? Self.name(ofRowID: self.rows[rows[0]].rowID) ?? "\(o.title) \(number)"
+        let kind = specs[rows.first { InspectorPanelOption.title(of: specs[$0], scope: scope) != nil } ?? rows[0]]
+        return InspectorPanelOption(
+            id: "\(o.section ?? o.id)+\(rows[0])", title: title,
+            symbol: InspectorPanelOption.symbol(for: title, fallback: InspectorPanelOption.symbol(of: kind, tab: tab)),
+            rows: rows, choice: nil, section: o.section, isCurrent: false)
+    }
+
+    /// Row `i`'s height at the pane's width (hidden rows too): its last
+    /// laid-out height when it has one, else a fitting pass.
+    func estimatedHeight(_ i: Int) -> CGFloat {
+        let row = rows[i]
+        if !row.isHidden, row.bounds.height > 0.5 { measured[row.rowID] = row.bounds.height }
+        if let h = measured[row.rowID] { return h }
+        let fit = fittingHeight(i)
+        guard fit < 1 else { return fit }
+        // A control drawn from its frame (the slider) has no fitting height:
+        // its last laid-out height, else the house control height.
+        return row.bounds.height > 1 ? row.bounds.height : 44
+    }
+
+    /// Row `i`'s height from a fitting pass at the pane's width.
+    func fittingHeight(_ i: Int) -> CGFloat {
+        let row = rows[i]
+        let width = bounds.width > 1 ? bounds.width : max(1, (superview?.bounds.width ?? 320) - 2 * CCSpace.lg)
+        // Multi-line copy wraps at the row's width in the fitting pass too.
+        func wrap(_ v: UIView) {
+            if let l = v as? UILabel, l.numberOfLines != 1 { l.preferredMaxLayoutWidth = width - 40 }
+            v.subviews.forEach(wrap)
+        }
+        wrap(row)
+        let h = row.systemLayoutSizeFitting(CGSize(width: width, height: 0), withHorizontalFittingPriority: .required,
+                                            verticalFittingPriority: .fittingSizeLevel).height
+        func unwrap(_ v: UIView) {
+            if let l = v as? UILabel, l.numberOfLines != 1 { l.preferredMaxLayoutWidth = 0 }
+            v.subviews.forEach(unwrap)
+        }
+        unwrap(row)
+        return h
+    }
+    /// Rows' heights as last laid out (by id; a size-class change clears it).
+    private var measured: [String: CGFloat] = [:]
+
+    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+        super.traitCollectionDidChange(previous)
+        if previous?.horizontalSizeClass != traitCollection.horizontalSizeClass
+            || previous?.preferredContentSizeCategory != traitCollection.preferredContentSizeCategory { measured = [:] }
+    }
+
+    /// A key name for an untitled control row from its id
+    /// ("blocks.offsetPad" → "Offset").
+    static func name(ofRowID id: String) -> String? {
+        guard var last = id.split(separator: ".").last.map(String.init) else { return nil }
+        for suffix in ["Pad", "Preview", "Row"] where last.hasSuffix(suffix) && last.count > suffix.count {
+            last.removeLast(suffix.count)
+        }
+        var words: [String] = []
+        for ch in last {
+            if ch.isUppercase || words.isEmpty { words.append(String(ch)) } else { words[words.count - 1].append(ch) }
+        }
+        let name = words.joined(separator: " ").lowercased()
+        return name.isEmpty ? nil : name.prefix(1).uppercased() + name.dropFirst()
+    }
+
+    /// A display-only preview well (no control of its own).
+    static func isPreview(_ row: InspectorRowView) -> Bool {
+        row is InspectorPreviewRow || row is InspectorLivePreviewRow
+    }
+
+    /// Every row's spec, in `rows` order.
+    private var specRows: [InspectorRow] { sections.flatMap { $0.spec.rows } }
+
+    /// `indices` in groups that each fit `budget` (a group too tall on its
+    /// own stays one: the gate reports it).
+    private func chunk(_ indices: [Int], budget: CGFloat, scope: InspectorScope) -> [[Int]] {
+        guard indices.count > 1 else { return [indices] }
+        let specs = specRows
+        let height = estimatedHeight
+        // Units: a control with the captions under it; a lone preview
+        // well leading a control (Show Cursor's) stays with it.
+        let all = rows
+        var units: [[Int]] = []
+        for i in indices {
+            var caption = all[i].rowID.hasSuffix("Caption")
+            if case .caption = specs[i] { caption = true }
+            let titled = InspectorPanelOption.title(of: specs[i], scope: scope) != nil
+            let afterPreview = units.last.map { $0.count == 1 && Self.isPreview(all[$0[0]]) } ?? false
+            if let last = units.indices.last, caption || (titled && afterPreview) {
+                units[last].append(i)
+            } else {
+                units.append([i])
+            }
+        }
+        let gap = InspectorSectionView.panelRowGap
+        let room = budget - Self.panelVerticalPadding
+        func unitHeight(_ u: [Int]) -> CGFloat { u.map(height).reduce(0, +) + gap * CGFloat(u.count - 1) }
+        var chunks: [[Int]] = []
+        var used: CGFloat = 0
+        for u in units {
+            let h = unitHeight(u)
+            if let last = chunks.indices.last, used + gap + h <= room {
+                chunks[last] += u
+                used += gap + h
+            } else {
+                chunks.append(u)
+                used = h
+            }
+        }
+        return chunks
+    }
+
     /// The visible rows of `section` after its leading choice (what a
     /// choice option's panel shows once the choice is applied).
     func rowsAfterChoice(section id: String, scope: InspectorScope) -> [Int] {
@@ -160,6 +322,9 @@ final class InspectorPaneView: UIView {
 
     /// Every row, in order.
     var rows: [InspectorRowView] { sections.flatMap { $0.view.rows } }
+
+    /// Any row showing (a panel whose switch rides its strip may have none).
+    var hasVisibleRows: Bool { sections.contains { !$0.view.isHidden && $0.view.rows.contains { !$0.isHidden } } }
 
     /// A panel showing ONE option: only these rows (indices into `rows`);
     /// nil = the whole pane (the iPad column).
@@ -246,7 +411,17 @@ final class InspectorSectionView: UIView {
     private var dividers: [UIView] = []
     private let header: UILabel?
     /// Hidden while a panel shows one option (its title is the strip's).
-    var showsHeader = true { didSet { header?.isHidden = !showsHeader || !hasVisibleRow } }
+    /// A panel's few rows also drop the hairlines between them and sit on
+    /// the Mac inspector's row rhythm instead (no separators, even air).
+    var showsHeader = true {
+        didSet {
+            header?.isHidden = !showsHeader || !hasVisibleRow
+            stack.spacing = showsHeader ? CCSpace.sm : Self.panelRowGap
+        }
+    }
+    /// The air between a short panel's rows (the Mac's 16 pt rhythm, a
+    /// touch tighter for the phone's short panel).
+    static let panelRowGap: CGFloat = 14
     private var hasVisibleRow = true
 
     #if DEBUG
@@ -307,7 +482,7 @@ final class InspectorSectionView: UIView {
         for (i, line) in dividers.enumerated() {
             let before = !rows[i].isHidden
             let after = rows[(i + 1)...].contains { !$0.isHidden }
-            let show = before && after
+            let show = before && after && showsHeader
             if line.isHidden == show { line.isHidden = !show }
         }
         hasVisibleRow = rows.contains { !$0.isHidden }

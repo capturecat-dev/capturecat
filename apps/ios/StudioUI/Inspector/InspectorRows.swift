@@ -104,10 +104,14 @@ final class InspectorToggleRowView: UIView, InspectorRowView {
         row.accessibilityIdentifier = spec.id
         addSubview(row)
         pinEdges(row, to: self)
-        row.onChange = { [weak self] on in
-            guard let host = self?.host else { return }
-            host.session.perform(spec.id, name: spec.title) { spec.write(host.scope, on) }
-        }
+        row.onChange = { [weak self] on in self?.write(on) }
+    }
+
+    /// Writes `on` — the row's path, also the panel strip's switch when it
+    /// stands in for this row (one undo step, the Mac's name).
+    func write(_ on: Bool) {
+        guard let host else { return }
+        host.session.perform(spec.id, name: spec.title) { spec.write(host.scope, on) }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
