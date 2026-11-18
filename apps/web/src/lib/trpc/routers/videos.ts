@@ -448,6 +448,28 @@ export const videosRouter = createTRPCRouter({
       return { ok: true };
     }),
 
+  /** Viewer comments on or off for an existing share. On needs a plan with
+   *  comments — the API answers 403 `upgrade_required` with a sentence to
+   *  show; off always works. */
+  setComments: authedProcedure
+    .input(z.object({ videoId: z.string().min(1), commentsEnabled: z.boolean() }))
+    .mutation(async ({ input }) => {
+      const res = await apiFetch(`/api/video/${encodeURIComponent(input.videoId)}/comments-enabled`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ commentsEnabled: input.commentsEnabled }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { code?: string; error?: string } | null;
+        throw new TRPCError({
+          code: res.status === 403 ? "FORBIDDEN" : "NOT_FOUND",
+          message:
+            body?.code === "upgrade_required" && body.error ? body.error : "Could not update comments",
+        });
+      }
+      return (await res.json()) as { videoId: string; commentsEnabled: boolean };
+    }),
+
   delete: authedProcedure
     .input(z.object({ videoId: z.string().min(1) }))
     .mutation(async ({ input }) => {

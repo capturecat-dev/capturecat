@@ -11,7 +11,7 @@ xcrun --sdk macosx swiftc -swift-version 5 -default-isolation MainActor -target 
   "$IOS/Core/LosslessJSON.swift" "$IOS/Core/ProjectDocument.swift" "$IOS/Core/TakeInbox.swift" \
   "$IOS/Core/AppGroup.swift" "$IOS/Core/SessionStore.swift" "$IOS/Core/SharedKeychain.swift" \
   "$IOS/Core/CaptureCatAPI.swift" "$IOS/Core/APIClient.swift" "$IOS/Core/Models.swift" \
-  "$IOS/Core/CloudUploader.swift" "$IOS/Core/MediaImport.swift" \
+  "$IOS/Core/CloudUploader.swift" "$IOS/Core/MediaImport.swift" "$IOS/Core/ShareAnnotation.swift" \
   "$IOS/../macos/CaptureCat/Studio/Services/StillMovieWriter.swift" \
   "$IOS/../macos/CaptureCat/Shared/WirelessDeviceProtocol.swift" \
   -o "$OUT/core-selftest"

@@ -348,3 +348,80 @@ describe("gates", () => {
     expect((await post("vid1", { body: "one too many" }, pinned)).status).toBe(429);
   });
 });
+
+describe("PATCH /video/:id/comments-enabled — owner switch", () => {
+  const owner = { Authorization: `Bearer ${OWNER}` };
+  const toggle = (videoId: string, body: unknown, headers: Record<string, string> = owner) =>
+    call("PATCH", `/video/${videoId}/comments-enabled`, body, headers);
+  const stored = (videoId: string) =>
+    db.query<{ comments_enabled: number }>(`SELECT comments_enabled FROM shared_videos WHERE video_id = ?`, videoId)[0]
+      ?.comments_enabled;
+  /** The tester plan (pro) without comments — what a downgrade looks like. */
+  const dropComments = () =>
+    db.query(`UPDATE plan SET features = json_set(features, '$.comments', json('false')) WHERE name = 'pro'`);
+
+  it("the owner turns comments on and off, and the comment routes follow", async () => {
+    insertVideo("ios", { comments_enabled: 0 }); // an iPhone share: off at upload
+    expect((await call("GET", "/video/ios/comments")).status).toBe(404);
+
+    const on = await toggle("ios", { commentsEnabled: true });
+    expect(on.status).toBe(200);
+    expect(await json(on)).toEqual({ videoId: "ios", commentsEnabled: true });
+    expect(stored("ios")).toBe(1);
+    expect((await call("GET", "/video/ios/comments")).status).toBe(200);
+    expect((await post("ios", { body: "now open" })).status).toBe(200);
+
+    const off = await toggle("ios", { commentsEnabled: false });
+    expect(await json(off)).toEqual({ videoId: "ios", commentsEnabled: false });
+    expect(stored("ios")).toBe(0);
+    expect((await call("GET", "/video/ios/comments")).status).toBe(404);
+    expect((await post("ios", { body: "closed" })).status).toBe(404);
+  });
+
+  it("is idempotent", async () => {
+    expect((await toggle("vid1", { commentsEnabled: true })).status).toBe(200);
+    expect(stored("vid1")).toBe(1);
+  });
+
+  it("anonymous → refused; another signed-in user → 403 and nothing changes; unknown video → 404", async () => {
+    // No bearer, no Origin: requireAuth's CSRF gate answers 403 before the session lookup.
+    expect((await toggle("vid1", { commentsEnabled: false }, {})).status).toBe(403);
+    expect((await toggle("vid1", { commentsEnabled: false }, { Origin: "https://app.capturecat.so" })).status).toBe(401);
+    expect((await toggle("vid1", { commentsEnabled: false }, { Authorization: `Bearer ${VIEWER}` })).status).toBe(403);
+    expect(stored("vid1")).toBe(1);
+    expect((await toggle("nope", { commentsEnabled: true })).status).toBe(404);
+  });
+
+  it("a blocked account is refused", async () => {
+    insertVideo("bad", { uid: BLOCKED, comments_enabled: 0 });
+    expect((await toggle("bad", { commentsEnabled: true }, { Authorization: `Bearer ${BLOCKED}` })).status).toBe(403);
+    expect(stored("bad")).toBe(0);
+  });
+
+  it("a plan without comments cannot turn them on, but can always turn them off", async () => {
+    insertVideo("down", { comments_enabled: 0 });
+    dropComments();
+    const refused = await toggle("down", { commentsEnabled: true });
+    expect(refused.status).toBe(403);
+    expect(await json(refused)).toMatchObject({ code: "upgrade_required", feature: "comments", plan: "pro" });
+    expect(stored("down")).toBe(0);
+
+    expect((await toggle("vid1", { commentsEnabled: false })).status).toBe(200);
+    expect(stored("vid1")).toBe(0);
+  });
+
+  it("the free plan (no comments) cannot turn them on", async () => {
+    insertVideo("free", { uid: VIEWER, comments_enabled: 0 });
+    const res = await toggle("free", { commentsEnabled: true }, { Authorization: `Bearer ${VIEWER}` });
+    expect(res.status).toBe(403);
+    expect(await json(res)).toMatchObject({ code: "upgrade_required", feature: "comments" });
+    expect(stored("free")).toBe(0);
+  });
+
+  it("refuses a body without a boolean", async () => {
+    for (const body of [{}, { commentsEnabled: "true" }, { commentsEnabled: 1 }, "not json"]) {
+      expect((await toggle("vid1", body)).status).toBe(400);
+    }
+    expect(stored("vid1")).toBe(1);
+  });
+});

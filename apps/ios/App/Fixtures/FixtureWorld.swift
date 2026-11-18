@@ -227,6 +227,12 @@ final class FixtureWorld: CloudAPI {
         return comment
     }
 
+    func setCommentsEnabled(videoID: String, enabled: Bool) async throws -> Bool {
+        await latency(400)
+        if let index = shares.firstIndex(where: { $0.videoId == videoID }) { shares[index].commentsEnabled = enabled }
+        return enabled
+    }
+
     func streamAsset(videoID: String) -> AVURLAsset {
         AVURLAsset(url: Self.movieURL(videoID))
     }

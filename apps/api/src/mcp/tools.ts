@@ -50,11 +50,13 @@ import {
 import {
   applyShareControls,
   purgeVideoMeta,
+  setShareComments,
   shareControlsPatch,
   type ShareControlsBody,
   type ShareControlsPatch,
 } from "../lib/video-share";
 import { videoAnalytics } from "../lib/video-analytics";
+import { featureUnavailableMessage } from "../lib/agent-features";
 import { addVideoToPlaylist, listUserPlaylists } from "../lib/playlists";
 import { takeScreenshot } from "../lib/screenshot/take";
 import { monthlyQuotaUsed } from "../lib/screenshot/quota";
@@ -683,6 +685,7 @@ const PATCH_FIELD: Record<keyof ShareControlsPatch, string> = {
   ctaLabel: "cta",
   ctaUrl: "cta",
   profileVisible: "profile_visible",
+  commentsEnabled: "comments_enabled",
 };
 
 const SETTING_ARGS = [
@@ -695,6 +698,7 @@ const SETTING_ARGS = [
   "show_version_history",
   "cta",
   "profile_visible",
+  "comments_enabled",
 ] as const;
 
 /**
@@ -733,7 +737,7 @@ const updateShareSettings = defineTool({
   name: "update_share_settings",
   title: "Update share settings",
   description:
-    "Change the share-page settings of one of the account's videos: privacy, a password (set a string, or null to remove it), link expiry, a viewer cap, the download button, the brand accent, version history, the call-to-action button and profile listing. Pass only what should change; anything omitted is left alone. Never deletes anything. ASK FIRST: a change that lets more people see the video (going public, removing the password, removing or extending the expiry, removing or raising the viewer cap, listing it on the profile) answers status \"approval_required\" with an approve_url to show the account owner; once they approve, repeat the identical call with approval_id. Making a video more private runs at once. Requires scope videos:write.",
+    "Change the share-page settings of one of the account's videos: privacy, a password (set a string, or null to remove it), link expiry, a viewer cap, the download button, the brand accent, version history, the call-to-action button, profile listing and viewer comments. Pass only what should change; anything omitted is left alone. Never deletes anything. ASK FIRST: a change that lets more people see the video (going public, removing the password, removing or extending the expiry, removing or raising the viewer cap, listing it on the profile) answers status \"approval_required\" with an approve_url to show the account owner; once they approve, repeat the identical call with approval_id. Making a video more private runs at once. Requires scope videos:write.",
   scope: "videos:write",
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   input: z
@@ -755,6 +759,10 @@ const updateShareSettings = defineTool({
         .optional()
         .describe("Call-to-action button {label, https url}, or null to remove it."),
       profile_visible: z.boolean().optional().describe("List the video on the owner's public profile page."),
+      comments_enabled: z
+        .boolean()
+        .optional()
+        .describe("Let viewers leave timestamped comments. Turning them on needs a plan that includes comments; turning them off always works."),
       approval_id: ApprovalIdSchema.optional(),
     })
     .refine((a) => SETTING_ARGS.some((k) => a[k] !== undefined), { error: "Pass at least one setting to change." }),
@@ -810,6 +818,16 @@ const updateShareSettings = defineTool({
       await setSharedVideoPrivacy(ctx.env.DB, doc.videoId, args.is_private);
       await purgeVideoMeta(doc.videoId);
       updated.add("is_private");
+    }
+    if (args.comments_enabled !== undefined) {
+      // PATCH /video/:id/comments-enabled's rules (lib/video-share.ts): on
+      // needs the plan's comments, off always works.
+      const current = (await getSharedVideo(ctx.env.DB, doc.videoId)) ?? doc;
+      const result = await setShareComments(ctx.env, current, args.comments_enabled);
+      if (!result.ok && result.reason === "upgrade_required") {
+        throw new ToolError(featureUnavailableMessage("comments", result.plan), doc.videoId);
+      }
+      if (result.ok) updated.add("comments_enabled");
     }
     const ignored = SETTING_ARGS.filter((k) => args[k] !== undefined && !updated.has(k));
     const fresh = (await getSharedVideo(ctx.env.DB, doc.videoId)) ?? doc;

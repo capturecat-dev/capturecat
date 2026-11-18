@@ -40,12 +40,14 @@ import {
   applyShareControls,
   canViewVideo,
   passwordDigest,
+  setShareComments,
   shareControlsPatch,
   toHex,
   verifyPassword,
   type ShareControlsBody,
 } from "../lib/video-share";
 import { backgroundOf } from "../lib/webhooks";
+import { upgradeRequiredBody } from "../lib/agent-features";
 import { isRemoved, removedResponse } from "../lib/moderation";
 
 export const videoRoutes = new Hono<{
@@ -591,6 +593,37 @@ videoRoutes.patch("/video/:videoId/settings", requireAuth, requireEntitlement(),
   if (!changed) return c.json({ error: "Video not found" }, 404);
 
   return c.json({ videoId, updated: Object.keys(patch) });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /video/:videoId/comments-enabled — owner switches viewer comments
+// ---------------------------------------------------------------------------
+/**
+ * Body `{ commentsEnabled: boolean }` → `{ videoId, commentsEnabled }`.
+ * Owner only. ON needs the plan's `comments` (and `cloudShare`) — 403
+ * `upgrade_required` otherwise; OFF always works, so a downgraded owner can
+ * still close a thread. The rules live in lib/video-share.ts (shared with
+ * the MCP update_share_settings tool).
+ */
+videoRoutes.patch("/video/:videoId/comments-enabled", requireAuth, requireEntitlement(), async (c) => {
+  const videoId = c.req.param("videoId");
+  const body: { commentsEnabled?: unknown } = await c.req
+    .json<{ commentsEnabled?: unknown }>()
+    .catch(() => ({}) as { commentsEnabled?: unknown });
+  if (typeof body.commentsEnabled !== "boolean") {
+    return c.json({ error: "commentsEnabled must be a boolean" }, 400);
+  }
+
+  const doc = await getSharedVideo(c.env.DB, videoId);
+  if (!doc) return c.json({ error: "Video not found" }, 404);
+  if (doc.uid !== c.get("user").uid) return c.json({ error: "Forbidden" }, 403);
+
+  const result = await setShareComments(c.env, doc, body.commentsEnabled);
+  if (!result.ok) {
+    if (result.reason === "upgrade_required") return c.json(upgradeRequiredBody("comments", result.plan), 403);
+    return c.json({ error: "Video not found" }, 404);
+  }
+  return c.json({ videoId, commentsEnabled: result.commentsEnabled });
 });
 
 function parseMarkers(json: string | null): unknown[] {

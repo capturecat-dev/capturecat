@@ -72,5 +72,96 @@ print("keyID(0x00…0x1f) = \(link.keyID)")
 check(link.keyID == "8f40509a77686376", "keyID matches the API's vector (apps/api devices.test.ts)")
 check(WirelessLink(base64URLKey: WirelessLink.base64URL(key))?.keyID == link.keyID, "base64url key round-trips")
 
+// 7. Comment drawings: the web's serializer and renderer, reproduced
+//    (apps/web/src/lib/share/annotation.fixtures.json, written by the web's
+//    annotation.fixtures.test.ts from annotation.ts itself).
+let fixtureURL = root.appendingPathComponent("../web/src/lib/share/annotation.fixtures.json")
+let annotationFixtures = (try? JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL))) as? [String: Any] ?? [:]
+check(!annotationFixtures.isEmpty, "web annotation fixtures found at \(fixtureURL.standardized.path)")
+/// A fixture's RAW input shape (before canonicalising: any colour, size, range).
+func rawShape(_ s: [String: Any]) -> ShareAnnotationShape? {
+    func p(_ v: Any?) -> CGPoint? {
+        guard let a = v as? [NSNumber], a.count == 2 else { return nil }
+        return CGPoint(x: a[0].doubleValue, y: a[1].doubleValue)
+    }
+    let color = s["color"] as? String ?? "", size = (s["size"] as? NSNumber)?.intValue ?? 0
+    guard let kind = (s["kind"] as? String).flatMap(ShareAnnotationShape.Kind.init(rawValue:)) else { return nil }
+    switch kind {
+    case .pen, .highlight: return .stroke(kind: kind, color: color, size: size, points: ((s["points"] as? [Any]) ?? []).compactMap(p))
+    case .arrow, .rect, .ellipse: return .box(kind: kind, color: color, size: size, from: p(s["from"])!, to: p(s["to"])!)
+    case .text: return .text(color: color, size: size, at: p(s["at"])!, text: s["text"] as? String ?? "")
+    }
+}
+func rawShapes(_ v: Any?) -> [ShareAnnotationShape] { ((v as? [[String: Any]]) ?? []).compactMap(rawShape) }
+func near(_ a: Double, _ b: Double, _ tol: Double = 1e-6) -> Bool { abs(a - b) <= tol * max(1, abs(b)) }
+
+for case let item as [String: Any] in (annotationFixtures["serialize"] as? [Any]) ?? [] {
+    let name = item["name"] as? String ?? "?"
+    let out = ShareAnnotationMath.serialize(rawShapes(item["shapes"]))
+    let want = item["json"] as? String
+    check(out.json == want && out.bytes == (item["bytes"] as? Int) && out.tooLarge == (item["tooLarge"] as? Bool),
+          "serializer byte-identical to the web: \(name)" + (out.json == want ? "" : "\n      web:   \(want ?? "null")\n      swift: \(out.json ?? "null")"))
+    if let json = out.json, !out.tooLarge {
+        let reread = ShareAnnotationMath.read(try? JSONSerialization.jsonObject(with: Data(json.utf8)))
+        check(reread?.shapes == out.annotation?.shapes, "posted drawing reads back unchanged: \(name)")
+    }
+}
+for case let item as [String: Any] in (annotationFixtures["read"] as? [Any]) ?? [] {
+    let got = ShareAnnotationMath.read(item["input"])?.shapes
+    let want = rawShapes((item["output"] as? [String: Any])?["shapes"])
+    check(got == want, "reader matches the web's readAnnotation: \(item["name"] as? String ?? "?")")
+}
+check(ShareAnnotationMath.read(["v": 2, "shapes": [Any]()]) == nil && ShareAnnotationMath.read(nil) == nil
+      && ShareAnnotationMath.read(["v": 1, "shapes": [["kind": "pen", "color": "red", "size": 2, "points": [[0, 0]]],
+                                                     ["kind": "zap", "color": "#ffffff", "size": 2]]]) == nil,
+      "reader drops what the web drops")
+for case let item as [String: Any] in (annotationFixtures["geometry"] as? [Any]) ?? [] {
+    let box = (item["box"] as? [Double]) ?? [0, 0]
+    let media = (item["media"] as? [Double]).map { CGSize(width: $0[0], height: $0[1]) }
+    let rect = ShareAnnotationMath.containRect(box: CGSize(width: box[0], height: box[1]), media: media)
+    let w = item["rect"] as? [String: Double] ?? [:]
+    let stroke = item["stroke"] as? [String: Any] ?? [:]
+    let label = (item["label"] as? [String: Any] ?? [:]).compactMapValues { ($0 as? NSNumber)?.doubleValue }
+    let m = ShareAnnotationMath.labelMetrics(size: 2, rect: rect)
+    let tb = ShareAnnotationMath.toBox(CGPoint(x: 0.3, y: 0.7), rect: rect)
+    let tf = ShareAnnotationMath.toFrame(CGPoint(x: box[0] * 0.25, y: box[1] * 0.9), rect: rect)
+    let wantTB = item["toBox"] as? [Double] ?? [], wantTF = item["toFrame"] as? [Double] ?? []
+    var ok = near(rect.minX, w["x"] ?? -1) && near(rect.minY, w["y"] ?? -1) && near(rect.width, w["w"] ?? -1) && near(rect.height, w["h"] ?? -1)
+    ok = ok && zip([1, 2, 3], (stroke["pen"] as? [Double]) ?? []).allSatisfy { near(ShareAnnotationMath.strokeWidth(.pen, size: $0, rect: rect), $1) }
+    ok = ok && near(ShareAnnotationMath.strokeWidth(.highlight, size: 2, rect: rect), (stroke["highlight"] as? Double) ?? -1)
+    ok = ok && zip([1, 2, 3], (item["font"] as? [Double]) ?? []).allSatisfy { near(ShareAnnotationMath.fontSize($0, rect: rect), $1) }
+    ok = ok && near(m.px, label["px"] ?? -1) && near(m.padX, label["padX"] ?? -1) && near(m.padY, label["padY"] ?? -1)
+    ok = ok && near(m.lineHeight, label["lineHeight"] ?? -1) && near(m.radius, label["radius"] ?? -1)
+    ok = ok && near(tb.x, wantTB.first ?? -1) && near(tb.y, wantTB.last ?? -1) && near(tf.x, wantTF.first ?? -1) && near(tf.y, wantTF.last ?? -1)
+    check(ok, "geometry matches the web: box \(box) media \(media.map { "\($0)" } ?? "none") → \(rect)")
+}
+for case let item as [String: Any] in (annotationFixtures["render"] as? [Any]) ?? [] {
+    let r = item["rect"] as? [String: Double] ?? [:]
+    let rect = CGRect(x: r["x"] ?? 0, y: r["y"] ?? 0, width: r["w"] ?? 0, height: r["h"] ?? 0)
+    let plan = ShareAnnotationMath.plan(rawShapes(item["shapes"]), rect: rect, minStrokePx: (item["minStrokePx"] as? Double) ?? 0) { text, px in
+        CGFloat(text.unicodeScalars.count) * px * 0.56
+    }
+    let got = ShareAnnotationMath.recordedCalls(plan)
+    let want = (item["calls"] as? [[Any]]) ?? []
+    var mismatch: String?
+    if got.count != want.count { mismatch = "\(got.count) calls, web made \(want.count)" }
+    for (i, (g, w)) in zip(got, want).enumerated() where mismatch == nil {
+        let same = g.count == w.count && zip(g, w).allSatisfy { a, b in
+            if let s = a as? String { return s == (b as? String) }
+            if let x = a as? CGFloat, let y = (b as? NSNumber)?.doubleValue { return near(Double(x), y) }
+            return false
+        }
+        if !same { mismatch = "call \(i): swift \(g) vs web \(w)" }
+    }
+    check(mismatch == nil, "renderer makes the web's draw calls: \(item["name"] as? String ?? "?")" + (mismatch.map { " — \($0)" } ?? ""))
+}
+// Timeline markers: the web's geometry (left %, a 0.8 % minimum width).
+let span = ShareAnnotationMath.markerSpan(ShareAnnotationMarker(start: 3, end: 3), duration: 12)!
+check(near(span.left, 0.25) && near(span.width, 0.008), "zero-length marker keeps a 0.8 % sliver at its moment")
+let late = ShareAnnotationMath.markerSpan(ShareAnnotationMarker(start: 8, end: 30), duration: 12)!
+check(near(late.left, 8.0 / 12) && near(late.width, 4.0 / 12), "marker clamps to the duration")
+check(ShareAnnotationMath.marker(at: 5, in: [ShareAnnotationMarker(start: 1, end: 2), ShareAnnotationMarker(start: 4, end: 6)]) == 1,
+      "a time inside a range finds that marker")
+
 print(failures == 0 ? "CORE SELFTEST: ALL PASS" : "CORE SELFTEST: \(failures) FAILED")
 exit(failures == 0 ? 0 : 1)

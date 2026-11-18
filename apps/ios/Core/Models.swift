@@ -146,6 +146,14 @@ nonisolated struct VideoComment: Decodable, Sendable, Equatable, Hashable {
     var body: String
     var videoTime: Double?
     var createdAt: Date
+    /// The on-frame drawing posted with it (share page comments; nil = none).
+    var annotation: ShareAnnotation? = nil
+
+    /// A drawing worth showing.
+    var drawing: [ShareAnnotationShape]? {
+        guard let shapes = annotation?.shapes, !shapes.isEmpty else { return nil }
+        return shapes
+    }
 }
 
 nonisolated struct VideoCommentList: Decodable, Sendable {

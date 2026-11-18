@@ -9,7 +9,7 @@ import Foundation
 //   POST /api/video/:id/unlock {password} 200 {token} | 403 wrong | 429
 //   GET  /api/video/:id[?token&v]         the bytes (Range); 403 private unless the OWNER's bearer
 //   GET  /api/video/:id/comments[?token]  {comments, viewer} — 404 when comments are off
-//   POST /api/video/:id/comments[?token]  {body, authorName?, videoTime?, parentId?} — anyone;
+//   POST /api/video/:id/comments[?token]  {body, authorName?, videoTime?, parentId?, annotation?} — anyone;
 //                                         a bearer only ATTACHES who is posting
 //   GET  /api/video/:id/reactions?session {reactions, mine}
 //   POST /api/video/:id/reactions         {emoji, videoTime, sessionId} → {ok, mine} (same emoji toggles off)
@@ -36,6 +36,11 @@ struct ShareMeta: Decodable, Equatable {
     var currentVersion: Int?
     var ctaLabel: String?
     var ctaUrl: String?
+    /// The owner's annotation markers (output seconds) — ranges on the
+    /// scrubber, pills and Summary rows, the web's `meta.annotations`.
+    var annotations: [ShareAnnotationMarker]?
+    /// The owner's accent "#RRGGBB" (the markers' and the drawing's default ink).
+    var brandAccent: String?
 
     struct Chapter: Decodable, Equatable {
         var start: Double
@@ -60,6 +65,18 @@ struct ShareMeta: Decodable, Equatable {
         }
         return base
     }
+
+    /// The share page's accent: the owner's brand colour, else amber.
+    var accent: String {
+        if let accent = brandAccent, ShareAnnotationMath.isColor(accent) { return accent.lowercased() }
+        return ShareAnnotationMath.defaultAccent
+    }
+
+    /// Markers sorted by time (the API keeps the owner's order).
+    var markers: [ShareAnnotationMarker] { annotations ?? [] }
+
+    /// The markers the web lists as pills / Summary rows.
+    var pillMarkers: [ShareAnnotationMarker] { markers.filter(\.hasPill) }
 
     /// Chapters worth a Summary tab: the web hides a lone chapter at 0:00.
     var meaningfulChapters: [Chapter] {
@@ -285,12 +302,18 @@ final class ShareViewerAPI {
     }
 
     func postComment(_ videoID: String, token shareToken: String?, body: String, authorName: String?,
-                     videoTime: Double?, parentID: String?) async throws -> VideoComment {
+                     videoTime: Double?, parentID: String?, annotation: String? = nil) async throws -> VideoComment {
         var json: [String: Any] = ["body": body]
         if let authorName, !authorName.isEmpty { json["authorName"] = authorName }
         if let videoTime, parentID == nil { json["videoTime"] = videoTime }
         if let parentID { json["parentId"] = parentID }
-        let (data, status) = try await send(request("POST", url("/api/video/\(videoID)/comments", ["token": shareToken]), json: json))
+        var post = request("POST", url("/api/video/\(videoID)/comments", ["token": shareToken]), json: json)
+        // The drawing rides as the serializer's EXACT bytes (the web's
+        // JSON.stringify output), spliced in rather than re-encoded.
+        if let annotation, parentID == nil, let rest = post.httpBody.flatMap({ String(data: $0, encoding: .utf8) }), rest.hasPrefix("{") {
+            post.httpBody = Data(("{\"annotation\":" + annotation + (rest == "{}" ? "}" : "," + rest.dropFirst())).utf8)
+        }
+        let (data, status) = try await send(post)
         guard status == 200 || status == 201 else {
             throw failure(data, status, fallback: parentID == nil ? "Could not post comment" : "Could not post reply")
         }
@@ -322,9 +345,10 @@ final class ShareViewerAPI {
                 isOwner: ((try? c.decodeIfPresent(Bool.self, forKey: .isOwner)) ?? nil) ?? false,
                 body: body,
                 videoTime: time.map { max(0, $0) } ?? 0,
-                createdAt: created)
+                createdAt: created,
+                annotation: ((try? c.decodeIfPresent(ShareAnnotation.self, forKey: .annotation)) ?? nil).flatMap { $0.shapes.isEmpty ? nil : $0 })
         }
-        enum Keys: String, CodingKey { case commentId, parentId, authorName, authorImage, isOwner, body, videoTime, createdAt }
+        enum Keys: String, CodingKey { case commentId, parentId, authorName, authorImage, isOwner, body, videoTime, createdAt, annotation }
     }
 
     // MARK: Reactions
