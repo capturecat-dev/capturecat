@@ -19,9 +19,9 @@ import AppKit
 /// outDir for review — it never edits the source tree. DEBUG tooling.
 @MainActor
 enum InspectorValuesHarness {
-    private static var window: NSWindow!
-    private static var root: NSView!
-    private static var follower = InspectorTabFollower()
+    static var window: NSWindow!
+    static var root: NSView!
+    static var follower = InspectorTabFollower()
 
     static func run() -> Never {
         setbuf(stdout, nil)
@@ -123,7 +123,7 @@ enum InspectorValuesHarness {
 
     // MARK: - Selection
 
-    private static func apply(_ pick: InspectorValuesTranscript.Pick, to s: EditorShellSelection) {
+    static func apply(_ pick: InspectorValuesTranscript.Pick, to s: EditorShellSelection) {
         s.selectedZoomID = nil
         s.selectedTiltID = nil
         s.selectedHighlightID = nil
@@ -144,7 +144,7 @@ enum InspectorValuesHarness {
 
     // MARK: - Tree
 
-    private static func settle() async {
+    static func settle() async {
         for _ in 0..<4 {
             try? await Task.sleep(nanoseconds: 25_000_000)
             root?.layoutSubtreeIfNeeded()
@@ -152,7 +152,7 @@ enum InspectorValuesHarness {
     }
 
     /// The pane the column shows (the scroll view's one unhidden document child).
-    private static func visiblePane() -> NSView? {
+    static func visiblePane() -> NSView? {
         var column: InspectorColumnAppKit?
         walk(root) { if column == nil, let c = $0 as? InspectorColumnAppKit { column = c } }
         guard let column else { return nil }
@@ -161,18 +161,18 @@ enum InspectorValuesHarness {
         return scroll?.documentView?.subviews.first { !$0.isHidden }
     }
 
-    private static func walk(_ view: NSView, _ visit: (NSView) -> Void) {
+    static func walk(_ view: NSView, _ visit: (NSView) -> Void) {
         visit(view)
         for sub in view.subviews { walk(sub, visit) }
     }
 
-    private static func find(_ id: String, in root: NSView) -> NSView? {
+    static func find(_ id: String, in root: NSView) -> NSView? {
         var match: NSView?
         walk(root) { if match == nil, $0.inspectorSpecID == id { match = $0 } }
         return match
     }
 
-    private static func effectivelyVisible(_ view: NSView, in pane: NSView) -> Bool {
+    static func effectivelyVisible(_ view: NSView, in pane: NSView) -> Bool {
         var v: NSView? = view
         while let current = v, current !== pane {
             if current.isHidden { return false }
@@ -181,7 +181,7 @@ enum InspectorValuesHarness {
         return true
     }
 
-    private static func first<T: NSView>(_ type: T.Type, in root: NSView) -> T? {
+    static func first<T: NSView>(_ type: T.Type, in root: NSView) -> T? {
         var match: T?
         walk(root) { if match == nil, let t = $0 as? T { match = t } }
         return match
@@ -189,7 +189,7 @@ enum InspectorValuesHarness {
 
     // MARK: - Driving
 
-    private static func click(_ view: NSView, at point: NSPoint? = nil, down: Bool = true, up: Bool = true) {
+    static func click(_ view: NSView, at point: NSPoint? = nil, down: Bool = true, up: Bool = true) {
         let p = point ?? NSPoint(x: view.bounds.midX, y: view.bounds.midY)
         let location = view.convert(p, to: nil)
         func event(_ type: NSEvent.EventType) -> NSEvent? {
@@ -201,7 +201,7 @@ enum InspectorValuesHarness {
         if up, let e = event(.leftMouseUp) { view.mouseUp(with: e) }
     }
 
-    private static func drive(_ view: NSView, id: String, input: InspectorValuesTranscript.Input,
+    static func drive(_ view: NSView, id: String, input: InspectorValuesTranscript.Input,
                               project: Project) -> Bool {
         let scope = InspectorScope(settings: project.settings, project: project)
         switch input {

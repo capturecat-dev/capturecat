@@ -557,6 +557,11 @@ final class InspectorToggleControl: NSView {
         }
     }
 
+    #if DEBUG
+    /// Harness seam: the row's label.
+    var probeTitle: String { label.stringValue }
+    #endif
+
     init(_ text: String) {
         super.init(frame: .zero)
         label.stringValue = text
@@ -628,6 +633,11 @@ final class InspectorButton: NSControl {
     override var isEnabled: Bool {
         didSet { alphaValue = isEnabled ? 1 : 0.4 }
     }
+
+    #if DEBUG
+    /// Harness seam: red-text destructive styling.
+    var probeDestructive: Bool { destructive }
+    #endif
 
     /// Mutable label (e.g. "Choose Logo…" ↔ "Replace Logo…").
     var title: String {

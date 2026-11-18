@@ -84,6 +84,7 @@ final class LabViewController: UIViewController {
         if #available(iOS 26, *), A11yLab.start(arguments, lab: self) { return }
         if KitGalleryLab.start(arguments, lab: self) { return }
         if InspectorLab.start(arguments, lab: self) { return }
+        if EffectsParityLab.start(arguments, lab: self) { return }
         if TimelineEditsLab.start(arguments, in: self) { return }
         if EditorResizeLab.start(arguments, lab: self) { return }
         if FoldProbe.start(arguments, lab: self) { return }

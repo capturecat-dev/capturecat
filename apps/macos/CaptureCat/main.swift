@@ -77,6 +77,11 @@ if CaptureProbe.isRequested {
 if CommandLine.arguments.contains("--inspector-values-test") {
     MainActor.assumeIsolated { InspectorValuesHarness.run() }
 }
+// Effects parity: the Effects + Motion panes listed live per fixture state and
+// every effect control driven (apps/ios/scripts/ios-effects-parity.sh).
+if CommandLine.arguments.contains("--effects-parity") {
+    MainActor.assumeIsolated { EffectsParityHarness.run() }
+}
 #endif
 
 if CommandLine.arguments.contains("--inspector-probe") {

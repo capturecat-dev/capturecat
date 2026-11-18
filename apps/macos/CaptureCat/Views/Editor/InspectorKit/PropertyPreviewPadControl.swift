@@ -116,81 +116,52 @@ final class PropertyPreviewPadControl: NSView {
         CATransaction.setDisableActions(true)
         hideAll()
 
+        // The maths: InspectorPreviewMath (shared with the iOS preview rows).
         switch mode {
         case .parallax(let strength):
             // A foreground card pulses zoom while background marks drift at a
             // fraction of that motion — the depth cue parallax adds.
-            let cycle = 2.6
-            let p = (elapsed.truncatingRemainder(dividingBy: cycle)) / cycle
-            let zoom = 1 + 0.18 * sin(p * .pi)
-            let drift = CGFloat(zoom - 1) * CGFloat(strength) * 60
-            for (i, trail) in trailLayers.prefix(3).enumerated() {
+            let f = InspectorPreviewMath.parallax(elapsed: elapsed, size: bounds.size, strength: strength)
+            for (trail, mark) in zip(trailLayers.prefix(3), f.marks) {
                 trail.isHidden = false
                 trail.backgroundColor = NSColor.white.withAlphaComponent(0.3).cgColor
                 trail.cornerRadius = 2
-                let bx = bounds.width * (0.2 + CGFloat(i) * 0.3)
-                trail.frame = CGRect(x: bx - drift * 0.6 - 2, y: bounds.height - 16, width: 4, height: 4)
+                trail.frame = mark
             }
             cardLayer.isHidden = false
-            let cardSize = CGSize(width: bounds.width * 0.4, height: bounds.height * 0.46)
-            cardLayer.bounds = CGRect(origin: .zero, size: cardSize)
-            cardLayer.position = center
-            cardLayer.transform = CATransform3DMakeScale(CGFloat(zoom), CGFloat(zoom), 1)
+            cardLayer.bounds = CGRect(origin: .zero, size: f.cardSize)
+            cardLayer.position = f.center
+            cardLayer.transform = CATransform3DMakeScale(f.zoom, f.zoom, 1)
 
         case .motionBlur(let on, let strength):
-            // The story the real effect tells: sharp at rest, smeared only
-            // while moving fast. The dot glides left↔right on an ease-in-out
-            // (cosine) path — it PAUSES at each end, accelerates through the
-            // middle — and the smear length follows the instantaneous
-            // velocity, scaled by the user's Strength.
-            let cycle = 2.6
-            let p = (elapsed.truncatingRemainder(dividingBy: cycle)) / cycle   // 0…1
-            let phase = p * 2 * .pi
-            // Position: cosine sweep between 14% and 86% of the pad width.
-            let travel = bounds.width * 0.72
-            let x = bounds.width * 0.14 + travel * CGFloat(0.5 - 0.5 * cos(phase))
-            // Normalized speed 0…1 (|sin| of the phase — zero at the ends,
-            // max mid-flight), direction flips each half cycle.
-            let speed = abs(sin(phase))
-            let direction: CGFloat = sin(phase) >= 0 ? 1 : -1
-            let shapeSize: CGFloat = 12
-            // Smear extent: nothing at rest, up to ~34pt at full speed and
-            // strength 1 — the slider visibly changes the trail length.
-            let smear: CGFloat = on ? CGFloat(speed * max(0, min(1, strength))) * 34 : 0
-            if on && smear > 1 {
-                for (i, trail) in trailLayers.enumerated() {
-                    let f = CGFloat(i + 1) / CGFloat(trailLayers.count)
-                    trail.isHidden = false
-                    trail.backgroundColor = NSColor.white
-                        .withAlphaComponent(0.45 * Double(speed) * Double(1 - f) * min(1, strength + 0.3))
-                        .cgColor
-                    trail.cornerRadius = shapeSize / 2
-                    trail.frame = CGRect(
-                        x: x - direction * smear * f - shapeSize / 2,
-                        y: center.y - shapeSize / 2,
-                        width: shapeSize, height: shapeSize)
-                }
+            // Sharp at rest, smeared only while moving fast.
+            let f = InspectorPreviewMath.motionBlur(elapsed: elapsed, size: bounds.size, on: on, strength: strength)
+            let shapeSize = InspectorPreviewMath.MotionBlurFrame.dotSize
+            for (trail, dot) in zip(trailLayers, f.trail) {
+                trail.isHidden = false
+                trail.backgroundColor = NSColor.white.withAlphaComponent(dot.alpha).cgColor
+                trail.cornerRadius = shapeSize / 2
+                trail.frame = dot.frame
             }
             cardLayer.isHidden = false
             // The dot itself stretches slightly along the motion at speed —
             // the same cue CIMotionBlur produces on the real card.
-            let stretch = 1 + (on ? CGFloat(speed) * 0.5 * CGFloat(min(1, strength)) : 0)
-            cardLayer.transform = CATransform3DMakeScale(stretch, 1, 1)
+            cardLayer.transform = CATransform3DMakeScale(f.stretch, 1, 1)
             cardLayer.bounds = CGRect(origin: .zero, size: CGSize(width: shapeSize, height: shapeSize))
             cardLayer.cornerRadius = shapeSize / 2
-            cardLayer.position = CGPoint(x: x, y: center.y)
+            cardLayer.position = f.center
 
         case .frameStyle(let cornerRadius, let shadowRadius, let shadowOpacity):
+            let f = InspectorPreviewMath.frameStyle(size: bounds.size, cornerRadius: cornerRadius,
+                                                    shadowRadius: shadowRadius, shadowOpacity: shadowOpacity)
             cardLayer.isHidden = false
-            let cardSize = CGSize(width: bounds.width * 0.5, height: bounds.height * 0.6)
-            cardLayer.bounds = CGRect(origin: .zero, size: cardSize)
+            cardLayer.bounds = CGRect(origin: .zero, size: f.cardSize)
             cardLayer.position = center
             cardLayer.transform = CATransform3DIdentity
-            let scale = min(cardSize.width, cardSize.height) / 80
-            cardLayer.cornerRadius = CGFloat(cornerRadius) * scale * 0.6
+            cardLayer.cornerRadius = f.cornerRadius
             cardLayer.shadowColor = NSColor.black.cgColor
-            cardLayer.shadowOpacity = Float(shadowOpacity)
-            cardLayer.shadowRadius = CGFloat(shadowRadius) * scale * 0.3
+            cardLayer.shadowOpacity = f.shadowOpacity
+            cardLayer.shadowRadius = f.shadowRadius
             cardLayer.shadowOffset = .zero
 
         case .highlightMask(let opacity):
@@ -198,9 +169,9 @@ final class PropertyPreviewPadControl: NSView {
             dimLayer.frame = bounds
             dimLayer.backgroundColor = NSColor.black.withAlphaComponent(opacity).cgColor
             cardLayer.isHidden = false
-            let holeSize = CGSize(width: bounds.width * 0.32, height: bounds.height * 0.4)
+            let hole = InspectorPreviewMath.highlightHole(size: bounds.size)
             cardLayer.transform = CATransform3DIdentity
-            cardLayer.bounds = CGRect(origin: .zero, size: holeSize)
+            cardLayer.bounds = CGRect(origin: .zero, size: hole.size)
             cardLayer.position = center
             cardLayer.cornerRadius = 4
             cardLayer.zPosition = 1
@@ -208,4 +179,16 @@ final class PropertyPreviewPadControl: NSView {
         }
         CATransaction.commit()
     }
+
+    #if DEBUG
+    /// Harness seam: what the pad shows, in the shared vocabulary.
+    var probeMode: InspectorPreviewMath.Mode {
+        switch mode {
+        case .parallax(let strength): return .parallax(strength: strength)
+        case .motionBlur(let on, let strength): return .motionBlur(on: on, strength: strength)
+        case .frameStyle(let c, let r, let o): return .frameStyle(cornerRadius: c, shadowRadius: r, shadowOpacity: o)
+        case .highlightMask(let opacity): return .highlightMask(opacity: opacity)
+        }
+    }
+    #endif
 }

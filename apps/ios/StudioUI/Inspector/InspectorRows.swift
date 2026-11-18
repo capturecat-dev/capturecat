@@ -35,6 +35,11 @@ protocol InspectorRowView: UIView {
 // MARK: - Slider
 
 final class InspectorSliderRowView: UIView, InspectorRowView {
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT (`values-defect`): this slider writes one
+    /// step past the value it shows.
+    static var probeSkewWriteID: String?
+    #endif
     let spec: InspectorSlider
     let slider: CCSlider
     private weak var host: InspectorHost?
@@ -59,6 +64,10 @@ final class InspectorSliderRowView: UIView, InspectorRowView {
         slider.onChange = { [weak self] v in
             guard let self, let host = self.host else { return }
             host.session.begin(spec.id, name: spec.title)
+            var v = v
+            #if DEBUG
+            if Self.probeSkewWriteID == spec.id { v += spec.step ?? 0.05 }
+            #endif
             spec.write(host.scope, v)
             if let symbolFor = self.symbolFor { self.slider.symbol = symbolFor(v) }
         }
@@ -360,20 +369,54 @@ final class InspectorActionRowView: UIView, InspectorRowView {
 
 // MARK: - Caption
 
+/// Muted copy under a control. A caption with a longer story (the Mac's
+/// tooltip, `InspectorCaption.full`) carries an ⓘ key: a tap opens the
+/// whole explanation in place — the row grows on the house bounce, the copy
+/// cross-fades — and a second tap folds it back. VoiceOver always reads the
+/// whole story.
 final class InspectorCaptionRowView: UIView, InspectorRowView {
     let spec: InspectorCaption
     let label: UILabel
+    /// The ⓘ key (captions with a longer story only).
+    let moreKey: CCButton?
+    private(set) var isExpanded = false
+    private var shortText: String
     var rowID: String { spec.id }
 
     init(_ spec: InspectorCaption) {
         self.spec = spec
+        shortText = spec.fixed ?? ""
         label = ccLabel(spec.fixed ?? "", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
+        if let full = spec.full, full != spec.fixed {
+            let key = CCButton(symbol: "info.circle.fill", style: .ghost, size: .sm, radius: .md)
+            key.accessibilityLabelOverride = "More"
+            key.accessibilityHint = "Shows the whole explanation."
+            key.accessibilityIdentifier = "\(spec.id).more"
+            moreKey = key
+        } else {
+            moreKey = nil
+        }
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         label.adjustsFontForContentSizeCategory = true
         label.accessibilityIdentifier = spec.id
-        addSubview(label)
-        pinEdges(label, to: self)
+        label.accessibilityLabel = spec.full ?? spec.fixed
+        if let moreKey {
+            let row = UIStackView(arrangedSubviews: [label, moreKey])
+            row.alignment = .top
+            row.spacing = CCSpace.xs
+            moreKey.setContentHuggingPriority(.required, for: .horizontal)
+            moreKey.setContentCompressionResistancePriority(.required, for: .horizontal)
+            addSubview(row)
+            pinEdges(row, to: self)
+            moreKey.onTap = { [weak self] in
+                guard let self else { return }
+                self.setExpanded(!self.isExpanded, animated: true)
+            }
+        } else {
+            addSubview(label)
+            pinEdges(label, to: self)
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -381,9 +424,38 @@ final class InspectorCaptionRowView: UIView, InspectorRowView {
     func isRowVisible(_ scope: InspectorScope) -> Bool { spec.visible(scope) }
 
     func refresh(_ scope: InspectorScope) {
-        let text = spec.text(scope)
+        shortText = spec.text(scope)
+        let text = isExpanded ? (spec.full ?? shortText) : shortText
         if label.text != text { label.text = text }
+        if spec.full == nil { label.accessibilityLabel = text }
     }
+
+    /// Opens (or folds) the whole explanation: the copy cross-fades while the
+    /// row grows on the bounce (its pushed bottom edge only).
+    func setExpanded(_ expanded: Bool, animated: Bool) {
+        guard let moreKey, expanded != isExpanded else { return }
+        isExpanded = expanded
+        moreKey.symbol = expanded ? "chevron.up" : "info.circle.fill"
+        moreKey.accessibilityLabelOverride = expanded ? "Less" : "More"
+        moreKey.accessibilityHint = expanded ? "Folds the explanation." : "Shows the whole explanation."
+        let text = expanded ? (spec.full ?? shortText) : shortText
+        guard animated, window != nil else {
+            label.text = text
+            return
+        }
+        let root = ccLayoutRoot
+        UIView.transition(with: label, duration: 0.18, options: .transitionCrossDissolve) { self.label.text = text }
+        if CCMotion.reduceMotion {
+            root.layoutIfNeeded()
+        } else {
+            CCMotion.run(duration: 0.38, curve: .bounce, { root.layoutIfNeeded() })
+        }
+    }
+
+    #if DEBUG
+    /// What the ⓘ key opens — the Mac's tooltip: the story, else the line.
+    var probeFull: String? { spec.full ?? spec.fixed }
+    #endif
 }
 
 // MARK: - Feature key

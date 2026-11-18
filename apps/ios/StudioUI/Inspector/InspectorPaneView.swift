@@ -15,6 +15,10 @@ final class InspectorPaneView: UIView {
     /// Probe seam — INJECTED DEFECT: show/hide snaps (no growth animation).
     static var probeSnapGrowth = false
     #endif
+    #if DEBUG
+    /// Probe seam — INJECTED DEFECT (`drop-control`): this row never shows.
+    static var probeDropRowID: String?
+    #endif
     /// The last growth: the section that grew and its height before/after.
     private(set) var lastGrowth: (section: UIView, from: CGFloat, to: CGFloat)?
 
@@ -101,7 +105,11 @@ final class InspectorPaneView: UIView {
             var leading: [Int] = []
             for i in visible {
                 let row = spec.rows[i - base]
-                if let rowTitle = InspectorPanelOption.title(of: row, scope: scope) {
+                if var rowTitle = InspectorPanelOption.title(of: row, scope: scope) {
+                    // Chips the Mac titles by their section ("Slide" under
+                    // Slide) take a key name for what they pick.
+                    if case .choice(let c) = row, c.title == spec.title,
+                       let name = InspectorPanelOption.choiceKeyNames[c.id] { rowTitle = name }
                     chunks.append((rowTitle, leading + [i], row))
                     leading = []
                 } else if chunks.isEmpty {
@@ -176,7 +184,10 @@ final class InspectorPaneView: UIView {
             var anyRow = false
             for row in view.rows {
                 defer { index += 1 }
-                let show = specShows && row.isRowVisible(scope) && (focus?.contains(index) ?? true)
+                var show = specShows && row.isRowVisible(scope) && (focus?.contains(index) ?? true)
+                #if DEBUG
+                if row.rowID == Self.probeDropRowID { show = false }
+                #endif
                 if show { anyRow = true }
                 if row.isHidden == show {
                     row.isHidden = !show
@@ -229,6 +240,8 @@ final class InspectorPaneView: UIView {
 @MainActor
 final class InspectorSectionView: UIView {
     let rows: [InspectorRowView]
+    /// The section's title (the Mac box's header), nil for an untitled one.
+    let title: String?
     private let stack = UIStackView()
     private var dividers: [UIView] = []
     private let header: UILabel?
@@ -244,6 +257,7 @@ final class InspectorSectionView: UIView {
 
     init(title: String?, rows: [InspectorRowView]) {
         self.rows = rows
+        self.title = title
         if let title {
             let label = ccLabel(title.uppercased(), font: CCFont.scaled(10, .semibold, .caption2, max: 14),
                                 color: CCTheme.color.faintForeground)
@@ -314,6 +328,12 @@ struct InspectorPanelOption: Equatable {
     let section: String?
     /// A choice that is the current value.
     let isCurrent: Bool
+
+    /// Key names for chip rows titled by their section on the Mac (which
+    /// shows them under the section's header, with no label of their own).
+    static let choiceKeyNames: [String: String] = [
+        "effects.slideStyle": "Direction", "effects.curtainCorner": "Corner", "blocks.tiltPreset": "Presets",
+    ]
 
     @MainActor
     static func title(of row: InspectorRow, scope: InspectorScope) -> String? {

@@ -97,6 +97,11 @@ class InspectorPadRowView: UIView, InspectorRowView {
         pad.accessibilityValueProvider = { text }
     }
 
+    #if DEBUG
+    /// The pad's title as drawn (nil for an untitled pad).
+    var probeTitle: String? { titleLabel?.text }
+    #endif
+
     /// Press and release at a shared-math fraction, through the touch path.
     func probePress(fx: CGFloat, fy: CGFloat) {
         layoutIfNeeded()
@@ -294,9 +299,27 @@ final class InspectorTiltPad: InspectorPadRowView {
         super.init(id: id, title: "Skew", undoName: "Tilt", padHeight: 132, host: host, visible: visible)
         pad.knobAreaInset = 10
         for line in [crossH, crossV] { pad.contentLayer.addSublayer(line) }
-        card.cornerRadius = 4
-        card.cornerCurve = .continuous
-        card.backgroundColor = UIColor.white.withAlphaComponent(0.82).cgColor
+        // The Mac's mini screen card (MiniTiltCardLayer): a white gradient
+        // card with faux content lines, warped by the REAL TiltMath homography.
+        card.shadowColor = UIColor.black.withAlphaComponent(0.35).cgColor
+        card.shadowOpacity = 1
+        card.shadowRadius = 3
+        card.shadowOffset = CGSize(width: 0, height: 2)
+        let gradient = CAGradientLayer()
+        gradient.colors = [UIColor.white.withAlphaComponent(0.9).cgColor, UIColor.white.withAlphaComponent(0.55).cgColor]
+        gradient.startPoint = CGPoint(x: 0.5, y: 0)
+        gradient.endPoint = CGPoint(x: 0.5, y: 1)
+        gradient.cornerRadius = 4
+        gradient.cornerCurve = .continuous
+        gradient.frame = CGRect(origin: .zero, size: Self.cardSize)
+        for (i, (width, alpha)) in [(26.0, 0.25), (40.0, 0.15), (34.0, 0.15)].enumerated() {
+            let line = CALayer()
+            line.backgroundColor = UIColor.black.withAlphaComponent(alpha).cgColor
+            line.cornerRadius = 1
+            line.frame = CGRect(x: 6, y: 6 + CGFloat(i) * 6, width: width, height: 3)
+            gradient.addSublayer(line)
+        }
+        card.addSublayer(gradient)
         pad.contentLayer.addSublayer(card)
         let doubleTap = UITapGestureRecognizer(target: self, action: #selector(resetTilt))
         doubleTap.numberOfTapsRequired = 2
@@ -358,16 +381,18 @@ final class InspectorTiltPad: InspectorPadRowView {
         CATransaction.setDisableActions(true)
         crossH.frame = CGRect(x: 10, y: size.height / 2 - 0.5, width: size.width - 20, height: 1)
         crossV.frame = CGRect(x: size.width / 2 - 0.5, y: 10, width: 1, height: size.height - 20)
-        card.bounds = CGRect(x: 0, y: 0, width: size.width * 0.34, height: size.height * 0.4)
+        card.bounds = CGRect(origin: .zero, size: Self.cardSize)
         card.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        var t = CATransform3DIdentity
-        t.m34 = -1 / 300
-        t = CATransform3DRotate(t, CGFloat(a.pitch * .pi / 180), 1, 0, 0)
-        t = CATransform3DRotate(t, CGFloat(a.yaw * .pi / 180), 0, 1, 0)
-        t = CATransform3DRotate(t, CGFloat(a.roll * .pi / 180), 0, 0, 1)
-        card.transform = t
+        // The SAME homography the preview and exporter use (the Mac pad's),
+        // about the card's centre.
+        card.transform = CATransform3D(TiltMath.projectionTransform(
+            pitchDegrees: a.pitch, yawDegrees: a.yaw, rollDegrees: a.roll, center: .zero,
+            distance: TiltMath.perspectiveDistance(for: Self.cardSize)))
         CATransaction.commit()
     }
+
+    /// The Mac's MiniTiltCardLayer size.
+    static let cardSize = CGSize(width: 64, height: 40)
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -386,8 +411,8 @@ final class InspectorTiltPad: InspectorPadRowView {
 final class InspectorPointPad: InspectorPadRowView {
     private let read: (InspectorScope) -> CGPoint
     private let write: (InspectorScope, CGPoint) -> Void
-    private let crossH = CALayer()
-    private let crossV = CALayer()
+    /// Framing guides at the thirds (the Mac ZoomFocusPadControl's).
+    private let thirds = (0..<4).map { _ in CALayer() }
 
     init(id: String, title: String, host: InspectorHost, visible: @escaping (InspectorScope) -> Bool,
          read: @escaping (InspectorScope) -> CGPoint, write: @escaping (InspectorScope, CGPoint) -> Void) {
@@ -395,7 +420,7 @@ final class InspectorPointPad: InspectorPadRowView {
         self.write = write
         super.init(id: id, title: title, undoName: title, padHeight: 112, host: host, visible: visible)
         pad.knobAreaInset = 0
-        for line in [crossH, crossV] { pad.contentLayer.addSublayer(line) }
+        for line in thirds { pad.contentLayer.addSublayer(line) }
         ccOnThemeChange { [weak self] in self?.applyCross() }
         applyCross()
     }
@@ -404,7 +429,7 @@ final class InspectorPointPad: InspectorPadRowView {
 
     private func applyCross() {
         let ink: UIColor = CCTheme.isDark(traitCollection) ? .white : .black
-        for line in [crossH, crossV] { line.backgroundColor = ink.withAlphaComponent(0.10).cgColor }
+        for line in thirds { line.backgroundColor = ink.withAlphaComponent(0.08).cgColor }
     }
 
     override func fraction(at point: CGPoint) -> CGPoint {
@@ -431,8 +456,10 @@ final class InspectorPointPad: InspectorPadRowView {
         pad.setKnob(CGPoint(x: min(1, max(0, p.x)), y: min(1, max(0, p.y))), animated: true)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        crossH.frame = CGRect(x: 0, y: size.height / 2 - 0.5, width: size.width, height: 1)
-        crossV.frame = CGRect(x: size.width / 2 - 0.5, y: 0, width: 1, height: size.height)
+        for (i, f) in [1.0 / 3, 2.0 / 3, 1.0 / 3, 2.0 / 3].enumerated() {
+            thirds[i].frame = i < 2 ? CGRect(x: size.width * f - 0.5, y: 4, width: 1, height: size.height - 8)
+                                    : CGRect(x: 4, y: size.height * f - 0.5, width: size.width - 8, height: 1)
+        }
         CATransaction.commit()
     }
 

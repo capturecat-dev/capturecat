@@ -289,6 +289,14 @@ frozen transcript (`StudioHarness/InspectorValuesGoldens`).
 - Undo: every edit is one step (`InspectorEditSession`: snapshot at the press, field-level
   restore at undo; `smoothCursor`/`autoHideCursor` — which ProjectSettings' decoder forces off on
   every load — are restored directly).
+- **Effects parity** (2026-11-18, `scripts/ios-effects-parity.sh`): every control the Mac's Effects and Motion panes
+  draw — including the rows beyond the shared spec: the live preview pads (`InspectorLivePreviewRow`,
+  drawn from the shared `InspectorPreviewMath`, the Mac pads' maths), the tilt pad's card (the shared `TiltMath`
+  homography), Focus and Offset, the curtain colour + Reset and logo, captions with their whole explanation
+  (the ⓘ key opens the Mac tooltip's story in place) — is reachable on a phone through the drill-down bar,
+  whose sub-options follow the pane as values reveal rows. `EffectsParity.iosOnly` names what iOS adds (Auto Zoom
+  in the pane); `EffectsParity.macStaleSelection` the one Mac display defect not ported (the tilt presets'
+  selected chip).
 - Feature keys only call closures, wired by 4e/4f at merge: `onTranscribe`, `onAutoZoom`,
   `onRemoveBackground` (also called when a Cutout/Pop-out look is picked, like the Mac's
   ensureMask), `onRecordVoiceOver`, `onShowHistory`; `transcription` feeds the Subtitles status.
@@ -448,6 +456,7 @@ row lower — reported, not gated, and open.
     apps/ios/scripts/ios-vectors.sh         # the Mac's golden vectors run INSIDE the iOS Simulator vs the Mac's output (exact / ≤1e-12; known iOS differences listed) + every cursor raster vs the Mac's --web-cursor-sprites, byte for byte
     apps/ios/scripts/kit-gallery.sh         # the studio controls, every state, both themes, iPhone + iPad: PNGs, structure, behaviour, motion SEQUENCES mid-flight (+ injected-snap self-test)
     apps/ios/scripts/ios-inspector.sh       # the inspector: every control of the 9 panes vs the Mac's frozen transcript, one undo step per edit, touch targets, VoiceOver, Dynamic Type, re-theme, column layout / the panel a pane tool opens (mid-flight, never over the stage), motion SEQUENCES (+ injected-snap self-test)
+    apps/ios/scripts/ios-effects-parity.sh  # every Mac EFFECT setting on iOS, 1:1: an unsandboxed scratch Mac `--effects-parity` lists the LIVE Effects + Motion pane views per fixture state (each effect off / on; zoom, tilt, zoomtilt, highlight, depth focus, blur selected) and drives every control; StudioLab `--effects-parity` lists the same through the real editor (phone: the drill-down bar and EVERY sub-option panel; iPad: the column) and drives the same script, one undo step per edit — both lists must equal the Mac's line for line (+ injected drop-control / values-defect self-tests must FAIL)
     apps/ios/scripts/ios-history.sh         # History (Studio 4f): rows, compare, preview, restore, Merge Review vs the Mac's --history-transcript, line for line; motion sequences; INJECT= must FAIL
     apps/ios/scripts/ios-cloud-sync.sh      # sync (Phase 5): the Mac's --cloud-sync-test engine sections replayed on iOS (every line == the Mac's), the iOS studio's sync in the real editor (clone, debounced If-Match pushes, merges, Merge Review, cloud History, offline queue, moved container, inbox take, status dot mid-flight), and a Mac ↔ iOS round trip with the REAL Mac binary; INJECT=drop-if-match|merge-wrong-side|lose-unknown-key must FAIL
     apps/ios/scripts/ios-editor-resize.sh   # iPhone Duo fold / unfold: the real editor resized live between the outer (compact) and inner (regular) displays mid-playback — layout per size class, regions inside and clear, History style, project / selection / undo / playback kept; then a crease (top to bottom, then side to side) through FoldingDisplay's seam: stage + transport on one side, timeline / tool bar / inspector on the other, nothing and no title on the crease; then on its side (compact height: the tool rail + side panel). Every arrangement: the one transport row, the timeline's playhead on its viewport's centre, the tool bar's place; a pane tool's panel caught MID-FLIGHT and never over the stage (+ injected ignores-size-class / ignores-crease / snap-panel must FAIL)

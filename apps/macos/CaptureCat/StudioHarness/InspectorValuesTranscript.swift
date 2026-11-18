@@ -441,7 +441,7 @@ enum InspectorValuesTranscript {
         /// Apply a selection (the editor's shared selection), then settle.
         var select: (Pick) async -> Void
         /// Is the control with `id` on screen in the shown pane?
-        var isVisible: (String) -> Bool
+        var isVisible: (String) async -> Bool
         /// The comparable ids visible in the shown pane, sorted.
         var visibleIDs: (InspectorTab) -> [String]
         /// Drive the control; false when it could not (not found).
@@ -454,11 +454,13 @@ enum InspectorValuesTranscript {
     }
 
     /// Replays the script; returns the transcript lines.
-    static func run(project: Project, selection: EditorShellSelection, driver: Driver) async -> [String] {
-        var lines = [header]
+    /// `script` / `title` replace the nine-pane script (EffectsParity replays its own).
+    static func run(project: Project, selection: EditorShellSelection, driver: Driver,
+                    script: [Step]? = nil, title: String? = nil) async -> [String] {
+        var lines = [title ?? header]
         var lastVisible: [String] = []
         var lastTab: InspectorTab?
-        for step in steps {
+        for step in script ?? steps {
             var line = describe(step)
             let before = snapshot(project, selection: selection)
             switch step {
@@ -469,7 +471,7 @@ enum InspectorValuesTranscript {
                     await driver.showTab(tab)
                     lastTab = tab
                 }
-                if !driver.isVisible(id) {
+                if await !driver.isVisible(id) {
                     line += " — HIDDEN"
                 } else if await driver.drive(id, input) == false {
                     line += " — NOT DRIVEN"

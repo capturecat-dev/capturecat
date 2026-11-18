@@ -44,6 +44,7 @@ final class MotionFeelPaneAppKit: NSView {
         motionBox.addRow(speedChips)
         motionBox.addRow(speedPad, attached: true)
         speedPad.heightAnchor.constraint(equalToConstant: 84).isActive = true
+        speedPad.inspectorSpecID = "motion.speedPad"
         motionBox.addRow(speedCaption, attached: true)
         motionBox.addRow(zoomLevelSlider)
         motionBox.addRow(zoomCaption, attached: true)

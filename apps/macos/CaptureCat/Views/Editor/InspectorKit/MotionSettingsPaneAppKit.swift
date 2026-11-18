@@ -131,6 +131,8 @@ final class MotionSettingsPaneAppKit: NSView {
         zoomPreviewPad.heightAnchor.constraint(equalToConstant: 96).isActive = true
         zoomBox.addRow(followCursorToggle)
         focusPad.inspectorSpecID = "blocks.focusPad"
+        zoomPreviewPad.inspectorSpecID = "blocks.zoomPreviewPad"
+        highlightPad.inspectorSpecID = "blocks.highlightPad"
         offsetPad.inspectorSpecID = "blocks.offsetPad"
         tiltPad.inspectorSpecID = "blocks.tiltPad"
         zoomBox.addRow(focusPad)
@@ -402,44 +404,19 @@ final class MotionSpeedPadControl: NSView {
 
     deinit { timer?.invalidate() }
 
-    /// Analytic response of the real zoom spring (ω = 2.5/animDur, ζ = 0.88).
-    private static func springResponse(_ u: Double, animDur: Double) -> Double {
-        guard u > 0 else { return 0 }
-        let omega = 2.5 / animDur
-        let zeta = 0.88
-        let damped = omega * (1 - zeta * zeta).squareRoot()
-        return 1 - exp(-zeta * omega * u)
-            * (cos(damped * u) + (zeta * omega / damped) * sin(damped * u))
-    }
-
-    private static func demoZoom(at t: Double, cycle: Double, animDur: Double) -> Double {
-        let half = cycle / 2
-        return t < half
-            ? 1 + 0.5 * springResponse(t - 0.2, animDur: animDur)
-            : 1 + 0.5 * (1 - springResponse(t - half - 0.2, animDur: animDur))
-    }
-
     private func tick() {
         let size = bounds.size
         guard size.width > 1 else { return }
-        let animDur = max(0.2, duration)
-        let cycle = max(2.4, animDur * 2 + 1.2)
-        let t = CACurrentMediaTime().truncatingRemainder(dividingBy: cycle)
-        let zoom = Self.demoZoom(at: t, cycle: cycle, animDur: animDur)
+        // The maths: InspectorPreviewMath (shared with the iOS preview rows).
+        let f = InspectorPreviewMath.motionSpeed(elapsed: CACurrentMediaTime(), size: size, duration: duration)
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        let w = size.width * 0.44
-        let h = size.height * 0.62
-        card.bounds = CGRect(x: 0, y: 0, width: w, height: h)
-        card.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        card.bounds = CGRect(origin: .zero, size: f.cardSize)
         // scaleEffect(zoom, anchor: (0.38, 0.42)) — replicate via anchorPoint.
-        card.anchorPoint = CGPoint(x: 0.38, y: 0.42)
-        card.position = CGPoint(
-            x: size.width / 2 - w / 2 + w * 0.38,
-            y: size.height / 2 - h / 2 + h * 0.42
-        )
-        card.transform = CATransform3DMakeScale(zoom, zoom, 1)
+        card.anchorPoint = f.anchor
+        card.position = f.position
+        card.transform = CATransform3DMakeScale(f.zoom, f.zoom, 1)
         CATransaction.commit()
     }
 }
@@ -560,6 +537,12 @@ final class TiltPadControl: NSView {
         refresh()
         onChange?(0, 0)
     }
+
+    #if DEBUG
+    /// Harness seam: the title and value pill as drawn.
+    var probeTitle: String { titleLabel.stringValue }
+    var probePill: String { valuePill.stringValue }
+    #endif
 
     private func refresh() {
         valuePill.stringValue = String(format: "%.0f° / %.0f°", pitch, yaw)
@@ -758,6 +741,12 @@ final class ZoomFocusPadControl: NSView {
         pillBackground.layer?.backgroundColor = ink.withAlphaComponent(0.07).cgColor
         needsDisplay = true
     }
+
+    #if DEBUG
+    /// Harness seam: the title and value pill as drawn.
+    var probeTitle: String { titleLabel.stringValue }
+    var probePill: String { valuePill.stringValue }
+    #endif
 
     private func refreshPill() {
         valuePill.stringValue = "\(Int((focal.x * 100).rounded()))% / \(Int((focal.y * 100).rounded()))%"

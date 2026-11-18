@@ -110,6 +110,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     /// the panel resizes on the growth curve; else it follows the pane's own
     /// growth frame by frame).
     var onPanelContentChange: ((_ animated: Bool) -> Void)?
+    /// The shown pane re-read the model (its sub-options may have changed).
+    var onPaneRefresh: (() -> Void)?
     private var reportedContentHeight: CGFloat = -1
     private var switchingPane = false
 
@@ -532,6 +534,10 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             let tab = self.selection.inspectorTab
             self.show(tab, animated: self.view.window != nil)
             self.visiblePane?.refresh(self.scope)
+            // A value that reveals or hides rows changes the sub-options the
+            // tool bar offers (Slide on → Direction, Bounce, Speed …) even
+            // when the open panel's own rows did not change.
+            self.onPaneRefresh?()
         })
     }
 

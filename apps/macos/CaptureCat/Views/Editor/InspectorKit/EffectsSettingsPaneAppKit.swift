@@ -131,6 +131,11 @@ final class EffectsSettingsPaneAppKit: NSView {
         blurBox.addRow(blurCaption, attached: true)
         fullWidth(blurBox)
 
+        // The preview pads carry their shared row ids (the parity harness lists them).
+        slidePad.inspectorSpecID = "effects.slidePad"
+        parallaxPad.inspectorSpecID = "effects.parallaxPad"
+        blurPad.inspectorSpecID = "effects.motionBlurPad"
+
         let scope: () -> InspectorScope? = { [weak self] in self?.scope }
         slideToggle.bind(EffectsPane.slide, scope)
         slideChips.bind(EffectsPane.slideStyle, scope)
