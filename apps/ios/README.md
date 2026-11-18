@@ -5,8 +5,10 @@ through the same cloud projects, and turns the iPhone into a wireless screen sou
 Mac recordings.
 
 Rules are the Mac app's (see the repo's `CLAUDE.md`): **UIKit only, never SwiftUI**; no
-system Liquid Glass chrome (no visible UINavigationBar / UITabBar / UIToolbar /
-UIAlertController — in-content bars and house sheets instead); the house kit in `Kit/`
+system bars (no visible UINavigationBar / UITabBar / UIToolbar / UIAlertController —
+in-content bars and house sheets instead); the studio editor's FLOATING chrome is the
+kit's own Liquid Glass (`CCGlassView`, iOS 26 — the owner's call, 2026-11-18; the Mac
+app stays flat), its content never is; the house kit in `Kit/`
 (a UIKit port of the Mac's CCKit tokens, materials, motion and icon kit); state reaches
 views through `withObservationTracking` loops over `@Observable` stores.
 
@@ -156,6 +158,7 @@ The studio's editor controls (Studio 4a — the Mac's InspectorKit at touch scal
 | `CCAlert` | dialog / confirmation sheet | `addButton(_:role:action:)` (async actions show busy, throws → inline error), `symbol` + `tone: .destructive`, `presentation: .sheet` (docked to the bottom on compact width, grows upward, swipe to cancel); `setButtonEnabled(_:_:)` (e.g. a destructive action gated on a typed word); `CCAlert.confirm(…destructive:symbol:presentation:…)` |
 | `CCHaptics` | step / detent feedback | `selection()`, `detent()`, `prepare()`, `light()`; DEBUG `probeLog` |
 | `CCPadView` | 2D drag pad: recessed well + floating knob (Studio 4d) | `init(title:)`, `onTouch(phase, point)` (raw touches; the host maps them), `setKnob(_:animated:)` (springs unless dragging), `knobAreaInset`, `showsKnob`, `contentLayer` (host drawing), `onNudge` + `accessibilityValueProvider` (adjustable, up/down actions), `probePress(at:)` |
+| `CCGlassView` / `CCGlassGroup` | Liquid Glass for floating chrome only (iOS 26): `UIGlassEffect` shaped by kit radii, tinted by tokens; `UIGlassContainerEffect` so neighbours merge and morph | `CCGlassView(shape: .capsule / .rounded(r) / .top(r) / .leading(r), tint:, interactive:)`, `contentView`, `CCGlassView.wrapping(control, …)` (a glass key: the control inside keeps its 44 pt target and drives interactive glass), `fallbackTint`, `castsShadow`; Reduce Transparency → the opaque raised `CCMaterial`, Increase Contrast → a 1 pt edge; `CCGlassGroup(spacing:)`; probes `isGlass`, `probeEdgeWidth`, `UIView.ccGlassEffectViews()`, `ccIsOnGlass` |
 | `CCIconRail` | icon + label switcher, vertical rail or horizontal strip, one gliding chip (Studio 4d) | `init(items:selectedIndex:axis:trailing:)`, `axis`, `onSelect`, `onTrailing` (a plain key, never selected), `setSelectedIndex(_:animated:)`; `probeChipLayer`, `probeTap` |
 
 Additive since 4d: `CCSelect.overrideTitle` (shown in place of the choice — "Custom" while a

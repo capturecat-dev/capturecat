@@ -51,6 +51,9 @@ final class EditorTransportBar: UIView {
     let playhead = EditorPlayheadReadout()
 
     private let scroll = CCScrollView()
+    /// The row's keys ride a floating glass capsule (Liquid Glass; the
+    /// kit's opaque material under Reduce Transparency).
+    let glass = CCGlassView(shape: .capsule, interactive: true)
     private let row = UIStackView()
     private let hairline = UIView()
 
@@ -123,14 +126,22 @@ final class EditorTransportBar: UIView {
         scroll.alwaysBounceHorizontal = false
         scroll.delaysContentTouches = false
         scroll.addSubview(row)
-        addSubview(scroll)
+        glass.translatesAutoresizingMaskIntoConstraints = false
+        glass.accessibilityIdentifier = "studio.transport.glass"
+        addSubview(glass)
+        glass.contentView.addSubview(scroll)
         hairline.translatesAutoresizingMaskIntoConstraints = false
         hairline.isUserInteractionEnabled = false
         addSubview(hairline)
         playhead.setContentCompressionResistancePriority(.required, for: .horizontal)
         NSLayoutConstraint.activate([
-            scroll.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor),
+            glass.leadingAnchor.constraint(equalTo: safeAreaLayoutGuide.leadingAnchor, constant: 6),
+            glass.trailingAnchor.constraint(equalTo: safeAreaLayoutGuide.trailingAnchor, constant: -6),
+            glass.topAnchor.constraint(equalTo: topAnchor, constant: 3),
+            glass.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -3),
+            // The keys keep the row's full 44 pt (they reach past the capsule).
+            scroll.leadingAnchor.constraint(equalTo: glass.contentView.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: glass.contentView.trailingAnchor),
             scroll.topAnchor.constraint(equalTo: topAnchor),
             scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
             row.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: 10),

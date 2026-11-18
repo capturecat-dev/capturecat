@@ -1178,15 +1178,22 @@ enum A11yLab {
         await settle(0.3)
         let border1 = alpha(CCTheme.color.border), muted1 = alpha(CCTheme.color.mutedForeground)
         var hairlines: [CGFloat] = []
+        var glassEdges: [CGFloat] = []
         walk(editor.view) { v in
             if let base = v.layer.sublayers?.first(where: { $0.name == "ccmat.base" }), v.bounds.width > 12, v.bounds.height > 12 {
                 hairlines.append(base.borderWidth)
             }
+            // The floating chrome's Liquid Glass: a clear 1 pt edge.
+            if let glass = v as? CCGlassView, glass.isGlass, !glass.isHidden, glass.window != nil {
+                glassEdges.append(glass.probeEdgeWidth)
+            }
         }
         CCAccessibility.forcedIncreaseContrast = nil
         await settle(0.3)
-        check("increase-contrast", border1 > border0 * 2 && muted1 > muted0 && !hairlines.isEmpty && hairlines.allSatisfy { $0 >= 1 },
-              String(format: "border α %.2f → %.2f, secondary ink α %.2f → %.2f, %d dressed surfaces at a 1 pt hairline", border0, border1, muted0, muted1, hairlines.filter { $0 >= 1 }.count))
+        let glassOK = !CCGlassView.isAvailable || (!glassEdges.isEmpty && glassEdges.allSatisfy { $0 >= 1 })
+        check("increase-contrast", border1 > border0 * 2 && muted1 > muted0 && !hairlines.isEmpty && hairlines.allSatisfy { $0 >= 1 } && glassOK,
+              String(format: "border α %.2f → %.2f, secondary ink α %.2f → %.2f, %d dressed surfaces at a 1 pt hairline, %d/%d glass surfaces with a 1 pt edge",
+                     border0, border1, muted0, muted1, hairlines.filter { $0 >= 1 }.count, glassEdges.filter { $0 >= 1 }.count, glassEdges.count))
 
         let scrim0 = alpha(CCTheme.color.overlay)
         CCAccessibility.forcedReduceTransparency = true

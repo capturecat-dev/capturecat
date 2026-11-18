@@ -72,6 +72,9 @@ final class CCButton: UIControl {
     var style: Style { didSet { applyTheme(animated: true) } }
     /// Icon ink other than the style's (the Mac toolbar's red trash key).
     var tintOverride: UIColor? { didSet { applyTheme() } }
+    /// Title AND icon ink other than the style's (a ghost key on tinted
+    /// glass — the glass Export key's white).
+    var inkOverride: UIColor? { didSet { applyTheme() } }
     var size: Size {
         didSet {
             label.font = size.font
@@ -318,9 +321,10 @@ final class CCButton: UIControl {
                 fill = fill.ccBlended(0.14, of: dark ? .white : .black, traits: traits)
             }
         }
-        label.textColor = isHighlighted && style == .link ? text.withAlphaComponent(0.6) : text
+        let ink = inkOverride ?? text
+        label.textColor = isHighlighted && style == .link ? ink.withAlphaComponent(0.6) : ink
         icon.tintColor = tintOverride ?? label.textColor
-        spinner.color = text
+        spinner.color = ink
         layer.borderWidth = (style == .outline || style == .secondary) ? 1 : 0
         layer.borderColor = cc(border)
         let resolved = fill.resolvedColor(with: traits)

@@ -20,7 +20,15 @@ import UIKit
 ///
 /// Keys are the kit's rail keys (`CCIconRailKey`: ≥ 64 × 56 pt, VoiceOver
 /// buttons labelled by their titles, keyboard-focusable). The bar scrolls
-/// along its axis. Where an inspector column is always on screen (iPad, the
+/// along its axis.
+///
+/// The keys ride a FLOATING Liquid Glass capsule (`CCGlassView`, iOS 26):
+/// inset from the screen's edges (a phone's bottom bar drops toward the
+/// home indicator, as system bars float), as long as its level's keys and
+/// no longer than the room — so the capsule MORPHS when a level change
+/// brings more or fewer keys (its far edge, the pushed one, on the house
+/// bounce; a cross-fade under Reduce Motion). Reduce Transparency puts the
+/// kit's opaque raised material in the glass's place. Where an inspector column is always on screen (iPad, the
 /// iPhone Duo's crease layouts) the pane tools are left out.
 @MainActor
 final class EditorToolBar: UIView {
@@ -57,16 +65,22 @@ final class EditorToolBar: UIView {
     /// A key was tapped (the key itself anchors any sheet it opens).
     var onTool: ((Tool, UIView) -> Void)?
 
-    var axis: Axis = .horizontal { didSet { if axis != oldValue { relayout(); rebuild(animated: false, direction: 0) } } }
+    var axis: Axis = .horizontal { didSet { if axis != oldValue { relayout(); restyleChrome(); rebuild(animated: false, direction: 0) } } }
     var showsPaneTools = true { didSet { if showsPaneTools != oldValue { rebuild(animated: false, direction: 0) } } }
     /// Docked to the screen's edge (a hairline on the inner edge, keys kept
     /// inside the safe area) or a row on the region (iPad).
-    var docked = true { didSet { if docked != oldValue { applyDocking() } } }
+    var docked = true { didSet { if docked != oldValue { applyDocking(); relayout() } } }
     private(set) var mode: Mode = .tools
     /// The pane level's options (as last set).
     private(set) var options: [InspectorPanelOption] = []
 
     private let scroll = CCScrollView()
+    /// The floating glass capsule the keys ride.
+    private let glass = CCGlassView(shape: .capsule, interactive: true)
+    /// The capsule's length along the axis (hugs the level's keys).
+    private var lengthConstraint: NSLayoutConstraint?
+    /// A level change is laying out: it fits (and animates) the capsule itself.
+    private var holdsCapsule = false
     private var stack = UIStackView()
     private let hairline = UIView()
     private var keys: [(tool: Tool, key: CCIconRailKey)] = []
@@ -86,8 +100,12 @@ final class EditorToolBar: UIView {
 
     /// The bar's thickness across its axis (keys + padding), without the
     /// safe-area band a docked bar adds.
-    static let thickness: CGFloat = CCIconRail.keyHeight + 8
-    static let railWidth: CGFloat = CCIconRail.keyWidth + 8
+    static let thickness: CGFloat = capsuleThickness + 2 * glassMargin
+    static let railWidth: CGFloat = CCIconRail.keyWidth + 8 + 2 * glassMargin
+    /// The glass capsule's thickness (keys + their padding).
+    static let capsuleThickness: CGFloat = CCIconRail.keyHeight + 8
+    /// The capsule's inset from the bar's edges (it floats).
+    static let glassMargin: CGFloat = 6
 
     #if DEBUG
     /// Probe seam — INJECTED DEFECT (`bar-snap`): level changes snap.
@@ -104,7 +122,10 @@ final class EditorToolBar: UIView {
         scroll.showsHorizontalScrollIndicator = false
         scroll.showsVerticalScrollIndicator = false
         scroll.delaysContentTouches = false
-        addSubview(scroll)
+        glass.translatesAutoresizingMaskIntoConstraints = false
+        glass.accessibilityIdentifier = "studio.toolBar.glass"
+        addSubview(glass)
+        glass.contentView.addSubview(scroll)
         hairline.translatesAutoresizingMaskIntoConstraints = false
         hairline.isUserInteractionEnabled = false
         addSubview(hairline)
@@ -248,11 +269,14 @@ final class EditorToolBar: UIView {
             addSubview(snap)
             ghost = snap
         }
+        holdsCapsule = true
+        defer { holdsCapsule = false }
         old.removeFromSuperview()
         stack = new
         scroll.addSubview(new)
         activateStackConstraints()
         layoutIfNeeded()
+        fitCapsule(animated: animate)
         scroll.setContentOffset(.zero, animated: false)
         placeChip(animated: false)
         accessibilityElements = nil
@@ -283,34 +307,76 @@ final class EditorToolBar: UIView {
     private func relayout() {
         NSLayoutConstraint.deactivate(axisConstraints)
         let guide = safeAreaLayoutGuide
-        var c: [NSLayoutConstraint] = []
+        let m = Self.glassMargin
+        var c: [NSLayoutConstraint] = [
+            scroll.leadingAnchor.constraint(equalTo: glass.contentView.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: glass.contentView.trailingAnchor),
+            scroll.topAnchor.constraint(equalTo: glass.contentView.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: glass.contentView.bottomAnchor),
+        ]
+        let length: NSLayoutConstraint
         if axis == .horizontal {
+            length = glass.widthAnchor.constraint(equalToConstant: 200)
             c += [
-                scroll.leadingAnchor.constraint(equalTo: guide.leadingAnchor),
-                scroll.trailingAnchor.constraint(equalTo: guide.trailingAnchor),
-                scroll.topAnchor.constraint(equalTo: topAnchor),
-                scroll.heightAnchor.constraint(equalToConstant: Self.thickness),
+                glass.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: m),
+                glass.trailingAnchor.constraint(lessThanOrEqualTo: guide.trailingAnchor, constant: -m),
+                glass.heightAnchor.constraint(equalToConstant: Self.capsuleThickness),
+                // Docked: hangs from the bar's top (the editor drops the bar
+                // toward the home indicator); a row: centred in it.
+                docked ? glass.topAnchor.constraint(equalTo: topAnchor, constant: m)
+                       : glass.centerYAnchor.constraint(equalTo: centerYAnchor),
                 hairline.leadingAnchor.constraint(equalTo: leadingAnchor),
                 hairline.trailingAnchor.constraint(equalTo: trailingAnchor),
                 hairline.topAnchor.constraint(equalTo: topAnchor),
                 hairline.heightAnchor.constraint(equalToConstant: 1),
             ]
         } else {
+            length = glass.heightAnchor.constraint(equalToConstant: 200)
             c += [
-                scroll.topAnchor.constraint(equalTo: topAnchor),
-                scroll.bottomAnchor.constraint(equalTo: guide.bottomAnchor),
-                scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
-                scroll.widthAnchor.constraint(equalToConstant: Self.railWidth),
+                glass.topAnchor.constraint(equalTo: topAnchor, constant: m),
+                glass.bottomAnchor.constraint(lessThanOrEqualTo: guide.bottomAnchor, constant: -m),
+                glass.leadingAnchor.constraint(equalTo: leadingAnchor, constant: m),
+                glass.widthAnchor.constraint(equalToConstant: Self.railWidth - 2 * m),
                 hairline.topAnchor.constraint(equalTo: topAnchor),
                 hairline.bottomAnchor.constraint(equalTo: bottomAnchor),
                 hairline.leadingAnchor.constraint(equalTo: leadingAnchor),
                 hairline.widthAnchor.constraint(equalToConstant: 1),
             ]
         }
+        // Hugs the keys; the room caps it (the keys then scroll inside).
+        length.priority = .init(999)
+        lengthConstraint = length
+        c.append(length)
         axisConstraints = c
         NSLayoutConstraint.activate(c)
         setNeedsLayout()
     }
+
+    /// The level's keys end to end (+ the stack's padding), along the axis.
+    private var contentLength: CGFloat {
+        let fit = stack.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+        return ceil((axis == .horizontal ? fit.width : fit.height) + 8)
+    }
+
+    /// The capsule grows or shrinks to the level's keys: on the house
+    /// bounce at its far (pushed) edge when animated.
+    private func fitCapsule(animated: Bool) {
+        guard let lengthConstraint else { return }
+        let target = contentLength
+        guard abs(lengthConstraint.constant - target) > 0.5 else { return }
+        var animate = animated && window != nil
+        #if DEBUG
+        if Self.probeSnapLevels { animate = false }
+        #endif
+        if animate {
+            CCMotion.animate(lengthConstraint, to: target, in: self, duration: 0.42, curve: .bounce)
+        } else {
+            lengthConstraint.constant = target
+        }
+    }
+
+    /// The glass capsule (probes: its frame, its effect).
+    var probeGlass: CCGlassView { glass }
 
     private func activateStackConstraints() {
         NSLayoutConstraint.deactivate(stackConstraints)
@@ -331,14 +397,22 @@ final class EditorToolBar: UIView {
     }
 
     private func restyleChrome() {
-        // The Mac inspector rail's tone: the editor's ground, a hairline edge.
-        backgroundColor = CCTheme.color.background
+        // The ground under the floating glass: the timeline region's surface
+        // under a row (it reads as one region), the editor's ground beside a rail.
+        backgroundColor = axis == .horizontal ? CCTheme.color.card : CCTheme.color.background
         hairline.backgroundColor = CCTheme.color.border
         CCMaterial.dress(chip, as: .raised(tint: CCTheme.color.elevated), radius: CCTheme.radius(.md), traits: traitCollection)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        // Keys that changed size (text size, a long sub-option) refit the
+        // capsule; a level change animates it itself.
+        if !holdsCapsule, let lengthConstraint, !CCMotion.isAnimating(lengthConstraint),
+           abs(lengthConstraint.constant - contentLength) > 0.5 {
+            lengthConstraint.constant = contentLength
+            setNeedsLayout()
+        }
         placeChip(animated: false)
     }
 
@@ -386,7 +460,8 @@ final class EditorToolBar: UIView {
     }
 
     private func applyDocking() {
-        hairline.isHidden = !docked
+        // The glass floats: no docked hairline (the capsule is the edge).
+        hairline.isHidden = true
     }
 
     // MARK: State
