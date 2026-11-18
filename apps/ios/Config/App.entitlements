@@ -14,6 +14,8 @@
 	<array>
 		<string>applinks:capturecat.so</string>
 		<string>applinks:www.capturecat.so</string>
+		<string>applinks:capturecat.so?mode=developer</string>
+		<string>applinks:www.capturecat.so?mode=developer</string>
 	</array>
 </dict>
 </plist>
