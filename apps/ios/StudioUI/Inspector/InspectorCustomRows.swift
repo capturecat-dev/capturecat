@@ -346,7 +346,7 @@ final class InspectorPresetRow: InspectorCustomRow {
     init(host: InspectorHost) {
         super.init(id: "subtitles.presets", visible: { _ in true }, host: host)
         accessibilityIdentifier = "subtitles.presets"
-        let scroll = UIScrollView()
+        let scroll = CCScrollView()
         scroll.showsHorizontalScrollIndicator = false
         let row = UIStackView()
         row.spacing = CCSpace.sm

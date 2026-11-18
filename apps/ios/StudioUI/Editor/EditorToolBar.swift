@@ -66,7 +66,7 @@ final class EditorToolBar: UIView {
     /// The pane level's options (as last set).
     private(set) var options: [InspectorPanelOption] = []
 
-    private let scroll = UIScrollView()
+    private let scroll = CCScrollView()
     private var stack = UIStackView()
     private let hairline = UIView()
     private var keys: [(tool: Tool, key: CCIconRailKey)] = []
@@ -79,6 +79,10 @@ final class EditorToolBar: UIView {
     private let chip = CALayer()
     /// The outgoing level while a level change animates (probes sample it).
     private(set) var probeOutgoing: UIView?
+    #if DEBUG
+    /// Harness seam: the row's scroll view (the slide check).
+    var probeScroll: UIScrollView { scroll }
+    #endif
 
     /// The bar's thickness across its axis (keys + padding), without the
     /// safe-area band a docked bar adds.

@@ -64,12 +64,13 @@ enum EditorResizeLab {
         log("EDITOR-RESIZE out=\(out.path) device=\(UIDevice.current.model) \(UIDevice.current.systemVersion)")
         if let inject {
             guard ["ignores-size-class", "ignores-crease", "snap-panel", "panel-over-toolbar", "panel-uncapped",
-                   "bar-snap", "no-back", "panel-card", "card-in-card", "stage-card"].contains(inject) else {
+                   "bar-snap", "no-back", "panel-card", "card-in-card", "stage-card", "keys-block-drag"].contains(inject) else {
                 log("EDITOR-RESIZE FAIL unknown --inject \(inject)"); exit(1)
             }
             log("EDITOR-RESIZE inject=\(inject)")
             #if DEBUG
-            if inject == "bar-snap" { EditorToolBar.probeSnapLevels = true }
+            if inject == "keys-block-drag" { CCScrollView.probeKeysBlockDrag = true }
+            else if inject == "bar-snap" { EditorToolBar.probeSnapLevels = true }
             else if inject == "no-back" { EditorToolBar.probeNoBack = true }
             else if inject == "panel-card" { StudioInspectorController.probePanelCard = true }
             else if inject == "card-in-card" { InspectorSectionView.probeBoxedSections = true }
@@ -123,6 +124,7 @@ enum EditorResizeLab {
 
         // Folded: the outer display.
         checkLayout(editor, display: outer)
+        checkSlidable(editor, tag: "outer")
         await checkPanel(editor, tag: "outer", injected: inject == "snap-panel")
 
         // State: a playhead, a selection, one edit on the undo stack, playing.
@@ -210,6 +212,29 @@ enum EditorResizeLab {
     }
 
     // MARK: - Checks
+
+    /// The key rows slide under a finger that lands ON a key: the bottom tool
+    /// bar and the timeline's toolbar row are `CCScrollView`s whose drag wins
+    /// over a key (a stock scroll view never takes a touch back from a
+    /// `UIControl`, so a row of keys could not be slid at all), while the
+    /// zoom slider keeps its own drag. `--inject keys-block-drag` turns it red.
+    @available(iOS 26, *)
+    private static func checkSlidable(_ editor: EditorViewController, tag: String) {
+        func controls(in v: UIView) -> [UIView] {
+            v.subviews.flatMap { ($0 is UIControl ? [$0] : []) + controls(in: $0) }
+        }
+        for (name, scroll) in [("tool-bar", editor.toolBar.probeScroll),
+                               ("toolbar-row", editor.timeline.probeToolbarScroll)] {
+            let all = controls(in: scroll).filter { !$0.isHidden && $0.window != nil }
+            let keys = all.filter { $0 is CCButton || $0 is CCIconRailKey }
+            let sliders = all.filter { $0 is CCSlider || $0 is UISlider }
+            let keysYield = !keys.isEmpty && keys.allSatisfy { scroll.touchesShouldCancel(in: $0) }
+            let slidersKeep = sliders.allSatisfy { !scroll.touchesShouldCancel(in: $0) }
+            check("\(tag)-\(name)-slides", scroll is CCScrollView && scroll.canCancelContentTouches
+                    && keysYield && slidersKeep,
+                  "\(type(of: scroll)) keys=\(keys.count) yield=\(keysYield) sliders=\(sliders.count) keep=\(slidersKeep) content=\(Int(scroll.contentSize.width))/\(Int(scroll.bounds.width))")
+        }
+    }
 
     @available(iOS 26, *)
     private static func checkLayout(_ editor: EditorViewController, display: Display) {

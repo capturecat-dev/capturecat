@@ -50,7 +50,7 @@ final class EditorTransportBar: UIView {
     /// The time readout, VoiceOver's adjustable playhead.
     let playhead = EditorPlayheadReadout()
 
-    private let scroll = UIScrollView()
+    private let scroll = CCScrollView()
     private let row = UIStackView()
     private let hairline = UIView()
 

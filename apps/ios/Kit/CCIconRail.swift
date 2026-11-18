@@ -26,7 +26,7 @@ final class CCIconRail: UIView {
     private let trailingItem: Item?
     private var keys: [CCIconRailKey] = []
     private var trailingKey: CCIconRailKey?
-    private let scroll = UIScrollView()
+    private let scroll = CCScrollView()
     private let content = UIView()
     private let chip = CALayer()
     private var stack = UIStackView()

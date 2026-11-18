@@ -130,7 +130,11 @@ final class StudioTimelineViewController: UIViewController {
     let scrollView = UIScrollView()
     /// The fixed playhead over the viewport's centre.
     let centrePlayhead = StudioTimelineCentrePlayhead()
-    private let toolbarScroll = UIScrollView()
+    private let toolbarScroll = CCScrollView()
+    #if DEBUG
+    /// Harness seam: the toolbar row's scroll view (the slide check).
+    var probeToolbarScroll: UIScrollView { toolbarScroll }
+    #endif
     private let toolbar = UIStackView()
     private let canvasArea = UIView()
     private let labelColumn = UIView()
