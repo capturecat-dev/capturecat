@@ -92,7 +92,9 @@ final class EditorToolBar: UIView {
     /// rail's selected state) — fades in on open, out on close.
     private let chip = CALayer()
     /// The outgoing level while a level change animates (probes sample it).
+    #if DEBUG
     private(set) var probeOutgoing: UIView?
+    #endif
     #if DEBUG
     /// Harness seam: the row's scroll view (the slide check).
     var probeScroll: UIScrollView { scroll }
@@ -292,12 +294,16 @@ final class EditorToolBar: UIView {
         }
         CCMotion.fadeAlpha(new, to: 1, duration: 0.22, from: 0)
         if let ghost {
+            #if DEBUG
             probeOutgoing = ghost
+            #endif
             CCMotion.fadeAlpha(ghost, to: 0, duration: 0.18)
             if direction != 0 { CCMotion.spring(ghost.layer, keyPath: keyPath, to: -travel / 2, .snappy) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) { [weak self, weak ghost] in
                 ghost?.removeFromSuperview()
+                #if DEBUG
                 if self?.probeOutgoing === ghost { self?.probeOutgoing = nil }
+                #endif
             }
         }
     }
