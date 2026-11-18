@@ -20,7 +20,11 @@ import UIKit
 ///
 /// Keys are the kit's rail keys (`CCIconRailKey`: ≥ 64 × 56 pt, VoiceOver
 /// buttons labelled by their titles, keyboard-focusable). The bar scrolls
-/// along its axis.
+/// along its axis. When a level's keys don't fit, the capsule fills the
+/// room and the gaps widen evenly so its edge lands BETWEEN two keys (a key
+/// is never cut mid-glyph at rest); a soft edge fade inside the capsule
+/// marks the side(s) with more, and a slide comes to rest with its leading
+/// edge between two keys.
 ///
 /// The keys ride a FLOATING Liquid Glass capsule (`CCGlassView`, iOS 26):
 /// inset from the screen's edges (a phone's bottom bar drops toward the
@@ -31,7 +35,7 @@ import UIKit
 /// kit's opaque raised material in the glass's place. Where an inspector column is always on screen (iPad, the
 /// iPhone Duo's crease layouts) the pane tools are left out.
 @MainActor
-final class EditorToolBar: UIView {
+final class EditorToolBar: UIView, UIScrollViewDelegate {
     enum Axis { case horizontal, vertical }
 
     enum Tool: Equatable {
@@ -109,7 +113,18 @@ final class EditorToolBar: UIView {
     /// The capsule's inset from the bar's edges (it floats).
     static let glassMargin: CGFloat = 6
 
+    /// The edge fade inside the capsule on a side with more keys.
+    static let edgeFade: CGFloat = 44
+    /// Air between the capsule's ends and the first / last key.
+    static let endPadding: CGFloat = 8
+    /// A bottom panel's glass sheet runs on under the bar: the bar's own
+    /// ground clears so the capsule floats over the sheet.
+    private(set) var isOverSheet = false
+
     #if DEBUG
+    /// Probe seam — INJECTED DEFECT (`bar-cuts-key`): the capsule runs to
+    /// the room's edge, cutting the key there mid-glyph.
+    static var probeCutsKey = false
     /// Probe seam — INJECTED DEFECT (`bar-snap`): level changes snap.
     static var probeSnapLevels = false
     /// Probe seam — INJECTED DEFECT (`no-back`): a pane level has no back key.
@@ -124,6 +139,8 @@ final class EditorToolBar: UIView {
         scroll.showsHorizontalScrollIndicator = false
         scroll.showsVerticalScrollIndicator = false
         scroll.delaysContentTouches = false
+        scroll.edgeFade = Self.edgeFade
+        scroll.delegate = self
         glass.translatesAutoresizingMaskIntoConstraints = false
         glass.accessibilityIdentifier = "studio.toolBar.glass"
         addSubview(glass)
@@ -205,6 +222,7 @@ final class EditorToolBar: UIView {
 
     private func separator() -> UIView {
         let line = CCDivider(vertical: axis == .horizontal)
+        line.accessibilityIdentifier = "studio.toolBar.separator"
         line.translatesAutoresizingMaskIntoConstraints = false
         line.isAccessibilityElement = false
         let length: CGFloat = 28
@@ -247,7 +265,7 @@ final class EditorToolBar: UIView {
         let old = stack
         let new = UIStackView()
         new.translatesAutoresizingMaskIntoConstraints = false
-        new.spacing = 4
+        new.spacing = Self.keySpacing
         new.alignment = .center
         new.axis = axis == .horizontal ? .horizontal : .vertical
         keys = []
@@ -358,24 +376,112 @@ final class EditorToolBar: UIView {
         setNeedsLayout()
     }
 
-    /// The level's keys end to end (+ the stack's padding), along the axis.
+    /// The level's keys end to end (+ the end padding), along the axis.
     private var contentLength: CGFloat {
         let fit = stack.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
-        return ceil((axis == .horizontal ? fit.width : fit.height) + 8)
+        // The laid-out level can come out wider than its fitting size (a
+        // key that grows to its title): the capsule hugs whichever is longer.
+        let laid = axis == .horizontal ? stack.bounds.width : stack.bounds.height
+        return ceil(max(axis == .horizontal ? fit.width : fit.height, laid) + 2 * Self.endPadding)
+    }
+
+    /// The most the capsule may be along the axis (the bar's room).
+    private var room: CGFloat {
+        let guide = safeAreaLayoutGuide.layoutFrame
+        let m = Self.glassMargin
+        return axis == .horizontal ? guide.width - 2 * m : guide.maxY - 2 * m
+    }
+
+    /// The keys' natural spacing.
+    static let keySpacing: CGFloat = 4
+    /// The most a gap may widen so an overflowing level's edge lands
+    /// between two keys with the capsule still filling the room.
+    static let maxSpread: CGFloat = 22
+
+    /// The capsule's resting length. The keys end to end when they fit.
+    /// When they don't, the capsule fills the room and the gaps up to the
+    /// last whole key that fits widen evenly so the edge lands in the gap
+    /// after it — a key is never cut mid-glyph at rest,
+    /// and the edge fade over that last key says there is more. (A gap that
+    /// would have to widen past `maxSpread` leaves the capsule a little
+    /// short of the room instead.) Sets the level's spacing.
+    private func fitLevel() -> CGFloat {
+        let base = Self.keySpacing
+        let views = stack.arrangedSubviews.filter { !$0.isHidden }
+        let sizes = views.map { axis == .horizontal ? $0.bounds.width : $0.bounds.height }
+        let room = self.room
+        func setSpacing(_ value: CGFloat) {
+            if abs(stack.spacing - value) > 0.01 { stack.spacing = value }
+        }
+        // (Laid out: every key has its size; a separator is a hairline.)
+        let laidOut = zip(views, sizes).allSatisfy { !($0.0 is CCIconRailKey) || $0.1 > 0.5 }
+        guard room > 1, !sizes.isEmpty, laidOut else {
+            setSpacing(base)
+            return contentLength
+        }
+        // Each view's far end at the natural spacing (content coordinates).
+        var ends: [CGFloat] = []
+        var end = Self.endPadding
+        for (i, size) in sizes.enumerated() {
+            if i > 0 { end += base }
+            end += size
+            ends.append(end)
+        }
+        let full = ceil(end + Self.endPadding)
+        guard full > room + 0.5 else {
+            setSpacing(base)
+            return full
+        }
+        #if DEBUG
+        if Self.probeCutsKey {
+            setSpacing(base)
+            return floor(room)
+        }
+        #endif
+        // The last whole key ends the end padding short of the capsule's
+        // (round) end, as the first starts after it; the next key starts
+        // past that end (its gap is at least the end padding wide).
+        let edge = room - Self.endPadding
+        let minExtra = Self.endPadding - base
+        for k in ends.indices.reversed() where k < ends.count - 1 && ends[k] <= edge {
+            let gaps = CGFloat(k)
+            let extra = k == 0 ? minExtra : min(Self.maxSpread, (edge - ends[k]) / gaps)
+            guard extra >= minExtra else { continue }
+            setSpacing(base + extra)
+            return floor(min(room, ends[k] + extra * gaps + Self.endPadding))
+        }
+        setSpacing(base)
+        return floor(room)
+    }
+
+    /// The middles of the gaps between the level's keys (and separators),
+    /// in the scroll's content coordinates along the axis.
+    private var keyGaps: [CGFloat] {
+        stack.layoutIfNeeded()
+        let spans: [(CGFloat, CGFloat)] = stack.arrangedSubviews.filter { !$0.isHidden }.map {
+            let f = $0.convert($0.bounds, to: scroll)
+            // (The scroll's bounds are its content coordinates.)
+            return axis == .horizontal ? (f.minX, f.maxX) : (f.minY, f.maxY)
+        }.sorted { $0.0 < $1.0 }
+        return zip(spans, spans.dropFirst()).map { ($0.1 + $1.0) / 2 }
     }
 
     /// The capsule grows or shrinks to the level's keys: on the house
     /// bounce at its far (pushed) edge when animated.
     private func fitCapsule(animated: Bool) {
         guard let lengthConstraint else { return }
-        let target = contentLength
+        let target = fitLevel()
+        stack.layoutIfNeeded()
         guard abs(lengthConstraint.constant - target) > 0.5 else { return }
         var animate = animated && window != nil
         #if DEBUG
         if Self.probeSnapLevels { animate = false }
         #endif
         if animate {
-            CCMotion.animate(lengthConstraint, to: target, in: self, duration: 0.42, curve: .bounce)
+            // Keys that settle their size meanwhile (a growing title) refit after.
+            CCMotion.animate(lengthConstraint, to: target, in: self, duration: 0.42, curve: .bounce) { [weak self] in
+                DispatchQueue.main.async { self?.setNeedsLayout() }
+            }
         } else {
             lengthConstraint.constant = target
         }
@@ -387,11 +493,14 @@ final class EditorToolBar: UIView {
     private func activateStackConstraints() {
         NSLayoutConstraint.deactivate(stackConstraints)
         let pad: CGFloat = 4
+        // A little more air at the ends than across the bar.
+        let along = Self.endPadding
+        let h = axis == .horizontal
         var c = [
-            stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: pad),
-            stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: pad),
-            stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -pad),
-            stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -pad),
+            stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: h ? along : pad),
+            stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: h ? pad : along),
+            stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: -(h ? along : pad)),
+            stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -(h ? pad : along)),
         ]
         if axis == .horizontal {
             c.append(stack.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor, constant: -2 * pad))
@@ -402,10 +511,31 @@ final class EditorToolBar: UIView {
         NSLayoutConstraint.activate(c)
     }
 
-    private func restyleChrome() {
+    private var groundColor: UIColor {
         // The ground under the floating glass: the timeline region's surface
-        // under a row (it reads as one region), the editor's ground beside a rail.
-        backgroundColor = axis == .horizontal ? CCTheme.color.card : CCTheme.color.background
+        // under a row (it reads as one region), the editor's ground beside a
+        // rail — clear over a bottom panel's sheet (the capsule floats on it).
+        if isOverSheet { return .clear }
+        return axis == .horizontal ? CCTheme.color.card : CCTheme.color.background
+    }
+
+    /// A bottom panel's glass sheet runs on under the bar (`true`): the
+    /// bar's ground fades out so the capsule floats over the ONE sheet; it
+    /// fades back as the panel closes.
+    func setOverSheet(_ over: Bool, animated: Bool) {
+        guard over != isOverSheet else { return }
+        isOverSheet = over
+        if animated, window != nil {
+            UIView.animate(withDuration: over ? 0.22 : 0.26, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
+                self.backgroundColor = self.groundColor
+            }
+        } else {
+            backgroundColor = groundColor
+        }
+    }
+
+    private func restyleChrome() {
+        backgroundColor = groundColor
         hairline.backgroundColor = CCTheme.color.border
         CCMaterial.dress(chip, as: .raised(tint: CCTheme.color.elevated), radius: CCTheme.radius(.md), traits: traitCollection)
     }
@@ -414,10 +544,12 @@ final class EditorToolBar: UIView {
         super.layoutSubviews()
         // Keys that changed size (text size, a long sub-option) refit the
         // capsule; a level change animates it itself.
-        if !holdsCapsule, let lengthConstraint, !CCMotion.isAnimating(lengthConstraint),
-           abs(lengthConstraint.constant - contentLength) > 0.5 {
-            lengthConstraint.constant = contentLength
-            setNeedsLayout()
+        if !holdsCapsule, let lengthConstraint, !CCMotion.isAnimating(lengthConstraint) {
+            let target = fitLevel()
+            if abs(lengthConstraint.constant - target) > 0.5 {
+                lengthConstraint.constant = target
+                setNeedsLayout()
+            }
         }
         placeChip(animated: false)
     }
@@ -459,16 +591,71 @@ final class EditorToolBar: UIView {
         }
         chip.cornerRadius = r
         CCMaterial.refit(chip, radius: r)
-        if animate {
-            scroll.scrollRectToVisible(target.insetBy(dx: axis == .horizontal ? -24 : 0, dy: axis == .vertical ? -24 : 0),
-                                       animated: true)
-        }
+        if animate { revealKey(target) }
     }
 
     private func applyDocking() {
         // The glass floats: no docked hairline (the capsule is the edge).
         hairline.isHidden = true
     }
+
+    // MARK: Sliding
+
+    /// Slides the open key into view (clear of the edge fades) and comes to
+    /// rest with an edge between two keys — never through one at both ends.
+    private func revealKey(_ rect: CGRect) {
+        let h = axis == .horizontal
+        let length = h ? scroll.bounds.width : scroll.bounds.height
+        let maxOffset = (h ? scroll.contentSize.width : scroll.contentSize.height) - length
+        guard maxOffset > 0.5 else { return }
+        let current = h ? scroll.contentOffset.x : scroll.contentOffset.y
+        let lo = (h ? rect.maxX : rect.maxY) + Self.edgeFade - length   // the least offset that shows it
+        let hi = (h ? rect.minX : rect.minY) - Self.edgeFade            // the most
+        guard current < lo - 0.5 || current > hi + 0.5 else { return }
+        let gaps = keyGaps
+        // An edge in a gap: the leading edge at one, or the trailing edge.
+        let stops = ([0, maxOffset] + gaps + gaps.map { $0 - length }).filter { $0 >= 0 && $0 <= maxOffset }
+        let fits = stops.filter { $0 >= lo - 0.5 && $0 <= hi + 0.5 }
+        let target = fits.min(by: { abs($0 - current) < abs($1 - current) }) ?? min(max(current, lo), max(lo, hi))
+        let clamped = min(max(target, 0), maxOffset)
+        scroll.setContentOffset(h ? CGPoint(x: clamped, y: 0) : CGPoint(x: 0, y: clamped), animated: true)
+    }
+
+    /// A slide comes to rest with its leading edge in the gap between two
+    /// keys (or at either end), never through a key.
+    func scrollViewWillEndDragging(_ scrollView: UIScrollView, withVelocity velocity: CGPoint,
+                                   targetContentOffset: UnsafeMutablePointer<CGPoint>) {
+        let h = axis == .horizontal
+        let maxOffset = h ? scrollView.contentSize.width - scrollView.bounds.width
+                          : scrollView.contentSize.height - scrollView.bounds.height
+        guard maxOffset > 1 else { return }
+        let target = h ? targetContentOffset.pointee.x : targetContentOffset.pointee.y
+        let stops = [0] + keyGaps.filter { $0 > 0 && $0 < maxOffset } + [maxOffset]
+        guard let best = stops.min(by: { abs($0 - target) < abs($1 - target) }) else { return }
+        if h { targetContentOffset.pointee.x = best } else { targetContentOffset.pointee.y = best }
+    }
+
+    #if DEBUG
+    /// The resting viewport (scroll coordinates) and every key's glyph
+    /// frames in it — the bar-edge gate checks none straddles the edge.
+    var probeGlyphs: (viewport: CGRect, glyphs: [(key: String, frame: CGRect)]) {
+        layoutIfNeeded()
+        var out: [(String, CGRect)] = []
+        for (_, key) in keys {
+            func walk(_ v: UIView) {
+                if v is UILabel || v is CCIconView {
+                    if !v.isHidden { out.append((key.accessibilityLabel ?? "?", v.convert(v.bounds, to: scroll))) }
+                    return
+                }
+                v.subviews.forEach(walk)
+            }
+            walk(key)
+        }
+        return (scroll.bounds, out)
+    }
+    /// The edge fade's mask (nil = no fade).
+    var probeFadeMask: CAGradientLayer? { scroll.probeFadeMask }
+    #endif
 
     // MARK: State
 
