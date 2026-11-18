@@ -19,6 +19,54 @@ final class CCScrollView: UIScrollView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    // MARK: Edge fade
+
+    /// A soft fade this long (pt) at each edge that has more content past
+    /// it — the hint that the row slides. 0 = none. The fade grows in as
+    /// the content moves off that edge (no pop), along the axis that
+    /// overflows.
+    var edgeFade: CGFloat = 0 { didSet { if edgeFade != oldValue { updateFade() } } }
+    private var fadeMask: CAGradientLayer?
+    #if DEBUG
+    var probeFadeMask: CAGradientLayer? { fadeMask }
+    #endif
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // A scroll view lays out on every offset change: the mask rides along.
+        updateFade()
+    }
+
+    private func updateFade() {
+        let horizontal = contentSize.width - bounds.width >= contentSize.height - bounds.height
+        let length = horizontal ? bounds.width : bounds.height
+        let overflow = horizontal ? contentSize.width - bounds.width : contentSize.height - bounds.height
+        guard edgeFade > 0, overflow > 0.5, length > 2 * edgeFade else {
+            // Only ever remove our own mask.
+            if let fadeMask, layer.mask === fadeMask { layer.mask = nil }
+            fadeMask = nil
+            return
+        }
+        let offset = horizontal ? contentOffset.x : contentOffset.y
+        let lead = min(1, max(0, offset / edgeFade))
+        let trail = min(1, max(0, (overflow - offset) / edgeFade))
+        let mask = fadeMask ?? CAGradientLayer()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        mask.frame = bounds
+        mask.startPoint = horizontal ? CGPoint(x: 0, y: 0.5) : CGPoint(x: 0.5, y: 0)
+        mask.endPoint = horizontal ? CGPoint(x: 1, y: 0.5) : CGPoint(x: 0.5, y: 1)
+        let f = edgeFade / length
+        mask.locations = [0, NSNumber(value: Double(f)), NSNumber(value: Double(1 - f)), 1]
+        mask.colors = [UIColor(white: 0, alpha: 1 - lead * 0.94).cgColor, UIColor.black.cgColor,
+                       UIColor.black.cgColor, UIColor(white: 0, alpha: 1 - trail * 0.94).cgColor]
+        CATransaction.commit()
+        if fadeMask == nil {
+            fadeMask = mask
+            layer.mask = mask
+        }
+    }
+
     override func touchesShouldCancel(in view: UIView) -> Bool {
         Self.dragWins(over: view)
     }

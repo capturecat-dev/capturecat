@@ -22,9 +22,17 @@ set -euo pipefail
 #    same values script reached the same way, one undo step per edit. Both
 #    lists must equal the Mac's line for line (iOS-only rows are named in
 #    EffectsParity.iosOnly and printed).
+#    On a phone, every short panel the walk opens (and every sub-option of
+#    every pane, in a sweep) must show ALL its controls inside the panel, above
+#    the floating bar, without scrolling (panel-fits); no panel's first row may
+#    repeat its title as a toggle — the feature's switch rides the title strip
+#    (panel-title-toggle); the bar at rest never cuts a key glyph and fades on
+#    the side with more (bar-edge).
 # 3. On the first device, `--inject drop-control` (Curtain ▸ Tint Logo hidden)
 #    must turn the inventory red and `--inject values-defect` (Parallax ▸
-#    Strength writes a step too far) must turn the values red.
+#    Strength writes a step too far) must turn the values red;
+#    `panel-clips`, `title-toggle-row` and `bar-cuts-key` must turn
+#    panel-fits, panel-title-toggle and bar-edge red.
 #
 # Env: DEVICES="<udid> <udid>" (default: Studio 4d iPhone + Studio 4d iPad),
 #      MAC_APP=<path to an unsandboxed CaptureCat.app> to skip the Mac build,
@@ -105,6 +113,18 @@ if grep -q '^EFFECTS-PARITY values FAIL' "$OUT/inject-values/run.log" \
 else
   echo "  → the wrong value was NOT caught"; status=1
 fi
+
+# The panel gates (a phone): each injected defect must turn its own gate red.
+for spec in "panel-clips:panel-fits" "title-toggle-row:panel-title-toggle" "bar-cuts-key:bar-edge"; do
+  inject="${spec%%:*}" gate="${spec#*:}"
+  echo "ios-effects-parity: injected $inject on $first (the $gate gate must catch it)"
+  run "$first" "$OUT/inject-$inject" --inject "$inject"
+  if grep -q "^EFFECTS-PARITY $gate FAIL" "$OUT/inject-$inject/run.log"; then
+    echo "  → caught by $gate"
+  else
+    echo "  → NOT caught by $gate"; status=1
+  fi
+done
 
 echo "ios-effects-parity: lists $MAC_DIR/mac-{inventory,values}.txt vs $OUT/<device>/lab/ios-{inventory,values}.txt"
 if [[ $status == 0 ]]; then echo "IOS-EFFECTS-PARITY PASS"; else echo "IOS-EFFECTS-PARITY FAIL"; fi

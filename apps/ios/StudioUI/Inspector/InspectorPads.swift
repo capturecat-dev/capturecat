@@ -4,6 +4,31 @@ import UIKit
 /// shared math takes (InspectorPadMath) in its OWN geometry and hands it to
 /// the pane's write; snapping, clamping and magnetism live in the shared
 /// math. A drag is one undo step (begin on press, commit on release).
+extension UIView {
+    /// A fixed height that is `compact` on a compact-width display — a
+    /// phone, where a pad lives in a SHORT panel over the bar — and
+    /// `regular` elsewhere (the iPad's column). Follows size-class changes
+    /// (fold, Split View).
+    @discardableResult
+    func ccInspectorHeight(_ regular: CGFloat, compact: CGFloat) -> NSLayoutConstraint {
+        let c = heightAnchor.constraint(equalToConstant: regular)
+        c.isActive = true
+        func apply(_ v: UIView) {
+            let h = v.traitCollection.horizontalSizeClass == .compact ? compact : regular
+            if c.constant != h { c.constant = h }
+        }
+        apply(self)
+        registerForTraitChanges([UITraitHorizontalSizeClass.self]) { (v: UIView, _: UITraitCollection) in apply(v) }
+        return c
+    }
+}
+
+/// A pad's height on a phone: about two thirds of the column's (a short
+/// panel shows the pad AND its neighbours without scrolling).
+enum InspectorPadSize {
+    static func compact(_ regular: CGFloat) -> CGFloat { (regular * 0.66).rounded() }
+}
+
 @MainActor
 class InspectorPadRowView: UIView, InspectorRowView {
     let rowID: String
@@ -31,7 +56,7 @@ class InspectorPadRowView: UIView, InspectorRowView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         pad.accessibilityIdentifier = id
-        pad.heightAnchor.constraint(equalToConstant: padHeight).isActive = true
+        pad.ccInspectorHeight(padHeight, compact: InspectorPadSize.compact(padHeight))
         var views: [UIView] = []
         if let titleLabel, let pill {
             titleLabel.adjustsFontForContentSizeCategory = true

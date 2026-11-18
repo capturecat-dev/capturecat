@@ -76,6 +76,16 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     /// kit material under Reduce Transparency. A column has none.
     let panelGlass = CCGlassView(shape: .top(.lg))
     /// The ✓ key's glass.
+    private var glassBottom: NSLayoutConstraint!
+    /// How far the bottom panel's glass sheet runs on below the panel —
+    /// under the tool bar, to the screen's edge (the editor sets it).
+    var sheetExtension: CGFloat = 0 {
+        didSet { if sheetExtension != oldValue { applySheetExtension() } }
+    }
+    private func applySheetExtension() {
+        let c = presentation == .bottomPanel ? sheetExtension : 0
+        if glassBottom.constant != c { glassBottom.constant = c }
+    }
     private(set) lazy var doneGlass = CCGlassView.wrapping(closeButton, shape: .capsule)
     private let hairline = UIView()
     /// The panel's edge hairline (top for the bottom panel, leading for a
@@ -85,9 +95,18 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     let strip = UIView()
     /// The panel's ✓ key (both panel presentations) — confirms and closes.
     let closeButton = CCButton(symbol: "checkmark", style: .ghost, size: .sm, radius: .md)
-    /// The panel's title (the option's name, or its pane's).
-    let panelTitle = ccLabel("", font: CCFont.scaled(14, .semibold, .subheadline, max: 22), color: CCTheme.color.foreground,
-                             alignment: .center)
+    /// The panel's title (the option's name, or its pane's), leading — the
+    /// Mac section header's voice.
+    let panelTitle = ccLabel("", font: CCFont.scaled(15, .semibold, .subheadline, max: 22), color: CCTheme.color.foreground)
+    /// The panel's ON/OFF switch for the feature it is named after (Tilt,
+    /// Zoom, Slide …): when an option's first row is that toggle, the
+    /// switch rides the strip beside the title (one row) and the row is
+    /// dropped. VoiceOver: a switch labelled with the feature's name.
+    let headerToggle = CCToggle()
+    /// The toggle row the strip's switch stands in for (hidden in the pane).
+    private(set) var headerToggleRow: (index: Int, row: InspectorToggleRowView)?
+    private var titleBeforeDone: NSLayoutConstraint!
+    private var titleBeforeToggle: NSLayoutConstraint!
     private(set) var panes: [InspectorTab: InspectorPaneView] = [:]
     private var paneBottoms: [InspectorTab: NSLayoutConstraint] = [:]
     private(set) var shownTab: InspectorTab?
@@ -121,6 +140,9 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     /// Probe seam — INJECTED DEFECT (`panel-card`): the panel is an inset
     /// floating card again (all corners rounded, a border, inset from the edges).
     static var probePanelCard = false
+    /// Probe seam — INJECTED DEFECT (`title-toggle-row`): the feature's
+    /// switch stays a row under a title that repeats it.
+    static var probeNoHeaderToggle = false
     #endif
 
     init(project: Project, selection: EditorShellSelection, undoManager: @escaping () -> UndoManager?,
@@ -204,7 +226,17 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         panelGlass.isHidden = true
         panelGlass.accessibilityIdentifier = "studio.inspector.panelGlass"
         surface.addSubview(panelGlass)
-        pinEdges(panelGlass, to: surface)
+        // The bottom panel's sheet runs on under the floating tool bar (the
+        // editor clears the bar's ground while it is open): ONE glass sheet
+        // the capsule floats over, no band between them. The rows stay
+        // above the bar (the panel's own frame ends on its top).
+        glassBottom = panelGlass.bottomAnchor.constraint(equalTo: surface.bottomAnchor)
+        NSLayoutConstraint.activate([
+            panelGlass.topAnchor.constraint(equalTo: surface.topAnchor),
+            panelGlass.leadingAnchor.constraint(equalTo: surface.leadingAnchor),
+            panelGlass.trailingAnchor.constraint(equalTo: surface.trailingAnchor),
+            glassBottom,
+        ])
 
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.alwaysBounceVertical = false
@@ -213,7 +245,7 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         scroll.delegate = self
         content.translatesAutoresizingMaskIntoConstraints = false
         scroll.addSubview(content)
-        for v in [hairline, edgeLine, rail, strip, closeButton, panelTitle] as [UIView] {
+        for v in [hairline, edgeLine, rail, strip, closeButton, panelTitle, headerToggle] as [UIView] {
             v.translatesAutoresizingMaskIntoConstraints = false
         }
         closeButton.accessibilityLabelOverride = "Done"
@@ -226,6 +258,10 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         strip.addSubview(panelTitle)
         doneGlass.accessibilityIdentifier = "inspector.close.glass"
         strip.addSubview(doneGlass)
+        headerToggle.accessibilityIdentifier = "inspector.headerToggle"
+        headerToggle.isHidden = true
+        headerToggle.onChange = { [weak self] on in self?.headerToggleRow?.row.write(on) }
+        strip.addSubview(headerToggle)
         for v in [strip, scroll, hairline, rail, edgeLine] as [UIView] { surface.addSubview(v) }
         edgeLine.isUserInteractionEnabled = false
 
@@ -235,17 +271,21 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             content.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
             content.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
             content.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
-            // The strip: title centred, ✓ trailing; it grows with big text.
-            panelTitle.centerXAnchor.constraint(equalTo: strip.centerXAnchor),
-            panelTitle.leadingAnchor.constraint(greaterThanOrEqualTo: strip.leadingAnchor, constant: 56),
-            panelTitle.trailingAnchor.constraint(lessThanOrEqualTo: closeButton.leadingAnchor, constant: -CCSpace.sm),
+            // The strip: title leading (on the rows' inset), the feature's
+            // switch (when it has one) and ✓ trailing; it grows with big text.
+            panelTitle.leadingAnchor.constraint(equalTo: strip.leadingAnchor, constant: CCSpace.lg),
             panelTitle.topAnchor.constraint(greaterThanOrEqualTo: strip.topAnchor, constant: 6),
             panelTitle.bottomAnchor.constraint(lessThanOrEqualTo: strip.bottomAnchor, constant: -6),
             panelTitle.centerYAnchor.constraint(equalTo: strip.centerYAnchor),
+            headerToggle.centerYAnchor.constraint(equalTo: strip.centerYAnchor),
+            headerToggle.trailingAnchor.constraint(equalTo: doneGlass.leadingAnchor, constant: -CCSpace.md),
             doneGlass.centerYAnchor.constraint(equalTo: strip.centerYAnchor),
             doneGlass.trailingAnchor.constraint(equalTo: strip.trailingAnchor, constant: -CCSpace.sm),
             strip.heightAnchor.constraint(greaterThanOrEqualToConstant: Self.panelStripHeight),
         ])
+        titleBeforeDone = panelTitle.trailingAnchor.constraint(lessThanOrEqualTo: doneGlass.leadingAnchor, constant: -CCSpace.sm)
+        titleBeforeToggle = panelTitle.trailingAnchor.constraint(lessThanOrEqualTo: headerToggle.leadingAnchor, constant: -CCSpace.md)
+        titleBeforeDone.isActive = true
         panelTitle.setContentCompressionResistancePriority(.required, for: .vertical)
         // Column: pane | hairline | rail (the Mac column), flat.
         regularLayout = [
@@ -340,9 +380,14 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     /// The panel strip's height (title, ✓).
     static let panelStripHeight: CGFloat = 44
 
-    /// The height the panel needs to show its rows without scrolling.
+    /// The height the panel needs to show its rows without scrolling (a
+    /// panel whose only control rides its strip is the strip alone).
     var panelFittingHeight: CGFloat {
-        max(Self.panelStripHeight, strip.bounds.height) + 1 + scroll.contentSize.height + scroll.contentInset.bottom
+        let strip = max(Self.panelStripHeight, self.strip.bounds.height)
+        if presentation != .column, headerToggleRow != nil, visiblePane?.hasVisibleRows == false {
+            return ceil(strip + CCSpace.sm)
+        }
+        return ceil(strip + 1 + scroll.contentSize.height + scroll.contentInset.bottom)
     }
 
     /// VoiceOver's escape (two-finger scrub) closes a panel.
@@ -386,6 +431,9 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         // The glass sheet draws its own edge.
         edgeLine.isHidden = presentation != .column
         panelGlass.shape = presentation == .sidePanel ? .leading(.lg) : .top(.lg)
+        // The bottom panel's sheet runs on under the bar (see `sheetExtension`).
+        surface.clipsToBounds = presentation != .bottomPanel
+        applySheetExtension()
         restyleSurface()
         #if DEBUG
         if Self.probePanelCard, presentation != .column {
@@ -408,8 +456,15 @@ final class StudioInspectorController: UIViewController, InspectorHost {
 
     /// The sub-options the tool bar offers for `tab` (its drill-down level).
     func panelOptions(for tab: InspectorTab) -> [InspectorPanelOption] {
-        pane(tab).panelOptions(scope)
+        let pane = self.pane(tab)
+        pane.panelBudget = presentation == .bottomPanel ? panelRowsBudget : nil
+        return pane.panelOptions(scope)
     }
+
+    /// The bottom panel's room for one option's rows (the editor's height
+    /// cap less the strip): options that would overflow it split into more
+    /// keys. nil = no budget yet.
+    var panelRowsBudget: CGFloat?
 
     /// Shows only `option`'s rows in the panel (nil = the whole pane); a
     /// choice option is applied first (one undo step) and its panel then
@@ -421,10 +476,14 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         var rows = option.map { Set($0.rows) }
         if let option, let section = option.section, let choice = option.choice {
             if apply, choice.index != (pane.rows[choice.row] as? InspectorChoiceRowView)?.spec.read(scope) { (pane.rows[choice.row] as? InspectorChoiceRowView)?.apply(choice.index) }
-            rows = Set(pane.rowsAfterChoice(section: section, scope: scope))
+            // A group split for a phone's short panel names its first rows.
+            rows = Set(option.rows.isEmpty ? pane.rowsAfterChoice(section: section, scope: scope) : option.rows)
         }
+        rows = promoteHeaderToggle(rows, option: option, pane: pane)
         pane.setFocus(rows, scope: scope)
         refreshPanelTitle()
+        refreshHeaderToggle()
+        refreshHairline()
         scroll.setContentOffset(.zero, animated: false)
         switchingPane = true
         view.layoutIfNeeded()
@@ -440,6 +499,64 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             CCMotion.fadeAlpha(pane, to: 1, duration: 0.22, delay: 0.04, from: 0)
             CCMotion.enter(pane.layer, .slideUp(distance: 14))
         }
+    }
+
+    /// A panel whose first row is the ON/OFF switch of the feature it is
+    /// named after: the switch moves into the strip beside the title (the
+    /// row leaves the panel) — one row, not "Tilt" over "Tilt  ◯".
+    private func promoteHeaderToggle(_ rows: Set<Int>?, option: InspectorPanelOption?, pane: InspectorPaneView) -> Set<Int>? {
+        headerToggleRow = nil
+        guard presentation != .column, let option, var rows else { return rows }
+        #if DEBUG
+        if Self.probeNoHeaderToggle { return rows }
+        #endif
+        let scope = self.scope
+        // The first CONTROL (a preview well or a caption above it doesn't count).
+        guard let first = rows.sorted().first(where: { pane.rows[$0].isRowVisible(scope) && !Self.isDecoration(pane.rows[$0]) }),
+              let toggle = pane.rows[first] as? InspectorToggleRowView,
+              Self.sameTitle(toggle.spec.title, option.title) else { return rows }
+        #if DEBUG
+        // `drop-control`: a dropped control shows nowhere — the strip included.
+        if toggle.rowID == InspectorPaneView.probeDropRowID { return rows }
+        #endif
+        headerToggleRow = (first, toggle)
+        rows.remove(first)
+        return rows
+    }
+
+    /// A row that shows rather than sets (a preview well, a caption).
+    static func isDecoration(_ row: InspectorRowView) -> Bool {
+        row is InspectorCaptionRowView || row is InspectorPreviewRow || row is InspectorLivePreviewRow
+    }
+
+    /// Titles that name the same feature ("Tilt" / "tilt").
+    static func sameTitle(_ a: String, _ b: String) -> Bool {
+        a.trimmingCharacters(in: .whitespaces).caseInsensitiveCompare(b.trimmingCharacters(in: .whitespaces)) == .orderedSame
+    }
+
+    /// The strip's switch follows its row's value and enablement.
+    private func refreshHeaderToggle() {
+        let promoted = headerToggleRow != nil && presentation != .column
+        if headerToggle.isHidden == promoted {
+            headerToggle.isHidden = !promoted
+            titleBeforeDone.isActive = !promoted
+            titleBeforeToggle.isActive = promoted
+        }
+        guard promoted, let (_, row) = headerToggleRow else { return }
+        let scope = self.scope
+        let on = row.spec.read(scope)
+        headerToggle.accessibilityLabel = row.spec.title
+        headerToggle.accessibilityHint = "Turns \(row.spec.title) on or off."
+        if headerToggle.isOn != on { headerToggle.setOn(on, animated: view.window != nil && headerToggle.bounds.width > 0) }
+        let enabled = row.spec.enabled(scope)
+        if headerToggle.isEnabled != enabled { headerToggle.isEnabled = enabled }
+    }
+
+    /// The strip's hairline only over rows (a strip-only panel ends clean).
+    private func refreshHairline() {
+        let hide = presentation != .column && headerToggleRow != nil && visiblePane?.hasVisibleRows == false
+        if hairline.isHidden != hide, presentation != .column { hairline.isHidden = hide }
+        if presentation == .column, hairline.isHidden { hairline.isHidden = false }
     }
 
     /// Whether `option` has rows to show once applied (a choice like
@@ -476,8 +593,10 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         shownTab = tab
         // A new pane shows whole until the tool bar picks one of its options.
         shownOption = nil
+        headerToggleRow = nil
         new.setFocus(nil, scope: scope)
         refreshPanelTitle()
+        refreshHeaderToggle()
         rail.setSelectedIndex(InspectorTab.allCases.firstIndex(of: tab) ?? 0, animated: animated)
         new.isHidden = false
         new.refresh(scope)
@@ -534,6 +653,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             let tab = self.selection.inspectorTab
             self.show(tab, animated: self.view.window != nil)
             self.visiblePane?.refresh(self.scope)
+            self.refreshHeaderToggle()
+            self.refreshHairline()
             // A value that reveals or hides rows changes the sub-options the
             // tool bar offers (Slide on → Direction, Bounce, Speed …) even
             // when the open panel's own rows did not change.

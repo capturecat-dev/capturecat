@@ -571,6 +571,17 @@ final class EditorViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        // The bottom panel's glass sheet runs on under the tool bar to the edge.
+        inspector.sheetExtension = max(0, view.bounds.maxY - toolBar.frame.minY)
+        // The room one sub-option's rows have in a short panel: an option
+        // that would overflow it splits into more keys.
+        if inspector.presentation == .bottomPanel, !isPreviewExpanded {
+            let budget = (panelCap() - StudioInspectorController.panelStripHeight - 1 - CCSpace.sm).rounded(.down)
+            if budget > 60, inspector.panelRowsBudget.map({ abs($0 - budget) > 0.5 }) ?? true {
+                inspector.panelRowsBudget = budget
+                refreshPaneOptions()
+            }
+        }
         repositionContextPill()
     }
 
@@ -617,11 +628,13 @@ final class EditorViewController: UIViewController {
         case .sidePanel: NSLayoutConstraint.activate(inspectorSide)
         }
         // Z-order: the side panel slides out from under the rail; the
-        // bottom panel never overlaps the tool bar (it sits above it).
-        if presentation == .sidePanel {
-            view.insertSubview(inspector.view, belowSubview: toolBar)
-        } else {
+        // bottom panel ends on the tool bar's top, its glass sheet running on
+        // UNDER the floating capsule (one sheet the bar floats over). A
+        // column sits beside the bar.
+        if presentation == .column {
             view.insertSubview(inspector.view, aboveSubview: toolBar)
+        } else {
+            view.insertSubview(inspector.view, belowSubview: toolBar)
         }
         view.bringSubviewToFront(contextPill)
         toolBar.axis = arrangement == .landscapeCompact ? .vertical : .horizontal
@@ -631,6 +644,7 @@ final class EditorViewController: UIViewController {
         openOption = nil
         panelHeight?.constant = 0
         panelTarget = 0
+        toolBar.setOverSheet(false, animated: false)
         updateTimelineSquash()
         sideSlotWidth.constant = 0
         inspector.view.isHidden = presentation != .column
@@ -668,6 +682,7 @@ final class EditorViewController: UIViewController {
     func fittedPanelHeight() -> CGFloat {
         #if DEBUG
         if Self.probePanelDefect == .uncapped { return inspector.panelFittingHeight }
+        if Self.probePanelDefect == .clips { return max(0, min(inspector.panelFittingHeight, panelCap()) - 40).rounded() }
         #endif
         return min(inspector.panelFittingHeight, panelCap()).rounded()
     }
@@ -677,7 +692,8 @@ final class EditorViewController: UIViewController {
     static var probeSnapPanel = false
     /// Probe seams — INJECTED DEFECTS for the panel gates: the panel over
     /// the tool bar; no height cap.
-    enum PanelDefect { case none, overToolBar, uncapped }
+    /// `clips`: the panel stops short of its rows (the bottom one cut off).
+    enum PanelDefect { case none, overToolBar, uncapped, clips }
     static var probePanelDefect = PanelDefect.none
     /// The last element a panel change moved VoiceOver to (the gates read it).
     private(set) var probeLastAnnounced: UIView?
@@ -738,6 +754,7 @@ final class EditorViewController: UIViewController {
         #endif
         inspector.view.isHidden = false
         toolBar.setOpen(toolBar.key(for: tool) != nil ? tool : nil, animated: animated)
+        if inspector.presentation == .bottomPanel { toolBar.setOverSheet(true, animated: animate) }
         // Lay out while still closed (so the layout pass doesn't snap the
         // panel to its target), then grow it.
         view.layoutIfNeeded()
@@ -771,6 +788,7 @@ final class EditorViewController: UIViewController {
         openOption = nil
         toolBar.setOpen(nil, animated: animated)
         let animate = animated && view.window != nil
+        toolBar.setOverSheet(false, animated: animate)
         let done = { [weak self] in
             guard let self, !self.isPanelOpen, self.inspector.presentation != .column else { return }
             self.inspector.view.isHidden = true
