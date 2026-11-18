@@ -19,6 +19,9 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
     /// Probe seam — INJECTED DEFECT (`stage-card`): the stage is an inset
     /// rounded card again (the editor also insets it).
     static var probeCard = false
+    /// Probe seam — INJECTED DEFECT (`glass-on-content`): the stage itself
+    /// sits on glass (content must stay flat).
+    static var probeGlassStage = false
     #endif
 
     static let zoomSteps: [CGFloat] = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0]
@@ -53,6 +56,17 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
                 view.bottomAnchor.constraint(equalTo: bottomAnchor),
             ])
         }
+        #if DEBUG
+        if Self.probeGlassStage {
+            let glass = CCGlassView(shape: .rounded(.md))
+            glass.translatesAutoresizingMaskIntoConstraints = false
+            insertSubview(glass, belowSubview: canvas)
+            NSLayoutConstraint.activate([
+                glass.leadingAnchor.constraint(equalTo: leadingAnchor), glass.trailingAnchor.constraint(equalTo: trailingAnchor),
+                glass.topAnchor.constraint(equalTo: topAnchor), glass.bottomAnchor.constraint(equalTo: bottomAnchor),
+            ])
+        }
+        #endif
         canvas.stage = stage
         stage.isDraggingOnCanvasProvider = { [weak canvas] in canvas?.isActivelyDragging ?? false }
         stage.inlineEditingIDProvider = { [weak canvas] in canvas?.inlineEditingID }
@@ -174,9 +188,11 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
     }
 }
 
-/// ⊖ 100% ⊕ — the Mac's `PreviewZoomPill`: a small dark chip with the
-/// magnifier icons and the percentage (tap it to fit). Keys draw small and
-/// answer across 44 pt; spaced so their targets never overlap.
+/// ⊖ 100% ⊕ — the Mac's `PreviewZoomPill`: a small glass capsule floating
+/// over the stage (Liquid Glass; the kit's opaque material under Reduce
+/// Transparency) with the magnifier icons and the percentage (tap it to
+/// fit). Keys draw small and answer across 44 pt; spaced so their targets
+/// never overlap.
 final class EditorZoomPill: UIView {
     var onZoomOut: (() -> Void)?
     var onZoomIn: (() -> Void)?
@@ -211,30 +227,19 @@ final class EditorZoomPill: UIView {
             plus.widthAnchor.constraint(equalToConstant: 44),
         ])
         layer.cornerCurve = .continuous
-        ccOnThemeChange { [weak self] in self?.restyle() }
-        restyle()
+        glass.isUserInteractionEnabled = false
+        glass.accessibilityIdentifier = "studio.zoomPill.glass"
+        insertSubview(glass, at: 0)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     /// The visible capsule: the Mac chip's height, inside the 44 pt keys.
-    private let capsule = CALayer()
-
-    private func restyle() {
-        // The Mac chip: a dark translucent capsule over the canvas.
-        if capsule.superlayer == nil { layer.insertSublayer(capsule, at: 0) }
-        capsule.backgroundColor = UIColor.black.withAlphaComponent(0.55).cgColor
-        capsule.borderWidth = 0.5
-        capsule.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
-    }
+    let glass = CCGlassView(shape: .capsule)
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        capsule.frame = bounds.insetBy(dx: 0, dy: 7)
-        capsule.cornerRadius = capsule.frame.height / 2
-        CATransaction.commit()
+        glass.frame = bounds.insetBy(dx: 0, dy: 7)
     }
 
     func update(zoom: CGFloat, canZoomOut: Bool, canZoomIn: Bool) {

@@ -20,6 +20,15 @@ set -euo pipefail
 # `--inject ignores-size-class` / `ignores-crease` / `snap-panel` /
 # `panel-over-toolbar` / `panel-uncapped` / `bar-snap` / `no-back` /
 # `panel-card` / `card-in-card` / `stage-card` must make it FAIL.
+# Liquid Glass (the floating chrome only): every floating key — header back,
+# aspect, Export (tinted), the toolbar row, the zoom chip, the tool bar, a
+# panel's ✓ and title — sits on a real UIGlassEffect view in the editor's own
+# window chain; the stage, lanes and panel rows are not glass; Reduce
+# Transparency swaps every glass surface for the opaque kit material (and
+# back); Increase Contrast edges each with 1 pt; the bar's capsule morphs
+# mid-flight between levels (iPad). `--inject flat-chrome` /
+# `glass-ignores-reduce-transparency` / `glass-no-contrast-border` /
+# `glass-on-content` (and `bar-snap` for the morph) must make it FAIL.
 #
 # Env: DEVICE=<simulator udid> (an iPad: the inner display needs the width).
 

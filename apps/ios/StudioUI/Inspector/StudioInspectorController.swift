@@ -70,6 +70,13 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     /// leading edge; the bottom panel spans the width with only its top
     /// corners rounded; the side panel is a plain region.
     let surface = UIView()
+    /// A panel's glass sheet (Liquid Glass, iOS 26): behind the strip and
+    /// the rows, the surface's own backdrop — the rows on it stay flat. Top
+    /// corners for the bottom panel, leading for the side panel; the opaque
+    /// kit material under Reduce Transparency. A column has none.
+    let panelGlass = CCGlassView(shape: .top(.lg))
+    /// The ✓ key's glass.
+    private(set) lazy var doneGlass = CCGlassView.wrapping(closeButton, shape: .capsule)
     private let hairline = UIView()
     /// The panel's edge hairline (top for the bottom panel, leading for a
     /// column or side panel).
@@ -189,6 +196,13 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         surface.accessibilityIdentifier = "studio.inspector.surface"
         root.addSubview(surface)
         pinEdges(surface, to: root)
+        panelGlass.translatesAutoresizingMaskIntoConstraints = false
+        panelGlass.castsShadow = false
+        panelGlass.fallbackTint = CCTheme.color.card
+        panelGlass.isHidden = true
+        panelGlass.accessibilityIdentifier = "studio.inspector.panelGlass"
+        surface.addSubview(panelGlass)
+        pinEdges(panelGlass, to: surface)
 
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.alwaysBounceVertical = false
@@ -208,7 +222,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         panelTitle.adjustsFontSizeToFitWidth = true
         panelTitle.minimumScaleFactor = 0.7
         strip.addSubview(panelTitle)
-        strip.addSubview(closeButton)
+        doneGlass.accessibilityIdentifier = "inspector.close.glass"
+        strip.addSubview(doneGlass)
         for v in [strip, scroll, hairline, rail, edgeLine] as [UIView] { surface.addSubview(v) }
         edgeLine.isUserInteractionEnabled = false
 
@@ -225,8 +240,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
             panelTitle.topAnchor.constraint(greaterThanOrEqualTo: strip.topAnchor, constant: 6),
             panelTitle.bottomAnchor.constraint(lessThanOrEqualTo: strip.bottomAnchor, constant: -6),
             panelTitle.centerYAnchor.constraint(equalTo: strip.centerYAnchor),
-            closeButton.centerYAnchor.constraint(equalTo: strip.centerYAnchor),
-            closeButton.trailingAnchor.constraint(equalTo: strip.trailingAnchor, constant: -CCSpace.sm),
+            doneGlass.centerYAnchor.constraint(equalTo: strip.centerYAnchor),
+            doneGlass.trailingAnchor.constraint(equalTo: strip.trailingAnchor, constant: -CCSpace.sm),
             strip.heightAnchor.constraint(greaterThanOrEqualToConstant: Self.panelStripHeight),
         ])
         panelTitle.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -299,7 +314,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     }
 
     private func restyleSurface() {
-        surface.backgroundColor = CCTheme.color.card
+        // A panel's backdrop is its glass sheet; a column is a flat region.
+        surface.backgroundColor = presentation == .column ? CCTheme.color.card : .clear
         hairline.backgroundColor = CCTheme.color.border
         edgeLine.backgroundColor = CCTheme.color.border
         surface.layer.borderColor = surface.cc(CCTheme.color.border)
@@ -364,6 +380,11 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         surface.layer.cornerRadius = presentation == .bottomPanel ? CCTheme.radius(.lg) : 0
         surface.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         surface.layer.borderWidth = 0
+        panelGlass.isHidden = presentation == .column
+        // The glass sheet draws its own edge.
+        edgeLine.isHidden = presentation != .column
+        panelGlass.shape = presentation == .sidePanel ? .leading(.lg) : .top(.lg)
+        restyleSurface()
         #if DEBUG
         if Self.probePanelCard, presentation != .column {
             surface.layer.cornerRadius = CCTheme.radius(.lg)

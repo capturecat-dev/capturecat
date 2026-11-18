@@ -1,8 +1,9 @@
 import UIKit
 
-/// CCKit header bar — drawn in-content instead of a UINavigationBar (which
-/// renders as system Liquid Glass on iOS 26+; CaptureCat never shows system
-/// glass). Pin it to the top of a screen; it extends under the status bar.
+/// CCKit header bar — drawn in-content instead of a UINavigationBar (whose
+/// system glass bar CaptureCat doesn't use). Pin it to the top of a screen;
+/// it extends under the status bar. `adoptGlassKeys()` (the studio editor)
+/// floats the back key on the kit's own glass (`CCGlassView`).
 ///
 /// `.large`: a big leading page title + trailing actions (tab roots).
 /// `.inline`: a ghost back button, a centered title and trailing actions.
@@ -28,7 +29,25 @@ final class CCHeaderBar: UIView {
     }
 
     var showsBack: Bool = false {
-        didSet { backButton.isHidden = !showsBack }
+        didSet { backButton.isHidden = !showsBack; backGlass?.isHidden = !showsBack }
+    }
+    /// The back key's glass, once `adoptGlassKeys()` ran.
+    private(set) var backGlass: CCGlassView?
+
+    /// The back key floats on a glass capsule (the title stays plain type
+    /// on the bar; trailing keys bring their own glass).
+    func adoptGlassKeys() {
+        guard backGlass == nil else { return }
+        let index = leading.arrangedSubviews.firstIndex(of: backButton) ?? 0
+        backButton.removeFromSuperview()
+        let glass = CCGlassView.wrapping(backButton, shape: .capsule)
+        glass.accessibilityIdentifier = "cc.header.backGlass"
+        glass.isHidden = backButton.isHidden
+        leading.insertArrangedSubview(glass, at: index)
+        // The title keeps clear of the capsule.
+        leading.isLayoutMarginsRelativeArrangement = true
+        leading.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 0, leading: 0, bottom: 0, trailing: CCSpace.sm)
+        backGlass = glass
     }
 
     private let titleLabel: UILabel

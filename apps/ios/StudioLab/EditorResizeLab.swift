@@ -64,12 +64,18 @@ enum EditorResizeLab {
         log("EDITOR-RESIZE out=\(out.path) device=\(UIDevice.current.model) \(UIDevice.current.systemVersion)")
         if let inject {
             guard ["ignores-size-class", "ignores-crease", "snap-panel", "panel-over-toolbar", "panel-uncapped",
-                   "bar-snap", "no-back", "panel-card", "card-in-card", "stage-card", "keys-block-drag"].contains(inject) else {
+                   "bar-snap", "no-back", "panel-card", "card-in-card", "stage-card", "keys-block-drag",
+                   "flat-chrome", "glass-ignores-reduce-transparency", "glass-no-contrast-border",
+                   "glass-on-content"].contains(inject) else {
                 log("EDITOR-RESIZE FAIL unknown --inject \(inject)"); exit(1)
             }
             log("EDITOR-RESIZE inject=\(inject)")
             #if DEBUG
             if inject == "keys-block-drag" { CCScrollView.probeKeysBlockDrag = true }
+            else if inject == "flat-chrome" { CCGlassView.probeFlat = true }
+            else if inject == "glass-ignores-reduce-transparency" { CCGlassView.probeIgnoresReduceTransparency = true }
+            else if inject == "glass-no-contrast-border" { CCGlassView.probeNoContrastBorder = true }
+            else if inject == "glass-on-content" { EditorStageCardView.probeGlassStage = true }
             else if inject == "bar-snap" { EditorToolBar.probeSnapLevels = true }
             else if inject == "no-back" { EditorToolBar.probeNoBack = true }
             else if inject == "panel-card" { StudioInspectorController.probePanelCard = true }
@@ -149,6 +155,7 @@ enum EditorResizeLab {
         await settle(1.0)
         checkLayout(editor, display: inner)
         checkState(editor, snapshot: snapshot, selectedID: selectedID, after: playheadBeforeUnfold, step: "unfold")
+        await checkBarMorph(editor, tag: "inner", selectedID: selectedID)
 
         // The crease, top to bottom (the book posture), then side to side.
         for vertical in [true, false] {
@@ -328,6 +335,7 @@ enum EditorResizeLab {
                     && editor.inspector.view.isHidden == !editor.isPanelOpen,
                   "tool bar \(fmt(tools)) to the screen's bottom edge; keys \(keys.joined(separator: " · "))")
         }
+        checkGlass(editor, tag: tag)
         let history = HistoryPresentation.style(for: editor)
         check("\(tag)-history-style", (history == .sidePanel) == wantRegular, "History would open as \(history)")
         log("EDITOR-RESIZE \(tag) layout stage=\(fmt(stage)) transport=\(fmt(transport)) timeline=\(fmt(timeline)) toolBar=\(fmt(tools)) inspector=\(fmt(inspector))")
@@ -407,6 +415,8 @@ enum EditorResizeLab {
                 && !inspector.closeButton.isHidden && inspector.closeButton.accessibilityLabel == "Done",
               "title \"\(inspector.panelTitle.text ?? "")\", \(shownRows) rows, ✓ labelled \"\(inspector.closeButton.accessibilityLabel ?? "")\"")
         checkFlat(editor, tag: tag, side: side)
+        checkGlass(editor, tag: "\(tag)-panel", panel: true)
+        await checkGlassSettings(editor, tag: tag)
         if side {
             let stage = frame(editor.stageCard), rail = frame(bar)
             check("\(tag)-side-panel", final.minX >= stage.maxX - 0.5 && final.maxX <= rail.minX + 1 && overlaps == 0
@@ -520,6 +530,8 @@ enum EditorResizeLab {
         func walk(_ v: UIView) {
             guard !v.isHidden, v.alpha > 0.01 else { return }
             if v !== root, v is UIControl || v is CCPreviewPad { return }
+            // The panel's own glass sheet IS the surface (its backdrop), not a card in it.
+            if v === (root.next as? StudioInspectorController)?.panelGlass { v.subviews.forEach(walk); return }
             let r = v.convert(v.bounds, to: root)
             let filled = (v.backgroundColor.map { $0.cgColor.alpha > 0.01 } ?? false) || v.layer.borderWidth > 0
                 || (v.layer.sublayers ?? []).contains { $0.name?.hasPrefix("ccmat") == true }
@@ -531,6 +543,143 @@ enum EditorResizeLab {
         }
         walk(view)
         return out
+    }
+
+    // MARK: - Glass (Liquid Glass on the floating chrome only)
+
+    /// The chrome's glass surfaces, as the app builds them.
+    @available(iOS 26, *)
+    private static func chromeGlass(_ editor: EditorViewController, panel: Bool) -> [(String, CCGlassView)] {
+        var out: [(String, CCGlassView)] = [
+            ("tool-bar", editor.toolBar.probeGlass), ("aspect", editor.aspectGlass), ("export", editor.exportGlass),
+            ("toolbar-row", editor.transport.glass), ("zoom-chip", editor.stageCard.zoomPill.glass),
+        ]
+        if let back = editor.header.backGlass { out.append(("back", back)) }
+        if panel { out += [("panel", editor.inspector.panelGlass), ("done", editor.inspector.doneGlass)] }
+        return out
+    }
+
+    /// Structural: each floating surface's keys sit on a REAL `UIGlassEffect`
+    /// view in the editor's own window chain (UIKit's view tree, not the
+    /// kit's say-so); Export's glass is tinted; the content — stage, lanes,
+    /// a panel's rows — is NOT glass and not on glass.
+    @available(iOS 26, *)
+    private static func checkGlass(_ editor: EditorViewController, tag: String, panel: Bool = false) {
+        let window = editor.view.window
+        func realGlass(_ v: UIView) -> UIGlassEffect? {
+            guard let fx = v as? UIVisualEffectView, window != nil, fx.window === window, !fx.isHidden,
+                  fx.bounds.width > 1, fx.bounds.height > 1 else { return nil }
+            return fx.effect as? UIGlassEffect
+        }
+        /// `key` is on glass: an ancestor renders glass, or a glass view in
+        /// an ancestor (z-order: under the key) covers the key's centre.
+        func onGlass(_ key: UIView) -> Bool {
+            guard key.window === window, !key.isHidden else { return false }
+            if key.ccIsOnGlass { return true }
+            let centre = key.convert(CGPoint(x: key.bounds.midX, y: key.bounds.midY), to: nil)
+            var a: UIView? = key.superview
+            var child: UIView = key
+            while let host = a {
+                let below = host.subviews.prefix { $0 !== child }
+                for g in below where realGlass(g) != nil {
+                    if g.convert(g.bounds, to: nil).contains(centre) { return true }
+                }
+                child = host
+                a = host.superview
+            }
+            return false
+        }
+        var keys: [(String, UIView)] = [
+            ("back", editor.header.backButton), ("aspect", editor.aspectChip), ("export", editor.exportButton),
+            ("toolbar-row", editor.transport.playButton),
+        ]
+        // The zoom chip's keys (its glass sits under them, inside the chip).
+        let pillKey = editor.stageCard.zoomPill.subviews.compactMap { $0 as? UIStackView }.first?.arrangedSubviews.first
+        keys.append(("zoom-chip", pillKey ?? editor.stageCard.zoomPill))
+        if let first = editor.toolBar.probeVisibleStack.subviews.first(where: { $0 is CCIconRailKey }) {
+            keys.append(("tool-bar", first))
+        }
+        if panel { keys += [("done", editor.inspector.closeButton), ("panel-title", editor.inspector.panelTitle)] }
+        let bare = keys.filter { !onGlass($0.1) }.map(\.0)
+        let tinted = realGlass(editor.exportGlass)?.tintColor != nil
+        check("\(tag)-chrome-glass", keys.count >= (panel ? 8 : 6) && bare.isEmpty && tinted,
+              "\(keys.count - bare.count)/\(keys.count) floating keys on UIGlassEffect\(bare.isEmpty ? "" : " — bare: \(bare.joined(separator: ", "))"); Export tinted \(tinted)")
+        // Content stays flat: no glass in it, nothing of it on glass.
+        let pill = editor.stageCard.zoomPill
+        let stageGlass = editor.stageCard.ccGlassEffectViews().filter { !$0.isDescendant(of: pill) }
+        let laneGlass = editor.timeline.view.ccGlassEffectViews().filter { !$0.isHidden }
+        var rowsGlass = 0, rowsOn = false
+        if panel, let pane = editor.inspector.visiblePane {
+            rowsGlass = pane.ccGlassEffectViews().count
+            rowsOn = pane.ccIsOnGlass
+        }
+        let contentOK = stageGlass.isEmpty && !editor.stage.ccIsOnGlass && laneGlass.isEmpty
+            && !editor.timeline.view.ccIsOnGlass && rowsGlass == 0 && !rowsOn
+        check("\(tag)-content-flat", contentOK,
+              "glass in stage \(stageGlass.count), lanes \(laneGlass.count), panel rows \(rowsGlass); on glass: stage \(editor.stage.ccIsOnGlass), lanes \(editor.timeline.view.ccIsOnGlass), rows \(rowsOn)")
+    }
+
+    /// Reduce Transparency puts the kit's OPAQUE material where the glass
+    /// was (and back); Increase Contrast gives the glass a clear 1 pt edge.
+    @available(iOS 26, *)
+    private static func checkGlassSettings(_ editor: EditorViewController, tag: String) async {
+        // The surfaces on screen (a squeezed host can collapse one to nothing).
+        let surfaces = chromeGlass(editor, panel: true).filter { $0.1.bounds.width > 1 && $0.1.bounds.height > 1 }
+        func opaque(_ g: CCGlassView) -> Bool {
+            guard g.effect == nil,
+                  let base = g.layer.sublayers?.first(where: { $0.name == "ccmat.base" }) as? CAGradientLayer,
+                  let colors = base.colors, !colors.isEmpty else { return false }
+            let alphas = colors.map { ($0 as! CGColor).alpha }
+            return alphas.allSatisfy { $0 > 0.99 } && base.frame.width > 1
+        }
+        CCAccessibility.forcedReduceTransparency = true
+        await settle(0.3)
+        let stillGlass = surfaces.filter { $0.1.effect is UIGlassEffect }.map(\.0)
+        let notOpaque = surfaces.filter { !opaque($0.1) }.map(\.0)
+        CCAccessibility.forcedReduceTransparency = nil
+        await settle(0.3)
+        let back = surfaces.filter { !($0.1.effect is UIGlassEffect) }.map(\.0)
+        check("\(tag)-glass-reduce-transparency", stillGlass.isEmpty && notOpaque.isEmpty && back.isEmpty,
+              "Reduce Transparency: \(surfaces.count - notOpaque.count)/\(surfaces.count) on the opaque kit material"
+                + (stillGlass.isEmpty ? "" : "; still glass: \(stillGlass.joined(separator: ", "))")
+                + (notOpaque.isEmpty ? "" : "; not opaque: \(notOpaque.joined(separator: ", "))")
+                + "; off again → glass" + (back.isEmpty ? "" : " except \(back.joined(separator: ", "))"))
+        CCAccessibility.forcedIncreaseContrast = true
+        await settle(0.3)
+        let thin = surfaces.filter { $0.1.probeEdgeWidth < 1 }.map(\.0)
+        CCAccessibility.forcedIncreaseContrast = nil
+        await settle(0.3)
+        let lingering = surfaces.filter { $0.1.layer.borderWidth > 0 }.map(\.0)
+        check("\(tag)-glass-increase-contrast", thin.isEmpty && lingering.isEmpty,
+              "Increase Contrast: \(surfaces.count - thin.count)/\(surfaces.count) glass surfaces with a ≥ 1 pt edge"
+                + (thin.isEmpty ? "" : "; none on \(thin.joined(separator: ", "))")
+                + (lingering.isEmpty ? "" : "; border left on \(lingering.joined(separator: ", "))"))
+    }
+
+    /// The bar's glass MORPHS with its level: clearing the selection swaps
+    /// the context keys for the (fewer) tools and the capsule's length is
+    /// caught mid-flight between the two (`--inject bar-snap` snaps it).
+    @available(iOS 26, *)
+    private static func checkBarMorph(_ editor: EditorViewController, tag: String, selectedID: UUID?) async {
+        let glass = editor.toolBar.probeGlass
+        let axisLength = { editor.toolBar.axis == .horizontal ? glass.frame.width : glass.frame.height }
+        let start = axisLength()
+        // ‹ clears the selection (the context keys → the tools).
+        editor.toolBar.key(for: .back)?.sendActions(for: .touchUpInside)
+        var samples: [CGFloat] = []
+        let t0 = CACurrentMediaTime()
+        while CACurrentMediaTime() - t0 < 0.6 {
+            samples.append(axisLength())
+            await settle(0.012)
+        }
+        await settle(0.2)
+        let end = axisLength()
+        let mid = samples.filter { abs($0 - start) > 2 && abs($0 - end) > 2 }
+        check("\(tag)-bar-morph-midflight", abs(end - start) > 20 && mid.count >= 2 && editor.toolBar.mode == .tools,
+              String(format: "capsule %.0f → %.0f pt, %d of %d samples mid-flight; keys %@", start, end, mid.count, samples.count,
+                     editor.toolBar.probeTitles.joined(separator: " · ")))
+        editor.selection.selectedAnnotationID = selectedID
+        await settle(0.6)
     }
 
     /// Nothing straddles the crease: stage + transport on one side, timeline

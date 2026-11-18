@@ -77,8 +77,17 @@ final class EditorViewController: UIViewController {
     private let contextPill = EditorContextPill()
     /// The header's aspect chip ("16:9" ↕) — the Mac bar's aspect select.
     let aspectChip = EditorAspectChip()
-    /// Studio 3d: the header's "Export…" key (the Mac's accent pill).
-    let exportButton = CCButton(title: "Export…", style: .primary, size: .sm, radius: .md)
+    /// Studio 3d: the header's "Export…" key — a ghost key on BLUE-TINTED
+    /// glass (the primary), white ink; the opaque primary under Reduce Transparency.
+    let exportButton = CCButton(title: "Export…", style: .ghost, size: .sm, radius: .full, haptics: true)
+    /// The floating chrome's glass (Liquid Glass, iOS 26): the header's keys
+    /// ride capsules, the aspect chip and Export in ONE container so they
+    /// merge and morph as neighbours. Content (stage, lanes) stays flat.
+    private(set) lazy var aspectGlass = CCGlassView.wrapping(aspectChip, shape: .capsule)
+    private(set) lazy var exportGlass = CCGlassView.wrapping(exportButton, shape: .capsule, tint: CCTheme.color.primary)
+    let headerGlassGroup = CCGlassGroup(spacing: CCSpace.sm)
+    /// Stacked: the bottom bar's top (it drops toward the home indicator).
+    private var toolBarDock: NSLayoutConstraint!
 
     var stage: PreviewStageView { stageCard.stage }
     var canvas: EditorCanvasView { stageCard.canvas }
@@ -195,7 +204,26 @@ final class EditorViewController: UIViewController {
         exportButton.onTap = { [weak self] in self?.presentExport() }
         aspectChip.onSelect = { [weak self] ratio in self?.setAspectRatio(ratio) }
         aspectChip.presenter = self
-        header.setTrailing([aspectChip, exportButton])
+        aspectChip.layer.cornerRadius = 17
+        exportButton.inkOverride = CCTheme.color.primaryForeground
+        header.adoptGlassKeys()
+        aspectGlass.accessibilityIdentifier = "studio.aspect.glass"
+        exportGlass.accessibilityIdentifier = "studio.export.glass"
+        let headerKeys = UIStackView(arrangedSubviews: [aspectGlass, exportGlass])
+        headerKeys.spacing = CCSpace.sm
+        headerKeys.alignment = .center
+        headerKeys.translatesAutoresizingMaskIntoConstraints = false
+        headerGlassGroup.contentView.addSubview(headerKeys)
+        NSLayoutConstraint.activate([
+            headerKeys.leadingAnchor.constraint(equalTo: headerGlassGroup.contentView.leadingAnchor),
+            headerKeys.trailingAnchor.constraint(equalTo: headerGlassGroup.contentView.trailingAnchor),
+            headerKeys.topAnchor.constraint(equalTo: headerGlassGroup.contentView.topAnchor),
+            headerKeys.bottomAnchor.constraint(equalTo: headerGlassGroup.contentView.bottomAnchor),
+            // 44 pt tall: the keys' expanded touch targets stay inside it
+            // (a hit test never reaches a key through a shorter container).
+            headerKeys.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+        ])
+        header.setTrailing([headerGlassGroup])
 
         for container in [timelineContainer, inspectorContainer] {
             container.translatesAutoresizingMaskIntoConstraints = false
@@ -220,6 +248,7 @@ final class EditorViewController: UIViewController {
         creaseHeight = creaseGuide.heightAnchor.constraint(equalToConstant: 0)
         sideSlotWidth = sidePanelGuide.widthAnchor.constraint(equalToConstant: 0)
         stageHeight = stageCard.heightAnchor.constraint(equalToConstant: 220)
+        toolBarDock = toolBar.topAnchor.constraint(equalTo: guide.bottomAnchor, constant: -EditorToolBar.thickness)
         var edge: CGFloat = 0
         #if DEBUG
         if Self.probeInsetStage { edge = CCSpace.md }
@@ -270,7 +299,7 @@ final class EditorViewController: UIViewController {
             timelineContainer.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             timelineContainer.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             timelineContainer.bottomAnchor.constraint(equalTo: toolBar.topAnchor),
-            toolBar.topAnchor.constraint(equalTo: guide.bottomAnchor, constant: -EditorToolBar.thickness),
+            toolBarDock,
             toolBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             toolBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             toolBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
@@ -527,6 +556,10 @@ final class EditorViewController: UIViewController {
         } else {
             header.titleCenterOffset = 0
         }
+        // The floating bar drops into the home indicator's band, the way
+        // the system's bars float (none to drop into without one).
+        let dock = -EditorToolBar.thickness + Self.toolBarDrop(safeBottom: view.safeAreaInsets.bottom)
+        if toolBarDock.constant != dock { toolBarDock.constant = dock }
         updateStageHeight()
         timelineHeightChanged(timeline.intrinsicPanelHeight)
         if isPanelOpen, inspector.presentation == .bottomPanel, !CCMotion.isAnimating(panelHeight) {
@@ -539,6 +572,11 @@ final class EditorViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         repositionContextPill()
+    }
+
+    /// How far the stacked bottom bar drops into the bottom safe band.
+    static func toolBarDrop(safeBottom: CGFloat) -> CGFloat {
+        safeBottom >= 20 ? 14 : 0
     }
 
     /// The canvas's width / height (the stage shows it at its own aspect).

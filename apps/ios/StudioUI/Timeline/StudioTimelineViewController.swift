@@ -131,6 +131,8 @@ final class StudioTimelineViewController: UIViewController {
     /// The fixed playhead over the viewport's centre.
     let centrePlayhead = StudioTimelineCentrePlayhead()
     private let toolbarScroll = CCScrollView()
+    /// The standalone toolbar row's glass capsule.
+    let toolbarGlass = CCGlassView(shape: .capsule)
     #if DEBUG
     /// Harness seam: the toolbar row's scroll view (the slide check).
     var probeToolbarScroll: UIScrollView { toolbarScroll }
@@ -228,7 +230,13 @@ final class StudioTimelineViewController: UIViewController {
             root.layer.cornerRadius = 0
             root.layer.borderWidth = 0
         }
-        for v in [toolbarScroll, canvasArea, hairline] {
+        // The standalone toolbar row's keys float on a glass capsule (the
+        // lanes under it stay flat); inside the editor the row is the
+        // editor's own (`EditorTransportBar`, glass too).
+        toolbarGlass.isUserInteractionEnabled = false
+        toolbarGlass.isHidden = chrome == .embedded
+        toolbarGlass.accessibilityIdentifier = "timeline.toolbar.glass"
+        for v in [toolbarGlass, toolbarScroll, canvasArea, hairline] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
@@ -243,6 +251,10 @@ final class StudioTimelineViewController: UIViewController {
             toolbarScroll.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             toolbarScroll.topAnchor.constraint(equalTo: root.topAnchor),
             toolbarScroll.heightAnchor.constraint(equalToConstant: toolbarHeight),
+            toolbarGlass.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 6),
+            toolbarGlass.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6),
+            toolbarGlass.centerYAnchor.constraint(equalTo: toolbarScroll.centerYAnchor),
+            toolbarGlass.heightAnchor.constraint(equalToConstant: max(0, toolbarHeight - 8)),
             hairline.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             hairline.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             hairline.topAnchor.constraint(equalTo: toolbarScroll.bottomAnchor, constant: -1),

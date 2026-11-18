@@ -8,7 +8,9 @@ import UIKit
 //  • raisedMatte — the same face without the cast shadow (cards inside a
 //    container that already supplies depth, dialogs over a scrim).
 //  • recessed — a flat WELL: the tint and a quieter hairline. No inner shadow.
-// Never gloss, never bevels, never system Liquid Glass.
+// Never gloss, never bevels. The material is never glass itself: floating
+// chrome that wants Liquid Glass uses `CCGlassView`, which falls back to this
+// material under Reduce Transparency.
 //
 // `dress` from applyTheme (colors + frames), `refit` from layoutSubviews
 // (frames only). The material lives in a `ccmat.base` sublayer at index 0,
