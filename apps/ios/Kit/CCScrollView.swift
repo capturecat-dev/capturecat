@@ -42,7 +42,8 @@ final class CCScrollView: UIScrollView {
         let length = horizontal ? bounds.width : bounds.height
         let overflow = horizontal ? contentSize.width - bounds.width : contentSize.height - bounds.height
         guard edgeFade > 0, overflow > 0.5, length > 2 * edgeFade else {
-            if layer.mask != nil { layer.mask = nil }
+            // Only ever remove our own mask.
+            if let fadeMask, layer.mask === fadeMask { layer.mask = nil }
             fadeMask = nil
             return
         }
