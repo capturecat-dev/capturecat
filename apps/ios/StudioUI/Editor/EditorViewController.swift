@@ -219,6 +219,9 @@ final class EditorViewController: UIViewController {
             headerKeys.trailingAnchor.constraint(equalTo: headerGlassGroup.contentView.trailingAnchor),
             headerKeys.topAnchor.constraint(equalTo: headerGlassGroup.contentView.topAnchor),
             headerKeys.bottomAnchor.constraint(equalTo: headerGlassGroup.contentView.bottomAnchor),
+            // 44 pt tall: the keys' expanded touch targets stay inside it
+            // (a hit test never reaches a key through a shorter container).
+            headerKeys.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
         ])
         header.setTrailing([headerGlassGroup])
 

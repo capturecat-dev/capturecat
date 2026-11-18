@@ -623,7 +623,8 @@ enum EditorResizeLab {
     /// was (and back); Increase Contrast gives the glass a clear 1 pt edge.
     @available(iOS 26, *)
     private static func checkGlassSettings(_ editor: EditorViewController, tag: String) async {
-        let surfaces = chromeGlass(editor, panel: true)
+        // The surfaces on screen (a squeezed host can collapse one to nothing).
+        let surfaces = chromeGlass(editor, panel: true).filter { $0.1.bounds.width > 1 && $0.1.bounds.height > 1 }
         func opaque(_ g: CCGlassView) -> Bool {
             guard g.effect == nil,
                   let base = g.layer.sublayers?.first(where: { $0.name == "ccmat.base" }) as? CAGradientLayer,
