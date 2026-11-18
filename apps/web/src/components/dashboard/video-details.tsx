@@ -56,6 +56,10 @@ export function VideoDetails({ videoId }: { videoId: string }) {
     onSuccess: invalidate,
     onError: (error) => toast.error(error.message ?? "Failed to update privacy"),
   });
+  const setComments = trpc.videos.setComments.useMutation({
+    onSuccess: invalidate,
+    onError: (error) => toast.error(error.message ?? "Failed to update comments"),
+  });
   const restore = trpc.videos.restoreVersion.useMutation({
     onSuccess: (data) => {
       invalidate();
@@ -230,6 +234,19 @@ export function VideoDetails({ videoId }: { videoId: string }) {
                     update.mutate({ videoId: video.videoId, allowDownload: checked })
                   }
                   disabled={update.isPending}
+                />
+              </SettingRow>
+
+              <SettingRow
+                label="Allow comments"
+                description="Viewers can leave timestamped comments and drawings."
+              >
+                <Switch
+                  checked={video.commentsEnabled}
+                  onCheckedChange={(checked) =>
+                    setComments.mutate({ videoId: video.videoId, commentsEnabled: checked })
+                  }
+                  disabled={setComments.isPending}
                 />
               </SettingRow>
 

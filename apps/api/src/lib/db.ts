@@ -111,6 +111,7 @@ export async function updateShareControls(
     ctaLabel?: string | null;
     ctaUrl?: string | null;
     profileVisible?: boolean;
+    commentsEnabled?: boolean;
   }
 ): Promise<boolean> {
   const sets: string[] = [];
@@ -150,6 +151,10 @@ export async function updateShareControls(
   if (patch.profileVisible !== undefined) {
     sets.push("profile_visible = ?");
     binds.push(patch.profileVisible ? 1 : 0);
+  }
+  if (patch.commentsEnabled !== undefined) {
+    sets.push("comments_enabled = ?");
+    binds.push(patch.commentsEnabled ? 1 : 0);
   }
   if (sets.length === 0) return false;
   binds.push(videoId);

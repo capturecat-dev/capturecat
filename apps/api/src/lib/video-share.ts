@@ -9,6 +9,7 @@
 import type { Env, VideoMetadata } from "../types";
 import { isOrgMember, updateShareControls } from "./db";
 import { planForUser } from "./entitlement";
+import type { PlanRecord } from "./plans";
 
 // ---------------------------------------------------------------------------
 // Who may view a video
@@ -166,4 +167,37 @@ export async function applyShareControls(env: Pick<Env, "DB">, videoId: string, 
   const changed = await updateShareControls(env.DB, videoId, patch);
   if (changed) await purgeVideoMeta(videoId);
   return changed;
+}
+
+// ---------------------------------------------------------------------------
+// Viewer comments on an existing share
+// ---------------------------------------------------------------------------
+
+export type ShareCommentsResult =
+  | { ok: true; commentsEnabled: boolean }
+  | { ok: false; reason: "upgrade_required"; plan: PlanRecord }
+  | { ok: false; reason: "not_found" };
+
+/**
+ * Switch viewer comments on or off for a share that already exists — PATCH
+ * /video/:id/comments-enabled and the MCP update_share_settings tool. Before
+ * this, `comments_enabled` was written once at upload (routes/upload.ts), so a
+ * share made without the switch (every iPhone share) could never take
+ * comments. Turning them ON needs the uploader's plan to include comments and
+ * sharing — the pair commentsOpen (lib/comment-post.ts) re-checks on every
+ * read and write; turning them OFF always works. The caller has already
+ * established that it owns `doc`.
+ */
+export async function setShareComments(
+  env: Pick<Env, "DB">,
+  doc: VideoMetadata,
+  enabled: boolean
+): Promise<ShareCommentsResult> {
+  if (enabled) {
+    const plan = await planForUser(env, doc.uid);
+    if (!plan.features.comments || !plan.features.cloudShare) return { ok: false, reason: "upgrade_required", plan };
+  }
+  if (doc.commentsEnabled === enabled) return { ok: true, commentsEnabled: enabled };
+  const changed = await applyShareControls(env, doc.videoId, { commentsEnabled: enabled });
+  return changed ? { ok: true, commentsEnabled: enabled } : { ok: false, reason: "not_found" };
 }

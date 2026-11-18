@@ -654,6 +654,21 @@ describe("tools", () => {
     expect(errorText(await call(t, "update_share_settings", { video_id: "vid1", cta: { label: "x", url: "http://insecure.test" } }))).toContain("https");
   });
 
+  it("update_share_settings: comments_enabled follows the plan — on needs comments, off always works", async () => {
+    const { token: t } = await token();
+    const off = structured("update_share_settings", await call(t, "update_share_settings", { video_id: "vid1", comments_enabled: false }));
+    expect(off.updated).toEqual(["comments_enabled"]);
+    expect(off.share.commentsEnabled).toBe(false);
+    const on = structured("update_share_settings", await call(t, "update_share_settings", { video_id: "vid1", comments_enabled: true }));
+    expect(on.share.commentsEnabled).toBe(true);
+
+    db.query(`UPDATE plan SET features = json_set(features, '$.comments', json('false')) WHERE name = 'pro'`);
+    structured("update_share_settings", await call(t, "update_share_settings", { video_id: "vid1", comments_enabled: false }));
+    expect(errorText(await call(t, "update_share_settings", { video_id: "vid1", comments_enabled: true }))).toContain("Viewer comments isn't included");
+    const [row] = db.query<{ comments_enabled: number }>("SELECT comments_enabled FROM shared_videos WHERE video_id = 'vid1'");
+    expect(row.comments_enabled).toBe(0);
+  });
+
   it("get_video_analytics is refused on a plan without viewerAnalytics (Free)", async () => {
     const { token: free } = await token(AGENT_SCOPES, OTHER);
     expect(errorText(await call(free, "get_video_analytics", { video_id: "vid1" }))).toContain("Viewer analytics isn't included");

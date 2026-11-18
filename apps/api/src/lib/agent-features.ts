@@ -22,13 +22,14 @@ import { planForEntitlement, type PlanRecord } from "./plans";
 export const AGENT_FEATURES = ["agentAccess", "agentWebhooks", "agentEditing"] as const;
 export type AgentFeature = (typeof AGENT_FEATURES)[number];
 /** Every feature a route or tool answers `upgrade_required` for. */
-export type GatedFeature = AgentFeature | "viewerAnalytics";
+export type GatedFeature = AgentFeature | "viewerAnalytics" | "comments";
 
 const FEATURE_NAME: Record<GatedFeature, string> = {
   agentAccess: "Agent access (agent tokens, connectors and the remote MCP server)",
   agentWebhooks: "Webhooks",
   agentEditing: "Agent editing of cloud projects",
   viewerAnalytics: "Viewer analytics",
+  comments: "Viewer comments",
 };
 
 export const UPGRADE_URL = "https://app.capturecat.so/billing";
