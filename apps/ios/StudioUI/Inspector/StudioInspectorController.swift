@@ -515,6 +515,10 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         guard let first = rows.sorted().first(where: { pane.rows[$0].isRowVisible(scope) && !Self.isDecoration(pane.rows[$0]) }),
               let toggle = pane.rows[first] as? InspectorToggleRowView,
               Self.sameTitle(toggle.spec.title, option.title) else { return rows }
+        #if DEBUG
+        // `drop-control`: a dropped control shows nowhere — the strip included.
+        if toggle.rowID == InspectorPaneView.probeDropRowID { return rows }
+        #endif
         headerToggleRow = (first, toggle)
         rows.remove(first)
         return rows
