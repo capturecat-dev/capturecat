@@ -105,9 +105,23 @@ final class ShareVideoSurface: UIView {
         if let timeObserver { player.removeTimeObserver(timeObserver) }
     }
 
+    /// Edge to edge (the phone-landscape player): square corners.
+    var fullBleed = false { didSet { setNeedsLayout(); if !fullBleed { fillsWidth = false } } }
+    /// Zoomed to fill (pinch out in landscape): the frame's full width, the
+    /// top and bottom cropped; pinch in to see the whole frame again.
+    var fillsWidth = false {
+        didSet {
+            guard fillsWidth != oldValue else { return }
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(CCMotion.reduceMotion ? 0 : 0.25)
+            playerLayer.videoGravity = fillsWidth ? .resizeAspectFill : .resizeAspect
+            CATransaction.commit()
+        }
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
-        layer.cornerRadius = CCTheme.radius(.lg)
+        layer.cornerRadius = fullBleed ? 0 : CCTheme.radius(.lg)
     }
 
     func load(_ asset: AVURLAsset, startAt: Double, knownDuration: Double?) {

@@ -23,7 +23,7 @@ import UIKit
 ///  • the accessibility audit (CCAccessibilityAudit) over the open viewer at
 ///    the default and the largest text size.
 ///
-/// `-shareViewerInject marker-offset|no-rollback|seek-ignored|drop-token|snap`
+/// `-shareViewerInject marker-offset|no-rollback|seek-ignored|drop-token|snap|no-landscape`
 /// puts a defect in the shipping path: the gate must FAIL.
 /// Prints `SHAREVIEWER <check> PASS|FAIL …`, `SHAREVIEWER-GATE PASS|FAIL`,
 /// writes Documents/share-viewer/{gate.txt,*.png}, exits.
@@ -203,6 +203,30 @@ final class ShareViewerGate {
         let playing = v.probeSurface.isPlaying
         v.probeSurface.pause()
         record("plays", playing && t1 > 1.2, String(format: "playing=%@, 0.5 → %.2f s after 1.6 s", playing ? "yes" : "no", t1))
+
+        // 3b. Phone landscape: the video spans the full width (and height) of
+        // the screen over the page, controls float; portrait puts it back.
+        // A REAL rotation of the window scene, not a trait override.
+        if let scene = window.windowScene, UIDevice.current.userInterfaceIdiom == .phone {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { _ in }
+            _ = await waitFor(4000) { scene.effectiveGeometry.interfaceOrientation.isLandscape }
+            await sleep(900)
+            let bounds = window.bounds
+            let frame = v.probeSurface.convert(v.probeSurface.bounds, to: window)
+            let landscapeOK = bounds.width > bounds.height && v.isLandscapePlayer
+                && abs(frame.minX) < 0.5 && abs(frame.width - bounds.width) < 0.5 && abs(frame.height - bounds.height) < 0.5
+                && v.probeSurface.layer.cornerRadius == 0
+            record("landscape-full-width", landscapeOK,
+                   "window \(Int(bounds.width))×\(Int(bounds.height)) · video \(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))×\(Int(frame.height)) · radius \(v.probeSurface.layer.cornerRadius)")
+            snapshot("viewer-landscape.png")
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait)) { _ in }
+            _ = await waitFor(4000) { !scene.effectiveGeometry.interfaceOrientation.isLandscape }
+            await sleep(900)
+            let back = v.probeSurface.convert(v.probeSurface.bounds, to: window)
+            let portraitOK = !v.isLandscapePlayer && back.width < window.bounds.width && v.probeSurface.layer.cornerRadius > 0
+            record("portrait-restores-page", portraitOK,
+                   "video \(Int(back.width))×\(Int(back.height)) in the column, landscape=\(v.isLandscapePlayer)")
+        }
 
         // 4. Title, byline, tabs, reactions seeded.
         let model = v.model

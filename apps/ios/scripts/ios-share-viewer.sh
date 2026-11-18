@@ -3,7 +3,7 @@
 # the REAL app against the local mock API (Tests/mock_api.py; never production).
 #
 #   apps/ios/scripts/ios-share-viewer.sh                 the gate (must PASS)
-#   INJECT=marker-offset|no-rollback|seek-ignored|drop-token|snap  ...   must FAIL
+#   INJECT=marker-offset|no-rollback|seek-ignored|drop-token|snap|no-landscape  ...   must FAIL
 #   SELFTEST=1 apps/ios/scripts/ios-share-viewer.sh      the gate, then every
 #                                                        injected defect (each must FAIL)
 #
@@ -46,7 +46,7 @@ OUT="$(cd "$OUT" && pwd)"
 if [[ "${SELFTEST:-}" == "1" ]]; then
   SELFTEST= "$0" || { echo "IOS-SHARE-VIEWER SELFTEST FAIL (the gate itself failed)"; exit 1; }
   blind=()
-  for inject in marker-offset no-rollback seek-ignored drop-token snap; do
+  for inject in marker-offset no-rollback seek-ignored drop-token snap no-landscape; do
     if SELFTEST= SKIP_BUILD=1 INJECT=$inject "$0" > "$OUT/selftest-$inject.log" 2>&1; then
       blind+=("$inject")
       echo "ios-share-viewer: inject $inject — gate PASSED (blind)"
@@ -54,7 +54,7 @@ if [[ "${SELFTEST:-}" == "1" ]]; then
       echo "ios-share-viewer: inject $inject — gate FAILED as it must: $(grep -E '^SHAREVIEWER .* FAIL' "$OUT/selftest-$inject.log" | head -3 | cut -c1-160 | tr '\n' ' ')"
     fi
   done
-  [[ ${#blind[@]} -eq 0 ]] && { echo "IOS-SHARE-VIEWER SELFTEST PASS (5/5 injected defects caught)"; exit 0; }
+  [[ ${#blind[@]} -eq 0 ]] && { echo "IOS-SHARE-VIEWER SELFTEST PASS (6/6 injected defects caught)"; exit 0; }
   echo "IOS-SHARE-VIEWER SELFTEST FAIL (blind to: ${blind[*]})"; exit 1
 fi
 

@@ -60,6 +60,13 @@ final class ShareViewerViewController: DetailPageViewController {
     private let shareKey = CCButton(symbol: "share", style: .ghost, size: .regular, radius: .full)
     private let closeKey = CCButton(symbol: "close", style: .ghost, size: .regular, radius: .full)
     private lazy var toaster = CCToaster(host: view)
+    /// Phone landscape: the video full width, on black, over the whole page;
+    /// the scrubber and play / captions float at the bottom (tap the video to
+    /// hide or show them). Portrait puts everything back in the column.
+    private let landscapeHost = UIView()
+    private let landscapeControls = UIStackView()
+    private var landscapeConstraints: [NSLayoutConstraint] = []
+    private(set) var isLandscapePlayer = false
 
     enum Tab: String { case comments = "Comments", summary = "Summary", transcript = "Transcript" }
     enum Sort: String, CaseIterable { case videoTime = "Video order", oldest = "Oldest first", newest = "Newest first" }
@@ -118,6 +125,123 @@ final class ShareViewerViewController: DetailPageViewController {
         }
         observation = SurfaceObservation { [weak self] in self?.render() }
         Task { await model.load() }
+
+        buildLandscape()
+        registerForTraitChanges([UITraitVerticalSizeClass.self, UITraitHorizontalSizeClass.self]) { (self: Self, _: UITraitCollection) in
+            self.applyOrientation()
+        }
+    }
+
+    override func viewIsAppearing(_ animated: Bool) {
+        super.viewIsAppearing(animated)
+        applyOrientation()
+    }
+
+    override var prefersStatusBarHidden: Bool { isLandscapePlayer }
+    override var prefersHomeIndicatorAutoHidden: Bool { isLandscapePlayer }
+
+    // MARK: - Landscape player
+
+    private func buildLandscape() {
+        landscapeHost.translatesAutoresizingMaskIntoConstraints = false
+        landscapeHost.backgroundColor = .black
+        landscapeHost.overrideUserInterfaceStyle = .dark
+        landscapeHost.isHidden = true
+        landscapeHost.accessibilityIdentifier = "share.landscape"
+        view.addSubview(landscapeHost)
+        NSLayoutConstraint.activate([
+            landscapeHost.topAnchor.constraint(equalTo: view.topAnchor),
+            landscapeHost.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            landscapeHost.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            landscapeHost.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        ])
+        landscapeControls.axis = .vertical
+        landscapeControls.spacing = CCSpace.xs
+        landscapeControls.translatesAutoresizingMaskIntoConstraints = false
+        landscapeControls.isLayoutMarginsRelativeArrangement = true
+        landscapeControls.directionalLayoutMargins = NSDirectionalEdgeInsets(top: CCSpace.sm, leading: CCSpace.md, bottom: CCSpace.sm, trailing: CCSpace.md)
+        landscapeControls.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        landscapeControls.layer.cornerRadius = CCTheme.radius(.lg)
+        landscapeHost.addSubview(landscapeControls)
+        let guide = landscapeHost.safeAreaLayoutGuide
+        NSLayoutConstraint.activate([
+            landscapeControls.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: CCSpace.md),
+            landscapeControls.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -CCSpace.md),
+            landscapeControls.bottomAnchor.constraint(equalTo: guide.bottomAnchor, constant: -CCSpace.sm),
+        ])
+        let tap = UITapGestureRecognizer(target: self, action: #selector(toggleLandscapeControls))
+        tap.cancelsTouchesInView = false
+        surface.addGestureRecognizer(tap)
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(pinchLandscape(_:)))
+        surface.addGestureRecognizer(pinch)
+    }
+
+    /// Pinch out → fill the screen's width; pinch in → the whole frame.
+    @objc private func pinchLandscape(_ pinch: UIPinchGestureRecognizer) {
+        guard isLandscapePlayer, pinch.state == .ended || pinch.state == .changed else { return }
+        if pinch.scale > 1.08 { surface.fillsWidth = true } else if pinch.scale < 0.92 { surface.fillsWidth = false }
+    }
+
+    @objc private func toggleLandscapeControls() {
+        guard isLandscapePlayer else { return }
+        let show = landscapeControls.alpha < 0.5
+        UIView.animate(withDuration: CCMotion.reduceMotion ? 0 : 0.2) { self.landscapeControls.alpha = show ? 1 : 0 }
+    }
+
+    /// Phone landscape (compact height) → the full-width player.
+    private var wantsLandscapePlayer: Bool {
+        #if DEBUG
+        if ShareViewerModel.probeInject == "no-landscape" { return false }
+        #endif
+        return traitCollection.verticalSizeClass == .compact
+    }
+
+    private func applyOrientation() {
+        let want = wantsLandscapePlayer
+        guard want != isLandscapePlayer else { return }
+        isLandscapePlayer = want
+        view.endEditing(true)
+        if want {
+            for v in [surface, timeline, transportRow] as [UIView] {
+                column.removeArrangedSubview(v)
+                v.removeFromSuperview()
+            }
+            surfaceHeight.isActive = false
+            surface.fullBleed = true
+            landscapeHost.insertSubview(surface, belowSubview: landscapeControls)
+            landscapeControls.addArrangedSubview(timeline)
+            landscapeControls.addArrangedSubview(transportRow)
+            landscapeConstraints = [
+                surface.topAnchor.constraint(equalTo: landscapeHost.topAnchor),
+                surface.bottomAnchor.constraint(equalTo: landscapeHost.bottomAnchor),
+                surface.leadingAnchor.constraint(equalTo: landscapeHost.leadingAnchor),
+                surface.trailingAnchor.constraint(equalTo: landscapeHost.trailingAnchor),
+            ]
+            NSLayoutConstraint.activate(landscapeConstraints)
+            landscapeControls.alpha = 1
+            landscapeHost.isHidden = false
+            view.bringSubviewToFront(landscapeHost)
+        } else {
+            NSLayoutConstraint.deactivate(landscapeConstraints)
+            landscapeConstraints = []
+            for v in [timeline, transportRow] as [UIView] {
+                landscapeControls.removeArrangedSubview(v)
+                v.removeFromSuperview()
+            }
+            surface.removeFromSuperview()
+            surface.fullBleed = false
+            let at = (column.arrangedSubviews.firstIndex(of: stateHost) ?? -1) + 1
+            column.insertArrangedSubview(surface, at: at)
+            column.insertArrangedSubview(timeline, at: at + 1)
+            column.insertArrangedSubview(transportRow, at: at + 2)
+            column.setCustomSpacing(CCSpace.xs, after: surface)
+            column.setCustomSpacing(CCSpace.lg, after: transportRow)
+            surfaceHeight.isActive = true
+            landscapeHost.isHidden = true
+        }
+        setNeedsStatusBarAppearanceUpdate()
+        setNeedsUpdateOfHomeIndicatorAutoHidden()
+        view.layoutIfNeeded()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
