@@ -23,8 +23,7 @@ final class EffectPreviewPadControl: NSView {
     private var loopStart: CFTimeInterval = 0
     private var themeObservation: CCThemeObservation?
     /// Spring state for zoom mode (re-integrated each loop).
-    private var springZoom = 1.0
-    private var springVel = 0.0
+    private var spring = InspectorPreviewMath.ZoomSpring()
     private var lastTick: CFTimeInterval = 0
 
     override var isFlipped: Bool { true }
@@ -73,8 +72,7 @@ final class EffectPreviewPadControl: NSView {
     private func restartLoop() {
         loopStart = CACurrentMediaTime()
         lastTick = loopStart
-        springZoom = 1
-        springVel = 0
+        spring = InspectorPreviewMath.ZoomSpring()
         if timer == nil, window != nil {
             let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -92,59 +90,45 @@ final class EffectPreviewPadControl: NSView {
     private func tick() {
         guard bounds.width > 0 else { return }
         let now = CACurrentMediaTime()
-        let cardSize = CGSize(width: bounds.width * 0.42, height: bounds.height * 0.52)
-        let center = CGPoint(x: bounds.midX, y: bounds.midY)
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        cardLayer.bounds = CGRect(origin: .zero, size: cardSize)
-
+        // The maths: InspectorPreviewMath (shared with the iOS preview rows).
         switch mode {
         case .slide(let style, let duration, let bounce, let depth):
-            // Replay [pre-roll 0.2s][slide][hold 0.8s] on a loop, through the
-            // real curve.
-            let cycle = 0.2 + duration + 0.8
-            let t = (now - loopStart).truncatingRemainder(dividingBy: cycle) - 0.2
-            let state = IntroSlideMath.state(
-                style: style, at: max(t, -0.001), duration: duration,
-                bounce: bounce, depth: depth)
-            // travel is in canvas fractions; the pad is the canvas here.
-            let clamped = CGPoint(
-                x: max(-1.2, min(1.2, state.offset.x)),
-                y: max(-1.2, min(1.2, state.offset.y)))
-            cardLayer.position = CGPoint(
-                x: center.x + clamped.x * bounds.width,
-                y: center.y + clamped.y * bounds.height)
-            let s = t < 0
-                ? (depth ? IntroSlideMath.depthStartScale : IntroSlideMath.startScale)
-                : state.scale
+            let f = InspectorPreviewMath.slide(elapsed: now - loopStart, size: bounds.size, style: style,
+                                               duration: duration, bounce: bounce, depth: depth)
+            cardLayer.bounds = CGRect(origin: .zero, size: f.cardSize)
+            cardLayer.position = f.center
             // A small perspective tip conveys the depth pull in the mini pad.
             var transform = CATransform3DIdentity
-            if abs(state.pitch) > 0.01 {
-                transform.m34 = -1.0 / 640
-                transform = CATransform3DRotate(
-                    transform, CGFloat(state.pitch * .pi / 180), 1, 0, 0)
+            if f.pitch != 0 {
+                transform.m34 = InspectorPreviewMath.slidePerspective
+                transform = CATransform3DRotate(transform, CGFloat(f.pitch * .pi / 180), 1, 0, 0)
             }
-            transform = CATransform3DScale(transform, s, s, 1)
+            transform = CATransform3DScale(transform, f.scale, f.scale, 1)
             cardLayer.transform = transform
 
         case .zoom(let level, let omegaMultiplier, let damping):
-            // Push in, hold, release — the block spring at inspector scale.
-            let cycle = 3.2
-            let phase = (now - loopStart).truncatingRemainder(dividingBy: cycle)
-            let target = phase < 1.6 ? max(0.3, min(2.2, level)) : 1.0
-            let dt = min(0.05, now - lastTick)
-            let omega = 2.5 / 0.8 * omegaMultiplier
-            let acc = omega * omega * (target - springZoom)
-                    - 2 * damping * omega * springVel
-            springVel += acc * dt
-            springZoom += springVel * dt
-            cardLayer.position = center
-            // Map zoom around 1 into a visible pad scale.
-            let s = CGFloat(0.55 + (springZoom - 1) * 0.35)
+            cardLayer.bounds = CGRect(origin: .zero, size: InspectorPreviewMath.zoomCardSize(bounds.size))
+            let s = spring.step(elapsed: now - loopStart, dt: now - lastTick, level: level,
+                                omegaMultiplier: omegaMultiplier, damping: damping)
+            cardLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
             cardLayer.transform = CATransform3DMakeScale(s, s, 1)
         }
         CATransaction.commit()
         lastTick = now
     }
+
+    #if DEBUG
+    /// Harness seam: what the pad shows, in the shared vocabulary.
+    var probeMode: InspectorPreviewMath.Mode {
+        switch mode {
+        case .slide(let style, let duration, let bounce, let depth):
+            return .slide(style: style, duration: duration, bounce: bounce, depth: depth)
+        case .zoom(let level, let omega, let damping):
+            return .zoom(level: level, omegaMultiplier: omega, damping: damping)
+        }
+    }
+    #endif
 }

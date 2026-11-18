@@ -497,4 +497,8 @@ final class CCSlider: UIControl {
     var probeValueText: String { valueLabel.text ?? "" }
     var probeIsDragging: Bool { dragging }
     var probeTitleFont: UIFont { titleLabel.font }
+    #if DEBUG
+    /// Harness seam: the readout a value would get (the parity gates sample the format).
+    func probeDisplayText(for value: Double) -> String { display(value) }
+    #endif
 }

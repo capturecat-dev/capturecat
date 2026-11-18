@@ -800,19 +800,25 @@ final class EditorViewController: UIViewController {
         UIAccessibility.post(notification: .layoutChanged, argument: element)
     }
 
+    /// The pane level's keys follow the pane's rows (a toggle that reveals a
+    /// group adds its sub-options in place); the open option re-focuses.
+    private func refreshPaneOptions() {
+        guard case .pane(let tab) = toolBar.mode, inspector.presentation != .column,
+              tab == inspector.shownTab else { return }
+        let options = inspector.panelOptions(for: tab)
+        toolBar.setOptions(options)
+        if let open = openOption, let fresh = options.first(where: { $0.id == open.id }), fresh != open {
+            openOption = fresh
+            inspector.setFocus(fresh, apply: false)
+        }
+    }
+
     /// The shown pane changed (a selection moved it) or its rows changed: the
     /// pane level's keys follow, the open option re-focuses, the bottom
     /// panel resizes — on the growth curve for a new pane, frame by frame
     /// with a pane's own growth.
     private func panelContentChanged(animated: Bool) {
-        if case .pane(let tab) = toolBar.mode, inspector.presentation != .column {
-            let options = inspector.panelOptions(for: tab)
-            toolBar.setOptions(options)
-            if let open = openOption, let fresh = options.first(where: { $0.id == open.id }), fresh != open {
-                openOption = fresh
-                inspector.setFocus(fresh, apply: false)
-            }
-        }
+        refreshPaneOptions()
         guard isPanelOpen, inspector.presentation == .bottomPanel else { return }
         let target = fittedPanelHeight()
         guard abs(target - panelTarget) > 0.5 else { return }
@@ -889,6 +895,7 @@ final class EditorViewController: UIViewController {
         }
         inspector.onClosePanel = { [weak self] in self?.closePanel() }
         inspector.onPanelContentChange = { [weak self] animated in self?.panelContentChanged(animated: animated) }
+        inspector.onPaneRefresh = { [weak self] in self?.refreshPaneOptions() }
         transport.onCommand = { [weak self] command, key in self?.runTimelineCommand(command, from: key) }
     }
 

@@ -19,6 +19,10 @@ import AppKit
 @MainActor
 final class InspectorSectionBox: NSView {
     private let headerField: NSTextField?
+    #if DEBUG
+    /// Harness seam: the section's title (nil for an untitled box).
+    var probeTitle: String? { headerField?.stringValue }
+    #endif
     private let hairline = NSView()
     private let content = NSStackView()
 

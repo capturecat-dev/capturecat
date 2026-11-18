@@ -31,7 +31,7 @@ import UIKit
 enum InspectorLab {
     private static var lines: [String] = []
     private static var failures = 0
-    private static var out: URL!
+    static var out: URL!
 
     static func start(_ arguments: [String], lab: LabViewController) -> Bool {
         guard let i = arguments.firstIndex(of: "--inspector"), arguments.indices.contains(i + 1) else { return false }
@@ -99,12 +99,13 @@ enum InspectorLab {
     // MARK: - Editor
 
     @available(iOS 26, *)
-    private static func openEditor(_ name: String, lab: LabViewController,
-                                   prepare: (Project) -> Void = { _ in }) async -> EditorViewController? {
+    static func openEditor(_ name: String, lab: LabViewController,
+                           make: (URL) -> Project = InspectorValuesTranscript.makeProject,
+                           prepare: (Project) -> Void = { _ in }) async -> EditorViewController? {
         let dir = out.appendingPathComponent("projects/\(name)", isDirectory: true)
         let fm = FileManager.default
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        let project = InspectorValuesTranscript.makeProject(folder: dir)
+        let project = make(dir)
         prepare(project)
         guard let poster = poster(size: CGSize(width: 640, height: 400)),
               (try? await StillMovieWriter.write(image: poster, to: dir.appendingPathComponent("screen.mov"), duration: 20)) != nil,
@@ -128,7 +129,7 @@ enum InspectorLab {
     }
 
     @available(iOS 26, *)
-    private static func close(_ editor: EditorViewController) async {
+    static func close(_ editor: EditorViewController) async {
         editor.playback.teardown()
         await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
             editor.dismiss(animated: false) { c.resume() }
@@ -136,7 +137,7 @@ enum InspectorLab {
         await settle(0.2)
     }
 
-    private static func poster(size: CGSize) -> CGImage? {
+    static func poster(size: CGSize) -> CGImage? {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         return UIGraphicsImageRenderer(size: size, format: format).image { ctx in
@@ -273,7 +274,7 @@ enum InspectorLab {
         await close(editor)
     }
 
-    private static func apply(_ pick: InspectorValuesTranscript.Pick, to s: EditorShellSelection) {
+    static func apply(_ pick: InspectorValuesTranscript.Pick, to s: EditorShellSelection) {
         s.selectedZoomID = nil
         s.selectedTiltID = nil
         s.selectedHighlightID = nil
@@ -294,7 +295,7 @@ enum InspectorLab {
 
     // MARK: Driving
 
-    private static func drive(_ view: UIView, id: String, input: InspectorValuesTranscript.Input,
+    static func drive(_ view: UIView, id: String, input: InspectorValuesTranscript.Input,
                               project: Project, pane: UIView) -> Bool {
         switch input {
         case .slider(let value):
@@ -835,20 +836,20 @@ enum InspectorLab {
 
     // MARK: - Helpers
 
-    private static func settle(_ seconds: Double) async { await LabTime.settle(seconds) }
+    static func settle(_ seconds: Double) async { await LabTime.settle(seconds) }
 
-    private static func walk(_ view: UIView, _ visit: (UIView) -> Void) {
+    static func walk(_ view: UIView, _ visit: (UIView) -> Void) {
         visit(view)
         view.subviews.forEach { walk($0, visit) }
     }
 
-    private static func find(_ id: String, in root: UIView) -> UIView? {
+    static func find(_ id: String, in root: UIView) -> UIView? {
         var match: UIView?
         walk(root) { if match == nil, $0.accessibilityIdentifier == id { match = $0 } }
         return match
     }
 
-    private static func effectivelyVisible(_ view: UIView, in pane: UIView) -> Bool {
+    static func effectivelyVisible(_ view: UIView, in pane: UIView) -> Bool {
         var v: UIView? = view
         while let current = v, current !== pane {
             if current.isHidden { return false }

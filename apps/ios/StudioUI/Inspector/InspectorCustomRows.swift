@@ -65,8 +65,11 @@ enum InspectorCustomRows {
         case "annotate.timing": return InspectorTimingRow(visible: visible, host: host)
 
         default:
-            // Demo previews (frame, cursor, motion speed, slide, parallax,
-            // motion blur, zoom, highlight): the house preview well.
+            // The effect previews loop live on the shared maths (the Mac's
+            // pads); the frame and cursor previews: the house preview well.
+            if InspectorLivePreviewRow.ids.contains(id) {
+                return InspectorLivePreviewRow(id: id, visible: visible, host: host)
+            }
             return InspectorPreviewRow(id: id, visible: visible)
         }
     }
@@ -689,9 +692,9 @@ final class InspectorTimingRow: InspectorCustomRow {
 
 // MARK: - Demo previews
 
-/// The house preview well with a mini window card — what the Mac's
-/// demo pads illustrate (frame style, motion, slide, parallax, blur, zoom,
-/// highlight) is drawn from the same settings.
+/// The house preview well with a mini window card — the Background frame
+/// style and the Cursor preview (the effect previews are
+/// InspectorLivePreviewRow).
 final class InspectorPreviewRow: InspectorCustomRow {
     private let well = CCPreviewPad(showsGridDots: false)
     private let card = CALayer()
@@ -732,23 +735,15 @@ final class InspectorPreviewRow: InspectorCustomRow {
         // Laid out later (a panel opening): `layoutSubviews` runs this again.
         guard b.width > 1 else { return }
         refreshCursor(s, in: b)
-        var scale: CGFloat = 1
-        var offset = CGPoint.zero
+        let scale: CGFloat = 1
+        let offset = CGPoint.zero
         var corner: CGFloat = 4
         var shadow: Float = 0.3
-        var maskAlpha: Float = 0
+        let maskAlpha: Float = 0
         switch rowID {
         case "background.framePad":
             corner = CGFloat(s.windowCornerRadius) / 2
             shadow = Float(s.shadowOpacity) * Float(min(1, s.shadowRadius / 30))
-        case "blocks.zoomPreviewPad":
-            scale = CGFloat(min(2, (scope.motion?.zoomRegion.wrappedValue?.zoomLevel ?? 1) / 1.6))
-        case "effects.slidePad":
-            offset = CGPoint(x: s.introSlideStyle.vector.x * 10, y: s.introSlideStyle.vector.y * 10)
-        case "effects.parallaxPad":
-            scale = 1 + CGFloat(s.parallaxStrength) * 0.2
-        case "blocks.highlightPad":
-            maskAlpha = Float(scope.motion?.highlightRegion.wrappedValue?.opacity ?? 0.5) * 0.8
         default:
             break
         }

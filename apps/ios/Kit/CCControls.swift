@@ -219,6 +219,10 @@ final class CCToggleRow: UIControl {
     private let detailLabel: UILabel
 
     var isOn: Bool { toggle.isOn }
+    #if DEBUG
+    /// Harness seam: the row's title as drawn.
+    var probeTitle: String { titleLabel.text ?? "" }
+    #endif
 
     init(title: String, detail: String? = nil, isOn: Bool = false, onChange: ((Bool) -> Void)? = nil) {
         toggle = CCToggle(isOn: isOn)

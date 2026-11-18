@@ -188,6 +188,12 @@ final class CCSlider: NSControl {
         CATransaction.commit()
     }
 
+    #if DEBUG
+    /// Harness seam: the readout as drawn, and the readout a value would get.
+    var probeValueText: String { valueField.stringValue }
+    func probeDisplayText(for value: Double) -> String { displayText(for: value) }
+    #endif
+
     private func refreshValueText() {
         valueField.stringValue = displayText(for: doubleValue)
     }
