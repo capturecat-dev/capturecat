@@ -140,7 +140,7 @@ nonisolated enum CloudAPIDate {
     /// The API's timestamps: ISO 8601 with or without fractional seconds,
     /// SQLite's `YYYY-MM-DD HH:MM:SS` (UTC), or epoch seconds/milliseconds.
     static func parse(_ value: Any?) -> Date? {
-        if let number = value as? NSNumber, !(value is Bool) {
+        if let number = value as? NSNumber, !CloudJSON.isBoolean(number) {
             let raw = number.doubleValue
             return Date(timeIntervalSince1970: raw > 1e11 ? raw / 1000 : raw)
         }
@@ -169,20 +169,29 @@ nonisolated enum CloudAPIDate {
 }
 
 nonisolated enum CloudJSON {
+    /// Whether a decoded JSON value is `true`/`false`. JSONSerialization
+    /// returns booleans as CFBoolean and every number (0 and 1 included) as a
+    /// plain NSNumber, but Swift's `value is Bool` says yes to NSNumber 0 and 1
+    /// too, so it cannot tell them apart. Ask CoreFoundation instead.
+    static func isBoolean(_ value: Any?) -> Bool {
+        guard let number = value as? NSNumber else { return false }
+        return CFGetTypeID(number) == CFBooleanGetTypeID()
+    }
+
     static func string(_ value: Any?) -> String? {
         if let text = value as? String { return text.isEmpty ? nil : text }
-        if let number = value as? NSNumber, !(value is Bool) { return number.stringValue }
+        if let number = value as? NSNumber, !CloudJSON.isBoolean(number) { return number.stringValue }
         return nil
     }
 
     static func int(_ value: Any?) -> Int? {
-        if let number = value as? NSNumber, !(value is Bool) { return number.intValue }
+        if let number = value as? NSNumber, !CloudJSON.isBoolean(number) { return number.intValue }
         if let text = value as? String { return Int(text) }
         return nil
     }
 
     static func int64(_ value: Any?) -> Int64? {
-        if let number = value as? NSNumber, !(value is Bool) { return number.int64Value }
+        if let number = value as? NSNumber, !CloudJSON.isBoolean(number) { return number.int64Value }
         if let text = value as? String { return Int64(text) }
         return nil
     }

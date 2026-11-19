@@ -178,6 +178,28 @@ enum CloudSyncHarness {
         let apiBase = "https://api.stub.test"
 
         do {
+            // ── 0. API numbers: JSON 0 and 1 are numbers, true/false are not ──
+            // Swift's `is Bool` also says yes to NSNumber 0 and 1, so a first
+            // version's seq/revision 1 read as 0 and a head at revision 1 failed.
+            print("api numbers")
+            let numbers = (try? JSONSerialization.jsonObject(
+                with: Data(#"{"zero":0,"one":1,"two":2,"yes":true,"no":false,"text":"1"}"#.utf8))) as? [String: Any] ?? [:]
+            expect(CloudJSON.int(numbers["zero"]) == 0, "JSON 0 reads as the number 0")
+            expect(CloudJSON.int(numbers["one"]) == 1, "JSON 1 reads as the number 1")
+            expect(CloudJSON.int(numbers["two"]) == 2, "JSON 2 reads as the number 2")
+            expect(CloudJSON.int64(numbers["one"]) == 1, "JSON 1 reads as Int64 1")
+            expect(CloudJSON.string(numbers["one"]) == "1", "JSON 1 reads as the string \"1\"")
+            expect(CloudJSON.int(numbers["yes"]) == nil && CloudJSON.int(numbers["no"]) == nil, "JSON true/false are not numbers")
+            expect(CloudJSON.string(numbers["yes"]) == nil, "JSON true is not a string")
+            expect(CloudJSON.int(numbers["text"]) == 1, "the string \"1\" reads as 1")
+            expect(CloudAPIDate.parse(numbers["one"]) == Date(timeIntervalSince1970: 1), "epoch 1 parses as a date")
+            let firstVersion = CloudHistoryParse.version(try? JSONSerialization.jsonObject(
+                with: Data(#"{"id":"v1","seq":1,"revision":1,"firstRevision":1,"kind":"edit"}"#.utf8)))
+            expect(firstVersion?.seq == 1 && firstVersion?.revision == 1 && firstVersion?.firstRevision == 1,
+                   "a project's first version reads seq 1, revision 1 (seq \(firstVersion?.seq ?? -1), revision \(firstVersion?.revision ?? -1))")
+            expect(CloudHistoryParse.head(Data(#"{"revision":1}"#.utf8))?.revision == 1, "a head at revision 1 parses")
+            expect(HTTPCloudProjectTransport.savedVersion(["id": "v1", "seq": NSNumber(value: 1)])?.seq == 1, "a saved version's seq 1 reads as 1")
+
             // ── 1. Path rules (mirror of the API's checkLogicalPath) ─────────
             print("paths")
             for good in ["recording.mov", "cursor.json", "voiceover-\(UUID().uuidString).m4a", "external/0123456789ab.jpg", "camera_poster.png", "camera-mask.ccmask"] {

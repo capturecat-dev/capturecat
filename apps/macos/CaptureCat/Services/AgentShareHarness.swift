@@ -68,7 +68,7 @@ enum AgentShareHarness {
         let allHints = tools.allSatisfy { tool in
             let a = tool["annotations"] as? [String: Any] ?? [:]
             return ["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]
-                .allSatisfy { a[$0] is Bool }
+                .allSatisfy { CloudJSON.isBoolean(a[$0]) }
         }
         expect(allHints, "every tool carries all four annotation hints")
         expect(tools.allSatisfy { ($0["annotations"] as? [String: Any])?["destructiveHint"] as? Bool == false },
@@ -148,8 +148,8 @@ enum AgentShareHarness {
             case "string":
                 guard let text = value as? String else { return false }
                 if let allowed = spec["enum"] as? [String], !allowed.contains(text) { return false }
-            case "number": guard value is NSNumber, !(value is Bool) else { return false }
-            case "boolean": guard value is Bool else { return false }
+            case "number": guard value is NSNumber, !CloudJSON.isBoolean(value) else { return false }
+            case "boolean": guard CloudJSON.isBoolean(value) else { return false }
             default: return false
             }
         }
