@@ -58,11 +58,16 @@ and the agent edits cloud projects server-side with the editor's own op layer (s
 and export still match). The phone syncs the result.
 
 - **Account → Connect AI** (`App/Account/ConnectAIViewController`; one row on the Account
-  screen): the connector URL (copy), a Claude / ChatGPT / Other apps switch with each app's
-  steps from its own help pages (Claude: Customize → Connectors → Add custom connector;
-  ChatGPT: Plugins → Add custom MCP server; neither has a link that pre-fills the connector,
-  and both add custom connectors on the web, then work in their phone apps), the
-  `mcpServers` JSON for other clients, **Connected** (apps that signed in with CaptureCat —
+  screen): the connector URL (copy), Claude / ChatGPT / Gemini / Codex / Other apps chips with
+  each app's steps from its own docs (2026-11-20): Claude — Customize → Connectors → Add
+  custom connector; ChatGPT — Plugins → Add custom MCP server; Gemini — gemini.google.com
+  Settings → Connected Apps → Custom apps (US, 18+, personal accounts only — said on screen)
+  plus the Gemini CLI command (`gemini mcp add --transport http --scope user capturecat <url>`);
+  Codex — `codex mcp add capturecat --url <url>` + `codex mcp login capturecat` and the
+  `~/.codex/config.toml` snippet (CLI, IDE extension, desktop app; Codex cloud can't use
+  custom MCP servers). None has a link that pre-fills the connector; the consumer apps add
+  custom connectors on the web, then work in their phone apps. Every command copies in one
+  tap. The `mcpServers` JSON for other clients, **Connected** (apps that signed in with CaptureCat —
   `GET /api/oauth/apps` — and personal tokens — `GET /api/agent-tokens`; Revoke behind a
   house confirm), the `agentEditing` plan gate (upgrade callout, never steps that would fail)
   and the notification permission the "AI finished editing" push needs. Every string is
@@ -539,7 +544,7 @@ catalog there; render-baseline identical).
     apps/ios/scripts/ios-release-check.sh   # App Store readiness (6c) on the Release ARCHIVE: privacy manifests vs the required-reason APIs in the stripped binaries, usage strings vs linked APIs, version/build, encryption key, icons, no harness strings / dev URLs / test keys, entitlements used, zero packaging warnings; SELFTEST=1 injects 16 defects that must each FAIL
     apps/ios/scripts/ios-archive.sh         # signed archive → release check → App Store export (destination: export, never uploads)
     apps/ios/scripts/ios-share-viewer.sh    # share viewer: universal link + custom scheme (warm, cold, real simctl openurl), playback, markers ±1 pt, seeks, reactions (optimistic / rollback / toggle), anonymous + signed-in comments, sign-in prompt, tabs, captions, every share state, motion mid-flight, Reduce Motion, a11y audit (default + XXXL) vs Tests/mock_api.py; markers + drawings on the picture's pixels (portrait, landscape fit/fill), drawing → post vs the WEB serializer, the Allow-comments switch; SELFTEST=1 → 11 injected defects must FAIL
-    apps/ios/scripts/ios-agent-edit.sh      # Connect AI + background AI edits in the REAL app vs the LOCAL TEST API (apps/api/scripts/local-test-api: the real Worker, /mcp and op layer over in-memory D1/R2, APNs captured): Account row hit-tested, connected list, copy, guide swap mid-flight, revoke, Free-plan upgrade; an OAuth-connected "Claude" calls apply_edits while the project is open — push routed (no banner), unsent local work kept, notice mid-flight, Undo reverts only the agent's change; clean edit on foreground → Undo = server restore (new revision, nothing deleted). INJECT=skip-notice|undo-noop must FAIL. Screens: connect-ai*.png, editor-notice.png
+    apps/ios/scripts/ios-agent-edit.sh      # Connect AI + background AI edits in the REAL app vs the LOCAL TEST API (apps/api/scripts/local-test-api: the real Worker, /mcp and op layer over in-memory D1/R2, APNs captured): Account row hit-tested, connected list, copy, guide swap mid-flight, Gemini + Codex guides (commands copy), revoke, Free-plan upgrade; an OAuth-connected "Claude" calls apply_edits while the project is open — push routed (no banner), unsent local work kept, notice mid-flight, Undo reverts only the agent's change; clean edit on foreground → Undo = server restore (new revision, nothing deleted). INJECT=skip-notice|undo-noop must FAIL. Screens: connect-ai{,-chatgpt,-gemini,-codex,-other,-free}.png, editor-notice.png
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production

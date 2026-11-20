@@ -18,6 +18,30 @@ nonisolated enum AgentConnect {
     static let claudeConnectorsURL = URL(string: "https://claude.ai/customize/connectors")!
     static let chatGPTPluginsURL = URL(string: "https://chatgpt.com/plugins")!
 
+    static let geminiURL = URL(string: "https://gemini.google.com")!
+
+    /// Gemini CLI (its docs, 2026-11): `-t/--transport http` = streamable
+    /// HTTP, `-s user` = every project (the default scope is the project).
+    /// The CLI signs in itself on the first 401 (`/mcp auth capturecat`).
+    static var geminiCommand: String {
+        "gemini mcp add --transport http --scope user capturecat \(mcpURL)"
+    }
+
+    /// Codex CLI (its docs + `codex mcp` source, 2026-11): `--url` adds a
+    /// streamable-HTTP server; `codex mcp login` runs the OAuth sign-in.
+    static var codexCommand: String {
+        "codex mcp add capturecat --url \(mcpURL)\ncodex mcp login capturecat"
+    }
+
+    /// The same server in ~/.codex/config.toml (shared by the Codex CLI, IDE
+    /// extension and desktop app).
+    static var codexConfig: String {
+        """
+        [mcp_servers.capturecat]
+        url = "\(mcpURL)"
+        """
+    }
+
     /// The standard `mcpServers` entry for any other MCP client.
     static var jsonConfig: String {
         """

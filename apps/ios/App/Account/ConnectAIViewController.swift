@@ -19,15 +19,18 @@ import UserNotifications
 /// - "Tell me when AI finishes": the notification permission the
 ///   "AI finished editing" push needs.
 final class ConnectAIViewController: DetailPageViewController {
-    enum Client: Int, CaseIterable { case claude, chatGPT, other }
+    enum Client: Int, CaseIterable { case claude, chatGPT, gemini, codex, other }
 
     private let lead = ccLabel("", font: CCFont.body, color: CCTheme.color.mutedForeground, lines: 0)
     private let planSlot = UIStackView()
-    private let switcher = CCSegmented(segments: [
-        String(localized: "Claude", comment: "Connect AI: the Claude tab"),
-        String(localized: "ChatGPT", comment: "Connect AI: the ChatGPT tab"),
-        String(localized: "Other apps", comment: "Connect AI: tab for any other AI app"),
-    ])
+    /// One chip per app (five don't fit a segmented control on a phone; chips wrap).
+    private let switcher = CCChipGroup(items: [
+        String(localized: "Claude", comment: "Connect AI: the Claude choice"),
+        String(localized: "ChatGPT", comment: "Connect AI: the ChatGPT choice"),
+        String(localized: "Gemini", comment: "Connect AI: the Gemini choice"),
+        String(localized: "Codex", comment: "Connect AI: the Codex choice"),
+        String(localized: "Other apps", comment: "Connect AI: the choice for any other AI app"),
+    ], mode: .single, selected: [0])
     private let guideCard = CCCard(radius: .lg)
     private let guideStack = UIStackView()
     private let connectedStack = UIStackView()
@@ -40,7 +43,7 @@ final class ConnectAIViewController: DetailPageViewController {
     // MARK: Probe seams (the gate)
     var probeState: AgentAccessState? { state }
     var probeGuideCard: UIView { guideCard }
-    var probeSwitcher: CCSegmented { switcher }
+    var probeSwitcher: CCChipGroup { switcher }
     private(set) var probeRevokeButtons: [CCButton] = []
     private(set) var probeUpgradeCallout: UIView?
     private(set) var probeRevokeAlert: CCAlert?
@@ -54,14 +57,17 @@ final class ConnectAIViewController: DetailPageViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        lead.text = String(localized: "Let Claude, ChatGPT or another AI app edit your cloud projects — zooms, trims, captions, speed-ups, the look — with CaptureCat's own editing tools. Use your own AI account; nothing to install on this \(ThisDevice.noun). Edits appear here, and you can undo them.", comment: "Connect AI: introduction; the argument is iPhone or iPad")
+        lead.text = String(localized: "Let Claude, ChatGPT, Gemini, Codex or another AI app edit your cloud projects — zooms, trims, captions, speed-ups, the look — with CaptureCat's own editing tools. Use your own AI account; nothing to install on this \(ThisDevice.noun). Edits appear here, and you can undo them.", comment: "Connect AI: introduction; the argument is iPhone or iPad")
         column.addArrangedSubview(lead)
         planSlot.axis = .vertical
         column.addArrangedSubview(planSlot)
         column.addArrangedSubview(makeURLSection())
 
         switcher.accessibilityLabel = String(localized: "AI app", comment: "Connect AI: VoiceOver label of the app switcher")
-        switcher.onChange = { [weak self] index in self?.show(Client(rawValue: index) ?? .claude, animated: true) }
+        switcher.onChange = { [weak self] selection in
+            guard let index = selection.min() else { return }
+            self?.show(Client(rawValue: index) ?? .claude, animated: true)
+        }
         guideStack.axis = .vertical
         guideStack.spacing = CCSpace.md
         guideStack.translatesAutoresizingMaskIntoConstraints = false
@@ -92,7 +98,7 @@ final class ConnectAIViewController: DetailPageViewController {
     // MARK: - Connector URL
 
     private func makeURLSection() -> UIView {
-        let detail = ccLabel(String(localized: "Claude and ChatGPT sign in to CaptureCat with this address — no key or token to copy.", comment: "Connect AI: under the connector URL"),
+        let detail = ccLabel(String(localized: "Claude, ChatGPT, Gemini and Codex sign in to CaptureCat with this address — no key or token to copy.", comment: "Connect AI: under the connector URL"),
                              font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
         let card = CCCard(radius: .lg)
         let stack = UIStackView(arrangedSubviews: [CodeWell(text: AgentConnect.mcpURL, copyTitle: String(localized: "Copy URL", comment: "Button that copies the connector URL"), inline: true), detail])
@@ -109,11 +115,13 @@ final class ConnectAIViewController: DetailPageViewController {
 
     func show(_ client: Client, animated: Bool) {
         self.client = client
-        if switcher.selectedIndex != client.rawValue { switcher.setSelectedIndex(client.rawValue, animated: animated) }
+        if switcher.selectedIndex != client.rawValue { switcher.setSelection([client.rawValue]) }
         let content: [UIView]
         switch client {
         case .claude: content = claudeGuide()
         case .chatGPT: content = chatGPTGuide()
+        case .gemini: content = geminiGuide()
+        case .codex: content = codexGuide()
         case .other: content = otherGuide()
         }
         let swap = {
@@ -160,6 +168,41 @@ final class ConnectAIViewController: DetailPageViewController {
             note(String(localized: "ChatGPT adds custom MCP servers on the web only, and editing needs a workspace plan that allows them (Business, Enterprise or Edu).", comment: "Connect AI: ChatGPT caveat")),
             openButton(String(localized: "Open ChatGPT plugins", comment: "Button that opens chatgpt.com's plugins page"), AgentConnect.chatGPTPluginsURL),
         ]
+    }
+
+    private func geminiGuide() -> [UIView] {
+        [
+            guideTitle(String(localized: "Add CaptureCat to Gemini", comment: "Connect AI: Gemini guide title")),
+            steps([
+                String(localized: "On gemini.google.com, open Settings → Connected Apps → Custom apps.", comment: "Gemini step 1"),
+                String(localized: "Choose Add a custom app, paste the connector URL and choose Next.", comment: "Gemini step 2"),
+                String(localized: "Sign in to CaptureCat and allow access.", comment: "Gemini step 3"),
+                String(localized: "Ask Gemini for an edit. It then works in the Gemini app on this \(ThisDevice.noun) too.", comment: "Gemini step 4; the argument is iPhone or iPad"),
+            ]),
+            note(String(localized: "Google offers custom apps in the Gemini app only to personal Google Accounts in the US, aged 18 or over, in English, and adds them on the web. Work and school accounts can't add them yet.", comment: "Connect AI: Gemini app caveat")),
+            openButton(String(localized: "Open Gemini", comment: "Button that opens gemini.google.com"), AgentConnect.geminiURL),
+            subTitle(String(localized: "Gemini CLI", comment: "Connect AI: Gemini CLI subheading")),
+            note(String(localized: "Run this on your computer, then sign in when Gemini CLI asks (or type /mcp auth capturecat):", comment: "Connect AI: Gemini CLI explanation")),
+            CodeWell(text: AgentConnect.geminiCommand, copyTitle: String(localized: "Copy command", comment: "Button that copies a terminal command"), inline: false),
+            note(String(localized: "Gemini Code Assist and Gemini Enterprise take the same URL in their MCP settings — see Other apps.", comment: "Connect AI: other Gemini surfaces")),
+        ]
+    }
+
+    private func codexGuide() -> [UIView] {
+        [
+            guideTitle(String(localized: "Add CaptureCat to Codex", comment: "Connect AI: Codex guide title")),
+            note(String(localized: "Run these on your computer — the second signs Codex in to CaptureCat:", comment: "Connect AI: Codex CLI explanation")),
+            CodeWell(text: AgentConnect.codexCommand, copyTitle: String(localized: "Copy commands", comment: "Button that copies terminal commands"), inline: false),
+            note(String(localized: "Or add it to ~/.codex/config.toml, which the Codex CLI, IDE extension and desktop app share:", comment: "Connect AI: Codex config explanation")),
+            CodeWell(text: AgentConnect.codexConfig, copyTitle: String(localized: "Copy config", comment: "Button that copies a config snippet"), inline: false),
+            note(String(localized: "In the IDE extension or the desktop app you can also open Settings → MCP servers → Add server, choose Streamable HTTP and paste the connector URL. Codex cloud tasks can't use custom MCP servers yet.", comment: "Connect AI: Codex other surfaces")),
+        ]
+    }
+
+    private func subTitle(_ text: String) -> UIView {
+        let label = ccLabel(text, font: CCFont.labelSemibold, color: CCTheme.color.foreground, lines: 0)
+        label.accessibilityTraits = .header
+        return label
     }
 
     private func otherGuide() -> [UIView] {

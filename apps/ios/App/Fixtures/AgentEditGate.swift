@@ -208,6 +208,32 @@ final class AgentEditGate {
         record("chatgpt-guide", gpt.contains("Plugins") && gpt.contains("Add custom MCP server"), "ChatGPT steps: Plugins → Add custom MCP server")
         scrollTo(screen.probeGuideCard, in: screen)
         snapshot("connect-ai-chatgpt.png")
+        screen.show(.gemini, animated: false)
+        await sleep(400)
+        let gemini = labels(in: screen.probeGuideCard).joined(separator: " ")
+        scrollTo(screen.probeGuideCard, in: screen)
+        await sleep(3800)   // earlier "Copied" toasts leave first
+        snapshot("connect-ai-gemini.png")
+        UIPasteboard.general.string = ""
+        codeWells(in: screen.probeGuideCard).first?.copyButton.sendActions(for: .touchUpInside)
+        await sleep(200)
+        record("gemini-guide", gemini.contains("Custom apps") && gemini.contains("Add a custom app") && gemini.contains("personal Google Accounts")
+                   && UIPasteboard.general.string == AgentConnect.geminiCommand,
+               "Gemini app: Settings → Connected Apps → Custom apps (+ who can); Gemini CLI command copies: \(UIPasteboard.general.string ?? "nil")")
+        screen.show(.codex, animated: false)
+        await sleep(400)
+        let wells = codeWells(in: screen.probeGuideCard)
+        scrollTo(screen.probeGuideCard, in: screen)
+        await sleep(3800)   // earlier "Copied" toasts leave first
+        snapshot("connect-ai-codex.png")
+        UIPasteboard.general.string = ""
+        wells.first?.copyButton.sendActions(for: .touchUpInside)
+        await sleep(200)
+        let copiedCommands = UIPasteboard.general.string
+        let codex = labels(in: screen.probeGuideCard).joined(separator: " ")
+        record("codex-guide", copiedCommands == AgentConnect.codexCommand && wells.count == 2 && wells.last?.text == AgentConnect.codexConfig
+                   && codex.contains("codex mcp add capturecat --url") && codex.contains("Codex cloud"),
+               "Codex CLI commands copy in one tap (\(copiedCommands?.replacingOccurrences(of: "\n", with: " ⏎ ") ?? "nil")); config.toml snippet; cloud caveat")
         screen.show(.other, animated: false)
         await sleep(400)
         let other = labels(in: screen.probeGuideCard).joined(separator: " ")
@@ -373,6 +399,11 @@ final class AgentEditGate {
     }
 
     // MARK: - Helpers
+
+    private func codeWells(in view: UIView) -> [CodeWell] {
+        if let well = view as? CodeWell { return [well] }
+        return view.subviews.flatMap { codeWells(in: $0) }
+    }
 
     private func firstCodeWell(in view: UIView) -> CodeWell? {
         if let well = view as? CodeWell { return well }
