@@ -1,0 +1,515 @@
+import UIKit
+import UserNotifications
+
+/// Account → Connect AI: edit with your own AI, the way the Mac's "Connect an
+/// agent" window does — but through the CLOUD MCP server
+/// (`https://mcp.capturecat.so/mcp`), since an iPhone can't run a local one.
+/// No API key lives in the app: Claude and ChatGPT sign in to CaptureCat
+/// (OAuth) at that URL, edit cloud projects server-side with the editor's own
+/// op layer, and the phone syncs the result (StudioAgentEdits).
+///
+/// - Claude / ChatGPT / Other apps: a switch over each app's steps (from
+///   their current help pages — neither offers a link that pre-fills the
+///   connector, and both add custom connectors on the web, then work on the
+///   phone), the URL to copy, and for other clients a copyable JSON block.
+/// - Connected: apps that signed in with CaptureCat and personal tokens, each
+///   revocable (house confirm).
+/// - The `agentEditing` plan gate: without it, the upgrade path instead of
+///   steps that would fail.
+/// - "Tell me when AI finishes": the notification permission the
+///   "AI finished editing" push needs.
+final class ConnectAIViewController: DetailPageViewController {
+    enum Client: Int, CaseIterable { case claude, chatGPT, other }
+
+    private let lead = ccLabel("", font: CCFont.body, color: CCTheme.color.mutedForeground, lines: 0)
+    private let planSlot = UIStackView()
+    private let switcher = CCSegmented(segments: [
+        String(localized: "Claude", comment: "Connect AI: the Claude tab"),
+        String(localized: "ChatGPT", comment: "Connect AI: the ChatGPT tab"),
+        String(localized: "Other apps", comment: "Connect AI: tab for any other AI app"),
+    ])
+    private let guideCard = CCCard(radius: .lg)
+    private let guideStack = UIStackView()
+    private let connectedStack = UIStackView()
+    private let connectedSpinner = CCSpinner(diameter: 16)
+    private let notifyRow = UIStackView()
+    private var state: AgentAccessState?
+    private(set) var client: Client = .claude
+    private var loadError: CCCallout?
+
+    // MARK: Probe seams (the gate)
+    var probeState: AgentAccessState? { state }
+    var probeGuideCard: UIView { guideCard }
+    var probeSwitcher: CCSegmented { switcher }
+    private(set) var probeRevokeButtons: [CCButton] = []
+    private(set) var probeUpgradeCallout: UIView?
+    private(set) var probeRevokeAlert: CCAlert?
+    var onLoaded: (() -> Void)?
+
+    init() {
+        super.init(title: String(localized: "Connect AI", comment: "Title of the screen that connects Claude, ChatGPT or another AI app"))
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        lead.text = String(localized: "Let Claude, ChatGPT or another AI app edit your cloud projects — zooms, trims, captions, speed-ups, the look — with CaptureCat's own editing tools. Use your own AI account; nothing to install on this \(ThisDevice.noun). Edits appear here, and you can undo them.", comment: "Connect AI: introduction; the argument is iPhone or iPad")
+        column.addArrangedSubview(lead)
+        planSlot.axis = .vertical
+        column.addArrangedSubview(planSlot)
+        column.addArrangedSubview(makeURLSection())
+
+        switcher.accessibilityLabel = String(localized: "AI app", comment: "Connect AI: VoiceOver label of the app switcher")
+        switcher.onChange = { [weak self] index in self?.show(Client(rawValue: index) ?? .claude, animated: true) }
+        guideStack.axis = .vertical
+        guideStack.spacing = CCSpace.md
+        guideStack.translatesAutoresizingMaskIntoConstraints = false
+        guideCard.addSubview(guideStack)
+        NSLayoutConstraint.activate([
+            guideStack.leadingAnchor.constraint(equalTo: guideCard.leadingAnchor, constant: CCSpace.lg),
+            guideStack.trailingAnchor.constraint(equalTo: guideCard.trailingAnchor, constant: -CCSpace.lg),
+            guideStack.topAnchor.constraint(equalTo: guideCard.topAnchor, constant: CCSpace.lg),
+            guideStack.bottomAnchor.constraint(equalTo: guideCard.bottomAnchor, constant: -CCSpace.lg),
+        ])
+        let guide = UIStackView(arrangedSubviews: [sectionLabel(String(localized: "Set it up", comment: "Connect AI: section heading over the setup steps")), switcher, guideCard])
+        guide.axis = .vertical
+        guide.spacing = CCSpace.sm
+        guide.setCustomSpacing(CCSpace.md, after: switcher)
+        column.addArrangedSubview(guide)
+        show(.claude, animated: false)
+
+        column.addArrangedSubview(makeConnectedSection())
+        column.addArrangedSubview(makeNotifySection())
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        reload()
+        renderNotify()
+    }
+
+    // MARK: - Connector URL
+
+    private func makeURLSection() -> UIView {
+        let detail = ccLabel(String(localized: "Claude and ChatGPT sign in to CaptureCat with this address — no key or token to copy.", comment: "Connect AI: under the connector URL"),
+                             font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
+        let card = CCCard(radius: .lg)
+        let stack = UIStackView(arrangedSubviews: [CodeWell(text: AgentConnect.mcpURL, copyTitle: String(localized: "Copy URL", comment: "Button that copies the connector URL"), inline: true), detail])
+        stack.axis = .vertical
+        stack.spacing = CCSpace.sm
+        pad(stack, in: card)
+        let section = UIStackView(arrangedSubviews: [sectionLabel(String(localized: "Connector URL", comment: "Connect AI: section heading over the MCP URL")), card])
+        section.axis = .vertical
+        section.spacing = CCSpace.sm
+        return section
+    }
+
+    // MARK: - Guides
+
+    func show(_ client: Client, animated: Bool) {
+        self.client = client
+        if switcher.selectedIndex != client.rawValue { switcher.setSelectedIndex(client.rawValue, animated: animated) }
+        let content: [UIView]
+        switch client {
+        case .claude: content = claudeGuide()
+        case .chatGPT: content = chatGPTGuide()
+        case .other: content = otherGuide()
+        }
+        let swap = {
+            self.guideStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+            content.forEach { self.guideStack.addArrangedSubview($0) }
+        }
+        guard animated, view.window != nil else {
+            swap()
+            return
+        }
+        // The card grows/shrinks on the house bounce (its bottom edge is the
+        // pushed one); the new steps rise in.
+        swap()
+        CCMotion.springViews(.smooth, crossFading: guideCard) { self.view.layoutIfNeeded() }
+        CCMotion.fadeAlpha(guideStack, to: 1, duration: 0.22, from: 0)
+        CCMotion.enter(guideStack.layer, .slideUp(distance: 10))
+    }
+
+    private func claudeGuide() -> [UIView] {
+        [
+            guideTitle(String(localized: "Add CaptureCat to Claude", comment: "Connect AI: Claude guide title")),
+            steps([
+                String(localized: "On claude.ai or in the Claude desktop app, open Customize → Connectors.", comment: "Claude step 1"),
+                String(localized: "Choose + Add, then Add custom connector.", comment: "Claude step 2"),
+                String(localized: "Name it CaptureCat, paste the connector URL and choose Continue.", comment: "Claude step 3"),
+                String(localized: "Sign in to CaptureCat and allow access.", comment: "Claude step 4"),
+                String(localized: "In a chat, open + → Connectors and turn on CaptureCat. It then works in the Claude app on this \(ThisDevice.noun) too.", comment: "Claude step 5; the argument is iPhone or iPad"),
+            ]),
+            note(String(localized: "Claude adds custom connectors on the web or the desktop app. On a Team or Enterprise plan an owner adds it under Organization settings → Connectors.", comment: "Connect AI: Claude caveat")),
+            openButton(String(localized: "Open Claude connectors", comment: "Button that opens claude.ai's connector settings"), AgentConnect.claudeConnectorsURL),
+        ]
+    }
+
+    private func chatGPTGuide() -> [UIView] {
+        [
+            guideTitle(String(localized: "Add CaptureCat to ChatGPT", comment: "Connect AI: ChatGPT guide title")),
+            steps([
+                String(localized: "On chatgpt.com, open Plugins.", comment: "ChatGPT step 1"),
+                String(localized: "Choose +, then Add custom MCP server.", comment: "ChatGPT step 2"),
+                String(localized: "Name it CaptureCat, paste the connector URL under Connection and choose OAuth sign-in.", comment: "ChatGPT step 3"),
+                String(localized: "Confirm, choose Create as a plugin, install it and sign in to CaptureCat.", comment: "ChatGPT step 4"),
+                String(localized: "In a chat, type @CaptureCat (or + → Plugins) and ask for an edit.", comment: "ChatGPT step 5"),
+            ]),
+            note(String(localized: "ChatGPT adds custom MCP servers on the web only, and editing needs a workspace plan that allows them (Business, Enterprise or Edu).", comment: "Connect AI: ChatGPT caveat")),
+            openButton(String(localized: "Open ChatGPT plugins", comment: "Button that opens chatgpt.com's plugins page"), AgentConnect.chatGPTPluginsURL),
+        ]
+    }
+
+    private func otherGuide() -> [UIView] {
+        [
+            guideTitle(String(localized: "Any app that speaks MCP", comment: "Connect AI: other-clients guide title")),
+            note(String(localized: "Add a remote (HTTP) MCP server with the connector URL. Apps that support sign-in connect like Claude does; most accept this block in their MCP settings:", comment: "Connect AI: other-clients explanation")),
+            CodeWell(text: AgentConnect.jsonConfig, copyTitle: String(localized: "Copy JSON", comment: "Button that copies the MCP JSON block"), inline: false),
+            note(String(localized: "An app that can't sign in needs a personal token: make one on the web in Settings → Agent access.", comment: "Connect AI: token fallback")),
+        ]
+    }
+
+    private func guideTitle(_ text: String) -> UIView {
+        let label = ccLabel(text, font: CCFont.header, color: CCTheme.color.foreground, lines: 0)
+        label.accessibilityTraits = .header
+        return label
+    }
+
+    private func steps(_ items: [String]) -> UIView {
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = CCSpace.md
+        for (index, text) in items.enumerated() {
+            let number = StepNumber(index + 1)
+            let label = ccLabel(text, font: CCFont.label, color: CCTheme.color.foreground, lines: 0)
+            let row = UIStackView(arrangedSubviews: [number, label])
+            row.spacing = CCSpace.md
+            row.alignment = .firstBaseline
+            row.isAccessibilityElement = true
+            row.accessibilityLabel = String(localized: "Step \(index + 1): \(text)", comment: "VoiceOver: a numbered setup step")
+            stack.addArrangedSubview(row)
+        }
+        return stack
+    }
+
+    private func note(_ text: String) -> UIView {
+        ccLabel(text, font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
+    }
+
+    private func openButton(_ title: String, _ url: URL) -> UIView {
+        let button = CCButton(title: title, symbol: "arrow-up-right", style: .outline, size: .regular)
+        button.accessibilityHint = String(localized: "Opens in your browser.", comment: "VoiceOver hint for buttons that open a web page")
+        button.onTap = { UIApplication.shared.open(url) }
+        return UIStackView(arrangedSubviews: [button, UIView()])
+    }
+
+    // MARK: - Connected
+
+    private func makeConnectedSection() -> UIView {
+        connectedStack.axis = .vertical
+        connectedStack.spacing = 0
+        let title = sectionLabel(String(localized: "Connected", comment: "Connect AI: section heading over the connected agents"))
+        connectedSpinner.color = CCTheme.color.mutedForeground
+        let heading = UIStackView(arrangedSubviews: [title, UIView(), connectedSpinner])
+        heading.alignment = .center
+        let card = CCCard(radius: .lg)
+        pad(connectedStack, in: card, inset: CCSpace.md)
+        let section = UIStackView(arrangedSubviews: [heading, card])
+        section.axis = .vertical
+        section.spacing = CCSpace.sm
+        renderConnections()
+        return section
+    }
+
+    func reload() {
+        connectedSpinner.startAnimating()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.connectedSpinner.stopAnimating() }
+            do {
+                let state = try await APIClient.shared.agentAccess()
+                self.loadError?.removeFromSuperview()
+                self.loadError = nil
+                self.state = state
+                self.renderPlan()
+                self.renderConnections()
+            } catch {
+                if self.loadError == nil {
+                    let callout = CCCallout(message: String(localized: "Couldn't load your AI connections. \(error.localizedDescription)", comment: "Connect AI: load error; the argument is the reason"), variant: .warning)
+                    self.connectedStack.insertArrangedSubview(callout, at: 0)
+                    self.loadError = callout
+                }
+            }
+            self.onLoaded?()
+        }
+    }
+
+    private func renderPlan() {
+        planSlot.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        probeUpgradeCallout = nil
+        guard let state, !state.agentEditing else { return }
+        let plan = state.planName ?? String(localized: "current", comment: "Plan name fallback, as in 'your current plan'")
+        let message = state.agentAccess
+            ? String(localized: "Your \(plan) plan lets an AI read your projects but not edit them. Editing with AI comes with CaptureCat Pro — upgrade at app.capturecat.so/billing, then come back here.", comment: "Connect AI: plan has agent access but not editing; the argument is the plan name")
+            : String(localized: "Editing with AI isn't included in your \(plan) plan. It comes with CaptureCat Pro — upgrade at app.capturecat.so/billing, then come back here.", comment: "Connect AI: plan has no agent access; the argument is the plan name")
+        let callout = CCCallout(title: String(localized: "Upgrade to edit with AI", comment: "Connect AI: upgrade callout title"), message: message, variant: .warning)
+        planSlot.addArrangedSubview(callout)
+        probeUpgradeCallout = callout
+        if view.window != nil { CCMotion.enter(callout.layer, .slideDown(distance: 8)) }
+    }
+
+    private func renderConnections() {
+        connectedStack.arrangedSubviews.filter { $0 !== loadError }.forEach { $0.removeFromSuperview() }
+        probeRevokeButtons = []
+        guard let state else {
+            connectedStack.addArrangedSubview(emptyRow(String(localized: "Checking…", comment: "Connect AI: connected list while loading")))
+            return
+        }
+        guard !state.connections.isEmpty else {
+            connectedStack.addArrangedSubview(emptyRow(String(localized: "No AI is connected yet. Once Claude or ChatGPT signs in to CaptureCat, it shows up here.", comment: "Connect AI: empty connected list")))
+            return
+        }
+        var rows: [UIView] = []
+        for (index, connection) in state.connections.enumerated() {
+            if index > 0 { connectedStack.addArrangedSubview(CCDivider()) }
+            let row = connectionRow(connection)
+            connectedStack.addArrangedSubview(row)
+            rows.append(row)
+        }
+        if view.window != nil { CCMotion.stagger(rows) }
+    }
+
+    private func emptyRow(_ text: String) -> UIView {
+        let label = ccLabel(text, font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0)
+        let wrap = UIStackView(arrangedSubviews: [label])
+        wrap.isLayoutMarginsRelativeArrangement = true
+        wrap.directionalLayoutMargins = NSDirectionalEdgeInsets(top: CCSpace.sm, leading: CCSpace.xs, bottom: CCSpace.sm, trailing: CCSpace.xs)
+        return wrap
+    }
+
+    private func connectionRow(_ connection: AgentConnection) -> UIView {
+        let icon = CCIconView(connection.kind.isApp ? "sparkles" : "terminal", pointSize: 17, weight: .medium, tint: CCTheme.color.mutedForeground)
+        let name = ccLabel(connection.name, font: CCFont.bodyMedium, color: CCTheme.color.foreground, lines: 2)
+        let detail = ccLabel(Self.detail(for: connection), font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
+        let text = UIStackView(arrangedSubviews: [name, detail])
+        text.axis = .vertical
+        text.spacing = 2
+        let revoke = CCButton(title: String(localized: "Revoke", comment: "Button that disconnects an AI app"), style: .outline, size: .sm)
+        revoke.accessibilityLabel = String(localized: "Revoke \(connection.name)", comment: "VoiceOver: revoke an AI connection; the argument is its name")
+        revoke.onTap = { [weak self] in self?.confirmRevoke(connection) }
+        revoke.setContentCompressionResistancePriority(.required, for: .horizontal)
+        probeRevokeButtons.append(revoke)
+        let row = UIStackView(arrangedSubviews: [icon, text, revoke])
+        row.spacing = CCSpace.md
+        row.alignment = .center
+        row.ccStacksAtAccessibilitySizes()
+        row.isLayoutMarginsRelativeArrangement = true
+        row.directionalLayoutMargins = NSDirectionalEdgeInsets(top: CCSpace.sm, leading: CCSpace.xs, bottom: CCSpace.sm, trailing: 0)
+        return row
+    }
+
+    static func detail(for connection: AgentConnection) -> String {
+        var parts: [String] = []
+        parts.append(connection.kind.isApp
+            ? String(localized: "Signed in with CaptureCat", comment: "Connect AI: an app that connected by OAuth")
+            : String(localized: "Personal token", comment: "Connect AI: a token made on the web"))
+        if !connection.canEdit { parts.append(String(localized: "can't edit projects", comment: "Connect AI: a connection without the projects:write scope")) }
+        if let used = connection.lastUsedAt {
+            let relative = RelativeDateTimeFormatter()
+            relative.unitsStyle = .short
+            parts.append(String(localized: "used \(relative.localizedString(for: used, relativeTo: Date()))", comment: "Connect AI: last use, e.g. 'used 2 hr. ago'"))
+        } else if let connected = connection.connectedAt {
+            parts.append(String(localized: "connected \(connected.formatted(date: .abbreviated, time: .omitted))", comment: "Connect AI: when it connected"))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func confirmRevoke(_ connection: AgentConnection) {
+        let alert = CCAlert(
+            title: String(localized: "Revoke \(connection.name)?", comment: "Confirm title: disconnect an AI app; the argument is its name"),
+            message: connection.kind.isApp
+                ? String(localized: "\(connection.name) loses access to your CaptureCat account at once. To use it again, connect it again in that app.", comment: "Confirm message: revoke an OAuth app")
+                : String(localized: "The token stops working at once. Anything using it loses access to your CaptureCat account.", comment: "Confirm message: revoke a personal token"))
+        alert.symbol = "close"
+        alert.tone = .destructive
+        alert.presentation = .sheet
+        alert.addButton(String(localized: "Revoke", comment: "Confirm button: revoke"), role: .destructive) {
+            try await APIClient.shared.revoke(connection)
+        }
+        alert.addButton(String(localized: "Cancel", comment: "Cancel button"), role: .cancel)
+        probeRevokeAlert = alert
+        alert.present(from: self) { [weak self] index in
+            guard index == 0 else { return }
+            CCHaptics.success()
+            AppToaster.shared.show(title: String(localized: "\(connection.name) revoked", comment: "Toast after revoking; the argument is its name"), variant: .success, symbol: "check")
+            self?.reload()
+        }
+    }
+
+    // MARK: - Notifications
+
+    private func makeNotifySection() -> UIView {
+        notifyRow.axis = .vertical
+        notifyRow.spacing = CCSpace.md
+        let card = CCCard(radius: .lg)
+        pad(notifyRow, in: card)
+        let section = UIStackView(arrangedSubviews: [sectionLabel(String(localized: "Notifications", comment: "Connect AI: section heading")), card])
+        section.axis = .vertical
+        section.spacing = CCSpace.sm
+        return section
+    }
+
+    private func renderNotify() {
+        Task { @MainActor [weak self] in
+            let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+            guard let self else { return }
+            self.notifyRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
+            let icon = CCIconView("bell", pointSize: 17, weight: .medium, tint: CCTheme.color.mutedForeground)
+            let title = ccLabel(String(localized: "Tell me when AI finishes editing", comment: "Connect AI: notification row title"), font: CCFont.labelSemibold, color: CCTheme.color.foreground, lines: 0)
+            let words: String
+            var button: CCButton?
+            switch status {
+            case .authorized, .provisional, .ephemeral:
+                words = String(localized: "On. You'll get a notification when your AI finishes editing a project.", comment: "Connect AI: notifications allowed")
+            case .denied:
+                words = String(localized: "Notifications for CaptureCat are off in Settings.", comment: "Connect AI: notifications denied")
+                button = CCButton(title: String(localized: "Open Settings", comment: "Button that opens the app's iOS Settings"), style: .outline, size: .regular)
+                button?.onTap = {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                }
+            default:
+                words = String(localized: "Get a notification when your AI finishes editing a project.", comment: "Connect AI: notifications not asked yet")
+                button = CCButton(title: String(localized: "Turn On", comment: "Button that asks for notification permission"), style: .primary, size: .regular)
+                button?.onTap = { [weak self] in
+                    Task { @MainActor in
+                        await DeviceRegistry.shared.requestPushPermission()
+                        await DeviceRegistry.shared.register()
+                        self?.renderNotify()
+                    }
+                }
+            }
+            let detail = ccLabel(words, font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
+            let text = UIStackView(arrangedSubviews: [title, detail])
+            text.axis = .vertical
+            text.spacing = CCSpace.xs
+            let top = UIStackView(arrangedSubviews: [icon, text])
+            top.spacing = CCSpace.md
+            top.alignment = .top
+            self.notifyRow.addArrangedSubview(top)
+            if let button { self.notifyRow.addArrangedSubview(UIStackView(arrangedSubviews: [button, UIView()])) }
+        }
+    }
+
+    // MARK: - Layout
+
+    private func pad(_ content: UIView, in card: CCCard, inset: CGFloat = CCSpace.lg) {
+        content.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(content)
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: inset),
+            content.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -inset),
+            content.topAnchor.constraint(equalTo: card.topAnchor, constant: inset),
+            content.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -inset),
+        ])
+    }
+}
+
+private extension AgentConnection.Kind {
+    var isApp: Bool { if case .app = self { return true } else { return false } }
+}
+
+/// A step's number in a small recessed disc.
+private final class StepNumber: UIView {
+    private let label: UILabel
+
+    init(_ number: Int) {
+        label = ccLabel("\(number)", font: CCFont.captionMedium, color: CCTheme.color.foreground, alignment: .center)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 24), heightAnchor.constraint(equalToConstant: 24),
+            label.centerXAnchor.constraint(equalTo: centerXAnchor), label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        setContentHuggingPriority(.required, for: .horizontal)
+        isAccessibilityElement = false
+        ccOnThemeChange { [weak self] in self?.applyTheme() }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override var forFirstBaselineLayout: UIView { label }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        applyTheme()
+    }
+
+    private func applyTheme() {
+        CCMaterial.dress(layer, as: .recessed(tint: CCTheme.color.elevated), radius: bounds.height / 2, traits: traitCollection)
+    }
+}
+
+/// Copyable text in a recessed well (the URL, the JSON block) with its Copy key.
+final class CodeWell: UIView {
+    let text: String
+    private let well = RecessedWell()
+    private let label: UILabel
+    let copyButton: CCButton
+
+    init(text: String, copyTitle: String, inline: Bool) {
+        self.text = text
+        label = ccLabel(text, font: inline ? CCFont.mono : CCFont.monoSmall, color: CCTheme.color.foreground, lines: 0)
+        copyButton = CCButton(title: copyTitle, symbol: "doc.on.clipboard", style: inline ? .primary : .secondary, size: .sm)
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        label.lineBreakMode = .byCharWrapping
+        label.isAccessibilityElement = true
+        label.accessibilityTraits = .staticText
+        well.translatesAutoresizingMaskIntoConstraints = false
+        label.translatesAutoresizingMaskIntoConstraints = false
+        well.addSubview(label)
+        let stack = UIStackView(arrangedSubviews: [well, UIStackView(arrangedSubviews: [copyButton, UIView()])])
+        stack.axis = .vertical
+        stack.spacing = CCSpace.sm
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor), stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor), stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            label.leadingAnchor.constraint(equalTo: well.leadingAnchor, constant: CCSpace.md),
+            label.trailingAnchor.constraint(equalTo: well.trailingAnchor, constant: -CCSpace.md),
+            label.topAnchor.constraint(equalTo: well.topAnchor, constant: CCSpace.sm + 2),
+            label.bottomAnchor.constraint(equalTo: well.bottomAnchor, constant: -(CCSpace.sm + 2)),
+        ])
+        copyButton.accessibilityHint = String(localized: "Copies it to the clipboard.", comment: "VoiceOver hint for copy buttons")
+        copyButton.onTap = { [weak self] in self?.copy() }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func copy() {
+        UIPasteboard.general.string = text
+        CCHaptics.success()
+        AppToaster.shared.show(title: String(localized: "Copied", comment: "Toast after copying text"), variant: .success, symbol: "check")
+    }
+}
+
+/// The kit's recessed well, re-dressed whenever its size or theme changes.
+private final class RecessedWell: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        layer.cornerCurve = .continuous
+        ccOnThemeChange { [weak self] in self?.setNeedsLayout() }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CCMaterial.dress(layer, as: .recessed(tint: CCTheme.color.elevated), radius: CCTheme.radius(.md), traits: traitCollection)
+    }
+}

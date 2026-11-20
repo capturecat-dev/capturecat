@@ -56,6 +56,7 @@ final class AccountViewController: UIViewController {
 
         column.addArrangedSubview(makeProfileCard())
         column.addArrangedSubview(section(String(localized: "Plan", comment: "Account screen section header: subscription plan"), makePlanCard()))
+        column.addArrangedSubview(connectAIRow)
         column.addArrangedSubview(section(String(localized: "Wi-Fi streaming", comment: "Account screen section header"), makeDevicesCard()))
         column.addArrangedSubview(section(String(localized: "Language", comment: "Account screen section header: the app language"), makeLanguageCard()))
         let signOut = CCButton(title: String(localized: "Sign out", comment: "Button"), symbol: "arrow-right-line", style: .secondary, size: .lg, radius: .lg)
@@ -158,6 +159,17 @@ final class AccountViewController: UIViewController {
         ])
         return card
     }
+
+    /// Settings → Connect AI (ConnectAIViewController): one row.
+    private lazy var connectAIRow: ActionListCard = {
+        let card = ActionListCard()
+        card.setActions([.init(title: String(localized: "Connect AI", comment: "Account row that opens Connect AI"), symbol: "sparkles") { [weak self] _ in
+            self?.navigationController?.pushViewController(ConnectAIViewController(), animated: true)
+        }])
+        return card
+    }()
+    /// Gate seam: the Connect AI entry.
+    var probeConnectAIRow: UIView { connectAIRow }
 
     private func makeDevicesCard() -> UIView {
         let icon = CCIconView("wifi", pointSize: 17, weight: .medium, tint: CCTheme.color.mutedForeground)

@@ -157,19 +157,23 @@ export async function listVersionPage(
   db: D1Database,
   projectId: string,
   opts: { beforeSeq: number | null; limit: number },
-): Promise<Array<VersionRow & { actorName: string | null; namedByName: string | null }>> {
+): Promise<Array<VersionRow & { actorName: string | null; namedByName: string | null; agentName: string | null }>> {
+  // agent_name: an agent's save carries X-CC-Client-Id "mcp-<token id>"
+  // (mcp/project-tools.ts) — the token's name is the OAuth client's own
+  // ("Claude") or what the user called a personal token. Same account only.
   const { results } = await db
     .prepare(
-      `SELECT v.*, au.name AS actor_name, nu.name AS named_by_name
+      `SELECT v.*, au.name AS actor_name, nu.name AS named_by_name, at.name AS agent_name
          FROM cloud_project_versions v
          LEFT JOIN "user" au ON au.id = v.actor_uid
          LEFT JOIN "user" nu ON nu.id = v.named_by
+         LEFT JOIN agent_tokens at ON v.source <> 'human' AND v.client_id = 'mcp-' || at.id AND at.user_id = v.actor_uid
         WHERE v.project_id = ?1 AND (?2 IS NULL OR v.seq < ?2)
         ORDER BY v.seq DESC LIMIT ?3`,
     )
     .bind(projectId, opts.beforeSeq, opts.limit)
-    .all<VersionDbRow & { actor_name: string | null; named_by_name: string | null }>();
-  return (results ?? []).map((r) => ({ ...toVersion(r), actorName: r.actor_name, namedByName: r.named_by_name }));
+    .all<VersionDbRow & { actor_name: string | null; named_by_name: string | null; agent_name: string | null }>();
+  return (results ?? []).map((r) => ({ ...toVersion(r), actorName: r.actor_name, namedByName: r.named_by_name, agentName: r.agent_name }));
 }
 
 export async function namedVersionCount(db: D1Database, projectId: string): Promise<number> {

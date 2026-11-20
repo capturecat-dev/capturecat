@@ -43,6 +43,9 @@ nonisolated struct CloudVersion: Equatable, Sendable, Identifiable {
     let updatedAt: Date?
     /// The server marks the current version.
     let isHead: Bool
+    /// Which agent saved it (`agent.name` — e.g. "Claude"), for agent and
+    /// mixed versions saved through the remote MCP server; nil otherwise.
+    var agentName: String? = nil
 
     var isNamed: Bool { !(label ?? "").isEmpty }
     var date: Date? { updatedAt ?? openedAt }

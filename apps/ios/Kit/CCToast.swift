@@ -154,6 +154,8 @@ final class CCToast: UIView {
     private let titleLabel: UILabel
     private let messageLabel: UILabel
     private var actionButton: CCButton?
+    /// Probe seam: the action key (gates press it the way a finger does).
+    var probeActionButton: CCButton? { actionButton }
     private let barTrack = UIView()
     private let bar = CALayer()
     private var dismissWork: DispatchWorkItem?

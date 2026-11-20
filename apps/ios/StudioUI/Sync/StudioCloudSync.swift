@@ -148,6 +148,10 @@ final class StudioCloudSync {
     private var pendingToast: String?
     private var observers: [NSObjectProtocol] = []
     private(set) lazy var historyService = StudioCloudHistory(sync: self)
+    /// "Edited by Claude": agent revisions among what a pull brought in.
+    private(set) lazy var agentEdits = StudioAgentEdits(sync: self)
+    /// An agent check the open's pull left for when the editor is on screen.
+    private var pendingAgentCheck: (agreed: Int, before: Data, after: Data)?
     #if DEBUG
     /// Probe seams: the Merge Review / two-way choice this session put up.
     private(set) weak var probeReview: StudioMergeReviewController?
@@ -294,13 +298,20 @@ final class StudioCloudSync {
                 }
             }
             do {
+                let agreed = agreedRevision
+                let before = try? Data(contentsOf: documentURL)
                 let outcome = try await engine.pull(projectID: projectID, projectDirectory: directory)
                 Self.trace?("open pull → \(outcome)")
                 switch outcome {
-                case .pulled, .upToDate, .mediaRestored:
+                case .pulled, .mediaRestored:
+                    rememberAgentCheck(agreed: agreed, before: before)
+                    status = localStatus
+                    return .ready
+                case .upToDate:
                     status = localStatus
                     return .ready
                 case .merged(_, let report):
+                    rememberAgentCheck(agreed: agreed, before: before)
                     pendingToast = report.toastTitle
                     status = .pending
                     return .merged
@@ -342,6 +353,16 @@ final class StudioCloudSync {
         Self.trace?("migrated the download marker (revision \(revision))")
     }
 
+    /// The revision this device last agreed with the cloud on.
+    var agreedRevision: Int? {
+        CloudSyncState.load(from: directory, projectID: projectID, apiBaseURL: engine.apiBaseURL)?.revision
+    }
+
+    private func rememberAgentCheck(agreed: Int?, before: Data?) {
+        guard let agreed, let before, let after = try? Data(contentsOf: documentURL) else { return }
+        pendingAgentCheck = (agreed, before, after)
+    }
+
     // MARK: - Editor
 
     /// Ties the session to an editor showing this project (after it is on
@@ -376,6 +397,10 @@ final class StudioCloudSync {
         if let toast = pendingToast {
             pendingToast = nil
             StudioHistory.toast(in: editor, title: toast, variant: .success)
+        }
+        if let check = pendingAgentCheck {
+            pendingAgentCheck = nil
+            agentEdits.cloudChanged(since: check.agreed, before: check.before, after: check.after)
         }
         if status == .pending || status == .offline { schedulePush(after: pushDelay) }
     }
@@ -437,6 +462,7 @@ final class StudioCloudSync {
             project = folder.project
         }
         let before = try? Data(contentsOf: documentURL)
+        let agreed = agreedRevision
         status = .syncing
         do {
             let outcome = try await engine.push(project: project, projectDirectory: directory,
@@ -455,6 +481,7 @@ final class StudioCloudSync {
             case .merged(let revision, let report):
                 adoptDisk(since: before, actionName: String(localized: "Merge Changes", comment: "Undo action name: merging synced changes"))
                 toast(report.toastTitle)
+                agentEdits.cloudChanged(since: agreed, before: before, after: try? Data(contentsOf: documentURL))
                 status = localStatus
                 onPushed?(revision)
                 if status == .pending { schedulePush(after: 0.2) }
@@ -491,6 +518,7 @@ final class StudioCloudSync {
     private func runPull(force: Bool = false) async -> CloudProjectSync.PullOutcome? {
         editor?.saveNow()
         let before = try? Data(contentsOf: documentURL)
+        let agreed = agreedRevision
         status = .syncing
         do {
             let outcome = try await engine.pull(projectID: projectID, projectDirectory: directory, force: force)
@@ -499,6 +527,7 @@ final class StudioCloudSync {
             switch outcome {
             case .pulled, .mediaRestored:
                 adoptDisk(since: before, actionName: String(localized: "Changes from the Cloud", comment: "Undo action name: adopting changes pulled from the cloud"))
+                agentEdits.cloudChanged(since: agreed, before: before, after: try? Data(contentsOf: documentURL))
                 status = localStatus
                 if status == .pending { schedulePush(after: pushDelay) }
             case .upToDate:
@@ -508,6 +537,7 @@ final class StudioCloudSync {
                 // The cloud's edits are in; this device's are still unsent.
                 adoptDisk(since: before, actionName: String(localized: "Merge Changes", comment: "Undo action name: merging synced changes"))
                 toast(report.toastTitle)
+                agentEdits.cloudChanged(since: agreed, before: before, after: try? Data(contentsOf: documentURL))
                 status = .pending
                 schedulePush(after: 0.2)
             case .needsReview(let review):
@@ -729,7 +759,7 @@ final class StudioCloudSync {
                                             queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                if self.hasUnsentEdits { self.requestPush() } else { Task { await self.checkRemote() } }
+                self.refreshNow()
             }
         })
     }
@@ -739,11 +769,19 @@ final class StudioCloudSync {
         guard pollInterval > 0 else { return }
         pollTimer = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(self?.pollInterval ?? 20))
+                let interval = self.map { $0.agentEdits.pollInterval(default: $0.pollInterval) } ?? 20
+                try? await Task.sleep(for: .seconds(interval))
                 guard !Task.isCancelled, let self, self.editor != nil else { return }
                 if self.status == .synced { await self.checkRemote() }
             }
         }
+    }
+
+    /// Brings the project up to date now (the "AI finished editing"
+    /// notification, an app that came forward): unsent edits push first —
+    /// a lost race merges the cloud's change in — otherwise the head check.
+    func refreshNow() {
+        if hasUnsentEdits { requestPush() } else { Task { await checkRemote() } }
     }
 
     // MARK: - The offline queue across launches

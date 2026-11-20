@@ -49,6 +49,39 @@ Copy that talks about this device ("this iPhone", "Record on iPhone") follows th
 (`ThisDevice.noun`); content badges ("iPhone" on a phone-shaped capture) describe the
 recording.
 
+## Connect AI (edit with your own AI)
+
+The Mac embeds no AI SDK — it is an MCP server the user's own agent connects to. The phone
+works the same way through the CLOUD MCP server (`https://mcp.capturecat.so/mcp`,
+`apps/api/src/mcp/`): no API key in the app, the user brings their own Claude or ChatGPT,
+and the agent edits cloud projects server-side with the editor's own op layer (so preview
+and export still match). The phone syncs the result.
+
+- **Account → Connect AI** (`App/Account/ConnectAIViewController`; one row on the Account
+  screen): the connector URL (copy), a Claude / ChatGPT / Other apps switch with each app's
+  steps from its own help pages (Claude: Customize → Connectors → Add custom connector;
+  ChatGPT: Plugins → Add custom MCP server; neither has a link that pre-fills the connector,
+  and both add custom connectors on the web, then work in their phone apps), the
+  `mcpServers` JSON for other clients, **Connected** (apps that signed in with CaptureCat —
+  `GET /api/oauth/apps` — and personal tokens — `GET /api/agent-tokens`; Revoke behind a
+  house confirm), the `agentEditing` plan gate (upgrade callout, never steps that would fail)
+  and the notification permission the "AI finished editing" push needs. Every string is
+  `String(localized:)`.
+- **Background edits feel live** (`StudioUI/Sync/StudioAgentEdits`): whenever the sync pulls
+  or merges cloud changes into an open editor (the head poll, foreground, a lost push race,
+  the push), it asks History who made them; an agent's revision (`source: agent`, named by
+  `agent.name`) shows "Edited by Claude" + the change summary + **Undo**, and the head poll
+  runs every 5 s for 2 minutes. Unsent local work merges three-way exactly as for any
+  concurrent change (conflicts: the usual Merge Review / two-way choice). Undo never deletes:
+  clean case = the server's own restore of the version before (a new `restore` revision);
+  otherwise only the agent's change is reverted three-way and pushed. One editor undo step.
+- **Push** "AI finished editing" (`apps/api/src/lib/agent-edit-push.ts`): sent once the agent
+  has been quiet on a project for 15 s (a burst of saves = one notification; collapse id per
+  project), to the owner's iOS devices with an APNs token. In front with that project open:
+  no banner, the editor refreshes; tapped: the project opens in the editor
+  (`App/Studio/AgentEditNotifications`).
+- **Gate**: `scripts/ios-agent-edit.sh` (below).
+
 ## Share viewer (share links open in the app)
 
 A CaptureCat share link tapped on an iPhone or iPad with the app opens
@@ -506,6 +539,7 @@ catalog there; render-baseline identical).
     apps/ios/scripts/ios-release-check.sh   # App Store readiness (6c) on the Release ARCHIVE: privacy manifests vs the required-reason APIs in the stripped binaries, usage strings vs linked APIs, version/build, encryption key, icons, no harness strings / dev URLs / test keys, entitlements used, zero packaging warnings; SELFTEST=1 injects 16 defects that must each FAIL
     apps/ios/scripts/ios-archive.sh         # signed archive → release check → App Store export (destination: export, never uploads)
     apps/ios/scripts/ios-share-viewer.sh    # share viewer: universal link + custom scheme (warm, cold, real simctl openurl), playback, markers ±1 pt, seeks, reactions (optimistic / rollback / toggle), anonymous + signed-in comments, sign-in prompt, tabs, captions, every share state, motion mid-flight, Reduce Motion, a11y audit (default + XXXL) vs Tests/mock_api.py; markers + drawings on the picture's pixels (portrait, landscape fit/fill), drawing → post vs the WEB serializer, the Allow-comments switch; SELFTEST=1 → 11 injected defects must FAIL
+    apps/ios/scripts/ios-agent-edit.sh      # Connect AI + background AI edits in the REAL app vs the LOCAL TEST API (apps/api/scripts/local-test-api: the real Worker, /mcp and op layer over in-memory D1/R2, APNs captured): Account row hit-tested, connected list, copy, guide swap mid-flight, revoke, Free-plan upgrade; an OAuth-connected "Claude" calls apply_edits while the project is open — push routed (no banner), unsent local work kept, notice mid-flight, Undo reverts only the agent's change; clean edit on foreground → Undo = server restore (new revision, nothing deleted). INJECT=skip-notice|undo-noop must FAIL. Screens: connect-ai*.png, editor-notice.png
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production
@@ -547,3 +581,6 @@ App Store Connect record, a review account).
 `/api/wireless/link[/rotate]`, `/api/devices[...]`, push via APNs — `apps/api/README.md`
 ("iPhone over Wi-Fi"). Deploy order: migration 0042 before the API; APNs secrets
 (`APNS_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID`) are owner-only.
+
+"AI finished editing" uses the same APNs secrets (no new ones, no migration): without them the
+API simply sends no push. History versions now carry `agent: { name }` for agent saves.

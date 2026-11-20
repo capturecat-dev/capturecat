@@ -139,13 +139,16 @@ enum StudioHistory {
     private static var toasters: [ObjectIdentifier: EditorToaster] = [:]
 
     /// History's toasts over the editor (one toaster per editor view).
+    @discardableResult
     static func toast(in editor: EditorViewController, title: String, message: String? = nil,
-                      variant: CCToast.Variant = .default) {
+                      variant: CCToast.Variant = .default, symbol: String? = nil,
+                      action: CCToast.Action? = nil, duration: TimeInterval = 3.5) -> CCToast {
         let key = ObjectIdentifier(editor)
         toasters = toasters.filter { $0.value.host != nil }
         let entry = toasters[key].flatMap { $0.host === editor.view ? $0 : nil } ?? EditorToaster(host: editor.view)
         toasters[key] = entry
-        entry.toaster.show(title: title, message: message, variant: variant)
+        return entry.toaster.show(title: title, message: message, variant: variant, symbol: symbol, action: action,
+                                  duration: duration)
     }
 
     // MARK: - Merge Review

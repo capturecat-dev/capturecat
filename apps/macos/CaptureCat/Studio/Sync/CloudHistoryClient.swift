@@ -94,7 +94,7 @@ nonisolated enum CloudHistoryParse {
         }
         let actor = person(value(object, "actor"))
         let namer = person(value(object, "namedBy"))
-        return CloudVersion(
+        var parsed = CloudVersion(
             id: id,
             seq: CloudJSON.int(value(object, "seq")) ?? 0,
             revision: CloudJSON.int(value(object, "revision")) ?? 0,
@@ -116,6 +116,8 @@ nonisolated enum CloudHistoryParse {
             updatedAt: CloudAPIDate.parse(value(object, "updatedAt")),
             isHead: value(object, "isHead") as? Bool ?? false
         )
+        parsed.agentName = (value(object, "agent") as? [String: Any]).flatMap { CloudJSON.string($0["name"]) }
+        return parsed
     }
 
     static func page(_ data: Data) -> CloudVersionPage? {

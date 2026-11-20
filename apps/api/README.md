@@ -72,6 +72,17 @@ npm run dev
 
 This starts the Worker on `http://localhost:8787`. The macOS app points here in DEBUG builds.
 
+### Local test API (device gates)
+
+`scripts/local-test-api/server.ts` serves the REAL Worker (`src/index.ts` — every route,
+`/mcp`, the op layer) on 127.0.0.1 with the doubles the vitest suites use: in-memory
+node:sqlite D1 with the real migrations, in-memory R2 (presigned URLs point back at the
+server), fake sessions (`Bearer <uid>`), and APNs pushes captured instead of sent. Nothing
+reaches Cloudflare, Apple or production — use it where `wrangler dev` (production R2) is off
+limits. Used by `apps/ios/scripts/ios-agent-edit.sh`.
+
+    npx vite-node --config scripts/local-test-api/vite.config.ts scripts/local-test-api/server.ts -- --port 8790 --media <dir with recording.mov>
+
 ## Database (D1)
 
 The Worker uses a D1 database named `CaptureCat` (binding `DB`). Schema lives in versioned
@@ -317,6 +328,15 @@ Go-live, in this order:
 
    `APNS_TOPIC` (a var, default `so.capturecat.ios`) only needs setting if
    the iOS bundle id ever changes.
+
+### "AI finished editing" push
+
+After an agent saves a cloud project over `/mcp` (apply_edits, the single-op tools,
+restore_version), `lib/agent-edit-push.ts` waits until the agent has been quiet on that
+project for `AGENT_EDIT_PUSH_DELAY_MS` (15 s, `ctx.waitUntil`) and, if the head is still the
+revision it wrote, sends one APNs alert to the owner's iOS devices (`cc.type: "agentEdited"`,
+collapse id per project; dead tokens forgotten). Same APNs secrets as above; without them,
+no push. History versions carry `agent: { name }` (the token's / OAuth client's name).
 
 ## Account deletion (`DELETE /api/me`)
 
