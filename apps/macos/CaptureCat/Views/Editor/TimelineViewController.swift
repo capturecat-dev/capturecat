@@ -313,11 +313,15 @@ final class TimelineViewController: NSViewController {
         gutter.widthAnchor.constraint(equalToConstant: labelWidth).isActive = true
         labelColumn.addArrangedSubview(gutter)
 
-        let overlayLanes: [String: TimelineOverlayLane] = [
-            "EFFECTS": .effects, "FOCUS": .focus, "ANNOTATE": .annotate,
+        let lanes: [(String, TimelineOverlayLane?)] = [
+            (String(localized: "VIDEO", comment: "Timeline: lane label in the left column (shown in caps); the video clips lane"), nil),
+            (String(localized: "VOICE", comment: "Timeline: lane label in the left column (shown in caps); the voice-over lane"), nil),
+            (String(localized: "EFFECTS", comment: "Timeline: lane label in the left column (shown in caps); zoom/tilt/transition blocks lane"), .effects),
+            (String(localized: "FOCUS", comment: "Timeline: lane label in the left column (shown in caps); blur/highlight/camera-layout regions lane"), .focus),
+            (String(localized: "ANNOTATE", comment: "Timeline: lane label in the left column (shown in caps); annotations lane (text, arrows, shapes)"), .annotate),
         ]
-        for (index, name) in ["VIDEO", "VOICE", "EFFECTS", "FOCUS", "ANNOTATE"].enumerated() {
-            let label = makeTrackLabel(name, storeHeightAs: overlayLanes[name])
+        for (index, (name, overlayLane)) in lanes.enumerated() {
+            let label = makeTrackLabel(name, storeHeightAs: overlayLane)
             labelColumn.addArrangedSubview(label)
             if index > 0 {
                 labelColumn.setCustomSpacing(trackSpacing, after: labelColumn.arrangedSubviews[index])
@@ -427,7 +431,7 @@ final class TimelineViewController: NSViewController {
             currentTime = startTime
             player?.seek(to: CMTime(seconds: startTime, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
         }
-        toStart.toolTip = "Go to Start"
+        toStart.toolTip = String(localized: "Go to Start", comment: "Timeline toolbar: tooltip; moves the playhead to the beginning")
         playButton = TimelineToolbarButton(icon: "play.fill", pointSize: 17) { [weak self] in
             self?.togglePlayback()
         }
@@ -437,7 +441,7 @@ final class TimelineViewController: NSViewController {
             currentTime = endTime
             player.seek(to: CMTime(seconds: endTime, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
         }
-        toEnd.toolTip = "Go to End"
+        toEnd.toolTip = String(localized: "Go to End", comment: "Timeline toolbar: tooltip; moves the playhead to the end")
 
         let transport = NSStackView(views: [toStart, playButton, toEnd])
         transport.orientation = .horizontal
@@ -466,11 +470,11 @@ final class TimelineViewController: NSViewController {
         undoButton = TimelineToolbarButton(icon: "arrow.uturn.backward") { [weak self] in
             self?.undoManager?.undo()
         }
-        undoButton.toolTip = "Undo"
+        undoButton.toolTip = String(localized: "Undo", comment: "Timeline toolbar: tooltip; verb, undoes the last edit")
         redoButton = TimelineToolbarButton(icon: "arrow.uturn.forward") { [weak self] in
             self?.undoManager?.redo()
         }
-        redoButton.toolTip = "Redo"
+        redoButton.toolTip = String(localized: "Redo", comment: "Timeline toolbar: tooltip; verb, redoes the last undone edit")
         toolbar.addArrangedSubview(undoButton)
         toolbar.addArrangedSubview(redoButton)
         toolbar.addArrangedSubview(makeSeparator())
@@ -478,20 +482,20 @@ final class TimelineViewController: NSViewController {
         deleteButton = TimelineToolbarButton(icon: "trash", tint: .systemRed) { [weak self] in
             self?.deleteSelectedRegion()
         }
-        deleteButton.toolTip = "Delete Selected"
+        deleteButton.toolTip = String(localized: "Delete Selected", comment: "Timeline toolbar: tooltip; deletes the selected timeline item")
         toolbar.addArrangedSubview(deleteButton)
         toolbar.addArrangedSubview(makeSeparator())
 
         zoomMenuButton = TimelineToolbarButton(icon: "sparkles") { [weak self] in
             self?.showZoomMenu()
         }
-        zoomMenuButton.toolTip = "Zoom"
+        zoomMenuButton.toolTip = String(localized: "Zoom", comment: "Timeline toolbar: tooltip; opens the effects picker (zoom, tilt, transitions, camera layouts)")
         toolbar.addArrangedSubview(zoomMenuButton)
 
         focusMenuButton = TimelineToolbarButton(icon: "scope") { [weak self] in
             self?.showFocusMenu()
         }
-        focusMenuButton.toolTip = "Focus & Blur"
+        focusMenuButton.toolTip = String(localized: "Focus & Blur", comment: "Timeline toolbar: tooltip; opens the blur/highlight/depth-focus picker")
         toolbar.addArrangedSubview(focusMenuButton)
 
         sliceButton = TimelineToolbarButton(icon: "scissors") { [weak self] in
@@ -506,13 +510,13 @@ final class TimelineViewController: NSViewController {
         let split = TimelineToolbarButton(icon: "rectangle.split.2x1") { [weak self] in
             self?.splitAtPlayhead()
         }
-        split.toolTip = "Split at Playhead (⌘B)"
+        split.toolTip = String(localized: "Split at Playhead (⌘B)", comment: "Timeline toolbar: tooltip; splits the clip at the playhead; ⌘B is the shortcut")
         toolbar.addArrangedSubview(split)
 
         annotationButton = TimelineToolbarButton(icon: "pencil.tip") { [weak self] in
             self?.showAnnotationMenu()
         }
-        annotationButton.toolTip = "Add Annotation"
+        annotationButton.toolTip = String(localized: "Add Annotation", comment: "Timeline toolbar: tooltip; opens the annotation picker")
         toolbar.addArrangedSubview(annotationButton)
         toolbar.addArrangedSubview(makeSeparator())
 
@@ -526,7 +530,7 @@ final class TimelineViewController: NSViewController {
             guard let self else { return }
             setTimelineScale(timelineScale / 1.5)
         }
-        zoomOutButton.toolTip = "Zoom Out Timeline"
+        zoomOutButton.toolTip = String(localized: "Zoom Out Timeline", comment: "Timeline toolbar: tooltip; shows more of the timeline (not a video zoom)")
         toolbar.addArrangedSubview(zoomOutButton)
 
         // The SwiftUI toolbar used the bare `InspectorSliderTrack`; its AppKit
@@ -543,13 +547,13 @@ final class TimelineViewController: NSViewController {
             guard let self else { return }
             setTimelineScale(timelineScale * 1.5)
         }
-        zoomInButton.toolTip = "Zoom In Timeline"
+        zoomInButton.toolTip = String(localized: "Zoom In Timeline", comment: "Timeline toolbar: tooltip; magnifies the timeline (not a video zoom)")
         toolbar.addArrangedSubview(zoomInButton)
 
         fitButton = TimelineToolbarButton(icon: "arrow.down.right.and.arrow.up.left", pointSize: 11) { [weak self] in
             self?.setTimelineScale(1)
         }
-        fitButton.toolTip = "Fit Timeline"
+        fitButton.toolTip = String(localized: "Fit Timeline", comment: "Timeline toolbar: tooltip; fits the whole timeline in view")
         toolbar.addArrangedSubview(fitButton)
 
         // No gliding hover wash here any more — each key carries its own
@@ -594,7 +598,9 @@ final class TimelineViewController: NSViewController {
     private func refreshSliceButton() {
         sliceButton.isActive = sliceMode
         sliceButton.tint = sliceMode ? .systemCyan : nil
-        sliceButton.toolTip = sliceMode ? "Exit Slice Tool" : "Slice clip — click to split"
+        sliceButton.toolTip = sliceMode
+            ? String(localized: "Exit Slice Tool", comment: "Timeline toolbar: tooltip; turns off the slice (scissors) tool")
+            : String(localized: "Slice clip — click to split", comment: "Timeline toolbar: tooltip; slice (scissors) tool: click a clip to split it")
     }
 
     // MARK: - Popovers
@@ -638,13 +644,13 @@ final class TimelineViewController: NSViewController {
         // appears above the SELECTED annotation for editing) — a permanently
         // docked pill over the preview was removed on purpose.
         let popover = TimelinePickerPopover.make(rows: [
-            .init(icon: "text.bubble", title: "Text Label", detail: "Add a text overlay") { [weak self] in self?.addForInlineEditing(.text) },
-            .init(icon: "arrow.up.right", title: "Arrow", detail: "Draw a directional arrow") { [weak self] in self?.addAnnotation(type: .arrow) },
-            .init(icon: "pencil.tip", title: "Callout", detail: "Line with labelled box") { [weak self] in self?.addForInlineEditing(.callout) },
-            .init(icon: "pencil.and.scribble", title: "Drawing", detail: "Freehand brush strokes") { [weak self] in self?.addAnnotation(type: .drawing) },
-            .init(icon: "rectangle", title: "Rectangle", detail: "Box with optional fill") { [weak self] in self?.addAnnotation(type: .rectangle) },
-            .init(icon: "oval", title: "Ellipse", detail: "Circle / oval with optional fill") { [weak self] in self?.addAnnotation(type: .ellipse) },
-            .init(icon: "hand.tap", title: "Tap Indicator", detail: "Looping touch ripple for iPhone takes") { [weak self] in self?.addAnnotation(type: .tap) },
+            .init(icon: "text.bubble", title: String(localized: "Text Label", comment: "Annotation picker: row title"), detail: String(localized: "Add a text overlay", comment: "Annotation picker: row detail for Text Label")) { [weak self] in self?.addForInlineEditing(.text) },
+            .init(icon: "arrow.up.right", title: String(localized: "Arrow", comment: "Annotation picker: row title (noun)"), detail: String(localized: "Draw a directional arrow", comment: "Annotation picker: row detail for Arrow")) { [weak self] in self?.addAnnotation(type: .arrow) },
+            .init(icon: "pencil.tip", title: String(localized: "Callout", comment: "Annotation picker: row title; a line pointing to a labelled box"), detail: String(localized: "Line with labelled box", comment: "Annotation picker: row detail for Callout")) { [weak self] in self?.addForInlineEditing(.callout) },
+            .init(icon: "pencil.and.scribble", title: String(localized: "Drawing", comment: "Annotation picker: row title (noun, freehand drawing)"), detail: String(localized: "Freehand brush strokes", comment: "Annotation picker: row detail for Drawing")) { [weak self] in self?.addAnnotation(type: .drawing) },
+            .init(icon: "rectangle", title: String(localized: "Rectangle", comment: "Annotation picker: row title (shape)"), detail: String(localized: "Box with optional fill", comment: "Annotation picker: row detail for Rectangle")) { [weak self] in self?.addAnnotation(type: .rectangle) },
+            .init(icon: "oval", title: String(localized: "Ellipse", comment: "Annotation picker: row title (shape)"), detail: String(localized: "Circle / oval with optional fill", comment: "Annotation picker: row detail for Ellipse")) { [weak self] in self?.addAnnotation(type: .ellipse) },
+            .init(icon: "hand.tap", title: String(localized: "Tap Indicator", comment: "Annotation picker: row title; a touch ripple marker"), detail: String(localized: "Looping touch ripple for iPhone takes", comment: "Annotation picker: row detail for Tap Indicator; a take = a recording")) { [weak self] in self?.addAnnotation(type: .tap) },
         ])
         present(popover, from: annotationButton)
     }
@@ -669,80 +675,80 @@ final class TimelineViewController: NSViewController {
         // playhead pre-configured, and lands selected so the on-canvas focal
         // target and inspector are immediately live.
         let motionRows: [TimelinePickerPopover.Row] = project.isImageCapture ? [
-            .init(icon: "wand.and.stars", title: "Motion",
-                  detail: "Cinematic corner tour across the image") { [weak self] in self?.stillMotion() },
+            .init(icon: "wand.and.stars", title: String(localized: "Motion", comment: "Timeline add-effect picker: row title for image captures; generated camera movement"),
+                  detail: String(localized: "Cinematic corner tour across the image", comment: "Timeline add-effect picker: row detail for Motion")) { [weak self] in self?.stillMotion() },
         ] : []
-        let zoomAndMotion = TimelinePickerPopover.Section(title: "Zoom & motion", rows: motionRows + [
-            .init(icon: "sparkle.magnifyingglass", title: "Auto Zoom",
-                  detail: "Generate zooms from cursor movement",
+        let zoomAndMotion = TimelinePickerPopover.Section(title: String(localized: "Zoom & motion", comment: "Timeline add-effect picker: section header"), rows: motionRows + [
+            .init(icon: "sparkle.magnifyingglass", title: String(localized: "Auto Zoom", comment: "Timeline add-effect picker: row title"),
+                  detail: String(localized: "Generate zooms from cursor movement", comment: "Timeline add-effect picker: row detail for Auto Zoom"),
                   isEnabled: hasCursorData,
-                  disabledDetail: "Needs cursor data from a CaptureCat recording") { [weak self] in self?.autoZoom() },
-            .init(icon: "plus.magnifyingglass", title: "Zoom In",
-                  detail: "Push in at the playhead — drag the target to aim") { [weak self] in self?.addZoomRegion() },
-            .init(icon: "sparkles.rectangle.stack", title: "Showcase",
-                  detail: "Gentle zoom + 3D skew, returns to centre") { [weak self] in self?.addShowcaseBlock() },
-            .init(icon: "arrow.down.right.and.arrow.up.left", title: "Scale Down",
-                  detail: "Shrink the card for a beat, then back") { [weak self] in self?.addScaleDownBlock() },
-            .init(icon: "rotate.3d", title: "Tilt",
-                  detail: "Skew the screen in 3D for a span") { [weak self] in self?.addTiltRegion() },
+                  disabledDetail: String(localized: "Needs cursor data from a CaptureCat recording", comment: "Timeline add-effect picker: shown when Auto Zoom is unavailable")) { [weak self] in self?.autoZoom() },
+            .init(icon: "plus.magnifyingglass", title: String(localized: "Zoom In", comment: "Timeline add-effect picker: row title; adds a zoom-in block to the video"),
+                  detail: String(localized: "Push in at the playhead — drag the target to aim", comment: "Timeline add-effect picker: row detail for Zoom In")) { [weak self] in self?.addZoomRegion() },
+            .init(icon: "sparkles.rectangle.stack", title: String(localized: "Showcase", comment: "Timeline add-effect picker: row title; an effect preset name"),
+                  detail: String(localized: "Gentle zoom + 3D skew, returns to centre", comment: "Timeline add-effect picker: row detail for Showcase")) { [weak self] in self?.addShowcaseBlock() },
+            .init(icon: "arrow.down.right.and.arrow.up.left", title: String(localized: "Scale Down", comment: "Timeline add-effect picker: row title"),
+                  detail: String(localized: "Shrink the card for a beat, then back", comment: "Timeline add-effect picker: row detail for Scale Down; card = the framed video")) { [weak self] in self?.addScaleDownBlock() },
+            .init(icon: "rotate.3d", title: String(localized: "Tilt", comment: "Timeline add-effect picker: row title (3D tilt effect)"),
+                  detail: String(localized: "Skew the screen in 3D for a span", comment: "Timeline add-effect picker: row detail for Tilt")) { [weak self] in self?.addTiltRegion() },
         ])
-        let transitions = TimelinePickerPopover.Section(title: "Transitions", rows: [
-            .init(icon: "arrow.up.to.line", title: "Slide",
-                  detail: "Card slides from an edge — place it anywhere") { [weak self] in self?.enableIntroSlide() },
+        let transitions = TimelinePickerPopover.Section(title: String(localized: "Transitions", comment: "Timeline add-effect picker: section header"), rows: [
+            .init(icon: "arrow.up.to.line", title: String(localized: "Slide", comment: "Timeline add-effect picker: row title; slide-in transition"),
+                  detail: String(localized: "Card slides from an edge — place it anywhere", comment: "Timeline add-effect picker: row detail for Slide")) { [weak self] in self?.enableIntroSlide() },
             .init(icon: Self.symbol("book.pages", fallback: "rectangle.portrait.and.arrow.forward"),
-                  title: "Curtain Unveil",
-                  detail: "A curtain peels from a corner to reveal the screen") { [weak self] in self?.enableCurtainUnveil() },
+                  title: String(localized: "Curtain Unveil", comment: "Timeline add-effect picker: row title; a transition name"),
+                  detail: String(localized: "A curtain peels from a corner to reveal the screen", comment: "Timeline add-effect picker: row detail for Curtain Unveil")) { [weak self] in self?.enableCurtainUnveil() },
         ])
         // The header carries "Camera", so the rows drop the old prefix; when
         // there is no camera track the whole group dims and ONE caption says
         // why (instead of five unexplained dead rows).
         let camera = hasRecordedCamera
-        let cameraSection = TimelinePickerPopover.Section(title: "Camera", rows: [
-            .init(icon: "person.crop.rectangle", title: "Full Screen",
-                  detail: "Webcam fills the card for a span — talking head",
+        let cameraSection = TimelinePickerPopover.Section(title: String(localized: "Camera", comment: "Timeline add-effect picker: section header for webcam layouts"), rows: [
+            .init(icon: "person.crop.rectangle", title: String(localized: "Full Screen", comment: "Timeline add-effect picker: camera layout row title"),
+                  detail: String(localized: "Webcam fills the card for a span — talking head", comment: "Timeline add-effect picker: row detail for Full Screen camera layout"),
                   isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .cameraOnly) },
-            .init(icon: "rectangle.split.2x1", title: "Side by Side",
-                  detail: "Screen shrinks left, webcam fills the right",
+            .init(icon: "rectangle.split.2x1", title: String(localized: "Side by Side", comment: "Timeline add-effect picker: camera layout row title"),
+                  detail: String(localized: "Screen shrinks left, webcam fills the right", comment: "Timeline add-effect picker: row detail for Side by Side"),
                   isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .sideBySide) },
-            .init(icon: "rectangle.split.2x1", title: "Side by Side, Camera Left",
-                  detail: "Webcam on the left, screen shrinks right",
+            .init(icon: "rectangle.split.2x1", title: String(localized: "Side by Side, Camera Left", comment: "Timeline add-effect picker: camera layout row title"),
+                  detail: String(localized: "Webcam on the left, screen shrinks right", comment: "Timeline add-effect picker: row detail for Side by Side, Camera Left"),
                   isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .sideBySide, side: .leading) },
             .init(icon: Self.symbol("rectangle.lefthalf.inset.filled", fallback: "rectangle.split.2x1.fill"),
                   title: CameraSplitStyle.full.displayName,
-                  detail: "Two full-height columns — screen fills the left, webcam the right",
+                  detail: String(localized: "Two full-height columns — screen fills the left, webcam the right", comment: "Timeline add-effect picker: row detail for the full-height split camera layout"),
                   isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .sideBySide, split: .full) },
             .init(icon: Self.symbol("person.and.background.dotted", fallback: "person.fill"),
                   title: CameraBubbleLook.cutout.displayName,
-                  detail: "Background removed — you, right over the screen",
+                  detail: String(localized: "Background removed — you, right over the screen", comment: "Timeline add-effect picker: row detail for the Cutout camera look"),
                   isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .bubble, look: .cutout) },
             .init(icon: Self.symbol("person.crop.artframe", fallback: "person.crop.square"),
                   title: CameraBubbleLook.popOut.displayName,
-                  detail: "You on a gradient card, head popping out the top",
+                  detail: String(localized: "You on a gradient card, head popping out the top", comment: "Timeline add-effect picker: row detail for the Pop-out camera look"),
                   isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .bubble, look: .popOut) },
-            .init(icon: "person.crop.rectangle.badge.xmark", title: "Hide Camera",
-                  detail: "No webcam for a span — screen only",
+            .init(icon: "person.crop.rectangle.badge.xmark", title: String(localized: "Hide Camera", comment: "Timeline add-effect picker: camera layout row title"),
+                  detail: String(localized: "No webcam for a span — screen only", comment: "Timeline add-effect picker: row detail for Hide Camera"),
                   isEnabled: camera) { [weak self] in self?.addCameraLayoutRegion(mode: .screenOnly) },
-        ], disabledCaption: "Needs a camera recording")
+        ], disabledCaption: String(localized: "Needs a camera recording", comment: "Timeline add-effect picker: caption when the project has no webcam track"))
         let popover = TimelinePickerPopover.make(sections: [zoomAndMotion, transitions, cameraSection])
         present(popover, from: zoomMenuButton)
     }
 
     private func showFocusMenu() {
         let popover = TimelinePickerPopover.make(rows: [
-            .init(icon: "eye.slash", title: "Add Blur",
-                  detail: "Drag over an area to blur it") { [weak self] in
+            .init(icon: "eye.slash", title: String(localized: "Add Blur", comment: "Focus picker: row title"),
+                  detail: String(localized: "Drag over an area to blur it", comment: "Focus picker: row detail for Add Blur")) { [weak self] in
                 guard let self else { return }
                 if let arm = self.onArmBlurDraw { arm(.blur) } else { self.addBlurRegion() }
             },
-            .init(icon: "squareshape.split.3x3", title: "Add Pixelate",
-                  detail: "Drag over an area to pixelate it") { [weak self] in
+            .init(icon: "squareshape.split.3x3", title: String(localized: "Add Pixelate", comment: "Focus picker: row title"),
+                  detail: String(localized: "Drag over an area to pixelate it", comment: "Focus picker: row detail for Add Pixelate")) { [weak self] in
                 guard let self else { return }
                 if let arm = self.onArmBlurDraw { arm(.pixelate) } else { self.addBlurRegion() }
             },
-            .init(icon: "highlighter", title: "Add Highlight",
-                  detail: "Highlight a region of the video") { [weak self] in self?.addHighlightRegion() },
-            .init(icon: "camera.aperture", title: "Add Depth Focus",
-                  detail: "Keep a region sharp, blur the rest") { [weak self] in self?.addDepthFocusRegion() },
+            .init(icon: "highlighter", title: String(localized: "Add Highlight", comment: "Focus picker: row title"),
+                  detail: String(localized: "Highlight a region of the video", comment: "Focus picker: row detail for Add Highlight")) { [weak self] in self?.addHighlightRegion() },
+            .init(icon: "camera.aperture", title: String(localized: "Add Depth Focus", comment: "Focus picker: row title"),
+                  detail: String(localized: "Keep a region sharp, blur the rest", comment: "Focus picker: row detail for Add Depth Focus")) { [weak self] in self?.addDepthFocusRegion() },
         ])
         present(popover, from: focusMenuButton)
     }
@@ -877,10 +883,14 @@ final class TimelineViewController: NSViewController {
 
     private func refreshTransport() {
         playButton?.icon = isPlaying ? "pause.fill" : "play.fill"
-        playButton?.toolTip = isPlaying ? "Pause" : "Play"
+        playButton?.toolTip = isPlaying
+            ? String(localized: "Pause", comment: "Timeline toolbar: tooltip; verb, pauses playback")
+            : String(localized: "Play", comment: "Timeline toolbar: tooltip; verb, starts playback")
         voiceButton?.icon = isRecordingVoiceOver ? "stop.fill" : "mic.fill"
         voiceButton?.tint = isRecordingVoiceOver ? .systemRed : nil
-        voiceButton?.toolTip = isRecordingVoiceOver ? "Stop Recording" : "Record Voice Over"
+        voiceButton?.toolTip = isRecordingVoiceOver
+            ? String(localized: "Stop Recording", comment: "Timeline toolbar: tooltip; stops the voice-over recording")
+            : String(localized: "Record Voice Over", comment: "Timeline toolbar: tooltip; starts recording a voice-over")
         // Image treatment: zooming the time axis stays pinned (full-span
         // block) in BOTH sub-states, but the timecodes only hide while there
         // is truly nothing timed to read — the moment a timed effect exists,
@@ -1257,12 +1267,11 @@ final class TimelineViewController: NSViewController {
     private func stillMotion() {
         if !project.zoomRegions.isEmpty, let window = view.window {
             CCAlert(
-                title: "Replace Zoom Blocks?",
-                message: "Motion generates a new camera journey. "
-                    + "Previously generated blocks will be replaced."
+                title: String(localized: "Replace Zoom Blocks?", comment: "Alert title before generating still-image Motion over existing zoom blocks"),
+                message: String(localized: "Motion generates a new camera journey. Previously generated blocks will be replaced.", comment: "Alert message: Motion = generated camera movement for an image capture")
             )
-            .addButton("Generate", role: .primary)
-            .addButton("Cancel")
+            .addButton(String(localized: "Generate", comment: "Alert button: verb, generates the Motion zoom blocks"), role: .primary)
+            .addButton(String(localized: "Cancel", comment: "Alert button: cancels"))
             .beginSheet(for: window) { [weak self] index in
                 guard index == 0 else { return }
                 self?.runStillMotion()

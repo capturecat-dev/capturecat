@@ -215,10 +215,10 @@ nonisolated enum WirelessAPIError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .notSignedIn: return "Sign in to use your iPhone over Wi-Fi."
-        case .unavailable: return "iPhone over Wi-Fi isn't available on this server."
-        case .keyMismatch: return "The device link key didn't verify."
-        case .invalidResponse: return "Unexpected response from the server."
+        case .notSignedIn: return String(localized: "Sign in to use your iPhone over Wi-Fi.", comment: "iPhone over Wi-Fi error: needs a signed-in account")
+        case .unavailable: return String(localized: "iPhone over Wi-Fi isn't available on this server.", comment: "iPhone over Wi-Fi error: the feature is turned off on the server")
+        case .keyMismatch: return String(localized: "The device link key didn't verify.", comment: "iPhone over Wi-Fi error: the pairing key check failed")
+        case .invalidResponse: return String(localized: "Unexpected response from the server.", comment: "iPhone over Wi-Fi error: unreadable server reply")
         case .http(let status, let code): return "HTTP \(status)\(code.map { " (\($0))" } ?? "")"
         }
     }
@@ -410,12 +410,12 @@ nonisolated enum WirelessDeviceListing {
         var name: String
         var availability: Availability
 
-        var title: String { "\(name) · Wi-Fi" }
+        var title: String { String(localized: "\(name) · Wi-Fi", comment: "Recording source list: an iPhone available over Wi-Fi; the placeholder is the phone's name") }
         var subtitle: String? {
             switch availability {
             case .streaming: return nil
-            case .appOpen: return "start on iPhone"
-            case .notOpen: return "not open"
+            case .appOpen: return String(localized: "start on iPhone", comment: "Recording source list subtitle (lowercase): the CaptureCat app is open on the iPhone, start the broadcast there")
+            case .notOpen: return String(localized: "not open", comment: "Recording source list subtitle (lowercase): the CaptureCat app is not open on the iPhone")
             }
         }
     }

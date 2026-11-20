@@ -33,7 +33,7 @@ final class EditorHistoryEnvironment {
             guard let appState else { return }
             Task { @MainActor in
                 do { try await appState.signIn() } catch where AuthService.isUserCancellation(error) {} catch {
-                    CCAlert(title: "Sign-in failed", message: error.localizedDescription).beginSheet(for: window)
+                    CCAlert(title: String(localized: "Sign-in failed", comment: "Alert title when signing in fails"), message: error.localizedDescription).beginSheet(for: window)
                 }
             }
         }
@@ -80,7 +80,7 @@ final class HistoryPaneAppKit: NSView {
     private(set) var local: CloudLocalStatus?
     private var page: CloudVersionPage?
 
-    private let titleField = NSTextField(labelWithString: "History")
+    private let titleField = NSTextField(labelWithString: String(localized: "History", comment: "Title of the project version History panel in the editor inspector"))
     private let closeButton = CCButton(symbol: "xmark", style: .ghost, size: .sm)
     private let scroll = NSScrollView()
     private let document = FlippedView()
@@ -134,7 +134,7 @@ final class HistoryPaneAppKit: NSView {
     private func build() {
         titleField.lineBreakMode = .byTruncatingTail
         closeButton.onClick = { [weak self] in self?.onClose?() }
-        CCTooltip.attach(to: closeButton, text: "Back to Inspector")
+        CCTooltip.attach(to: closeButton, text: String(localized: "Back to Inspector", comment: "Tooltip on the History panel close button: returns to the editor inspector"))
 
         document.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .vertical
@@ -292,22 +292,21 @@ final class HistoryPaneAppKit: NSView {
             skeleton = placeholder
             add(placeholder)
         case .signedOut:
-            let button = CCButton(title: "Sign In", style: .primary, size: .sm) { [weak self] in
+            let button = CCButton(title: String(localized: "Sign In", comment: "History panel empty state button: starts signing in (verb)"), style: .primary, size: .sm) { [weak self] in
                 guard let self, let window = self.window else { return }
                 self.environment.signIn?(window)
             }
-            showEmpty(CCEmptyState(symbol: "person.crop.circle", title: "Sign in to see History",
-                                   message: "Versions live with the project in your CaptureCat cloud.",
+            showEmpty(CCEmptyState(symbol: "person.crop.circle", title: String(localized: "Sign in to see History", comment: "History panel empty state title when signed out"),
+                                   message: String(localized: "Versions live with the project in your CaptureCat cloud.", comment: "History panel empty state message when signed out"),
                                    primary: button))
         case .neverUploaded:
-            let button = CCButton(title: "Sync now", style: .primary, size: .sm) { [weak self] in self?.syncNow() }
-            showEmpty(CCEmptyState(symbol: "clock.arrow.circlepath", title: "No history yet",
-                                   message: "History starts when this project is synced to your CaptureCat cloud. "
-                                       + "Every sync, web edit and merge after that is kept here.",
+            let button = CCButton(title: String(localized: "Sync now", comment: "Button: uploads this Mac's changes to the cloud now"), style: .primary, size: .sm) { [weak self] in self?.syncNow() }
+            showEmpty(CCEmptyState(symbol: "clock.arrow.circlepath", title: String(localized: "No history yet", comment: "History panel empty state title: the project has never been synced"),
+                                   message: String(localized: "History starts when this project is synced to your CaptureCat cloud. Every sync, web edit and merge after that is kept here.", comment: "History panel empty state message: the project has never been synced"),
                                    primary: button))
         case .failed(let message):
-            let callout = CCCallout(title: "Couldn’t load History", message: message, variant: .destructive)
-            callout.setActions([CCButton(title: "Try Again", style: .secondary, size: .sm) { [weak self] in self?.reload() }])
+            let callout = CCCallout(title: String(localized: "Couldn’t load History", comment: "History panel error callout title when the version list fails to load"), message: message, variant: .destructive)
+            callout.setActions([CCButton(title: String(localized: "Try Again", comment: "History panel error callout button: reloads the version list"), style: .secondary, size: .sm) { [weak self] in self?.reload() }])
             errorCallout = callout
             add(callout)
         case .loaded(let page):
@@ -343,7 +342,7 @@ final class HistoryPaneAppKit: NSView {
             add(section)
         }
         if let next = page.nextBefore {
-            let older = CCButton(title: "Show older versions", style: .ghost, size: .sm) { [weak self] in
+            let older = CCButton(title: String(localized: "Show older versions", comment: "History panel button: loads the next page of older versions"), style: .ghost, size: .sm) { [weak self] in
                 self?.loadOlder(before: next)
             }
             stack.addArrangedSubview(older)
@@ -369,7 +368,7 @@ final class HistoryPaneAppKit: NSView {
             // Only the owner frees media, and only when unnamed versions
             // alone hold some of it (`freeableBytes`).
             if page.isOwner != false, page.freeableBytes > 0 {
-                let free = CCButton(title: "Free up", style: .link, size: .sm) { [weak self] in self?.confirmFreeUp() }
+                let free = CCButton(title: String(localized: "Free up", comment: "History panel footer link button: deletes unnamed versions that hold unused media (verb)"), style: .link, size: .sm) { [weak self] in self?.confirmFreeUp() }
                 freeUpButton = free
                 row.addArrangedSubview(free)
             }
@@ -454,7 +453,7 @@ final class HistoryPaneAppKit: NSView {
                 guard let self else { return }
                 self.environment.preview?(preview, version, self.window)
             } catch {
-                self?.alert("Couldn’t open that version", error)
+                self?.alert(String(localized: "Couldn’t open that version", comment: "Alert title when previewing a history version fails"), error)
             }
         }
     }
@@ -464,8 +463,8 @@ final class HistoryPaneAppKit: NSView {
         let alert = CCAlert(title: HistoryWords.nameTitle(isNamed: version.isNamed), message: HistoryWords.nameMessage)
         let field = CCField(placeholder: HistoryWords.namePlaceholder, value: version.label ?? "")
         alert.accessoryView = field
-        alert.addButton("Save", role: .primary)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Save", comment: "Name version alert button: saves the version name (verb)"), role: .primary)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         let client = environment.client
         let projectID = project.id
         alert.beginSheet(for: window) { [weak self] choice in
@@ -477,7 +476,7 @@ final class HistoryPaneAppKit: NSView {
                                                 label: label.isEmpty ? nil : String(label.prefix(80)))
                     self?.reload()
                 } catch {
-                    self?.alert("Couldn’t name that version", error)
+                    self?.alert(String(localized: "Couldn’t name that version", comment: "Alert title when naming a history version fails"), error)
                 }
             }
         }
@@ -496,7 +495,7 @@ final class HistoryPaneAppKit: NSView {
                                                   currentDocument: current, projectName: self.project.name)
                 dialog.present(over: window)
             } catch {
-                self?.alert("Couldn’t compare", error)
+                self?.alert(String(localized: "Couldn’t compare", comment: "Alert title when comparing a history version with the current project fails"), error)
             }
         }
     }
@@ -504,8 +503,8 @@ final class HistoryPaneAppKit: NSView {
     func confirmRestore(_ version: CloudVersion) {
         guard let window else { return }
         let alert = CCAlert(title: HistoryWords.restoreTitle(version), message: HistoryWords.restoreMessage)
-        alert.addButton("Restore", role: .primary)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Restore", comment: "Button: restores the project to this history version (verb)"), role: .primary)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         alert.beginSheet(for: window) { [weak self] choice in
             if choice == 0 { self?.restore(version) }
         }
@@ -513,7 +512,7 @@ final class HistoryPaneAppKit: NSView {
 
     func restore(_ version: CloudVersion) {
         guard let window else { return }
-        let dialog = CloudSyncProgressDialog(title: "Restoring", subtitle: Self.stamp(version.date))
+        let dialog = CloudSyncProgressDialog(title: String(localized: "Restoring", comment: "Progress dialog title while restoring a history version"), subtitle: Self.stamp(version.date))
         dialog.present(over: window)
         busyDialog = dialog
         let client = environment.client
@@ -525,7 +524,7 @@ final class HistoryPaneAppKit: NSView {
                                                        projectDirectory: directory) { step in
                     dialog.update(step, weights: CloudSyncController.pushWeights)
                 }
-                dialog.finish(message: "Restored")
+                dialog.finish(message: String(localized: "Restored", comment: "Progress dialog status: the history version was restored"))
                 dialog.dismiss {
                     guard let self else { return }
                     self.busyDialog = nil
@@ -536,8 +535,8 @@ final class HistoryPaneAppKit: NSView {
                             message: HistoryWords.restoredToastMessage,
                             symbol: "clock.arrow.circlepath", in: window)
                     case .needsSync:
-                        CCAlert(title: "Sync first",
-                                message: "This Mac has changes that conflict with the cloud. Sync them, then restore.")
+                        CCAlert(title: String(localized: "Sync first", comment: "Alert title: local changes must be synced before restoring a version"),
+                                message: String(localized: "This Mac has changes that conflict with the cloud. Sync them, then restore.", comment: "Alert message: local changes must be synced before restoring a version"))
                             .beginSheet(for: window)
                     }
                     NotificationCenter.default.post(name: CloudSyncController.didSyncNotification, object: project.id)
@@ -545,7 +544,7 @@ final class HistoryPaneAppKit: NSView {
             } catch {
                 dialog.dismiss {
                     self?.busyDialog = nil
-                    self?.alert("Couldn’t restore that version", error)
+                    self?.alert(String(localized: "Couldn’t restore that version", comment: "Alert title when restoring a history version fails"), error)
                 }
             }
         }
@@ -554,8 +553,8 @@ final class HistoryPaneAppKit: NSView {
     func confirmDelete(_ version: CloudVersion) {
         guard let window else { return }
         let alert = CCAlert(title: HistoryWords.deleteTitle, message: HistoryWords.deleteMessage(version))
-        alert.addButton("Delete", role: .destructive)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Delete", comment: "Confirmation dialog button: deletes permanently (verb)"), role: .destructive)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         let client = environment.client
         let projectID = project.id
         alert.beginSheet(for: window) { [weak self] choice in
@@ -565,7 +564,7 @@ final class HistoryPaneAppKit: NSView {
                     try await client.delete(projectID: projectID, versionID: version.id)
                     self?.reload()
                 } catch {
-                    self?.alert("Couldn’t delete that version", error)
+                    self?.alert(String(localized: "Couldn’t delete that version", comment: "Alert title when deleting a history version fails"), error)
                 }
             }
         }
@@ -574,11 +573,10 @@ final class HistoryPaneAppKit: NSView {
     func confirmFreeUp() {
         guard let window, let page else { return }
         let alert = CCAlert(
-            title: "Free up \(Self.bytes(page.freeableBytes))?",
-            message: "This deletes the unnamed versions that keep media the project no longer uses. "
-                + "Named versions and the current one are kept.")
-        alert.addButton("Free Up", role: .destructive)
-        alert.addButton("Cancel")
+            title: String(localized: "Free up \(Self.bytes(page.freeableBytes))?", comment: "Confirmation alert title; the placeholder is a file size such as 120 MB"),
+            message: String(localized: "This deletes the unnamed versions that keep media the project no longer uses. Named versions and the current one are kept.", comment: "Confirmation alert message before freeing up history storage"))
+        alert.addButton(String(localized: "Free Up", comment: "Confirmation alert button: deletes unnamed versions to free storage (verb)"), role: .destructive)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         let client = environment.client
         let projectID = project.id
         alert.beginSheet(for: window) { [weak self] choice in
@@ -588,13 +586,13 @@ final class HistoryPaneAppKit: NSView {
                     let result = try await client.freeUp(projectID: projectID)
                     guard let self, let window = self.window else { return }
                     CloudSyncController.shared.showToast(
-                        title: "Freed \(Self.bytes(result.releasedBytes))",
-                        message: result.deletedVersions.count == 1 ? "1 version removed from History"
-                            : "\(result.deletedVersions.count) versions removed from History",
+                        title: String(localized: "Freed \(Self.bytes(result.releasedBytes))", comment: "Toast title after freeing history storage; the placeholder is a file size such as 120 MB"),
+                        message: result.deletedVersions.count == 1 ? String(localized: "1 version removed from History", comment: "Toast message: one history version was deleted")
+                            : String(localized: "\(result.deletedVersions.count) versions removed from History", comment: "Toast message: history versions were deleted; the number is the count"),
                         symbol: "externaldrive", in: window)
                     self.reload()
                 } catch {
-                    self?.alert("Couldn’t free up space", error)
+                    self?.alert(String(localized: "Couldn’t free up space", comment: "Alert title when freeing history storage fails"), error)
                 }
             }
         }

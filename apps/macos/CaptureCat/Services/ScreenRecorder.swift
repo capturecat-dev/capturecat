@@ -217,7 +217,7 @@ final class ScreenRecorder: NSObject {
         case .iosDevice, .wirelessDevice:
             // Device capture goes through DeviceRecorder, never SCK.
             throw NSError(domain: "ScreenRecorder", code: 10, userInfo: [
-                NSLocalizedDescriptionKey: "iOS devices are recorded by DeviceRecorder."
+                NSLocalizedDescriptionKey: String(localized: "iOS devices are recorded by DeviceRecorder.", comment: "Recording error (internal): a connected iPhone/iPad was sent to the screen recorder")
             ])
         }
 
@@ -277,7 +277,7 @@ final class ScreenRecorder: NSObject {
                 height: config.height
             ) else {
                 throw NSError(domain: "ScreenRecorder", code: 11, userInfo: [
-                    NSLocalizedDescriptionKey: "The video encoder rejected the capture dimensions."
+                    NSLocalizedDescriptionKey: String(localized: "The video encoder rejected the capture dimensions.", comment: "Recording error: the capture size is not supported by the video encoder")
                 ])
             }
             videoInput = configured.input
@@ -316,7 +316,7 @@ final class ScreenRecorder: NSObject {
         assetWriter = writer
         if !isWindowCapture, !writer.startWriting() {
             throw writer.error ?? NSError(domain: "ScreenRecorder", code: 12, userInfo: [
-                NSLocalizedDescriptionKey: "The video encoder could not start."
+                NSLocalizedDescriptionKey: String(localized: "The video encoder could not start.", comment: "Recording error: the video encoder failed to start")
             ])
         }
 

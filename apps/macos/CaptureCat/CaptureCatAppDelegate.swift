@@ -21,6 +21,9 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
     private var editorWindowController: NSWindowController?
     private var onboardingWindowController: NSWindowController?
     private var settingsWindowController: SettingsWindowController?
+    /// The main-menu Account menu, matched by identity in menuNeedsUpdate
+    /// (its title is localized, so it can't be compared).
+    private weak var accountMenu: NSMenu?
     private let isUtilityRun = HeadlessRunner.isHeadless || MCPServer.isMCP
     /// Held for the updater's lifetime — Sparkle keeps only a weak reference.
     private static let updateFeedDelegate = UpdateFeedDelegate()
@@ -167,10 +170,10 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
     /// is hidden under the notch on a crowded menu bar.
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
-        let browse = NSMenuItem(title: "Browse Captures…", action: #selector(browseProjects(_:)), keyEquivalent: "")
+        let browse = NSMenuItem(title: String(localized: "Browse Captures…", comment: "Dock menu item: opens the capture library"), action: #selector(browseProjects(_:)), keyEquivalent: "")
         browse.target = self
         menu.addItem(browse)
-        let record = NSMenuItem(title: "New Recording…", action: #selector(newRecording(_:)), keyEquivalent: "")
+        let record = NSMenuItem(title: String(localized: "New Recording…", comment: "Dock menu item: starts setting up a new screen recording"), action: #selector(newRecording(_:)), keyEquivalent: "")
         record.target = self
         menu.addItem(record)
         return menu
@@ -218,7 +221,7 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
             window.identifier = NSUserInterfaceItemIdentifier("agents")
-            window.title = "Connect AI Agents"
+            window.title = String(localized: "Connect AI Agents", comment: "Window title: setup window for connecting AI agents (Claude, Cursor…) to CaptureCat")
             window.isReleasedWhenClosed = false
             window.center()
             agentSetupWindowController = NSWindowController(window: window)
@@ -245,7 +248,7 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
             window.identifier = NSUserInterfaceItemIdentifier("onboarding")
-            window.title = "CaptureCat Onboarding"
+            window.title = String(localized: "CaptureCat Onboarding", comment: "Window title: first-run onboarding window")
             window.setContentSize(NSSize(width: 960, height: 600))
             window.isReleasedWhenClosed = false
             window.center()
@@ -369,90 +372,91 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
 
         // App menu
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About CaptureCat", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: String(localized: "About CaptureCat", comment: "Menu bar ▸ CaptureCat: opens the About panel"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings(_:)), keyEquivalent: ",")
+        let settings = NSMenuItem(title: String(localized: "Settings…", comment: "Menu bar ▸ CaptureCat: opens Settings"), action: #selector(openSettings(_:)), keyEquivalent: ",")
         settings.target = self
         appMenu.addItem(settings)
         appMenu.addItem(.separator())
-        let updates = NSMenuItem(title: "Check for Updates...", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
+        let updates = NSMenuItem(title: String(localized: "Check for Updates...", comment: "Menu bar ▸ CaptureCat: checks for a newer app version"), action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
         updates.target = updaterController
         appMenu.addItem(updates)
         appMenu.addItem(.separator())
-        let servicesItem = appMenu.addItem(withTitle: "Services", action: nil, keyEquivalent: "")
+        let servicesItem = appMenu.addItem(withTitle: String(localized: "Services", comment: "Menu bar ▸ CaptureCat: the macOS Services submenu"), action: nil, keyEquivalent: "")
         let servicesMenu = NSMenu()
         servicesItem.submenu = servicesMenu
         NSApp.servicesMenu = servicesMenu
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Hide CaptureCat", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        let hideOthers = appMenu.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: String(localized: "Hide CaptureCat", comment: "Menu bar ▸ CaptureCat: hides the app"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        let hideOthers = appMenu.addItem(withTitle: String(localized: "Hide Others", comment: "Menu bar ▸ CaptureCat: hides all other apps"), action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         hideOthers.keyEquivalentModifierMask = [.command, .option]
-        appMenu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: String(localized: "Show All", comment: "Menu bar ▸ CaptureCat: shows all hidden apps"), action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit CaptureCat", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: String(localized: "Quit CaptureCat", comment: "Menu bar ▸ CaptureCat: quits the app"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         let appItem = NSMenuItem()
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
 
         // File menu — mirrors the old CommandGroup(after: .newItem).
-        let fileMenu = NSMenu(title: "File")
-        let newRec = NSMenuItem(title: "New Recording...", action: #selector(newRecording(_:)), keyEquivalent: "n")
+        let fileMenu = NSMenu(title: String(localized: "File", comment: "Menu bar: File menu title"))
+        let newRec = NSMenuItem(title: String(localized: "New Recording...", comment: "Menu bar ▸ File: starts setting up a new screen recording"), action: #selector(newRecording(_:)), keyEquivalent: "n")
         newRec.keyEquivalentModifierMask = [.command, .shift]
         newRec.target = self
         fileMenu.addItem(newRec)
-        let browse = NSMenuItem(title: "Browse Captures...", action: #selector(browseProjects(_:)), keyEquivalent: "o")
+        let browse = NSMenuItem(title: String(localized: "Browse Captures...", comment: "Menu bar ▸ File: opens the capture library"), action: #selector(browseProjects(_:)), keyEquivalent: "o")
         browse.target = self
         fileMenu.addItem(browse)
         // Clipboard fallback for the Services-menu text capture.
-        let clipNote = NSMenuItem(title: "New Note from Clipboard", action: #selector(newNoteFromClipboard(_:)), keyEquivalent: "n")
+        let clipNote = NSMenuItem(title: String(localized: "New Note from Clipboard", comment: "Menu bar ▸ File: creates a text note from the clipboard contents"), action: #selector(newNoteFromClipboard(_:)), keyEquivalent: "n")
         clipNote.keyEquivalentModifierMask = [.command, .option]
         clipNote.target = self
         fileMenu.addItem(clipNote)
         fileMenu.addItem(.separator())
-        fileMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        fileMenu.addItem(withTitle: String(localized: "Close", comment: "Menu bar ▸ File: closes the front window (verb)"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         let fileItem = NSMenuItem()
         fileItem.submenu = fileMenu
         mainMenu.addItem(fileItem)
 
         // Edit menu — required for text fields and the editor's undo stack
         // (SwiftUI's environment undoManager resolves to the window's).
-        let editMenu = NSMenu(title: "Edit")
-        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-        let redo = editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        let editMenu = NSMenu(title: String(localized: "Edit", comment: "Menu bar: Edit menu title"))
+        editMenu.addItem(withTitle: String(localized: "Undo", comment: "Menu bar ▸ Edit: undo the last change (verb)"), action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = editMenu.addItem(withTitle: String(localized: "Redo", comment: "Menu bar ▸ Edit: redo the last undone change (verb)"), action: Selector(("redo:")), keyEquivalent: "z")
         redo.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(.separator())
-        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        editMenu.addItem(withTitle: "Delete", action: #selector(NSText.delete(_:)), keyEquivalent: "")
-        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(withTitle: String(localized: "Cut", comment: "Menu bar ▸ Edit: cut the selection (verb)"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: String(localized: "Copy", comment: "Menu bar ▸ Edit: copy the selection (verb)"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: String(localized: "Paste", comment: "Menu bar ▸ Edit: paste (verb)"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: String(localized: "Delete", comment: "Menu bar ▸ Edit: delete the selection (verb)"), action: #selector(NSText.delete(_:)), keyEquivalent: "")
+        editMenu.addItem(withTitle: String(localized: "Select All", comment: "Menu bar ▸ Edit: select everything"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         let editItem = NSMenuItem()
         editItem.submenu = editMenu
         mainMenu.addItem(editItem)
 
         // Account menu — dynamic, rebuilt each open via NSMenuDelegate.
-        let accountMenu = NSMenu(title: "Account")
+        let accountMenu = NSMenu(title: String(localized: "Account", comment: "Menu bar: Account menu title (sign in, plan, sign out)"))
         accountMenu.delegate = self
+        self.accountMenu = accountMenu
         let accountItem = NSMenuItem()
         accountItem.submenu = accountMenu
         mainMenu.addItem(accountItem)
 
         // View menu
-        let viewMenu = NSMenu(title: "View")
+        let viewMenu = NSMenu(title: String(localized: "View", comment: "Menu bar: View menu title"))
         // Browser type filter — nil-targeted, resolved through the responder
         // chain to ProjectBrowserViewController when the browser is showing.
         let typeFilters: [(String, Selector, String)] = [
-            ("All Captures", #selector(ProjectBrowserViewController.filterAllCaptures(_:)), "1"),
-            ("Videos", #selector(ProjectBrowserViewController.filterVideoCaptures(_:)), "2"),
-            ("Images", #selector(ProjectBrowserViewController.filterImageCaptures(_:)), "3"),
-            ("Notes", #selector(ProjectBrowserViewController.filterNoteCaptures(_:)), "4"),
+            (String(localized: "All Captures", comment: "Menu bar ▸ View: show every capture type in the library"), #selector(ProjectBrowserViewController.filterAllCaptures(_:)), "1"),
+            (String(localized: "Videos", comment: "Menu bar ▸ View: filter the library to video captures"), #selector(ProjectBrowserViewController.filterVideoCaptures(_:)), "2"),
+            (String(localized: "Images", comment: "Menu bar ▸ View: filter the library to image captures"), #selector(ProjectBrowserViewController.filterImageCaptures(_:)), "3"),
+            (String(localized: "Notes", comment: "Menu bar ▸ View: filter the library to text notes"), #selector(ProjectBrowserViewController.filterNoteCaptures(_:)), "4"),
         ]
         for (title, action, key) in typeFilters {
             viewMenu.addItem(withTitle: title, action: action, keyEquivalent: key)
         }
         viewMenu.addItem(.separator())
         viewMenu.addItem(
-            withTitle: "Search Captures",
+            withTitle: String(localized: "Search Captures", comment: "Menu bar ▸ View: focuses the library search field"),
             action: #selector(ProjectBrowserViewController.focusSearchField(_:)),
             keyEquivalent: "k"
         )
@@ -460,31 +464,31 @@ final class CaptureCatAppDelegate: NSObject, NSApplicationDelegate {
         // Editor inspector (column + icon rail) — nil-targeted, resolved
         // through the responder chain to the editor shell when it is key.
         let inspectorToggle = viewMenu.addItem(
-            withTitle: "Toggle Inspector",
+            withTitle: String(localized: "Toggle Inspector", comment: "Menu bar ▸ View: shows or hides the editor inspector panel"),
             action: #selector(EditorShellViewController.toggleInspectorFromMenu(_:)),
             keyEquivalent: "i"
         )
         inspectorToggle.keyEquivalentModifierMask = [.command, .option]
         viewMenu.addItem(.separator())
-        let fullScreen = viewMenu.addItem(withTitle: "Enter Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
+        let fullScreen = viewMenu.addItem(withTitle: String(localized: "Enter Full Screen", comment: "Menu bar ▸ View: makes the window full screen"), action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
         fullScreen.keyEquivalentModifierMask = [.command, .control]
         let viewItem = NSMenuItem()
         viewItem.submenu = viewMenu
         mainMenu.addItem(viewItem)
 
         // Window menu
-        let windowMenu = NSMenu(title: "Window")
-        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
-        windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        let windowMenu = NSMenu(title: String(localized: "Window", comment: "Menu bar: Window menu title"))
+        windowMenu.addItem(withTitle: String(localized: "Minimize", comment: "Menu bar ▸ Window: minimizes the window to the Dock (verb)"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: String(localized: "Zoom", comment: "Menu bar ▸ Window: zooms (resizes) the window, standard macOS command"), action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
         windowMenu.addItem(.separator())
-        windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
+        windowMenu.addItem(withTitle: String(localized: "Bring All to Front", comment: "Menu bar ▸ Window: brings all app windows forward"), action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
         NSApp.windowsMenu = windowMenu
         let windowItem = NSMenuItem()
         windowItem.submenu = windowMenu
         mainMenu.addItem(windowItem)
 
         // Help menu
-        let helpMenu = NSMenu(title: "Help")
+        let helpMenu = NSMenu(title: String(localized: "Help", comment: "Menu bar: Help menu title"))
         NSApp.helpMenu = helpMenu
         let helpItem = NSMenuItem()
         helpItem.submenu = helpMenu
@@ -520,7 +524,7 @@ extension CaptureCatAppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         if menu === statusItem?.menu {
             rebuildStatusMenu(menu)
-        } else if menu.title == "Account" {
+        } else if let accountMenu, menu === accountMenu {
             menu.removeAllItems()
             for item in accountMenuItems() {
                 menu.addItem(item)

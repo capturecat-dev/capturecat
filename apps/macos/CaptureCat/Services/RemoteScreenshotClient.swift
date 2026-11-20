@@ -38,13 +38,13 @@ final class RemoteScreenshotClient {
         var errorDescription: String? {
             switch self {
             case .notSignedIn:
-                return "Sign in to capture web pages."
+                return String(localized: "Sign in to capture web pages.", comment: "Web page capture error: needs a signed-in account")
             case .unreachable(let detail):
-                return "The CaptureCat capture service could not be reached. \(detail)"
+                return String(localized: "The CaptureCat capture service could not be reached. \(detail)", comment: "Web page capture error; the placeholder is the system network error")
             case .api(let message):
                 return message
             case .badResponse:
-                return "The capture service returned an unexpected response."
+                return String(localized: "The capture service returned an unexpected response.", comment: "Web page capture error: unreadable server reply")
             }
         }
     }
@@ -135,7 +135,7 @@ final class RemoteScreenshotClient {
             if http.statusCode == 401 { throw ClientError.notSignedIn }
             // Quota / entitlement / render errors arrive shaped
             // { error: { code, message } } — surface the API's message inline.
-            let message = Self.apiErrorMessage(from: data) ?? "The page could not be captured (HTTP \(http.statusCode))."
+            let message = Self.apiErrorMessage(from: data) ?? String(localized: "The page could not be captured (HTTP \(http.statusCode)).", comment: "Web page capture error; the number is the HTTP status code")
             remoteShotLogger.error("screenshot API \(http.statusCode, privacy: .public): \(message, privacy: .public)")
             throw ClientError.api(message)
         }

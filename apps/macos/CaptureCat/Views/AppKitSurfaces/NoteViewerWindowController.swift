@@ -24,8 +24,8 @@ final class NoteViewerWindowController: NSWindowController, NSWindowDelegate {
     private let appState: AppState
     private let textView = NSTextView()
     private let metaLabel = NSTextField(labelWithString: "")
-    private let remindButton = HoverPillButton(title: "Remind Me", symbol: "bell")
-    private let deleteButton = HoverPillButton(title: "Delete", symbol: "trash")
+    private let remindButton = HoverPillButton(title: String(localized: "Remind Me", comment: "Note viewer toolbar button: opens the reminder menu"), symbol: "bell")
+    private let deleteButton = HoverPillButton(title: String(localized: "Delete", comment: "Note viewer toolbar button: deletes the note after confirmation (verb)"), symbol: "trash")
     private var saveTask: Task<Void, Never>?
 
     // Retheme chrome live; fires once at init and on every theme change.
@@ -64,7 +64,7 @@ final class NoteViewerWindowController: NSWindowController, NSWindowDelegate {
 
         // Header: note icon + meta line + actions.
         icon.image = CCIcon.image("note.text", pointSize: 14, weight: .medium,
-                                  accessibilityDescription: "Note") ?? NSImage()
+                                  accessibilityDescription: String(localized: "Note", comment: "Accessibility label for the note icon in the note viewer (noun)")) ?? NSImage()
         icon.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(icon)
 
@@ -149,7 +149,7 @@ final class NoteViewerWindowController: NSWindowController, NSWindowDelegate {
 
     private func refreshReminderButton() {
         remindButton.toolTip = ReminderCenter.badgeText(for: note.reminderDate)
-            .map { "Reminder \($0)" } ?? "Set a reminder for this note"
+            .map { String(localized: "Reminder \($0)", comment: "Tooltip on the note viewer Remind Me button; the placeholder is a short countdown such as in 3d") } ?? String(localized: "Set a reminder for this note", comment: "Tooltip on the note viewer Remind Me button when no reminder is set")
     }
 
     private func showReminderMenu() {
@@ -198,12 +198,10 @@ final class NoteViewerWindowController: NSWindowController, NSWindowDelegate {
     /// Shared "notifications are off" explainer.
     static func showNotificationsDeniedAlert(in window: NSWindow?) {
         let alert = CCAlert(
-            title: "Notifications Are Off",
-            message: "The reminder date was saved, but macOS notifications are "
-                + "disabled for CaptureCat. Enable them in System Settings → Notifications "
-                + "to be reminded."
+            title: String(localized: "Notifications Are Off", comment: "Alert title: macOS notifications are disabled for the app, so reminders can't fire"),
+            message: String(localized: "The reminder date was saved, but macOS notifications are disabled for CaptureCat. Enable them in System Settings → Notifications to be reminded.", comment: "Alert message; System Settings → Notifications is the macOS settings path")
         )
-        alert.addButton("OK", role: .primary)
+        alert.addButton(String(localized: "OK", comment: "Alert button: acknowledges the message"), role: .primary)
         if let window {
             alert.beginSheet(for: window)
         } else {
@@ -214,11 +212,11 @@ final class NoteViewerWindowController: NSWindowController, NSWindowDelegate {
     private func promptDelete() {
         guard let window else { return }
         let alert = CCAlert(
-            title: "Delete Note?",
-            message: "Are you sure you want to delete \"\(note.title)\"? This cannot be undone."
+            title: String(localized: "Delete Note?", comment: "Confirmation dialog title before deleting a note"),
+            message: String(localized: "Are you sure you want to delete \"\(note.title)\"? This cannot be undone.", comment: "Confirmation dialog message before deleting a note; the placeholder is the note title")
         )
-        alert.addButton("Delete", role: .destructive)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Delete", comment: "Confirmation dialog button: deletes permanently (verb)"), role: .destructive)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         alert.beginSheet(for: window) { [weak self] index in
             guard index == 0, let self else { return }
             self.saveTask?.cancel()

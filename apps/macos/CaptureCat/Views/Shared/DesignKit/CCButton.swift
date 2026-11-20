@@ -107,6 +107,13 @@ final class CCButton: NSControl {
             invalidateIntrinsicContentSize()
             needsLayout = true
             CCMotion.expand(self)
+            // The glide can lay this view out at its OLD width (the label
+            // then stays clipped: "Start Rec…"); lay out again once the new
+            // frame has landed.
+            DispatchQueue.main.async { [weak self] in
+                self?.needsLayout = true
+                self?.layoutSubtreeIfNeeded()
+            }
         }
     }
 
@@ -194,6 +201,16 @@ final class CCButton: NSControl {
     private func refreshSymbolImage() {
         icon.image = symbol.flatMap { CCIcon.image($0, pointSize: size.symbolPointSize, weight: .medium) }
         icon.isHidden = symbol == nil
+    }
+
+    /// A new title grows the button through its superview's layout pass,
+    /// which can run THIS view's layout() while it still has the old width —
+    /// the label then stays clipped to it ("Start Rec…"). Re-lay out on every
+    /// size change so the label always fits the final frame.
+    override func setFrameSize(_ newSize: NSSize) {
+        let changed = newSize != frame.size
+        super.setFrameSize(newSize)
+        if changed { needsLayout = true }
     }
 
     override func layout() {

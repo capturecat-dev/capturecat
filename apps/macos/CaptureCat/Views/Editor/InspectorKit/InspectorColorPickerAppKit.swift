@@ -398,7 +398,7 @@ final class ColorPickerPopoverView: NSView, NSTextFieldDelegate {
         hexField.drawsBackground = false
         hexField.focusRingType = .none
         hexField.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        hexField.placeholderString = "FFFFFF"
+        hexField.placeholderString = "FFFFFF"  // l10n: verbatim — hex digits
         hexField.delegate = self
         hexField.target = self
         hexField.action = #selector(hexSubmitted)

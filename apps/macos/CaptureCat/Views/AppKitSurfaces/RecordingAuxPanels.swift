@@ -153,7 +153,7 @@ final class CameraBubbleNSView: NSView {
             clip.bottomAnchor.constraint(equalTo: shadowHost.bottomAnchor),
         ])
 
-        toolTip = "Drag to move — snaps to corners. Right-click for size."
+        toolTip = String(localized: "Drag to move — snaps to corners. Right-click for size.", comment: "Tooltip on the floating live camera bubble shown while recording")
         themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
     }
 
@@ -174,7 +174,7 @@ final class CameraBubbleNSView: NSView {
 
     private func sizeMenu() -> NSMenu {
         let menu = NSMenu()
-        for (title, value) in [("Small", CGFloat(140)), ("Medium", CGFloat(180)), ("Large", CGFloat(240))] {
+        for (title, value) in [(String(localized: "Small", comment: "Camera bubble right-click menu: size option"), CGFloat(140)), (String(localized: "Medium", comment: "Camera bubble right-click menu: size option"), CGFloat(180)), (String(localized: "Large", comment: "Camera bubble right-click menu: size option"), CGFloat(240))] {
             let item = NSMenuItem(title: title, action: #selector(pickSize(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = value
@@ -249,7 +249,7 @@ final class DeviceMonitorNSView: NSView {
             preview.topAnchor.constraint(equalTo: clip.topAnchor),
             preview.bottomAnchor.constraint(equalTo: clip.bottomAnchor),
         ])
-        toolTip = "Live device monitor — drag to move"
+        toolTip = String(localized: "Live device monitor — drag to move", comment: "Tooltip on the floating iPhone mirror panel shown while recording a device")
         themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
     }
 

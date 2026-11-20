@@ -21,8 +21,8 @@ final class VersionCompareDialog {
         let from = (try? JSONValue.parse(data: versionDocument)) ?? .object(JSONObject())
         let to = (try? JSONValue.parse(data: currentDocument)) ?? .object(JSONObject())
         groups = Self.groups(from: from, to: to)
-        dialog = CCDialog(title: "Compare with current",
-                          subtitle: "\(projectName) · \(HistoryPaneAppKit.stamp(version.date)) → now",
+        dialog = CCDialog(title: String(localized: "Compare with current", comment: "Dialog title: compares a history version with the current project"),
+                          subtitle: String(localized: "\(projectName) · \(HistoryPaneAppKit.stamp(version.date)) → now", comment: "Compare dialog subtitle: project name, the version's date and time, an arrow, and the word now (the current state)"),
                           width: 520)
         dialog.entrance = .slideUp()
 
@@ -37,7 +37,7 @@ final class VersionCompareDialog {
             dialog.addContent(accordion)
         }
         dialog.setMaxContentHeight(420)
-        let close = CCButton(title: "Done", style: .primary, size: .regular)
+        let close = CCButton(title: String(localized: "Done", comment: "Dialog button: closes the compare dialog"), style: .primary, size: .regular)
         close.onClick = { [weak self] in self?.dialog.dismiss() }
         dialog.addFooter(close)
         dialog.onEscape = { [weak self] in self?.dialog.dismiss() }

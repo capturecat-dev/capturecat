@@ -26,6 +26,7 @@ enum AgentSetupShotHarness {
         controller.view.layoutSubtreeIfNeeded()
 
         func snapshot(_ suffix: String) {
+            CCLocalizationAudit.capture("agent-setup-\(suffix)", window: window)
             guard let layer = controller.view.layer,
                   let img = CARendererSnapshot.render(
                     layer: layer, size: controller.view.bounds.size, scale: 2

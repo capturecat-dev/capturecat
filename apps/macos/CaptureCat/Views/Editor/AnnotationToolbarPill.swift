@@ -72,8 +72,8 @@ final class AnnotationToolbarPill: NSView {
             stack.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
-        configureMenuButton(fontButton, tip: "Font") { [weak self] in self?.fontClicked() }
-        configureMenuButton(weightButton, tip: "Weight") { [weak self] in self?.weightClicked() }
+        configureMenuButton(fontButton, tip: String(localized: "Font", comment: "Annotation toolbar pill (floats above the selected annotation): tooltip on the font picker")) { [weak self] in self?.fontClicked() }
+        configureMenuButton(weightButton, tip: String(localized: "Weight", comment: "Annotation toolbar pill (floats above the selected annotation): tooltip on the font weight picker")) { [weak self] in self?.weightClicked() }
 
         sizeSlider.onChange = { [weak self] value in self?.onSizeChange?(value) }
         sizeSlider.translatesAutoresizingMaskIntoConstraints = false
@@ -81,10 +81,10 @@ final class AnnotationToolbarPill: NSView {
 
         colorWell.getColor = { [weak self] in self?.colorProvider?() ?? .white }
         colorWell.setColor = { [weak self] color in self?.onColorChange?(color) }
-        colorWell.toolTip = "Color"
+        colorWell.toolTip = String(localized: "Color", comment: "Annotation toolbar pill (floats above the selected annotation): tooltip on the annotation color well")
         backgroundWell.getColor = { [weak self] in self?.backgroundColorProvider?() ?? .black }
         backgroundWell.setColor = { [weak self] color in self?.onBackgroundColorChange?(color) }
-        backgroundWell.toolTip = "Background color"
+        backgroundWell.toolTip = String(localized: "Background color", comment: "Annotation toolbar pill (floats above the selected annotation): tooltip on the background/fill color well")
         for well in [colorWell, backgroundWell] {
             well.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
@@ -129,17 +129,17 @@ final class AnnotationToolbarPill: NSView {
         if typeChanged { rebuildControls(for: annotation.type) }
 
         // Refresh displayed values.
-        setMenuTitle(fontButton, annotation.fontName ?? FontCatalog.systemName)
-        setMenuTitle(weightButton, annotation.fontWeight.rawValue)
+        setMenuTitle(fontButton, annotation.fontName ?? String(localized: "System", comment: "Font menu: the system font"))
+        setMenuTitle(weightButton, annotation.fontWeight.displayName)
         switch annotation.type {
         case .tap:
             sizeSlider.range = 20...140
             sizeSlider.doubleValue = annotation.fontSize
-            sizeSlider.toolTip = "Ripple size"
+            sizeSlider.toolTip = String(localized: "Ripple size", comment: "Annotation toolbar pill (floats above the selected annotation): tooltip on the size slider for a tap ripple")
         default:
             sizeSlider.range = 1...14
             sizeSlider.doubleValue = annotation.lineWidth
-            sizeSlider.toolTip = "Line width"
+            sizeSlider.toolTip = String(localized: "Line width", comment: "Annotation toolbar pill (floats above the selected annotation): tooltip on the stroke width slider")
         }
         colorWell.refresh()
         backgroundWell.refresh()
@@ -154,7 +154,7 @@ final class AnnotationToolbarPill: NSView {
             stack.addArrangedSubview(fontButton)
             stack.addArrangedSubview(weightButton)
             stack.addArrangedSubview(divider())
-            stack.addArrangedSubview(chipButton(symbol: "square.fill.on.square", tip: "Background pill on/off") { [weak self] in
+            stack.addArrangedSubview(chipButton(symbol: "square.fill.on.square", tip: String(localized: "Background pill on/off", comment: "Annotation toolbar pill (floats above the selected annotation): tooltip; toggles the rounded background behind text")) { [weak self] in
                 self?.backgroundClicked()
             })
             stack.addArrangedSubview(backgroundWell)
@@ -164,7 +164,7 @@ final class AnnotationToolbarPill: NSView {
             stack.addArrangedSubview(sizeSlider)
             stack.addArrangedSubview(colorWell)
             stack.addArrangedSubview(divider())
-            stack.addArrangedSubview(chipButton(symbol: "square.fill.on.square", tip: "Fill on/off") { [weak self] in
+            stack.addArrangedSubview(chipButton(symbol: "square.fill.on.square", tip: String(localized: "Fill on/off", comment: "Annotation toolbar pill (floats above the selected annotation): tooltip; toggles the shape fill")) { [weak self] in
                 self?.backgroundClicked()
             })
             stack.addArrangedSubview(backgroundWell)
@@ -230,10 +230,10 @@ final class AnnotationToolbarPill: NSView {
         let names = FontCatalog.menuNames
         let current = snapshot?.fontName ?? FontCatalog.systemName
         let popup = CCComboboxPopup(
-            options: names.map { .init(title: $0) },
+            options: FontCatalog.displayMenuNames.map { .init(title: $0) },
             selectedIndex: names.firstIndex(of: current),
-            searchPlaceholder: "Search fonts…",
-            emptyText: "No fonts",
+            searchPlaceholder: String(localized: "Search fonts…", comment: "Annotation toolbar pill (floats above the selected annotation): placeholder in the font search field"),
+            emptyText: String(localized: "No fonts", comment: "Annotation toolbar pill (floats above the selected annotation): shown when the font search matches nothing"),
             minWidth: 240
         )
         popup.onCommit = { [weak self] index in
@@ -249,7 +249,8 @@ final class AnnotationToolbarPill: NSView {
     private func weightClicked() {
         let menu = NSMenu()
         for weight in ProjectSettings.SubtitleWeight.allCases {
-            let item = NSMenuItem(title: weight.rawValue, action: #selector(weightPicked(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: weight.displayName, action: #selector(weightPicked(_:)), keyEquivalent: "")
+            item.representedObject = weight.rawValue
             item.target = self
             item.state = weight == snapshot?.weight ? .on : .off
             menu.addItem(item)
@@ -258,7 +259,8 @@ final class AnnotationToolbarPill: NSView {
     }
 
     @objc private func weightPicked(_ item: NSMenuItem) {
-        guard let weight = ProjectSettings.SubtitleWeight(rawValue: item.title) else { return }
+        guard let raw = item.representedObject as? String,
+              let weight = ProjectSettings.SubtitleWeight(rawValue: raw) else { return }
         onWeightChange?(weight)
     }
 

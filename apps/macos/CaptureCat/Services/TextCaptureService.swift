@@ -21,7 +21,7 @@ final class TextCaptureService: NSObject {
     ) {
         guard let text = pboard.string(forType: .string),
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            error.pointee = "No text was selected." as NSString
+            error.pointee = String(localized: "No text was selected.", comment: "Services menu error: Capture Text was used with no text selected") as NSString
             return
         }
         // At service-invocation time the source app is still frontmost — our

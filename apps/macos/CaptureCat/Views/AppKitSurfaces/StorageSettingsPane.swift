@@ -148,9 +148,9 @@ final class StorageSettingsPane: NSView {
     let model: StorageSettingsModel
     private let onSignIn: () -> Void
 
-    private let titleField = NSTextField(labelWithString: "Storage")
+    private let titleField = NSTextField(labelWithString: String(localized: "Storage", comment: "Settings ▸ Storage: pane title"))
     private let introField = CCWrappingLabel(
-        "Keep share-link videos in your own S3-compatible bucket. New uploads go straight to it."
+        String(localized: "Keep share-link videos in your own S3-compatible bucket. New uploads go straight to it.", comment: "Settings ▸ Storage: intro text under the pane title; S3 is a storage protocol name")
     )
     private let scroll = NSScrollView()
     private let content = NSStackView()
@@ -256,12 +256,12 @@ final class StorageSettingsPane: NSView {
 
         switch screen {
         case .signedOut:
-            let signIn = CCButton(title: "Sign In…", style: .primary, size: .sm) { [weak self] in
+            let signIn = CCButton(title: String(localized: "Sign In…", comment: "Settings ▸ Storage: button that starts sign-in"), style: .primary, size: .sm) { [weak self] in
                 self?.onSignIn()
             }
             addCard([SettingsRow(
-                title: "Not signed in",
-                subtitle: "Sign in to store share videos in your own bucket.",
+                title: String(localized: "Not signed in", comment: "Settings ▸ Storage: row title when signed out"),
+                subtitle: String(localized: "Sign in to store share videos in your own bucket.", comment: "Settings ▸ Storage: row subtitle when signed out"),
                 control: signIn
             )])
 
@@ -269,26 +269,26 @@ final class StorageSettingsPane: NSView {
             let spinner = CCSpinner(diameter: 16)
             spinner.startAnimation(nil)
             addCard([SettingsRow(
-                title: "Checking your storage…",
-                subtitle: "Asking CaptureCat which bucket your share videos use.",
+                title: String(localized: "Checking your storage…", comment: "Settings ▸ Storage: row title while loading"),
+                subtitle: String(localized: "Asking CaptureCat which bucket your share videos use.", comment: "Settings ▸ Storage: row subtitle while loading"),
                 control: spinner
             )])
 
         case .failed(let message):
-            let callout = CCCallout(title: "Couldn't load storage settings", message: message,
+            let callout = CCCallout(title: String(localized: "Couldn't load storage settings", comment: "Settings ▸ Storage: error callout title; the message below is the error"), message: message,
                                     variant: .destructive)
-            callout.setActions([CCButton(title: "Try Again", style: .secondary, size: .sm) { [weak self] in
+            callout.setActions([CCButton(title: String(localized: "Try Again", comment: "Settings ▸ Storage: button that retries loading storage settings"), style: .secondary, size: .sm) { [weak self] in
                 self?.model.refresh()
             }])
             addFullWidth(callout)
 
         case .unavailable:
             let callout = CCCallout(
-                title: "Custom storage isn't available right now",
-                message: "Share videos keep uploading to CaptureCat storage. Try again later.",
+                title: String(localized: "Custom storage isn't available right now", comment: "Settings ▸ Storage: warning callout title when the feature is temporarily off"),
+                message: String(localized: "Share videos keep uploading to CaptureCat storage. Try again later.", comment: "Settings ▸ Storage: warning callout message when custom storage is unavailable"),
                 variant: .warning
             )
-            callout.setActions([CCButton(title: "Try Again", style: .secondary, size: .sm) { [weak self] in
+            callout.setActions([CCButton(title: String(localized: "Try Again", comment: "Settings ▸ Storage: button that retries loading storage settings"), style: .secondary, size: .sm) { [weak self] in
                 self?.model.refresh()
             }])
             addFullWidth(callout)
@@ -326,10 +326,10 @@ final class StorageSettingsPane: NSView {
     }
 
     private func renderSummary(_ bucket: ConnectedStorageBucket, onPlan: Bool) {
-        let badge = CCBadge("Connected", variant: .primary)
+        let badge = CCBadge(String(localized: "Connected", comment: "Settings ▸ Storage: badge on the connected bucket row"), variant: .primary)
         var location = bucket.region.isEmpty ? [] : [bucket.region]
         if !bucket.pathPrefix.isEmpty { location.append("/\(bucket.pathPrefix)") }
-        location.append("Key \(bucket.accessKeyIdHint)")
+        location.append(String(localized: "Key \(bucket.accessKeyIdHint)", comment: "Settings ▸ Storage: bucket summary detail; the value is a masked access key ID like AKIA…WXYZ"))
 
         var rows: [NSView] = [
             SettingsRow(
@@ -339,27 +339,28 @@ final class StorageSettingsPane: NSView {
             ),
         ]
         if let endpoint = bucket.endpoint {
-            rows.append(SettingsRow(title: "Endpoint", subtitle: endpoint, control: StorageNoControl()))
+            rows.append(SettingsRow(title: String(localized: "Endpoint", comment: "Settings ▸ Storage: bucket summary row title: the server URL of the bucket"), subtitle: endpoint, control: StorageNoControl()))
         }
         rows.append(SettingsRow(
-            title: "Delivery",
-            subtitle: bucket.publicBaseUrl.map { "Public URL — \($0)" }
-                ?? "Short-lived signed links (works with private buckets)",
+            title: String(localized: "Delivery", comment: "Settings ▸ Storage: bucket summary row title: how videos are served to viewers"),
+            subtitle: bucket.publicBaseUrl.map { String(localized: "Public URL — \($0)", comment: "Settings ▸ Storage: Delivery row subtitle; the value is the public base URL") }
+                ?? String(localized: "Short-lived signed links (works with private buckets)", comment: "Settings ▸ Storage: Delivery row subtitle when no public URL is set"),
             control: StorageNoControl()
         ))
         let count = bucket.videoCount
         rows.append(SettingsRow(
-            title: count == 1 ? "1 share video" : "\(count) share videos",
-            subtitle: "Stored in this bucket. "
-                + (bucket.verifiedAt.map { "Verified \(Self.dateFormatter.string(from: $0))." } ?? ""),
+            title: count == 1 ? String(localized: "1 share video", comment: "Settings ▸ Storage: bucket summary row title, one video stored") : String(localized: "\(count) share videos", comment: "Settings ▸ Storage: bucket summary row title; the number is how many videos are stored"),
+            subtitle: bucket.verifiedAt.map {
+                String(localized: "Stored in this bucket. Verified \(Self.dateFormatter.string(from: $0)).", comment: "Settings ▸ Storage: video count row subtitle; the value is the date the bucket was last verified")
+            } ?? String(localized: "Stored in this bucket.", comment: "Settings ▸ Storage: video count row subtitle when never verified"),
             control: StorageNoControl()
         ))
 
-        let edit = CCButton(title: "Edit…", style: .secondary, size: .sm) { [weak self] in
+        let edit = CCButton(title: String(localized: "Edit…", comment: "Settings ▸ Storage: button that edits the connected bucket (verb)"), style: .secondary, size: .sm) { [weak self] in
             self?.model.isEditing = true
         }
         edit.isEnabled = onPlan
-        let disconnect = CCButton(title: "Disconnect…", style: .outline, size: .sm) { [weak self] in
+        let disconnect = CCButton(title: String(localized: "Disconnect…", comment: "Settings ▸ Storage: button that disconnects the bucket (verb)"), style: .outline, size: .sm) { [weak self] in
             self?.confirmDisconnect(bucket)
         }
         disconnectButton = disconnect
@@ -367,8 +368,8 @@ final class StorageSettingsPane: NSView {
         actions.orientation = .horizontal
         actions.spacing = CCSpace.sm
         rows.append(SettingsRow(
-            title: "Manage",
-            subtitle: "Editing re-tests the bucket and needs both keys again.",
+            title: String(localized: "Manage", comment: "Settings ▸ Storage: row title above the Edit/Disconnect buttons (verb)"),
+            subtitle: String(localized: "Editing re-tests the bucket and needs both keys again.", comment: "Settings ▸ Storage: Manage row subtitle"),
             control: actions
         ))
         addCard(rows)
@@ -377,12 +378,13 @@ final class StorageSettingsPane: NSView {
 
     private func upgradeCallout(connected: Bool) -> CCCallout {
         let callout = CCCallout(
-            title: "Upgrade to CaptureCat Pro",
-            message: "Storing videos in your own bucket is part of CaptureCat Pro."
-                + (connected ? " Videos already in your bucket keep playing." : ""),
+            title: String(localized: "Upgrade to CaptureCat Pro", comment: "Settings ▸ Storage: upsell callout title"),
+            message: connected
+                ? String(localized: "Storing videos in your own bucket is part of CaptureCat Pro. Videos already in your bucket keep playing.", comment: "Settings ▸ Storage: upsell callout message when a bucket is already connected")
+                : String(localized: "Storing videos in your own bucket is part of CaptureCat Pro.", comment: "Settings ▸ Storage: upsell callout message"),
             variant: .info
         )
-        callout.setActions([CCButton(title: "View Plans", style: .secondary, size: .sm) {
+        callout.setActions([CCButton(title: String(localized: "View Plans", comment: "Settings ▸ Storage: upsell button that opens the pricing page"), style: .secondary, size: .sm) {
             if let url = URL(string: "https://capturecat.so/pricing") { NSWorkspace.shared.open(url) }
         }])
         return callout
@@ -391,8 +393,8 @@ final class StorageSettingsPane: NSView {
     private func addRetainedNote(_ retained: Int) {
         guard retained > 0 else { return }
         let note = CCWrappingLabel(retained == 1
-            ? "1 video still plays from a previously disconnected bucket."
-            : "\(retained) videos still play from previously disconnected buckets.")
+            ? String(localized: "1 video still plays from a previously disconnected bucket.", comment: "Settings ▸ Storage: footnote, one video in an old bucket")
+            : String(localized: "\(retained) videos still play from previously disconnected buckets.", comment: "Settings ▸ Storage: footnote; the number is how many videos are in old buckets"))
         note.font = CCTheme.font.caption
         note.textColor = CCTheme.color.mutedForeground
         addFullWidth(note)
@@ -401,10 +403,12 @@ final class StorageSettingsPane: NSView {
     private func applyDisconnectState(busy: Bool, error: String?) {
         guard let disconnectButton else { return }
         disconnectButton.isEnabled = !busy
-        disconnectButton.title = busy ? "Disconnecting…" : "Disconnect…"
+        disconnectButton.title = busy
+            ? String(localized: "Disconnecting…", comment: "Settings ▸ Storage: Disconnect button title while disconnecting")
+            : String(localized: "Disconnect…", comment: "Settings ▸ Storage: button that disconnects the bucket (verb)")
         if let error {
             guard summaryCallout == nil else { return }
-            let callout = CCCallout(title: "Couldn't disconnect", message: error,
+            let callout = CCCallout(title: String(localized: "Couldn't disconnect", comment: "Settings ▸ Storage: error callout title; the message is the error"), message: error,
                                     variant: .destructive, dismissible: true)
             callout.onDismiss = { [weak self] in self?.summaryCallout = nil }
             addFullWidth(callout)
@@ -418,14 +422,18 @@ final class StorageSettingsPane: NSView {
     private func confirmDisconnect(_ bucket: ConnectedStorageBucket) {
         guard let window else { return }
         let count = bucket.videoCount
-        let videos = count == 1 ? "The 1 video" : "The \(count) videos"
-        let message = count > 0
-            ? "New share videos will upload to CaptureCat storage. \(videos) already in “\(bucket.bucket)” "
-                + "keep playing from your bucket, so CaptureCat keeps its access key until they're deleted."
-            : "New share videos will upload to CaptureCat storage. Nothing is stored in “\(bucket.bucket)” yet."
-        let alert = CCAlert(title: "Disconnect “\(bucket.bucket)”?", message: message)
-        alert.addButton("Disconnect", role: .destructive)
-        alert.addButton("Cancel")
+        let bucketName = bucket.bucket
+        let message: String
+        if count == 1 {
+            message = String(localized: "New share videos will upload to CaptureCat storage. The 1 video already in “\(bucketName)” keep playing from your bucket, so CaptureCat keeps its access key until they're deleted.", comment: "Settings ▸ Storage: disconnect confirmation message, one video stored; the value is the bucket name")
+        } else if count > 0 {
+            message = String(localized: "New share videos will upload to CaptureCat storage. The \(count) videos already in “\(bucketName)” keep playing from your bucket, so CaptureCat keeps its access key until they're deleted.", comment: "Settings ▸ Storage: disconnect confirmation message; the number is how many videos are stored, the value is the bucket name")
+        } else {
+            message = String(localized: "New share videos will upload to CaptureCat storage. Nothing is stored in “\(bucketName)” yet.", comment: "Settings ▸ Storage: disconnect confirmation message, bucket empty; the value is the bucket name")
+        }
+        let alert = CCAlert(title: String(localized: "Disconnect “\(bucketName)”?", comment: "Settings ▸ Storage: disconnect confirmation title; the value is the bucket name"), message: message)
+        alert.addButton(String(localized: "Disconnect", comment: "Settings ▸ Storage: destructive confirm button in the disconnect alert (verb)"), role: .destructive)
+        alert.addButton(String(localized: "Cancel", comment: "Settings ▸ Storage: cancel button in the disconnect alert"))
         alert.beginSheet(for: window) { [weak self] index in
             if index == 0 { self?.model.disconnect() }
         }
@@ -478,28 +486,28 @@ final class StorageBucketForm: NSView {
     private let locked: Bool
     private var provider: StorageProvider
 
-    private let providerSelect = CCSelect(placeholder: "Provider…")
+    private let providerSelect = CCSelect(placeholder: String(localized: "Provider…", comment: "Settings ▸ Storage: bucket form: storage provider picker placeholder"))
     private let endpointField = CCField(placeholder: "")
     private let regionField = CCField(placeholder: "")
-    private let bucketField = CCField(placeholder: "my-videos")
-    private let prefixField = CCField(placeholder: "capturecat/")
-    private let accessKeyField = CCField(placeholder: "Access key ID")
-    private let secretField = CCSecureField(placeholder: "Secret access key")
-    private let publicURLField = CCField(placeholder: "https://cdn.example.com")
+    private let bucketField = CCField(placeholder: "my-videos")  // l10n: verbatim — example bucket name
+    private let prefixField = CCField(placeholder: "capturecat/")  // l10n: verbatim — example path prefix
+    private let accessKeyField = CCField(placeholder: String(localized: "Access key ID", comment: "Settings ▸ Storage: bucket form: access key field placeholder"))
+    private let secretField = CCSecureField(placeholder: String(localized: "Secret access key", comment: "Settings ▸ Storage: bucket form: secret key field placeholder"))
+    private let publicURLField = CCField(placeholder: "https://cdn.example.com")  // l10n: verbatim — example URL
     private let pathStyleToggle = CCToggle()
     private var endpointReveal: CCCollapsible!
 
-    private let errorCallout = CCCallout(title: "Couldn't save this bucket", message: " ",
+    private let errorCallout = CCCallout(title: String(localized: "Couldn't save this bucket", comment: "Settings ▸ Storage: bucket form: inline error callout title"), message: " ",
                                          variant: .destructive)
     private var errorReveal: CCCollapsible!
     private var shownErrorRevision = -1
     private(set) var errorMessage: String?
 
-    private let saveButton = CCButton(title: "Test & Save", style: .primary)
+    private let saveButton = CCButton(title: String(localized: "Test & Save", comment: "Settings ▸ Storage: bucket form: button that tests the bucket and saves it"), style: .primary)
     private var cancelButton: CCButton?
     private let spinner = CCSpinner(diameter: 14)
     private let footnote = CCWrappingLabel(
-        "CaptureCat writes, reads and deletes a small test file before saving."
+        String(localized: "CaptureCat writes, reads and deletes a small test file before saving.", comment: "Settings ▸ Storage: bucket form: footnote next to Test & Save")
     )
     private var themeObservation: CCThemeObservation?
 
@@ -522,8 +530,8 @@ final class StorageBucketForm: NSView {
             prefixField.stringValue = editing.pathPrefix
             publicURLField.stringValue = editing.publicBaseUrl ?? ""
             pathStyleToggle.isOn = editing.forcePathStyle
-            accessKeyField.placeholderString = "Re-enter — currently \(editing.accessKeyIdHint)"
-            secretField.placeholderString = "Re-enter the secret key"
+            accessKeyField.placeholderString = String(localized: "Re-enter — currently \(editing.accessKeyIdHint)", comment: "Settings ▸ Storage: bucket form: access key placeholder when editing; the value is a masked key ID")
+            secretField.placeholderString = String(localized: "Re-enter the secret key", comment: "Settings ▸ Storage: bucket form: secret key placeholder when editing")
         } else {
             regionField.stringValue = provider.defaultRegion
             pathStyleToggle.isOn = provider.defaultPathStyle
@@ -551,36 +559,36 @@ final class StorageBucketForm: NSView {
             rows.addArrangedSubview(view)
             view.widthAnchor.constraint(equalTo: rows.widthAnchor).isActive = true
         }
-        add(StorageFieldRow(title: "Provider", control: providerSelect))
+        add(StorageFieldRow(title: String(localized: "Provider", comment: "Settings ▸ Storage: bucket form: field label, the storage provider"), control: providerSelect))
         // Endpoint (with its leading hairline) folds away for AWS; the
         // collapsible moves only its bottom edge, landing on the bounce.
         let endpointBlock = NSStackView()
         endpointBlock.orientation = .vertical
         endpointBlock.spacing = 0
         let endpointLine = CCDivider()
-        let endpointRow = StorageFieldRow(title: "Endpoint", control: endpointField)
+        let endpointRow = StorageFieldRow(title: String(localized: "Endpoint", comment: "Settings ▸ Storage: bucket form: field label, the bucket server URL"), control: endpointField)
         endpointBlock.addArrangedSubview(endpointLine)
         endpointBlock.addArrangedSubview(endpointRow)
         endpointLine.widthAnchor.constraint(equalTo: endpointBlock.widthAnchor).isActive = true
         endpointRow.widthAnchor.constraint(equalTo: endpointBlock.widthAnchor).isActive = true
         endpointReveal = CCCollapsible(content: endpointBlock, expanded: provider.needsEndpoint)
         add(endpointReveal, divider: false)
-        add(StorageFieldRow(title: "Region", control: regionField))
-        add(StorageFieldRow(title: "Bucket", control: bucketField))
-        add(StorageFieldRow(title: "Path prefix", control: prefixField,
-                            caption: "Optional. Videos are stored under this folder."))
-        add(StorageFieldRow(title: "Access key ID", control: accessKeyField))
+        add(StorageFieldRow(title: String(localized: "Region", comment: "Settings ▸ Storage: bucket form: field label, the bucket region"), control: regionField))
+        add(StorageFieldRow(title: String(localized: "Bucket", comment: "Settings ▸ Storage: bucket form: field label, the bucket name"), control: bucketField))
+        add(StorageFieldRow(title: String(localized: "Path prefix", comment: "Settings ▸ Storage: bucket form: field label, folder inside the bucket"), control: prefixField,
+                            caption: String(localized: "Optional. Videos are stored under this folder.", comment: "Settings ▸ Storage: bucket form: Path prefix caption")))
+        add(StorageFieldRow(title: String(localized: "Access key ID", comment: "Settings ▸ Storage: bucket form: field label"), control: accessKeyField))
         add(StorageFieldRow(
-            title: "Secret key", control: secretField,
-            caption: editing == nil ? nil : "Both keys are needed on every save — the secret is never sent back."
+            title: String(localized: "Secret key", comment: "Settings ▸ Storage: bucket form: field label"), control: secretField,
+            caption: editing == nil ? nil : String(localized: "Both keys are needed on every save — the secret is never sent back.", comment: "Settings ▸ Storage: bucket form: Secret key caption when editing")
         ))
         add(StorageFieldRow(
-            title: "Public base URL", control: publicURLField,
-            caption: "Leave empty to serve through short-lived signed links — works with private buckets"
+            title: String(localized: "Public base URL", comment: "Settings ▸ Storage: bucket form: field label"), control: publicURLField,
+            caption: String(localized: "Leave empty to serve through short-lived signed links — works with private buckets", comment: "Settings ▸ Storage: bucket form: Public base URL caption")
         ))
         let pathStyleRow = SettingsRow(
-            title: "Path-style URLs",
-            subtitle: "Advanced. Address the bucket as endpoint/bucket — MinIO and most self-hosted servers need this.",
+            title: String(localized: "Path-style URLs", comment: "Settings ▸ Storage: bucket form: toggle row title"),
+            subtitle: String(localized: "Advanced. Address the bucket as endpoint/bucket — MinIO and most self-hosted servers need this.", comment: "Settings ▸ Storage: bucket form: Path-style URLs subtitle; MinIO is a product name, endpoint/bucket is a URL shape"),
             control: pathStyleToggle
         )
         add(StorageRowInset(pathStyleRow))
@@ -595,7 +603,7 @@ final class StorageBucketForm: NSView {
         saveButton.onClick = { [weak self] in self?.submit() }
         var trailing: [NSView] = []
         if editing != nil {
-            let cancel = CCButton(title: "Cancel", style: .ghost) { [weak self] in self?.onCancel?() }
+            let cancel = CCButton(title: String(localized: "Cancel", comment: "Settings ▸ Storage: bucket form: button that cancels editing"), style: .ghost) { [weak self] in self?.onCancel?() }
             cancelButton = cancel
             trailing.append(cancel)
         }
@@ -654,7 +662,7 @@ final class StorageBucketForm: NSView {
                 field.isEnabled = false
                 field.alphaValue = CCTheme.current.disabledAlpha
             }
-            footnote.stringValue = "Available on plans with custom storage."
+            footnote.stringValue = String(localized: "Available on plans with custom storage.", comment: "Settings ▸ Storage: bucket form: footnote when the plan lacks custom storage")
         }
 
         themeObservation = CCThemeObservation { [weak self] in
@@ -713,11 +721,11 @@ final class StorageBucketForm: NSView {
         }
         let checks: [(Bool, any CCTextWell, String)] = [
             (provider.needsEndpoint && endpoint == nil, endpointField,
-             "Enter the endpoint URL for \(provider.title)."),
-            (region.isEmpty, regionField, "Enter the bucket's region."),
-            (trimmed(bucketField).isEmpty, bucketField, "Enter the bucket name."),
-            (trimmed(accessKeyField).isEmpty, accessKeyField, "Enter the access key ID."),
-            (secretField.stringValue.isEmpty, secretField, "Enter the secret access key."),
+             String(localized: "Enter the endpoint URL for \(provider.title).", comment: "Settings ▸ Storage: bucket form validation error; the value is the provider name")),
+            (region.isEmpty, regionField, String(localized: "Enter the bucket's region.", comment: "Settings ▸ Storage: bucket form validation error")),
+            (trimmed(bucketField).isEmpty, bucketField, String(localized: "Enter the bucket name.", comment: "Settings ▸ Storage: bucket form validation error")),
+            (trimmed(accessKeyField).isEmpty, accessKeyField, String(localized: "Enter the access key ID.", comment: "Settings ▸ Storage: bucket form validation error")),
+            (secretField.stringValue.isEmpty, secretField, String(localized: "Enter the secret access key.", comment: "Settings ▸ Storage: bucket form validation error")),
         ]
         for field in allFields { field.isError = false }
         for (missing, field, message) in checks where missing {
@@ -753,7 +761,9 @@ final class StorageBucketForm: NSView {
     func setBusy(_ busy: Bool) {
         guard busy != isBusy else { return }
         isBusy = busy
-        saveButton.title = busy ? "Testing bucket…" : "Test & Save"
+        saveButton.title = busy
+            ? String(localized: "Testing bucket…", comment: "Settings ▸ Storage: bucket form: save button title while testing")
+            : String(localized: "Test & Save", comment: "Settings ▸ Storage: bucket form: button that tests the bucket and saves it")
         saveButton.isEnabled = !busy && !locked
         cancelButton?.isEnabled = !busy
         if busy { spinner.startAnimation(nil) } else { spinner.stopAnimation(nil) }

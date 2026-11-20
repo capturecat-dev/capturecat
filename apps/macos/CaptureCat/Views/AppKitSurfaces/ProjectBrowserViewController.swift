@@ -15,10 +15,38 @@ enum CaptureTypeFilter: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .all: return "All"
-        case .videos: return "Videos"
-        case .images: return "Images"
-        case .notes: return "Notes"
+        case .all: return String(localized: "All", comment: "Capture library type filter segment: show every kind of capture")
+        case .videos: return String(localized: "Videos", comment: "Capture library type filter segment: only video captures (plural noun)")
+        case .images: return String(localized: "Images", comment: "Capture library type filter segment: only image captures (plural noun)")
+        case .notes: return String(localized: "Notes", comment: "Capture library type filter segment: only notes (plural noun)")
+        }
+    }
+
+    /// Empty-state copy when this type filter leaves nothing to show.
+    var emptyTitle: String {
+        switch self {
+        case .all: return String(localized: "No Captures", comment: "Capture library empty state title when the filters show nothing")
+        case .videos: return String(localized: "No Videos", comment: "Capture library empty state title when the Videos filter shows nothing")
+        case .images: return String(localized: "No Images", comment: "Capture library empty state title when the Images filter shows nothing")
+        case .notes: return String(localized: "No Notes", comment: "Capture library empty state title when the Notes filter shows nothing")
+        }
+    }
+
+    var emptySubtitle: String {
+        switch self {
+        case .all: return String(localized: "No captures match the current filters.", comment: "Capture library empty state subtitle when the filters show nothing")
+        case .videos: return String(localized: "No videos match the current filters.", comment: "Capture library empty state subtitle when the Videos filter shows nothing")
+        case .images: return String(localized: "No images match the current filters.", comment: "Capture library empty state subtitle when the Images filter shows nothing")
+        case .notes: return String(localized: "No notes match the current filters.", comment: "Capture library empty state subtitle when the Notes filter shows nothing")
+        }
+    }
+
+    var cloudEmptySubtitle: String {
+        switch self {
+        case .all: return String(localized: "No cloud projects match the current filters.", comment: "Cloud library empty state subtitle when the filters show nothing")
+        case .videos: return String(localized: "No cloud videos match the current filters.", comment: "Cloud library empty state subtitle when the Videos filter shows nothing")
+        case .images: return String(localized: "No cloud images match the current filters.", comment: "Cloud library empty state subtitle when the Images filter shows nothing")
+        case .notes: return String(localized: "No cloud notes match the current filters.", comment: "Cloud library empty state subtitle when the Notes filter shows nothing")
         }
     }
 
@@ -89,24 +117,24 @@ final class ProjectBrowserViewController: NSViewController {
     private var isSidebarCollapsed = false
     private let sidebarToggleButton = HoverPillButton(title: "", symbol: "sidebar.left")
     private let headerBar = HeaderChromeView()
-    private let backButton = HoverPillButton(title: "Back to Editor", symbol: "chevron.left")
+    private let backButton = HoverPillButton(title: String(localized: "Back to Editor", comment: "Capture library toolbar button: returns to the open project in the editor"), symbol: "chevron.left")
     /// Row 2 of the header: full-width pill search bar + suggestions panel.
     private let searchRow = HeaderChromeView()
-    private let searchBar = CCSearchField(placeholder: "Search captures… (⌘K)")
+    private let searchBar = CCSearchField(placeholder: String(localized: "Search captures… (⌘K)", comment: "Capture library search field placeholder; ⌘K is the keyboard shortcut"))
     private let suggestionsPanel = SearchSuggestionsPanel()
     private var suggestionsTask: Task<Void, Never>?
     /// Record-red capsule — the one place the browser uses the destructive
     /// fill for its recording connotation, not for a destructive action.
     private let newRecordingButton = CCButton(
-        title: "New Recording", symbol: "record.circle.fill", style: .destructive,
+        title: String(localized: "New Recording", comment: "Capture library toolbar button: starts a new screen recording"), symbol: "record.circle.fill", style: .destructive,
         radius: .full
     )
     private let scrollView = NSScrollView()
     private var collectionView: NSCollectionView!
     private let emptyStateView = NSView()
-    private let emptyTitle = NSTextField(labelWithString: "No Captures Yet")
+    private let emptyTitle = NSTextField(labelWithString: String(localized: "No Captures Yet", comment: "Capture library empty state title when the user has no captures"))
     private let emptySubtitle = NSTextField(
-        wrappingLabelWithString: "Start a new recording from the menu bar to create your first capture."
+        wrappingLabelWithString: String(localized: "Start a new recording from the menu bar to create your first capture.", comment: "Capture library empty state subtitle when the user has no captures")
     )
     private let headerHairline = NSView()
     private let emptyIcon = NSImageView()
@@ -243,12 +271,12 @@ final class ProjectBrowserViewController: NSViewController {
             let menu = NSMenu()
             // The plan first (PlanGate): Free is personal use, 5-min takes.
             let licence = self.appState.licence
-            let plan = NSMenuItem(title: licence.allowsCommercialUse ? "Plan: \(licence.badgeTitle)" : "Personal use \u{00B7} 5-min recordings",
+            let plan = NSMenuItem(title: licence.allowsCommercialUse ? String(localized: "Plan: \(licence.badgeTitle)", comment: "Account menu: disabled row showing the current plan; the placeholder is the plan name, e.g. Pro") : String(localized: "Personal use \u{00B7} 5-min recordings", comment: "Account menu: disabled row describing the Free plan (personal use only, recordings up to 5 minutes)"),
                                   action: nil, keyEquivalent: "")
             plan.isEnabled = false
             menu.addItem(plan)
             if !licence.allowsCommercialUse {
-                menu.addItem(Self.closureItem("Get Pro…") { NSWorkspace.shared.open(PlanGate.pricingURL) })
+                menu.addItem(Self.closureItem(String(localized: "Get Pro…", comment: "Account menu item: opens the pricing page to upgrade to CaptureCat Pro")) { NSWorkspace.shared.open(PlanGate.pricingURL) })
             }
             menu.addItem(.separator())
             if let user = self.appState.authService.currentUser {
@@ -258,15 +286,15 @@ final class ProjectBrowserViewController: NSViewController {
                     menu.addItem(info)
                     menu.addItem(.separator())
                 }
-                menu.addItem(Self.closureItem("Manage Account…") {
+                menu.addItem(Self.closureItem(String(localized: "Manage Account…", comment: "Account menu item: opens account settings on the web")) {
                     NSWorkspace.shared.open(URL(string: "https://app.capturecat.so/settings")!)
                 })
                 menu.addItem(.separator())
-                menu.addItem(Self.closureItem("Sign Out") { [weak self] in
+                menu.addItem(Self.closureItem(String(localized: "Sign Out", comment: "Account menu item: signs the user out (verb)")) { [weak self] in
                     try? self?.appState.signOut()
                 })
             } else {
-                menu.addItem(Self.closureItem("Sign In…") { [weak self] in
+                menu.addItem(Self.closureItem(String(localized: "Sign In…", comment: "Account menu item: starts signing in (verb)")) { [weak self] in
                     guard let self else { return }
                     Task { @MainActor in try? await self.appState.signIn() }
                 })
@@ -380,19 +408,19 @@ final class ProjectBrowserViewController: NSViewController {
     private func rebuildSidebarRows() {
         let library = appState.library
         var rows: [BrowserSidebarView.Row] = [
-            .init(id: .all, title: "All Captures",
+            .init(id: .all, title: String(localized: "All Captures", comment: "Capture library sidebar row: every capture"),
                   icon: SidebarIconRenderer.icon("square.grid.2x2"),
                   isSelected: filter == .all),
-            .init(id: .pinned, title: "Pinned",
+            .init(id: .pinned, title: String(localized: "Pinned", comment: "Capture library sidebar row: captures the user pinned (adjective)"),
                   icon: SidebarIconRenderer.icon("pin"),
                   isSelected: filter == .pinned),
-            .init(id: .shared, title: "Shared",
+            .init(id: .shared, title: String(localized: "Shared", comment: "Capture library sidebar row: captures that have a share link (adjective)"),
                   icon: SidebarIconRenderer.icon("link"),
                   isSelected: filter == .shared),
         ]
         // Signed out there is no Cloud row at all (and nothing to fetch).
         if cloudSignedIn {
-            rows.append(.init(id: .cloud, title: "Cloud",
+            rows.append(.init(id: .cloud, title: String(localized: "Cloud", comment: "Capture library sidebar row: projects stored in the CaptureCat cloud (from iPhone or the web app)"),
                               icon: SidebarIconRenderer.icon("icloud"),
                               isSelected: filter == .cloud))
         } else if filter == .cloud {
@@ -425,16 +453,16 @@ final class ProjectBrowserViewController: NSViewController {
                   let folder = self.appState.library.folders.first(where: { $0.id == folderID })
             else { return nil }
             let menu = NSMenu()
-            menu.addItem(Self.closureItem("Rename Folder...") { [weak self] in
+            menu.addItem(Self.closureItem(String(localized: "Rename Folder...", comment: "Folder context menu item in the capture library sidebar")) { [weak self] in
                 self?.promptRenameFolder(folder)
             })
-            let delete = Self.closureItem("Delete Folder") { [weak self] in
+            let delete = Self.closureItem(String(localized: "Delete Folder", comment: "Folder context menu item in the capture library sidebar (destructive)")) { [weak self] in
                 guard let self else { return }
                 if self.filter == .folder(folderID) { self.filter = .all }
                 self.appState.library.deleteFolder(folderID)
             }
             delete.attributedTitle = NSAttributedString(
-                string: "Delete Folder", attributes: [.foregroundColor: NSColor.systemRed])
+                string: String(localized: "Delete Folder", comment: "Folder context menu item in the capture library sidebar (destructive)"), attributes: [.foregroundColor: NSColor.systemRed])
             menu.addItem(delete)
             return menu
         }
@@ -443,9 +471,9 @@ final class ProjectBrowserViewController: NSViewController {
     private func promptNewFolder() {
         guard let window = view.window else { return }
         CCAlert.prompt(
-            title: "New Folder",
-            placeholder: "Folder name",
-            confirmTitle: "Create",
+            title: String(localized: "New Folder", comment: "Dialog title: create a new folder in the capture library"),
+            placeholder: String(localized: "Folder name", comment: "Placeholder in the new/rename folder dialog text field"),
+            confirmTitle: String(localized: "Create", comment: "Button in the new folder dialog: creates the folder (verb)"),
             in: window
         ) { [weak self] name in
             guard let name else { return }
@@ -457,10 +485,10 @@ final class ProjectBrowserViewController: NSViewController {
     private func promptRenameFolder(_ folder: LibraryFolder) {
         guard let window = view.window else { return }
         CCAlert.prompt(
-            title: "Rename Folder",
-            placeholder: "Folder name",
+            title: String(localized: "Rename Folder", comment: "Dialog title: rename a folder in the capture library"),
+            placeholder: String(localized: "Folder name", comment: "Placeholder in the new/rename folder dialog text field"),
             initialValue: folder.name,
-            confirmTitle: "Rename",
+            confirmTitle: String(localized: "Rename", comment: "Button in a rename dialog: applies the new name (verb)"),
             in: window
         ) { [weak self] name in
             guard let name else { return }
@@ -475,7 +503,7 @@ final class ProjectBrowserViewController: NSViewController {
         view.addSubview(headerBar)
 
         sidebarToggleButton.translatesAutoresizingMaskIntoConstraints = false
-        sidebarToggleButton.toolTip = "Hide or show the sidebar"
+        sidebarToggleButton.toolTip = String(localized: "Hide or show the sidebar", comment: "Tooltip on the capture library sidebar toggle button")
         sidebarToggleButton.onClick = { [weak self] in self?.toggleSidebar() }
         headerBar.addSubview(sidebarToggleButton)
 
@@ -963,33 +991,35 @@ final class ProjectBrowserViewController: NSViewController {
         let filterEmpty = entries.isEmpty
         emptyStateView.isHidden = !filterEmpty
         if noProjectsAtAll {
-            emptyTitle.stringValue = "No Captures Yet"
+            emptyTitle.stringValue = String(localized: "No Captures Yet", comment: "Capture library empty state title when the user has no captures")
             let waiting = cloudSignedIn
                 ? CloudLibrary.shared.cloudOnly(signedIn: true, localIDs: localProjectIDs(projects)).count : 0
             emptySubtitle.stringValue = waiting > 0
-                ? "Your \(waiting == 1 ? "cloud project is" : "\(waiting) cloud projects are") under Cloud in the sidebar."
-                : "Start a new recording from the menu bar to create your first capture."
+                ? (waiting == 1
+                    ? String(localized: "Your cloud project is under Cloud in the sidebar.", comment: "Capture library empty state subtitle: one project exists only in the cloud; Cloud is the sidebar row name")
+                    : String(localized: "Your \(waiting) cloud projects are under Cloud in the sidebar.", comment: "Capture library empty state subtitle: several projects exist only in the cloud; the number is the count; Cloud is the sidebar row name"))
+                : String(localized: "Start a new recording from the menu bar to create your first capture.", comment: "Capture library empty state subtitle when the user has no captures")
         } else {
             switch filter {
             case .all:
-                emptyTitle.stringValue = "No Matches"
-                emptySubtitle.stringValue = "No captures match your search."
+                emptyTitle.stringValue = String(localized: "No Matches", comment: "Capture library empty state title when a search finds nothing")
+                emptySubtitle.stringValue = String(localized: "No captures match your search.", comment: "Capture library empty state subtitle when a search finds nothing")
             case .pinned:
-                emptyTitle.stringValue = "Nothing Pinned"
-                emptySubtitle.stringValue = "Right-click a capture and choose Pin to keep it here."
+                emptyTitle.stringValue = String(localized: "Nothing Pinned", comment: "Capture library empty state title for the Pinned sidebar row")
+                emptySubtitle.stringValue = String(localized: "Right-click a capture and choose Pin to keep it here.", comment: "Capture library empty state subtitle for the Pinned row; Pin is the context menu item name")
             case .shared:
-                emptyTitle.stringValue = "Nothing Shared"
-                emptySubtitle.stringValue = "Captures appear here after you share them."
+                emptyTitle.stringValue = String(localized: "Nothing Shared", comment: "Capture library empty state title for the Shared sidebar row")
+                emptySubtitle.stringValue = String(localized: "Captures appear here after you share them.", comment: "Capture library empty state subtitle for the Shared row")
             case .cloud:
                 break // applyCloudSnapshot owns its copy
             case .folder:
-                emptyTitle.stringValue = "Empty Folder"
-                emptySubtitle.stringValue = "Drag captures here, or right-click one and choose Add to Folder."
+                emptyTitle.stringValue = String(localized: "Empty Folder", comment: "Capture library empty state title for a folder with no captures")
+                emptySubtitle.stringValue = String(localized: "Drag captures here, or right-click one and choose Add to Folder.", comment: "Capture library empty state subtitle for an empty folder; Add to Folder is the context menu item name")
             }
         }
         if filterEmpty, !noProjectsAtAll, typeFilter != .all {
-            emptyTitle.stringValue = "No \(typeFilter.title)"
-            emptySubtitle.stringValue = "No \(typeFilter.title.lowercased()) match the current filters."
+            emptyTitle.stringValue = typeFilter.emptyTitle
+            emptySubtitle.stringValue = typeFilter.emptySubtitle
         }
         searchRow.isHidden = noProjectsAtAll
         collectionView.reloadData()
@@ -1045,10 +1075,10 @@ final class ProjectBrowserViewController: NSViewController {
     fileprivate func promptRename(_ project: Project) {
         guard let window = view.window else { return }
         CCAlert.prompt(
-            title: "Rename Capture",
-            placeholder: "Capture name",
+            title: String(localized: "Rename Capture", comment: "Dialog title: rename a capture in the library"),
+            placeholder: String(localized: "Capture name", comment: "Placeholder in the rename capture dialog text field"),
             initialValue: project.name,
-            confirmTitle: "Rename",
+            confirmTitle: String(localized: "Rename", comment: "Button in a rename dialog: applies the new name (verb)"),
             in: window
         ) { [weak self] name in
             guard let name else { return }
@@ -1059,11 +1089,11 @@ final class ProjectBrowserViewController: NSViewController {
     fileprivate func promptDelete(_ project: Project) {
         guard let window = view.window else { return }
         let alert = CCAlert(
-            title: "Delete Capture?",
-            message: "Are you sure you want to delete \"\(project.name)\"? This cannot be undone."
+            title: String(localized: "Delete Capture?", comment: "Confirmation dialog title before deleting one capture"),
+            message: String(localized: "Are you sure you want to delete \"\(project.name)\"? This cannot be undone.", comment: "Confirmation dialog message before deleting a capture; the placeholder is the capture name")
         )
-        alert.addButton("Delete", role: .destructive)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Delete", comment: "Confirmation dialog button: deletes permanently (verb)"), role: .destructive)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         alert.beginSheet(for: window) { [weak self] index in
             guard index == 0 else { return }
             self?.appState.library.forget(project.id)
@@ -1198,18 +1228,18 @@ extension ProjectBrowserViewController {
         emptyStateView.isHidden = !entries.isEmpty
         if entries.isEmpty {
             if !library.hasListed {
-                emptyTitle.stringValue = "Checking the Cloud…"
-                emptySubtitle.stringValue = "Looking for projects from your iPhone and the web app."
+                emptyTitle.stringValue = String(localized: "Checking the Cloud…", comment: "Cloud library empty state title while the project list loads")
+                emptySubtitle.stringValue = String(localized: "Looking for projects from your iPhone and the web app.", comment: "Cloud library empty state subtitle while the project list loads")
             } else if !searchText.isEmpty {
-                emptyTitle.stringValue = "No Matches"
-                emptySubtitle.stringValue = "No cloud projects match your search."
+                emptyTitle.stringValue = String(localized: "No Matches", comment: "Capture library empty state title when a search finds nothing")
+                emptySubtitle.stringValue = String(localized: "No cloud projects match your search.", comment: "Cloud library empty state subtitle when a search finds nothing")
             } else if typeFilter != .all {
-                emptyTitle.stringValue = "No \(typeFilter.title)"
-                emptySubtitle.stringValue = "No cloud \(typeFilter.title.lowercased()) match the current filters."
+                emptyTitle.stringValue = typeFilter.emptyTitle
+                emptySubtitle.stringValue = typeFilter.cloudEmptySubtitle
             } else {
-                emptyTitle.stringValue = "Nothing in the Cloud"
+                emptyTitle.stringValue = String(localized: "Nothing in the Cloud", comment: "Cloud library empty state title when the user has no cloud projects")
                 emptySubtitle.stringValue =
-                    "Projects you make on your iPhone or in the CaptureCat web app appear here, ready to open on this Mac."
+                    String(localized: "Projects you make on your iPhone or in the CaptureCat web app appear here, ready to open on this Mac.", comment: "Cloud library empty state subtitle when the user has no cloud projects")
             }
         }
         searchRow.isHidden = false
@@ -1339,7 +1369,7 @@ extension ProjectBrowserViewController: NSCollectionViewDataSource, NSCollection
             guard let self else { return [] }
             var items: [NSMenuItem] = []
             let pinned = self.appState.library.isPinned(project.id)
-            items.append(Self.closureItem(pinned ? "Unpin" : "Pin") { [weak self] in
+            items.append(Self.closureItem(pinned ? String(localized: "Unpin", comment: "Capture context menu item: removes the pin (verb)") : String(localized: "Pin", comment: "Capture context menu item: pins the capture to the Pinned list (verb)")) { [weak self] in
                 self?.appState.library.togglePin(project.id)
             })
             let folderMenu = NSMenu()
@@ -1354,14 +1384,14 @@ extension ProjectBrowserViewController: NSCollectionViewDataSource, NSCollection
                 folderMenu.addItem(entry)
             }
             if !self.appState.library.folders.isEmpty { folderMenu.addItem(.separator()) }
-            folderMenu.addItem(Self.closureItem("New Folder...") { [weak self] in
+            folderMenu.addItem(Self.closureItem(String(localized: "New Folder...", comment: "Add to Folder submenu item: creates a folder and adds the capture to it")) { [weak self] in
                 self?.promptNewFolderAndAdd(project)
             })
-            let folderItem = NSMenuItem(title: "Add to Folder", action: nil, keyEquivalent: "")
+            let folderItem = NSMenuItem(title: String(localized: "Add to Folder", comment: "Capture context menu item that opens the folder submenu"), action: nil, keyEquivalent: "")
             folderItem.submenu = folderMenu
             items.append(folderItem)
             if self.appState.library.folder(containing: project.id) != nil {
-                items.append(Self.closureItem("Remove from Folder") { [weak self] in
+                items.append(Self.closureItem(String(localized: "Remove from Folder", comment: "Capture context menu item: takes the capture out of its folder")) { [weak self] in
                     self?.appState.library.removeFromFolder(project.id)
                 })
             }
@@ -1453,11 +1483,11 @@ extension ProjectBrowserViewController: NSCollectionViewDataSource, NSCollection
     private func promptDelete(_ note: Note) {
         guard let window = view.window else { return }
         let alert = CCAlert(
-            title: "Delete Note?",
-            message: "Are you sure you want to delete \"\(note.title)\"? This cannot be undone."
+            title: String(localized: "Delete Note?", comment: "Confirmation dialog title before deleting a note"),
+            message: String(localized: "Are you sure you want to delete \"\(note.title)\"? This cannot be undone.", comment: "Confirmation dialog message before deleting a note; the placeholder is the note title")
         )
-        alert.addButton("Delete", role: .destructive)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Delete", comment: "Confirmation dialog button: deletes permanently (verb)"), role: .destructive)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         alert.beginSheet(for: window) { [weak self] index in
             guard index == 0 else { return }
             self?.appState.noteStore.delete(note)
@@ -1467,9 +1497,9 @@ extension ProjectBrowserViewController: NSCollectionViewDataSource, NSCollection
     private func promptNewFolderAndAdd(_ project: Project) {
         guard let window = view.window else { return }
         CCAlert.prompt(
-            title: "New Folder",
-            placeholder: "Folder name",
-            confirmTitle: "Create",
+            title: String(localized: "New Folder", comment: "Dialog title: create a new folder in the capture library"),
+            placeholder: String(localized: "Folder name", comment: "Placeholder in the new/rename folder dialog text field"),
+            confirmTitle: String(localized: "Create", comment: "Button in the new folder dialog: creates the folder (verb)"),
             in: window
         ) { [weak self] name in
             guard let name else { return }
@@ -1539,13 +1569,13 @@ extension ProjectBrowserViewController: NSCollectionViewDataSource, NSCollection
         let firstName = projects.first?.name ?? notes.first?.title ?? ""
         guard count > 0, let window = view.window else { return }
         let alert = CCAlert(
-            title: count == 1 ? "Delete Capture?" : "Delete \(count) Captures?",
+            title: count == 1 ? String(localized: "Delete Capture?", comment: "Confirmation dialog title before deleting one capture") : String(localized: "Delete \(count) Captures?", comment: "Confirmation dialog title before deleting several captures; the number is the count"),
             message: count == 1
-                ? "Are you sure you want to delete \"\(firstName)\"? This cannot be undone."
-                : "Are you sure you want to delete these \(count) captures? This cannot be undone."
+                ? String(localized: "Are you sure you want to delete \"\(firstName)\"? This cannot be undone.", comment: "Confirmation dialog message before deleting a capture; the placeholder is the capture name")
+                : String(localized: "Are you sure you want to delete these \(count) captures? This cannot be undone.", comment: "Confirmation dialog message before deleting several captures; the number is the count")
         )
-        alert.addButton("Delete", role: .destructive)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Delete", comment: "Confirmation dialog button: deletes permanently (verb)"), role: .destructive)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         alert.beginSheet(for: window) { [weak self] index in
             guard index == 0, let self else { return }
             for project in projects {
@@ -1733,7 +1763,7 @@ private final class SearchSuggestionRow: NSView {
             titleColor = EditorThemeKit.textSecondary
         case .query(let query):
             symbol = "magnifyingglass"
-            title = "Search for \u{201C}\(query)\u{201D}"
+            title = String(localized: "Search for \u{201C}\(query)\u{201D}", comment: "Capture search suggestion row: runs a search for the typed text; the placeholder is the query")
             titleColor = EditorThemeKit.textSecondary
         case .capture(_, let kind, let captureTitle, let captureSnippet, let time):
             switch kind {
@@ -1872,9 +1902,9 @@ final class BrowserSidebarView: NSView {
     private let stack = NSStackView()
     private var rowControls: [ProjectBrowserViewController.SidebarFilter: SidebarRowControl] = [:]
     private var hoverGlide: CCGlideHighlight?
-    private let foldersHeader = NSTextField(labelWithString: "FOLDERS")
+    private let foldersHeader = NSTextField(labelWithString: String(localized: "FOLDERS", comment: "Capture library sidebar section header (all caps)"))
     private let newFolderButton = SidebarRowControl(
-        title: "New Folder...",
+        title: String(localized: "New Folder...", comment: "Capture library sidebar button: creates a new folder"),
         icon: CCIcon.image("plus", pointSize: 11, weight: .medium) ?? NSImage(),
         isAction: true)
     private let trailingHairline = NSView()
@@ -2237,7 +2267,7 @@ final class SidebarAccountControl: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     func configure(name: String?, imageURL: URL?, signedIn: Bool) {
-        nameLabel.stringValue = signedIn ? (name ?? "Account") : "Sign In"
+        nameLabel.stringValue = signedIn ? (name ?? String(localized: "Account", comment: "Capture library sidebar account button when the user has no display name")) : String(localized: "Sign In", comment: "Capture library sidebar account button when signed out (verb)")
         chevron.isHidden = !signedIn
 
         guard signedIn else {
@@ -2394,7 +2424,7 @@ private final class ProjectCardItem: NSCollectionViewItem {
 
         pinBadge.translatesAutoresizingMaskIntoConstraints = false
         pinBadge.image = CCIcon.image("pin.fill", pointSize: 9, weight: .semibold,
-                                      accessibilityDescription: "Pinned")
+                                      accessibilityDescription: String(localized: "Pinned", comment: "Accessibility label for the pin badge on a capture card (adjective)"))
         pinBadge.contentTintColor = .white
         pinBadge.wantsLayer = true
         pinBadge.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
@@ -2503,7 +2533,7 @@ private final class ProjectCardItem: NSCollectionViewItem {
         formatter.unitsStyle = .abbreviated
         let date = formatter.localizedString(for: project.createdAt, relativeTo: Date())
         metaField.stringValue = isShared
-            ? "\(duration) · \(date) · shared"
+            ? String(localized: "\(duration) · \(date) · shared", comment: "Capture card meta line: duration (m:ss), relative date, and a note that the capture has been shared")
             : "\(duration) · \(date)"
 
         // Background share job state overrides the meta line while active.
@@ -2511,21 +2541,21 @@ private final class ProjectCardItem: NSCollectionViewItem {
         case .exporting(let progress):
             uploadTrack.isHidden = false
             setUploadFraction(progress)
-            metaField.stringValue = "Exporting \(Int((progress * 100).rounded()))%…"
+            metaField.stringValue = String(localized: "Exporting \(Int((progress * 100).rounded()))%…", comment: "Capture card status while preparing a share upload; the number is percent complete")
             metaField.textColor = EditorThemeKit.textPrimary
         case .uploading(let progress):
             uploadTrack.isHidden = false
             setUploadFraction(progress)
-            metaField.stringValue = "Uploading \(Int((progress * 100).rounded()))%…"
+            metaField.stringValue = String(localized: "Uploading \(Int((progress * 100).rounded()))%…", comment: "Capture card status while uploading for sharing; the number is percent complete")
             metaField.textColor = EditorThemeKit.textPrimary
         case .completing:
             uploadTrack.isHidden = false
             setUploadFraction(1)
-            metaField.stringValue = "Creating share link…"
+            metaField.stringValue = String(localized: "Creating share link…", comment: "Capture card status while the share link is being created")
             metaField.textColor = EditorThemeKit.textPrimary
         case .failed(let message):
             uploadTrack.isHidden = true
-            metaField.stringValue = "Upload failed — \(message)"
+            metaField.stringValue = String(localized: "Upload failed — \(message)", comment: "Capture card status when a share upload fails; the placeholder is the error message")
             metaField.textColor = .systemRed
         case .done, .idle, nil:
             uploadTrack.isHidden = true
@@ -2540,7 +2570,7 @@ private final class ProjectCardItem: NSCollectionViewItem {
         case .done, .idle, nil: false
         }
         if let searchSnippet, !uploadOwnsMetaLine {
-            metaField.stringValue = "match: \(searchSnippet)"
+            metaField.stringValue = String(localized: "match: \(searchSnippet)", comment: "Capture card line explaining why a search matched; the placeholder is text found in the video (lowercase label)")
             metaField.textColor = EditorThemeKit.textTertiary
         }
 
@@ -2564,11 +2594,11 @@ private final class ProjectCardItem: NSCollectionViewItem {
 
     private func buildContextMenu() -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(menuItem("Open") { [weak self] in self?.onOpen?() })
+        menu.addItem(menuItem(String(localized: "Open", comment: "Capture card context menu item: opens the capture (verb)")) { [weak self] in self?.onOpen?() })
         menu.addItem(.separator())
-        menu.addItem(menuItem("Share…") { [weak self] in self?.onShare?() })
+        menu.addItem(menuItem(String(localized: "Share…", comment: "Capture card context menu item: opens the share sheet (verb)")) { [weak self] in self?.onShare?() })
         if let url = shareURLToCopy {
-            menu.addItem(menuItem("Copy Share Link") {
+            menu.addItem(menuItem(String(localized: "Copy Share Link", comment: "Capture card context menu item: copies the share URL")) {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(url, forType: .string)
             })
@@ -2584,12 +2614,12 @@ private final class ProjectCardItem: NSCollectionViewItem {
             menu.addItem(item)
         }
         menu.addItem(.separator())
-        menu.addItem(menuItem("Rename...") { [weak self] in self?.onRename?() })
-        menu.addItem(menuItem("Duplicate") { [weak self] in self?.onDuplicate?() })
+        menu.addItem(menuItem(String(localized: "Rename...", comment: "Capture card context menu item (verb)")) { [weak self] in self?.onRename?() })
+        menu.addItem(menuItem(String(localized: "Duplicate", comment: "Capture card context menu item: makes a copy (verb)")) { [weak self] in self?.onDuplicate?() })
         menu.addItem(.separator())
-        let delete = menuItem("Delete...") { [weak self] in self?.onDelete?() }
+        let delete = menuItem(String(localized: "Delete...", comment: "Card context menu item: deletes after confirmation (verb)")) { [weak self] in self?.onDelete?() }
         delete.attributedTitle = NSAttributedString(
-            string: "Delete...",
+            string: String(localized: "Delete...", comment: "Card context menu item: deletes after confirmation (verb)"),
             attributes: [.foregroundColor: NSColor.systemRed]
         )
         menu.addItem(delete)
@@ -2688,7 +2718,7 @@ private final class NoteCardItem: NSCollectionViewItem {
 
         noteGlyph.translatesAutoresizingMaskIntoConstraints = false
         noteGlyph.image = CCIcon.image("note.text", pointSize: 10, weight: .semibold,
-                                       accessibilityDescription: "Note")
+                                       accessibilityDescription: String(localized: "Note", comment: "Accessibility label for the note glyph on a note card (noun)"))
         previewBox.addSubview(noteGlyph)
 
         reminderBadge.translatesAutoresizingMaskIntoConstraints = false
@@ -2760,21 +2790,21 @@ private final class NoteCardItem: NSCollectionViewItem {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         let date = formatter.localizedString(for: note.createdAt, relativeTo: Date())
-        metaField.stringValue = note.sourceAppName.map { "Note · \($0) · \(date)" } ?? "Note · \(date)"
+        metaField.stringValue = note.sourceAppName.map { String(localized: "Note · \($0) · \(date)", comment: "Note card meta line: the word Note, the app the note was taken in, and a relative date") } ?? String(localized: "Note · \(date)", comment: "Note card meta line: the word Note and a relative date")
         reminderBadge.configure(text: ReminderCenter.badgeText(for: note.reminderDate))
     }
 
     private func buildContextMenu() -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(cardMenuItem("Open") { [weak self] in self?.onOpen?() })
+        menu.addItem(cardMenuItem(String(localized: "Open", comment: "Note card context menu item: opens the note (verb)")) { [weak self] in self?.onOpen?() })
         menu.addItem(.separator())
         for item in reminderMenuItems?() ?? [] {
             menu.addItem(item)
         }
         menu.addItem(.separator())
-        let delete = cardMenuItem("Delete...") { [weak self] in self?.onDelete?() }
+        let delete = cardMenuItem(String(localized: "Delete...", comment: "Card context menu item: deletes after confirmation (verb)")) { [weak self] in self?.onDelete?() }
         delete.attributedTitle = NSAttributedString(
-            string: "Delete...",
+            string: String(localized: "Delete...", comment: "Card context menu item: deletes after confirmation (verb)"),
             attributes: [.foregroundColor: NSColor.systemRed]
         )
         menu.addItem(delete)
@@ -2824,7 +2854,7 @@ fileprivate final class ReminderBadgeLabel: NSView {
         layer?.cornerCurve = .continuous
 
         icon.image = CCIcon.image("bell.fill", pointSize: 8, weight: .semibold,
-                                  accessibilityDescription: "Reminder")
+                                  accessibilityDescription: String(localized: "Reminder", comment: "Accessibility label for the reminder bell badge on a card (noun)"))
         icon.contentTintColor = .white
         icon.translatesAutoresizingMaskIntoConstraints = false
         addSubview(icon)

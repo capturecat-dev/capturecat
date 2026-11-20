@@ -26,9 +26,9 @@ final class WirelessDeviceRecorder: NSObject {
         var errorDescription: String? {
             switch self {
             case .notStreaming:
-                return "The iPhone isn't streaming. Tap Start Broadcast in CaptureCat on your iPhone."
+                return String(localized: "The iPhone isn't streaming. Tap Start Broadcast in CaptureCat on your iPhone.", comment: "Recording error: the iPhone over Wi-Fi is not sending video; Start Broadcast is the iOS button name")
             case .writerFailed:
-                return "Couldn't start writing the iPhone recording."
+                return String(localized: "Couldn't start writing the iPhone recording.", comment: "Recording error: the iPhone recording file could not be created")
             }
         }
     }

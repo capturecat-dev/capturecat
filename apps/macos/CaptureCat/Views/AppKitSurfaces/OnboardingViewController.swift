@@ -51,9 +51,9 @@ final class OnboardingViewController: NSViewController {
 
         var label: String {
             switch self {
-            case .unknown: return "Pending"
-            case .denied: return "Blocked"
-            case .granted: return "Allowed"
+            case .unknown: return String(localized: "Pending", comment: "Onboarding permissions: status of a permission not yet asked for")
+            case .denied: return String(localized: "Blocked", comment: "Onboarding permissions: status of a permission the person denied")
+            case .granted: return String(localized: "Allowed", comment: "Onboarding permissions: status of a granted permission")
             }
         }
 
@@ -107,8 +107,8 @@ final class OnboardingViewController: NSViewController {
     private var currentPage: StepPageView?
     private let footerDivider = CCDivider()
     private let stepIndicator = CCStepIndicator(count: Step.allCases.count)
-    private let backButton = CCButton(title: "Back", symbol: "chevron.left", style: .ghost)
-    private let nextButton = CCButton(title: "Get Started", style: .primary, size: .lg)
+    private let backButton = CCButton(title: String(localized: "Back", comment: "Onboarding footer button: go to the previous step"), symbol: "chevron.left", style: .ghost)
+    private let nextButton = CCButton(title: String(localized: "Get Started", comment: "Onboarding footer button on the first step: begin onboarding"), style: .primary, size: .lg)
     private let stage = OnboardingStageView()
     private var activationObserver: NSObjectProtocol?
     private var themeObservation: CCThemeObservation?
@@ -116,27 +116,27 @@ final class OnboardingViewController: NSViewController {
     // MARK: Step-owned controls (kept alive across transitions)
 
     private let screenRow = PermissionRow(
-        title: "Screen Recording", detail: "Required to record",
+        title: String(localized: "Screen Recording", comment: "Onboarding permissions row title: the macOS Screen Recording permission"), detail: String(localized: "Required to record", comment: "Onboarding permissions row detail under Screen Recording"),
         symbol: "rectangle.inset.filled.badge.record")
     private let notifRow = PermissionRow(
-        title: "Notifications", detail: "Optional · capture reminders",
+        title: String(localized: "Notifications", comment: "Onboarding permissions row title: the macOS Notifications permission"), detail: String(localized: "Optional · capture reminders", comment: "Onboarding permissions row detail under Notifications"),
         symbol: "bell.badge")
     private let micRow = PermissionRow(
-        title: "Microphone", detail: "Optional · narrate recordings",
+        title: String(localized: "Microphone", comment: "Onboarding permissions row title: the macOS Microphone permission"), detail: String(localized: "Optional · narrate recordings", comment: "Onboarding permissions row detail under Microphone"),
         symbol: "mic.fill")
     private let cameraRow = PermissionRow(
-        title: "Camera", detail: "Optional · webcam bubble",
+        title: String(localized: "Camera", comment: "Onboarding permissions row title: the macOS Camera permission"), detail: String(localized: "Optional · webcam bubble", comment: "Onboarding permissions row detail under Camera"),
         symbol: "camera.fill")
-    private let relaunchButton = CCButton(title: "Relaunch to Apply", symbol: "arrow.clockwise", style: .primary)
+    private let relaunchButton = CCButton(title: String(localized: "Relaunch to Apply", comment: "Onboarding button: relaunch the app so a Screen Recording grant takes effect"), symbol: "arrow.clockwise", style: .primary)
     private let deniedNote = NSTextField(wrappingLabelWithString: "")
 
-    private let signInButton = CCButton(title: "Sign In with Browser", symbol: "person.crop.circle",
+    private let signInButton = CCButton(title: String(localized: "Sign In with Browser", comment: "Onboarding account step button: opens the browser to sign in"), symbol: "person.crop.circle",
                                         style: .primary, size: .lg)
     private let signInSpinner = CCSpinner()
     private let accountErrorLabel = NSTextField(wrappingLabelWithString: "")
     private let accountCard = AccountCardView()
 
-    private let termsCheckbox = CCCheckbox(title: "I agree to the Terms and Privacy Policy")
+    private let termsCheckbox = CCCheckbox(title: String(localized: "I agree to the Terms and Privacy Policy", comment: "Onboarding finish step checkbox: accept Terms of Service and Privacy Policy"))
 
     /// Deep links used by the permission rows — exposed for the harness.
     nonisolated static let notificationSettingsURL =
@@ -522,14 +522,14 @@ final class OnboardingViewController: NSViewController {
     private func buildWelcomeStep() -> StepPageView {
         let mark = CaptureCatMarkView(height: 50)
         let features = FeatureList(items: [
-            ("plus.magnifyingglass", "Automatic zooms that follow every click"),
-            ("cursorarrow.motionlines", "Silky cursor, device frames, backgrounds"),
-            ("sparkles", "Captions, share links and AI-agent editing"),
+            ("plus.magnifyingglass", String(localized: "Automatic zooms that follow every click", comment: "Onboarding welcome step: feature bullet")),
+            ("cursorarrow.motionlines", String(localized: "Silky cursor, device frames, backgrounds", comment: "Onboarding welcome step: feature bullet")),
+            ("sparkles", String(localized: "Captions, share links and AI-agent editing", comment: "Onboarding welcome step: feature bullet")),
         ])
         return stepPage(
-            overline: "Welcome",
-            title: "Screen recordings that edit themselves",
-            subtitle: "CaptureCat turns a raw take into a polished video — no timeline wrangling. A couple of quick permissions and you're rolling.",
+            overline: String(localized: "Welcome", comment: "Onboarding welcome step: small overline above the title (shown uppercased)"),
+            title: String(localized: "Screen recordings that edit themselves", comment: "Onboarding welcome step: title"),
+            subtitle: String(localized: "CaptureCat turns a raw take into a polished video — no timeline wrangling. A couple of quick permissions and you're rolling.", comment: "Onboarding welcome step: subtitle"),
             lead: mark,
             content: [features]
         )
@@ -549,9 +549,9 @@ final class OnboardingViewController: NSViewController {
         deniedNote.fullWidthInStack = true
 
         let page = stepPage(
-            overline: "Permissions",
-            title: "A few permissions",
-            subtitle: "Screen Recording is required to record. The rest are optional — grant them now or any time later.",
+            overline: String(localized: "Permissions", comment: "Onboarding permissions step: small overline above the title (shown uppercased)"),
+            title: String(localized: "A few permissions", comment: "Onboarding permissions step: title"),
+            subtitle: String(localized: "Screen Recording is required to record. The rest are optional — grant them now or any time later.", comment: "Onboarding permissions step: subtitle"),
             content: [card, deniedNote, relaunchButton]
         )
         page.staggerTargets = Array(page.staggerTargets.prefix(3)) + [card, deniedNote, relaunchButton]
@@ -571,14 +571,14 @@ final class OnboardingViewController: NSViewController {
         signInRow.spacing = CCSpace.sm
 
         let perks = FeatureList(items: [
-            ("icloud.and.arrow.up", "Projects sync across your Macs"),
-            ("link", "Instant share links with transcripts"),
-            ("timer", "Have Pro? Recordings of any length, for work too"),
+            ("icloud.and.arrow.up", String(localized: "Projects sync across your Macs", comment: "Onboarding account step: perk bullet")),
+            ("link", String(localized: "Instant share links with transcripts", comment: "Onboarding account step: perk bullet")),
+            ("timer", String(localized: "Have Pro? Recordings of any length, for work too", comment: "Onboarding account step: perk bullet about the Pro plan")),
         ])
         return stepPage(
-            overline: "Account",
-            title: "Sign in to share",
-            subtitle: "CaptureCat is free for personal use, with recordings up to 5 minutes, and needs no account. Sign in to sync and share, or to use Pro. Prefer to look around first? Skip — you can sign in later from the menu bar.",
+            overline: String(localized: "Account", comment: "Onboarding account step: small overline above the title (shown uppercased)"),
+            title: String(localized: "Sign in to share", comment: "Onboarding account step: title"),
+            subtitle: String(localized: "CaptureCat is free for personal use, with recordings up to 5 minutes, and needs no account. Sign in to sync and share, or to use Pro. Prefer to look around first? Skip — you can sign in later from the menu bar.", comment: "Onboarding account step: subtitle"),
             content: [accountCard, signInRow, perks, accountErrorLabel]
         )
     }
@@ -587,11 +587,11 @@ final class OnboardingViewController: NSViewController {
     /// ⇧⌘3/4/5 — see ScreenshotHotkeys for the macOS caveat).
     private func buildDefaultToolStep() -> StepPageView {
         let yesCard = ChoiceCard(
-            title: "Yes, use CaptureCat for screenshots",
-            detail: "⇧⌘3, ⇧⌘4 and ⇧⌘5 open CaptureCat instead of macOS.",
+            title: String(localized: "Yes, use CaptureCat for screenshots", comment: "Onboarding screenshots step: choice card title"),
+            detail: String(localized: "⇧⌘3, ⇧⌘4 and ⇧⌘5 open CaptureCat instead of macOS.", comment: "Onboarding screenshots step: detail under the Yes choice; the symbols are keyboard shortcuts"),
             keys: ["⇧", "⌘", "4"])
         let noCard = ChoiceCard(
-            title: "No, keep my current screenshot tool",
+            title: String(localized: "No, keep my current screenshot tool", comment: "Onboarding screenshots step: choice card title"),
             detail: nil, keys: [])
         let select = { [weak self] (makeDefault: Bool) in
             guard let self else { return }
@@ -613,33 +613,33 @@ final class OnboardingViewController: NSViewController {
         yesCard.fullWidthInStack = true
         noCard.fullWidthInStack = true
 
-        let settingsLink = CCButton(title: "Open Accessibility Settings", symbol: "accessibility", style: .link)
+        let settingsLink = CCButton(title: String(localized: "Open Accessibility Settings", comment: "Onboarding screenshots step: link button that opens macOS Accessibility privacy settings"), symbol: "accessibility", style: .link)
         settingsLink.onClick = {
             guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
             NSWorkspace.shared.open(url)
         }
 
         return stepPage(
-            overline: "Screenshots",
-            title: "Make CaptureCat your screenshot tool?",
-            subtitle: "CaptureCat catches ⇧⌘3, ⇧⌘4 and ⇧⌘5 before macOS does — it just needs Accessibility access. You can change this any time in Settings.",
+            overline: String(localized: "Screenshots", comment: "Onboarding screenshots step: small overline above the title (shown uppercased)"),
+            title: String(localized: "Make CaptureCat your screenshot tool?", comment: "Onboarding screenshots step: title"),
+            subtitle: String(localized: "CaptureCat catches ⇧⌘3, ⇧⌘4 and ⇧⌘5 before macOS does — it just needs Accessibility access. You can change this any time in Settings.", comment: "Onboarding screenshots step: subtitle"),
             content: [yesCard, noCard, settingsLink]
         )
     }
 
     private func buildFinishStep() -> StepPageView {
         let highlights = FeatureList(items: [
-            ("record.circle", "Record any time from the CaptureCat icon in your menu bar."),
-            ("cursorarrow.rays", "Capture text anywhere: highlight → right-click → Services → Capture Text in CaptureCat."),
-            ("doc.on.clipboard", "Or File → New Note from Clipboard (⌥⌘N) — notes live beside recordings."),
+            ("record.circle", String(localized: "Record any time from the CaptureCat icon in your menu bar.", comment: "Onboarding finish step: tip bullet")),
+            ("cursorarrow.rays", String(localized: "Capture text anywhere: highlight → right-click → Services → Capture Text in CaptureCat.", comment: "Onboarding finish step: tip bullet; ‘Services’ and ‘Capture Text in CaptureCat’ are menu names")),
+            ("doc.on.clipboard", String(localized: "Or File → New Note from Clipboard (⌥⌘N) — notes live beside recordings.", comment: "Onboarding finish step: tip bullet; ‘File → New Note from Clipboard’ is a menu path")),
         ])
         let terms = CheckboxRow(checkbox: termsCheckbox)
         terms.fullWidthInStack = true
 
         let page = stepPage(
-            overline: "Ready",
-            title: "You're all set",
-            subtitle: "Here's what CaptureCat can do from day one.",
+            overline: String(localized: "Ready", comment: "Onboarding finish step: small overline above the title (shown uppercased)"),
+            title: String(localized: "You're all set", comment: "Onboarding finish step: title"),
+            subtitle: String(localized: "Here's what CaptureCat can do from day one.", comment: "Onboarding finish step: subtitle"),
             content: [highlights, terms]
         )
         page.staggerTargets = Array(page.staggerTargets.prefix(3)) + highlights.rows + [terms]
@@ -697,7 +697,7 @@ final class OnboardingViewController: NSViewController {
         } catch {
             let nsError = error as NSError
             logger.error("performSignIn: failed domain=\(nsError.domain, privacy: .public) code=\(nsError.code)")
-            accountErrorLabel.stringValue = "Sign-in didn't complete. You can try again or skip for now."
+            accountErrorLabel.stringValue = String(localized: "Sign-in didn't complete. You can try again or skip for now.", comment: "Onboarding account step: inline error when browser sign-in fails")
             accountErrorLabel.isHidden = false
         }
         isSigningIn = false
@@ -755,7 +755,7 @@ final class OnboardingViewController: NSViewController {
         signInButton.isHidden = signedIn
         signInSpinner.isHidden = !isSigningIn
         if signedIn {
-            accountCard.configure(email: appState.currentAccountEmail ?? "Signed in")
+            accountCard.configure(email: appState.currentAccountEmail ?? String(localized: "Signed in", comment: "Onboarding account card: shown when signed in (fallback when the email is unknown)"))
         }
         stage.update(accountEmail: signedIn ? (appState.currentAccountEmail ?? "you") : nil)
     }
@@ -765,7 +765,7 @@ final class OnboardingViewController: NSViewController {
                                   (micRow, microphonePermission), (cameraRow, cameraPermission)] {
             row.apply(
                 state: permission.label, color: permission.color,
-                buttonTitle: permission == .denied ? "Settings" : "Grant",
+                buttonTitle: permission == .denied ? String(localized: "Settings", comment: "Onboarding permissions row button: open System Settings for a denied permission") : String(localized: "Grant", comment: "Onboarding permissions row button (verb): request the permission"),
                 showsButton: permission != .granted,
                 enabled: !isRequestingPermissions,
                 granted: permission == .granted)
@@ -782,7 +782,7 @@ final class OnboardingViewController: NSViewController {
         deniedNote.isHidden = !screenDenied
         relaunchButton.isHidden = !screenDenied
         if screenDenied {
-            deniedNote.stringValue = "Enable CaptureCat in System Settings → Privacy & Security → Screen Recording, then relaunch — macOS applies the grant on the next launch. Missing from the list? Click + and add:\n\(Bundle.main.bundlePath)"
+            deniedNote.stringValue = String(localized: "Enable CaptureCat in System Settings → Privacy & Security → Screen Recording, then relaunch — macOS applies the grant on the next launch. Missing from the list? Click + and add:\n\(Bundle.main.bundlePath)", comment: "Onboarding permissions: note when Screen Recording is denied; the value is the app's file path")
         }
 
         signInButton.isEnabled = !isSigningIn
@@ -810,24 +810,24 @@ final class OnboardingViewController: NSViewController {
         }
         switch step {
         case .welcome:
-            nextButton.title = "Get Started"
+            nextButton.title = String(localized: "Get Started", comment: "Onboarding footer button on the first step: begin onboarding")
             nextButton.style = .primary
             nextButton.isEnabled = true
         case .permissions:
-            nextButton.title = "Continue"
+            nextButton.title = String(localized: "Continue", comment: "Onboarding footer button: go to the next step")
             nextButton.style = .primary
             nextButton.isEnabled = screenPermission == .granted
         case .account:
             let signedIn = appState.isSignedIn
-            nextButton.title = signedIn ? "Continue" : "Skip for Now"
+            nextButton.title = signedIn ? String(localized: "Continue", comment: "Onboarding footer button: go to the next step") : String(localized: "Skip for Now", comment: "Onboarding account step footer button: continue without signing in")
             nextButton.style = signedIn ? .primary : .secondary
             nextButton.isEnabled = true
         case .defaultTool:
-            nextButton.title = "Continue"
+            nextButton.title = String(localized: "Continue", comment: "Onboarding footer button: go to the next step")
             nextButton.style = .primary
             nextButton.isEnabled = true
         case .finish:
-            nextButton.title = "Start Recording"
+            nextButton.title = String(localized: "Start Recording", comment: "Onboarding footer button on the last step: finish onboarding and open the recorder")
             nextButton.style = .primary
             nextButton.isEnabled = termsCheckbox.isOn
         }
@@ -1116,7 +1116,9 @@ private final class PermissionRow: NSView {
     private let tile: KeyTile
     private let titleField: NSTextField
     private let detailField: NSTextField
-    private let grantButton = CCButton(title: "Grant", style: .secondary, size: .sm)
+    private var titleBeforeGrant: NSLayoutConstraint!
+    private var detailBeforeGrant: NSLayoutConstraint!
+    private let grantButton = CCButton(title: String(localized: "Grant", comment: "Onboarding permissions row button (verb): request the permission"), style: .secondary, size: .sm)
     private let statePill = NSView()
     private let stateDot = NSView()
     private let stateLabel = NSTextField(labelWithString: "")
@@ -1125,15 +1127,25 @@ private final class PermissionRow: NSView {
 
     init(title: String, detail: String, symbol: String) {
         tile = KeyTile(symbol: symbol)
-        titleField = NSTextField(labelWithString: title)
-        detailField = NSTextField(labelWithString: detail)
+        titleField = NSTextField(wrappingLabelWithString: title)
+        titleField.isSelectable = false
+        titleField.maximumNumberOfLines = 2
+        detailField = NSTextField(wrappingLabelWithString: detail)
+        detailField.isSelectable = false
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
 
         titleField.font = OnboardingType.rowTitle
         detailField.font = OnboardingType.caption
-        detailField.lineBreakMode = .byTruncatingTail
+        // Wraps instead of truncating: "Optional · Aufnahmen besprechen" or
+        // the Japanese detail must read whole in the narrow editor-host
+        // column. The row stays 44 pt while the detail fits one line.
+        detailField.cell?.wraps = true
+        detailField.lineBreakMode = .byWordWrapping
+        detailField.maximumNumberOfLines = 3
+        detailField.setContentCompressionResistancePriority(.required, for: .vertical)
+        titleField.setContentCompressionResistancePriority(.required, for: .vertical)
         for view in [tile, titleField, detailField, grantButton, statePill] as [NSView] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -1151,17 +1163,26 @@ private final class PermissionRow: NSView {
         statePill.addSubview(stateDot)
         statePill.addSubview(stateLabel)
 
+        titleBeforeGrant = titleField.trailingAnchor.constraint(lessThanOrEqualTo: grantButton.leadingAnchor, constant: -8)
+        detailBeforeGrant = detailField.trailingAnchor.constraint(lessThanOrEqualTo: grantButton.leadingAnchor, constant: -8)
+        let restingHeight = heightAnchor.constraint(equalToConstant: 44)
+        restingHeight.priority = .defaultHigh
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 44),
+            restingHeight,
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            bottomAnchor.constraint(greaterThanOrEqualTo: detailField.bottomAnchor, constant: 4),
+            titleField.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: 4),
             tile.leadingAnchor.constraint(equalTo: leadingAnchor),
             tile.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             titleField.leadingAnchor.constraint(equalTo: tile.trailingAnchor, constant: 11),
             titleField.bottomAnchor.constraint(equalTo: centerYAnchor, constant: 1),
-            titleField.trailingAnchor.constraint(lessThanOrEqualTo: grantButton.leadingAnchor, constant: -8),
+            titleBeforeGrant,
+            titleField.trailingAnchor.constraint(lessThanOrEqualTo: statePill.leadingAnchor, constant: -8),
             detailField.leadingAnchor.constraint(equalTo: titleField.leadingAnchor),
             detailField.topAnchor.constraint(equalTo: centerYAnchor, constant: 2),
-            detailField.trailingAnchor.constraint(lessThanOrEqualTo: grantButton.leadingAnchor, constant: -8),
+            detailBeforeGrant,
+            detailField.trailingAnchor.constraint(lessThanOrEqualTo: statePill.leadingAnchor, constant: -8),
 
             grantButton.trailingAnchor.constraint(equalTo: statePill.leadingAnchor, constant: -8),
             grantButton.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -1182,8 +1203,42 @@ private final class PermissionRow: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    /// Title and detail wrap at the room the row gives them (up to the Grant
+    /// button's slot, hidden or not) — one line each when they fit, so the
+    /// row keeps its 44 pt; a longer language wraps and the row grows.
+    /// Set from the row's width BEFORE layout, so one solve sees it.
+    override func setFrameSize(_ newSize: NSSize) {
+        let room = max(40, floor(newSize.width - statePill.fittingSize.width - 8
+                                 - (grantButton.isHidden ? 0 : grantButton.fittingSize.width + 8)
+                                 - tile.fittingSize.width - 11))
+        for field in [titleField, detailField] where abs(field.preferredMaxLayoutWidth - room) > 0.5 {
+            field.preferredMaxLayoutWidth = room
+            field.invalidateIntrinsicContentSize()
+        }
+        super.setFrameSize(newSize)
+    }
+
+    override func updateConstraints() {
+        // A hidden Grant button (already allowed) gives its room back to the
+        // title and detail — "Registrazione schermo" fits beside the pill.
+        let grantShown = !grantButton.isHidden
+        if titleBeforeGrant.isActive != grantShown {
+            titleBeforeGrant.isActive = grantShown
+            detailBeforeGrant.isActive = grantShown
+        }
+        super.updateConstraints()
+    }
+
     override func layout() {
         super.layout()
+        // The pre-layout estimate can be a point generous; when a field came
+        // out narrower than the width it wraps at, wrap at the real width.
+        for field in [titleField, detailField] where field.frame.width > 1
+            && field.frame.width < field.preferredMaxLayoutWidth - 0.5 {
+            field.preferredMaxLayoutWidth = floor(field.frame.width)
+            field.invalidateIntrinsicContentSize()
+            super.layout()
+        }
         if let layer = statePill.layer {
             CCMaterial.refit(layer, radius: CCRadius.full.resolved(for: statePill.bounds.height))
         }
@@ -1211,6 +1266,7 @@ private final class PermissionRow: NSView {
         grantButton.isEnabled = enabled
         if grantButton.isHidden == showsButton {
             grantButton.isHidden = !showsButton
+            needsUpdateConstraints = true
             if showsButton, let layer = grantButton.layer, window != nil {
                 Stage.oneShot(layer, "opacity", from: 0, to: 1, duration: 0.2)
             }
@@ -1246,7 +1302,7 @@ private final class AccountCardView: NSView {
     private let avatar = NSView()
     private let avatarInitial = NSTextField(labelWithString: "")
     private let emailField = NSTextField(labelWithString: "")
-    private let signedInLabel = NSTextField(labelWithString: "Signed in")
+    private let signedInLabel = NSTextField(labelWithString: String(localized: "Signed in", comment: "Onboarding account card: shown when signed in (fallback when the email is unknown)"))
     private let check = NSImageView()
     private var themeObservation: CCThemeObservation?
 

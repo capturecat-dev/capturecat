@@ -57,7 +57,7 @@ final class CCSearchField: NSView, NSTextFieldDelegate {
         NSSize(width: NSView.noIntrinsicMetric, height: controlHeight)
     }
 
-    init(placeholder: String = "Search…", height: CGFloat = 36, radius: CCRadius = .full) {
+    init(placeholder: String = String(localized: "Search…", comment: "Default placeholder in a search field"), height: CGFloat = 36, radius: CCRadius = .full) {
         self.placeholder = placeholder
         self.controlHeight = height
         self.radius = radius
@@ -67,7 +67,7 @@ final class CCSearchField: NSView, NSTextFieldDelegate {
         layer?.borderWidth = 1
 
         loupe.image = CCIcon.image("magnifyingglass", pointSize: 12, weight: .medium,
-                                   accessibilityDescription: "Search")
+                                   accessibilityDescription: String(localized: "Search", comment: "Accessibility label for the magnifying-glass icon in a search field"))
         loupe.translatesAutoresizingMaskIntoConstraints = false
         addSubview(loupe)
 

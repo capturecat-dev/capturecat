@@ -1049,7 +1049,7 @@ private final class CaptureCatMenuSession: NSObject {
         if modifiers.contains(.shift) { value += "⇧" }
         if modifiers.contains(.command) { value += "⌘" }
         let glyphs: [String: String] = [
-            "\u{8}": "⌫", "\u{7f}": "⌫", "\r": "↩", "\u{3}": "⌤", "\u{1b}": "⎋", "\t": "⇥", " ": "Space",
+            "\u{8}": "⌫", "\u{7f}": "⌫", "\r": "↩", "\u{3}": "⌤", "\u{1b}": "⎋", "\t": "⇥", " ": String(localized: "Space", comment: "Menu shortcut column: name of the space bar key, e.g. ⌘Space"),
             String(UnicodeScalar(NSDeleteFunctionKey)!): "⌦",
             String(UnicodeScalar(NSUpArrowFunctionKey)!): "↑",
             String(UnicodeScalar(NSDownArrowFunctionKey)!): "↓",

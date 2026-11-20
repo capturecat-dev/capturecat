@@ -149,9 +149,9 @@ final class HistoryLocalRowView: NSView {
     var onSyncNow: (() -> Void)?
 
     private let icon = NSImageView()
-    private let titleField = NSTextField(labelWithString: "On this Mac — not synced")
+    private let titleField = NSTextField(labelWithString: String(localized: "On this Mac — not synced", comment: "History panel pseudo-row title: local changes not yet uploaded to the cloud"))
     private let summaryField = NSTextField(labelWithString: "")
-    private let syncButton = CCButton(title: "Sync now", symbol: "arrow.triangle.2.circlepath", style: .secondary, size: .sm)
+    private let syncButton = CCButton(title: String(localized: "Sync now", comment: "Button: uploads this Mac's changes to the cloud now"), symbol: "arrow.triangle.2.circlepath", style: .secondary, size: .sm)
     private var themeObservation: CCThemeObservation?
 
     override var isFlipped: Bool { true }

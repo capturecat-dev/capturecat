@@ -1,0 +1,32 @@
+# mac-l10n.sh: texts allowed to come out identical to the English run.
+# Only CONTENT belongs here (fixture project names, the fixture annotation,
+# names the same in every language). App copy never does: translate it.
+# One exact text per line, or `re:<regex>`. Truncation of these is design.
+
+# Gate fixtures (harness-built content, not app copy)
+Probe label
+Shell Probe
+AppKit — RecordingPanelViewController
+capturecat.so/s/7fK2p
+# MenuShotHarness's synthetic context menu / wrap rows that no app menu has
+Split at Playhead
+Copy Effect Settings
+Rename…
+Push in at the playhead
+Pushes in on whatever the cursor is doing and eases back out when the pointer rests
+# Content from the machine running the gate: the signed-in email, device names
+re:^[^@\s]+@[^@\s]+\.[a-z]+$
+re:^(MacBook( Pro| Air)?|iMac|Mac Studio|Mac mini|Studio Display|FaceTime HD|.+[’']s (iPhone|iPad)) (Camera|Microphone)$
+# Names that are the same in every language
+CaptureCat
+iPhone
+# AI clients on Connect AI Agents (scoped: "Cursor" is also the Cursor tab)
+agent-setup-*|Claude Code
+agent-setup-*|Claude Desktop
+agent-setup-*|Codex
+agent-setup-*|Cursor
+agent-setup-*|Gemini CLI
+agent-setup-*|VS Code
+# Type-specimen glyphs in the subtitle preset preview
+Aa
+AA

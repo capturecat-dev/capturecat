@@ -498,7 +498,7 @@ class RecordingMenuChip: RecordingGlassChip {
         var options: [CCCombobox.Option]
         var selectedIndex: Int?
         var searchable = false
-        var emptyText = "No options"
+        var emptyText = String(localized: "No options", comment: "Recording panel dropdown: shown when a list has no entries")
         var onSelect: (Int) -> Void
         /// Trailing rows that run an action instead of picking a value
         /// ("Sign in to use your iPhone over Wi-Fi", "Forget my devices…").
@@ -580,7 +580,12 @@ final class RecordingTabChip: RecordingButtonChip {
         stack.spacing = 2
         stack.alignment = .centerX
         install(stack, horizontalPadding: 2, height: height)
-        widthAnchor.constraint(equalToConstant: width).isActive = true
+        // The design width, unless the label (a longer language: "Bildschirm",
+        // "スクリーンショット") needs more — then the label's width plus the
+        // chip's breathing room. English labels fit 52/66, so English layout
+        // is unchanged.
+        let labelNeed = ceil(titleField.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: 10_000, height: 100)).width ?? 0)
+        widthAnchor.constraint(equalToConstant: max(width, labelNeed + 10)).isActive = true
         restyle()
     }
 
@@ -631,13 +636,18 @@ final class RecordingMenuFieldChip: RecordingMenuChip {
     private let tile: RecordingIconTile
     private var iconView: NSImageView { tile.iconView }
     private let titleField: NSTextField
+    private let chevronView: NSImageView
+    private let designWidth: CGFloat
+    private var widthConstraint: NSLayoutConstraint!
 
     init(symbol: String, title: String, width: CGFloat) {
         tile = RecordingIconTile(symbol: symbol)
         titleField = RecordingGlassChip.label(title, font: RecordingPanelMetrics.toolbarText())
+        let chevron = RecordingGlassChip.icon("chevron.down", size: 9, weight: .semibold, color: .secondaryLabelColor)
+        chevronView = chevron
+        designWidth = width
         super.init()
 
-        let chevron = RecordingGlassChip.icon("chevron.down", size: 9, weight: .semibold, color: .secondaryLabelColor)
         let spacer = NSView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
 
@@ -656,16 +666,28 @@ final class RecordingMenuFieldChip: RecordingMenuChip {
         // Not required: on a panel too narrow for the full toolbar the wide
         // chips give up width (labels truncate) rather than pushing the record
         // and close buttons off the panel edge.
-        let widthConstraint = widthAnchor.constraint(equalToConstant: width)
+        widthConstraint = widthAnchor.constraint(equalToConstant: width)
         widthConstraint.priority = .init(999)
         widthConstraint.isActive = true
+        refitWidth()
+    }
+
+    /// The design width, grown (to at most 1.5×) when the title needs more —
+    /// a longer language's "Mikro · Keine Kamera" / "マイク · カメラなし".
+    /// English titles fit the design width, so English layout is unchanged.
+    private func refitWidth() {
+        let need = ceil(titleField.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: 10_000, height: 100)).width ?? 0)
+        let overhead = 8 * 2 + tile.fittingSize.width + 8 + 4 + RecordingPanelMetrics.controlSpacing * 2
+            + chevronView.fittingSize.width
+        let wanted = min(max(designWidth, need + overhead), designWidth * 1.5)
+        if abs(widthConstraint.constant - wanted) > 0.5 { widthConstraint.constant = wanted }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     var title: String {
         get { titleField.stringValue }
-        set { titleField.stringValue = newValue }
+        set { titleField.stringValue = newValue; refitWidth() }
     }
 
     /// Title change that crossfades (state changes — e.g. a Wi-Fi phone
@@ -678,6 +700,7 @@ final class RecordingMenuFieldChip: RecordingMenuChip {
         guard titleField.stringValue != newValue else { return }
         if animated, !Self.debugInjectSnap { CCMotion.fadeContentSwap(titleField) }
         titleField.stringValue = newValue
+        refitWidth()
     }
 
     /// Quiet inline failure, the URL field's language: a red hairline and
@@ -930,7 +953,7 @@ final class RecordingTimerChip: RecordingGlassChip {
     func update(text: String, live: Bool, color: NSColor = .labelColor, limitText: String? = nil) {
         timeField.stringValue = text
         timeField.textColor = color
-        limitField.stringValue = limitText.map { "of \($0)" } ?? ""
+        limitField.stringValue = limitText.map { String(localized: "of \($0)", comment: "Recording timer: follows the elapsed time to show the duration limit, e.g. \"of 5 min\"; the value is the limit") } ?? ""
         limitField.isHidden = limitText == nil
         guard live != isLive || dot.layer?.animation(forKey: Self.pulseKey) == nil else { return }
         isLive = live
@@ -994,7 +1017,7 @@ final class RecordingSourceChip: RecordingGlassChip {
             nameField.stringValue = label
         }
         iconView.image = RecordingPanelMetrics.symbol(isDevice ? "iphone" : "display", size: 11, weight: .semibold)
-        toolTip = explicitToolTip ?? "Currently recording: \(label)"
+        toolTip = explicitToolTip ?? String(localized: "Currently recording: \(label)", comment: "Recording panel tooltip on the source chip; the value is the display, window or device name")
     }
 
     var debugLabel: String { nameField.stringValue }
@@ -1006,8 +1029,8 @@ enum RecordingLimitLabel {
     /// "15s" / "2 min" / "1:30" — short label for a limit in seconds.
     static func label(forLimit seconds: TimeInterval) -> String {
         let whole = Int(seconds.rounded())
-        if whole < 60 { return "\(whole)s" }
-        if whole % 60 == 0 { return "\(whole / 60) min" }
+        if whole < 60 { return String(localized: "\(whole)s", comment: "Short duration limit label in seconds, e.g. \"15s\"; s = seconds") }
+        if whole % 60 == 0 { return String(localized: "\(whole / 60) min", comment: "Short duration limit label in minutes, e.g. \"5 min\"; min = minutes") }
         return TimeInterval(whole).formattedTimecode
     }
 }
@@ -1083,7 +1106,7 @@ final class RecordingURLFieldChip: RecordingGlassChip, NSTextFieldDelegate {
         iconView = RecordingGlassChip.icon("link", size: 13, color: .secondaryLabelColor)
         super.init()
 
-        field.placeholderString = "example.com"
+        field.placeholderString = String(localized: "example.com", comment: "Recording panel URL field placeholder: an example web address to capture")
         field.font = RecordingPanelMetrics.toolbarText()
         field.isBordered = false
         field.drawsBackground = false
@@ -1189,6 +1212,14 @@ enum CaptureMode: String, CaseIterable {
         case .screenshot: return "camera"
         }
     }
+
+    /// Title shown on the mode switch. The raw value stays the identity.
+    var displayName: String {
+        switch self {
+        case .record: return String(localized: "Record", comment: "Recording panel mode switch: produce a video (noun-like mode name, not a button that starts recording)")
+        case .screenshot: return String(localized: "Screenshot", comment: "Recording panel mode switch: produce a still image")
+        }
+    }
 }
 
 /// Two-up mode switch that reads as one control.
@@ -1233,7 +1264,7 @@ final class RecordingModeSwitch: NSView {
             // "Screenshot" needs more room than the 52pt source tabs. The
             // segments are inset-shorter than the row so the well around
             // them is exactly one control tall.
-            let chip = RecordingTabChip(title: m.rawValue, symbol: m.icon, width: 66,
+            let chip = RecordingTabChip(title: m.displayName, symbol: m.icon, width: 66,
                                         height: RecordingPanelMetrics.controlHeight - inset * 2)
             chip.usesExternalSelection = true
             chip.onClick = { [weak self] in

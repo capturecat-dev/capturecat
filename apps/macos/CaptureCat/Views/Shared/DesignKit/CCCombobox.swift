@@ -128,9 +128,9 @@ class CCCombobox: NSControl {
     var placeholder: String {
         didSet { refreshTrigger() }
     }
-    var searchPlaceholder = "Search…"
+    var searchPlaceholder = String(localized: "Search…", comment: "Default placeholder in a search field")
     /// Shown when the filter matches nothing.
-    var emptyText = "No results"
+    var emptyText = String(localized: "No results", comment: "Default text in a searchable dropdown when the search matches nothing")
     var onSelect: ((Int) -> Void)?
     /// Corner scale for the trigger; `.full` = capsule.
     var radius: CCRadius = .md {
@@ -168,7 +168,7 @@ class CCCombobox: NSControl {
     }
 
     init(
-        placeholder: String = "Select…",
+        placeholder: String = String(localized: "Select…", comment: "Default placeholder on a dropdown before anything is chosen"),
         searchable: Bool = true,
         size: Size = .regular,
         chrome: Chrome = .elevated
@@ -336,7 +336,7 @@ class CCCombobox: NSControl {
 ///     quality.onSelect = { index in ... }
 @MainActor
 final class CCSelect: CCCombobox {
-    init(placeholder: String = "Select…", size: Size = .regular, chrome: Chrome = .elevated) {
+    init(placeholder: String = String(localized: "Select…", comment: "Default placeholder on a dropdown before anything is chosen"), size: Size = .regular, chrome: Chrome = .elevated) {
         super.init(placeholder: placeholder, searchable: false, size: size, chrome: chrome)
     }
 
@@ -486,7 +486,8 @@ final class CCComboboxPopup: NSObject, NSTextFieldDelegate {
         for index in shown..<rowPool.count { rowPool[index].isHidden = true }
         moreLabel.isHidden = visibleIndices.count <= shown
         if !moreLabel.isHidden {
-            moreLabel.stringValue = "\(visibleIndices.count - shown) more — keep typing to narrow"
+            let hiddenCount = visibleIndices.count - shown
+            moreLabel.stringValue = String(localized: "\(hiddenCount) more — keep typing to narrow", comment: "Searchable dropdown footer: the number is how many more options are hidden; typing filters the list")
         }
         layoutPanel()
         // Unfiltered, the highlight starts on the current value (macOS
@@ -696,8 +697,8 @@ extension CCComboboxPopup {
         selectedIndex: Int? = nil,
         from anchor: NSView,
         searchable: Bool = false,
-        searchPlaceholder: String = "Search…",
-        emptyText: String = "No options",
+        searchPlaceholder: String = String(localized: "Search…", comment: "Default placeholder in a search field"),
+        emptyText: String = String(localized: "No options", comment: "Default text in a searchable dropdown when the search matches nothing"),
         minWidth: CGFloat = 220,
         onSelect: @escaping (Int) -> Void
     ) -> CCComboboxPopup {

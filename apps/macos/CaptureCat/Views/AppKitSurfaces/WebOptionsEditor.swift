@@ -34,7 +34,7 @@ final class WebOptionsEditorViewController: NSViewController {
         column.spacing = 10
         column.translatesAutoresizingMaskIntoConstraints = false
 
-        column.addArrangedSubview(caption("Height"))
+        column.addArrangedSubview(caption(String(localized: "Height", comment: "Web page capture options popover: section caption for how tall a page capture is")))
         let heightRow = NSStackView()
         heightRow.orientation = .horizontal
         heightRow.spacing = 2
@@ -46,12 +46,12 @@ final class WebOptionsEditorViewController: NSViewController {
         }
         column.addArrangedSubview(heightRow)
 
-        column.addArrangedSubview(caption("Page"))
+        column.addArrangedSubview(caption(String(localized: "Page", comment: "Web page capture options popover: section caption for page tweaks (dark mode, hide banners…)")))
         let toggles: [(String, WritableKeyPath<WebCaptureOptions, Bool>)] = [
-            ("Dark Mode", \.darkMode),
-            ("Hide Cookie Banners", \.hideCookieBanners),
-            ("Hide Chat Widgets", \.hideChatWidgets),
-            ("Reduce Motion", \.reduceMotion),
+            (String(localized: "Dark Mode", comment: "Web page capture options popover: toggle to capture the site in its dark theme"), \.darkMode),
+            (String(localized: "Hide Cookie Banners", comment: "Web page capture options popover: toggle"), \.hideCookieBanners),
+            (String(localized: "Hide Chat Widgets", comment: "Web page capture options popover: toggle to hide support-chat bubbles"), \.hideChatWidgets),
+            (String(localized: "Reduce Motion", comment: "Web page capture options popover: toggle to ask the site to minimise animation"), \.reduceMotion),
         ]
         for (title, keyPath) in toggles {
             let row = FlatToggleRow(title: title) { [weak self] in
@@ -64,7 +64,7 @@ final class WebOptionsEditorViewController: NSViewController {
             if keyPath == \WebCaptureOptions.darkMode {
                 // Expectation-setter: dark mode is the SITE'S dark theme, not
                 // an invented restyle — sites without one stay as designed.
-                let note = NSTextField(labelWithString: "Uses the site's own dark theme when it has one.")
+                let note = NSTextField(labelWithString: String(localized: "Uses the site's own dark theme when it has one.", comment: "Web page capture options popover: note under the Dark Mode toggle"))
                 note.font = .systemFont(ofSize: 10)
                 note.textColor = .tertiaryLabelColor
                 column.setCustomSpacing(2, after: row)
@@ -72,12 +72,12 @@ final class WebOptionsEditorViewController: NSViewController {
             }
         }
 
-        column.addArrangedSubview(caption("Delay Before Capture"))
+        column.addArrangedSubview(caption(String(localized: "Delay Before Capture", comment: "Web page capture options popover: section caption for waiting before the page is captured")))
         let delayRow = NSStackView()
         delayRow.orientation = .horizontal
         delayRow.spacing = 2
         for seconds in [0, 1, 2, 5] {
-            let button = FlatOptionButton(title: seconds == 0 ? "None" : "\(seconds)s")
+            let button = FlatOptionButton(title: seconds == 0 ? String(localized: "None", comment: "Web page capture options popover: no delay before capture") : String(localized: "\(seconds)s", comment: "Web page capture options popover: delay option in seconds, e.g. \"2s\"; s = seconds"))
             button.onClick = { [weak self] in self?.set { $0.delaySeconds = seconds } }
             delayButtons[seconds] = button
             delayRow.addArrangedSubview(button)

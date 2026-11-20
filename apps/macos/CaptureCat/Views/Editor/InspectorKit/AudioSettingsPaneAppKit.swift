@@ -33,7 +33,7 @@ final class AudioSettingsPaneAppKit: NSView {
             stack.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
         ])
 
-        let audioBox = InspectorSectionBox("Audio")
+        let audioBox = InspectorSectionBox(String(localized: "Audio", comment: "Inspector ▸ Audio: section header"))
         for row in [systemRow, micRow, voiceRow] {
             audioBox.addRow(row)
         }

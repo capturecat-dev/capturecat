@@ -36,10 +36,10 @@ final class CloudSyncController {
         makeItem: (String, @escaping () -> Void) -> NSMenuItem
     ) -> [NSMenuItem] {
         [
-            makeItem("Open in Web Editor") {
+            makeItem(String(localized: "Open in Web Editor", comment: "Menu item / button: syncs the project and opens it in the CaptureCat web editor")) {
                 CloudSyncController.shared.openInWebEditor(project: project, appState: appState, window: window())
             },
-            makeItem("Pull Web Edits") {
+            makeItem(String(localized: "Pull Web Edits", comment: "Menu item: downloads edits made in the web editor into this Mac's copy")) {
                 CloudSyncController.shared.pullWebEdits(project: project, appState: appState, window: window())
             },
         ]
@@ -54,13 +54,13 @@ final class CloudSyncController {
         overwriteRevision: Int? = nil
     ) {
         push(project: project, appState: appState, window: window, overwriteRevision: overwriteRevision,
-             title: "Opening in Web Editor", openWeb: true)
+             title: String(localized: "Opening in Web Editor", comment: "Progress dialog title while the project syncs before opening in the web editor"), openWeb: true)
     }
 
     /// History ▸ "Sync now": the same push, without opening the browser.
     func syncNow(project: Project, appState: AppState, window: NSWindow?) {
         push(project: project, appState: appState, window: window, overwriteRevision: nil,
-             title: "Syncing", openWeb: false)
+             title: String(localized: "Syncing", comment: "Progress dialog title while the project syncs to the cloud"), openWeb: false)
     }
 
     private func push(
@@ -98,13 +98,13 @@ final class CloudSyncController {
                 guard let self else { return }
                 switch outcome {
                 case .pushed, .unchanged, .cloudIsNewer:
-                    dialog.finish(message: openWeb ? "Opening your browser…" : "Synced")
+                    dialog.finish(message: openWeb ? String(localized: "Opening your browser…", comment: "Sync progress dialog status after syncing, while the web browser opens") : String(localized: "Synced", comment: "Sync progress dialog status: the sync finished"))
                     self.finish {
                         self.announce(projectID)
                         openBrowser()
                     }
                 case .merged(_, let report):
-                    dialog.finish(message: openWeb ? "Merged — opening your browser…" : "Merged")
+                    dialog.finish(message: openWeb ? String(localized: "Merged — opening your browser…", comment: "Sync progress dialog status after merging web and Mac edits, while the browser opens") : String(localized: "Merged", comment: "Sync progress dialog status: web and Mac edits were merged"))
                     self.finish {
                         self.announce(projectID)
                         self.toast(report, in: window)
@@ -122,7 +122,7 @@ final class CloudSyncController {
                     }
                 }
             } catch {
-                self?.fail(error, title: openWeb ? "Couldn’t open in the web editor" : "Couldn’t sync", window: window)
+                self?.fail(error, title: openWeb ? String(localized: "Couldn’t open in the web editor", comment: "Alert title when syncing before opening the web editor fails") : String(localized: "Couldn’t sync", comment: "Alert title when syncing the project to the cloud fails"), window: window)
             }
         }
     }
@@ -157,7 +157,7 @@ final class CloudSyncController {
         openWeb: Bool
     ) {
         guard task == nil else { return }
-        let dialog = CloudSyncProgressDialog(title: "Merging", subtitle: project.name)
+        let dialog = CloudSyncProgressDialog(title: String(localized: "Merging", comment: "Progress dialog title while applying a reviewed merge"), subtitle: project.name)
         dialog.onCancel = { [weak self] in self?.task?.cancel() }
         dialog.present(over: window)
         progress = dialog
@@ -172,7 +172,7 @@ final class CloudSyncController {
                 guard let self else { return }
                 switch outcome {
                 case .merged(_, let report):
-                    dialog.finish(message: "Merged")
+                    dialog.finish(message: String(localized: "Merged", comment: "Sync progress dialog status: web and Mac edits were merged"))
                     self.finish {
                         self.announce(projectID)
                         self.toast(report, in: window)
@@ -190,7 +190,7 @@ final class CloudSyncController {
                     }
                 }
             } catch {
-                self?.fail(error, title: "Couldn’t merge", window: window)
+                self?.fail(error, title: String(localized: "Couldn’t merge", comment: "Alert title when applying a merge fails"), window: window)
             }
         }
     }
@@ -199,11 +199,11 @@ final class CloudSyncController {
     func toast(_ report: CloudMergeReport, in window: NSWindow) {
         let settled = report.autoResolved.count
         var notes: [String] = []
-        if settled > 0 { notes.append(settled == 1 ? "1 clash went to the latest edit" : "\(settled) clashes went to the latest edit") }
+        if settled > 0 { notes.append(settled == 1 ? String(localized: "1 clash went to the latest edit", comment: "Merge toast note: one clashing change was settled in favour of the most recent edit") : String(localized: "\(settled) clashes went to the latest edit", comment: "Merge toast note: clashing changes were settled in favour of the most recent edit; the number is the count")) }
         if report.conflictsResolved > 0 {
-            notes.append(report.conflictsResolved == 1 ? "1 conflict resolved" : "\(report.conflictsResolved) conflicts resolved")
+            notes.append(report.conflictsResolved == 1 ? String(localized: "1 conflict resolved", comment: "Merge toast note: one conflict was resolved by the user") : String(localized: "\(report.conflictsResolved) conflicts resolved", comment: "Merge toast note: conflicts were resolved by the user; the number is the count"))
         }
-        notes.append("Both versions are kept in History.")
+        notes.append(String(localized: "Both versions are kept in History.", comment: "Merge toast note; History is the project version history panel"))
         showToast(title: report.toastTitle, message: notes.joined(separator: " · "),
                   symbol: "arrow.triangle.merge", in: window)
     }
@@ -230,17 +230,15 @@ final class CloudSyncController {
 
     private func presentConflict(project: Project, appState: AppState, window: NSWindow, remoteRevision: Int) {
         let alert = CCAlert(
-            title: "Edited in both places",
-            message: "This project changed in the web editor and on this Mac since they last synced. "
-                + "Pull Web Edits replaces this Mac’s unsynced changes with the web’s version; "
-                + "Replace Web Version overwrites the web’s changes with this Mac’s."
+            title: String(localized: "Edited in both places", comment: "Alert title: the project was edited both in the web editor and on this Mac"),
+            message: String(localized: "This project changed in the web editor and on this Mac since they last synced. Pull Web Edits replaces this Mac’s unsynced changes with the web’s version; Replace Web Version overwrites the web’s changes with this Mac’s.", comment: "Alert message for a sync conflict; Pull Web Edits and Replace Web Version are the button names")
         )
         // Reached only without a merge base (an older build's sidecar and a
         // revision the server no longer retains) — otherwise both sides
         // merge three-way and this two-way choice never appears.
-        alert.addButton("Pull Web Edits", role: .primary)
-        alert.addButton("Replace Web Version", role: .destructive)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Pull Web Edits", comment: "Sync conflict alert button: replaces this Mac's unsynced changes with the web version"), role: .primary)
+        alert.addButton(String(localized: "Replace Web Version", comment: "Sync conflict alert button: overwrites the web version with this Mac's changes"), role: .destructive)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         alert.beginSheet(for: window) { [weak self] choice in
             switch choice {
             case 0:
@@ -272,7 +270,7 @@ final class CloudSyncController {
         // and the GUI only reloads a CLEAN project from an external write.
         flush(project, appState: appState)
 
-        let dialog = CloudSyncProgressDialog(title: "Pulling Web Edits", subtitle: project.name)
+        let dialog = CloudSyncProgressDialog(title: String(localized: "Pulling Web Edits", comment: "Progress dialog title while downloading edits from the web editor"), subtitle: project.name)
         dialog.onCancel = { [weak self] in self?.task?.cancel() }
         dialog.present(over: window)
         progress = dialog
@@ -294,7 +292,7 @@ final class CloudSyncController {
                     // project.json was replaced atomically; ProjectStore's
                     // external-edit poll reloads it (and an open editor) within
                     // a second — the same path MCP edits take.
-                    dialog.finish(message: "Pulled revision \(revision)")
+                    dialog.finish(message: String(localized: "Pulled revision \(revision)", comment: "Sync progress status after pulling web edits; the number is the cloud revision"))
                     try? await Task.sleep(for: .milliseconds(450))
                     self.finish {
                         self.announce(projectID)
@@ -305,8 +303,8 @@ final class CloudSyncController {
                     // (an earlier pull fetched only project.json). If the
                     // document's references were re-pointed at them, the
                     // external-edit poll reloads it like any pull.
-                    dialog.finish(message: files == 0 ? "Updated file references"
-                                  : files == 1 ? "Downloaded 1 missing file" : "Downloaded \(files) missing files")
+                    dialog.finish(message: files == 0 ? String(localized: "Updated file references", comment: "Sync progress status: the project now points at media files already on this Mac")
+                                  : files == 1 ? String(localized: "Downloaded 1 missing file", comment: "Sync progress status: one missing media file was downloaded") : String(localized: "Downloaded \(files) missing files", comment: "Sync progress status: missing media files were downloaded; the number is the count"))
                     try? await Task.sleep(for: .milliseconds(450))
                     self.finish {
                         if thenOpenWeb { NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: projectID)) }
@@ -316,8 +314,8 @@ final class CloudSyncController {
                         if thenOpenWeb {
                             NSWorkspace.shared.open(CaptureCatAPI.webEditorURL(projectID: projectID))
                         } else if !quiet {
-                            let alert = CCAlert(title: "Already up to date",
-                                                message: "This Mac has the web editor’s latest version of “\(project.name)”.")
+                            let alert = CCAlert(title: String(localized: "Already up to date", comment: "Alert title: there are no web edits to pull"),
+                                                message: String(localized: "This Mac has the web editor’s latest version of “\(project.name)”.", comment: "Alert message: no web edits to pull; the placeholder is the project name"))
                             alert.beginSheet(for: window)
                         }
                     }
@@ -327,10 +325,10 @@ final class CloudSyncController {
                     self.finish {}
                 case .noCloudCopy:
                     self.finish {
-                        let alert = CCAlert(title: "Not in the web editor yet",
-                                            message: "Open “\(project.name)” in the web editor first — its edits can then be pulled back here.")
-                        alert.addButton("Open in Web Editor", role: .primary)
-                        alert.addButton("Cancel")
+                        let alert = CCAlert(title: String(localized: "Not in the web editor yet", comment: "Alert title: the project has never been opened in the web editor"),
+                                            message: String(localized: "Open “\(project.name)” in the web editor first — its edits can then be pulled back here.", comment: "Alert message; the placeholder is the project name"))
+                        alert.addButton(String(localized: "Open in Web Editor", comment: "Menu item / button: syncs the project and opens it in the CaptureCat web editor"), role: .primary)
+                        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
                         alert.beginSheet(for: window) { [weak self] choice in
                             if choice == 0 { self?.openInWebEditor(project: project, appState: appState, window: window) }
                         }
@@ -339,7 +337,7 @@ final class CloudSyncController {
                     // The web's edits merged INTO this Mac's unsynced ones
                     // (written atomically — the external-edit poll reloads
                     // the editor); this Mac's side goes up with the next push.
-                    dialog.finish(message: "Merged web edits")
+                    dialog.finish(message: String(localized: "Merged web edits", comment: "Sync progress status: web edits were merged into this Mac's unsynced changes"))
                     try? await Task.sleep(for: .milliseconds(300))
                     self.finish {
                         self.announce(projectID)
@@ -354,12 +352,11 @@ final class CloudSyncController {
                 case .localChangesWouldBeLost(let remoteRevision):
                     self.finish {
                         let alert = CCAlert(
-                            title: "Replace this Mac’s changes?",
-                            message: "The web editor has a newer version (revision \(remoteRevision)), and this project "
-                                + "has changes on this Mac that were never sent to the web. Pulling replaces them."
+                            title: String(localized: "Replace this Mac’s changes?", comment: "Alert title before pulling web edits would discard unsynced local changes"),
+                            message: String(localized: "The web editor has a newer version (revision \(remoteRevision)), and this project has changes on this Mac that were never sent to the web. Pulling replaces them.", comment: "Alert message; the number is the cloud revision")
                         )
-                        alert.addButton("Pull and Replace", role: .destructive)
-                        alert.addButton("Cancel")
+                        alert.addButton(String(localized: "Pull and Replace", comment: "Alert button: pulls web edits and discards this Mac's unsynced changes"), role: .destructive)
+                        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
                         alert.beginSheet(for: window) { [weak self] choice in
                             if choice == 0 {
                                 self?.pullWebEdits(project: project, appState: appState, window: window,
@@ -369,7 +366,7 @@ final class CloudSyncController {
                     }
                 }
             } catch {
-                self?.fail(error, title: "Couldn’t pull web edits", window: window)
+                self?.fail(error, title: String(localized: "Couldn’t pull web edits", comment: "Alert title when pulling web edits fails"), window: window)
             }
         }
     }
@@ -396,7 +393,7 @@ final class CloudSyncController {
     /// `title`: the progress card's heading — the browser's Cloud section
     /// opens projects made on the iPhone too, not only on the web.
     func openFromCloud(projectID: UUID, appState: AppState, seek: Double? = nil,
-                       title: String = "Opening from the Web") {
+                       title: String = String(localized: "Opening from the Web", comment: "Progress dialog title while downloading a cloud project made on the web")) {
         guard task == nil else {
             // Already bringing it in (a second click): just show where.
             appState.bringToFront()
@@ -409,12 +406,12 @@ final class CloudSyncController {
         guard let window = appState.authPresentationWindow() else { return }
         guard ensureSignedIn(
             appState: appState, window: window,
-            title: "Sign in to open this project",
-            message: "It was made in the CaptureCat web app. Sign in with the same account to bring it to this Mac.",
+            title: String(localized: "Sign in to open this project", comment: "Alert title: sign-in is needed to download a cloud project"),
+            message: String(localized: "It was made in the CaptureCat web app. Sign in with the same account to bring it to this Mac.", comment: "Alert message asking the user to sign in to download a cloud project"),
             then: { [weak self] in self?.openFromCloud(projectID: projectID, appState: appState, seek: seek, title: title) }
         ) else { return }
 
-        let dialog = CloudSyncProgressDialog(title: title, subtitle: "Bringing your project to this Mac")
+        let dialog = CloudSyncProgressDialog(title: title, subtitle: String(localized: "Bringing your project to this Mac", comment: "Progress dialog subtitle while downloading a cloud project"))
         dialog.onCancel = { [weak self] in self?.task?.cancel() }
         dialog.present(over: window)
         progress = dialog
@@ -431,12 +428,12 @@ final class CloudSyncController {
                 guard let self else { return }
                 switch outcome {
                 case .cloned:
-                    dialog.finish(message: "Ready")
+                    dialog.finish(message: String(localized: "Ready", comment: "Progress dialog status: the cloud project finished downloading"))
                     try? await Task.sleep(for: .milliseconds(350))
                     self.finish {
                         guard let project = appState.projectStore.adopt(projectAt: directory) else {
-                            let alert = CCAlert(title: "Couldn’t open the project",
-                                                message: "It downloaded, but this version of CaptureCat could not read it.")
+                            let alert = CCAlert(title: String(localized: "Couldn’t open the project", comment: "Alert title when a downloaded cloud project can't be opened"),
+                                                message: String(localized: "It downloaded, but this version of CaptureCat could not read it.", comment: "Alert message: the downloaded project is in a format this app version can't read"))
                             alert.beginSheet(for: window)
                             return
                         }
@@ -450,9 +447,8 @@ final class CloudSyncController {
                 case .noCloudCopy:
                     self.finish {
                         let alert = CCAlert(
-                            title: "Project not found",
-                            message: "This Mac is signed in to a CaptureCat account that doesn’t have this project. "
-                                + "If you made it in the web app, sign in here with that same account and open it again."
+                            title: String(localized: "Project not found", comment: "Alert title: the cloud project isn't in the signed-in account"),
+                            message: String(localized: "This Mac is signed in to a CaptureCat account that doesn’t have this project. If you made it in the web app, sign in here with that same account and open it again.", comment: "Alert message when the cloud project isn't in the signed-in account")
                         )
                         alert.beginSheet(for: window)
                     }
@@ -466,7 +462,7 @@ final class CloudSyncController {
                     }
                 }
             } catch {
-                self?.fail(error, title: "Couldn’t open the project", window: window)
+                self?.fail(error, title: String(localized: "Couldn’t open the project", comment: "Alert title when downloading a cloud project fails"), window: window)
             }
         }
     }
@@ -487,14 +483,14 @@ final class CloudSyncController {
     private func ensureSignedIn(
         appState: AppState,
         window: NSWindow,
-        title: String = "Sign in to use the web editor",
-        message: String = "The web editor opens your project from your CaptureCat account’s cloud storage.",
+        title: String = String(localized: "Sign in to use the web editor", comment: "Alert title: sign-in is needed before using the web editor"),
+        message: String = String(localized: "The web editor opens your project from your CaptureCat account’s cloud storage.", comment: "Alert message explaining why sign-in is needed for the web editor"),
         then: @escaping () -> Void
     ) -> Bool {
         if AuthKeychain.currentToken() != nil { return true }
         let alert = CCAlert(title: title, message: message)
-        alert.addButton("Sign In", role: .primary)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Sign In", comment: "Alert button: starts signing in (verb)"), role: .primary)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         alert.beginSheet(for: window) { choice in
             guard choice == 0 else { return }
             Task { @MainActor in
@@ -504,7 +500,7 @@ final class CloudSyncController {
                 } catch let error where AuthService.isUserCancellation(error) {
                     // Closed the browser tab — nothing to say.
                 } catch {
-                    let failure = CCAlert(title: "Sign-in failed", message: error.localizedDescription)
+                    let failure = CCAlert(title: String(localized: "Sign-in failed", comment: "Alert title when signing in fails"), message: error.localizedDescription)
                     failure.beginSheet(for: window)
                 }
             }
@@ -557,19 +553,17 @@ final class CloudSyncController {
     static func message(for error: Error) -> String {
         guard let sync = error as? CloudSyncError else { return error.localizedDescription }
         if case .api(let status, _, _) = sync, status == 401 {
-            return "Your CaptureCat session has expired. Sign in again, then retry."
+            return String(localized: "Your CaptureCat session has expired. Sign in again, then retry.", comment: "Error message when the sign-in session expired")
         }
         switch sync.apiCode {
         case "cloud_share_required", "no_storage_allowance":
-            return "The web editor keeps your project in CaptureCat cloud storage, which your plan doesn’t include. "
-                + "Upgrade to open projects on the web."
+            return String(localized: "The web editor keeps your project in CaptureCat cloud storage, which your plan doesn’t include. Upgrade to open projects on the web.", comment: "Error message when the user's plan has no cloud storage")
         case "storage_limit_reached":
             // Old versions pin the media they used, so a replaced recording
             // keeps counting until History lets go of it.
-            return "Your cloud storage is full. Project History still keeps media you replaced — use Free up in "
-                + "History, or delete shared videos or web-editor projects from your dashboard, then try again."
+            return String(localized: "Your cloud storage is full. Project History still keeps media you replaced — use Free up in History, or delete shared videos or web-editor projects from your dashboard, then try again.", comment: "Error message when cloud storage is full; Free up is a button name in the History panel")
         case "not_owner":
-            return "This project is in the web editor under another CaptureCat account. Sign in with that account to sync it."
+            return String(localized: "This project is in the web editor under another CaptureCat account. Sign in with that account to sync it.", comment: "Error message when the cloud project belongs to a different account")
         default:
             return sync.localizedDescription
         }
@@ -600,9 +594,9 @@ final class CloudSyncProgressDialog {
     var onCancel: (() -> Void)?
 
     private let dialog: CCDialog
-    private let status = NSTextField(labelWithString: "Preparing…")
+    private let status = NSTextField(labelWithString: String(localized: "Preparing…", comment: "Sync progress dialog initial status"))
     private let bar = CCProgressBar()
-    private let cancelButton = CCButton(title: "Cancel", style: .secondary, size: .regular)
+    private let cancelButton = CCButton(title: String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"), style: .secondary, size: .regular)
     private var themeObservation: CCThemeObservation?
 
     init(title: String, subtitle: String) {
@@ -664,7 +658,7 @@ final class CloudSyncProgressDialog {
     }
 
     private func cancel() {
-        status.stringValue = "Cancelling…"
+        status.stringValue = String(localized: "Cancelling…", comment: "Sync progress dialog status after the user pressed Cancel")
         cancelButton.isEnabled = false
         onCancel?()
     }

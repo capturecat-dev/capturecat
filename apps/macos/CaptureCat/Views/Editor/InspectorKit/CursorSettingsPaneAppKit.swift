@@ -50,7 +50,7 @@ final class CursorSettingsPaneAppKit: NSView {
     private let keyVolumeSlider = InspectorSliderRow(CursorPane.keyVolume)
     private var keyCaption: NSView!
     private var keyPermissionCaption: NSView!
-    private let keyPermissionButton = InspectorButton("Request Permission")
+    private let keyPermissionButton = InspectorButton(String(localized: "Request Permission", comment: "Inspector ▸ Cursor ▸ Keyboard Sounds: button asking macOS for keystroke permission"))
     /// Whether the CURRENT project recorded shortcut identity (opt-in).
     var hasShortcutData: Bool = false { didSet { apply() } }
     /// Whether the CURRENT project is a single-window recording — the only
@@ -99,19 +99,19 @@ final class CursorSettingsPaneAppKit: NSView {
             view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
 
-        let cursorBox = InspectorSectionBox("Cursor")
+        let cursorBox = InspectorSectionBox(String(localized: "Cursor", comment: "Inspector ▸ Cursor: section header"))
         cursorBox.addRow(previewBox)
         previewBox.heightAnchor.constraint(equalToConstant: 110).isActive = true
         cursorBox.addRow(showToggle)
         // The Mac menu shows each style's cursor image beside its name.
         styleMenu.items = ProjectSettings.CursorStyle.allCases.map {
-            .init(title: $0.rawValue, icon: CursorStyleProvider.asset(for: $0).image)
+            .init(title: $0.displayName, icon: CursorStyleProvider.asset(for: $0).image)
         }
         cursorBox.addRow(InspectorKitViews.row(CursorPane.style.title, control: styleMenu))
         cursorBox.addRow(sizeSlider)
         fullWidth(cursorBox)
 
-        let motionBox = InspectorSectionBox("Motion")
+        let motionBox = InspectorSectionBox(String(localized: "Motion", comment: "Inspector ▸ Cursor: section header; cursor movement smoothing"))
         motionBox.addRow(fluidToggle)
         motionBox.addRow(tensionSlider)
         motionBox.addRow(tensionCaption, attached: true)
@@ -123,7 +123,7 @@ final class CursorSettingsPaneAppKit: NSView {
         motionBox.addRow(smoothingSlider)
         fullWidth(motionBox)
 
-        let behaviorBox = InspectorSectionBox("Behavior")
+        let behaviorBox = InspectorSectionBox(String(localized: "Behavior", comment: "Inspector ▸ Cursor: section header"))
         behaviorBox.addRow(autoHideToggle)
         behaviorBox.addRow(hideAfterSlider)
         behaviorBox.addRow(loopToggle)
@@ -131,7 +131,7 @@ final class CursorSettingsPaneAppKit: NSView {
         behaviorBox.addRow(endCaption, attached: true)
         fullWidth(behaviorBox)
 
-        let clickBox = InspectorSectionBox("Click Effect")
+        let clickBox = InspectorSectionBox(String(localized: "Click Effect", comment: "Inspector ▸ Cursor: section header; visual effect on mouse clicks"))
         clickBox.addRow(rippleToggle)
         clickBox.addRow(rippleSizeSlider)
         rippleColorRow = InspectorKitViews.row(CursorPane.rippleColor.title, control: rippleColorWell)
@@ -148,7 +148,7 @@ final class CursorSettingsPaneAppKit: NSView {
         clickBox.addRow(clickSoundCaption, attached: true)
         fullWidth(clickBox)
 
-        let keyBox = InspectorSectionBox("Keyboard Sounds")
+        let keyBox = InspectorSectionBox(String(localized: "Keyboard Sounds", comment: "Inspector ▸ Cursor: section header; typing sounds added to the video"))
         keyBox.addRow(keySoundToggle)
         let keyControls = NSStackView(views: [keyStyleMenu, keyTestButton])
         keyControls.orientation = .horizontal
@@ -165,7 +165,7 @@ final class CursorSettingsPaneAppKit: NSView {
         keyBox.addRow(keyPermissionButton, attached: true)
         fullWidth(keyBox)
 
-        let overlayBox = InspectorSectionBox("Shortcut Overlay")
+        let overlayBox = InspectorSectionBox(String(localized: "Shortcut Overlay", comment: "Inspector ▸ Cursor: section header; on-screen display of pressed keyboard shortcuts"))
         overlayBox.addRow(keystrokeOverlayToggle)
         keystrokePositionRow = InspectorKitViews.row(CursorPane.keystrokePosition.title, control: keystrokePositionMenu)
         overlayBox.addRow(keystrokePositionRow)

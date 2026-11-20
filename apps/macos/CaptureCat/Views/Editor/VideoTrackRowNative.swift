@@ -359,8 +359,9 @@ extension TimelineCanvasView {
 
         let menu = NSMenu()
         if let regionID = segment.regionID {
-            let change = NSMenuItem(title: "Change Speed", action: nil, keyEquivalent: "")
-            let sub = NSMenu(title: "Change Speed")
+            let changeTitle = String(localized: "Change Speed", comment: "Timeline video clip context menu: submenu of playback speeds for a sped-up span")
+            let change = NSMenuItem(title: changeTitle, action: nil, keyEquivalent: "")
+            let sub = NSMenu(title: changeTitle)
             for level in TimelineVideoRowModel.speedPresets {
                 sub.addItem(VideoRowMenuItem(title: TimelineVideoRowModel.formatSpeedLabel(level)) { [weak self] in
                     self?.videoCallbacks?.changeSpeed(regionID, level)
@@ -369,12 +370,13 @@ extension TimelineCanvasView {
             change.submenu = sub
             menu.addItem(change)
             menu.addItem(.separator())
-            menu.addItem(VideoRowMenuItem(title: "Remove Speed", destructive: true) { [weak self] in
+            menu.addItem(VideoRowMenuItem(title: String(localized: "Remove Speed", comment: "Timeline video clip context menu: removes the speed change from this span"), destructive: true) { [weak self] in
                 self?.videoCallbacks?.deleteSpeed(regionID)
             })
         } else {
-            let set = NSMenuItem(title: "Set Speed", action: nil, keyEquivalent: "")
-            let sub = NSMenu(title: "Set Speed")
+            let setTitle = String(localized: "Set Speed", comment: "Timeline video clip context menu: submenu of playback speeds to apply to this span")
+            let set = NSMenuItem(title: setTitle, action: nil, keyEquivalent: "")
+            let sub = NSMenu(title: setTitle)
             for level in TimelineVideoRowModel.speedPresets {
                 sub.addItem(VideoRowMenuItem(title: TimelineVideoRowModel.formatSpeedLabel(level)) { [weak self] in
                     self?.videoCallbacks?.addSpeedRange(segment.sourceStart, segment.sourceEnd, level)
@@ -385,7 +387,7 @@ extension TimelineCanvasView {
         }
         if segment.startsAtSplit {
             menu.addItem(.separator())
-            menu.addItem(VideoRowMenuItem(title: "Remove Split at Start", destructive: true) { [weak self] in
+            menu.addItem(VideoRowMenuItem(title: String(localized: "Remove Split at Start", comment: "Timeline video clip context menu: removes the cut at the start of this clip, joining it to the previous one"), destructive: true) { [weak self] in
                 self?.videoCallbacks?.deleteSplit(segment.outputStart)
             })
         }
@@ -684,7 +686,7 @@ extension TimelineCanvasView {
     ) {
         let seconds = max(0, display.outputDuration)
         let text = NSMutableAttributedString(
-            string: String(format: "%.1fs", seconds),
+            string: UnitText.seconds(seconds, digits: 1),
             attributes: [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
                 .foregroundColor: NSColor.white.withAlphaComponent(0.85),

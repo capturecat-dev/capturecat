@@ -99,6 +99,18 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				en-GB,
+				en-US,
+				de,
+				fr,
+				es,
+				es-MX,
+				it,
+				pt-BR,
+				nl,
+				ja,
+				ko,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = 27675F222F4DF4E00089BF9C;

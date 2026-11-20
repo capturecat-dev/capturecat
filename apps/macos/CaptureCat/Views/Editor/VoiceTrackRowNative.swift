@@ -238,7 +238,7 @@ extension TimelineCanvasView {
     func voiceContextMenu(at point: CGPoint, model: TimelineVoiceRowModel) -> NSMenu? {
         guard let item = voiceClipItem(at: point, model: model) else { return nil }
         let menu = NSMenu()
-        menu.addItem(VideoRowMenuItem(title: "Delete Voice Over", destructive: true) { [weak self] in
+        menu.addItem(VideoRowMenuItem(title: String(localized: "Delete Voice Over", comment: "Timeline voice-over clip context menu: deletes the voice-over clip"), destructive: true) { [weak self] in
             self?.voiceCallbacks?.deleteClip(item.id)
         })
         return menu
@@ -437,7 +437,7 @@ extension TimelineCanvasView {
             glyph: nil,
             rowHeight: rowHeight,
             titleSpacing: 6,
-            title: "Recording Voice Over",
+            title: String(localized: "Recording Voice Over", comment: "Timeline voice lane: title on the live clip while a voice-over is being recorded"),
             titleColor: titleColor,
             leadingDot: dotSize,
             waveform: { waveRect in

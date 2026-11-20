@@ -43,18 +43,18 @@ enum StatusMenuBuilder {
             emailItem.isEnabled = false
             items.append(emailItem)
 
-            let signOutItem = NSMenuItem(title: "Sign Out", action: #selector(StatusMenuActions.signOut(_:)), keyEquivalent: "")
+            let signOutItem = NSMenuItem(title: String(localized: "Sign Out", comment: "Account menu item: signs out of the CaptureCat account (verb)"), action: #selector(StatusMenuActions.signOut(_:)), keyEquivalent: "")
             signOutItem.target = target
             items.append(signOutItem)
         } else {
-            let none = NSMenuItem(title: "Not signed in", action: nil, keyEquivalent: "")
+            let none = NSMenuItem(title: String(localized: "Not signed in", comment: "Account menu: disabled status row when no account is signed in"), action: nil, keyEquivalent: "")
             none.isEnabled = false
             items.append(none)
 
             // One item: the provider choice moved to the browser chooser that
             // `/api/desktop/authorize` serves, so it is no longer baked into
             // the app's menus.
-            let signIn = NSMenuItem(title: "Sign In\u{2026}", action: #selector(StatusMenuActions.signIn(_:)), keyEquivalent: "")
+            let signIn = NSMenuItem(title: String(localized: "Sign In\u{2026}", comment: "Account menu item: starts signing in through the browser (verb)"), action: #selector(StatusMenuActions.signIn(_:)), keyEquivalent: "")
             signIn.target = target
             items.append(signIn)
         }
@@ -62,12 +62,14 @@ enum StatusMenuBuilder {
         // The plan (PlanGate): "Personal use" on Free — every recording stops
         // at 5 minutes — with the way to Pro; the plan's name on Pro.
         let licence = appState.licence
-        let plan = NSMenuItem(title: licence.allowsCommercialUse ? "Plan: \(licence.badgeTitle)" : "Personal use \u{00B7} 5-min recordings",
+        let plan = NSMenuItem(title: licence.allowsCommercialUse
+                              ? String(localized: "Plan: \(licence.badgeTitle)", comment: "Account menu: disabled row showing the subscription plan; the placeholder is the plan name, e.g. Pro")
+                              : String(localized: "Personal use \u{00B7} 5-min recordings", comment: "Account menu: disabled row on the Free plan (personal use only, recordings capped at 5 minutes)"),
                               action: nil, keyEquivalent: "")
         plan.isEnabled = false
         items.append(plan)
         if !licence.allowsCommercialUse {
-            let getPro = NSMenuItem(title: "Get Pro\u{2026}", action: #selector(StatusMenuActions.showPlans(_:)), keyEquivalent: "")
+            let getPro = NSMenuItem(title: String(localized: "Get Pro\u{2026}", comment: "Account menu item: opens the pricing page to upgrade to the Pro plan"), action: #selector(StatusMenuActions.showPlans(_:)), keyEquivalent: "")
             getPro.target = target
             items.append(getPro)
         }
@@ -101,12 +103,12 @@ enum StatusMenuBuilder {
     ) {
         menu.removeAllItems()
 
-        let newRec = NSMenuItem(title: "New Recording...", action: #selector(StatusMenuActions.newRecording(_:)), keyEquivalent: "n")
+        let newRec = NSMenuItem(title: String(localized: "New Recording...", comment: "Menu bar status item menu: starts setting up a new screen recording"), action: #selector(StatusMenuActions.newRecording(_:)), keyEquivalent: "n")
         newRec.keyEquivalentModifierMask = [.command, .shift]
         newRec.target = target
         menu.addItem(newRec)
 
-        let browse = NSMenuItem(title: "Browse Captures...", action: #selector(StatusMenuActions.browseProjects(_:)), keyEquivalent: "o")
+        let browse = NSMenuItem(title: String(localized: "Browse Captures...", comment: "Menu bar status item menu: opens the capture library"), action: #selector(StatusMenuActions.browseProjects(_:)), keyEquivalent: "o")
         browse.target = target
         menu.addItem(browse)
 
@@ -114,7 +116,7 @@ enum StatusMenuBuilder {
         // in the Settings window now (SettingsWindowController) — the menu
         // keeps one entry point instead of per-setting checkmark items.
         let settings = NSMenuItem(
-            title: "Settings…",
+            title: String(localized: "Settings…", comment: "Menu bar status item menu: opens Settings"),
             action: #selector(StatusMenuActions.openSettings(_:)),
             keyEquivalent: ","
         )
@@ -122,7 +124,7 @@ enum StatusMenuBuilder {
         menu.addItem(settings)
 
         let agents = NSMenuItem(
-            title: "Connect AI Agents...",
+            title: String(localized: "Connect AI Agents...", comment: "Menu bar status item menu: opens the window for connecting AI agents to CaptureCat"),
             action: Selector(("connectAgents:")),
             keyEquivalent: ""
         )
@@ -135,7 +137,7 @@ enum StatusMenuBuilder {
         }
 
         let updates = NSMenuItem(
-            title: "Check for Updates...",
+            title: String(localized: "Check for Updates...", comment: "Menu bar status item menu: checks for a newer app version"),
             action: Selector(("checkForUpdates:")),
             keyEquivalent: ""
         )
@@ -146,14 +148,16 @@ enum StatusMenuBuilder {
 
         if appState.recordingSession.isRecording || appState.recordingSession.isPaused {
             let pause = NSMenuItem(
-                title: appState.recordingSession.isPaused ? "Resume Recording" : "Pause Recording",
+                title: appState.recordingSession.isPaused
+                    ? String(localized: "Resume Recording", comment: "Menu bar status item menu: resumes a paused recording")
+                    : String(localized: "Pause Recording", comment: "Menu bar status item menu: pauses the recording in progress"),
                 action: #selector(StatusMenuActions.pauseOrResumeRecording(_:)),
                 keyEquivalent: ""
             )
             pause.target = target
             menu.addItem(pause)
 
-            let stop = NSMenuItem(title: "Stop Recording", action: #selector(StatusMenuActions.stopRecording(_:)), keyEquivalent: "s")
+            let stop = NSMenuItem(title: String(localized: "Stop Recording", comment: "Menu bar status item menu: stops the recording in progress"), action: #selector(StatusMenuActions.stopRecording(_:)), keyEquivalent: "s")
             stop.keyEquivalentModifierMask = [.command, .shift]
             stop.target = target
             menu.addItem(stop)
@@ -161,7 +165,7 @@ enum StatusMenuBuilder {
             menu.addItem(.separator())
         }
 
-        menu.addItem(withTitle: "Quit CaptureCat", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: String(localized: "Quit CaptureCat", comment: "Menu bar status item menu: quits the app"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
     }
 
     // MARK: - Verification

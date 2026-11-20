@@ -26,8 +26,8 @@ enum RecordingStitcher {
 
         var errorDescription: String? {
             switch self {
-            case .noSegments: return "No recorded segments to combine."
-            case .exportFailed: return "Combining the recording segments failed."
+            case .noSegments: return String(localized: "No recorded segments to combine.", comment: "Recording error: nothing was recorded to join together")
+            case .exportFailed: return String(localized: "Combining the recording segments failed.", comment: "Recording error: joining the parts of a multi-source recording failed")
             }
         }
     }

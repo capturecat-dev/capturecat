@@ -38,7 +38,7 @@ final class EffectsSettingsPaneAppKit: NSView {
     private let curtainColorWell = InspectorColorWellControl()
     private var curtainColorRow: NSView!
     private let curtainColorResetButton = InspectorButton(EffectsPane.curtainColorReset)
-    private let curtainLogoChooseButton = InspectorButton("Choose Logo…")
+    private let curtainLogoChooseButton = InspectorButton(String(localized: "Choose Logo…", comment: "Inspector ▸ Effects ▸ Curtain Unveil: button that opens a file picker for a logo"))
     private let curtainLogoRemoveButton = InspectorButton(EffectsPane.curtainLogoRemove)
     private let curtainLogoButtons = NSStackView()
     private let curtainLogoOpacitySlider = InspectorSliderRow(EffectsPane.curtainLogoOpacity)
@@ -84,7 +84,7 @@ final class EffectsSettingsPaneAppKit: NSView {
 
         // One grouped box per effect — switch first, details while it's on,
         // a single-line caption (full story in the tooltip) at the bottom.
-        let slideBox = InspectorSectionBox("Slide")
+        let slideBox = InspectorSectionBox(String(localized: "Slide", comment: "Inspector ▸ Effects: section header; slide-in transition"))
         slideBox.addRow(slideToggle)
         slideBox.addRow(slideChips)
         slideBox.addRow(slidePad, attached: true)
@@ -95,7 +95,7 @@ final class EffectsSettingsPaneAppKit: NSView {
         slideBox.addRow(slideCaption, attached: true)
         fullWidth(slideBox)
 
-        let curtainBox = InspectorSectionBox("Curtain Unveil")
+        let curtainBox = InspectorSectionBox(String(localized: "Curtain Unveil", comment: "Inspector ▸ Effects: section header; a transition name"))
         curtainBox.addRow(curtainToggle)
         curtainBox.addRow(curtainChips)
         curtainBox.addRow(curtainDurationSlider)
@@ -115,7 +115,7 @@ final class EffectsSettingsPaneAppKit: NSView {
         curtainBox.addRow(curtainCaption, attached: true)
         fullWidth(curtainBox)
 
-        let parallaxBox = InspectorSectionBox("Parallax")
+        let parallaxBox = InspectorSectionBox(String(localized: "Parallax", comment: "Inspector ▸ Effects: section header"))
         parallaxBox.addRow(parallaxToggle)
         parallaxBox.addRow(parallaxSlider)
         parallaxBox.addRow(parallaxPad, attached: true)
@@ -123,7 +123,7 @@ final class EffectsSettingsPaneAppKit: NSView {
         parallaxBox.addRow(parallaxCaption, attached: true)
         fullWidth(parallaxBox)
 
-        let blurBox = InspectorSectionBox("Motion Blur")
+        let blurBox = InspectorSectionBox(String(localized: "Motion Blur", comment: "Inspector ▸ Effects: section header"))
         blurBox.addRow(blurToggle)
         blurBox.addRow(blurStrengthSlider)
         blurBox.addRow(blurPad, attached: true)
@@ -186,7 +186,7 @@ final class EffectsSettingsPaneAppKit: NSView {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.png, .jpeg, .tiff, .heic, .pdf]
         panel.allowsMultipleSelection = false
-        panel.message = "Choose a logo image (PNG with transparency works best)"
+        panel.message = String(localized: "Choose a logo image (PNG with transparency works best)", comment: "Open panel message when picking a logo image file")
         guard panel.runModal() == .OK, let source = panel.url else { return }
         do {
             try EffectsPane.adoptCurtainLogo(scope, from: source)

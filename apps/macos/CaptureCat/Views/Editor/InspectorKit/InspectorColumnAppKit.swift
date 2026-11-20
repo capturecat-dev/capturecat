@@ -177,7 +177,7 @@ final class InspectorColumnAppKit: NSView {
     private func buildRail() {
         railGlide = CCGlideHighlight(host: railStack, radius: .md)
         for tab in InspectorTab.allCases {
-            let button = RailButton(icon: tab.icon, title: tab.rawValue)
+            let button = RailButton(icon: tab.icon, title: tab.displayName)
             button.onClick = { [weak self] in
                 self?.onSelectTab?(tab)
             }
@@ -250,13 +250,18 @@ final class InspectorColumnAppKit: NSView {
                 v.translatesAutoresizingMaskIntoConstraints = false
                 addSubview(v)
             }
+            // 72 pt, unless the title needs more ("Anmerkungen",
+            // "Videocamera") — then up to the 84 pt rail. English fits 72.
+            titleField.allowsDefaultTighteningForTruncation = true
+            let need = ceil(titleField.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: 1_000, height: 100)).width ?? 0)
+            let width = min(84, max(72, need + 4))
             NSLayoutConstraint.activate([
-                widthAnchor.constraint(equalToConstant: 72),
+                widthAnchor.constraint(equalToConstant: width),
                 heightAnchor.constraint(equalToConstant: 56),
                 iconView.centerXAnchor.constraint(equalTo: centerXAnchor),
                 iconView.topAnchor.constraint(equalTo: topAnchor, constant: 9),
                 titleField.centerXAnchor.constraint(equalTo: centerXAnchor),
-                titleField.widthAnchor.constraint(lessThanOrEqualToConstant: 68),
+                titleField.widthAnchor.constraint(lessThanOrEqualToConstant: width - 4),
                 titleField.topAnchor.constraint(equalTo: iconView.bottomAnchor, constant: 4),
             ])
             // restyle() re-resolves every color, so it doubles as applyTheme.

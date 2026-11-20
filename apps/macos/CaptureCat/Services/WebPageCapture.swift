@@ -16,9 +16,9 @@ enum WebDevicePreset: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .desktop: return "Desktop"
-        case .tablet: return "Tablet"
-        case .mobile: return "Mobile"
+        case .desktop: return String(localized: "Desktop", comment: "Web page capture: device layout option (desktop browser width)")
+        case .tablet: return String(localized: "Tablet", comment: "Web page capture: device layout option (tablet width)")
+        case .mobile: return String(localized: "Mobile", comment: "Web page capture: device layout option (phone width)")
         }
     }
 
@@ -119,9 +119,9 @@ nonisolated enum WebHeightMode: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .viewport: return "Viewport"
-        case .full: return "Full ×4"
-        case .entire: return "Entire Page"
+        case .viewport: return String(localized: "Viewport", comment: "Web page capture: height option, capture only the visible browser window height")
+        case .full: return String(localized: "Full ×4", comment: "Web page capture: height option, page up to 4 times the window height")
+        case .entire: return String(localized: "Entire Page", comment: "Web page capture: height option, the whole scrollable page")
         }
     }
 }
@@ -238,15 +238,15 @@ final class WebPageCapture: NSObject, WKNavigationDelegate {
 
         var errorDescription: String? {
             switch self {
-            case .invalidURL(let s): return "\"\(s)\" is not a valid web address."
-            case .navigationFailed(let s): return "The page could not be loaded: \(s)"
-            case .timedOut: return "The page took too long to load."
-            case .snapshotFailed(let s): return "The page could not be captured: \(s)"
+            case .invalidURL(let s): return String(localized: "\"\(s)\" is not a valid web address.", comment: "Web page capture error; the placeholder is what the user typed")
+            case .navigationFailed(let s): return String(localized: "The page could not be loaded: \(s)", comment: "Web page capture error; the placeholder is the system error detail")
+            case .timedOut: return String(localized: "The page took too long to load.", comment: "Web page capture error: the page load timed out")
+            case .snapshotFailed(let s): return String(localized: "The page could not be captured: \(s)", comment: "Web page capture error; the placeholder is the system error detail")
             case .httpError(let code, let host):
                 if code == 403 || code == 401 {
-                    return "\(host) refused the request (HTTP \(code)). Sites behind bot protection often block automated browsers."
+                    return String(localized: "\(host) refused the request (HTTP \(code)). Sites behind bot protection often block automated browsers.", comment: "Web page capture error; first placeholder is the website host, second the HTTP status code")
                 }
-                return "\(host) returned HTTP \(code)."
+                return String(localized: "\(host) returned HTTP \(code).", comment: "Web page capture error; first placeholder is the website host, second the HTTP status code")
             }
         }
     }
@@ -420,7 +420,7 @@ final class WebPageCapture: NSObject, WKNavigationDelegate {
                     c.resume(returning: image)
                 } else {
                     c.resume(throwing: CaptureError.snapshotFailed(
-                        error?.localizedDescription ?? "no image returned"))
+                        error?.localizedDescription ?? String(localized: "no image returned", comment: "Web page capture error detail (lowercase, follows 'The page could not be captured:')")))
                 }
             }
         }

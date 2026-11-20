@@ -17,12 +17,22 @@ enum ShareVisibility: String, CaseIterable, Sendable {
     /// Owner only (signed in) — `is_private`.
     case `private`
 
-    /// One line for consent UI and tool results.
-    var summary: String {
+    /// The same line in English for MCP tool results: agents read English
+    /// whatever language the app is in (the MCP catalog never localizes).
+    var agentSummary: String {
         switch self {
         case .unlisted: return "Anyone with the link can watch. Not listed on your profile."
         case .public: return "Anyone with the link can watch, and it's listed on your public profile."
         case .private: return "Only you can watch it (signed in to CaptureCat)."
+        }
+    }
+
+    /// One line for the consent UI, in the app's language.
+    var summary: String {
+        switch self {
+        case .unlisted: return String(localized: "Anyone with the link can watch. Not listed on your profile.", comment: "Share visibility description (Unlisted) shown on the AI agent share consent card")
+        case .public: return String(localized: "Anyone with the link can watch, and it's listed on your public profile.", comment: "Share visibility description (Public) shown on the AI agent share consent card")
+        case .private: return String(localized: "Only you can watch it (signed in to CaptureCat).", comment: "Share visibility description (Private) shown on the AI agent share consent card")
         }
     }
 }
@@ -323,8 +333,7 @@ final class ShareJobCenter {
                             try await ShareUploadAPI.setProfileVisible(token: token, videoId: videoId, visible: true)
                         }
                     } catch {
-                        let message = "The link is live but its visibility could not be widened to "
-                            + "\(visibility.rawValue): \(error.localizedDescription)"
+                        let message = String(localized: "The link is live but its visibility could not be widened to \(visibility.rawValue): \(error.localizedDescription)", comment: "Share warning after replacing a shared video; first placeholder is the visibility identifier (public/unlisted), second the system error")
                         self.update(localID) { $0.warning = message }
                     }
                 }
@@ -424,7 +433,7 @@ enum ShareUploadAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
-            let text = String(data: data, encoding: .utf8) ?? "Unknown error"
+            let text = String(data: data, encoding: .utf8) ?? String(localized: "Unknown error", comment: "Share upload error detail when the server sent no readable message")
             throw ShareError.apiError(text)
         }
 
@@ -462,7 +471,7 @@ enum ShareUploadAPI {
 
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
-            let text = String(data: data, encoding: .utf8) ?? "Upload failed"
+            let text = String(data: data, encoding: .utf8) ?? String(localized: "Upload failed", comment: "Share upload error detail when the server sent no readable message")
             throw ShareError.uploadFailed(text)
         }
     }
@@ -484,7 +493,7 @@ enum ShareUploadAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
-            let text = String(data: data, encoding: .utf8) ?? "Confirm failed"
+            let text = String(data: data, encoding: .utf8) ?? String(localized: "Confirm failed", comment: "Share upload error detail: confirming the finished upload failed")
             throw ShareError.apiError(text)
         }
 
@@ -530,7 +539,7 @@ enum ShareUploadAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
-            let text = String(data: data, encoding: .utf8) ?? "Unknown error"
+            let text = String(data: data, encoding: .utf8) ?? String(localized: "Unknown error", comment: "Share upload error detail when the server sent no readable message")
             throw ShareError.apiError(text)
         }
 
@@ -580,7 +589,7 @@ enum ShareUploadAPI {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 else {
-            let text = String(data: data, encoding: .utf8) ?? "Confirm failed"
+            let text = String(data: data, encoding: .utf8) ?? String(localized: "Confirm failed", comment: "Share upload error detail: confirming the finished upload failed")
             throw ShareError.apiError(text)
         }
 
@@ -596,14 +605,14 @@ enum ShareUploadAPI {
     /// PATCH /api/video/:id/privacy — `is_private` (owner only when true).
     static func setPrivacy(token: String, videoId: String, isPrivate: Bool) async throws {
         try await patchVideo(token: token, videoId: videoId, path: "privacy",
-                             body: ["isPrivate": isPrivate], failure: "Could not update privacy")
+                             body: ["isPrivate": isPrivate], failure: String(localized: "Could not update privacy", comment: "Share error prefix: changing the shared video's privacy failed; followed by a colon and the server message"))
     }
 
     /// PATCH /api/video/:id/settings {profileVisible} — listed on the
     /// owner's public profile page or not.
     static func setProfileVisible(token: String, videoId: String, visible: Bool) async throws {
         try await patchVideo(token: token, videoId: videoId, path: "settings",
-                             body: ["profileVisible": visible], failure: "Could not update profile listing")
+                             body: ["profileVisible": visible], failure: String(localized: "Could not update profile listing", comment: "Share error prefix: changing whether the video is listed on the public profile failed; followed by a colon and the server message"))
     }
 
     private static func patchVideo(

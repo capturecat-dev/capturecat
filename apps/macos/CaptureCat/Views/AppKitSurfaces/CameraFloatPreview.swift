@@ -158,7 +158,7 @@ final class CameraFloatSquircleView: NSView {
         strokeLayer.lineWidth = 1.5
         clip.layer?.addSublayer(strokeLayer)
 
-        toolTip = "Drag to move — right-click for size."
+        toolTip = String(localized: "Drag to move — right-click for size.", comment: "Tooltip on the floating camera preview")
         themeObservation = CCThemeObservation { [weak self] in self?.applyTheme() }
     }
 
@@ -196,7 +196,7 @@ final class CameraFloatSquircleView: NSView {
 
     private func sizeMenu() -> NSMenu {
         let menu = NSMenu()
-        for (title, value) in [("Small", CGFloat(150)), ("Medium", CGFloat(200)), ("Large", CGFloat(270))] {
+        for (title, value) in [(String(localized: "Small", comment: "Camera bubble right-click menu: size option"), CGFloat(150)), (String(localized: "Medium", comment: "Camera bubble right-click menu: size option"), CGFloat(200)), (String(localized: "Large", comment: "Camera bubble right-click menu: size option"), CGFloat(270))] {
             let item = NSMenuItem(title: title, action: #selector(pickSize(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = value
