@@ -74,3 +74,13 @@ re:^Uploading… \d+%$
 # Byte counts: ByteCountFormatter writes "182.4 MB" in several languages
 re:^[\d.,  ]+ ?(bytes|KB|MB|GB|TB)$
 Hello
+
+# Connect AI (App/Account/AgentConnections.swift): the connector URL, the
+# terminal commands and config blocks — typed into another app exactly as is
+https://mcp.capturecat.so/mcp
+re:^gemini mcp add --transport http
+re:^codex mcp add capturecat --url
+re:^\[mcp_servers\.capturecat\]
+re:^\{\s*"mcpServers"
+# … and the fixture's personal token name (FixtureL10nAudit; users name tokens)
+Claude Code on my Mac

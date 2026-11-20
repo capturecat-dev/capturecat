@@ -846,6 +846,71 @@
         }
       }
     },
+    "%@ loses access to your CaptureCat account at once. To use it again, connect it again in that app." : {
+      "comment" : "Confirm message: revoke an OAuth app",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ verliert sofort den Zugriff auf deinen CaptureCat-Account. Um es wieder zu nutzen, verbinde es in der App erneut."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ perd immédiatement l’accès à votre compte CaptureCat. Pour l’utiliser à nouveau, reconnectez-le dans cette app."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ pierde el acceso a tu cuenta de CaptureCat al instante. Para volver a usarlo, conéctalo de nuevo en esa app."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ pierde el acceso a tu cuenta de CaptureCat al instante. Para volver a usarlo, conéctalo de nuevo en esa app."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ perde subito l’accesso al tuo account CaptureCat. Per usarlo di nuovo, ricollegalo in quell’app."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ perde o acesso à sua conta CaptureCat na hora. Para usar de novo, conecte-o novamente nesse app."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ verliest meteen de toegang tot je CaptureCat-account. Wil je het weer gebruiken, koppel het dan opnieuw in die app."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@はただちにCaptureCatアカウントにアクセスできなくなります。再び使うには、そのアプリでもう一度接続してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@은(는) CaptureCat 계정에 즉시 접근할 수 없게 됩니다. 다시 사용하려면 해당 앱에서 다시 연결하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 将立即失去对你的 CaptureCat 账户的访问权限。如需再次使用，请在该 App 中重新连接。"
+          }
+        }
+      }
+    },
     "%@ of %@" : {
       "comment" : "VoiceOver value of the playback scrubber: elapsed of total, both spoken durations / VoiceOver value of the timecode: current time of total duration / VoiceOver: playhead time of total duration, e.g. 6.5 seconds of 20 seconds",
       "localizations" : {
@@ -1102,6 +1167,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preajuste %@"
+          }
+        }
+      }
+    },
+    "%@ revoked" : {
+      "comment" : "Toast after revoking; the argument is its name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ getrennt"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ révoqué"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ revocado"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ revocado"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ revocato"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ revogado"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ingetrokken"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@のアクセスを解除しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 접근 해제됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已取消 %@ 的授权"
           }
         }
       }
@@ -8701,6 +8831,136 @@
         }
       }
     },
+    "AI app" : {
+      "comment" : "Connect AI: VoiceOver label of the app switcher",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KI-App"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App d’IA"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App de IA"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App de IA"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App di IA"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App de IA"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI-app"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIアプリ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 앱"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI App"
+          }
+        }
+      }
+    },
+    "AI edit undone" : {
+      "comment" : "Toast after undoing an AI agent's edit",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KI-Bearbeitung widerrufen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modification par l’IA annulée"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edición de la IA deshecha"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edición de la IA deshecha"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifica dell’IA annullata"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edição da IA desfeita"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI-bewerking hersteld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIによる編集を取り消しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 편집을 실행 취소함"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已撤销 AI 编辑"
+          }
+        }
+      }
+    },
     "ANNOTATE" : {
       "comment" : "Timeline lane label (all caps): annotations",
       "localizations" : {
@@ -9476,6 +9736,266 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Agregar diseño de cámara"
+          }
+        }
+      }
+    },
+    "Add CaptureCat to ChatGPT" : {
+      "comment" : "Connect AI: ChatGPT guide title",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat zu ChatGPT hinzufügen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter CaptureCat à ChatGPT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir CaptureCat a ChatGPT"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar CaptureCat a ChatGPT"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi CaptureCat a ChatGPT"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar o CaptureCat ao ChatGPT"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voeg CaptureCat toe aan ChatGPT"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPTにCaptureCatを追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT에 CaptureCat 추가"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将 CaptureCat 添加到 ChatGPT"
+          }
+        }
+      }
+    },
+    "Add CaptureCat to Claude" : {
+      "comment" : "Connect AI: Claude guide title",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat zu Claude hinzufügen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter CaptureCat à Claude"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir CaptureCat a Claude"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar CaptureCat a Claude"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi CaptureCat a Claude"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar o CaptureCat ao Claude"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voeg CaptureCat toe aan Claude"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ClaudeにCaptureCatを追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude에 CaptureCat 추가"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将 CaptureCat 添加到 Claude"
+          }
+        }
+      }
+    },
+    "Add CaptureCat to Codex" : {
+      "comment" : "Connect AI: Codex guide title",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat zu Codex hinzufügen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter CaptureCat à Codex"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir CaptureCat a Codex"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar CaptureCat a Codex"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi CaptureCat a Codex"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar o CaptureCat ao Codex"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voeg CaptureCat toe aan Codex"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CodexにCaptureCatを追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex에 CaptureCat 추가"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将 CaptureCat 添加到 Codex"
+          }
+        }
+      }
+    },
+    "Add CaptureCat to Gemini" : {
+      "comment" : "Connect AI: Gemini guide title",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat zu Gemini hinzufügen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter CaptureCat à Gemini"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir CaptureCat a Gemini"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar CaptureCat a Gemini"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi CaptureCat a Gemini"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar o CaptureCat ao Gemini"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voeg CaptureCat toe aan Gemini"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GeminiにCaptureCatを追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini에 CaptureCat 추가"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将 CaptureCat 添加到 Gemini"
           }
         }
       }
@@ -10779,6 +11299,71 @@
         }
       }
     },
+    "Add a remote (HTTP) MCP server with the connector URL. Apps that support sign-in connect like Claude does; most accept this block in their MCP settings:" : {
+      "comment" : "Connect AI: other-clients explanation",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Füge einen Remote-MCP-Server (HTTP) mit der Connector-URL hinzu. Apps mit Anmeldung verbinden sich wie Claude; die meisten akzeptieren diesen Block in ihren MCP-Einstellungen:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajoutez un serveur MCP distant (HTTP) avec l’URL du connecteur. Les apps qui gèrent la connexion se connectent comme Claude ; la plupart acceptent ce bloc dans leurs réglages MCP :"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade un servidor MCP remoto (HTTP) con la URL del conector. Las apps que admiten inicio de sesión se conectan como Claude; la mayoría acepta este bloque en sus ajustes de MCP:"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agrega un servidor MCP remoto (HTTP) con la URL del conector. Las apps que admiten inicio de sesión se conectan como Claude; la mayoría acepta este bloque en su configuración de MCP:"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi un server MCP remoto (HTTP) con l’URL del connettore. Le app che supportano l’accesso si collegano come Claude; la maggior parte accetta questo blocco nelle impostazioni MCP:"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicione um servidor MCP remoto (HTTP) com a URL do conector. Apps com início de sessão se conectam como o Claude; a maioria aceita este bloco nos ajustes de MCP:"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voeg een externe MCP-server (HTTP) toe met de connector-URL. Apps met inloggen koppelen zoals Claude; de meeste accepteren dit blok in hun MCP-instellingen:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コネクタURLでリモート（HTTP）MCPサーバを追加します。サインインに対応したアプリはClaudeと同じように接続します。多くのアプリはMCP設定にこのブロックを貼り付けられます："
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커넥터 URL로 원격(HTTP) MCP 서버를 추가하세요. 로그인을 지원하는 앱은 Claude처럼 연결되며, 대부분 MCP 설정에서 이 블록을 받습니다:"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用连接器 URL 添加远程（HTTP）MCP 服务器。支持登录的 App 会像 Claude 一样连接；大多数 App 可在 MCP 设置中接受此代码块："
+          }
+        }
+      }
+    },
     "Add a text label, arrow, shape, or tap indicator from the timeline — it lands on the ANNOTATE lane at the playhead. Select one (on the preview or the timeline) to edit its properties here. Double-tap a text label on the preview to edit it in place." : {
       "localizations" : {
         "it" : {
@@ -11422,6 +12007,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ámbar"
+          }
+        }
+      }
+    },
+    "An app that can't sign in needs a personal token: make one on the web in Settings → Agent access." : {
+      "comment" : "Connect AI: token fallback",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine App ohne Anmeldung braucht ein persönliches Token: Erstelle es im Web unter Settings → Agent access."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une app qui ne gère pas la connexion a besoin d’un jeton personnel : créez-en un sur le web dans Settings → Agent access."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una app que no puede iniciar sesión necesita un token personal: créalo en la web en Settings → Agent access."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una app que no puede iniciar sesión necesita un token personal: créalo en la web en Settings → Agent access."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un’app che non supporta l’accesso richiede un token personale: crealo sul web in Settings → Agent access."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Um app que não inicia sessão precisa de um token pessoal: crie um na web em Settings → Agent access."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Een app die niet kan inloggen heeft een persoonlijk token nodig: maak er een op het web via Settings → Agent access."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインインできないアプリには個人用トークンが必要です。WebのSettings → Agent accessで作成してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인할 수 없는 앱에는 개인 토큰이 필요합니다. 웹의 Settings → Agent access에서 만드세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法登录的 App 需要个人令牌：请在网页版的 Settings → Agent access 中创建。"
           }
         }
       }
@@ -12726,6 +13376,71 @@
         }
       }
     },
+    "Any app that speaks MCP" : {
+      "comment" : "Connect AI: other-clients guide title",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jede App, die MCP spricht"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toute app compatible MCP"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cualquier app compatible con MCP"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cualquier app compatible con MCP"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qualsiasi app compatibile con MCP"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qualquer app compatível com MCP"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elke app die MCP ondersteunt"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MCP対応のあらゆるアプリ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MCP를 지원하는 모든 앱"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任何支持 MCP 的 App"
+          }
+        }
+      }
+    },
     "Anyone with the link can comment." : {
       "localizations" : {
         "it" : {
@@ -13370,6 +14085,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Anotación de flecha"
+          }
+        }
+      }
+    },
+    "Ask Gemini for an edit. It then works in the Gemini app on this %@ too." : {
+      "comment" : "Gemini step 4; the argument is iPhone or iPad",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte Gemini um eine Bearbeitung. Danach klappt es auch in der Gemini-App auf diesem %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demandez une modification à Gemini. Cela fonctionne ensuite aussi dans l’app Gemini sur cet %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pide una edición a Gemini. Después también funciona en la app de Gemini en este %@."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pide una edición a Gemini. Después también funciona en la app de Gemini en este %@."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiedi una modifica a Gemini. Poi funziona anche nell’app Gemini su questo %@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Peça uma edição ao Gemini. Depois, funciona também no app Gemini neste %@."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vraag Gemini om een bewerking. Daarna werkt het ook in de Gemini-app op deze %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geminiに編集を頼みます。以後、この%@のGeminiアプリでも使えます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini에 편집을 요청하세요. 이후 이 %@의 Gemini 앱에서도 사용할 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请 Gemini 进行编辑。之后在这台 %@ 上的 Gemini App 中也能使用。"
           }
         }
       }
@@ -19412,7 +20192,7 @@
       }
     },
     "Cancel" : {
-      "comment" : "Action sheet: dismisses the sheet / Alert button / Drawing panel: discard the drawing changes / Export sheet: close without exporting / Merge review: cancel without merging",
+      "comment" : "Action sheet: dismisses the sheet / Alert button / Cancel button / Drawing panel: discard the drawing changes / Export sheet: close without exporting / Merge review: cancel without merging",
       "localizations" : {
         "it" : {
           "stringUnit" : {
@@ -22524,6 +23304,136 @@
         }
       }
     },
+    "ChatGPT" : {
+      "comment" : "Connect AI: the ChatGPT choice",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT"
+          }
+        }
+      }
+    },
+    "ChatGPT adds custom MCP servers on the web only, and editing needs a workspace plan that allows them (Business, Enterprise or Edu)." : {
+      "comment" : "Connect AI: ChatGPT caveat",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT fügt eigene MCP-Server nur im Web hinzu, und zum Bearbeiten brauchst du einen Workspace-Tarif, der sie erlaubt (Business, Enterprise oder Edu)."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT n’ajoute des serveurs MCP personnalisés que sur le web, et la modification exige un forfait d’espace de travail qui les autorise (Business, Enterprise ou Edu)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT solo añade servidores MCP personalizados en la web, y editar requiere un plan de espacio de trabajo que los permita (Business, Enterprise o Edu)."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT solo agrega servidores MCP personalizados en la web, y editar requiere un plan de espacio de trabajo que los permita (Business, Enterprise o Edu)."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT aggiunge server MCP personalizzati solo sul web, e per modificare serve un piano workspace che li consenta (Business, Enterprise o Edu)."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O ChatGPT só adiciona servidores MCP personalizados na web, e editar exige um plano de workspace que os permita (Business, Enterprise ou Edu)."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT voegt eigen MCP-servers alleen op het web toe, en bewerken vraagt een workspace-abonnement dat ze toestaat (Business, Enterprise of Edu)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPTでカスタムMCPサーバを追加できるのはWebのみで、編集にはそれを許可するワークスペースプラン（Business、Enterprise、Edu）が必要です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT는 웹에서만 사용자 지정 MCP 서버를 추가할 수 있으며, 편집하려면 이를 허용하는 워크스페이스 요금제(Business, Enterprise 또는 Edu)가 필요합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT 仅能在网页版添加自定义 MCP 服务器，且编辑需要允许此功能的工作区方案（Business、Enterprise 或 Edu）。"
+          }
+        }
+      }
+    },
     "Check your connection and try again." : {
       "localizations" : {
         "it" : {
@@ -22848,6 +23758,71 @@
         }
       }
     },
+    "Checking…" : {
+      "comment" : "Connect AI: connected list while loading",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird geprüft …"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérification…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobando…"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verificando…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifica in corso…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verificando…"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controleren…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認中…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인 중…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在检查…"
+          }
+        }
+      }
+    },
     "Choose" : {
       "comment" : "Pop-up menu with no prompt (VoiceOver label)",
       "localizations" : {
@@ -22909,6 +23884,201 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Elegir"
+          }
+        }
+      }
+    },
+    "Choose + Add, then Add custom connector." : {
+      "comment" : "Claude step 2",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle + Add, dann Add custom connector."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez + Add, puis Add custom connector."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige + Add y luego Add custom connector."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige + Add y luego Add custom connector."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scegli + Add, poi Add custom connector."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha + Add e depois Add custom connector."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kies + Add en daarna Add custom connector."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「+ Add」を選び、「Add custom connector」を選びます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ Add를 선택한 다음 Add custom connector를 선택하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择“+ Add”，然后选择“Add custom connector”。"
+          }
+        }
+      }
+    },
+    "Choose +, then Add custom MCP server." : {
+      "comment" : "ChatGPT step 2",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle + und dann Add custom MCP server."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez +, puis Add custom MCP server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige + y luego Add custom MCP server."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige + y luego Add custom MCP server."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scegli +, poi Add custom MCP server."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha + e depois Add custom MCP server."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kies + en daarna Add custom MCP server."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「+」を選び、「Add custom MCP server」を選びます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+를 선택한 다음 Add custom MCP server를 선택하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择“+”，然后选择“Add custom MCP server”。"
+          }
+        }
+      }
+    },
+    "Choose Add a custom app, paste the connector URL and choose Next." : {
+      "comment" : "Gemini step 2",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle Add a custom app, füge die Connector-URL ein und wähle Next."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez Add a custom app, collez l’URL du connecteur et choisissez Next."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Add a custom app, pega la URL del conector y elige Next."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige Add a custom app, pega la URL del conector y elige Next."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scegli Add a custom app, incolla l’URL del connettore e scegli Next."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha Add a custom app, cole a URL do conector e escolha Next."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kies Add a custom app, plak de connector-URL en kies Next."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「Add a custom app」を選び、コネクタURLを貼り付けて「Next」を選びます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a custom app를 선택하고 커넥터 URL을 붙여넣은 다음 Next를 선택하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择“Add a custom app”，粘贴连接器 URL，然后选择“Next”。"
           }
         }
       }
@@ -23492,6 +24662,201 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ruidoso"
+          }
+        }
+      }
+    },
+    "Claude" : {
+      "comment" : "Connect AI: the Claude choice",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
+          }
+        }
+      }
+    },
+    "Claude adds custom connectors on the web or the desktop app. On a Team or Enterprise plan an owner adds it under Organization settings → Connectors." : {
+      "comment" : "Connect AI: Claude caveat",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude fügt eigene Connectors im Web oder in der Desktop-App hinzu. Bei einem Team- oder Enterprise-Tarif fügt sie ein Owner unter Organization settings → Connectors hinzu."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude ajoute les connecteurs personnalisés sur le web ou dans l’app de bureau. Avec un forfait Team ou Enterprise, un propriétaire l’ajoute dans Organization settings → Connectors."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude añade conectores personalizados en la web o en la app de escritorio. En un plan Team o Enterprise, lo añade un propietario en Organization settings → Connectors."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude agrega conectores personalizados en la web o en la app de escritorio. En un plan Team o Enterprise, lo agrega un propietario en Organization settings → Connectors."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude aggiunge connettori personalizzati sul web o nell’app desktop. Con un piano Team o Enterprise, lo aggiunge un proprietario in Organization settings → Connectors."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Claude adiciona conectores personalizados na web ou no app para computador. Num plano Team ou Enterprise, um proprietário o adiciona em Organization settings → Connectors."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude voegt eigen connectors toe op het web of in de desktop-app. Bij een Team- of Enterprise-abonnement voegt een eigenaar hem toe via Organization settings → Connectors."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claudeのカスタムコネクタは、Webまたはデスクトップアプリで追加します。TeamまたはEnterpriseプランでは、オーナーがOrganization settings → Connectorsで追加します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude는 웹 또는 데스크톱 앱에서 사용자 지정 커넥터를 추가합니다. Team 또는 Enterprise 요금제에서는 소유자가 Organization settings → Connectors에서 추가합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude 需在网页版或桌面 App 中添加自定义连接器。若为 Team 或 Enterprise 方案，由所有者在 Organization settings → Connectors 中添加。"
+          }
+        }
+      }
+    },
+    "Claude, ChatGPT, Gemini and Codex sign in to CaptureCat with this address — no key or token to copy." : {
+      "comment" : "Connect AI: under the connector URL",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude, ChatGPT, Gemini und Codex melden sich mit dieser Adresse bei CaptureCat an – kein Schlüssel oder Token zum Kopieren."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude, ChatGPT, Gemini et Codex se connectent à CaptureCat avec cette adresse — aucune clé ni aucun jeton à copier."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude, ChatGPT, Gemini y Codex inician sesión en CaptureCat con esta dirección, sin claves ni tokens que copiar."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude, ChatGPT, Gemini y Codex inician sesión en CaptureCat con esta dirección, sin claves ni tokens que copiar."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude, ChatGPT, Gemini e Codex accedono a CaptureCat con questo indirizzo, senza chiavi o token da copiare."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude, ChatGPT, Gemini e Codex iniciam sessão no CaptureCat com este endereço — sem chave nem token para copiar."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude, ChatGPT, Gemini en Codex loggen met dit adres in bij CaptureCat – geen sleutel of token om te kopiëren."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude、ChatGPT、Gemini、CodexはこのアドレスでCaptureCatにサインインします。キーやトークンをコピーする必要はありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude, ChatGPT, Gemini, Codex는 이 주소로 CaptureCat에 로그인합니다. 복사할 키나 토큰이 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude、ChatGPT、Gemini 和 Codex 通过此地址登录 CaptureCat，无需拷贝密钥或令牌。"
           }
         }
       }
@@ -24854,6 +26219,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cierra el panel."
+          }
+        }
+      }
+    },
+    "Codex" : {
+      "comment" : "Connect AI: the Codex choice",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex"
           }
         }
       }
@@ -26544,6 +27974,201 @@
         }
       }
     },
+    "Confirm, choose Create as a plugin, install it and sign in to CaptureCat." : {
+      "comment" : "ChatGPT step 4",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bestätige, wähle Create as a plugin, installiere es und melde dich bei CaptureCat an."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmez, choisissez Create as a plugin, installez-le et connectez-vous à CaptureCat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirma, elige Create as a plugin, instálalo e inicia sesión en CaptureCat."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirma, elige Create as a plugin, instálalo e inicia sesión en CaptureCat."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conferma, scegli Create as a plugin, installalo e accedi a CaptureCat."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirme, escolha Create as a plugin, instale e inicie sessão no CaptureCat."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bevestig, kies Create as a plugin, installeer het en log in bij CaptureCat."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認して「Create as a plugin」を選び、インストールしてCaptureCatにサインインします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인하고 Create as a plugin을 선택한 다음, 설치하고 CaptureCat에 로그인하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认后选择“Create as a plugin”，安装并登录 CaptureCat。"
+          }
+        }
+      }
+    },
+    "Connect AI" : {
+      "comment" : "Account row that opens Connect AI / Title of the screen that connects Claude, ChatGPT or another AI app",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KI verbinden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecter une IA"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar IA"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar IA"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collega l’IA"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar IA"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI koppelen"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIを接続"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 연결"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接 AI"
+          }
+        }
+      }
+    },
+    "Connected" : {
+      "comment" : "Connect AI: section heading over the connected agents",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbunden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectées"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectadas"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectadas"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Collegate"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectadas"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gekoppeld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続済み"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已连接"
+          }
+        }
+      }
+    },
     "Connected to %@" : {
       "comment" : "Argument is the Mac's name",
       "localizations" : {
@@ -26605,6 +28230,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Conectado a %@"
+          }
+        }
+      }
+    },
+    "Connector URL" : {
+      "comment" : "Connect AI: section heading over the MCP URL",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connector-URL"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL du connecteur"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL del conector"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL del conector"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL del connettore"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL do conector"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connector-URL"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コネクタURL"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커넥터 URL"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接器 URL"
           }
         }
       }
@@ -26804,6 +28494,201 @@
         }
       }
     },
+    "Copied" : {
+      "comment" : "Toast after copying text",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiert"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copié"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiado"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiado"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiato"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiado"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gekopieerd"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コピーしました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "복사됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已拷贝"
+          }
+        }
+      }
+    },
+    "Copies it to the clipboard." : {
+      "comment" : "VoiceOver hint for copy buttons",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopiert es in die Zwischenablage."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie dans le presse-papiers."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo copia al portapapeles."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo copia al portapapeles."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lo copia negli appunti."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia para a área de transferência."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieert het naar het klembord."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クリップボードにコピーします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "클립보드에 복사합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将其拷贝到剪贴板。"
+          }
+        }
+      }
+    },
+    "Copy JSON" : {
+      "comment" : "Button that copies the MCP JSON block",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "JSON kopieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier le JSON"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar JSON"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar JSON"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia JSON"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar JSON"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieer JSON"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "JSONをコピー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "JSON 복사"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拷贝 JSON"
+          }
+        }
+      }
+    },
     "Copy Layout" : {
       "comment" : "Camera layout block menu item",
       "localizations" : {
@@ -26865,6 +28750,266 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Copiar diseño"
+          }
+        }
+      }
+    },
+    "Copy URL" : {
+      "comment" : "Button that copies the connector URL",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL kopieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier l’URL"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar URL"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar URL"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia URL"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar URL"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieer URL"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URLをコピー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL 복사"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拷贝 URL"
+          }
+        }
+      }
+    },
+    "Copy command" : {
+      "comment" : "Button that copies a terminal command",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Befehl kopieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier la commande"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar comando"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar comando"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia comando"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar comando"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieer opdracht"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コマンドをコピー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "명령어 복사"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拷贝命令"
+          }
+        }
+      }
+    },
+    "Copy commands" : {
+      "comment" : "Button that copies terminal commands",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Befehle kopieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier les commandes"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar comandos"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar comandos"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia comandi"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar comandos"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieer opdrachten"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コマンド一式をコピー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "명령어 모두 복사"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拷贝全部命令"
+          }
+        }
+      }
+    },
+    "Copy config" : {
+      "comment" : "Button that copies a config snippet",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konfiguration kopieren"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier la config"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar configuración"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar configuración"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia configurazione"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar configuração"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopieer configuratie"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定をコピー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 복사"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拷贝配置"
           }
         }
       }
@@ -28552,6 +30697,71 @@
         }
       }
     },
+    "Couldn't load your AI connections. %@" : {
+      "comment" : "Connect AI: load error; the argument is the reason",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine KI-Verbindungen konnten nicht geladen werden. %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de charger vos connexions d’IA. %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se han podido cargar tus conexiones de IA. %@"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron cargar tus conexiones de IA. %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile caricare i collegamenti IA. %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível carregar suas conexões de IA. %@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kan je AI-koppelingen niet laden. %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIの接続を読み込めませんでした。%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 연결을 불러올 수 없습니다. %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法载入你的 AI 连接。%@"
+          }
+        }
+      }
+    },
     "Couldn't load your library" : {
       "localizations" : {
         "it" : {
@@ -30220,6 +32430,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudieron activar los comentarios"
+          }
+        }
+      }
+    },
+    "Couldn't undo the AI edit" : {
+      "comment" : "Toast when undoing an AI agent's edit failed",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KI-Bearbeitung konnte nicht widerrufen werden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’annuler la modification par l’IA"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha podido deshacer la edición de la IA"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo deshacer la edición de la IA"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile annullare la modifica dell’IA"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível desfazer a edição da IA"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kan AI-bewerking niet herstellen"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIによる編集を取り消せませんでした"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 편집을 실행 취소할 수 없음"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法撤销 AI 编辑"
           }
         }
       }
@@ -39306,6 +41581,136 @@
         }
       }
     },
+    "Edited by %@" : {
+      "comment" : "Notice in the editor when the user's AI agent changed the open project; the argument is the agent's name, e.g. Claude",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bearbeitet von %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifié par %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editado por %@"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editado por %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modificato da %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editado por %@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bewerkt door %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@が編集しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@이(가) 편집함"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已由 %@ 编辑"
+          }
+        }
+      }
+    },
+    "Edited by your AI agent" : {
+      "comment" : "Notice in the editor when an unnamed AI agent changed the open project",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Von deinem KI-Agenten bearbeitet"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifié par votre agent IA"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editado por tu agente de IA"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editado por tu agente de IA"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modificato dal tuo agente IA"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editado pelo seu agente de IA"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bewerkt door je AI-agent"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIエージェントが編集しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 에이전트가 편집함"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已由你的 AI 智能体编辑"
+          }
+        }
+      }
+    },
     "Edited on this Mac" : {
       "comment" : "History row caption: local, unsynced edits",
       "localizations" : {
@@ -39367,6 +41772,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Editado en este Mac"
+          }
+        }
+      }
+    },
+    "Editing with AI isn't included in your %@ plan. It comes with CaptureCat Pro — upgrade at app.capturecat.so/billing, then come back here." : {
+      "comment" : "Connect AI: plan has no agent access; the argument is the plan name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bearbeiten mit KI ist in deinem Tarif „%@“ nicht enthalten. Es gehört zu CaptureCat Pro – führe unter app.capturecat.so/billing ein Upgrade durch und komm dann hierher zurück."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La modification par IA n’est pas incluse dans votre forfait %@. Elle fait partie de CaptureCat Pro : passez à un forfait supérieur sur app.capturecat.so/billing, puis revenez ici."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar con IA no está incluido en tu plan %@. Viene con CaptureCat Pro: mejora tu plan en app.capturecat.so/billing y vuelve aquí."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar con IA no está incluido en tu plan %@. Viene con CaptureCat Pro: mejora tu plan en app.capturecat.so/billing y regresa aquí."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La modifica con l’IA non è inclusa nel tuo piano %@. È compresa in CaptureCat Pro: passa a un piano superiore su app.capturecat.so/billing, poi torna qui."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar com IA não está incluído no seu plano %@. Ele vem com o CaptureCat Pro — faça upgrade em app.capturecat.so/billing e volte aqui."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bewerken met AI zit niet in je %@-abonnement. Het hoort bij CaptureCat Pro – upgrade via app.capturecat.so/billing en kom dan hier terug."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIによる編集は%@プランに含まれていません。CaptureCat Proで利用できます。app.capturecat.so/billingでアップグレードしてから、ここに戻ってください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 편집은 %@ 요금제에 포함되어 있지 않습니다. CaptureCat Pro에서 제공되니 app.capturecat.so/billing에서 업그레이드한 후 여기로 돌아오세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 %@ 方案不包含 AI 编辑。此功能随 CaptureCat Pro 提供——请前往 app.capturecat.so/billing 升级，然后回到这里。"
           }
         }
       }
@@ -43462,6 +45932,201 @@
         }
       }
     },
+    "Gemini" : {
+      "comment" : "Connect AI: the Gemini choice",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini"
+          }
+        }
+      }
+    },
+    "Gemini CLI" : {
+      "comment" : "Connect AI: Gemini CLI subheading",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini CLI"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini CLI"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini CLI"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini CLI"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini CLI"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini CLI"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini CLI"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini CLI"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini CLI"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini CLI"
+          }
+        }
+      }
+    },
+    "Gemini Code Assist and Gemini Enterprise take the same URL in their MCP settings — see Other apps." : {
+      "comment" : "Connect AI: other Gemini surfaces",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini Code Assist und Gemini Enterprise nehmen dieselbe URL in ihren MCP-Einstellungen an – siehe Andere Apps."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini Code Assist et Gemini Enterprise acceptent la même URL dans leurs réglages MCP — voir Autres apps."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini Code Assist y Gemini Enterprise aceptan la misma URL en sus ajustes de MCP: consulta Otras apps."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini Code Assist y Gemini Enterprise aceptan la misma URL en su configuración de MCP: consulta Otras apps."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini Code Assist e Gemini Enterprise accettano lo stesso URL nelle impostazioni MCP: vedi Altre app."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Gemini Code Assist e o Gemini Enterprise aceitam a mesma URL nos ajustes de MCP — veja Outros apps."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini Code Assist en Gemini Enterprise nemen dezelfde URL in hun MCP-instellingen – zie Andere apps."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini Code AssistとGemini Enterpriseも、MCP設定で同じURLを使えます。「その他のアプリ」を参照してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini Code Assist와 Gemini Enterprise도 MCP 설정에서 같은 URL을 사용합니다. 기타 앱을 참고하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini Code Assist 和 Gemini Enterprise 在其 MCP 设置中也使用同一 URL——请参阅“其他 App”。"
+          }
+        }
+      }
+    },
     "Generate" : {
       "comment" : "Feature sheet primary button: run subtitle generation / auto zoom",
       "localizations" : {
@@ -43588,6 +46253,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Generar subtítulos"
+          }
+        }
+      }
+    },
+    "Get a notification when your AI finishes editing a project." : {
+      "comment" : "Connect AI: notifications not asked yet",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lass dich benachrichtigen, wenn deine KI mit dem Bearbeiten eines Projekts fertig ist."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recevez une notification lorsque votre IA a fini de modifier un projet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recibe una notificación cuando tu IA termine de editar un proyecto."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recibe una notificación cuando tu IA termine de editar un proyecto."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ricevi una notifica quando l’IA finisce di modificare un progetto."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Receba uma notificação quando sua IA terminar de editar um projeto."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Krijg een melding als je AI klaar is met het bewerken van een project."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIがプロジェクトの編集を終えたら通知を受け取れます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI가 프로젝트 편집을 마치면 알림을 받으세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 完成项目编辑时接收通知。"
           }
         }
       }
@@ -43913,6 +46643,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Buena"
+          }
+        }
+      }
+    },
+    "Google offers custom apps in the Gemini app only to personal Google Accounts in the US, aged 18 or over, in English, and adds them on the web. Work and school accounts can't add them yet." : {
+      "comment" : "Connect AI: Gemini app caveat",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google bietet eigene Apps in der Gemini-App nur für private Google-Konten in den USA ab 18 Jahren auf Englisch an; hinzugefügt werden sie im Web. Arbeits- und Schulkonten können sie noch nicht hinzufügen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google ne propose les apps personnalisées dans l’app Gemini qu’aux comptes Google personnels aux États-Unis, de 18 ans ou plus, en anglais, et elles s’ajoutent sur le web. Les comptes professionnels et scolaires ne peuvent pas encore en ajouter."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google solo ofrece apps personalizadas en la app de Gemini a cuentas de Google personales de EE. UU., mayores de 18 años y en inglés, y se añaden en la web. Las cuentas de trabajo y de centros educativos aún no pueden añadirlas."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google solo ofrece apps personalizadas en la app de Gemini a cuentas de Google personales de EE. UU., mayores de 18 años y en inglés, y se agregan en la web. Las cuentas de trabajo y escolares aún no pueden agregarlas."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google offre le app personalizzate nell’app Gemini solo agli account Google personali negli USA, maggiorenni, in inglese, e si aggiungono sul web. Gli account di lavoro e della scuola non possono ancora aggiungerle."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Google oferece apps personalizados no app Gemini só para Contas do Google pessoais nos EUA, de maiores de 18 anos, em inglês, e eles são adicionados na web. Contas de trabalho e escolares ainda não podem adicioná-los."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google biedt eigen apps in de Gemini-app alleen aan persoonlijke Google-accounts in de VS, vanaf 18 jaar, in het Engels, en je voegt ze toe op het web. Werk- en schoolaccounts kunnen ze nog niet toevoegen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GoogleがGeminiアプリでカスタムアプリを提供しているのは、米国の18歳以上の個人用Googleアカウント（英語）のみで、追加はWebで行います。職場や学校のアカウントではまだ追加できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google은 Gemini 앱의 맞춤 앱을 미국의 만 18세 이상 개인 Google 계정(영어)에만 제공하며, 웹에서 추가합니다. 직장 및 학교 계정은 아직 추가할 수 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google 仅向美国 18 岁及以上、使用英语的个人 Google 账号提供 Gemini App 中的自定义 App，且需在网页版添加。工作和学校账号暂时无法添加。"
           }
         }
       }
@@ -47671,6 +50466,136 @@
         }
       }
     },
+    "In a chat, open + → Connectors and turn on CaptureCat. It then works in the Claude app on this %@ too." : {
+      "comment" : "Claude step 5; the argument is iPhone or iPad",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffne in einem Chat + → Connectors und schalte CaptureCat ein. Danach klappt es auch in der Claude-App auf diesem %@."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans une conversation, ouvrez + → Connectors et activez CaptureCat. Cela fonctionne ensuite aussi dans l’app Claude sur cet %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En un chat, abre + → Connectors y activa CaptureCat. Después también funciona en la app de Claude en este %@."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En un chat, abre + → Connectors y activa CaptureCat. Después también funciona en la app de Claude en este %@."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In una chat, apri + → Connectors e attiva CaptureCat. Poi funziona anche nell’app Claude su questo %@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Num chat, abra + → Connectors e ative o CaptureCat. Depois, funciona também no app Claude neste %@."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in een chat + → Connectors en zet CaptureCat aan. Daarna werkt het ook in de Claude-app op deze %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チャットで「+ → Connectors」を開き、CaptureCatをオンにします。以後、この%@のClaudeアプリでも使えます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "채팅에서 + → Connectors를 열고 CaptureCat을 켜세요. 이후 이 %@의 Claude 앱에서도 사용할 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在对话中打开“+ → Connectors”并开启 CaptureCat。之后在这台 %@ 上的 Claude App 中也能使用。"
+          }
+        }
+      }
+    },
+    "In a chat, type @CaptureCat (or + → Plugins) and ask for an edit." : {
+      "comment" : "ChatGPT step 5",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tippe in einem Chat @CaptureCat (oder + → Plugins) und bitte um eine Bearbeitung."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans une conversation, tapez @CaptureCat (ou + → Plugins) et demandez une modification."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En un chat, escribe @CaptureCat (o + → Plugins) y pide una edición."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En un chat, escribe @CaptureCat (o + → Plugins) y pide una edición."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In una chat, scrivi @CaptureCat (o + → Plugins) e chiedi una modifica."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Num chat, digite @CaptureCat (ou + → Plugins) e peça uma edição."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Typ in een chat @CaptureCat (of + → Plugins) en vraag om een bewerking."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チャットで@CaptureCat（または「+ → Plugins」）と入力し、編集を頼みます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "채팅에서 @CaptureCat(또는 + → Plugins)을 입력하고 편집을 요청하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在对话中输入 @CaptureCat（或“+ → Plugins”），然后请求编辑。"
+          }
+        }
+      }
+    },
     "In progress" : {
       "comment" : "Busy button state (VoiceOver) / Indeterminate progress (VoiceOver)",
       "localizations" : {
@@ -47732,6 +50657,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "En curso"
+          }
+        }
+      }
+    },
+    "In the IDE extension or the desktop app you can also open Settings → MCP servers → Add server, choose Streamable HTTP and paste the connector URL. Codex cloud tasks can't use custom MCP servers yet." : {
+      "comment" : "Connect AI: Codex other surfaces",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In der IDE-Erweiterung oder der Desktop-App kannst du auch Settings → MCP servers → Add server öffnen, Streamable HTTP wählen und die Connector-URL einfügen. Cloud-Aufgaben in Codex können noch keine eigenen MCP-Server nutzen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans l’extension IDE ou l’app de bureau, vous pouvez aussi ouvrir Settings → MCP servers → Add server, choisir Streamable HTTP et coller l’URL du connecteur. Les tâches cloud de Codex ne peuvent pas encore utiliser de serveurs MCP personnalisés."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En la extensión del IDE o en la app de escritorio también puedes abrir Settings → MCP servers → Add server, elegir Streamable HTTP y pegar la URL del conector. Las tareas en la nube de Codex aún no pueden usar servidores MCP personalizados."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En la extensión del IDE o en la app de escritorio también puedes abrir Settings → MCP servers → Add server, elegir Streamable HTTP y pegar la URL del conector. Las tareas en la nube de Codex aún no pueden usar servidores MCP personalizados."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nell’estensione IDE o nell’app desktop puoi anche aprire Settings → MCP servers → Add server, scegliere Streamable HTTP e incollare l’URL del connettore. Le attività cloud di Codex non possono ancora usare server MCP personalizzati."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Na extensão do IDE ou no app para computador, você também pode abrir Settings → MCP servers → Add server, escolher Streamable HTTP e colar a URL do conector. As tarefas na nuvem do Codex ainda não usam servidores MCP personalizados."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In de IDE-extensie of de desktop-app kun je ook Settings → MCP servers → Add server openen, Streamable HTTP kiezen en de connector-URL plakken. Cloudtaken van Codex kunnen nog geen eigen MCP-servers gebruiken."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IDE拡張機能やデスクトップアプリでは、「Settings → MCP servers → Add server」を開き、「Streamable HTTP」を選んでコネクタURLを貼り付けることもできます。Codexのクラウドタスクではまだカスタム MCPサーバを使えません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IDE 확장 프로그램이나 데스크톱 앱에서는 Settings → MCP servers → Add server를 열고 Streamable HTTP를 선택한 후 커넥터 URL을 붙여넣을 수도 있습니다. Codex 클라우드 작업에서는 아직 사용자 지정 MCP 서버를 사용할 수 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 IDE 扩展或桌面 App 中，你也可以打开“Settings → MCP servers → Add server”，选择“Streamable HTTP”并粘贴连接器 URL。Codex 云端任务暂时无法使用自定义 MCP 服务器。"
           }
         }
       }
@@ -50323,6 +53313,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Menos"
+          }
+        }
+      }
+    },
+    "Let Claude, ChatGPT, Gemini, Codex or another AI app edit your cloud projects — zooms, trims, captions, speed-ups, the look — with CaptureCat's own editing tools. Use your own AI account; nothing to install on this %@. Edits appear here, and you can undo them." : {
+      "comment" : "Connect AI: introduction; the argument is iPhone or iPad",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lass Claude, ChatGPT, Gemini, Codex oder eine andere KI-App deine Cloud-Projekte bearbeiten – Zooms, Kürzungen, Untertitel, Beschleunigungen, den Look – mit den Bearbeitungswerkzeugen von CaptureCat. Du nutzt deinen eigenen KI-Account; auf diesem %@ musst du nichts installieren. Änderungen erscheinen hier, und du kannst sie widerrufen."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laissez Claude, ChatGPT, Gemini, Codex ou une autre app d’IA modifier vos projets cloud — zooms, coupes, sous-titres, accélérations, apparence — avec les outils d’édition de CaptureCat. Utilisez votre propre compte d’IA ; rien à installer sur cet %@. Les modifications apparaissent ici et vous pouvez les annuler."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deja que Claude, ChatGPT, Gemini, Codex u otra app de IA editen tus proyectos en la nube (zooms, recortes, subtítulos, aceleraciones, el aspecto) con las herramientas de edición de CaptureCat. Usa tu propia cuenta de IA; no hay nada que instalar en este %@. Los cambios aparecen aquí y puedes deshacerlos."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deja que Claude, ChatGPT, Gemini, Codex u otra app de IA editen tus proyectos en la nube (zooms, recortes, subtítulos, aceleraciones, el aspecto) con las herramientas de edición de CaptureCat. Usa tu propia cuenta de IA; no hay nada que instalar en este %@. Los cambios aparecen aquí y puedes deshacerlos."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lascia che Claude, ChatGPT, Gemini, Codex o un’altra app di IA modifichino i tuoi progetti cloud (zoom, tagli, sottotitoli, accelerazioni, l’aspetto) con gli strumenti di modifica di CaptureCat. Usa il tuo account IA; niente da installare su questo %@. Le modifiche compaiono qui e puoi annullarle."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deixe o Claude, o ChatGPT, o Gemini, o Codex ou outro app de IA editar seus projetos na nuvem — zooms, cortes, legendas, acelerações, o visual — com as ferramentas de edição do CaptureCat. Use sua própria conta de IA; nada para instalar neste %@. As edições aparecem aqui e você pode desfazê-las."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laat Claude, ChatGPT, Gemini, Codex of een andere AI-app je cloudprojecten bewerken – zooms, inkortingen, ondertitels, versnellingen, de stijl – met de eigen bewerkingstools van CaptureCat. Gebruik je eigen AI-account; niets te installeren op deze %@. Wijzigingen verschijnen hier en je kunt ze herstellen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude、ChatGPT、Gemini、Codexなどのアプリが、CaptureCatの編集ツールでクラウドプロジェクトを編集できます（ズーム、トリム、字幕、早送り、見た目）。ご自身のAIアカウントを使い、この%@には何もインストールしません。編集内容はここに表示され、取り消すこともできます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude, ChatGPT, Gemini, Codex 또는 다른 AI 앱이 CaptureCat의 편집 도구로 클라우드 프로젝트를 편집하게 하세요. 확대/축소, 트리밍, 자막, 배속, 스타일까지 가능합니다. 본인의 AI 계정을 사용하며 이 %@에는 설치할 것이 없습니다. 편집 내용은 여기에 표시되고 실행 취소할 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让 Claude、ChatGPT、Gemini、Codex 或其他 AI App 使用 CaptureCat 自带的编辑工具编辑你的云端项目——缩放、修剪、字幕、加速、外观。使用你自己的 AI 账户，无需在这台 %@ 上安装任何内容。编辑会显示在这里，并且可以撤销。"
           }
         }
       }
@@ -55393,6 +58448,136 @@
         }
       }
     },
+    "Name it CaptureCat, paste the connector URL and choose Continue." : {
+      "comment" : "Claude step 3",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenne ihn CaptureCat, füge die Connector-URL ein und wähle Continue."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nommez-le CaptureCat, collez l’URL du connecteur et choisissez Continue."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llámalo CaptureCat, pega la URL del conector y elige Continue."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llámalo CaptureCat, pega la URL del conector y elige Continue."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiamalo CaptureCat, incolla l’URL del connettore e scegli Continue."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dê o nome CaptureCat, cole a URL do conector e escolha Continue."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noem hem CaptureCat, plak de connector-URL en kies Continue."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名前を「CaptureCat」にし、コネクタURLを貼り付けて「Continue」を選びます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이름을 CaptureCat으로 지정하고 커넥터 URL을 붙여넣은 다음 Continue를 선택하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将其命名为“CaptureCat”，粘贴连接器 URL，然后选择“Continue”。"
+          }
+        }
+      }
+    },
+    "Name it CaptureCat, paste the connector URL under Connection and choose OAuth sign-in." : {
+      "comment" : "ChatGPT step 3",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenne ihn CaptureCat, füge die Connector-URL unter Connection ein und wähle die OAuth-Anmeldung."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nommez-le CaptureCat, collez l’URL du connecteur sous Connection et choisissez la connexion OAuth."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llámalo CaptureCat, pega la URL del conector en Connection y elige el inicio de sesión OAuth."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llámalo CaptureCat, pega la URL del conector en Connection y elige el inicio de sesión OAuth."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiamalo CaptureCat, incolla l’URL del connettore in Connection e scegli l’accesso OAuth."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dê o nome CaptureCat, cole a URL do conector em Connection e escolha o início de sessão OAuth."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noem hem CaptureCat, plak de connector-URL onder Connection en kies inloggen met OAuth."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名前を「CaptureCat」にし、「Connection」にコネクタURLを貼り付けて、OAuthサインインを選びます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이름을 CaptureCat으로 지정하고 Connection에 커넥터 URL을 붙여넣은 다음 OAuth 로그인을 선택하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将其命名为“CaptureCat”，在“Connection”下粘贴连接器 URL，然后选择 OAuth 登录。"
+          }
+        }
+      }
+    },
     "Name this version" : {
       "comment" : "History: prompt title",
       "localizations" : {
@@ -55908,6 +59093,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fotograma siguiente"
+          }
+        }
+      }
+    },
+    "No AI is connected yet. Once Claude or ChatGPT signs in to CaptureCat, it shows up here." : {
+      "comment" : "Connect AI: empty connected list",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine KI verbunden. Sobald sich Claude oder ChatGPT bei CaptureCat anmeldet, erscheint es hier."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune IA n’est encore connectée. Dès que Claude ou ChatGPT se connecte à CaptureCat, elle apparaît ici."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay ninguna IA conectada. Cuando Claude o ChatGPT inicie sesión en CaptureCat, aparecerá aquí."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay ninguna IA conectada. Cuando Claude o ChatGPT inicie sesión en CaptureCat, aparecerá aquí."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessuna IA ancora collegata. Quando Claude o ChatGPT accede a CaptureCat, compare qui."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nenhuma IA conectada ainda. Quando o Claude ou o ChatGPT iniciar sessão no CaptureCat, ele aparece aqui."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nog geen AI gekoppeld. Zodra Claude of ChatGPT inlogt bij CaptureCat, verschijnt die hier."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まだAIは接続されていません。ClaudeやChatGPTがCaptureCatにサインインすると、ここに表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 연결된 AI가 없습니다. Claude나 ChatGPT가 CaptureCat에 로그인하면 여기에 표시됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未连接 AI。Claude 或 ChatGPT 登录 CaptureCat 后会显示在这里。"
           }
         }
       }
@@ -57657,6 +60907,136 @@
         }
       }
     },
+    "Notifications" : {
+      "comment" : "Connect AI: section heading",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mitteilungen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificaciones"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificaciones"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifiche"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificações"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meldingen"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알림"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知"
+          }
+        }
+      }
+    },
+    "Notifications for CaptureCat are off in Settings." : {
+      "comment" : "Connect AI: notifications denied",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mitteilungen für CaptureCat sind in den Einstellungen deaktiviert."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les notifications de CaptureCat sont désactivées dans Réglages."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las notificaciones de CaptureCat están desactivadas en Ajustes."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las notificaciones de CaptureCat están desactivadas en Configuración."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le notifiche di CaptureCat sono disattivate in Impostazioni."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As notificações do CaptureCat estão desativadas em Ajustes."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meldingen voor CaptureCat staan uit in Instellingen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCatの通知は「設定」でオフになっています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정에서 CaptureCat 알림이 꺼져 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat 的通知已在“设置”中关闭。"
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "Alert button / Default alert button",
       "localizations" : {
@@ -58108,6 +61488,266 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sí"
+          }
+        }
+      }
+    },
+    "On chatgpt.com, open Plugins." : {
+      "comment" : "ChatGPT step 1",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffne auf chatgpt.com Plugins."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur chatgpt.com, ouvrez Plugins."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En chatgpt.com, abre Plugins."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En chatgpt.com, abre Plugins."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su chatgpt.com, apri Plugins."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Em chatgpt.com, abra Plugins."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open op chatgpt.com Plugins."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "chatgpt.comで「Plugins」を開きます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "chatgpt.com에서 Plugins를 여세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 chatgpt.com 上打开“Plugins”。"
+          }
+        }
+      }
+    },
+    "On claude.ai or in the Claude desktop app, open Customize → Connectors." : {
+      "comment" : "Claude step 1",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffne auf claude.ai oder in der Claude-Desktop-App Customize → Connectors."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur claude.ai ou dans l’app de bureau Claude, ouvrez Customize → Connectors."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En claude.ai o en la app de escritorio de Claude, abre Customize → Connectors."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En claude.ai o en la app de escritorio de Claude, abre Customize → Connectors."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su claude.ai o nell’app desktop di Claude, apri Customize → Connectors."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Em claude.ai ou no app do Claude para computador, abra Customize → Connectors."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open op claude.ai of in de Claude-desktop-app Customize → Connectors."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.aiまたはClaudeデスクトップアプリで「Customize → Connectors」を開きます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "claude.ai 또는 Claude 데스크톱 앱에서 Customize → Connectors를 여세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 claude.ai 或 Claude 桌面 App 中打开“Customize → Connectors”。"
+          }
+        }
+      }
+    },
+    "On gemini.google.com, open Settings → Connected Apps → Custom apps." : {
+      "comment" : "Gemini step 1",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffne auf gemini.google.com Settings → Connected Apps → Custom apps."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur gemini.google.com, ouvrez Settings → Connected Apps → Custom apps."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En gemini.google.com, abre Settings → Connected Apps → Custom apps."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En gemini.google.com, abre Settings → Connected Apps → Custom apps."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Su gemini.google.com, apri Settings → Connected Apps → Custom apps."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Em gemini.google.com, abra Settings → Connected Apps → Custom apps."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open op gemini.google.com Settings → Connected Apps → Custom apps."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gemini.google.comで「Settings → Connected Apps → Custom apps」を開きます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gemini.google.com에서 Settings → Connected Apps → Custom apps를 여세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 gemini.google.com 上打开“Settings → Connected Apps → Custom apps”。"
+          }
+        }
+      }
+    },
+    "On. You'll get a notification when your AI finishes editing a project." : {
+      "comment" : "Connect AI: notifications allowed",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein. Du wirst benachrichtigt, wenn deine KI mit dem Bearbeiten eines Projekts fertig ist."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activées. Vous recevrez une notification lorsque votre IA aura fini de modifier un projet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activadas. Recibirás una notificación cuando tu IA termine de editar un proyecto."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activadas. Recibirás una notificación cuando tu IA termine de editar un proyecto."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attive. Riceverai una notifica quando l’IA finisce di modificare un progetto."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ativadas. Você receberá uma notificação quando sua IA terminar de editar um projeto."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aan. Je krijgt een melding als je AI klaar is met het bewerken van een project."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オン。AIがプロジェクトの編集を終えると通知が届きます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "켜짐. AI가 프로젝트 편집을 마치면 알림을 받습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已开启。AI 完成项目编辑时你会收到通知。"
           }
         }
       }
@@ -58885,6 +62525,266 @@
         }
       }
     },
+    "Open ChatGPT plugins" : {
+      "comment" : "Button that opens chatgpt.com's plugins page",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT-Plugins öffnen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir les plugins ChatGPT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir plugins de ChatGPT"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir plugins de ChatGPT"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri i plugin di ChatGPT"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir plugins do ChatGPT"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open ChatGPT-plugins"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPTのプラグインを開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT 플러그인 열기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 ChatGPT 插件"
+          }
+        }
+      }
+    },
+    "Open Claude connectors" : {
+      "comment" : "Button that opens claude.ai's connector settings",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude-Connectors öffnen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir les connecteurs Claude"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir conectores de Claude"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir conectores de Claude"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri i connettori di Claude"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir conectores do Claude"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Claude-connectors"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claudeのコネクタを開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude 커넥터 열기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 Claude 连接器"
+          }
+        }
+      }
+    },
+    "Open Gemini" : {
+      "comment" : "Button that opens gemini.google.com",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini öffnen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir Gemini"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Gemini"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Gemini"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri Gemini"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Gemini"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Gemini"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geminiを開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemini 열기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 Gemini"
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "comment" : "Button that opens the app's iOS Settings",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einstellungen öffnen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir Réglages"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Ajustes"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Configuración"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri Impostazioni"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Ajustes"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Instellingen"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定を開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 열기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开设置"
+          }
+        }
+      }
+    },
     "Open in browser" : {
       "comment" : "Share menu action",
       "localizations" : {
@@ -59597,6 +63497,71 @@
         }
       }
     },
+    "Opens in your browser." : {
+      "comment" : "VoiceOver hint for buttons that open a web page",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird im Browser geöffnet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S’ouvre dans votre navigateur."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se abre en el navegador."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se abre en el navegador."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si apre nel browser."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre no navegador."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opent in je browser."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブラウザで開きます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "브라우저에서 열립니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在浏览器中打开。"
+          }
+        }
+      }
+    },
     "Opens its controls above the tool bar." : {
       "localizations" : {
         "it" : {
@@ -60177,6 +64142,71 @@
         }
       }
     },
+    "Or add it to ~/.codex/config.toml, which the Codex CLI, IDE extension and desktop app share:" : {
+      "comment" : "Connect AI: Codex config explanation",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oder füge ihn zu ~/.codex/config.toml hinzu, die Codex CLI, IDE-Erweiterung und Desktop-App gemeinsam nutzen:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ou ajoutez-le à ~/.codex/config.toml, partagé par la CLI Codex, l’extension IDE et l’app de bureau :"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O añádelo a ~/.codex/config.toml, que comparten la CLI de Codex, la extensión del IDE y la app de escritorio:"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O agrégalo a ~/.codex/config.toml, que comparten la CLI de Codex, la extensión del IDE y la app de escritorio:"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Oppure aggiungilo a ~/.codex/config.toml, condiviso da CLI di Codex, estensione IDE e app desktop:"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ou adicione-o a ~/.codex/config.toml, compartilhado pela CLI do Codex, pela extensão do IDE e pelo app para computador:"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Of voeg hem toe aan ~/.codex/config.toml, dat de Codex-CLI, de IDE-extensie en de desktop-app delen:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "または、Codex CLI、IDE拡張機能、デスクトップアプリで共有される~/.codex/config.tomlに追加します："
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "또는 Codex CLI, IDE 확장 프로그램, 데스크톱 앱이 함께 쓰는 ~/.codex/config.toml에 추가하세요:"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "或将其添加到 Codex CLI、IDE 扩展和桌面 App 共用的 ~/.codex/config.toml："
+          }
+        }
+      }
+    },
     "Orange" : {
       "comment" : "Color swatch name, read by VoiceOver",
       "localizations" : {
@@ -60562,6 +64592,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Otro"
+          }
+        }
+      }
+    },
+    "Other apps" : {
+      "comment" : "Connect AI: the choice for any other AI app",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Andere Apps"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autres apps"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otras apps"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otras apps"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altre app"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outros apps"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Andere apps"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "その他のアプリ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기타 앱"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他 App"
           }
         }
       }
@@ -61600,6 +65695,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Elimina de forma permanente tu cuenta de CaptureCat, tus videos compartidos y tus proyectos en la nube. Las suscripciones activas se cancelan de inmediato."
+          }
+        }
+      }
+    },
+    "Personal token" : {
+      "comment" : "Connect AI: a token made on the web",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persönliches Token"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jeton personnel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token personal"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token personal"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token personale"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Token pessoal"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persoonlijk token"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "個人用トークン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "개인 토큰"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "个人令牌"
           }
         }
       }
@@ -69847,6 +74007,201 @@
         }
       }
     },
+    "Revoke" : {
+      "comment" : "Button that disconnects an AI app / Confirm button: revoke",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trennen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Révoquer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revocar"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revocar"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoca"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revogar"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intrekken"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクセスを解除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "접근 해제"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消授权"
+          }
+        }
+      }
+    },
+    "Revoke %@" : {
+      "comment" : "VoiceOver: revoke an AI connection; the argument is its name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ trennen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Révoquer %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revocar %@"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revocar %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revoca %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revogar %@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ intrekken"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@のアクセスを解除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 접근 해제"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消 %@ 的授权"
+          }
+        }
+      }
+    },
+    "Revoke %@?" : {
+      "comment" : "Confirm title: disconnect an AI app; the argument is its name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ trennen?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Révoquer %@ ?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Revocar %@?"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Revocar %@?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revocare %@?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revogar %@?"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ intrekken?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@のアクセスを解除しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@의 접근을 해제할까요?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要取消 %@ 的授权吗？"
+          }
+        }
+      }
+    },
     "Right" : {
       "comment" : "Inspector ▸ Background ▸ Frame: where the video card sits on the canvas / Inspector ▸ Background ▸ Menu Bar: title alignment option / Inspector ▸ Effects ▸ Slide: the edge the screen slides in from",
       "localizations" : {
@@ -70363,6 +74718,136 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rectángulo redondeado"
+          }
+        }
+      }
+    },
+    "Run these on your computer — the second signs Codex in to CaptureCat:" : {
+      "comment" : "Connect AI: Codex CLI explanation",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Führe diese auf deinem Computer aus – der zweite meldet Codex bei CaptureCat an:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exécutez-les sur votre ordinateur — la seconde connecte Codex à CaptureCat :"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecútalos en tu ordenador; el segundo inicia la sesión de Codex en CaptureCat:"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecútalos en tu computadora; el segundo inicia la sesión de Codex en CaptureCat:"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eseguili sul computer: il secondo fa accedere Codex a CaptureCat:"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Execute estes no seu computador — o segundo inicia a sessão do Codex no CaptureCat:"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voer deze uit op je computer – de tweede logt Codex in bij CaptureCat:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータで次を実行します。2つ目でCodexがCaptureCatにサインインします："
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터에서 다음을 실행하세요. 두 번째 명령어로 Codex가 CaptureCat에 로그인합니다:"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在电脑上运行以下命令——第二条会让 Codex 登录 CaptureCat："
+          }
+        }
+      }
+    },
+    "Run this on your computer, then sign in when Gemini CLI asks (or type /mcp auth capturecat):" : {
+      "comment" : "Connect AI: Gemini CLI explanation",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Führe dies auf deinem Computer aus und melde dich an, wenn Gemini CLI fragt (oder tippe /mcp auth capturecat):"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exécutez ceci sur votre ordinateur, puis connectez-vous quand Gemini CLI le demande (ou tapez /mcp auth capturecat) :"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecuta esto en tu ordenador e inicia sesión cuando Gemini CLI lo pida (o escribe /mcp auth capturecat):"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ejecuta esto en tu computadora e inicia sesión cuando Gemini CLI lo pida (o escribe /mcp auth capturecat):"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eseguilo sul computer, poi accedi quando Gemini CLI lo chiede (o scrivi /mcp auth capturecat):"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Execute isto no seu computador e inicie sessão quando o Gemini CLI pedir (ou digite /mcp auth capturecat):"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voer dit uit op je computer en log in als Gemini CLI erom vraagt (of typ /mcp auth capturecat):"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータでこれを実行し、Gemini CLIに求められたらサインインします（または/mcp auth capturecatと入力）："
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터에서 이 명령어를 실행한 후 Gemini CLI가 요청하면 로그인하세요(또는 /mcp auth capturecat 입력):"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在电脑上运行以下命令，然后在 Gemini CLI 提示时登录（或输入 /mcp auth capturecat）："
           }
         }
       }
@@ -72178,6 +76663,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ajustar velocidad"
+          }
+        }
+      }
+    },
+    "Set it up" : {
+      "comment" : "Connect AI: section heading over the setup steps",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einrichten"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configuration"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configúralo"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configúralo"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configurar"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instellen"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定方法"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 방법"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置步骤"
           }
         }
       }
@@ -74901,6 +79451,71 @@
         }
       }
     },
+    "Sign in to CaptureCat and allow access." : {
+      "comment" : "Claude step 4 / Gemini step 3",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Melde dich bei CaptureCat an und erlaube den Zugriff."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connectez-vous à CaptureCat et autorisez l’accès."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia sesión en CaptureCat y permite el acceso."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicia sesión en CaptureCat y permite el acceso."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accedi a CaptureCat e consenti l’accesso."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicie sessão no CaptureCat e permita o acesso."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log in bij CaptureCat en sta toegang toe."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCatにサインインし、アクセスを許可します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat에 로그인하고 접근을 허용하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录 CaptureCat 并允许访问。"
+          }
+        }
+      }
+    },
     "Sign in to CaptureCat on this iPhone and on your Mac with the same account, then try again." : {
       "comment" : "Shown by the system when the broadcast stops",
       "localizations" : {
@@ -75671,6 +80286,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sesión iniciada"
+          }
+        }
+      }
+    },
+    "Signed in with CaptureCat" : {
+      "comment" : "Connect AI: an app that connected by OAuth",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit CaptureCat angemeldet"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecté avec CaptureCat"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesión iniciada con CaptureCat"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesión iniciada con CaptureCat"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso con CaptureCat"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sessão iniciada com o CaptureCat"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ingelogd met CaptureCat"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCatでサインイン済み"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat으로 로그인됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已通过 CaptureCat 登录"
           }
         }
       }
@@ -79762,6 +84442,71 @@
         }
       }
     },
+    "Step %lld: %@" : {
+      "comment" : "VoiceOver: a numbered setup step",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schritt %lld: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Étape %lld : %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paso %lld: %@"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paso %lld: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passo %lld: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passo %lld: %@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stap %lld: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ステップ%lld：%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld단계: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 步：%@"
+          }
+        }
+      }
+    },
     "Steps the playhead back one frame." : {
       "localizations" : {
         "it" : {
@@ -82031,6 +86776,71 @@
         }
       }
     },
+    "Tell me when AI finishes editing" : {
+      "comment" : "Connect AI: notification row title",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Benachrichtigen, wenn die KI fertig ist"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "M’avertir quand l’IA a fini"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avisarme cuando la IA termine"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avisarme cuando la IA termine"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avvisami quando l’IA ha finito"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avisar quando a IA terminar"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meld wanneer AI klaar is"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIの編集完了を通知"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 편집 완료 시 알림"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 完成编辑时通知我"
+          }
+        }
+      }
+    },
     "Tension" : {
       "comment" : "Inspector ▸ Cursor: slider label",
       "localizations" : {
@@ -83773,6 +88583,71 @@
         }
       }
     },
+    "The token stops working at once. Anything using it loses access to your CaptureCat account." : {
+      "comment" : "Confirm message: revoke a personal token",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Token funktioniert sofort nicht mehr. Alles, was es nutzt, verliert den Zugriff auf deinen CaptureCat-Account."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le jeton cesse immédiatement de fonctionner. Tout ce qui l’utilise perd l’accès à votre compte CaptureCat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El token deja de funcionar al instante. Todo lo que lo use pierde el acceso a tu cuenta de CaptureCat."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El token deja de funcionar al instante. Todo lo que lo use pierde el acceso a tu cuenta de CaptureCat."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il token smette subito di funzionare. Tutto ciò che lo usa perde l’accesso al tuo account CaptureCat."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O token para de funcionar na hora. Tudo o que o usa perde o acesso à sua conta CaptureCat."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Het token werkt meteen niet meer. Alles wat het gebruikt verliest de toegang tot je CaptureCat-account."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トークンはただちに使えなくなります。これを使っているものはすべてCaptureCatアカウントにアクセスできなくなります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "토큰이 즉시 작동을 멈춥니다. 이 토큰을 사용하는 모든 항목이 CaptureCat 계정에 접근할 수 없게 됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该令牌将立即失效。所有使用它的内容都将失去对你的 CaptureCat 账户的访问权限。"
+          }
+        }
+      }
+    },
     "The upload could not be completed. Try again in a moment." : {
       "comment" : "Cloud sync error message",
       "localizations" : {
@@ -83963,6 +88838,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "La subida tardó demasiado. Inténtalo de nuevo con una conexión más rápida."
+          }
+        }
+      }
+    },
+    "The version before it is back, as a new version in History." : {
+      "comment" : "Toast detail after undoing an AI agent's edit",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Version davor ist zurück – als neue Version im Verlauf."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La version précédente est revenue, comme nouvelle version dans l’historique."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La versión anterior ha vuelto, como una versión nueva en el historial."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La versión anterior regresó, como una versión nueva en el historial."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La versione precedente è tornata, come nuova versione nella cronologia."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A versão anterior voltou, como uma nova versão no Histórico."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De versie ervoor is terug, als nieuwe versie in de geschiedenis."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "直前のバージョンが、履歴の新しいバージョンとして戻りました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이전 버전이 기록에 새 버전으로 복원되었습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "之前的版本已恢复，并作为新版本记入历史记录。"
           }
         }
       }
@@ -84418,6 +89358,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Suya"
+          }
+        }
+      }
+    },
+    "There's nothing to undo — the AI's edit isn't in this project any more." : {
+      "comment" : "Error when undoing an AI agent's edit that is gone",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es gibt nichts zu widerrufen – die Bearbeitung der KI ist nicht mehr in diesem Projekt."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rien à annuler : la modification de l’IA ne figure plus dans ce projet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay nada que deshacer: la edición de la IA ya no está en este proyecto."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay nada que deshacer: la edición de la IA ya no está en este proyecto."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non c’è niente da annullare: la modifica dell’IA non è più in questo progetto."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não há nada para desfazer — a edição da IA não está mais neste projeto."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Er valt niets te herstellen – de bewerking van de AI zit niet meer in dit project."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取り消すものはありません。AIによる編集はもうこのプロジェクトにありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실행 취소할 항목이 없습니다. AI 편집이 더 이상 이 프로젝트에 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有可撤销的内容——AI 的编辑已不在此项目中。"
           }
         }
       }
@@ -89467,6 +94472,71 @@
         }
       }
     },
+    "Turn On" : {
+      "comment" : "Button that asks for notification permission",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einschalten"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activer"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ativar"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zet aan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オンにする"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "켜기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开启"
+          }
+        }
+      }
+    },
     "Turns %@ on or off." : {
       "comment" : "VoiceOver hint for a panel's on/off switch; the argument is the setting's name",
       "localizations" : {
@@ -89987,7 +95057,7 @@
       }
     },
     "Undo" : {
-      "comment" : "Editor transport bar button (VoiceOver label) / Keyboard shortcut menu item / Keyboard shortcut: undo / Timeline toolbar key: undo / VoiceOver: undo the last drawing mark",
+      "comment" : "Button on the AI-edit notice that puts the project back / Editor transport bar button (VoiceOver label) / Keyboard shortcut menu item / Keyboard shortcut: undo / Timeline toolbar key: undo / VoiceOver: undo the last drawing mark",
       "localizations" : {
         "it" : {
           "stringUnit" : {
@@ -90047,6 +95117,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Deshacer"
+          }
+        }
+      }
+    },
+    "Undo AI Edit" : {
+      "comment" : "Undo menu name for undoing an AI agent's edit",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KI-Bearbeitung widerrufen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler la modification par l’IA"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer edición de la IA"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deshacer edición de la IA"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annulla modifica dell’IA"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desfazer Edição da IA"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herstel AI-bewerking"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIによる編集を取り消す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 편집 실행 취소"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销 AI 编辑"
           }
         }
       }
@@ -90567,6 +95702,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Grabación sin título"
+          }
+        }
+      }
+    },
+    "Upgrade to edit with AI" : {
+      "comment" : "Connect AI: upgrade callout title",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade für Bearbeiten mit KI"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passez au forfait supérieur pour modifier avec l’IA"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejora tu plan para editar con IA"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mejora tu plan para editar con IA"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passa a un piano superiore per modificare con l’IA"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faça upgrade para editar com IA"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade om met AI te bewerken"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アップグレードしてAIで編集"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "업그레이드하고 AI로 편집하기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "升级以使用 AI 编辑"
           }
         }
       }
@@ -95885,6 +101085,71 @@
         }
       }
     },
+    "Your %@ plan lets an AI read your projects but not edit them. Editing with AI comes with CaptureCat Pro — upgrade at app.capturecat.so/billing, then come back here." : {
+      "comment" : "Connect AI: plan has agent access but not editing; the argument is the plan name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mit deinem Tarif „%@“ kann eine KI deine Projekte lesen, aber nicht bearbeiten. Bearbeiten mit KI gehört zu CaptureCat Pro – führe unter app.capturecat.so/billing ein Upgrade durch und komm dann hierher zurück."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre forfait %@ permet à une IA de lire vos projets, mais pas de les modifier. La modification par IA fait partie de CaptureCat Pro : passez à un forfait supérieur sur app.capturecat.so/billing, puis revenez ici."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu plan %@ permite que una IA lea tus proyectos, pero no que los edite. Editar con IA viene con CaptureCat Pro: mejora tu plan en app.capturecat.so/billing y vuelve aquí."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu plan %@ permite que una IA lea tus proyectos, pero no que los edite. Editar con IA viene con CaptureCat Pro: mejora tu plan en app.capturecat.so/billing y regresa aquí."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo piano %@ consente a un’IA di leggere i progetti ma non di modificarli. La modifica con l’IA è compresa in CaptureCat Pro: passa a un piano superiore su app.capturecat.so/billing, poi torna qui."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seu plano %@ permite que uma IA leia seus projetos, mas não que os edite. Editar com IA vem com o CaptureCat Pro — faça upgrade em app.capturecat.so/billing e volte aqui."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Met je %@-abonnement kan een AI je projecten lezen maar niet bewerken. Bewerken met AI hoort bij CaptureCat Pro – upgrade via app.capturecat.so/billing en kom dan hier terug."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@プランでは、AIはプロジェクトを読めますが編集はできません。AIによる編集はCaptureCat Proで利用できます。app.capturecat.so/billingでアップグレードしてから、ここに戻ってください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 요금제에서는 AI가 프로젝트를 읽을 수만 있고 편집할 수는 없습니다. AI 편집은 CaptureCat Pro에서 제공되니 app.capturecat.so/billing에서 업그레이드한 후 여기로 돌아오세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 %@ 方案允许 AI 读取项目，但不能编辑。AI 编辑随 CaptureCat Pro 提供——请前往 app.capturecat.so/billing 升级，然后回到这里。"
+          }
+        }
+      }
+    },
     "Your Mac couldn't open it" : {
       "localizations" : {
         "it" : {
@@ -98412,6 +103677,71 @@
         }
       }
     },
+    "can't edit projects" : {
+      "comment" : "Connect AI: a connection without the projects:write scope",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kann keine Projekte bearbeiten"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ne peut pas modifier les projets"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no puede editar proyectos"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no puede editar proyectos"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "non può modificare i progetti"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "não pode editar projetos"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kan geen projecten bewerken"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プロジェクトの編集不可"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로젝트 편집 불가"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法编辑项目"
+          }
+        }
+      }
+    },
     "cannot read the camera file" : {
       "comment" : "Camera background removal failure reason, shown after \"Couldn't remove the background:\"",
       "localizations" : {
@@ -98473,6 +103803,136 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "no se puede leer el archivo de la cámara"
+          }
+        }
+      }
+    },
+    "connected %@" : {
+      "comment" : "Connect AI: when it connected",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "verbunden am %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "connecté le %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "conectado el %@"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "conectado el %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "collegato il %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "conectado em %@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gekoppeld op %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@に接続"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에 연결됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接于 %@"
+          }
+        }
+      }
+    },
+    "current" : {
+      "comment" : "Plan name fallback, as in 'your current plan'",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "aktuell"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "actuel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "actual"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "actual"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "attuale"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "atual"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "huidige"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在の"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "현재"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前"
           }
         }
       }
@@ -99837,6 +105297,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "error desconocido"
+          }
+        }
+      }
+    },
+    "used %@" : {
+      "comment" : "Connect AI: last use, e.g. 'used 2 hr. ago'",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "genutzt %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "utilisé %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "usado %@"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "usado %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "usato %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "usado %@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gebruikt %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@に使用"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 사용됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@使用过"
           }
         }
       }

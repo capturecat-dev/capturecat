@@ -129,18 +129,39 @@ final class StudioAgentEdits {
 
     private func present(_ edit: Edit) {
         guard let editor = sync?.editor, editor.viewIfLoaded?.window != nil else { return }
-        let undo = CCToast.Action(title: String(localized: "Undo", comment: "Button on the AI-edit notice that puts the project back")) { [weak self, weak editor] in
+        let toast = Self.notice(in: editor, title: edit.title, summary: edit.summary, duration: noticeDuration) { [weak self, weak editor] in
             guard let self, let editor else { return }
             Task { @MainActor in await self.runUndo(edit, in: editor) }
         }
-        let toast = StudioHistory.toast(in: editor, title: edit.title, message: edit.summary, variant: .default,
-                                        symbol: "sparkles", action: undo, duration: noticeDuration)
         #if DEBUG
         probeNotice = toast
         #else
         _ = toast
         #endif
     }
+
+    /// The "Edited by …" notice with its Undo (one look for the app and the l10n audit).
+    @discardableResult
+    static func notice(in editor: EditorViewController, title: String, summary: String, duration: TimeInterval,
+                       undo: @escaping () -> Void) -> CCToast {
+        let action = CCToast.Action(title: String(localized: "Undo", comment: "Button on the AI-edit notice that puts the project back"), handler: undo)
+        return StudioHistory.toast(in: editor, title: title, message: summary, variant: .default,
+                                   symbol: "sparkles", action: action, duration: duration)
+    }
+
+    #if DEBUG
+    /// The l10n audit (StudioLab `--l10n`): the notice as an agent edit by
+    /// "Claude" that changed the background and effects raises it, plus the unnamed-agent title.
+    @discardableResult
+    static func probeShowNotice(in editor: EditorViewController, named: Bool) -> CCToast {
+        let summary = [String(localized: "Background changed", comment: "History row caption phrase (phrases are joined with \" · \")"),
+                       String(localized: "Effects changed", comment: "History row caption phrase (phrases are joined with \" · \")")]
+            .joined(separator: ChangeSummary.separator)
+        let edit = Edit(versionID: "probe", revision: 2, agreedRevision: 1, undoVersionID: nil, isFreshVersion: true,
+                        agentName: named ? "Claude" : nil, summary: summary, before: Data(), after: Data())
+        return notice(in: editor, title: edit.title, summary: edit.summary, duration: 30) {}
+    }
+    #endif
 
     private func runUndo(_ edit: Edit, in editor: EditorViewController) async {
         do {

@@ -6,7 +6,7 @@ import UIKit
 /// gate opens (A11yLab.screens: all nine inspector panes top and scrolled to
 /// the end, an open lane, a selection, the timeline menu, History, Merge
 /// Review, the four feature sheets, the sync badge, the tool bar's sheets and
-/// panels, the Export sheet). Each screen goes through `CCLocalizationAudit`;
+/// panels, the Export sheet) and the AI-edit notice. Each screen goes through `CCLocalizationAudit`;
 /// the script judges the texts. Ends with `L10NLAB-DONE`.
 @MainActor
 enum L10nLab {
@@ -50,6 +50,18 @@ enum L10nLab {
             return nil
         }, close: A11yLab.dismissPresented))
         screens += selectionScreens(editor)
+        // The "Edited by …" notice an AI agent's edit raises (StudioAgentEdits), named and unnamed.
+        for named in [true, false] {
+            var notice: CCToast?
+            screens.append(A11yLab.Screen(name: named ? "agent-edit-notice" : "agent-edit-notice-unnamed", open: { editor in
+                notice = StudioAgentEdits.probeShowNotice(in: editor, named: named)
+                await LabTime.settle(0.9)
+                return nil
+            }, close: { _ in
+                notice?.dismiss()
+                await LabTime.settle(0.6)
+            }))
+        }
         let dir = out.appendingPathComponent("screens", isDirectory: true)
         var problems = 0
         for screen in screens {

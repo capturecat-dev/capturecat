@@ -48,6 +48,10 @@ final class ConnectAIViewController: DetailPageViewController {
     private(set) var probeUpgradeCallout: UIView?
     private(set) var probeRevokeAlert: CCAlert?
     var onLoaded: (() -> Void)?
+    #if DEBUG
+    /// The l10n audit (no server): the state to show instead of the API's.
+    static var probeLoader: (@MainActor () async throws -> AgentAccessState)?
+    #endif
 
     init() {
         super.init(title: String(localized: "Connect AI", comment: "Title of the screen that connects Claude, ChatGPT or another AI app"))
@@ -272,7 +276,12 @@ final class ConnectAIViewController: DetailPageViewController {
             guard let self else { return }
             defer { self.connectedSpinner.stopAnimating() }
             do {
+                #if DEBUG
+                let state: AgentAccessState
+                if let loader = Self.probeLoader { state = try await loader() } else { state = try await APIClient.shared.agentAccess() }
+                #else
                 let state = try await APIClient.shared.agentAccess()
+                #endif
                 self.loadError?.removeFromSuperview()
                 self.loadError = nil
                 self.state = state

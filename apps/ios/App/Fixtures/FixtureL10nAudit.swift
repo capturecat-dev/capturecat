@@ -94,6 +94,9 @@ enum FixtureL10nAudit {
                 shell.select(.account, animated: false)
                 shell.account.probeLanguageRow.sendActions(for: .touchUpInside)
             }, close: { shell in shell.account.navigationController?.popToRootViewController(animated: false) }),
+        ]
+        screens += connectAIScreens()
+        screens += [
             Screen(name: "delete-account", open: { shell in
                 shell.select(.account, animated: false)
                 await settle(0.3)
@@ -124,6 +127,71 @@ enum FixtureL10nAudit {
         record("sign-in", window: window)
         print("L10NAUDIT-DONE \(problems == 0 ? "clean" : "\(problems) text problem(s)")")
         exit(0)
+    }
+
+    // MARK: Connect AI (no server: a fixture state through `probeLoader`)
+
+    private static weak var connectAI: ConnectAIViewController?
+
+    /// Account → Connect AI: each app's steps (chip), the connected list with
+    /// its revoke sheet, and a plan without AI editing (the upgrade callout).
+    private static func connectAIScreens() -> [Screen] {
+        func state(editing: Bool) -> AgentAccessState {
+            let now = Date()
+            return AgentAccessState(
+                agentAccess: true, agentEditing: editing, planName: editing ? "Pro" : "Free",
+                connections: [
+                    AgentConnection(kind: .app(clientId: "fxClaude"), name: "Claude", connectedAt: now.addingTimeInterval(-3 * 86_400),
+                                    lastUsedAt: now.addingTimeInterval(-2 * 3_600), canEdit: true),
+                    AgentConnection(kind: .token(id: "fxToken"), name: "Claude Code on my Mac", connectedAt: now.addingTimeInterval(-12 * 86_400),
+                                    lastUsedAt: nil, canEdit: false),
+                ])
+        }
+        func open(editing: Bool, _ then: @escaping (ConnectAIViewController) async -> Void) -> (ShellViewController) async -> Void {
+            { shell in
+                ConnectAIViewController.probeLoader = { state(editing: editing) }
+                shell.select(.account, animated: false)
+                let screen = ConnectAIViewController()
+                connectAI = screen
+                shell.account.navigationController?.pushViewController(screen, animated: false)
+                await settle(0.8)
+                await then(screen)
+            }
+        }
+        let close: (ShellViewController) async -> Void = { shell in
+            await dismiss(shell)
+            shell.account.navigationController?.popToRootViewController(animated: false)
+            ConnectAIViewController.probeLoader = nil
+        }
+        func guide(_ client: ConnectAIViewController.Client) -> (ConnectAIViewController) async -> Void {
+            { screen in
+                screen.show(client, animated: false)
+                await settle(0.4)
+                scroll(screen.probeGuideCard, in: screen)
+            }
+        }
+        let clients: [(String, ConnectAIViewController.Client)] = [("claude", .claude), ("chatgpt", .chatGPT), ("gemini", .gemini), ("codex", .codex), ("other", .other)]
+        var list = [Screen(name: "connect-ai", open: open(editing: true) { _ in }, close: close)]
+        for (name, client) in clients {
+            list.append(Screen(name: "connect-ai-\(name)", open: open(editing: true, guide(client)), close: close))
+        }
+        list += [
+            Screen(name: "connect-ai-connected", open: open(editing: true) { screen in scrollToEnd(screen.view) }, close: close),
+            Screen(name: "connect-ai-revoke", open: open(editing: true) { screen in
+                scrollToEnd(screen.view)
+                screen.probeRevokeButtons.first?.sendActions(for: .touchUpInside)
+            }, close: close),
+            Screen(name: "connect-ai-upgrade", open: open(editing: false) { _ in }, close: close),
+        ]
+        return list
+    }
+
+    private static func scroll(_ target: UIView, in screen: ConnectAIViewController) {
+        let scroll = screen.scrollView
+        scroll.layoutIfNeeded()
+        let rect = target.convert(target.bounds, to: scroll)
+        let maxOffset = max(-scroll.adjustedContentInset.top, scroll.contentSize.height + scroll.adjustedContentInset.bottom - scroll.bounds.height)
+        scroll.setContentOffset(CGPoint(x: 0, y: min(max(-scroll.adjustedContentInset.top, rect.minY - 140), maxOffset)), animated: false)
     }
 
     private static func record(_ bare: String, window: UIWindow) {

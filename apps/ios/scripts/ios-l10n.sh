@@ -13,15 +13,17 @@
 # 2. Per device and per locale (`-AppleLanguages (xx) -AppleLocale xx_YY`):
 #    a. the app (`-uiFixtures -uiL10nAudit`, App/Fixtures/FixtureL10nAudit.swift):
 #       library and its filters, a card's action sheet, a project, a share
-#       (comments on / off), capture, account, the Language page, the delete-
-#       account sheet, a toast, sign-in — and again in the EMPTY world
+#       (comments on / off), capture, account, the Language page, Connect AI
+#       (each app's steps, the connected list, its revoke sheet, the upgrade
+#       state), the delete-account sheet, a toast, sign-in — and again in the EMPTY world
 #       (`-uiFixtureEmpty`: the empty library, filters, capture and account);
 #    b. StudioLab (`--l10n`, StudioLab/L10nLab.swift): the shipping editor and
 #       every studio screen the a11y gate opens (nine inspector panes top and
 #       scrolled to the end, lanes, selection, timeline menu, History, Merge
 #       Review, feature sheets, tool bar sheets and panels, Export) plus each
 #       object selected with its inspector open (every annotation type,
-#       highlight, tilt, depth focus, blur, intro, curtain).
+#       highlight, tilt, depth focus, blur, intro, curtain), and the
+#       "Edited by …" notice an AI agent's edit raises.
 #    Each screen through Kit/CCLocalizationAudit.swift: every visible and
 #    spoken text, truncation / clipping / overlap measured, a PNG.
 # 3. scripts/ios-l10n-judge.py: a text identical to the English run is
