@@ -88,7 +88,7 @@ final class RecordingPanelViewController: NSViewController {
     private let urlChip = RecordingURLFieldChip(width: 320)
     /// Desktop / Tablet / Mobile layout for URL captures — visible only on the
     /// URL tab, next to the address field it modifies.
-    private let webDeviceChip = RecordingMenuFieldChip(symbol: "desktopcomputer", title: "Desktop", width: 128)
+    private let webDeviceChip = RecordingMenuFieldChip(symbol: "desktopcomputer", title: String(localized: "Desktop", comment: "Recording panel URL tab: initial label of the web layout picker (desktop-width page)"), width: 128)
     /// Options popover trigger for URL captures (height/dark/hide/delay).
     private let webOptionsChip = RecordingIconChip(symbol: "gearshape")
     private var webOptionsPopover: CaptureCatPopover?
@@ -97,15 +97,15 @@ final class RecordingPanelViewController: NSViewController {
     /// hairline + tooltip) — deliberately not routed through `errorMessage`,
     /// whose warning triangle means "source loading broke, click to retry".
     private var urlErrorMessage: String?
-    private let displayChip = RecordingMenuFieldChip(symbol: "display", title: "Choose Display", width: 200)
-    private let windowChip = RecordingMenuFieldChip(symbol: "macwindow", title: "Choose Window", width: 200)
-    private let areaDisplayChip = RecordingMenuFieldChip(symbol: "display", title: "Choose Display", width: 168)
-    private let areaPickChip = RecordingLabelChip(title: "Select Area", symbol: "rectangle.dashed", minWidth: 116)
+    private let displayChip = RecordingMenuFieldChip(symbol: "display", title: String(localized: "Choose Display", comment: "Recording panel: placeholder on the display picker before one is chosen"), width: 200)
+    private let windowChip = RecordingMenuFieldChip(symbol: "macwindow", title: String(localized: "Choose Window", comment: "Recording panel: placeholder on the window picker before one is chosen"), width: 200)
+    private let areaDisplayChip = RecordingMenuFieldChip(symbol: "display", title: String(localized: "Choose Display", comment: "Recording panel: placeholder on the display picker before one is chosen"), width: 168)
+    private let areaPickChip = RecordingLabelChip(title: String(localized: "Select Area", comment: "Recording panel Area tab: button (verb) to drag out a screen region"), symbol: "rectangle.dashed", minWidth: 116)
     private let areaStack = NSStackView()
-    private let deviceChip = RecordingMenuFieldChip(symbol: "iphone", title: "Choose Device", width: 200)
+    private let deviceChip = RecordingMenuFieldChip(symbol: "iphone", title: String(localized: "Choose Device", comment: "Recording panel iPhone tab: placeholder on the device picker before one is chosen"), width: 200)
     private let separator = RecordingSeparator()
-    private let devicesChip = RecordingMenuFieldChip(symbol: "slider.horizontal.3", title: "Mic · No Cam", width: 164)
-    private let audioChip = RecordingLabelChip(title: "Audio On", symbol: "speaker.wave.2.fill", minWidth: 108)
+    private let devicesChip = RecordingMenuFieldChip(symbol: "slider.horizontal.3", title: String(localized: "Mic · No Cam", comment: "Recording panel: initial summary on the mic/camera chip (microphone on, no camera)"), width: 164)
+    private let audioChip = RecordingLabelChip(title: String(localized: "Audio On", comment: "Recording panel: toggle chip, system audio is being captured"), symbol: "speaker.wave.2.fill", minWidth: 108)
     // One gear menu holds the recording-behaviour options (countdown,
     // duration limit, shortcut capture) — one gear instead of a chip per option.
     private let settingsChip = RecordingIconMenuChip(symbol: "gearshape")
@@ -194,7 +194,7 @@ final class RecordingPanelViewController: NSViewController {
         tabsStack.spacing = RecordingPanelMetrics.controlSpacing
         tabsStack.alignment = .centerY
         for tab in SourceTab.allCases {
-            let chip = RecordingTabChip(title: tab.rawValue, symbol: tab.icon)
+            let chip = RecordingTabChip(title: tab.displayName, symbol: tab.icon)
             chip.usesExternalSelection = true
             chip.onClick = { [weak self] in self?.select(tab: tab) }
             chip.onHoverChange = { [weak self, weak chip] inside in
@@ -284,10 +284,10 @@ final class RecordingPanelViewController: NSViewController {
         devicesChip.menuProvider = { [weak self] in self?.devicesMenu() ?? NSMenu() }
         switchChip.menuProvider = { [weak self] in self?.switchSourceMenu() ?? NSMenu() }
         settingsChip.menuProvider = { [weak self] in self?.recordingSettingsMenu() ?? NSMenu() }
-        settingsChip.toolTip = "Recording options: countdown, duration limit, shortcut capture."
+        settingsChip.toolTip = String(localized: "Recording options: countdown, duration limit, shortcut capture.", comment: "Recording panel: tooltip on the gear button")
         webDeviceChip.menuProvider = { [weak self] in self?.webDeviceMenu() ?? NSMenu() }
         webOptionsChip.onClick = { [weak self] in self?.presentWebOptionsPopover() }
-        webOptionsChip.toolTip = "Web capture options: height, dark mode, hidden widgets, delay."
+        webOptionsChip.toolTip = String(localized: "Web capture options: height, dark mode, hidden widgets, delay.", comment: "Recording panel URL tab: tooltip on the gear button")
 
         areaPickChip.onClick = { [weak self] in self?.pickArea() }
         audioChip.onClick = { [weak self] in
@@ -299,7 +299,7 @@ final class RecordingPanelViewController: NSViewController {
             guard let self else { return }
             Task { await self.loadSources(forceProbe: true) }
         }
-        warningChip.toolTip = "Retry source loading."
+        warningChip.toolTip = String(localized: "Retry source loading.", comment: "Recording panel: tooltip on the warning button shown when displays/windows failed to load")
         recordChip.onClick = { [weak self] in self?.startRecording() }
         closeChip.onClick = { [weak self] in self?.appState.closeRecordingToolbar() }
 
@@ -311,7 +311,7 @@ final class RecordingPanelViewController: NSViewController {
                 self.appState.recordingSession.pause()
             }
         }
-        switchChip.toolTip = "Switch source — keeps recording, segments are joined on stop"
+        switchChip.toolTip = String(localized: "Switch source — keeps recording, segments are joined on stop", comment: "Recording panel while recording: tooltip on the switch-source button")
         restartChip.onClick = { [weak self] in self?.confirmRestartRecording() }
         stopChip.onClick = { [weak self] in
             guard let self else { return }
@@ -560,7 +560,7 @@ final class RecordingPanelViewController: NSViewController {
         webDeviceChip.isHidden = sourceTab != .url
         webDeviceChip.title = appState.webCaptureDevice.title
         webDeviceChip.symbolName = appState.webCaptureDevice.symbol
-        webDeviceChip.toolTip = "Capture the page in its \(appState.webCaptureDevice.title.lowercased()) layout."
+        webDeviceChip.toolTip = String(localized: "Capture the page in its \(appState.webCaptureDevice.title.lowercased()) layout.", comment: "Recording panel URL tab: tooltip on the layout picker; the value is the lowercased layout name (desktop, tablet, mobile)")
         webOptionsChip.isHidden = sourceTab != .url
         // The gear quietly signals when any option departs from the defaults.
         webOptionsChip.setIndicator(on: appState.webCaptureOptions != WebCaptureOptions())
@@ -594,9 +594,9 @@ final class RecordingPanelViewController: NSViewController {
         modeSwitch.isHidden = false
         modeSeparator.isHidden = false
 
-        displayChip.title = selectedDisplay.map(displayTitle) ?? "Choose Display"
-        windowChip.title = selectedWindow.map(windowTitle) ?? "Choose Window"
-        areaDisplayChip.title = areaDisplay.map(displayTitle) ?? "Choose Display"
+        displayChip.title = selectedDisplay.map(displayTitle) ?? String(localized: "Choose Display", comment: "Recording panel: placeholder on the display picker before one is chosen")
+        windowChip.title = selectedWindow.map(windowTitle) ?? String(localized: "Choose Window", comment: "Recording panel: placeholder on the window picker before one is chosen")
+        areaDisplayChip.title = areaDisplay.map(displayTitle) ?? String(localized: "Choose Display", comment: "Recording panel: placeholder on the display picker before one is chosen")
         areaPickChip.update(title: areaSelectionLabel, symbol: "rectangle.dashed")
         areaPickChip.isEnabled = areaDisplay != nil && !isSelectingArea
         deviceChip.setTitle(deviceChipTitle, animated: true)
@@ -610,7 +610,7 @@ final class RecordingPanelViewController: NSViewController {
         )
         audioChip.setIndicator(on: appState.captureSystemAudio)
         audioChip.update(
-            title: appState.captureSystemAudio ? "Audio On" : "Audio Off",
+            title: appState.captureSystemAudio ? String(localized: "Audio On", comment: "Recording panel: toggle chip, system audio is being captured") : String(localized: "Audio Off", comment: "Recording panel: toggle chip, system audio is not captured"),
             symbol: appState.captureSystemAudio ? "speaker.wave.2.fill" : "speaker.slash.fill"
         )
 
@@ -629,7 +629,7 @@ final class RecordingPanelViewController: NSViewController {
         spinnerChip.isHidden = !(isLoadingSources || urlBusy || wirelessWaiting)
         spinnerChip.setSpinning(isLoadingSources || urlBusy || wirelessWaiting)
         warningChip.isHidden = isLoadingSources || errorMessage == nil
-        warningChip.toolTip = "Retry source loading. \(errorMessage ?? "")"
+        warningChip.toolTip = String(localized: "Retry source loading. \(errorMessage ?? "")", comment: "Recording panel: tooltip on the warning button; the value is the error message")
         recordChip.isHidden = !canStart
     }
 
@@ -656,7 +656,7 @@ final class RecordingPanelViewController: NSViewController {
         if let pending = WirelessDeviceHub.shared.pending {
             // Still recording the current source while the phone is asked.
             sourceChip.update(label: pending.prompt, isDevice: true,
-                              toolTip: "\(pending.prompt) — recording \(appState.currentSourceLabel) until it starts")
+                              toolTip: String(localized: "\(pending.prompt) — recording \(appState.currentSourceLabel) until it starts", comment: "Recording panel tooltip while waiting for an iPhone; first value is the waiting prompt, second the source still being recorded"))
         } else if let notice = WirelessDeviceHub.shared.notice {
             sourceChip.update(label: notice, isDevice: recordingDevice, toolTip: notice)
         } else {
@@ -665,7 +665,7 @@ final class RecordingPanelViewController: NSViewController {
 
         let paused = appState.recordingSession.isPaused
         pauseChip.setSymbol(paused ? "play.fill" : "pause.fill")
-        pauseChip.toolTip = paused ? "Resume Recording" : "Pause Recording"
+        pauseChip.toolTip = paused ? String(localized: "Resume Recording", comment: "Recording panel: tooltip on the pause/resume button") : String(localized: "Pause Recording", comment: "Recording panel: tooltip on the pause/resume button")
         for chip in [pauseChip, restartChip, stopChip, deleteChip] {
             chip.isEnabled = !blocked
         }
@@ -697,7 +697,7 @@ final class RecordingPanelViewController: NSViewController {
         return .init(
             options: displays.map { .init(title: displayTitle($0)) },
             selectedIndex: displays.firstIndex { $0.displayID == selectedDisplayID },
-            emptyText: "No displays found",
+            emptyText: String(localized: "No displays found", comment: "Recording panel: display picker empty state"),
             onSelect: { [weak self] index in
                 guard let self, displays.indices.contains(index) else { return }
                 let display = displays[index]
@@ -713,7 +713,7 @@ final class RecordingPanelViewController: NSViewController {
         return .init(
             options: displays.map { .init(title: displayTitle($0)) },
             selectedIndex: displays.firstIndex { $0.displayID == areaDisplayID },
-            emptyText: "No displays found",
+            emptyText: String(localized: "No displays found", comment: "Recording panel: display picker empty state"),
             onSelect: { [weak self] index in
                 guard let self, displays.indices.contains(index) else { return }
                 let display = displays[index]
@@ -733,13 +733,13 @@ final class RecordingPanelViewController: NSViewController {
         return .init(
             options: windows.map { window in
                 .init(
-                    title: window.title?.isEmpty == false ? window.title! : "Untitled",
+                    title: window.title?.isEmpty == false ? window.title! : String(localized: "Untitled", comment: "Recording panel: name for a window that has no title"),
                     subtitle: window.owningApplication?.applicationName
                 )
             },
             selectedIndex: windows.firstIndex { $0.windowID == selectedWindowID },
             searchable: true,
-            emptyText: "No windows available",
+            emptyText: String(localized: "No windows available", comment: "Recording panel: window picker empty state"),
             onSelect: { [weak self] index in
                 guard let self, windows.indices.contains(index) else { return }
                 let window = windows[index]
@@ -767,20 +767,20 @@ final class RecordingPanelViewController: NSViewController {
         var actions: [RecordingMenuChip.OptionList.Action] = []
         if !signedIn {
             actions.append(.init(
-                option: .init(title: "Sign in to use your iPhone over Wi-Fi", subtitle: "or connect it with a cable"),
+                option: .init(title: String(localized: "Sign in to use your iPhone over Wi-Fi", comment: "Recording panel device picker: action row title"), subtitle: String(localized: "or connect it with a cable", comment: "Recording panel device picker: subtitle under ‘Sign in to use your iPhone over Wi-Fi’")),
                 run: { NSApp.sendAction(#selector(StatusMenuActions.signIn(_:)), to: nil, from: nil) }
             ))
         } else if !wireless.isEmpty || WirelessDeviceHub.shared.cloudDevices.contains(where: { $0.platform == "ios" }) {
             // Only for an account that has an iPhone to forget.
             actions.append(.init(
-                option: .init(title: "Forget my devices…"),
+                option: .init(title: String(localized: "Forget my devices…", comment: "Recording panel device picker: action row that unlinks all Wi-Fi devices")),
                 run: { [weak self] in self?.confirmForgetDevices() }
             ))
         }
         return .init(
             options: options,
             selectedIndex: selectedIndex,
-            emptyText: "Connect an iPhone or iPad via USB, unlock it, and tap “Trust”.",
+            emptyText: String(localized: "Connect an iPhone or iPad via USB, unlock it, and tap “Trust”.", comment: "Recording panel device picker empty state; “Trust” is the button on the iPhone’s trust prompt"),
             onSelect: { [weak self] index in
                 guard let self else { return }
                 if devices.indices.contains(index) {
@@ -820,9 +820,9 @@ final class RecordingPanelViewController: NSViewController {
     private var deviceChipTitle: String {
         if let key = selectedWirelessKey {
             if let pending = WirelessDeviceHub.shared.pending, pending.key == key { return pending.prompt }
-            return selectedWirelessEntry?.title ?? "iPhone · Wi-Fi"
+            return selectedWirelessEntry?.title ?? String(localized: "iPhone · Wi-Fi", comment: "Recording panel: device picker label for an iPhone connected over Wi-Fi")
         }
-        return selectedCaptureDevice?.localizedName ?? "Choose Device"
+        return selectedCaptureDevice?.localizedName ?? String(localized: "Choose Device", comment: "Recording panel iPhone tab: placeholder on the device picker before one is chosen")
     }
 
     /// Pick a Wi-Fi phone. Streaming: ready to record. Otherwise ask it to
@@ -866,18 +866,18 @@ final class RecordingPanelViewController: NSViewController {
     private func confirmForgetDevices() {
         guard let window = view.window else { return }
         let alert = CCAlert(
-            title: "Forget your devices?",
-            message: "Every iPhone and Mac on your account stops connecting over Wi-Fi until it fetches the new link. Ones still signed in do that on their own; sign a lost device out of your account to keep it out."
+            title: String(localized: "Forget your devices?", comment: "Alert title: confirm unlinking all Wi-Fi devices"),
+            message: String(localized: "Every iPhone and Mac on your account stops connecting over Wi-Fi until it fetches the new link. Ones still signed in do that on their own; sign a lost device out of your account to keep it out.", comment: "Alert message for ‘Forget your devices?’")
         )
-        alert.addButton("Forget Devices", role: .destructive)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Forget Devices", comment: "Alert button (destructive): unlink all Wi-Fi devices"), role: .destructive)
+        alert.addButton(String(localized: "Cancel", comment: "Alert button: dismiss without doing anything"))
         alert.beginSheet(for: window) { index in
             guard index == 0 else { return }
             Task { @MainActor in
                 do {
                     try await WirelessDeviceHub.shared.forgetDevices()
                 } catch {
-                    WirelessDeviceHub.shared.showNotice("Couldn't forget devices: \(error.localizedDescription)")
+                    WirelessDeviceHub.shared.showNotice(String(localized: "Couldn't forget devices: \(error.localizedDescription)", comment: "Recording panel notice when unlinking devices fails; the value is the error"))
                 }
             }
         }
@@ -886,9 +886,9 @@ final class RecordingPanelViewController: NSViewController {
     private func devicesMenu() -> NSMenu {
         let menu = newMenu()
 
-        menu.addItem(.sectionHeader(title: "Microphone"))
+        menu.addItem(.sectionHeader(title: String(localized: "Microphone", comment: "Recording panel mic/camera menu: section header")))
         menu.addItem(actionItem(
-            "No Microphone",
+            String(localized: "No Microphone", comment: "Recording panel mic/camera menu: item that turns the microphone off"),
             state: appState.recordingSession.isMicEnabled ? .off : .on
         ) { [weak self] in
             self?.appState.recordingSession.isMicEnabled = false
@@ -896,7 +896,7 @@ final class RecordingPanelViewController: NSViewController {
 
         let microphones = appState.availableMicrophones
         if microphones.isEmpty {
-            menu.addItem(disabledItem("No microphones found"))
+            menu.addItem(disabledItem(String(localized: "No microphones found", comment: "Recording panel mic/camera menu: empty state")))
         } else {
             for microphone in microphones {
                 let isSelected = appState.recordingSession.isMicEnabled
@@ -912,13 +912,13 @@ final class RecordingPanelViewController: NSViewController {
         menu.addItem(.separator())
         // Opens the system mic-mode picker — enabling "Voice Isolation" there
         // gives OS-level noise suppression for CaptureCat's mic capture.
-        menu.addItem(actionItem("Voice Isolation & Mic Modes…") {
+        menu.addItem(actionItem(String(localized: "Voice Isolation & Mic Modes…", comment: "Recording panel mic/camera menu: opens the macOS microphone mode picker")) {
             AVCaptureDevice.showSystemUserInterface(.microphoneModes)
         })
 
-        menu.addItem(.sectionHeader(title: "Camera / iPhone Overlay"))
+        menu.addItem(.sectionHeader(title: String(localized: "Camera / iPhone Overlay", comment: "Recording panel mic/camera menu: section header for the camera bubble source")))
         menu.addItem(actionItem(
-            "No Overlay",
+            String(localized: "No Overlay", comment: "Recording panel mic/camera menu: item that turns the camera overlay off"),
             state: appState.recordingSession.isCameraEnabled ? .off : .on
         ) { [weak self] in
             self?.appState.recordingSession.isCameraEnabled = false
@@ -926,7 +926,7 @@ final class RecordingPanelViewController: NSViewController {
 
         let cameras = appState.cameraManager.availableDevices
         if cameras.isEmpty {
-            menu.addItem(disabledItem("No cameras found"))
+            menu.addItem(disabledItem(String(localized: "No cameras found", comment: "Recording panel mic/camera menu: empty state")))
         } else {
             for camera in cameras {
                 let isSelected = appState.recordingSession.isCameraEnabled
@@ -948,7 +948,7 @@ final class RecordingPanelViewController: NSViewController {
         let menu = newMenu()
 
         menu.addItem(actionItem(
-            "Capture Shortcuts (⌘⇧S overlay)",
+            String(localized: "Capture Shortcuts (⌘⇧S overlay)", comment: "Recording panel gear menu: toggle that records keyboard shortcuts as an on-screen overlay"),
             state: appState.recordingSession.isShortcutCaptureEnabled ? .on : .off
         ) { [weak self] in
             guard let self else { return }
@@ -967,8 +967,8 @@ final class RecordingPanelViewController: NSViewController {
         let countdownSeconds = appState.recordingCountdownSeconds
         let countdownItem = NSMenuItem(
             title: countdownSeconds > 0
-                ? "Recording Countdown — \(countdownSeconds)s"
-                : "Recording Countdown — Off",
+                ? String(localized: "Recording Countdown — \(countdownSeconds)s", comment: "Recording panel gear menu: submenu title with current countdown, e.g. \"Recording Countdown — 3s\"; s = seconds")
+                : String(localized: "Recording Countdown — Off", comment: "Recording panel gear menu: submenu title when no countdown is set"),
             action: nil, keyEquivalent: ""
         )
         countdownItem.submenu = countdownMenu()
@@ -977,15 +977,15 @@ final class RecordingPanelViewController: NSViewController {
         let limit = PlanGate.effectiveLimit(userLimit: appState.recordingDurationLimit, licence: appState.licence) ?? 0
         let limitItem = NSMenuItem(
             title: limit > 0
-                ? "Duration Limit — \(RecordingLimitLabel.label(forLimit: limit))"
-                : "Duration Limit — Off",
+                ? String(localized: "Duration Limit — \(RecordingLimitLabel.label(forLimit: limit))", comment: "Recording panel gear menu: submenu title with current limit, e.g. \"Duration Limit — 5 min\"")
+                : String(localized: "Duration Limit — Off", comment: "Recording panel gear menu: submenu title when no duration limit is set"),
             action: nil, keyEquivalent: ""
         )
         limitItem.submenu = limitMenu()
         menu.addItem(limitItem)
 
         menu.addItem(.separator())
-        menu.addItem(actionItem("Settings…") {
+        menu.addItem(actionItem(String(localized: "Settings…", comment: "Recording panel gear menu: opens the app Settings window")) {
             NSApp.sendAction(#selector(StatusMenuActions.openSettings(_:)), to: nil, from: nil)
         })
         return menu
@@ -994,17 +994,17 @@ final class RecordingPanelViewController: NSViewController {
     /// Mid-recording source switch — desktop → iPhone → another display …
     private func switchSourceMenu() -> NSMenu {
         let menu = newMenu()
-        menu.addItem(.sectionHeader(title: "Displays"))
+        menu.addItem(.sectionHeader(title: String(localized: "Displays", comment: "Recording panel switch-source menu: section header")))
         for display in availableDisplays {
             menu.addItem(actionItem(displayTitle(display)) { [weak self] in
                 self?.appState.switchRecordingSource(to: .display(display))
             })
         }
-        menu.addItem(.sectionHeader(title: "iPhone / iPad"))
+        menu.addItem(.sectionHeader(title: String(localized: "iPhone / iPad", comment: "Recording panel switch-source menu: section header")))
         let devices = DeviceRecorder.availableDevices
         let wireless = wirelessRowsVisible ? WirelessDeviceHub.shared.entries : []
         if devices.isEmpty && wireless.isEmpty {
-            menu.addItem(disabledItem("No devices connected"))
+            menu.addItem(disabledItem(String(localized: "No devices connected", comment: "Recording panel switch-source menu: empty state")))
         }
         for device in devices {
             menu.addItem(actionItem(device.localizedName) { [weak self] in
@@ -1025,8 +1025,13 @@ final class RecordingPanelViewController: NSViewController {
     // MARK: - Duration limit
 
     private static let limitPresets: [(title: String, seconds: TimeInterval)] = [
-        ("No Limit", 0), ("15s", 15), ("30s", 30),
-        ("1 min", 60), ("2 min", 120), ("5 min", 300), ("10 min", 600),
+        (String(localized: "No Limit", comment: "Recording duration limit menu: no limit"), 0),
+        (String(localized: "15s", comment: "Recording duration limit menu: 15 seconds"), 15),
+        (String(localized: "30s", comment: "Recording duration limit menu: 30 seconds"), 30),
+        (String(localized: "1 min", comment: "Recording duration limit menu: 1 minute"), 60),
+        (String(localized: "2 min", comment: "Recording duration limit menu: 2 minutes"), 120),
+        (String(localized: "5 min", comment: "Recording duration limit menu: 5 minutes"), 300),
+        (String(localized: "10 min", comment: "Recording duration limit menu: 10 minutes"), 600),
     ]
 
     private func limitMenu() -> NSMenu {
@@ -1037,7 +1042,7 @@ final class RecordingPanelViewController: NSViewController {
         let current = PlanGate.effectiveLimit(userLimit: appState.recordingDurationLimit, licence: licence) ?? 0
         for preset in Self.limitPresets {
             if PlanGate.isProOnlyLimit(preset.seconds, licence: licence) {
-                menu.addItem(disabledItem("\(preset.title) — Pro"))
+                menu.addItem(disabledItem(String(localized: "\(preset.title) — Pro", comment: "Recording duration limit menu: a disabled preset that needs the Pro plan; the value is the preset, e.g. \"No Limit\"")))
                 continue
             }
             menu.addItem(actionItem(preset.title, state: current == preset.seconds ? .on : .off) { [weak self] in
@@ -1047,14 +1052,14 @@ final class RecordingPanelViewController: NSViewController {
         menu.addItem(.separator())
         let isCustom = current > 0 && !Self.limitPresets.contains { $0.seconds == current }
         let customTitle = isCustom
-            ? "Custom… (\(RecordingLimitLabel.label(forLimit: current)))" : "Custom…"
+            ? String(localized: "Custom… (\(RecordingLimitLabel.label(forLimit: current)))", comment: "Recording duration limit menu: custom limit item showing the current custom value") : String(localized: "Custom…", comment: "Recording duration limit menu: opens a popover to type a custom limit")
         menu.addItem(actionItem(customTitle, state: isCustom ? .on : .off) { [weak self] in
             self?.presentCustomLimitPopover()
         })
         if !licence.allowsCommercialUse {
             menu.addItem(.separator())
-            menu.addItem(disabledItem("Free records up to 5 min, for personal use"))
-            menu.addItem(actionItem("See Plans…") { NSWorkspace.shared.open(PlanGate.pricingURL) })
+            menu.addItem(disabledItem(String(localized: "Free records up to 5 min, for personal use", comment: "Recording duration limit menu: note explaining the Free plan limit")))
+            menu.addItem(actionItem(String(localized: "See Plans…", comment: "Recording duration limit menu: opens the pricing page")) { NSWorkspace.shared.open(PlanGate.pricingURL) })
         }
         return menu
     }
@@ -1088,7 +1093,7 @@ final class RecordingPanelViewController: NSViewController {
         let menu = newMenu()
         let current = appState.webCaptureDevice
         for preset in WebDevicePreset.allCases {
-            let title = "\(preset.title) (\(Int(preset.viewportWidth))pt)"
+            let title = String(localized: "\(preset.title) (\(Int(preset.viewportWidth))pt)", comment: "Recording panel web layout menu item: layout name and viewport width in points, e.g. \"Desktop (1440pt)\"; pt = points")
             menu.addItem(actionItem(title, state: current == preset ? .on : .off) { [weak self] in
                 guard let self else { return }
                 self.appState.webCaptureDevice = preset
@@ -1116,7 +1121,10 @@ final class RecordingPanelViewController: NSViewController {
     // MARK: - Pre-recording countdown
 
     private static let countdownPresets: [(title: String, seconds: Int)] = [
-        ("Off", 0), ("3s", 3), ("5s", 5), ("10s", 10),
+        (String(localized: "Off", comment: "Recording countdown menu: no countdown"), 0),
+        (String(localized: "3s", comment: "Recording countdown menu: 3 seconds"), 3),
+        (String(localized: "5s", comment: "Recording countdown menu: 5 seconds"), 5),
+        (String(localized: "10s", comment: "Recording countdown menu: 10 seconds"), 10),
     ]
 
     private func countdownMenu() -> NSMenu {
@@ -1367,7 +1375,7 @@ final class RecordingPanelViewController: NSViewController {
         Task { @MainActor in
             do {
                 guard let image = try await ScreenStillCapture.capture(source) else {
-                    errorMessage = "Nothing was captured."
+                    errorMessage = String(localized: "Nothing was captured.", comment: "Recording panel: error when a screenshot capture returned no image")
                     refresh()
                     return
                 }
@@ -1396,7 +1404,7 @@ final class RecordingPanelViewController: NSViewController {
     private func captureWebPage(_ raw: String) {
         guard !isCapturingURL else { return }
         guard let pageURL = WebPageCapture.normalize(raw) else {
-            urlErrorMessage = "\"\(raw)\" is not a valid web address."
+            urlErrorMessage = String(localized: "\"\(raw)\" is not a valid web address.", comment: "Recording panel URL tab: inline error; the value is what the person typed")
             refresh()
             return
         }
@@ -1437,8 +1445,8 @@ final class RecordingPanelViewController: NSViewController {
     }
 
     private var areaSelectionLabel: String {
-        guard let rect = selectedAreaRect else { return "Select Area" }
-        return "Area \(Int(rect.width))x\(Int(rect.height))"
+        guard let rect = selectedAreaRect else { return String(localized: "Select Area", comment: "Recording panel Area tab: button (verb) to drag out a screen region") }
+        return String(localized: "Area \(Int(rect.width))x\(Int(rect.height))", comment: "Recording panel Area tab: chosen region size in pixels, e.g. \"Area 1280x720\"")
     }
 
     private var canStart: Bool {
@@ -1477,13 +1485,13 @@ final class RecordingPanelViewController: NSViewController {
     }
 
     private var deviceSummaryTitle: String {
-        let mic = appState.recordingSession.isMicEnabled ? "Mic" : "No Mic"
-        let camera = appState.recordingSession.isCameraEnabled ? "Cam" : "No Cam"
+        let mic = appState.recordingSession.isMicEnabled ? String(localized: "Mic", comment: "Recording panel: mic/camera chip, microphone on (short)") : String(localized: "No Mic", comment: "Recording panel: mic/camera chip, microphone off (short)")
+        let camera = appState.recordingSession.isCameraEnabled ? String(localized: "Cam", comment: "Recording panel: mic/camera chip, camera on (short for camera)") : String(localized: "No Cam", comment: "Recording panel: mic/camera chip, camera off (short for camera)")
         return "\(mic) · \(camera)"
     }
 
     private var timerText: String {
-        if case .preparing = appState.recordingSession.phase { return "Starting..." }
+        if case .preparing = appState.recordingSession.phase { return String(localized: "Starting...", comment: "Recording panel: timer text while the recording is starting") }
         return appState.recordingSession.elapsedTime.formattedTimecode
     }
 
@@ -1513,12 +1521,12 @@ final class RecordingPanelViewController: NSViewController {
         let screen = NSScreen.screens.first {
             ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) == display.displayID
         }
-        let name = screen?.localizedName ?? "Display"
+        let name = screen?.localizedName ?? String(localized: "Display", comment: "Recording panel: fallback name for a monitor whose name is unknown")
         return "\(name) (\(display.width)×\(display.height))"
     }
 
     private func windowTitle(_ window: SCWindow) -> String {
-        let name = window.title?.isEmpty == false ? window.title! : "Untitled"
+        let name = window.title?.isEmpty == false ? window.title! : String(localized: "Untitled", comment: "Recording panel: name for a window that has no title")
         if let app = window.owningApplication?.applicationName, !app.isEmpty {
             return "\(name) - \(app)"
         }
@@ -1992,7 +2000,7 @@ final class RecordingPanelViewController: NSViewController {
         }
         if ScreenRecorder.shouldSuppressAutomaticScreenCaptureProbe && !forceProbe {
             panelLogger.info("loadSources skipped: suppressAutoProbe=true forceProbe=false preflight=\(preflight)")
-            errorMessage = "Screen recording access was recently denied. Enable CaptureCat in System Settings, then click the warning icon to retry."
+            errorMessage = String(localized: "Screen recording access was recently denied. Enable CaptureCat in System Settings, then click the warning icon to retry.", comment: "Recording panel: error tooltip when Screen Recording permission was denied")
             isLoadingSources = false
             refresh()
             return
@@ -2032,9 +2040,9 @@ final class RecordingPanelViewController: NSViewController {
             let windowListProbe = ScreenRecorder.hasScreenRecordingViaWindowList()
             panelLogger.error("loadSources failed: domain=\(nsError.domain, privacy: .public) code=\(nsError.code) desc=\(nsError.localizedDescription, privacy: .public) preflight=\(postFailurePreflight) windowList=\(windowListProbe) forceProbe=\(forceProbe)")
             if postFailurePreflight {
-                errorMessage = "CaptureCat appears enabled in Screen Recording, but macOS is still denying this app session. Quit CaptureCat completely and reopen it."
+                errorMessage = String(localized: "CaptureCat appears enabled in Screen Recording, but macOS is still denying this app session. Quit CaptureCat completely and reopen it.", comment: "Recording panel: error tooltip when permission is on but macOS still refuses")
             } else {
-                errorMessage = "Screen recording permission is required. Enable CaptureCat in System Settings > Privacy & Security > Screen Recording."
+                errorMessage = String(localized: "Screen recording permission is required. Enable CaptureCat in System Settings > Privacy & Security > Screen Recording.", comment: "Recording panel: error tooltip; the path names macOS System Settings panes")
             }
         }
 
@@ -2123,7 +2131,7 @@ final class RecordingPanelViewController: NSViewController {
                 captureAudio: self.appState.captureSystemAudio
             )
             if !success {
-                self.errorMessage = self.appState.recordingError ?? "Failed to start recording"
+                self.errorMessage = self.appState.recordingError ?? String(localized: "Failed to start recording", comment: "Recording panel: generic error when a recording could not start")
             }
             self.refresh()
         }
@@ -2132,11 +2140,11 @@ final class RecordingPanelViewController: NSViewController {
     private func confirmRestartRecording() {
         guard let source = selectedSource else { return }
         let alert = CCAlert(
-            title: "Restart recording from beginning?",
-            message: "Current take will be deleted and recording will immediately restart from 0:00."
+            title: String(localized: "Restart recording from beginning?", comment: "Alert title: confirm restarting the current recording"),
+            message: String(localized: "Current take will be deleted and recording will immediately restart from 0:00.", comment: "Alert message for ‘Restart recording from beginning?’")
         )
-        alert.addButton("Restart", role: .destructive)
-        alert.addButton("Keep Recording")
+        alert.addButton(String(localized: "Restart", comment: "Alert button (destructive, verb): restart the recording"), role: .destructive)
+        alert.addButton(String(localized: "Keep Recording", comment: "Alert button: cancel restart and continue recording"))
 
         // Parent to the bar's own window: while recording the bar is a
         // non-activating .screenSaver-level panel that is never keyWindow,
@@ -2154,11 +2162,11 @@ final class RecordingPanelViewController: NSViewController {
 
     private func confirmDeleteRecording() {
         let alert = CCAlert(
-            title: "Delete this recording?",
-            message: "This stops and permanently deletes the current recording."
+            title: String(localized: "Delete this recording?", comment: "Alert title: confirm deleting the recording in progress"),
+            message: String(localized: "This stops and permanently deletes the current recording.", comment: "Alert message for ‘Delete this recording?’")
         )
-        alert.addButton("Delete", role: .destructive)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Delete", comment: "Alert button (destructive, verb): delete the recording"), role: .destructive)
+        alert.addButton(String(localized: "Cancel", comment: "Alert button: dismiss without doing anything"))
 
         guard let window = view.window else { return } // see confirmRestartRecording
         alert.beginSheet(for: window) { [weak self] index in

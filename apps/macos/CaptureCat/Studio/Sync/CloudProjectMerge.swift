@@ -218,12 +218,19 @@ nonisolated struct CloudMergeReport: Equatable, Sendable {
     var toastTitle: String { Self.toastTitle(count: theirsChangeCount, author: author) }
 
     static func toastTitle(count: Int, author: CloudVersionAuthor?) -> String {
-        let what = count == 1 ? "1 change" : count > 1 ? "\(count) changes" : "changes"
         guard let name = author?.name, !name.isEmpty else {
-            return "Merged \(what) from the web editor"
+            return count == 1 ? String(localized: "Merged 1 change from the web editor", comment: "Toast after merging web edits")
+                : count > 1 ? String(localized: "Merged \(count) changes from the web editor", comment: "Toast after merging web edits")
+                : String(localized: "Merged changes from the web editor", comment: "Toast after merging web edits")
         }
-        if let label = author?.clientLabel, !label.isEmpty { return "Merged \(what) from \(name) (\(label))" }
-        return "Merged \(what) from \(name)"
+        if let label = author?.clientLabel, !label.isEmpty {
+            return count == 1 ? String(localized: "Merged 1 change from \(name) (\(label))", comment: "Toast after merging edits: person, client badge (Mac, Web, Agent via Web)")
+                : count > 1 ? String(localized: "Merged \(count) changes from \(name) (\(label))", comment: "Toast after merging edits: person, client badge (Mac, Web, Agent via Web)")
+                : String(localized: "Merged changes from \(name) (\(label))", comment: "Toast after merging edits: person, client badge (Mac, Web, Agent via Web)")
+        }
+        return count == 1 ? String(localized: "Merged 1 change from \(name)", comment: "Toast after merging edits; %@ is the person")
+            : count > 1 ? String(localized: "Merged \(count) changes from \(name)", comment: "Toast after merging edits; %@ is the person")
+            : String(localized: "Merged changes from \(name)", comment: "Toast after merging edits; %@ is the person")
     }
 }
 
@@ -512,7 +519,7 @@ extension CloudProjectSync {
         let final = try Self.validatedDocument(bytes, projectID: projectID, projectDirectory: projectDirectory, files: files)
         _ = try await syncMedia(files, referencedBy: final, projectID: projectID,
                                 projectDirectory: projectDirectory, progress: progress)
-        progress(Progress(phase: .writing, fraction: 0.5, message: "Applying merged edits…"))
+        progress(Progress(phase: .writing, fraction: 0.5, message: String(localized: "Applying merged edits…", comment: "Cloud sync progress line")))
         try ProjectFileIO.writeProjectData(final, to: docURL)
 
         var report = CloudMergeReport(
@@ -538,7 +545,7 @@ extension CloudProjectSync {
                 try saveState(revision: review.theirsRevision, base: final, in: projectDirectory, projectID: projectID)
                 return .merged(revision: review.theirsRevision, report: report)
             }
-            progress(Progress(phase: .saving, fraction: 0.6, message: "Saving the merge…"))
+            progress(Progress(phase: .saving, fraction: 0.6, message: String(localized: "Saving the merge…", comment: "Cloud sync progress line")))
             let context = CloudSaveContext(
                 client: clientKind, clientID: clientID, source: review.source,
                 change: Self.changeHeader(from: review.theirsDocument, to: final),
@@ -547,7 +554,7 @@ extension CloudProjectSync {
                                             baseRevision: review.theirsRevision, context: context) {
             case .saved(let revision, _, _):
                 try saveState(revision: revision, base: final, in: projectDirectory, projectID: projectID)
-                progress(Progress(phase: .saving, fraction: 1, message: "Merged"))
+                progress(Progress(phase: .saving, fraction: 1, message: String(localized: "Merged", comment: "Cloud sync progress status")))
                 mergeLogger.info("merged cloud revision \(review.theirsRevision) → saved \(revision)")
                 return .merged(revision: revision, report: report)
             case .conflict(let again):

@@ -36,7 +36,7 @@ final class MotionSettingsPaneAppKit: NSView {
     private let focusPad = ZoomFocusPadControl()
     /// Card position excursion during the block — slides the whole card away
     /// from its home and back on the block's spring.
-    private let offsetPad = ZoomFocusPadControl(title: "Offset")
+    private let offsetPad = ZoomFocusPadControl(title: String(localized: "Offset", comment: "Inspector ▸ Zoom block: title of the offset position pad"))
     private let blockZoomCaption = InspectorKitViews.captionLine(EffectBlocksPane.zoomCaption)
     /// Section toggles — every effect on a block switches on and off here.
     private let zoomToggle = InspectorToggleControl(EffectBlocksPane.zoomToggle)
@@ -122,7 +122,7 @@ final class MotionSettingsPaneAppKit: NSView {
         fullWidth(effectsPane)
         globalViews = [effectsPane]
 
-        let zoomBox = InspectorSectionBox("Zoom")
+        let zoomBox = InspectorSectionBox(String(localized: "Zoom", comment: "Inspector ▸ Zoom block: section header"))
         zoomBox.addRow(zoomToggle)
         zoomBox.addRow(blockZoomSlider)
         blockStyleRow = InspectorKitViews.row(EffectBlocksPane.zoomSpeed.title, control: blockStyleMenu)
@@ -143,7 +143,7 @@ final class MotionSettingsPaneAppKit: NSView {
         fullWidth(zoomBox)
         zoomViews = [blockZoomSlider, blockStyleRow, zoomPreviewPad, followCursorToggle, focusPad, offsetPad, blockZoomCaption]
 
-        let tiltBox = InspectorSectionBox("Tilt")
+        let tiltBox = InspectorSectionBox(String(localized: "Tilt", comment: "Inspector ▸ Zoom block: section header; 3D tilt"))
         tiltBox.addRow(tiltToggle)
         tiltBox.addRow(tiltPad)
         tiltBox.addRow(tiltPresetChips, attached: true)
@@ -158,7 +158,7 @@ final class MotionSettingsPaneAppKit: NSView {
         fullWidth(tiltBox)
         tiltViews = [tiltPad, tiltPresetChips, rotationSlider, tiltStyleRow, tiltCaption, tiltButtonRow]
 
-        let highlightBox = InspectorSectionBox("Highlight Mask")
+        let highlightBox = InspectorSectionBox(String(localized: "Highlight Mask", comment: "Inspector ▸ Highlight region: section header"))
         highlightBox.addRow(highlightOpacitySlider)
         highlightBox.addRow(highlightPad, attached: true)
         highlightPad.heightAnchor.constraint(equalToConstant: 96).isActive = true
@@ -167,7 +167,7 @@ final class MotionSettingsPaneAppKit: NSView {
         fullWidth(highlightBox)
         highlightViews = [highlightBox]
 
-        let depthFocusBox = InspectorSectionBox("Depth Focus")
+        let depthFocusBox = InspectorSectionBox(String(localized: "Depth Focus", comment: "Inspector ▸ Depth focus region: section header"))
         depthFocusBox.addRow(depthFocusStyleChips)
         depthFocusBox.addRow(depthFocusStrengthSlider)
         depthFocusBox.addRow(depthFocusFalloffSlider)
@@ -178,7 +178,7 @@ final class MotionSettingsPaneAppKit: NSView {
         fullWidth(depthFocusBox)
         depthFocusViews = [depthFocusBox]
 
-        let blurBox = InspectorSectionBox("Blur")
+        let blurBox = InspectorSectionBox(String(localized: "Blur", comment: "Inspector ▸ Blur region: section header (noun)"))
         blurBox.addRow(blurStyleChips)
         blurBox.addRow(blurStrengthSlider)
         blurBox.addRow(blurAnimatedToggle)
@@ -440,7 +440,7 @@ final class TiltPadControl: NSView {
     var maxAngle: Double = 60
     private let padHeight: CGFloat = 120
 
-    private let titleLabel = NSTextField(labelWithString: "Skew")
+    private let titleLabel = NSTextField(labelWithString: String(localized: "Skew", comment: "Inspector ▸ Tilt: title of the skew pad (noun)"))
     private let valuePill = NSTextField(labelWithString: "0° / 0°")
     private let pillBackground = NSView()
     private let padArea = PadArea()
@@ -707,7 +707,7 @@ final class ZoomFocusPadControl: NSView {
 
     override var isFlipped: Bool { true }
 
-    init(title: String = "Focus") {
+    init(title: String = String(localized: "Focus", comment: "Inspector ▸ Zoom block: default title of the focal-point pad (noun)")) {
         titleLabel = NSTextField(labelWithString: title)
         super.init(frame: .zero)
         titleLabel.font = EditorThemeKit.label()

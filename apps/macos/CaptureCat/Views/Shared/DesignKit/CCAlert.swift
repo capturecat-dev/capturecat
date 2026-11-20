@@ -92,7 +92,7 @@ final class CCAlert {
     }
 
     private func present(over window: NSWindow?, modal: Bool, completion: ((Int) -> Void)?) {
-        if buttons.isEmpty { buttons = [("OK", .primary)] }
+        if buttons.isEmpty { buttons = [(String(localized: "OK", comment: "Default alert button when none is given"), .primary)] }
         let session = CCAlertSession(alert: self, buttons: buttons, parent: window)
         self.session = session
         session.run(modal: modal) { [weak self] index in
@@ -118,7 +118,7 @@ extension CCAlert {
         let field = CCField(placeholder: placeholder, value: initialValue)
         alert.accessoryView = field
         alert.addButton(confirmTitle, role: .primary)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Cancel", comment: "Text prompt dialog: cancel button"))
         alert.beginSheet(for: window) { index in
             let trimmed = field.stringValue.trimmingCharacters(in: .whitespaces)
             completion(index == 0 && !trimmed.isEmpty ? trimmed : nil)

@@ -1156,14 +1156,14 @@ final class TimelineCanvasView: NSView {
         } else if let chipRect = introChipRect, effectItem(at: point) == nil,
                   chipRect.contains(point) {
             let m = NSMenu()
-            m.addItem(CanvasMenuItem(title: "Delete") { [weak self] in
+            m.addItem(CanvasMenuItem(title: String(localized: "Delete", comment: "Timeline context menu: verb, deletes the clicked item")) { [weak self] in
                 self?.callbacks?.deleteIntro()
             })
             menu = m
         } else if let chipRect = curtainChipRect, effectItem(at: point) == nil,
                   chipRect.contains(point) {
             let m = NSMenu()
-            m.addItem(CanvasMenuItem(title: "Delete") { [weak self] in
+            m.addItem(CanvasMenuItem(title: String(localized: "Delete", comment: "Timeline context menu: verb, deletes the clicked item")) { [weak self] in
                 self?.callbacks?.deleteCurtain()
             })
             menu = m
@@ -1173,20 +1173,20 @@ final class TimelineCanvasView: NSView {
             menu = focusBlockMenu(for: item)
         } else if let item = annotateItem(at: point) {
             let m = NSMenu()
-            m.addItem(CanvasMenuItem(title: "Delete") { [weak self] in
+            m.addItem(CanvasMenuItem(title: String(localized: "Delete", comment: "Timeline context menu: verb, deletes the clicked item")) { [weak self] in
                 self?.callbacks?.deleteAnnotation(item.id)
             })
             menu = m
         } else if annotateLaneRect.contains(point) {
             let time = outputTime(atX: point.x)
             let entries: [(String, AnnotationType)] = [
-                ("Add Text Label", .text),
-                ("Add Arrow", .arrow),
-                ("Add Callout", .callout),
-                ("Add Drawing", .drawing),
-                ("Add Rectangle", .rectangle),
-                ("Add Ellipse", .ellipse),
-                ("Add Tap Indicator", .tap),
+                (String(localized: "Add Text Label", comment: "Timeline context menu on the annotations lane"), .text),
+                (String(localized: "Add Arrow", comment: "Timeline context menu on the annotations lane"), .arrow),
+                (String(localized: "Add Callout", comment: "Timeline context menu on the annotations lane; callout = line pointing to a labelled box"), .callout),
+                (String(localized: "Add Drawing", comment: "Timeline context menu on the annotations lane; freehand drawing"), .drawing),
+                (String(localized: "Add Rectangle", comment: "Timeline context menu on the annotations lane"), .rectangle),
+                (String(localized: "Add Ellipse", comment: "Timeline context menu on the annotations lane"), .ellipse),
+                (String(localized: "Add Tap Indicator", comment: "Timeline context menu on the annotations lane; touch ripple marker"), .tap),
             ]
             let m = NSMenu()
             for (title, type) in entries {
@@ -1198,14 +1198,14 @@ final class TimelineCanvasView: NSView {
         } else if effectsLaneRect.contains(point) {
             let time = outputTime(atX: point.x)
             menu = makeMenu([
-                ("Add Zoom Region", false, { [weak self] in self?.callbacks?.addZoomAt(time) }),
-                ("Add Tilt Region", false, { [weak self] in self?.callbacks?.addTiltAt(time) }),
+                (String(localized: "Add Zoom Region", comment: "Timeline context menu on the effects lane"), false, { [weak self] in self?.callbacks?.addZoomAt(time) }),
+                (String(localized: "Add Tilt Region", comment: "Timeline context menu on the effects lane; 3D tilt"), false, { [weak self] in self?.callbacks?.addTiltAt(time) }),
             ])
         } else if focusLaneRect.contains(point) {
             let time = outputTime(atX: point.x)
             menu = makeMenu([
-                ("Add Highlight", false, { [weak self] in self?.callbacks?.addHighlightAt(time) }),
-                ("Add Blur", false, { [weak self] in self?.callbacks?.addBlurAt(time) }),
+                (String(localized: "Add Highlight", comment: "Timeline context menu on the focus lane"), false, { [weak self] in self?.callbacks?.addHighlightAt(time) }),
+                (String(localized: "Add Blur", comment: "Timeline context menu on the focus lane"), false, { [weak self] in self?.callbacks?.addBlurAt(time) }),
             ])
         } else {
             menu = nil
@@ -1222,10 +1222,11 @@ final class TimelineCanvasView: NSView {
         let menu = NSMenu()
 
         if item.hasZoom {
-            let levelsItem = NSMenuItem(title: "Zoom Level", action: nil, keyEquivalent: "")
-            let submenu = NSMenu(title: "Zoom Level")
+            let zoomLevelTitle = String(localized: "Zoom Level", comment: "Timeline context menu on a zoom block: submenu of zoom amounts (1.5x, 2.0x…)")
+            let levelsItem = NSMenuItem(title: zoomLevelTitle, action: nil, keyEquivalent: "")
+            let submenu = NSMenu(title: zoomLevelTitle)
             for level in [1.5, 2.0, 2.5, 3.0, 4.0, 5.0] {
-                let entry = CanvasMenuItem(title: String(format: "%.1fx", level)) { [weak self] in
+                let entry = CanvasMenuItem(title: UnitText.multiplier(level, digits: 1)) { [weak self] in
                     if let id = item.zoomID { self?.callbacks?.setZoomLevel(id, level) }
                 }
                 entry.state = abs((item.zoomLevel ?? 0) - level) < 0.01 ? .on : .off
@@ -1237,27 +1238,27 @@ final class TimelineCanvasView: NSView {
         }
 
         if item.hasTilt {
-            menu.addItem(CanvasMenuItem(title: "Remove Tilt") { [weak self] in
+            menu.addItem(CanvasMenuItem(title: String(localized: "Remove Tilt", comment: "Timeline context menu on an effect block: removes its 3D tilt")) { [weak self] in
                 if let id = item.tiltID { self?.callbacks?.removeTilt(id) }
             })
         } else {
-            menu.addItem(CanvasMenuItem(title: "Add Tilt to Block") { [weak self] in
+            menu.addItem(CanvasMenuItem(title: String(localized: "Add Tilt to Block", comment: "Timeline context menu on a zoom block: adds a 3D tilt to it")) { [weak self] in
                 if let id = item.zoomID { self?.callbacks?.addTiltToBlock(id) }
             })
         }
 
         if item.hasZoom {
-            menu.addItem(CanvasMenuItem(title: "Remove Zoom") { [weak self] in
+            menu.addItem(CanvasMenuItem(title: String(localized: "Remove Zoom", comment: "Timeline context menu on an effect block: removes its zoom")) { [weak self] in
                 if let id = item.zoomID { self?.callbacks?.removeZoom(id) }
             })
         } else {
-            menu.addItem(CanvasMenuItem(title: "Add Zoom to Block") { [weak self] in
+            menu.addItem(CanvasMenuItem(title: String(localized: "Add Zoom to Block", comment: "Timeline context menu on a tilt block: adds a zoom to it")) { [weak self] in
                 if let id = item.tiltID { self?.callbacks?.addZoomToBlock(id) }
             })
         }
 
         menu.addItem(.separator())
-        menu.addItem(CanvasMenuItem(title: "Delete") { [weak self] in
+        menu.addItem(CanvasMenuItem(title: String(localized: "Delete", comment: "Timeline context menu: verb, deletes the clicked item")) { [weak self] in
             self?.callbacks?.deleteEffectBlock(item.zoomID, item.tiltID)
         })
         return menu
@@ -1267,7 +1268,7 @@ final class TimelineCanvasView: NSView {
         let menu = NSMenu()
         if !item.isHighlight {
             // Blur's SwiftUI menu shows a (currently inert) rename entry.
-            let rename = NSMenuItem(title: "Rename...", action: nil, keyEquivalent: "")
+            let rename = NSMenuItem(title: String(localized: "Rename...", comment: "Timeline context menu on a blur region: rename (currently disabled)"), action: nil, keyEquivalent: "")
             rename.isEnabled = false
             menu.addItem(rename)
             menu.addItem(.separator())
@@ -1281,7 +1282,7 @@ final class TimelineCanvasView: NSView {
             menu.addItem(row)
         }
         if !extras.isEmpty { menu.addItem(.separator()) }
-        menu.addItem(CanvasMenuItem(title: "Delete") { [weak self] in
+        menu.addItem(CanvasMenuItem(title: String(localized: "Delete", comment: "Timeline context menu: verb, deletes the clicked item")) { [weak self] in
             self?.callbacks?.deleteFocus(item.id, item.isHighlight)
         })
         return menu
@@ -1618,7 +1619,7 @@ final class TimelineCanvasView: NSView {
         if let rect = curtainChipRect {
             drawSettingsChip(
                 in: context, rect: rect,
-                icon: "book.pages", label: "Curtain",
+                icon: "book.pages", label: String(localized: "Curtain", comment: "Timeline: label on the Curtain Unveil transition chip in the effects lane"),
                 isSelected: snapshot.curtainChipSelected,
                 hoverKey: "curtain-chip")
         }
@@ -1860,7 +1861,7 @@ final class TimelineCanvasView: NSView {
         }
         if rect.width > 58 {
             let valueText: String
-            let zoomLabel = String(format: "%.1fx", item.zoomLevel ?? 1)
+            let zoomLabel = UnitText.multiplier(item.zoomLevel ?? 1, digits: 1)
             let tiltLabel = String(format: "%.0f°", item.dominantAngle)
             switch (item.hasZoom, item.hasTilt) {
             case (true, true): valueText = "\(zoomLabel) · \(tiltLabel)"

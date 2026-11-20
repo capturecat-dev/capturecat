@@ -385,6 +385,7 @@ enum OnboardingShotHarness {
     }
 
     private static func capture(_ window: NSWindow, name: String) {
+        CCLocalizationAudit.capture("onboarding-\(name)", window: window)
         guard let image = render(window) else {
             expect(false, "capture \(name)")
             return

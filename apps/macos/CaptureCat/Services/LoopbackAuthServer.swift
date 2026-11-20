@@ -57,17 +57,17 @@ nonisolated final class LoopbackAuthServer: @unchecked Sendable {
         var errorDescription: String? {
             switch self {
             case .alreadyStarted:
-                return "The sign-in listener is already running."
+                return String(localized: "The sign-in listener is already running.", comment: "Sign-in error: the local callback listener was started twice")
             case .notStarted:
-                return "The sign-in listener is not running."
+                return String(localized: "The sign-in listener is not running.", comment: "Sign-in error: the local callback listener is not running")
             case .portUnavailable(let detail):
-                return "Could not reserve a local port for sign-in: \(detail)"
+                return String(localized: "Could not reserve a local port for sign-in: \(detail)", comment: "Sign-in error; the placeholder is a technical detail")
             case .listenerFailed(let detail):
-                return "The local sign-in listener failed: \(detail)"
+                return String(localized: "The local sign-in listener failed: \(detail)", comment: "Sign-in error; the placeholder is a technical detail")
             case .timedOut:
-                return "Timed out waiting for the browser to finish signing in."
+                return String(localized: "Timed out waiting for the browser to finish signing in.", comment: "Sign-in error: the browser sign-in never completed")
             case .cancelled:
-                return "Sign-in was cancelled."
+                return String(localized: "Sign-in was cancelled.", comment: "Sign-in error: the user cancelled signing in")
             }
         }
     }
@@ -490,27 +490,27 @@ nonisolated final class LoopbackAuthServer: @unchecked Sendable {
     }
 
     static let successHTML = page(
-        title: "You're signed in",
-        message: "You can close this window and go back to CaptureCat.",
+        title: String(localized: "You're signed in", comment: "Browser page shown after signing in to the Mac app: heading"),
+        message: String(localized: "You can close this window and go back to CaptureCat.", comment: "Browser page shown after signing in to the Mac app: body text"),
         accent: "#34c759"
     )
 
     static let notFoundHTML = page(
-        title: "Not found",
-        message: "This local page only handles the CaptureCat sign-in callback.",
+        title: String(localized: "Not found", comment: "Browser page heading: the local sign-in helper got a request for an unknown page"),
+        message: String(localized: "This local page only handles the CaptureCat sign-in callback.", comment: "Browser page body for an unknown local page during sign-in"),
         accent: "#8e8e93"
     )
 
     static let errorHTML = page(
-        title: "Sign-in failed",
-        message: "The callback could not be read. Please try again from CaptureCat.",
+        title: String(localized: "Sign-in failed", comment: "Browser page heading: signing in to the Mac app failed"),
+        message: String(localized: "The callback could not be read. Please try again from CaptureCat.", comment: "Browser page body when the sign-in callback was malformed"),
         accent: "#ff3b30"
     )
 
     static func providerErrorHTML(_ detail: String) -> String {
         page(
-            title: "Sign-in failed",
-            message: detail.isEmpty ? "Please try again from CaptureCat." : detail,
+            title: String(localized: "Sign-in failed", comment: "Browser page heading: signing in to the Mac app failed"),
+            message: detail.isEmpty ? String(localized: "Please try again from CaptureCat.", comment: "Browser page body when sign-in failed without details") : detail,
             accent: "#ff3b30"
         )
     }

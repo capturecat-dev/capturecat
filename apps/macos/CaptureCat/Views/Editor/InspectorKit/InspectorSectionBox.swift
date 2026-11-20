@@ -146,14 +146,12 @@ final class InspectorSectionBox: NSView {
 }
 
 extension InspectorKitViews {
-    /// One-line muted caption — truncates instead of wrapping, with the full
-    /// text as a tooltip. For rows whose explanation should not become a
-    /// paragraph in the pane.
+    /// Short muted caption, with the full story as a tooltip. It wraps
+    /// rather than truncating: a caption cut off mid-sentence (in English
+    /// already, and far more in German or Japanese) says nothing, so the
+    /// short text is shown whole and the tooltip adds the detail.
     static func captionLine(_ short: String, full: String? = nil) -> NSTextField {
         let field = caption(short)
-        field.lineBreakMode = .byTruncatingTail
-        field.maximumNumberOfLines = 1
-        field.cell?.truncatesLastVisibleLine = true
         field.toolTip = full ?? short
         return field
     }

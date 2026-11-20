@@ -103,8 +103,8 @@ enum WallpaperCatalog {
 
         var errorDescription: String? {
             switch self {
-            case .notInCatalog: return "This wallpaper isn't in the system catalog."
-            case .badArchive: return "The downloaded wallpaper couldn't be unpacked."
+            case .notInCatalog: return String(localized: "This wallpaper isn't in the system catalog.", comment: "Background picker error: a macOS wallpaper could not be found")
+            case .badArchive: return String(localized: "The downloaded wallpaper couldn't be unpacked.", comment: "Background picker error: the downloaded macOS wallpaper file was damaged")
             }
         }
     }

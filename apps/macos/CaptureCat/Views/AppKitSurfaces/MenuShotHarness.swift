@@ -122,6 +122,8 @@ enum MenuShotHarness {
     // MARK: - Run
 
     private static func execute() async {
+        // `--l10n-audit`: the menu bar the app delegate built at launch.
+        if let mainMenu = NSApp.mainMenu { CCLocalizationAudit.capture("menu-bar", menu: mainMenu) }
         guard let fixture = await makeFixture() else { failures += 1; return }
         if CommandLine.arguments.contains("--before") {
             await beforeShots(fixture)
@@ -214,6 +216,7 @@ enum MenuShotHarness {
     /// their real width, shortcut caps sit clear of the title, and nothing
     /// pokes past the row.
     static func probeLabels(_ label: String, list: CCMenuList) {
+        CCLocalizationAudit.capture("menu-\(label)", view: list)
         var fields = 0
         var bad: [String] = []
         var maxLines = 0
@@ -354,10 +357,14 @@ enum MenuShotHarness {
 
         // Sections + the disabled-group caption.
         let headers = list.headers.map { $0.titleField.stringValue }
-        let cameraHeader = list.headers.first { $0.titleField.stringValue == "Camera" }
-        let cameraTitles: Set<String> = ["Full Screen", "Side by Side", "Cutout", "Pop-out card", "Hide Camera"]
+        // Compared through the picker's own keys, so the gate holds in every language.
+        let cameraWord = String(localized: "Camera", comment: "Timeline add-effect picker: section header for webcam layouts")
+        let cameraHeader = list.headers.first { $0.titleField.stringValue == cameraWord }
+        let cameraTitles: Set<String> = Set(["Full Screen", "Side by Side", "Cutout", "Pop-out card", "Hide Camera"]
+            .map { String(localized: String.LocalizationValue($0)) })
         let cameraRows = list.rows.filter { cameraTitles.contains($0.model.title) }
-        check("\(label) sections", headers == ["Zoom & motion", "Transitions", "Camera"] && cameraRows.count == 5,
+        check("\(label) sections", headers == [String(localized: "Zoom & motion", comment: "Timeline add-effect picker: section header"),
+                                               String(localized: "Transitions", comment: "Timeline add-effect picker: section header"), cameraWord] && cameraRows.count == 5,
               "headers=\(headers) cameraRows=\(cameraRows.count)")
         if camera {
             check("\(label) camera-enabled", cameraRows.allSatisfy(\.isEnabled) && cameraHeader?.hasCaption == false,
@@ -365,7 +372,7 @@ enum MenuShotHarness {
         } else {
             let caption = cameraHeader?.hasCaption == true ? cameraHeader!.captionField.stringValue : "(none)"
             let dimmed = cameraRows.allSatisfy { !$0.isEnabled && abs($0.alphaValue - CCTheme.current.disabledAlpha) < 0.01 }
-            check("\(label) disabled-caption", caption == "Needs a camera recording" && dimmed,
+            check("\(label) disabled-caption", caption == String(localized: "Needs a camera recording", comment: "Timeline add-effect picker: caption when the project has no webcam track") && dimmed,
                   "caption=\"\(caption)\" dimmedDisabled=\(dimmed)")
             // Disabled rows take no hover.
             if let dead = cameraRows.first {
@@ -571,8 +578,8 @@ enum MenuShotHarness {
         guard let anchor = findView(TimelineCanvasView.self, in: f.window.contentView!) else { return }
         let long = "Pushes in on whatever the cursor is doing and eases back out when the pointer rests"
         let popover = TimelinePickerPopover.make(rows: [
-            .init(icon: "sparkle.magnifyingglass", title: "Auto Zoom", detail: long) {},
-            .init(icon: "plus.magnifyingglass", title: "Zoom In", detail: "Push in at the playhead") {},
+            .init(icon: "sparkle.magnifyingglass", title: String(localized: "Auto Zoom", comment: "Timeline add-effect picker: row title"), detail: long) {},
+            .init(icon: "plus.magnifyingglass", title: String(localized: "Zoom In", comment: "Timeline add-effect picker: row title; adds a zoom-in block to the video"), detail: "Push in at the playhead") {},
         ])
         popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
         await sleep(700)
@@ -687,7 +694,10 @@ enum MenuShotHarness {
         // standard actions) macOS attaches no automatic item image.
         func item(_ title: String, _ key: String = "", _ mods: NSEvent.ModifierFlags = .command,
                   icon: String? = nil) -> NSMenuItem {
-            let item = NSMenuItem(title: title, action: Selector(("menuShotProbeNoop:")), keyEquivalent: key)
+            // Through the catalog, so the items the app also has ("Duplicate",
+            // "Delete") show translated in the per-language runs.
+            let item = NSMenuItem(title: String(localized: String.LocalizationValue(title)),
+                                  action: Selector(("menuShotProbeNoop:")), keyEquivalent: key)
             item.keyEquivalentModifierMask = mods
             item.target = nil
             item.image = icon.flatMap { CCIcon.image($0, pointSize: 12, weight: .semibold) }
@@ -696,8 +706,9 @@ enum MenuShotHarness {
         menu.addItem(item("Split at Playhead", "b", icon: "scissors"))
         menu.addItem(item("Duplicate", "d", icon: "plus.square.on.square"))
         menu.addItem(item("Copy Effect Settings", "c", [.command, .option], icon: "doc.on.doc"))
-        let levels = NSMenuItem(title: "Zoom Level", action: nil, keyEquivalent: "")
-        let submenu = NSMenu(title: "Zoom Level")
+        let levelTitle = String(localized: "Zoom Level", comment: "Timeline context menu on a zoom block: submenu of zoom amounts (1.5x, 2.0x…)")
+        let levels = NSMenuItem(title: levelTitle, action: nil, keyEquivalent: "")
+        let submenu = NSMenu(title: levelTitle)
         for (index, level) in ["1.5×", "2.0×", "2.5×", "3.0×", "4.0×"].enumerated() {
             let entry = item(level, "")
             entry.state = index == 1 ? .on : .off

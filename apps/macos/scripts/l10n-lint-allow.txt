@@ -1,0 +1,36 @@
+# l10n-lint.py: literals allowed at UI sinks. Brand / product names and
+# format tokens only — app copy never belongs here.
+CaptureCat
+CaptureCat Pro
+Pro
+iPhone
+iPad
+Mac
+macOS
+Claude
+Claude Code
+Claude Desktop
+Codex
+Cursor
+Gemini CLI
+VS Code
+MCP
+GIF
+MP4
+MOV
+PNG
+HEVC
+WebM
+Wi-Fi
+AWS S3
+Cloudflare R2
+Backblaze B2
+Wasabi
+MinIO
+R2
+B2
+YouTube
+re:^(Aa|AA|Ag|Xg)$
+Chrome
+Safari
+re:^HTTP \\\(

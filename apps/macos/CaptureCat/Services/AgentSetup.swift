@@ -201,7 +201,7 @@ enum AgentSetup {
         ditto.waitUntilExit()
         guard ditto.terminationStatus == 0 else {
             throw NSError(domain: "AgentSetup", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Could not package the MCP bundle."
+                NSLocalizedDescriptionKey: String(localized: "Could not package the MCP bundle.", comment: "Connect AI Agents error: building the Claude Desktop extension file failed")
             ])
         }
         return output

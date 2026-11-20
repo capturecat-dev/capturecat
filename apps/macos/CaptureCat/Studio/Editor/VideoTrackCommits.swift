@@ -60,7 +60,7 @@ struct VideoTrackCommits {
 
         let newStart = project.trimStart
         let newEnd = project.trimEnd
-        UndoStep.register(undoManager, target: project, name: mode == .move ? "Slip Clip" : "Trim", undo: { p in
+        UndoStep.register(undoManager, target: project, name: mode == .move ? String(localized: "Slip Clip", comment: "Undo action name") : String(localized: "Trim", comment: "Undo action name: a clip was trimmed"), undo: { p in
             p.trimStart = prevStart
             p.trimEnd = prevEnd
         }, redo: { p in
@@ -75,7 +75,7 @@ struct VideoTrackCommits {
     func commitClipMove(_ clip: VideoClipRef, resolvedOutputStart: TimeInterval) {
         guard abs(resolvedOutputStart - clip.outputStart) > 0.001 else { return }
         let resolvedEnd = resolvedOutputStart + clip.outputDuration
-        updateClip(clip, actionName: "Move Clip") { segment in
+        updateClip(clip, actionName: String(localized: "Move Clip", comment: "Undo action name")) { segment in
             segment.startTime = timeMap.sourceTime(forOutput: resolvedOutputStart)
             segment.endTime = timeMap.sourceTime(forOutput: resolvedEnd)
         }
@@ -102,7 +102,7 @@ struct VideoTrackCommits {
     /// Port of `VideoTrackContent.updateClip` — the single mutation funnel.
     private func updateClip(
         _ clip: VideoClipRef,
-        actionName: String = "Resize Clip",
+        actionName: String = String(localized: "Resize Clip", comment: "Undo action name"),
         edgeSide: VideoTrackEditMath.Side? = nil,
         mutate: (inout VideoClipSegment) -> Void
     ) {

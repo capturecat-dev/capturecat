@@ -52,13 +52,13 @@ nonisolated struct CloudVersion: Equatable, Sendable, Identifiable {
         let client: String
         switch clientKind {
         case "mac": client = "Mac"
-        case "web": client = "Web"
+        case "web": client = String(localized: "Web", comment: "History row badge: which app saved the version")
         case "ios": client = "iOS"
-        default: client = "Other"
+        default: client = String(localized: "Other", comment: "History row badge: which app saved the version")
         }
         switch source {
-        case "agent": return "Agent via \(client)"
-        case "mixed": return "\(client) + Agent"
+        case "agent": return String(localized: "Agent via \(client)", comment: "History row badge: an AI agent saved it through an app (Mac, Web, iOS)")
+        case "mixed": return String(localized: "\(client) + Agent", comment: "History row badge: a person and an AI agent both edited, through an app (Mac, Web, iOS)")
         default: return client
         }
     }
@@ -67,10 +67,10 @@ nonisolated struct CloudVersion: Equatable, Sendable, Identifiable {
     var summary: String {
         if let change { return ChangeSummary.format(change, maxParts: 3) }
         switch kind {
-        case "upload": return "Uploaded"
-        case "restore": return "Restored an earlier version"
-        case "merge": return "Merged edits"
-        default: return "Edited"
+        case "upload": return String(localized: "Uploaded", comment: "History row caption: the first uploaded version")
+        case "restore": return String(localized: "Restored an earlier version", comment: "History row caption")
+        case "merge": return String(localized: "Merged edits", comment: "History row caption")
+        default: return String(localized: "Edited", comment: "History row caption: a version whose changes are unknown")
         }
     }
 }

@@ -81,12 +81,12 @@ final class CloudCardItem: NSCollectionViewItem {
 
         cloudBadge.translatesAutoresizingMaskIntoConstraints = false
         cloudBadge.image = CCIcon.image("icloud.and.arrow.down", pointSize: 9, weight: .semibold,
-                                        accessibilityDescription: "In the cloud")
+                                        accessibilityDescription: String(localized: "In the cloud", comment: "Accessibility label for the cloud badge on a cloud-only project card"))
         cloudBadge.contentTintColor = .white
         cloudBadge.wantsLayer = true
         cloudBadge.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
         cloudBadge.layer?.cornerRadius = 9
-        cloudBadge.toolTip = "In your CaptureCat cloud — opening it downloads it to this Mac."
+        cloudBadge.toolTip = String(localized: "In your CaptureCat cloud — opening it downloads it to this Mac.", comment: "Tooltip on the cloud badge of a cloud-only project card")
         container.addSubview(cloudBadge)
 
         tagBadge.translatesAutoresizingMaskIntoConstraints = false
@@ -224,7 +224,7 @@ final class CloudCardItem: NSCollectionViewItem {
     }
 
     private func metaText(duration: Double?) -> String {
-        if let searchSnippet { return "match: \(searchSnippet)" }
+        if let searchSnippet { return String(localized: "match: \(searchSnippet)", comment: "Capture card line explaining why a search matched; the placeholder is text found in the video (lowercase label)") }
         guard let item else { return "" }
         var parts: [String] = []
         if let duration {
@@ -243,13 +243,13 @@ final class CloudCardItem: NSCollectionViewItem {
     }
 
     private func toolTip(for item: CloudLibraryItem) {
-        view.toolTip = "\(item.name) — in your CaptureCat cloud. Click to download it to this Mac."
+        view.toolTip = String(localized: "\(item.name) — in your CaptureCat cloud. Click to download it to this Mac.", comment: "Tooltip on a cloud-only project card; the placeholder is the project name")
     }
 
     private func buildContextMenu() -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(CloudMenuTarget.item("Download to This Mac") { [weak self] in self?.onOpen?() })
-        menu.addItem(CloudMenuTarget.item("Open in Web Editor") { [weak self] in self?.onOpenInWebEditor?() })
+        menu.addItem(CloudMenuTarget.item(String(localized: "Download to This Mac", comment: "Cloud project card context menu item: downloads the project to this Mac")) { [weak self] in self?.onOpen?() })
+        menu.addItem(CloudMenuTarget.item(String(localized: "Open in Web Editor", comment: "Menu item / button: syncs the project and opens it in the CaptureCat web editor")) { [weak self] in self?.onOpenInWebEditor?() })
         return menu
     }
 

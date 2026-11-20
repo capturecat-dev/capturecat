@@ -17,10 +17,9 @@ final class AgentSetupViewController: NSViewController {
     }
 
     private let stack = NSStackView()
-    private let titleLabel = NSTextField(labelWithString: "Connect AI Agents")
+    private let titleLabel = NSTextField(labelWithString: String(localized: "Connect AI Agents", comment: "Connect AI Agents window: window heading"))
     private let subtitleLabel = NSTextField(wrappingLabelWithString:
-        "Let Claude, Cursor, Codex or any MCP client drive CaptureCat — record, "
-        + "edit, see rendered frames, and export. Pick your client:")
+        String(localized: "Let Claude, Cursor, Codex or any MCP client drive CaptureCat — record, edit, see rendered frames, and export. Pick your client:", comment: "Connect AI Agents window: intro under the heading; Claude, Cursor, Codex are product names, MCP is a protocol name"))
     private let feedback = NSTextField(wrappingLabelWithString: "")
     private let feedbackPill = NSView()
     private var themeObservation: CCThemeObservation?
@@ -160,7 +159,9 @@ final class AgentSetupViewController: NSViewController {
 
         var trailing: [NSView] = []
         if let installed = client.installed {
-            let badge = CCBadge(installed ? "Installed" : "Not found",
+            let badge = CCBadge(installed
+                ? String(localized: "Installed", comment: "Connect AI Agents window: badge: the AI client app is installed on this Mac")
+                : String(localized: "Not found", comment: "Connect AI Agents window: badge: the AI client app is not installed on this Mac"),
                                 variant: installed ? .primary : .outline)
             trailing.append(badge)
         }
@@ -194,57 +195,57 @@ final class AgentSetupViewController: NSViewController {
             Client(
                 name: "Claude Code",
                 symbol: "terminal",
-                detail: "Registers for every project on this Mac (user scope) via Terminal.",
+                detail: String(localized: "Registers for every project on this Mac (user scope) via Terminal.", comment: "Connect AI Agents window: Claude Code row detail; Terminal is the macOS app"),
                 installed: nil,
-                buttonTitle: "Install"
+                buttonTitle: String(localized: "Install", comment: "Connect AI Agents window: button that installs CaptureCat into this AI client (verb)")
             ) { [weak self] in self?.installViaTerminal(AgentSetup.claudeCodeCommand, client: "Claude Code") },
             Client(
                 name: "Claude Desktop",
                 symbol: "sparkles",
                 detail: AgentSetup.claudeDesktopInstalled
-                    ? "Opens a one-click extension bundle in Claude Desktop."
-                    : "Builds the extension bundle for when Claude Desktop is installed.",
+                    ? String(localized: "Opens a one-click extension bundle in Claude Desktop.", comment: "Connect AI Agents window: Claude Desktop row detail when installed")
+                    : String(localized: "Builds the extension bundle for when Claude Desktop is installed.", comment: "Connect AI Agents window: Claude Desktop row detail when not installed"),
                 installed: AgentSetup.claudeDesktopInstalled,
-                buttonTitle: "Install"
+                buttonTitle: String(localized: "Install", comment: "Connect AI Agents window: button that installs CaptureCat into this AI client (verb)")
             ) { [weak self] in self?.installClaudeDesktop() },
             Client(
                 name: "Cursor",
                 symbol: "cursorarrow.rays",
                 detail: AgentSetup.cursorInstalled
-                    ? "One click — Cursor confirms the server."
-                    : "Copies the config until Cursor is installed.",
+                    ? String(localized: "One click — Cursor confirms the server.", comment: "Connect AI Agents window: Cursor row detail when installed; Cursor is a product name")
+                    : String(localized: "Copies the config until Cursor is installed.", comment: "Connect AI Agents window: Cursor row detail when not installed"),
                 installed: AgentSetup.cursorInstalled,
-                buttonTitle: "Install"
+                buttonTitle: String(localized: "Install", comment: "Connect AI Agents window: button that installs CaptureCat into this AI client (verb)")
             ) { [weak self] in self?.installCursor() },
             Client(
                 name: "Codex",
                 symbol: "chevron.left.forwardslash.chevron.right",
-                detail: "Registers globally via Terminal — the Codex app reads the same config.",
+                detail: String(localized: "Registers globally via Terminal — the Codex app reads the same config.", comment: "Connect AI Agents window: Codex row detail; Codex is a product name"),
                 installed: nil,
-                buttonTitle: "Install"
+                buttonTitle: String(localized: "Install", comment: "Connect AI Agents window: button that installs CaptureCat into this AI client (verb)")
             ) { [weak self] in self?.installViaTerminal(AgentSetup.codexCommand, client: "Codex") },
             Client(
                 name: "Gemini CLI",
                 symbol: "diamond",
-                detail: "Registers for every project (user scope) via Terminal.",
+                detail: String(localized: "Registers for every project (user scope) via Terminal.", comment: "Connect AI Agents window: Gemini CLI row detail"),
                 installed: nil,
-                buttonTitle: "Install"
+                buttonTitle: String(localized: "Install", comment: "Connect AI Agents window: button that installs CaptureCat into this AI client (verb)")
             ) { [weak self] in self?.installViaTerminal(AgentSetup.geminiCommand, client: "Gemini CLI") },
             Client(
                 name: "VS Code",
                 symbol: "chevron.left.forwardslash.chevron.right",
                 detail: AgentSetup.vsCodeInstalled
-                    ? "Opens VS Code's install prompt for the server."
-                    : "Copies the config until VS Code is installed.",
+                    ? String(localized: "Opens VS Code's install prompt for the server.", comment: "Connect AI Agents window: VS Code row detail when installed")
+                    : String(localized: "Copies the config until VS Code is installed.", comment: "Connect AI Agents window: VS Code row detail when not installed"),
                 installed: AgentSetup.vsCodeInstalled,
-                buttonTitle: "Install"
+                buttonTitle: String(localized: "Install", comment: "Connect AI Agents window: button that installs CaptureCat into this AI client (verb)")
             ) { [weak self] in self?.installVSCode() },
             Client(
-                name: "Windsurf & others",
+                name: String(localized: "Windsurf & others", comment: "Connect AI Agents window: row title for any other MCP client; Windsurf is a product name"),
                 symbol: "doc.on.clipboard",
-                detail: "Copies the standard mcpServers JSON for any client's config.",
+                detail: String(localized: "Copies the standard mcpServers JSON for any client's config.", comment: "Connect AI Agents window: other-clients row detail; mcpServers is a config key, keep it as is"),
                 installed: AgentSetup.windsurfInstalled ? true : nil,
-                buttonTitle: "Copy JSON"
+                buttonTitle: String(localized: "Copy JSON", comment: "Connect AI Agents window: button that copies the MCP config JSON to the clipboard")
             ) { [weak self] in self?.copyJSON() },
         ]
     }
@@ -275,10 +276,10 @@ final class AgentSetupViewController: NSViewController {
         guard let url = AgentSetup.cursorDeepLink else { return }
         if AgentSetup.cursorInstalled {
             NSWorkspace.shared.open(url)
-            note("Opened Cursor — confirm the install prompt there.")
+            note(String(localized: "Opened Cursor — confirm the install prompt there.", comment: "Connect AI Agents window: status after opening Cursor"))
         } else {
             copyToPasteboard(AgentSetup.standardJSON,
-                             note: "Cursor isn't installed — copied the JSON instead.")
+                             note: String(localized: "Cursor isn't installed — copied the JSON instead.", comment: "Connect AI Agents window: status when Cursor is missing"))
         }
     }
 
@@ -287,14 +288,14 @@ final class AgentSetupViewController: NSViewController {
             let bundle = try AgentSetup.buildMCPB()
             if AgentSetup.claudeDesktopInstalled {
                 NSWorkspace.shared.open(bundle)
-                note("Opened the extension bundle — confirm the install in Claude Desktop.")
+                note(String(localized: "Opened the extension bundle — confirm the install in Claude Desktop.", comment: "Connect AI Agents window: status after opening the Claude Desktop extension"))
             } else {
                 NSWorkspace.shared.activateFileViewerSelecting([bundle])
-                note("Claude Desktop isn't installed — the .mcpb is in the revealed folder for later.")
+                note(String(localized: "Claude Desktop isn't installed — the .mcpb is in the revealed folder for later.", comment: "Connect AI Agents window: status when Claude Desktop is missing; .mcpb is a file extension"))
             }
         } catch {
             copyToPasteboard(AgentSetup.standardJSON,
-                             note: "Bundle failed (\(error.localizedDescription)) — copied the JSON instead.")
+                             note: String(localized: "Bundle failed (\(error.localizedDescription)) — copied the JSON instead.", comment: "Connect AI Agents window: status when building the extension fails; the value is the error message"))
         }
     }
 
@@ -302,9 +303,9 @@ final class AgentSetupViewController: NSViewController {
         if let error = AgentSetup.runInTerminal(command) {
             // Automation refused (or Terminal unavailable) — degrade to copy.
             copyToPasteboard(command,
-                             note: "Couldn't drive Terminal (\(error)) — copied the command instead.")
+                             note: String(localized: "Couldn't drive Terminal (\(error)) — copied the command instead.", comment: "Connect AI Agents window: status when Terminal automation fails; the value is the error"))
         } else {
-            note("Running the \(client) setup in Terminal — it takes a second. Restart \(client) afterwards.")
+            note(String(localized: "Running the \(client) setup in Terminal — it takes a second. Restart \(client) afterwards.", comment: "Connect AI Agents window: status while installing; the value is the client app name, e.g. Claude Code"))
         }
     }
 
@@ -312,15 +313,15 @@ final class AgentSetupViewController: NSViewController {
         guard let url = AgentSetup.vsCodeDeepLink else { return }
         if AgentSetup.vsCodeInstalled {
             NSWorkspace.shared.open(url)
-            note("Opened VS Code — confirm the install prompt there.")
+            note(String(localized: "Opened VS Code — confirm the install prompt there.", comment: "Connect AI Agents window: status after opening VS Code"))
         } else {
             copyToPasteboard(AgentSetup.standardJSON,
-                             note: "VS Code isn't installed — copied the JSON instead.")
+                             note: String(localized: "VS Code isn't installed — copied the JSON instead.", comment: "Connect AI Agents window: status when VS Code is missing"))
         }
     }
 
     private func copyJSON() {
         copyToPasteboard(AgentSetup.standardJSON,
-                         note: "Copied the standard MCP JSON — paste into your client's MCP config.")
+                         note: String(localized: "Copied the standard MCP JSON — paste into your client's MCP config.", comment: "Connect AI Agents window: status after copying the JSON"))
     }
 }

@@ -797,7 +797,7 @@ final class MockAppWindow {
     private let heading = CALayer()
     private let subheading = CALayer()
     let button = CALayer()
-    private let buttonLabel = Stage.text("Publish", size: 9.5, weight: .semibold, alignment: .center)
+    private let buttonLabel = Stage.text(String(localized: "Publish", comment: "Onboarding illustration: button label on a mock editor window (verb)"), size: 9.5, weight: .semibold, alignment: .center)
     private(set) var cards: [CALayer] = []
     private var cardDots: [CALayer] = []
     private var cardLines: [CALayer] = []

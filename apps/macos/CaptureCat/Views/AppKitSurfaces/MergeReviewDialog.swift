@@ -16,8 +16,8 @@ final class MergeReviewDialog {
     let review: CloudMergeReview
     private let dialog: CCDialog
     private var rows: [(conflict: MergeConflict, control: CCSegmented)] = []
-    private let applyButton = CCButton(title: "Apply Merge", style: .primary, size: .regular)
-    private let cancelButton = CCButton(title: "Cancel", style: .secondary, size: .regular)
+    private let applyButton = CCButton(title: String(localized: "Apply Merge", comment: "Merge review dialog button: applies the chosen side for each conflict"), style: .primary, size: .regular)
+    private let cancelButton = CCButton(title: String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"), style: .secondary, size: .regular)
     private var accordion: CCAccordion?
     private var labels: [NSTextField] = []
     private var captions: [NSTextField] = []

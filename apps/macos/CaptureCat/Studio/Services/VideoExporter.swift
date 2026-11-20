@@ -794,7 +794,7 @@ final class VideoExporter {
 
         guard let initialSampleBuffer = nextVideoSample(),
               let initialPixelBuffer = CMSampleBufferGetImageBuffer(initialSampleBuffer) else {
-            throw ExportError.writeFailed("Unable to read source video frames")
+            throw ExportError.writeFailed(String(localized: "Unable to read source video frames", comment: "Export error detail"))
         }
 
         // ── Camera (webcam) asset reader ──────────────────────────────────────
@@ -4335,12 +4335,13 @@ final class VideoExporter {
 
         var errorDescription: String? {
             switch self {
-            case .noVideo: return "No video file found in project"
-            case .noVideoTrack: return "No video track found in recording"
-            case .writeFailed(let msg): return "Export failed: \(msg)"
+            case .noVideo: return String(localized: "No video file found in project", comment: "Export error message")
+            case .noVideoTrack: return String(localized: "No video track found in recording", comment: "Export error message")
+            case .writeFailed(let msg): return String(localized: "Export failed: \(msg)", comment: "Export error message; %@ is a technical detail")
             case .insufficientMemory(let needed, let available):
-                return "Not enough free memory to export at this size (needs about \(needed / 1_048_576) MB, "
-                    + "\(available / 1_048_576) MB available). Close other apps or export at a lower resolution."
+                let neededMB = Int(needed / 1_048_576), availableMB = Int(available / 1_048_576)
+                return String(localized: "Not enough free memory to export at this size (needs about \(neededMB) MB, \(availableMB) MB available). Close other apps or export at a lower resolution.",
+                              comment: "Export error message: memory needed and available, in megabytes")
             }
         }
     }

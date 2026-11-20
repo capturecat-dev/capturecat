@@ -40,7 +40,7 @@ final class MotionFeelPaneAppKit: NSView {
             view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
 
-        let motionBox = InspectorSectionBox("Motion")
+        let motionBox = InspectorSectionBox(String(localized: "Motion", comment: "Inspector ▸ Motion: section header; animation feel"))
         motionBox.addRow(speedChips)
         motionBox.addRow(speedPad, attached: true)
         speedPad.heightAnchor.constraint(equalToConstant: 84).isActive = true

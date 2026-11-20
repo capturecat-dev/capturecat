@@ -218,11 +218,11 @@ enum InspectorFeature: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .transcribe: return "Generate Subtitles"
-        case .autoZoom: return "Auto Zoom"
-        case .removeBackground: return "Remove Background"
-        case .recordVoiceOver: return "Record Voice Over"
-        case .showHistory: return "History"
+        case .transcribe: return String(localized: "Generate Subtitles", comment: "Inspector: button that starts a feature")
+        case .autoZoom: return String(localized: "Auto Zoom", comment: "Inspector: button that starts a feature")
+        case .removeBackground: return String(localized: "Remove Background", comment: "Inspector: button that starts a feature")
+        case .recordVoiceOver: return String(localized: "Record Voice Over", comment: "Inspector: button that starts a feature")
+        case .showHistory: return String(localized: "History", comment: "Inspector: button that opens the project version history")
         }
     }
 
@@ -307,10 +307,10 @@ enum InspectorFormat {
     /// `Int(v * 100)` — truncating, as the Mac's opacity readouts were written.
     static func percentTruncating(_ v: Double) -> String { "\(Int(v * 100))%" }
     static func degreesRounded(_ v: Double) -> String { "\(Int(v.rounded()))°" }
-    static func multiplier1(_ v: Double) -> String { String(format: "%.1fx", v) }
-    static func multiplier2(_ v: Double) -> String { String(format: "%.2fx", v) }
+    static func multiplier1(_ v: Double) -> String { UnitText.multiplier(v, digits: 1) }
+    static func multiplier2(_ v: Double) -> String { UnitText.multiplier(v, digits: 2) }
     static func times2(_ v: Double) -> String { String(format: "%.2f×", v) }
-    static func seconds1(_ v: Double) -> String { String(format: "%.1fs", v) }
+    static func seconds1(_ v: Double) -> String { UnitText.seconds(v, digits: 1) }
 }
 
 // MARK: - Shared helpers

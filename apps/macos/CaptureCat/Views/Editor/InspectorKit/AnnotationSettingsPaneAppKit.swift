@@ -24,7 +24,7 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let deleteButton = InspectorButton(AnnotationPane.delete)
 
     // Text section
-    private let textCaption = InspectorKitViews.caption("Text")
+    private let textCaption = InspectorKitViews.caption(String(localized: "Text", comment: "Inspector ▸ Annotation: group caption for text settings (noun)"))
     private let textField = InspectorFlatTextField(AnnotationPane.text)
     private let textTip = InspectorKitViews.caption(AnnotationPane.textTipCaption)
     private let fontSizeSlider = InspectorSliderRow(AnnotationPane.fontSize)
@@ -34,23 +34,23 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let uppercaseToggle = InspectorToggleControl(AnnotationPane.uppercase)
 
     // Tap section
-    private let tapCaption = InspectorKitViews.caption("Tap Ripple")
+    private let tapCaption = InspectorKitViews.caption(String(localized: "Tap Ripple", comment: "Inspector ▸ Annotation: group caption for tap-indicator ripple settings"))
     private let tapSizeSlider = InspectorSliderRow(AnnotationPane.tapSize)
     private let tapTip = InspectorKitViews.caption(AnnotationPane.tapTipCaption)
 
     // Style section
-    private let styleCaption = InspectorKitViews.caption("Style")
+    private let styleCaption = InspectorKitViews.caption(String(localized: "Style", comment: "Inspector ▸ Annotation: group caption (noun)"))
     private let colorWell = InspectorColorWellControl()
     private var colorRow: NSView!
     private let fillWell = InspectorColorWellControl()
     private let fillToggle = CaptureCatToggle()
     private var fillRow: NSView!
-    private let fillRowLabel = NSTextField(labelWithString: "Background")
+    private let fillRowLabel = NSTextField(labelWithString: String(localized: "Background", comment: "Inspector ▸ Annotation: row label for the background/fill color"))
     private let cornersSlider = InspectorSliderRow(AnnotationPane.corners)
     private let borderSlider = InspectorSliderRow(AnnotationPane.border)
 
     // Effects section
-    private let effectsCaption = InspectorKitViews.caption("Effects")
+    private let effectsCaption = InspectorKitViews.caption(String(localized: "Effects", comment: "Inspector ▸ Annotation: group caption for annotation effects"))
     private let opacitySlider = InspectorSliderRow(AnnotationPane.opacity)
     private let blackoutSlider = InspectorSliderRow(AnnotationPane.blackout)
     private let buildInMenu = InspectorMenuControl(AnnotationPane.buildIn)
@@ -60,7 +60,7 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let shadowToggle = InspectorToggleControl(AnnotationPane.shadow)
 
     // Drawing section
-    private let drawingCaption = InspectorKitViews.caption("Strokes")
+    private let drawingCaption = InspectorKitViews.caption(String(localized: "Strokes", comment: "Inspector ▸ Annotation: group caption for freehand drawing strokes"))
     private let drawingRow = NSStackView()
     private let strokesLabel = NSTextField(labelWithString: "")
     private let undoStrokeButton = InspectorButton(AnnotationPane.undoStroke)
@@ -68,7 +68,7 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let drawingTip = InspectorKitViews.caption(AnnotationPane.drawingTipCaption)
 
     // Timing section
-    private let timingCaption = InspectorKitViews.caption("Timing")
+    private let timingCaption = InspectorKitViews.caption(String(localized: "Timing", comment: "Inspector ▸ Annotation: group caption for start/end time"))
     private let timingRow = NSStackView()
     private let startField = InspectorFlatTextField(AnnotationPane.start, width: 56)
     private let endField = InspectorFlatTextField(AnnotationPane.end, width: 56)
@@ -245,8 +245,8 @@ final class AnnotationSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         timingRow.orientation = .horizontal
         timingRow.spacing = 8
         timingRow.alignment = .bottom
-        timingRow.addArrangedSubview(labeledField("Start", startField))
-        timingRow.addArrangedSubview(labeledField("End", endField))
+        timingRow.addArrangedSubview(labeledField(String(localized: "Start", comment: "Inspector ▸ Annotation ▸ Timing: label for the start time field (noun)"), startField))
+        timingRow.addArrangedSubview(labeledField(String(localized: "End", comment: "Inspector ▸ Annotation ▸ Timing: label for the end time field (noun)"), endField))
         timingRow.addArrangedSubview(NSView())
         timingRow.addArrangedSubview(atPlayheadButton)
         editor(timingRow)

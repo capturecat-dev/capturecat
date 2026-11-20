@@ -169,17 +169,17 @@ final class AppState {
             let screen = NSScreen.screens.first {
                 ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) == display.displayID
             }
-            return screen?.localizedName ?? "Display"
+            return screen?.localizedName ?? String(localized: "Display", comment: "Recording panel source chip: fallback name for a display being recorded")
         case .window(let window):
-            return window.owningApplication?.applicationName ?? window.title ?? "Window"
+            return window.owningApplication?.applicationName ?? window.title ?? String(localized: "Window", comment: "Recording panel source chip: fallback name for a window being recorded")
         case .area:
-            return "Area"
+            return String(localized: "Area", comment: "Recording panel source chip: a selected screen area is being recorded (noun)")
         case .iosDevice(let device):
             return device.localizedName
         case .wirelessDevice(let key):
             let hub = WirelessDeviceHub.shared
             let name = hub.phone(key)?.name ?? hub.entries.first { $0.key == WirelessIdentity.key(key) }?.name ?? "iPhone"
-            return "\(name) · Wi-Fi"
+            return String(localized: "\(name) · Wi-Fi", comment: "Recording panel source chip: an iPhone recorded over Wi-Fi; the placeholder is the phone's name")
         }
     }
 
@@ -430,12 +430,12 @@ final class AppState {
         }
         let minutes = Int(PlanGate.freeRecordingSeconds / 60)
         planToaster?.toaster.show(
-            title: "Free recordings stop at \(minutes) minutes",
+            title: String(localized: "Free recordings stop at \(minutes) minutes", comment: "Toast title in the editor when a Free-plan recording hit its time cap; the number is minutes"),
             message: isSignedIn
-                ? "Pro removes the limit and covers commercial use."
-                : "Pro removes the limit and covers commercial use. Have Pro? Sign in from Settings.",
+                ? String(localized: "Pro removes the limit and covers commercial use.", comment: "Toast message under the Free-plan recording cap title (signed in)")
+                : String(localized: "Pro removes the limit and covers commercial use. Have Pro? Sign in from Settings.", comment: "Toast message under the Free-plan recording cap title (signed out)"),
             symbol: "timer",
-            action: .init(title: "See plans") { NSWorkspace.shared.open(PlanGate.pricingURL) },
+            action: .init(title: String(localized: "See plans", comment: "Toast button: opens the pricing page")) { NSWorkspace.shared.open(PlanGate.pricingURL) },
             duration: 12
         )
     }
@@ -1218,7 +1218,7 @@ final class AppState {
                 await recorder.waitForSessionStart(timeout: 1.0)
             }
         } catch {
-            recordingError = "Couldn't switch source: \(error.localizedDescription)"
+            recordingError = String(localized: "Couldn't switch source: \(error.localizedDescription)", comment: "Recording error shown when switching the capture source mid-recording fails; the placeholder is the system error")
         }
 
         cameraManager.resume()

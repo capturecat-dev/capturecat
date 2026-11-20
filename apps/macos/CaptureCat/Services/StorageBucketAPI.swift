@@ -32,7 +32,7 @@ nonisolated enum StorageProvider: String, CaseIterable, Sendable {
         case .b2: return "Backblaze B2"
         case .wasabi: return "Wasabi"
         case .minio: return "MinIO"
-        case .other: return "Other S3-compatible"
+        case .other: return String(localized: "Other S3-compatible", comment: "Settings ▸ Storage: bucket provider option for any other S3-compatible service")
         }
     }
 
@@ -44,7 +44,7 @@ nonisolated enum StorageProvider: String, CaseIterable, Sendable {
         case .b2: return "B2"
         case .wasabi: return "Wasabi"
         case .minio: return "MinIO"
-        case .other: return "S3-compatible"
+        case .other: return String(localized: "S3-compatible", comment: "Settings ▸ Storage: short provider name for any other S3-compatible service")
         }
     }
 
@@ -170,9 +170,9 @@ nonisolated enum StorageBucketAPIError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .notSignedIn: return "Sign in to manage custom storage."
+        case .notSignedIn: return String(localized: "Sign in to manage custom storage.", comment: "Settings ▸ Storage error: needs a signed-in account")
         case .server(_, let message, _, _): return message
-        case .invalidResponse: return "The server sent a response CaptureCat couldn't read."
+        case .invalidResponse: return String(localized: "The server sent a response CaptureCat couldn't read.", comment: "Settings ▸ Storage error: unreadable server reply")
         }
     }
 

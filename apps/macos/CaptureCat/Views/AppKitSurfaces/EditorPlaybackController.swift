@@ -1103,8 +1103,8 @@ final class EditorPlaybackController {
     }
 
     private func presentVoiceOverError(_ message: String) {
-        let alert = CCAlert(title: "Voice Over", message: message)
-        alert.addButton("OK", role: .primary)
+        let alert = CCAlert(title: String(localized: "Voice Over", comment: "Alert title when voice-over recording fails; the message is the error"), message: message)
+        alert.addButton(String(localized: "OK", comment: "Voice-over error alert: dismiss button"), role: .primary)
         alert.runModal()
     }
 

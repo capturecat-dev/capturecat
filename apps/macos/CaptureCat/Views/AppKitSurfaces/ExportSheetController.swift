@@ -40,27 +40,27 @@ final class ExportSheetController: NSViewController {
     private let formatMenu = InspectorMenuControl()
     private let resolutionMenu = InspectorMenuControl()
     private let fpsMenu = InspectorMenuControl()
-    private let customWidthField = InspectorFlatTextField(placeholder: "Width", width: 70)
-    private let customHeightField = InspectorFlatTextField(placeholder: "Height", width: 70)
+    private let customWidthField = InspectorFlatTextField(placeholder: String(localized: "Width", comment: "Export sheet: custom size width field placeholder (pixels)"), width: 70)
+    private let customHeightField = InspectorFlatTextField(placeholder: String(localized: "Height", comment: "Export sheet: custom size height field placeholder (pixels)"), width: 70)
     private var customSizeRow: NSView!
-    private let qualityRow = InspectorSliderRow(label: "Quality", range: ExportSettings.minimumQuality...ExportSettings.maximumQuality, step: 0.05)
+    private let qualityRow = InspectorSliderRow(label: String(localized: "Quality", comment: "Export sheet: slider label for video quality"), range: ExportSettings.minimumQuality...ExportSettings.maximumQuality, step: 0.05)
     private let bitrateCaption = InspectorKitViews.caption("")
-    private let fastExportToggle = InspectorToggleControl("Fast export (collapse still frames)")
-    private let shareToggle = InspectorToggleControl("Share link after export")
-    private let commentsToggle = InspectorToggleControl("Allow viewer comments on the share page")
+    private let fastExportToggle = InspectorToggleControl(String(localized: "Fast export (collapse still frames)", comment: "Export sheet: toggle: speeds up export by merging frames that don't change"))
+    private let shareToggle = InspectorToggleControl(String(localized: "Share link after export", comment: "Export sheet: toggle: upload and create a share link once exported"))
+    private let commentsToggle = InspectorToggleControl(String(localized: "Allow viewer comments on the share page", comment: "Export sheet: toggle: viewers can comment on the shared video page"))
     private let shareStatusLabel = NSTextField(wrappingLabelWithString: "")
     private let shareProgress = CCProgressBar()
-    private let shareCopyButton = InspectorButton("Copy")
+    private let shareCopyButton = InspectorButton(String(localized: "Copy", comment: "Export sheet: button that copies the share link (verb)"))
     private let errorLabel = NSTextField(wrappingLabelWithString: "")
-    private let cancelButton = InspectorButton("Cancel")
-    private let exportButton = InspectorButton("Export")
+    private let cancelButton = InspectorButton(String(localized: "Cancel", comment: "Export sheet: button that closes the sheet"))
+    private let exportButton = InspectorButton(String(localized: "Export", comment: "Export sheet: button that starts the export (verb)"))
 
     // Exporting state
     private let formStack = NSStackView()
     private let exportingStack = NSStackView()
     private let exportProgressBar = CCProgressBar()
     private let exportPercentLabel = NSTextField(labelWithString: "0%")
-    private let exportingTitle = NSTextField(labelWithString: "Exporting…")
+    private let exportingTitle = NSTextField(labelWithString: String(localized: "Exporting…", comment: "Export sheet: heading shown while exporting"))
     private let customSizeXLabel = NSTextField(labelWithString: "×")
 
     init(appState: AppState, project: Project) {
@@ -74,7 +74,7 @@ final class ExportSheetController: NSViewController {
 
     /// The sheet is a CCDialog (header / scrollable content / footer) — no
     /// stock `presentAsSheet` chrome.
-    private let dialog = CCDialog(title: "Export Video", width: 430)
+    private let dialog = CCDialog(title: String(localized: "Export Video", comment: "Export sheet: dialog title"), width: 430)
 
     override func loadView() {
         view = dialog.card
@@ -129,14 +129,14 @@ final class ExportSheetController: NSViewController {
                 self?.outputKind = index == 0 ? .image : .video
                 self?.applyOutputKindVisibility()
             }
-            let row = InspectorKitViews.row("Type", control: outputKindChips)
+            let row = InspectorKitViews.row(String(localized: "Type", comment: "Export sheet: row label: choose image or video output (noun)"), control: outputKindChips)
             outputKindRow = row
             formStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: formStack.widthAnchor).isActive = true
         }
 
         // Format
-        formatMenu.items = ExportSheetSpec.formats.map { .init(title: $0.rawValue) }
+        formatMenu.items = ExportSheetSpec.formats.map { .init(title: $0.rawValue) }  // l10n: verbatim — MP4 / MOV / GIF are format names
         formatMenu.onSelect = { [weak self] index in
             guard let self else { return }
             self.exportSettings.format = ExportSheetSpec.formats[index]
@@ -145,10 +145,10 @@ final class ExportSheetController: NSViewController {
             self.refreshBitrateCaption()
             self.applyOutputKindVisibility()
         }
-        formatRow = addRow("Format", control: formatMenu)
+        formatRow = addRow(String(localized: "Format", comment: "Export sheet: row label: file format (MP4, GIF…)"), control: formatMenu)
 
         // Resolution
-        resolutionMenu.items = ExportSheetSpec.resolutions.map { .init(title: $0.rawValue) }
+        resolutionMenu.items = ExportSheetSpec.resolutions.map { .init(title: $0.displayName) }
         resolutionMenu.onSelect = { [weak self] index in
             guard let self else { return }
             self.exportSettings.resolution = ExportSheetSpec.resolutions[index]
@@ -157,7 +157,7 @@ final class ExportSheetController: NSViewController {
             }
             self.refreshBitrateCaption()
         }
-        addRow("Resolution", control: resolutionMenu)
+        addRow(String(localized: "Resolution", comment: "Export sheet: row label: output resolution"), control: resolutionMenu)
 
         // Custom size row
         customSizeXLabel.font = EditorThemeKit.label()
@@ -165,7 +165,7 @@ final class ExportSheetController: NSViewController {
         let sizeStack = NSStackView(views: [customWidthField, customSizeXLabel, customHeightField])
         sizeStack.orientation = .horizontal
         sizeStack.spacing = 6
-        customSizeRow = InspectorKitViews.row("Size", control: sizeStack)
+        customSizeRow = InspectorKitViews.row(String(localized: "Size", comment: "Export sheet: row label: custom width × height in pixels"), control: sizeStack)
         formStack.addArrangedSubview(customSizeRow)
         customSizeRow.widthAnchor.constraint(equalTo: formStack.widthAnchor).isActive = true
         customWidthField.delegate = self
@@ -177,7 +177,7 @@ final class ExportSheetController: NSViewController {
             self?.exportSettings.fps = ExportSheetSpec.frameRates[index]
             self?.refreshBitrateCaption()
         }
-        fpsRow = addRow("Frame Rate", control: fpsMenu)
+        fpsRow = addRow(String(localized: "Frame Rate", comment: "Export sheet: row label: frames per second"), control: fpsMenu)
 
         // Quality
         qualityRow.format = { String(format: "%.0f%%", $0 * 100) }
@@ -327,13 +327,13 @@ final class ExportSheetController: NSViewController {
         case .uploading(let progress):
             shareRow?.isHidden = false
             shareCopyButton.isHidden = true
-            shareStatusLabel.stringValue = "Uploading to share..."
+            shareStatusLabel.stringValue = String(localized: "Uploading to share...", comment: "Export sheet: status while uploading the video for a share link")
             shareProgress.isHidden = false
             shareProgress.doubleValue = progress
         case .completing:
             shareRow?.isHidden = false
             shareCopyButton.isHidden = true
-            shareStatusLabel.stringValue = "Finalizing share link..."
+            shareStatusLabel.stringValue = String(localized: "Finalizing share link...", comment: "Export sheet: status after upload, while the link is created")
             shareProgress.isHidden = true
         case .done(let url):
             shareRow?.isHidden = false
@@ -345,7 +345,7 @@ final class ExportSheetController: NSViewController {
         case .failed(let message):
             shareRow?.isHidden = false
             shareCopyButton.isHidden = true
-            shareStatusLabel.stringValue = "Share failed: \(message)"
+            shareStatusLabel.stringValue = String(localized: "Share failed: \(message)", comment: "Export sheet: status when sharing fails; the value is the error message")
             shareProgress.isHidden = true
         }
     }

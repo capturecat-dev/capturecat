@@ -985,12 +985,15 @@ enum RecordingPanelHarness {
     private static func dumpPanelMenus() {
         guard let controller else { return }
         for (name, menu) in controller.debugMenus() {
+            CCLocalizationAudit.capture("recording-panel-menu-\(name)", menu: menu)
             print("PANELMENU[\(name)] \(menu.items.count) items")
             for line in StatusMenuBuilder.describe(menu) {
                 print("PANELMENU[\(name)]   \(line)")
             }
         }
         for (name, list) in controller.debugOptionLists() {
+            CCLocalizationAudit.capture("recording-panel-popup-\(name)",
+                                        texts: list.options.flatMap { [$0.title] + ($0.subtitle.map { [$0] } ?? []) })
             print("PANELPOPUP[\(name)] \(list.options.count) options"
                 + " selected=\(list.selectedIndex.map(String.init) ?? "none")"
                 + " searchable=\(list.searchable)")
@@ -1015,6 +1018,7 @@ enum RecordingPanelHarness {
             appState.recordingSession.phase = phase
             let menu = NSMenu()
             StatusMenuBuilder.populateStatusMenu(menu, appState: appState, target: stub, updaterTarget: nil)
+            CCLocalizationAudit.capture("status-menu-\(name)", menu: menu)
             print("MENU[\(name)] \(menu.items.count) items")
             for line in StatusMenuBuilder.describe(menu) {
                 print("MENU[\(name)]   \(line)")
@@ -1075,7 +1079,8 @@ enum RecordingPanelHarness {
         let lateRed = chip.debugTextColor == .systemRed
         await capture("recording-free-countdown-red")
         check(early.hasPrefix("-") && late.hasPrefix("-") && early != late, "the clock counts DOWN while it runs: \(early) → \(late)")
-        check(chip.debugLimitText == "of 5 min", "the chip says \"of 5 min\" (\(chip.debugLimitText ?? "nothing"))")
+        let expectedLimit = String(localized: "of \(String(localized: "\(5) min"))")  // the chip's own keys, any language
+        check(chip.debugLimitText == expectedLimit, "the chip says \"of 5 min\" (\(chip.debugLimitText ?? "nothing"))")
         check(!earlyRed && lateRed, "red only in the last 10 s (\(early) red=\(earlyRed), \(late) red=\(lateRed))")
         try? await Task.sleep(for: .milliseconds(10_000))
         check(fired == 1, "the cap stops the take at 5:00, once (fired \(fired))")
@@ -1101,6 +1106,7 @@ enum RecordingPanelHarness {
 
     private static func capture(_ name: String) async {
         guard let window else { return }
+        CCLocalizationAudit.capture("recording-panel-\(name)", window: window)
         let url = outputDirectory.appendingPathComponent("capturecat-recording-panel-\(name).png")
         guard let image = layerImage(window) else {
             print("SHOT \(name) FAILED")

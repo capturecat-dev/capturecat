@@ -25,4 +25,15 @@ enum RecordingSourceTab: String, CaseIterable {
         case .url: return "link"
         }
     }
+
+    /// Tab title shown to the person. The raw value stays the identity.
+    var displayName: String {
+        switch self {
+        case .display: return String(localized: "Display", comment: "Recording panel source tab: record a whole screen/monitor")
+        case .window: return String(localized: "Window", comment: "Recording panel source tab: record one app window")
+        case .area: return String(localized: "Area", comment: "Recording panel source tab: record a dragged rectangle of the screen")
+        case .device: return "iPhone"
+        case .url: return String(localized: "URL", comment: "Recording panel source tab: capture a web page by its address")
+        }
+    }
 }

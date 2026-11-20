@@ -63,8 +63,8 @@ final class VersionPreviewController {
                                 message: HistoryWords.previewMessage,
                                 variant: .info)
         callout.setActions([
-            CCButton(title: "Restore", symbol: "clock.arrow.circlepath", style: .primary, size: .sm, onClick: onRestore),
-            CCButton(title: "Back to Current", style: .secondary, size: .sm, onClick: onBack),
+            CCButton(title: String(localized: "Restore", comment: "Button: restores the project to this history version (verb)"), symbol: "clock.arrow.circlepath", style: .primary, size: .sm, onClick: onRestore),
+            CCButton(title: String(localized: "Back to Current", comment: "Version preview callout button: leaves the preview and returns to the current project"), style: .secondary, size: .sm, onClick: onBack),
         ])
         return callout
     }
@@ -73,12 +73,12 @@ final class VersionPreviewController {
         guard let session, let window, let appState = session.appState else { return }
         let version = session.version
         let alert = CCAlert(title: HistoryWords.restoreTitle(version), message: HistoryWords.restoreMessage)
-        alert.addButton("Restore", role: .primary)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Restore", comment: "Button: restores the project to this history version (verb)"), role: .primary)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: dismisses without doing anything"))
         alert.beginSheet(for: window) { [weak self] choice in
             guard choice == 0 else { return }
             guard let real = appState.projectStore.projects.first(where: { $0.id == project.id }) else { return }
-            let dialog = CloudSyncProgressDialog(title: "Restoring", subtitle: HistoryPaneAppKit.stamp(version.date))
+            let dialog = CloudSyncProgressDialog(title: String(localized: "Restoring", comment: "Progress dialog title while restoring a history version"), subtitle: HistoryPaneAppKit.stamp(version.date))
             dialog.present(over: window)
             let client = session.environment.client
             let directory = session.environment.directory(real)
@@ -88,7 +88,7 @@ final class VersionPreviewController {
                                                            projectDirectory: directory) { step in
                         dialog.update(step, weights: CloudSyncController.pushWeights)
                     }
-                    dialog.finish(message: "Restored")
+                    dialog.finish(message: String(localized: "Restored", comment: "Progress dialog status: the history version was restored"))
                     dialog.dismiss {
                         // The pull rewrote project.json; the external-edit poll
                         // reloads the real project — leave the preview now.
@@ -99,15 +99,15 @@ final class VersionPreviewController {
                                 message: HistoryWords.restoredToastMessage,
                                 symbol: "clock.arrow.circlepath", in: window)
                         } else {
-                            CCAlert(title: "Sync first",
-                                    message: "This Mac has changes that conflict with the cloud. Sync them, then restore.")
+                            CCAlert(title: String(localized: "Sync first", comment: "Alert title: local changes must be synced before restoring a version"),
+                                    message: String(localized: "This Mac has changes that conflict with the cloud. Sync them, then restore.", comment: "Alert message: local changes must be synced before restoring a version"))
                                 .beginSheet(for: window)
                         }
                         NotificationCenter.default.post(name: CloudSyncController.didSyncNotification, object: real.id)
                     }
                 } catch {
                     dialog.dismiss {
-                        CCAlert(title: "Couldn’t restore that version",
+                        CCAlert(title: String(localized: "Couldn’t restore that version", comment: "Alert title when restoring a history version fails"),
                                 message: CloudSyncController.message(for: error)).beginSheet(for: window)
                     }
                 }

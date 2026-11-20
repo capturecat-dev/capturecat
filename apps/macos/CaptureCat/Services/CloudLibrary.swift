@@ -45,7 +45,7 @@ nonisolated enum CloudLibraryKind: String, Sendable {
         switch self {
         case .recording: return nil
         case .device: return "iPhone"
-        case .still: return "Screenshot"
+        case .still: return String(localized: "Screenshot", comment: "Capture library card tag: this capture is a screenshot (noun)")
         }
     }
 
@@ -78,7 +78,7 @@ nonisolated enum CloudLibraryListing {
         let name = (row["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         return CloudLibraryItem(
             projectID: id,
-            name: (name?.isEmpty == false ? name! : "Untitled"),
+            name: (name?.isEmpty == false ? name! : String(localized: "Untitled", comment: "Capture library: fallback name for a cloud project that has no name")),
             revision: revision,
             hasDocument: (row["hasDocument"] as? Bool) ?? (revision > 0),
             totalBytes: (row["totalBytes"] as? NSNumber)?.int64Value ?? 0,
@@ -417,7 +417,7 @@ final class CloudLibrary {
     /// Opening a cloud card. Default: the existing clone path with its
     /// progress dialog. Harness seam.
     @ObservationIgnored var opener: (UUID, AppState) -> Void = { id, appState in
-        CloudSyncController.shared.openFromCloud(projectID: id, appState: appState, title: "Opening from the Cloud")
+        CloudSyncController.shared.openFromCloud(projectID: id, appState: appState, title: String(localized: "Opening from the Cloud", comment: "Progress title while a cloud-only project downloads to open"))
     }
     @ObservationIgnored var minimumRefreshInterval: TimeInterval = 15
     @ObservationIgnored var maxConcurrentPreviews = 3

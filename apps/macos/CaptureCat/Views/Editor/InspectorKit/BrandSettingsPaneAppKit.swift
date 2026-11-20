@@ -18,7 +18,7 @@ final class BrandSettingsPaneAppKit: NSView {
     private let thumbBox = NSView()
     private let thumbImage = NSImageView()
     private let thumbPlaceholder = NSImageView()
-    private let chooseButton = InspectorButton("Choose Logo…")
+    private let chooseButton = InspectorButton(String(localized: "Choose Logo…", comment: "Inspector ▸ Brand: button that opens a file picker for a logo"))
     private let removeButton = InspectorButton(BrandPane.remove)
     private let errorLabel = InspectorKitViews.caption("")
 
@@ -73,7 +73,7 @@ final class BrandSettingsPaneAppKit: NSView {
     }
 
     private func build() {
-        let brandBox = InspectorSectionBox("Brand")
+        let brandBox = InspectorSectionBox(String(localized: "Brand", comment: "Inspector ▸ Brand: section header; watermark/logo settings"))
         brandBox.addRow(showToggle)
 
         // Logo row: 44pt thumbnail card + Choose/Remove buttons
@@ -116,7 +116,7 @@ final class BrandSettingsPaneAppKit: NSView {
         brandBox.addRow(errorLabel, attached: true)
         fullWidth(brandBox)
 
-        let positionBox = InspectorSectionBox("Position")
+        let positionBox = InspectorSectionBox(String(localized: "Position", comment: "Inspector ▸ Brand: section header; where the logo sits"))
         pad.inspectorSpecID = "brand.pad"
         positionBox.addRow(pad)
         pad.heightAnchor.constraint(equalToConstant: 96).isActive = true
@@ -154,16 +154,16 @@ final class BrandSettingsPaneAppKit: NSView {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.png, .jpeg, .tiff, .heic]
         panel.allowsMultipleSelection = false
-        panel.message = "Choose a logo image (PNG with transparency works best)"
+        panel.message = String(localized: "Choose a logo image (PNG with transparency works best)", comment: "Open panel message when picking a logo image file")
         guard panel.runModal() == .OK, let source = panel.url else { return }
         do {
             try BrandPane.adoptLogo(scope, from: source)
             errorLabel.stringValue = ""
         } catch InspectorMediaError.noProjectFolder {
-            errorLabel.stringValue = "Project folder not available."
+            errorLabel.stringValue = String(localized: "Project folder not available.", comment: "Inspector ▸ Brand: inline error when the logo can't be copied because the project folder is missing")
             errorLabel.isHidden = false
         } catch {
-            errorLabel.stringValue = "Couldn't copy logo: \(error.localizedDescription)"
+            errorLabel.stringValue = String(localized: "Couldn't copy logo: \(error.localizedDescription)", comment: "Inspector ▸ Brand: inline error; the placeholder is the system error message")
         }
     }
 

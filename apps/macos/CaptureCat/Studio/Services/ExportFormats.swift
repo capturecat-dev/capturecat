@@ -66,7 +66,8 @@ nonisolated enum GIFExportPolicy {
     /// The export sheet's caption line for a GIF ("GIF • 960x540 @ 20 fps • loops").
     static func caption(outputSize: CGSize, requestedFPS: Int) -> String {
         let size = frameSize(for: outputSize)
-        return "GIF • \(Int(size.width))x\(Int(size.height)) @ \(frameRate(forRequested: requestedFPS)) fps • loops"
+        let width = Int(size.width), height = Int(size.height), fps = frameRate(forRequested: requestedFPS)
+        return String(localized: "GIF • \(width)x\(height) @ \(fps) fps • loops", comment: "Export sheet caption for a GIF: size, frame rate, and that it loops")
     }
 }
 
@@ -370,9 +371,9 @@ actor GIFFrameSink {
 
         var errorDescription: String? {
             switch self {
-            case .destination: return "Could not create the GIF file."
-            case .frames(let written, let expected): return "GIF export wrote \(written) of \(expected) frames."
-            case .finalize: return "Could not finish writing the GIF."
+            case .destination: return String(localized: "Could not create the GIF file.", comment: "GIF export error")
+            case .frames(let written, let expected): return String(localized: "GIF export wrote \(written) of \(expected) frames.", comment: "GIF export error")
+            case .finalize: return String(localized: "Could not finish writing the GIF.", comment: "GIF export error")
             }
         }
     }

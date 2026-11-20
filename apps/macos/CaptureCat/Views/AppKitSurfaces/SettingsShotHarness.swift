@@ -70,6 +70,7 @@ enum SettingsShotHarness {
             controller.select(section: section, animated: false)
             controller.view.layoutSubtreeIfNeeded()
             let pane = controller.probeCurrentPane
+            CCLocalizationAudit.capture("settings-\(section)", window: window)
             let swapped = pane !== before || section == controller.probeSidebarRows.first?.section
             let framed = (pane?.frame.height ?? 0) > 20
             if !(swapped && framed) {
@@ -106,9 +107,15 @@ enum SettingsShotHarness {
 
                 let pass = rootOK && degenerateRows.isEmpty && paneOK && switchOK && flipped && themed
                 Task { @MainActor in
-                    let storageOK = await StorageSettingsStage.run(
+                    // The Storage stage asserts its exact English copy (and
+                    // English fixture server messages). Under another app
+                    // language (mac-l10n.sh) every pane is still audited
+                    // above; the copy stage runs in English only.
+                    let english = Bundle.main.preferredLocalizations.first?.hasPrefix("en") ?? true
+                    if !english { print("SETTINGS storage stage skipped (copy checks are English; language audited)") }
+                    let storageOK = english ? await StorageSettingsStage.run(
                         controller: controller, window: window, client: storage
-                    )
+                    ) : true
                     let all = pass && storageOK
                     print(all ? "SETTINGS PASS" : "SETTINGS FAIL")
                     exit(all ? 0 : 1)

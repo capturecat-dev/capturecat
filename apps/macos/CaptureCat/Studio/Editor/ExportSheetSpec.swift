@@ -20,9 +20,14 @@ enum ExportSheetSpec {
     static let resolutions = ExportSettings.Resolution.allCases
     /// The frame-rate choices (a GIF runs at `GIFExportPolicy.frameRate`).
     static let frameRates = [30, 60]
-    static let typeTitles = ["Image (PNG)", "Video (MP4)"]
+    static let typeTitles = [
+        String(localized: "Image (PNG)", comment: "Export sheet: output type segment"),
+        String(localized: "Video (MP4)", comment: "Export sheet: output type segment"),
+    ]
 
-    static func frameRateTitle(_ fps: Int) -> String { "\(fps) fps" }
+    static func frameRateTitle(_ fps: Int) -> String {
+        String(localized: "\(fps) fps", comment: "Export sheet: frame rate option, frames per second")
+    }
 
     /// The index of `fps` among `frameRates` (anything else reads as 60, the Mac's rule).
     static func frameRateIndex(_ fps: Int) -> Int { fps == 30 ? 0 : 1 }
@@ -41,7 +46,9 @@ enum ExportSheetSpec {
     }
 
     static func title(for kind: OutputKind) -> String {
-        kind == .image ? "Export Image" : "Export Video"
+        kind == .image
+            ? String(localized: "Export Image", comment: "Export sheet title / background task title")
+            : String(localized: "Export Video", comment: "Export sheet title / background task title")
     }
 
     /// Share links carry video only: never for a PNG or a GIF.

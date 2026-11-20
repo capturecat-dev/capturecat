@@ -79,8 +79,8 @@ nonisolated enum AuthKeychain {
         var errorDescription: String? {
             switch self {
             case .unhandled(let status):
-                let message = SecCopyErrorMessageString(status, nil) as String? ?? "unknown"
-                return "Keychain error \(status): \(message)"
+                let message = SecCopyErrorMessageString(status, nil) as String? ?? String(localized: "unknown", comment: "Keychain error detail when macOS gives no message (lowercase)")
+                return String(localized: "Keychain error \(status): \(message)", comment: "Sign-in error; first placeholder is the numeric Keychain status, second its message")
             }
         }
     }

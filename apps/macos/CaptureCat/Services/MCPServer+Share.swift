@@ -246,7 +246,7 @@ extension MCPServer {
         case .completing:
             return "Upload finished; the server is verifying it. Poll again."
         case .done:
-            return "Live. shareUrl is the link — \(ShareVisibility(rawValue: status.privacy)?.summary ?? "")"
+            return "Live. shareUrl is the link — \(ShareVisibility(rawValue: status.privacy)?.agentSummary ?? "")"
         case .failed:
             return "The share failed (see error). Nothing new is viewable; tell the user."
         case .interrupted:

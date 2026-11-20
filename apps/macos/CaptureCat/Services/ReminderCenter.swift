@@ -80,7 +80,9 @@ final class ReminderCenter: NSObject {
 
     private func addRequest(id: UUID, title: String, kind: CaptureKind, date: Date) {
         let content = UNMutableNotificationContent()
-        content.title = kind == .note ? "Note reminder" : "Capture reminder"
+        content.title = kind == .note
+            ? String(localized: "Note reminder", comment: "Notification title: a reminder the user set on a text note fired")
+            : String(localized: "Capture reminder", comment: "Notification title: a reminder the user set on a recording/screenshot fired")
         content.body = title
         content.sound = .default
         content.userInfo = ["captureKind": kind.rawValue, "captureID": id.uuidString]
@@ -151,12 +153,15 @@ final class ReminderCenter: NSObject {
         guard let date, date > now else { return nil }
         let seconds = date.timeIntervalSince(now)
         if seconds < 3600 {
-            return "in \(max(1, Int((seconds / 60).rounded())))m"
+            let minutes = max(1, Int((seconds / 60).rounded()))
+            return String(localized: "in \(minutes)m", comment: "Reminder badge on a capture card: time until the reminder, m = minutes (keep very short)")
         }
         if seconds < 86400 {
-            return "in \(Int((seconds / 3600).rounded()))h"
+            let hours = Int((seconds / 3600).rounded())
+            return String(localized: "in \(hours)h", comment: "Reminder badge on a capture card: time until the reminder, h = hours (keep very short)")
         }
-        return "in \(Int((seconds / 86400).rounded()))d"
+        let days = Int((seconds / 86400).rounded())
+        return String(localized: "in \(days)d", comment: "Reminder badge on a capture card: time until the reminder, d = days (keep very short)")
     }
 
     // MARK: - Shared "Remind Me" menu
@@ -171,22 +176,27 @@ final class ReminderCenter: NSObject {
         clear: @escaping () -> Void
     ) -> [NSMenuItem] {
         let submenu = NSMenu()
-        for (label, days) in [("Tomorrow", 1), ("In 3 Days", 3), ("In 1 Week", 7), ("In 30 Days", 30)] {
+        for (label, days) in [
+            (String(localized: "Tomorrow", comment: "Remind Me submenu: reminder preset"), 1),
+            (String(localized: "In 3 Days", comment: "Remind Me submenu: reminder preset"), 3),
+            (String(localized: "In 1 Week", comment: "Remind Me submenu: reminder preset"), 7),
+            (String(localized: "In 30 Days", comment: "Remind Me submenu: reminder preset"), 30),
+        ] {
             submenu.addItem(makeItem(label) {
                 set(Self.reminderDate(daysFromNow: days))
             })
         }
         submenu.addItem(.separator())
-        submenu.addItem(makeItem("Custom Date…") { pickCustom() })
+        submenu.addItem(makeItem(String(localized: "Custom Date…", comment: "Remind Me submenu: pick a custom reminder date")) { pickCustom() })
         if currentDate != nil {
             submenu.addItem(.separator())
-            submenu.addItem(makeItem("Clear Reminder") { clear() })
+            submenu.addItem(makeItem(String(localized: "Clear Reminder", comment: "Remind Me submenu: removes the reminder (verb)")) { clear() })
         }
         let title: String
         if let badge = badgeText(for: currentDate) {
-            title = "Remind Me (\(badge))"
+            title = String(localized: "Remind Me (\(badge))", comment: "Context menu item with an active reminder; the placeholder is a short badge like 'in 3d'")
         } else {
-            title = "Remind Me"
+            title = String(localized: "Remind Me", comment: "Context menu item: set a reminder on a capture")
         }
         let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         root.submenu = submenu
@@ -207,7 +217,7 @@ final class ReminderCenter: NSObject {
         completion: @escaping (Date?) -> Void
     ) {
         guard let window else { return }
-        let alert = CCAlert(title: "Remind Me On…")
+        let alert = CCAlert(title: String(localized: "Remind Me On…", comment: "Dialog title: pick a custom date and time for a reminder"))
         // NSDatePicker is the one stock control still hosted inside the house
         // dialog — a CCKit date picker is its own project.
         let picker = NSDatePicker(frame: NSRect(x: 0, y: 0, width: 220, height: 27))
@@ -220,8 +230,8 @@ final class ReminderCenter: NSObject {
         picker.focusRingType = .none
         picker.textColor = CCTheme.color.foreground
         alert.accessoryView = picker
-        alert.addButton("Set Reminder", role: .primary)
-        alert.addButton("Cancel")
+        alert.addButton(String(localized: "Set Reminder", comment: "Dialog button: confirms the reminder date"), role: .primary)
+        alert.addButton(String(localized: "Cancel", comment: "Dialog button: cancels setting a reminder"))
         alert.beginSheet(for: window) { index in
             completion(index == 0 ? picker.dateValue : nil)
         }

@@ -1,0 +1,3 @@
+# mac-l10n-judge.py: English labels allowed to share one translation on a
+# screen. Only true synonyms; a pair the person must tell apart never goes here.
+# `English A = English B` or `English A = English B @lang`.

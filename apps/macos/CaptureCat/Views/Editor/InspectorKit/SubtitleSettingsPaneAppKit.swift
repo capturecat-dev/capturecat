@@ -15,14 +15,14 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let showToggle = InspectorToggleControl(SubtitlePane.showToggle)
 
     // Generate / manage
-    private let generateButton = InspectorButton("Generate Subtitles")
-    private let generateCaption = InspectorKitViews.caption("Auto-transcribes audio with Whisper AI. The model downloads automatically on first use (~150 MB).")
+    private let generateButton = InspectorButton(String(localized: "Generate Subtitles", comment: "Inspector ▸ Subtitles: button that transcribes the audio"))
+    private let generateCaption = InspectorKitViews.caption(String(localized: "Auto-transcribes audio with Whisper AI. The model downloads automatically on first use (~150 MB).", comment: "Inspector ▸ Subtitles: caption under Generate Subtitles; Whisper is a product name"))
     private let progressSpinner = CCSpinner()
     private let progressLabel = InspectorKitViews.caption("")
     private let errorLabel = InspectorKitViews.caption("")
     private let manageRow = NSStackView()
     private let countLabel = NSTextField(labelWithString: "")
-    private let regenerateButton = InspectorButton("Regenerate")
+    private let regenerateButton = InspectorButton(String(localized: "Regenerate", comment: "Inspector ▸ Subtitles: button that re-runs transcription"))
     private let deleteButton = InspectorButton(SubtitlePane.delete)
 
     // Presets
@@ -101,7 +101,7 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     }
 
     private func build() {
-        let subtitlesBox = InspectorSectionBox("Subtitles")
+        let subtitlesBox = InspectorSectionBox(String(localized: "Subtitles", comment: "Inspector ▸ Subtitles: section header"))
         subtitlesBox.addRow(showToggle)
 
         // Generate / manage
@@ -125,7 +125,7 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         var details: [NSView] = []
 
         // Presets — horizontally scrolling card row
-        let presetsBox = InspectorSectionBox("Presets")
+        let presetsBox = InspectorSectionBox(String(localized: "Presets", comment: "Inspector ▸ Subtitles: section header; subtitle style presets"))
         presetsRow.orientation = .horizontal
         presetsRow.spacing = 8
         for preset in SubtitlePreset.all {
@@ -153,7 +153,7 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         details.append(presetsBox)
 
         // Text
-        let textBox = InspectorSectionBox("Text")
+        let textBox = InspectorSectionBox(String(localized: "Text", comment: "Inspector ▸ Subtitles: section header (noun)"))
         textBox.addRow(sizeSlider)
         textBox.addRow(InspectorKitViews.row(SubtitlePane.font.title, control: fontMenu))
         textBox.addRow(weightChips)
@@ -163,7 +163,7 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         details.append(textBox)
 
         // Style
-        let styleBox = InspectorSectionBox("Style")
+        let styleBox = InspectorSectionBox(String(localized: "Style", comment: "Inspector ▸ Subtitles: section header (noun)"))
         styleBox.addRow(positionChips)
         positionPad.inspectorSpecID = "subtitles.positionPad"
         styleBox.addRow(positionPad, attached: true)
@@ -175,7 +175,7 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         fullWidth(styleBox)
         details.append(styleBox)
 
-        let captionsBox = InspectorSectionBox("Edit Subtitles")
+        let captionsBox = InspectorSectionBox(String(localized: "Edit Subtitles", comment: "Inspector ▸ Subtitles: section header; list of subtitle lines to edit"))
         captionsStack.orientation = .vertical
         captionsStack.alignment = .leading
         captionsStack.spacing = 8
@@ -314,7 +314,7 @@ final class SubtitleSettingsPaneAppKit: NSView, NSTextFieldDelegate {
 
             // House flat field — same chrome, padding and focus accent as
             // every other inspector text input.
-            let field = InspectorFlatTextField(placeholder: "Text")
+            let field = InspectorFlatTextField(placeholder: String(localized: "Text", comment: "Inspector ▸ Subtitles ▸ Edit Subtitles: placeholder in a subtitle line field"))
             field.stringValue = segment.text
             field.delegate = self
             field.identifier = NSUserInterfaceItemIdentifier(segment.id.uuidString)

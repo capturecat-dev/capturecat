@@ -11,16 +11,15 @@ import AppKit
 /// (it can open under a moving pointer). Escape / Don't Allow declines.
 @MainActor
 enum AgentShareConsent {
-    static let allowTitle = "Allow"
-    static let declineTitle = "Don't Allow"
+    static let allowTitle = String(localized: "Allow", comment: "AI agent share consent card: button that approves the agent's share request")
+    static let declineTitle = String(localized: "Don't Allow", comment: "AI agent share consent card: button that declines the agent's share request")
     static let armDelay: TimeInterval = 0.6
 
     /// Fixed length on purpose: project names can be long, and the name is
     /// the first row of the details well right below.
-    static let title = "Allow an AI agent to share this project?"
+    static let title = String(localized: "Allow an AI agent to share this project?", comment: "AI agent share consent card: alert title")
 
-    static let message = "An AI agent connected to CaptureCat through MCP asked to upload this project to your "
-        + "CaptureCat account and create a share link. Allowing applies to this request only."
+    static let message = String(localized: "An AI agent connected to CaptureCat through MCP asked to upload this project to your CaptureCat account and create a share link. Allowing applies to this request only.", comment: "AI agent share consent card: alert message; MCP is a protocol name")
 
     /// Builds the card (used by `present` and by --share-consent-test).
     static func makeAlert(_ request: AgentShareBroker.ConsentRequest) -> (CCAlert, AgentShareConsentDetailsView) {
@@ -53,22 +52,22 @@ enum AgentShareConsent {
     }
 
     static func rows(for request: AgentShareBroker.ConsentRequest) -> [Row] {
-        var asker = "An AI agent via MCP"
+        var asker = String(localized: "An AI agent via MCP", comment: "AI agent share consent card: value of the Requested by row when the agent gave no name")
         if let client = displayableClientName(request.clientName) {
-            asker += " — it identifies as “\(client)”"
+            asker = String(localized: "An AI agent via MCP — it identifies as “\(client)”", comment: "AI agent share consent card: value of the Requested by row; the value is the name the agent reports for itself (unverified)")
         }
         var rows = [
-            Row(symbol: "film", key: "Project", value: request.projectName),
-            Row(symbol: "sparkles", key: "Requested by", value: asker),
+            Row(symbol: "film", key: String(localized: "Project", comment: "AI agent share consent card: details row label: the project being shared (noun)"), value: request.projectName),
+            Row(symbol: "sparkles", key: String(localized: "Requested by", comment: "AI agent share consent card: details row label: who asked to share"), value: asker),
             Row(symbol: request.visibility == .private ? "eye.slash" : "globe",
-                key: "Who can watch", value: request.visibility.summary),
+                key: String(localized: "Who can watch", comment: "AI agent share consent card: details row label: share link visibility"), value: request.visibility.summary),
         ]
         if let url = request.existingShareURL {
-            rows.append(Row(symbol: "arrow.triangle.2.circlepath", key: "Existing link",
-                            value: "Replaces the video at \(url) with this version."))
+            rows.append(Row(symbol: "arrow.triangle.2.circlepath", key: String(localized: "Existing link", comment: "AI agent share consent card: details row label: an existing share link that will be updated"),
+                            value: String(localized: "Replaces the video at \(url) with this version.", comment: "AI agent share consent card: Existing link row value; the value is the share link URL")))
         }
         if let email = request.accountEmail, !email.isEmpty {
-            rows.append(Row(symbol: "person.crop.circle", key: "Uploads to", value: email))
+            rows.append(Row(symbol: "person.crop.circle", key: String(localized: "Uploads to", comment: "AI agent share consent card: details row label: the account email the video uploads to"), value: email))
         }
         return rows
     }

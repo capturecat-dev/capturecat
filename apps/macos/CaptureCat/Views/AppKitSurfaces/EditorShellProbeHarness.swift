@@ -102,6 +102,33 @@ enum EditorShellProbeHarness {
         }
 
         report(label: "NATIVE ", window: nativeWindow)
+        // `--l10n-audit`: the whole frame view, so the in-content top bar in
+        // the titlebar is measured with the shell.
+        if let frameView = nativeWindow.contentView?.superview {
+            CCLocalizationAudit.capture("editor-shell", view: frameView)
+            // The state people check translations in: a Text annotation
+            // selected — its inspector section, the on-canvas toolbar pill,
+            // the rail and the lanes together. Undone afterwards so the gate's
+            // own checks see the fixture unchanged.
+            if CCLocalizationAudit.isEnabled {
+                var text = Annotation(type: .text, startTime: 0.5, endTime: 3)
+                text.text = "Probe label"
+                let before = nativeProject.annotations
+                nativeProject.annotations.append(text)
+                native.playback.currentTime = 1.5
+                native.selection.inspectorTab = .annotations
+                native.selection.selectedAnnotationID = text.id
+                await settle(1.0)
+                CCLocalizationAudit.capture("editor-shell-text-annotation", view: frameView)
+                if let dir = CCLocalizationAudit.directory {
+                    write(capture(window: nativeWindow), to: dir.appendingPathComponent("editor-shell-text-annotation-ca.png"), label: "L10N")
+                }
+                native.selection.selectedAnnotationID = nil
+                native.selection.inspectorTab = .background
+                nativeProject.annotations = before
+                await settle(0.6)
+            }
+        }
 
         let nativeShot = capture(window: nativeWindow)
         write(nativeShot, to: outDir.appendingPathComponent("shell-native.png"), label: "NATIVE")

@@ -23,7 +23,7 @@ final class BackgroundSettingsPaneAppKit: NSView {
     private var gradientStartRow: NSView!
     private var gradientEndRow: NSView!
     private var solidRow: NSView!
-    private let chooseImageButton = CaptureCatButton(title: "Choose Image…", symbol: "photo", style: .secondary)
+    private let chooseImageButton = CaptureCatButton(title: String(localized: "Choose Image…", comment: "Inspector ▸ Background: button that opens a file picker for a background image"), symbol: "photo", style: .secondary)
     private let imageGrid = WallpaperGridControl(mode: .customImages)
     private let wallpaperGrid = WallpaperGridControl(mode: .catalog)
     private let transparentCaption = InspectorKitViews.caption(BackgroundPane.transparentCaption)
@@ -62,7 +62,7 @@ final class BackgroundSettingsPaneAppKit: NSView {
     private let menuBarChips = InspectorChipsControl(BackgroundPane.menuBar)
     private let titleField = InspectorFlatTextField(BackgroundPane.menuBarTitle, width: 140)
     private var titleRow: NSView!
-    private let alignLabel = NSTextField(labelWithString: "Align")
+    private let alignLabel = NSTextField(labelWithString: String(localized: "Align", comment: "Inspector ▸ Background: row label for image alignment (verb/noun: alignment)"))
     private let alignChips = InspectorChipsControl(BackgroundPane.menuBarAlign)
     private let clockField = InspectorFlatTextField(BackgroundPane.menuBarClock, width: 70)
     private var clockRow: NSView!
@@ -113,7 +113,7 @@ final class BackgroundSettingsPaneAppKit: NSView {
 
     private func build() {
         // Background source section.
-        let backgroundBox = InspectorSectionBox("Background")
+        let backgroundBox = InspectorSectionBox(String(localized: "Background", comment: "Inspector ▸ Background: section header"))
         backgroundBox.addRow(typeChips)
         gradientStartRow = InspectorKitViews.row(BackgroundPane.gradientStart.title, control: gradientStartWell)
         gradientEndRow = InspectorKitViews.row(BackgroundPane.gradientEnd.title, control: gradientEndWell)
@@ -129,7 +129,7 @@ final class BackgroundSettingsPaneAppKit: NSView {
         fullWidth(backgroundBox)
 
         // Look section — adjustments layered on whatever fill is chosen.
-        lookBox = InspectorSectionBox("Look")
+        lookBox = InspectorSectionBox(String(localized: "Look", comment: "Inspector ▸ Background: section header; visual look of the frame"))
         lookBox.addRow(blurSlider)
         lookBox.addRow(pixelateSlider)
         lookBox.addRow(halftoneSlider)
@@ -146,7 +146,7 @@ final class BackgroundSettingsPaneAppKit: NSView {
         fullWidth(lookBox)
 
         // Frame section — Placement first: it's the primary control here.
-        let frameBox = InspectorSectionBox("Frame")
+        let frameBox = InspectorSectionBox(String(localized: "Frame", comment: "Inspector ▸ Background: section header; the window/device frame around the video"))
         if isDeviceRecording {
             frameBox.addRow(deviceFrameToggle)
         }
@@ -169,7 +169,7 @@ final class BackgroundSettingsPaneAppKit: NSView {
 
         guard supportsMenuBar else { return }
 
-        let menuBarBox = InspectorSectionBox("Menu Bar")
+        let menuBarBox = InspectorSectionBox(String(localized: "Menu Bar", comment: "Inspector ▸ Background: section header; the macOS menu bar shown on the backdrop"))
 
         menuBarBox.addRow(menuBarChips)
 
@@ -518,14 +518,14 @@ final class WallpaperGridControl: NSView {
     private let grid = NSStackView()
     private var rows: [NSStackView] = []
     private var cells: [WallpaperCell] = []
-    private let customHeader = InspectorKitViews.caption("Your images")
+    private let customHeader = InspectorKitViews.caption(String(localized: "Your images", comment: "Inspector ▸ Background ▸ Wallpapers: header above images the user added"))
     private let customGrid = NSStackView()
     private var customCells: [WallpaperCell] = []
     private let pagerBack = CaptureCatButton(title: "", symbol: "chevron.left", style: .quiet, height: 26, horizontalPadding: 4)
     private let pagerForward = CaptureCatButton(title: "", symbol: "chevron.right", style: .quiet, height: 26, horizontalPadding: 4)
     private let pagerLabel = NSTextField(labelWithString: "1 / 1")
-    private let caption = InspectorKitViews.caption("Wallpapers with a download badge fetch in full quality on first use.")
-    private let emptyCaption = InspectorKitViews.caption("No system wallpapers found")
+    private let caption = InspectorKitViews.caption(String(localized: "Wallpapers with a download badge fetch in full quality on first use.", comment: "Inspector ▸ Background ▸ Wallpapers: footnote"))
+    private let emptyCaption = InspectorKitViews.caption(String(localized: "No system wallpapers found", comment: "Inspector ▸ Background ▸ Wallpapers: empty state"))
 
     private let pageSize = 6
 
@@ -720,7 +720,7 @@ final class WallpaperGridControl: NSView {
 
     private func popUpMenu(path: String?, isCustom: Bool, event: NSEvent, in cell: NSView) {
         let menu = NSMenu()
-        let setDefault = NSMenuItem(title: "Set as Default", action: #selector(setAsDefaultAction(_:)), keyEquivalent: "")
+        let setDefault = NSMenuItem(title: String(localized: "Set as Default", comment: "Background wallpaper context menu: makes this the default background for new projects"), action: #selector(setAsDefaultAction(_:)), keyEquivalent: "")
         setDefault.target = self
         setDefault.representedObject = path
         // A catalog wallpaper that hasn't downloaded yet has no local file to
@@ -728,7 +728,7 @@ final class WallpaperGridControl: NSView {
         setDefault.isEnabled = path != nil
         menu.addItem(setDefault)
         if isCustom {
-            let remove = NSMenuItem(title: "Remove from Library", action: #selector(removeFromLibraryAction(_:)), keyEquivalent: "")
+            let remove = NSMenuItem(title: String(localized: "Remove from Library", comment: "Background wallpaper context menu: removes a user image from the background library"), action: #selector(removeFromLibraryAction(_:)), keyEquivalent: "")
             remove.target = self
             remove.representedObject = path
             remove.isEnabled = path != nil

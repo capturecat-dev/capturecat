@@ -1,3 +1,5 @@
+import Foundation
+
 /// The inspector's eight panes. Pure UI state — never persisted, so the raw
 /// values carry no compatibility obligation.
 ///
@@ -13,6 +15,21 @@ enum InspectorTab: String, CaseIterable {
     case subtitles = "Subtitles"
     case brand = "Brand"
     case annotations = "Annotate"
+
+    /// The tab's visible name (the raw value stays the harness identity).
+    var displayName: String {
+        switch self {
+        case .background: return String(localized: "Background", comment: "Inspector tab name (rail button / tab bar)")
+        case .cursor: return String(localized: "Cursor", comment: "Inspector tab name (rail button / tab bar)")
+        case .camera: return String(localized: "Camera", comment: "Inspector tab name (rail button / tab bar)")
+        case .audio: return String(localized: "Audio", comment: "Inspector tab name (rail button / tab bar)")
+        case .effects: return String(localized: "Effects", comment: "Inspector tab name (rail button / tab bar)")
+        case .motion: return String(localized: "Motion", comment: "Inspector tab name (rail button / tab bar)")
+        case .subtitles: return String(localized: "Subtitles", comment: "Inspector tab name (rail button / tab bar)")
+        case .brand: return String(localized: "Brand", comment: "Inspector tab name (rail button / tab bar)")
+        case .annotations: return String(localized: "Annotate", comment: "Inspector tab name (rail button / tab bar)")
+        }
+    }
 
     /// SF Symbol name for the tab rail button.
     var icon: String {

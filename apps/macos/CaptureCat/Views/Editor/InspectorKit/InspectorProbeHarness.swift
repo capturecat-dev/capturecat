@@ -102,11 +102,88 @@ enum InspectorProbeHarness {
 
         // Two settles: constraint resolution then the observation re-arm.
         var reports = 0
-        Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { _ in
+        Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { timer in
             MainActor.assumeIsolated {
                 reports += 1
                 report(root: split.view)
-                if reports >= 2 { exit(0) }
+                guard reports >= 2 else { return }
+                guard CCLocalizationAudit.isEnabled else { exit(0) }
+                // `--l10n-audit <dir>`: every tab of the real inspector, top
+                // and scrolled to the end, in this launch's language.
+                timer.invalidate()
+                Task { @MainActor in
+                    let suffix = CommandLine.arguments.contains("camera") ? "-camera"
+                        : CommandLine.arguments.contains("annotate") ? "-annotate" : ""
+                    for tab in InspectorTab.allCases {
+                        selection.inspectorTab = tab
+                        try? await Task.sleep(for: .milliseconds(450))
+                        window.contentView?.layoutSubtreeIfNeeded()
+                        CCLocalizationAudit.capture("inspector\(suffix)-\(tab.rawValue.lowercased())", window: window)
+                        if let column = findView(ofType: InspectorColumnAppKit.self, in: split.view),
+                           let scroll = findView(ofType: NSScrollView.self, in: column),
+                           let doc = scroll.documentView, doc.frame.height > scroll.contentSize.height + 1 {
+                            scroll.contentView.scroll(to: NSPoint(x: 0, y: doc.isFlipped ? doc.frame.height - scroll.contentSize.height : 0))
+                            scroll.reflectScrolledClipView(scroll.contentView)
+                            try? await Task.sleep(for: .milliseconds(150))
+                            CCLocalizationAudit.capture("inspector\(suffix)-\(tab.rawValue.lowercased())-end", window: window)
+                        }
+                    }
+                    // Every annotation type and every selectable region, so
+                    // each type's own inspector section is read too.
+                    @MainActor func audit(_ name: String) async {
+                        try? await Task.sleep(for: .milliseconds(400))
+                        window.contentView?.layoutSubtreeIfNeeded()
+                        CCLocalizationAudit.capture("inspector\(suffix)-\(name)", window: window)
+                        if let column = findView(ofType: InspectorColumnAppKit.self, in: split.view),
+                           let scroll = findView(ofType: NSScrollView.self, in: column),
+                           let doc = scroll.documentView, doc.frame.height > scroll.contentSize.height + 1 {
+                            scroll.contentView.scroll(to: NSPoint(x: 0, y: doc.isFlipped ? doc.frame.height - scroll.contentSize.height : 0))
+                            scroll.reflectScrolledClipView(scroll.contentView)
+                            try? await Task.sleep(for: .milliseconds(150))
+                            CCLocalizationAudit.capture("inspector\(suffix)-\(name)-end", window: window)
+                        }
+                    }
+                    guard suffix.isEmpty else { exit(0) }
+                    @MainActor func clear() {
+                        selection.selectedAnnotationID = nil; selection.selectedZoomID = nil
+                        selection.selectedTiltID = nil; selection.selectedBlurID = nil
+                        selection.selectedHighlightID = nil; selection.selectedDepthFocusID = nil
+                    }
+                    for type in AnnotationType.allCases {
+                        clear()
+                        var annotation = Annotation(type: type, startTime: 0, endTime: 3)
+                        if type == .text || type == .callout { annotation.text = "Probe label" }
+                        project.annotations = [annotation]
+                        selection.inspectorTab = .annotations
+                        selection.selectedAnnotationID = annotation.id
+                        await audit("annotation-\(type.rawValue)")
+                    }
+                    project.annotations = []
+                    let zoom = ZoomRegion(startTime: 0.5, endTime: 2)
+                    let tilt = TiltRegion(startTime: 2.2, endTime: 3)
+                    let blur = BlurRegion(startTime: 0.5, endTime: 2, label: "Blur")  // l10n: verbatim — stored default
+                    let highlight = HighlightRegion(startTime: 2.2, endTime: 3, label: "Highlight")  // l10n: verbatim — stored default
+                    let focus = FocusRegion(startTime: 3.2, endTime: 3.8)
+                    project.zoomRegions = [zoom]; project.tiltRegions = [tilt]
+                    project.blurRegions = [blur]; project.highlightRegions = [highlight]
+                    project.focusRegions = [focus]
+                    let regions: [(String, @MainActor () -> Void)] = [
+                        ("zoom", { selection.selectedZoomID = zoom.id }),
+                        ("tilt", { selection.selectedTiltID = tilt.id }),
+                        ("blur", { selection.selectedBlurID = blur.id }),
+                        ("highlight", { selection.selectedHighlightID = highlight.id }),
+                        ("depth-focus", { selection.selectedDepthFocusID = focus.id }),
+                        ("slide", { selection.introSelected = true }),
+                        ("curtain", { selection.curtainSelected = true }),
+                    ]
+                    for (name, select) in regions {
+                        clear(); selection.introSelected = false; selection.curtainSelected = false
+                        selection.inspectorTab = .effects
+                        select()
+                        await audit("region-\(name)")
+                    }
+                    exit(0)
+                }
             }
         }
         app.run()

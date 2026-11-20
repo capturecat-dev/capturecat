@@ -65,8 +65,8 @@ final class WirelessDeviceHub {
         /// What the user should do on the phone.
         var prompt: String {
             switch route {
-            case .lan: return "Tap Start Broadcast on your iPhone"
-            case .push: return "Check your iPhone — tap the notification, then Start Broadcast"
+            case .lan: return String(localized: "Tap Start Broadcast on your iPhone", comment: "Recording panel prompt while waiting for an iPhone over Wi-Fi; Start Broadcast is the iOS button name")
+            case .push: return String(localized: "Check your iPhone — tap the notification, then Start Broadcast", comment: "Recording panel prompt after a push was sent to the iPhone; Start Broadcast is the iOS button name")
             }
         }
     }
@@ -332,13 +332,13 @@ final class WirelessDeviceHub {
             let outcome = await api.requestBroadcast(deviceID: key, macID: macID, macName: macName)
             guard case .sent = outcome else {
                 hubLogger.info("request-broadcast: \(String(describing: outcome), privacy: .public)")
-                showNotice("Open CaptureCat on your iPhone to stream")
+                showNotice(String(localized: "Open CaptureCat on your iPhone to stream", comment: "Recording panel notice: the iPhone app must be open to stream over Wi-Fi"))
                 return false
             }
             if isStreaming(key) { return true }
             beginPending(PendingBroadcast(key: key, name: name, route: .push, startedAt: Date()))
         } else {
-            showNotice("Open CaptureCat on your iPhone to stream")
+            showNotice(String(localized: "Open CaptureCat on your iPhone to stream", comment: "Recording panel notice: the iPhone app must be open to stream over Wi-Fi"))
             return false
         }
         return await withCheckedContinuation { continuation in
@@ -364,7 +364,7 @@ final class WirelessDeviceHub {
         pendingTimeout = Task { [weak self] in
             try? await Task.sleep(for: .seconds(timeout))
             guard !Task.isCancelled, let self, self.pending == request else { return }
-            self.showNotice("Open CaptureCat on your iPhone to stream")
+            self.showNotice(String(localized: "Open CaptureCat on your iPhone to stream", comment: "Recording panel notice: the iPhone app must be open to stream over Wi-Fi"))
             self.resolvePending(false)
         }
     }

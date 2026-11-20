@@ -99,29 +99,29 @@ final class AuthService: NSObject {
         var errorDescription: String? {
             switch self {
             case .notSignedIn:
-                return "You are not signed in."
+                return String(localized: "You are not signed in.", comment: "Account error: an action needs a signed-in CaptureCat account")
             case .signInAlreadyInProgress:
-                return "A sign-in is already in progress. Finish it in your browser, or try again."
+                return String(localized: "A sign-in is already in progress. Finish it in your browser, or try again.", comment: "Sign-in error: a second sign-in was started while one is open")
             case .loopbackUnavailable(let detail):
-                return "Could not start the local sign-in listener: \(detail)"
+                return String(localized: "Could not start the local sign-in listener: \(detail)", comment: "Sign-in error; the placeholder is a technical detail")
             case .browserLaunchFailed:
-                return "Could not open your browser to complete sign-in."
+                return String(localized: "Could not open your browser to complete sign-in.", comment: "Sign-in error: the default web browser could not be opened")
             case .signInCancelled:
-                return "Sign-in was cancelled."
+                return String(localized: "Sign-in was cancelled.", comment: "Sign-in error: the user cancelled signing in")
             case .signInTimedOut:
-                return "Sign-in timed out. Try again and finish in the browser window."
+                return String(localized: "Sign-in timed out. Try again and finish in the browser window.", comment: "Sign-in error: the browser sign-in took too long")
             case .stateMismatch:
-                return "Sign-in was rejected for security reasons (state mismatch). Please try again."
+                return String(localized: "Sign-in was rejected for security reasons (state mismatch). Please try again.", comment: "Sign-in error: OAuth state check failed")
             case .missingAuthorizationCode:
-                return "The sign-in callback did not include an authorization code."
+                return String(localized: "The sign-in callback did not include an authorization code.", comment: "Sign-in error: the browser callback was missing its code")
             case .providerRejected(let detail):
-                return detail.isEmpty ? "The identity provider rejected the sign-in." : detail
+                return detail.isEmpty ? String(localized: "The identity provider rejected the sign-in.", comment: "Sign-in error: Google/Apple/etc. refused the sign-in") : detail
             case .tokenExchangeFailed(let detail):
-                return "Could not complete sign-in: \(detail)"
+                return String(localized: "Could not complete sign-in: \(detail)", comment: "Sign-in error; the placeholder is the server's error detail")
             case .invalidServerResponse:
-                return "Received an unexpected response from the CaptureCat server."
+                return String(localized: "Received an unexpected response from the CaptureCat server.", comment: "Sign-in/account error: the server reply could not be read")
             case .sessionStorageFailed(let detail):
-                return "Could not store your session securely: \(detail)"
+                return String(localized: "Could not store your session securely: \(detail)", comment: "Sign-in error: saving to the Keychain failed; the placeholder is a technical detail")
             }
         }
     }
@@ -312,7 +312,7 @@ final class AuthService: NSObject {
             }
         }
         throw AuthError.loopbackUnavailable(
-            lastError?.localizedDescription ?? "no local port could be reserved"
+            lastError?.localizedDescription ?? String(localized: "no local port could be reserved", comment: "Sign-in error detail (lowercase), follows 'Could not start the local sign-in listener:'")
         )
     }
 

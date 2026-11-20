@@ -151,7 +151,7 @@ private final class CountdownBadgeView: NSView {
     }
 
     func show(_ value: Int) {
-        showDigit("\(value)s")
+        showDigit(String(localized: "\(value)s", comment: "Pre-recording countdown badge: seconds left, e.g. \"3s\"; s = seconds"))
         // Sweep the ring down over this second; reduce-motion steps instead.
         let from = CGFloat(value) / CGFloat(total)
         let to = CGFloat(value - 1) / CGFloat(total)

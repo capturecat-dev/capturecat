@@ -16,7 +16,7 @@ final class EditorWindowController: NSWindowController {
         let hosting = content
         let window = NSWindow(contentViewController: hosting)
         window.identifier = NSUserInterfaceItemIdentifier("editor")
-        window.title = "Editor"
+        window.title = String(localized: "Editor", comment: "Window title: the video/image editor window")
         Self.configureChrome(window)
         window.setContentSize(NSSize(width: 1100, height: 700))
         window.center()

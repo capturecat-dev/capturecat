@@ -14,6 +14,12 @@ enum FontCatalog {
     /// Label shown for the system default.
     static let systemName = "System"
 
+    /// `menuNames` as shown: the system entry in the reader's language (the
+    /// stored name stays "System"; menus read and write by index).
+    static var displayMenuNames: [String] {
+        menuNames.map { $0 == systemName ? String(localized: "System", comment: "Font menu: the system font") : $0 }
+    }
+
     /// Curated list first (faces that ship with macOS and read well burned
     /// into video), then every other installed family. The curated set is
     /// filtered to what's actually available so the menu never offers a face

@@ -96,15 +96,15 @@ enum ShareError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notSignedIn:
-            return "You must be signed in to share videos."
+            return String(localized: "You must be signed in to share videos.", comment: "Share error: sharing needs a signed-in account")
         case .apiError(let message):
-            return "API error: \(message)"
+            return String(localized: "API error: \(message)", comment: "Share error; the placeholder is the server's message")
         case .invalidResponse:
-            return "Received an invalid response from the server."
+            return String(localized: "Received an invalid response from the server.", comment: "Share error: the server reply could not be read")
         case .invalidURL:
-            return "Invalid upload URL."
+            return String(localized: "Invalid upload URL.", comment: "Share error: the server gave an unusable upload address")
         case .uploadFailed(let message):
-            return "Upload failed: \(message)"
+            return String(localized: "Upload failed: \(message)", comment: "Share error; the placeholder is the upload error detail")
         }
     }
 }

@@ -25,7 +25,7 @@ enum LicenceState: Equatable, Sendable {
     /// The badge every account surface shows.
     var badgeTitle: String {
         switch self {
-        case .personal: return "Personal use"
+        case .personal: return String(localized: "Personal use", comment: "Plan badge on the Free plan (personal use only)")
         case .pro(let name): return name.isEmpty ? "Pro" : name
         }
     }

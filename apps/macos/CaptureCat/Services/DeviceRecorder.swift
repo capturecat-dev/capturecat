@@ -19,9 +19,9 @@ final class DeviceRecorder: NSObject {
         var errorDescription: String? {
             switch self {
             case .cannotUseDevice:
-                return "The device can't be captured. Unlock it, keep it connected, and tap “Trust” if asked."
+                return String(localized: "The device can't be captured. Unlock it, keep it connected, and tap “Trust” if asked.", comment: "Recording error for a cable-connected iPhone/iPad; Trust is the iOS button name")
             case .writerFailed:
-                return "Couldn't start writing the device recording."
+                return String(localized: "Couldn't start writing the device recording.", comment: "Recording error: the iPhone/iPad recording file could not be created")
             }
         }
     }

@@ -37,11 +37,11 @@ enum StillImageExporter {
         var errorDescription: String? {
             switch self {
             case .cloneFailed:
-                return "Could not prepare the project for image export."
+                return String(localized: "Could not prepare the project for image export.", comment: "Image export error")
             case .frameExtractionFailed(let s):
-                return "Could not read the rendered frame: \(s)"
+                return String(localized: "Could not read the rendered frame: \(s)", comment: "Image export error; %@ is a technical detail")
             case .pngEncodeFailed:
-                return "Could not encode the PNG."
+                return String(localized: "Could not encode the PNG.", comment: "Image export error")
             }
         }
     }

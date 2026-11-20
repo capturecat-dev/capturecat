@@ -12,18 +12,23 @@ enum AspectRatio: String, CaseIterable, Codable, Sendable, Identifiable {
 
     var id: String { rawValue }
 
+    /// The picker's title: the ratio itself, or a word for Auto (raw values stay the persisted ids).
+    var displayName: String {
+        self == .auto ? String(localized: "Auto", comment: "Aspect ratio option: match the recording's own shape") : rawValue
+    }
+
     /// Where this framing is the native format — shown as the picker's
     /// subtitle so "9:16" reads as "TikTok · Shorts · Reels" without a
     /// separate platform preset list (raw values stay the persisted ids).
     var platformHint: String? {
         switch self {
-        case .auto: return "Match the recording"
-        case .widescreen: return "YouTube · X · LinkedIn"
-        case .standard: return "Slides · legacy displays"
-        case .square: return "Instagram · LinkedIn feed"
-        case .vertical: return "TikTok · Shorts · Reels"
-        case .ultrawide: return "Cinematic · ultrawide"
-        case .tallVertical: return "Instagram feed portrait"
+        case .auto: return String(localized: "Match the recording", comment: "Aspect ratio picker subtitle: where this framing is the native format (platform names stay as they are)")
+        case .widescreen: return String(localized: "YouTube · X · LinkedIn", comment: "Aspect ratio picker subtitle: where this framing is the native format (platform names stay as they are)")
+        case .standard: return String(localized: "Slides · legacy displays", comment: "Aspect ratio picker subtitle: where this framing is the native format (platform names stay as they are)")
+        case .square: return String(localized: "Instagram · LinkedIn feed", comment: "Aspect ratio picker subtitle: where this framing is the native format (platform names stay as they are)")
+        case .vertical: return String(localized: "TikTok · Shorts · Reels", comment: "Aspect ratio picker subtitle: where this framing is the native format (platform names stay as they are)")
+        case .ultrawide: return String(localized: "Cinematic · ultrawide", comment: "Aspect ratio picker subtitle: where this framing is the native format (platform names stay as they are)")
+        case .tallVertical: return String(localized: "Instagram feed portrait", comment: "Aspect ratio picker subtitle: where this framing is the native format (platform names stay as they are)")
         }
     }
 

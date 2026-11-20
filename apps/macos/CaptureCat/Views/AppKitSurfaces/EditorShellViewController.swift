@@ -390,7 +390,7 @@ final class EditorShellViewController: NSSplitViewController {
         }
         if history != nil {
             menu.addItem(.separator())
-            menu.addItem(CloudMenuTarget.item("History…") { [weak self] in self?.showHistory() })
+            menu.addItem(CloudMenuTarget.item(String(localized: "History…", comment: "Editor ▸ Web Editor menu: item that opens the project's version history")) { [weak self] in self?.showHistory() })
         }
         CaptureCatMenuPresenter.show(menu, from: anchor, edge: .below)
     }
@@ -623,10 +623,10 @@ final class InspectorRevealTab: NSView {
         // Flush against the trailing edge — round only the exposed left pair.
         layer?.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
         layer?.borderWidth = 1
-        toolTip = "Show Inspector (⌥⌘I)"
+        toolTip = String(localized: "Show Inspector (⌥⌘I)", comment: "Editor: tooltip of the tab that reveals the hidden inspector; ⌥⌘I is the keyboard shortcut")
 
         chevron.image = CCIcon.image("chevron.left", pointSize: 9, weight: .semibold,
-                                     accessibilityDescription: "Show Inspector")
+                                     accessibilityDescription: String(localized: "Show Inspector", comment: "Editor: accessibility label of the tab that reveals the hidden inspector"))
         chevron.translatesAutoresizingMaskIntoConstraints = false
         addSubview(chevron)
         NSLayoutConstraint.activate([
@@ -691,7 +691,7 @@ final class EditorToolbarController: NSObject {
     // no opt-out, so both controls live in a single cluster item: plain-
     // chrome kit controls separated by a hairline, letting the system
     // capsule be the only box — one grouped pill, as in a browser toolbar.
-    private let aspectSelect = CCSelect(placeholder: "Aspect", size: .sm, chrome: .plain)
+    private let aspectSelect = CCSelect(placeholder: String(localized: "Aspect", comment: "Editor toolbar: aspect ratio picker placeholder"), size: .sm, chrome: .plain)
     private let treatmentSwitch: CCSegmented
     private let controlsCluster = NSStackView()
     private let clusterDivider = CCDivider(vertical: true)
@@ -713,7 +713,10 @@ final class EditorToolbarController: NSObject {
         self.onWebEditor = onWebEditor
         self.onHistory = onHistory
         treatmentSwitch = CCSegmented(
-            segments: ["Image", "Video"],
+            segments: [
+                String(localized: "Image", comment: "Editor toolbar: segment: treat the still capture as an image"),
+                String(localized: "Video", comment: "Editor toolbar: segment: treat the still capture as a video"),
+            ],
             selectedIndex: project.stillTreatment == .image ? 0 : 1,
             size: .sm,
             chrome: .plain
@@ -730,7 +733,7 @@ final class EditorToolbarController: NSObject {
 
         let ratios = AspectRatio.allCases
         aspectSelect.minTriggerWidth = 84
-        aspectSelect.options = ratios.map { .init(title: $0.rawValue, subtitle: $0.platformHint) }
+        aspectSelect.options = ratios.map { .init(title: $0.displayName, subtitle: $0.platformHint) }
         aspectSelect.onSelect = { [weak project] index in
             guard let project else { return }
             let ratio = ratios[index]
@@ -775,31 +778,31 @@ final class EditorToolbarController: NSObject {
         // editor's one navigation exit, and a bare glyph made it easy to miss
         // (user call 2026-08-26 — same discoverability pass as the inspector
         // reveal tab).
-        let captures = CCButton(title: "Captures", symbol: "square.grid.2x2", style: .ghost, size: .regular) { [weak self] in
+        let captures = CCButton(title: String(localized: "Captures", comment: "Editor toolbar: button that goes back to the captures browser (noun, plural)"), symbol: "square.grid.2x2", style: .ghost, size: .regular) { [weak self] in
             self?.onShowBrowser()
         }
-        captures.toolTip = "Browse Captures (⌘O)"
+        captures.toolTip = String(localized: "Browse Captures (⌘O)", comment: "Editor toolbar: tooltip of the Captures button; ⌘O is the keyboard shortcut")
 
         titleLabel.lineBreakMode = .byTruncatingTail
 
-        let exportButton = CCButton(title: "Export…", style: .primary, size: .sm) { [weak self] in
+        let exportButton = CCButton(title: String(localized: "Export…", comment: "Editor toolbar: button that opens the export sheet (verb)"), style: .primary, size: .sm) { [weak self] in
             self?.onExport()
         }
         let inspector = CCButton(symbol: "sidebar.right", style: .ghost, size: .regular) { [weak self] in
             self?.onToggleInspector()
         }
-        inspector.toolTip = "Toggle Inspector"
+        inspector.toolTip = String(localized: "Toggle Inspector", comment: "Editor toolbar: tooltip of the button that shows or hides the inspector panel")
 
         // Web editor: its own labeled key beside Export (same size, secondary
         // weight), opening a house menu — Open in Web Editor / Pull Web Edits.
         var webButton: CCButton?
         if onWebEditor != nil {
-            let button = CCButton(title: "Web Editor", symbol: "globe", style: .secondary, size: .sm)
+            let button = CCButton(title: String(localized: "Web Editor", comment: "Editor toolbar: button that opens the web editor menu"), symbol: "globe", style: .secondary, size: .sm)
             button.onClick = { [weak self, weak button] in
                 guard let button else { return }
                 self?.onWebEditor?(button)
             }
-            button.toolTip = "Open this project in the web editor, or pull its web edits"
+            button.toolTip = String(localized: "Open this project in the web editor, or pull its web edits", comment: "Editor toolbar: tooltip of the Web Editor button")
             webButton = button
         }
         // History: a ghost clock key just left of Web Editor (CCTooltip, not
@@ -809,8 +812,8 @@ final class EditorToolbarController: NSObject {
             let button = CCButton(symbol: "clock.arrow.circlepath", style: .ghost, size: .sm) { [weak self] in
                 self?.onHistory?()
             }
-            button.setAccessibilityLabel("History")
-            CCTooltip.attach(to: button, text: "History", placement: .bottom)
+            button.setAccessibilityLabel(String(localized: "History", comment: "Editor toolbar: button that opens the project's version history (noun)"))
+            CCTooltip.attach(to: button, text: String(localized: "History", comment: "Editor toolbar: button that opens the project's version history (noun)"), placement: .bottom)
             historyButton = button
         }
         let trailingCluster: NSView = historyButton ?? webButton ?? exportButton
@@ -1431,7 +1434,7 @@ final class PreviewZoomPill: NSView {
         into.keyEquivalentModifierMask = .command
 
         percent.onClick = { [weak self] in self?.reset() }
-        percent.toolTip = "Reset zoom to 100%"
+        percent.toolTip = String(localized: "Reset zoom to 100%", comment: "Editor timeline: tooltip of the zoom percentage button")
         percent.translatesAutoresizingMaskIntoConstraints = false
         percent.widthAnchor.constraint(greaterThanOrEqualToConstant: 36).isActive = true
 

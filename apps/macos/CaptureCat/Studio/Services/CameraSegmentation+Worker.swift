@@ -57,14 +57,14 @@ nonisolated enum CameraSegmenter {
     ) async throws -> Data {
         let asset = AVURLAsset(url: cameraURL)
         guard let track = try await asset.loadTracks(withMediaType: .video).first else {
-            throw SegmentError(message: "the camera file has no video track")
+            throw SegmentError(message: String(localized: "the camera file has no video track", comment: "Camera background removal failure reason, shown after \"Couldn't remove the background:\""))
         }
         let natural = try await track.load(.naturalSize)
         let duration = CMTimeGetSeconds(try await asset.load(.duration))
         let fps = Double(try await track.load(.nominalFrameRate))
         let byteSize = ((try? FileManager.default.attributesOfItem(atPath: cameraURL.path))?[.size] as? NSNumber)?.int64Value ?? 0
         guard natural.width > 0, natural.height > 0, duration.isFinite, duration > 0 else {
-            throw SegmentError(message: "the camera file is empty")
+            throw SegmentError(message: String(localized: "the camera file is empty", comment: "Camera background removal failure reason, shown after \"Couldn't remove the background:\""))
         }
         let size = CameraMaskTrack.maskSize(cameraAspect: Double(natural.width / natural.height))
 
@@ -75,10 +75,10 @@ nonisolated enum CameraSegmenter {
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
         ])
         output.alwaysCopiesSampleData = false
-        guard reader.canAdd(output) else { throw SegmentError(message: "cannot read the camera file") }
+        guard reader.canAdd(output) else { throw SegmentError(message: String(localized: "cannot read the camera file", comment: "Camera background removal failure reason, shown after \"Couldn't remove the background:\"")) }
         reader.add(output)
         guard reader.startReading() else {
-            throw SegmentError(message: reader.error?.localizedDescription ?? "cannot read the camera file")
+            throw SegmentError(message: reader.error?.localizedDescription ?? String(localized: "cannot read the camera file", comment: "Camera background removal failure reason, shown after \"Couldn't remove the background:\""))
         }
 
         let request = VNGeneratePersonSegmentationRequest()
@@ -142,9 +142,9 @@ nonisolated enum CameraSegmenter {
             }
         }
         if reader.status == .failed {
-            throw SegmentError(message: reader.error?.localizedDescription ?? "reading the camera file failed")
+            throw SegmentError(message: reader.error?.localizedDescription ?? String(localized: "reading the camera file failed", comment: "Camera background removal failure reason, shown after \"Couldn't remove the background:\""))
         }
-        guard encoder.frameCount > 0 else { throw SegmentError(message: "the camera file has no frames") }
+        guard encoder.frameCount > 0 else { throw SegmentError(message: String(localized: "the camera file has no frames", comment: "Camera background removal failure reason, shown after \"Couldn't remove the background:\"")) }
         progress(1)
         return encoder.finish(sourceDuration: lastFrameEnd, sourceByteSize: Double(byteSize))
     }

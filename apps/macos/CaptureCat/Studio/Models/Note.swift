@@ -26,7 +26,7 @@ final class Note: Identifiable, Codable {
             .split(separator: "\n", omittingEmptySubsequences: true)
             .first.map(String.init)?
             .trimmingCharacters(in: .whitespaces) ?? ""
-        if line.isEmpty { return "Untitled Note" }
+        if line.isEmpty { return String(localized: "Untitled Note", comment: "Title of a note with no text") }
         return line.count > 60 ? String(line.prefix(60)) + "…" : line
     }
 

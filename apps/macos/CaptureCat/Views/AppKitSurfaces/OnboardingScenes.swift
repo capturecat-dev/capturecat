@@ -68,10 +68,10 @@ final class WelcomeScene: OnboardingScene {
     private let rippleA = Stage.ripple()
     private let rippleB = Stage.ripple()
     private let chips = [
-        StageChip(symbol: "sparkles", text: "Record once. Look polished."),
-        StageChip(symbol: "plus.magnifyingglass", text: "Auto-zoom on every click"),
-        StageChip(symbol: "scope", text: "The camera follows your cursor"),
-        StageChip(symbol: "wand.and.stars", text: "Eases back out, zero editing"),
+        StageChip(symbol: "sparkles", text: String(localized: "Record once. Look polished.", comment: "Onboarding illustration (welcome): floating feature chip")),
+        StageChip(symbol: "plus.magnifyingglass", text: String(localized: "Auto-zoom on every click", comment: "Onboarding illustration (welcome): floating feature chip")),
+        StageChip(symbol: "scope", text: String(localized: "The camera follows your cursor", comment: "Onboarding illustration (welcome): floating feature chip")),
+        StageChip(symbol: "wand.and.stars", text: String(localized: "Eases back out, zero editing", comment: "Onboarding illustration (welcome): floating feature chip")),
     ]
     private var rest = CGPoint.zero
     private var clickA = CGPoint.zero
@@ -268,20 +268,20 @@ final class PermissionsScene: OnboardingScene {
     private let cardBody = CALayer()
     private let headerTile = CALayer()
     private let headerGlyph = Stage.symbol("hand.raised.fill", size: 13, color: .white)
-    private let headerTitle = Stage.text("Privacy & Security", size: 13, weight: .semibold)
+    private let headerTitle = Stage.text(String(localized: "Privacy & Security", comment: "Onboarding illustration (permissions): header of a mock macOS System Settings card"), size: 13, weight: .semibold)
     private let headerDetail = Stage.text("CaptureCat", size: 10.5, weight: .regular)
     private var rows: [Row] = []
     private let halo = CALayer()
     private let recTag = CALayer()
     private let recDot = CALayer()
-    private let recLabel = Stage.text("REC", size: 10.5, weight: .bold)
+    private let recLabel = Stage.text(String(localized: "REC", comment: "Onboarding illustration (permissions): small recording tag, abbreviation of ‘recording’"), size: 10.5, weight: .bold)
     private var state: [Bool] = [false, false, false, false]
 
     private static let rowSpecs: [(String, String, String, NSColor)] = [
-        ("Screen Recording", "Required", "rectangle.inset.filled.badge.record", .systemIndigo),
-        ("Notifications", "Reminders", "bell.badge.fill", .systemRed),
-        ("Microphone", "Narration", "mic.fill", .systemOrange),
-        ("Camera", "Webcam bubble", "video.fill", .systemGreen),
+        (String(localized: "Screen Recording", comment: "Onboarding illustration (permissions): mock settings row title"), String(localized: "Required", comment: "Onboarding illustration (permissions): mock settings row detail under Screen Recording"), "rectangle.inset.filled.badge.record", .systemIndigo),
+        (String(localized: "Notifications", comment: "Onboarding illustration (permissions): mock settings row title"), String(localized: "Reminders", comment: "Onboarding illustration (permissions): mock settings row detail under Notifications"), "bell.badge.fill", .systemRed),
+        (String(localized: "Microphone", comment: "Onboarding illustration (permissions): mock settings row title"), String(localized: "Narration", comment: "Onboarding illustration (permissions): mock settings row detail under Microphone"), "mic.fill", .systemOrange),
+        (String(localized: "Camera", comment: "Onboarding illustration (permissions): mock settings row title"), String(localized: "Webcam bubble", comment: "Onboarding illustration (permissions): mock settings row detail under Camera"), "video.fill", .systemGreen),
     ]
 
     override init() {
@@ -594,7 +594,7 @@ final class AccountScene: OnboardingScene {
         layer.contentsScale = 4
         return layer
     }()
-    private let copiedText = Stage.text("Copied", size: 11.5, weight: .semibold)
+    private let copiedText = Stage.text(String(localized: "Copied", comment: "Onboarding illustration (account): toast after copying a share link"), size: 11.5, weight: .semibold)
     private var email: String?
     private var fan: [(offset: CGPoint, angle: CGFloat, scale: CGFloat)] = []
     private var frontCenter = CGPoint.zero
@@ -969,14 +969,14 @@ final class FinishScene: OnboardingScene {
     private var mark = Stage.mark(height: 120)
     private let glow = CAGradientLayer()
     private let chips = [
-        StageChip(symbol: "plus.magnifyingglass", text: "Auto-zoom"),
-        StageChip(symbol: "cursorarrow.motionlines", text: "Smooth cursor"),
-        StageChip(symbol: "captions.bubble", text: "Captions"),
-        StageChip(symbol: "link", text: "Share links"),
+        StageChip(symbol: "plus.magnifyingglass", text: String(localized: "Auto-zoom", comment: "Onboarding illustration (finish): feature chip")),
+        StageChip(symbol: "cursorarrow.motionlines", text: String(localized: "Smooth cursor", comment: "Onboarding illustration (finish): feature chip")),
+        StageChip(symbol: "captions.bubble", text: String(localized: "Captions", comment: "Onboarding illustration (finish): feature chip")),
+        StageChip(symbol: "link", text: String(localized: "Share links", comment: "Onboarding illustration (finish): feature chip")),
     ]
     private let bar = CALayer()
     private let barDot = CALayer()
-    private let barLabel = Stage.text("Recording", size: 12.5, weight: .semibold)
+    private let barLabel = Stage.text(String(localized: "Recording", comment: "Onboarding illustration (finish): label on a mock recording bar"), size: 12.5, weight: .semibold)
     private let barTimer = Stage.text("00:07", size: 12, weight: .medium, monospacedDigits: true)
     private let barDivider = CALayer()
     private let barStop = CALayer()

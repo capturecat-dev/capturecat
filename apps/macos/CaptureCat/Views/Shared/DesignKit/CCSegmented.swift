@@ -184,7 +184,11 @@ final class CCSegmented: NSControl {
             // Whole points plus a hair of slack: an exact fractional width at
             // a fractional x clipped the last glyph of short labels ("All"
             // drew as "Al" in the browser's filter).
-            let width = ceil(size.width) + 2
+            // Measured by the CELL (its padding included), as CCButton does:
+            // the intrinsic width came up 2 pt short, which AppKit reports as
+            // truncated in every language.
+            let cellWidth = label.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: 10_000, height: 100)).width ?? size.width
+            let width = min(ceil(max(cellWidth, size.width)) + 2, max(rect.width, ceil(size.width) + 2))
             label.frame = CGRect(
                 x: (rect.midX - width / 2).rounded(),
                 y: (rect.midY - size.height / 2).rounded(),

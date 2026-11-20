@@ -1,0 +1,270 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSAppleEventsUsageDescription" : {
+      "comment" : "Permission prompt (Info.plist NSAppleEventsUsageDescription)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat führt den einzeiligen Einrichtungsbefehl im Terminal aus, wenn du unter „KI-Agenten verbinden“ einen KI-Agenten (Claude Code oder Codex) verbindest."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat ejecuta el comando de configuración de una línea en Terminal cuando conectas un agente de IA (Claude Code o Codex) desde Conectar agentes de IA."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat ejecuta el comando de configuración de una línea en Terminal cuando conectas un agente de IA (Claude Code o Codex) desde Conectar agentes de IA."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat exécute la commande de configuration d’une ligne dans Terminal lorsque vous connectez un agent IA (Claude Code ou Codex) depuis Connecter des agents IA."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat esegue il comando di configurazione di una riga nel Terminale quando colleghi un agente IA (Claude Code o Codex) da Collega agenti IA."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「AIエージェントを接続」からAIエージェント（Claude CodeまたはCodex）を接続すると、CaptureCatはターミナルで1行のセットアップコマンドを実行します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 에이전트 연결에서 AI 에이전트(Claude Code 또는 Codex)를 연결하면 CaptureCat이 터미널에서 한 줄짜리 설정 명령을 실행합니다."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat voert de installatieopdracht van één regel uit in Terminal wanneer je een AI-agent (Claude Code of Codex) koppelt via AI-agents koppelen."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O CaptureCat executa o comando de configuração de uma linha no Terminal quando você conecta um agente de IA (Claude Code ou Codex) em Conectar agentes de IA."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当你在“连接 AI 代理”中连接 AI 代理（Claude Code 或 Codex）时，CaptureCat 会在“终端”中运行一行设置命令。"
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Permission prompt (Info.plist NSLocalNetworkUsageDescription)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat empfängt den Bildschirm deines iPhone über WLAN, wenn du ihn mit der CaptureCat-App auf dem iPhone aufnimmst. Der Stream bleibt in deinem lokalen Netzwerk und ist mit einem Schlüssel verschlüsselt, den nur deine eigenen Geräte haben."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat recibe la pantalla de tu iPhone por Wi‑Fi cuando la grabas desde la app CaptureCat para iPhone. La transmisión se queda en tu red local y está cifrada con una clave que solo tienen tus dispositivos."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat recibe la pantalla de tu iPhone por Wi‑Fi cuando la grabas desde la app CaptureCat para iPhone. La transmisión se queda en tu red local y está cifrada con una clave que solo tienen tus dispositivos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat reçoit l’écran de votre iPhone en Wi‑Fi lorsque vous l’enregistrez depuis l’app CaptureCat pour iPhone. Le flux reste sur votre réseau local et est chiffré avec une clé que seuls vos appareils possèdent."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat riceve lo schermo del tuo iPhone tramite Wi‑Fi quando lo registri dall’app CaptureCat per iPhone. Lo stream resta sulla tua rete locale ed è cifrato con una chiave che hanno solo i tuoi dispositivi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneのCaptureCatアプリで画面を収録すると、CaptureCatはWi‑Fi経由でiPhoneの画面を受信します。ストリームはローカルネットワーク内にとどまり、あなたのデバイスだけが持つキーで暗号化されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone용 CaptureCat 앱에서 화면을 녹화하면 CaptureCat이 Wi‑Fi로 iPhone 화면을 받습니다. 스트림은 로컬 네트워크 안에만 머물며 내 기기만 가진 키로 암호화됩니다."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat ontvangt het scherm van je iPhone via wifi wanneer je het opneemt met de CaptureCat-app op je iPhone. De stream blijft op je lokale netwerk en is versleuteld met een sleutel die alleen je eigen apparaten hebben."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O CaptureCat recebe a tela do seu iPhone por Wi‑Fi quando você a grava pelo app CaptureCat para iPhone. A transmissão fica na sua rede local e é criptografada com uma chave que só os seus dispositivos têm."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当你在 iPhone 版 CaptureCat 中录制屏幕时，CaptureCat 会通过 Wi‑Fi 接收 iPhone 的屏幕。视频流只在你的本地网络中传输，并使用仅你自己的设备才有的密钥加密。"
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription" : {
+      "comment" : "Permission prompt (Info.plist NSCameraUsageDescription)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat braucht Zugriff auf die Kamera, um dein Kamerabild in Aufnahmen einzublenden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat necesita acceso a la cámara para superponer tu webcam en las grabaciones."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat necesita acceso a la cámara para superponer tu cámara web en las grabaciones."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat a besoin d’accéder à la caméra pour incruster votre webcam dans les enregistrements."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat ha bisogno dell’accesso alla fotocamera per sovrapporre la webcam nelle registrazioni."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "収録にWebカメラの映像を重ねるため、CaptureCatはカメラへのアクセスを必要とします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "녹화에 웹캠 화면을 겹쳐 보여 주려면 CaptureCat에 카메라 접근 권한이 필요합니다."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat heeft toegang tot de camera nodig om je webcam in opnamen te tonen."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O CaptureCat precisa de acesso à câmera para sobrepor sua webcam nas gravações."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat 需要访问摄像头，才能在录制中叠加摄像头画面。"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "Permission prompt (Info.plist NSMicrophoneUsageDescription)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat braucht Zugriff auf das Mikrofon, um Ton zusammen mit deiner Bildschirmaufnahme aufzunehmen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat necesita acceso al micrófono para grabar audio junto con tu grabación de pantalla."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat necesita acceso al micrófono para grabar audio junto con tu grabación de pantalla."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat a besoin d’accéder au micro pour enregistrer le son avec votre capture d’écran."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat ha bisogno dell’accesso al microfono per registrare l’audio insieme alla registrazione dello schermo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面収録と一緒に音声を録音するため、CaptureCatはマイクへのアクセスを必要とします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "화면 녹화와 함께 오디오를 녹음하려면 CaptureCat에 마이크 접근 권한이 필요합니다."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat heeft toegang tot de microfoon nodig om geluid op te nemen bij je schermopname."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O CaptureCat precisa de acesso ao microfone para gravar áudio junto com a gravação da tela."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat 需要访问麦克风，才能在录屏时同时录制声音。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

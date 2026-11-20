@@ -30,7 +30,7 @@ final class CustomLimitEditorViewController: NSViewController, NSTextFieldDelega
         let root = NSView()
         root.wantsLayer = true
 
-        let title = NSTextField(labelWithString: "Max Duration")
+        let title = NSTextField(labelWithString: String(localized: "Max Duration", comment: "Recording panel custom duration-limit popover: title"))
         title.font = .systemFont(ofSize: 11, weight: .semibold)
         title.textColor = .secondaryLabelColor
 
@@ -73,14 +73,14 @@ final class CustomLimitEditorViewController: NSViewController, NSTextFieldDelega
         let unitStack = NSStackView()
         unitStack.orientation = .horizontal
         unitStack.spacing = 2
-        for (label, minutes) in [("s", false), ("min", true)] {
+        for (label, minutes) in [(String(localized: "s", comment: "Recording panel custom duration-limit popover: unit toggle, abbreviation for seconds"), false), (String(localized: "min", comment: "Recording panel custom duration-limit popover: unit toggle, abbreviation for minutes"), true)] {
             let button = FlatUnitButton(title: label)
             button.onClick = { [weak self] in self?.select(minutes: minutes) }
             unitButtons.append(button)
             unitStack.addArrangedSubview(button)
         }
 
-        let apply = FlatUnitButton(title: "Set")
+        let apply = FlatUnitButton(title: String(localized: "Set", comment: "Recording panel custom duration-limit popover: button (verb) that applies the typed limit"))
         apply.isAccent = true
         apply.onClick = { [weak self] in self?.commit() }
 

@@ -37,7 +37,7 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
 
     // Cutout & Pop-out (docs/camera-cutout.md §12) — whole-video styles for
     // the two looks; the section shows only while the project uses a look.
-    private let looksBox = InspectorSectionBox("Cutout & Pop-out")
+    private let looksBox = InspectorSectionBox(String(localized: "Cutout & Pop-out", comment: "Inspector ▸ Camera: section header; Cutout and Pop-out are camera look names"))
     private let edgeSoftnessSlider = InspectorSliderRow(CameraPane.edgeSoftness)
     private let edgeInsetSlider = InspectorSliderRow(CameraPane.edgeInset)
     private let popOutSlider = InspectorSliderRow(CameraPane.popOut)
@@ -49,7 +49,7 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
     private let cardColorWell = InspectorColorWellControl()
     private var cardColorRow: NSView!
     private let backgroundBlurSlider = InspectorSliderRow(CameraPane.backgroundBlur)
-    private let cardChooseImageButton = CaptureCatButton(title: "Choose Image…", symbol: "photo", style: .secondary)
+    private let cardChooseImageButton = CaptureCatButton(title: String(localized: "Choose Image…", comment: "Inspector ▸ Camera: button that opens a file picker for the pop-out card image"), symbol: "photo", style: .secondary)
     private let cardImageGrid = WallpaperGridControl(mode: .customImages)
     private let cardWallpaperGrid = WallpaperGridControl(mode: .catalog)
     private let cardBorderLabel = InspectorKitViews.label(CameraPane.cardBorder.title)
@@ -136,7 +136,7 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
             view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
 
-        let cameraBox = InspectorSectionBox("Camera Overlay")
+        let cameraBox = InspectorSectionBox(String(localized: "Camera Overlay", comment: "Inspector ▸ Camera: section header; the webcam bubble over the screen"))
         cameraBox.addRow(showToggle)
         if !hasRecordedCamera {
             cameraBox.addRow(noCameraCaption, attached: true)
@@ -213,7 +213,7 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         looksBox.addRow(cardBorderColorRow)
         fullWidth(looksBox)
 
-        let adjustBox = InspectorSectionBox("Adjust")
+        let adjustBox = InspectorSectionBox(String(localized: "Adjust", comment: "Inspector ▸ Camera: section header; image adjustments (verb used as a heading)"))
         for row in [brightnessSlider, contrastSlider, saturationSlider, hueSlider] {
             adjustBox.addRow(row)
         }
@@ -221,7 +221,7 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         adjustBox.addRow(ringLightSlider)
         fullWidth(adjustBox)
 
-        let styleBox = InspectorSectionBox("Style")
+        let styleBox = InspectorSectionBox(String(localized: "Style", comment: "Inspector ▸ Camera: section header (noun)"))
         styleBox.addRow(cornerRadiusSlider)
         styleBox.addRow(borderWidthSlider)
         styleBox.addRow(borderColorRow)
@@ -229,7 +229,7 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
         styleBox.addRow(tiltPad)
         fullWidth(styleBox)
 
-        let tagBox = InspectorSectionBox("Name Tag")
+        let tagBox = InspectorSectionBox(String(localized: "Name Tag", comment: "Inspector ▸ Camera: section header; a label with the speaker's name"))
         tagBox.addRow(tagTextField)
         tagBox.addRow(tagSubtextField)
         tagBox.addRow(tagPositionRow)
@@ -242,11 +242,11 @@ final class CameraSettingsPaneAppKit: NSView, NSTextFieldDelegate {
             shrinkToggle, stackToggle, adjustBox, styleBox, tagBox,
         ]
 
-        backgroundChips.toolTip = "Remove the background behind you for the whole video"
-        cardChips.toolTip = "What fills the pop-out card behind you"
-        shrinkToggle.toolTip = "Shrink the camera while the screen is zoomed in"
-        stackToggle.toolTip = "In 9:16 and 4:5 videos, put the camera across the top and the screen below"
-        stackGapSlider.toolTip = "Space between the camera and the screen — None joins them into one card"
+        backgroundChips.toolTip = String(localized: "Remove the background behind you for the whole video", comment: "Inspector ▸ Camera: tooltip on the background removal choices")
+        cardChips.toolTip = String(localized: "What fills the pop-out card behind you", comment: "Inspector ▸ Camera: tooltip on the pop-out card fill choices")
+        shrinkToggle.toolTip = String(localized: "Shrink the camera while the screen is zoomed in", comment: "Inspector ▸ Camera: tooltip on a toggle")
+        stackToggle.toolTip = String(localized: "In 9:16 and 4:5 videos, put the camera across the top and the screen below", comment: "Inspector ▸ Camera: tooltip on the stack toggle; 9:16 and 4:5 are aspect ratios")
+        stackGapSlider.toolTip = String(localized: "Space between the camera and the screen — None joins them into one card", comment: "Inspector ▸ Camera: tooltip on the gap slider; None is the slider's lowest setting")
         tagTextField.delegate = self
         tagSubtextField.delegate = self
         tiltPad.maxAngle = CameraPane.tiltMaxAngle
