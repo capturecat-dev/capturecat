@@ -76,7 +76,7 @@ function parseChange(text: string | null): Json | null {
 }
 
 function versionJSON(
-  v: VersionRow & { actorName?: string | null; namedByName?: string | null },
+  v: VersionRow & { actorName?: string | null; namedByName?: string | null; agentName?: string | null },
   headVersionId: string | null,
 ) {
   return {
@@ -89,6 +89,8 @@ function versionJSON(
     actor: v.actorUid ? { uid: v.actorUid, name: v.actorName ?? null } : null,
     client: v.clientKind,
     source: v.source,
+    // Which agent saved it (source agent/mixed): the token's name, e.g. "Claude".
+    agent: v.agentName ? { name: v.agentName } : null,
     firstRevision: v.firstRevision,
     revision: v.revision,
     documentBytes: v.docBytes,

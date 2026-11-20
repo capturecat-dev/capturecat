@@ -237,7 +237,7 @@ final class CCSegmented: UIControl {
             element.accessibilityLabel = titles[index]
             element.accessibilityTraits = index == selectedIndex ? [.button, .selected] : .button
             element.accessibilityFrameInContainerSpace = segmentRect(index)
-            element.accessibilityHint = "\(index + 1) of \(labels.count)"
+            element.accessibilityHint = String(localized: "\(index + 1) of \(labels.count)", comment: "VoiceOver: position of a segment in its control, e.g. 2 of 4")
             return element
         }
         accessibilityElements = accessibilityItems

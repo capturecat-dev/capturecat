@@ -13,8 +13,8 @@ final class HistoryComparePage: UIView {
 
     let groups: [VersionCompareGroups.Group]
     let summaryText: String
-    let backButton = CCButton(title: "History", symbol: "chevron-left", style: .ghost, size: .sm, radius: .full)
-    private let titleLabel = ccLabel("Compare", font: CCFont.header, color: CCTheme.color.foreground)
+    let backButton = CCButton(title: String(localized: "History", comment: "Back button on the version-compare page: return to the History list"), symbol: "chevron-left", style: .ghost, size: .sm, radius: .full)
+    private let titleLabel = ccLabel(String(localized: "Compare", comment: "Title of the page comparing two project versions"), font: CCFont.header, color: CCTheme.color.foreground)
     private let subtitleLabel: UILabel
     private let summaryLabel: UILabel
     private let scroll = UIScrollView()
@@ -29,7 +29,7 @@ final class HistoryComparePage: UIView {
         summaryLabel = ccLabel(summaryText, font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0)
         super.init(frame: .zero)
         backButton.onTap = { [weak self] in self?.onBack?() }
-        backButton.accessibilityLabelOverride = "Back to History"
+        backButton.accessibilityLabelOverride = String(localized: "Back to History", comment: "VoiceOver label of the back button on the version-compare page")
         titleLabel.accessibilityTraits = .header
 
         stack.axis = .vertical
@@ -42,7 +42,7 @@ final class HistoryComparePage: UIView {
         stack.addArrangedSubview(summaryLabel)
         stack.setCustomSpacing(CCSpace.md, after: summaryLabel)
         for (index, group) in groups.enumerated() {
-            let section = HistoryDisclosureSection(title: "\(group.title) (\(group.lines.count))",
+            let section = HistoryDisclosureSection(title: String(localized: "\(group.title) (\(group.lines.count))", comment: "Version compare: a group of changes and how many lines it has, e.g. Effects (3)"),
                                                    lines: group.lines.map { "• \($0)" }, expanded: index == 0)
             sections.append(section)
             stack.addArrangedSubview(section)
@@ -136,7 +136,7 @@ final class HistoryDisclosureSection: CCSurface {
         header.isAccessibilityElement = true
         header.accessibilityTraits = .button
         header.accessibilityLabel = title
-        header.accessibilityValue = expanded ? "Expanded" : "Collapsed"
+        header.accessibilityValue = expanded ? String(localized: "Expanded", comment: "VoiceOver value: a disclosure section is open") : String(localized: "Collapsed", comment: "VoiceOver value: a disclosure section is closed")
         header.addAction(UIAction { [weak self] _ in self?.toggle() }, for: .touchUpInside)
     }
 
@@ -147,7 +147,7 @@ final class HistoryDisclosureSection: CCSurface {
     func setExpanded(_ expanded: Bool, animated: Bool) {
         guard expanded != isExpanded else { return }
         isExpanded = expanded
-        header.accessibilityValue = expanded ? "Expanded" : "Collapsed"
+        header.accessibilityValue = expanded ? String(localized: "Expanded", comment: "VoiceOver value: a disclosure section is open") : String(localized: "Collapsed", comment: "VoiceOver value: a disclosure section is closed")
         collapsed.isActive = !expanded
         let root = ccLayoutRoot
         let changes = {

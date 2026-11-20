@@ -27,9 +27,9 @@ final class StudioCloudHistory: ProjectHistoryService {
         case needsSync
         var errorDescription: String? {
             switch self {
-            case .unavailable: return "History isn't available for this project right now."
+            case .unavailable: return String(localized: "History isn't available for this project right now.", comment: "Error: version history could not be loaded")
             case .needsSync:
-                return "This project has changes that couldn't be synced first. Sync, then restore."
+                return String(localized: "This project has changes that couldn't be synced first. Sync, then restore.", comment: "Error: restoring a version needs unsynced changes to sync first")
             }
         }
     }

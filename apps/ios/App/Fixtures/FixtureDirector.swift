@@ -13,6 +13,7 @@ import UIKit
 ///     -uiForceCompactAfter <s>    override to compact width after s seconds (live size-class change)
 ///     -uiMotionProbe              write Documents/motion-probe.txt (lines start MOTIONPROBE)
 ///     -uiA11yAudit                every screen through CCAccessibilityAudit (FixtureA11yAudit; ios-a11y.sh)
+///     -uiL10nAudit                every screen's texts + fit in the current language (FixtureL10nAudit; ios-l10n.sh)
 final class FixtureDirector {
     static let shared = FixtureDirector()
     private weak var window: UIWindow?
@@ -51,6 +52,12 @@ final class FixtureDirector {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
                 guard let self, let root = self.root, let window = self.window else { return }
                 Task { @MainActor in await FixtureA11yAudit.run(window: window, root: root) }
+            }
+        }
+        if FixtureWorld.has("-uiL10nAudit") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                guard let self, let root = self.root, let window = self.window else { return }
+                Task { @MainActor in await FixtureL10nAudit.run(window: window, root: root) }
             }
         }
         if FixtureWorld.has("-uiMotionProbe") {

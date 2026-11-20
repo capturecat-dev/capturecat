@@ -43,6 +43,7 @@ import { appBaseURL } from "../lib/origins";
 import type { PlanRecord } from "../lib/plans";
 import { SAVE_RATE_LIMIT, presignFiles } from "../routes/cloud-projects";
 import { projectSavedData, queueWebhookEvent } from "../lib/webhooks";
+import { agentEditPushAfterQuiet } from "../lib/agent-edit-push";
 import { requireAgentEditing } from "./gates";
 import { ToolError, Untrusted, defineTool, fenced, formatSeconds, oneLine, type ToolContext, type ToolDefinition } from "./tool";
 
@@ -181,6 +182,11 @@ async function editAndSave(
       // The owner's project.saved webhook, exactly as the PUT …/project route fires it.
       queueWebhookEvent((p) => ctx.waitUntil(p), ctx.env, doc.project.ownerUid, "project.saved",
         projectSavedData(ctx.env, { projectId: doc.project.id, name: check.name, revision: saved.revision, savedAt: saved.updatedAt, by: "agent" }));
+      // "AI finished editing" on the owner's iPhone/iPad, once the agent goes quiet.
+      ctx.waitUntil(agentEditPushAfterQuiet(ctx.env, {
+        ownerUid: doc.project.ownerUid, projectId: doc.project.id, projectName: check.name,
+        agentName: ctx.principal.tokenName, revision: saved.revision,
+      }));
       return { project: doc.project, run, revision: saved.revision, versionId: saved.version?.id ?? null, retried: attempt > 0 };
     }
     if (saved.reason === "refused") throw new ToolError(`${saved.body.error} (${saved.body.code}). Nothing was written.`, project.id);
@@ -653,6 +659,10 @@ const restoreVersion = defineTool({
         // A restore is a new saved revision: same webhook as an edit.
         queueWebhookEvent((p) => ctx.waitUntil(p), ctx.env, project.ownerUid, "project.saved",
           projectSavedData(ctx.env, { projectId: project.id, name: project.name, revision: restored.revision, savedAt: restored.updatedAt, by: "agent" }));
+        ctx.waitUntil(agentEditPushAfterQuiet(ctx.env, {
+          ownerUid: project.ownerUid, projectId: project.id, projectName: project.name,
+          agentName: ctx.principal.tokenName, revision: restored.revision,
+        }));
         const editorUrl = editorUrlFor(ctx, project.id);
         return {
           videoId: project.id,

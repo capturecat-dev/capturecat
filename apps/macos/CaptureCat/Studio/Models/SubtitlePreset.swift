@@ -22,18 +22,18 @@ struct SubtitlePreset: Identifiable {
     let highlight: PresetInk?
 
     static let all: [SubtitlePreset] = [
-        SubtitlePreset(id: "clean", name: "Clean", style: .outline, weight: .bold,
+        SubtitlePreset(id: "clean", name: String(localized: "Clean", comment: "Subtitle preset card name"), style: .outline, weight: .bold,
                        uppercase: false, color: .white, background: nil, karaoke: false, highlight: nil),
-        SubtitlePreset(id: "boxed", name: "Boxed", style: .background, weight: .semibold,
+        SubtitlePreset(id: "boxed", name: String(localized: "Boxed", comment: "Subtitle preset card name"), style: .background, weight: .semibold,
                        uppercase: false, color: .white, background: .black, karaoke: false, highlight: nil),
-        SubtitlePreset(id: "neon", name: "Neon", style: .glow, weight: .heavy,
+        SubtitlePreset(id: "neon", name: String(localized: "Neon", comment: "Subtitle preset card name"), style: .glow, weight: .heavy,
                        uppercase: true, color: .srgb(0.55, 0.75, 1.0),
                        background: nil, karaoke: false, highlight: nil),
-        SubtitlePreset(id: "karaoke", name: "Karaoke", style: .outline, weight: .bold,
+        SubtitlePreset(id: "karaoke", name: String(localized: "Karaoke", comment: "Subtitle preset card name"), style: .outline, weight: .bold,
                        uppercase: false, color: .white, background: nil, karaoke: true, highlight: .systemYellow),
-        SubtitlePreset(id: "shout", name: "Shout", style: .outline, weight: .heavy,
+        SubtitlePreset(id: "shout", name: String(localized: "Shout", comment: "Subtitle preset card name"), style: .outline, weight: .heavy,
                        uppercase: true, color: .systemYellow, background: nil, karaoke: false, highlight: nil),
-        SubtitlePreset(id: "minimal", name: "Minimal", style: .plain, weight: .regular,
+        SubtitlePreset(id: "minimal", name: String(localized: "Minimal", comment: "Subtitle preset card name"), style: .plain, weight: .regular,
                        uppercase: false, color: .white, background: nil, karaoke: false, highlight: nil),
     ]
 

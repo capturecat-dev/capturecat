@@ -15,6 +15,7 @@ Folders (synchronized — new .swift files compile with no project edit):
   Core/           app + both extensions      API, sync, uploads (extension-safe)
   Broadcast/      CaptureCatBroadcast        ReplayKit broadcast upload extension
   ShareExtension/ CaptureCatShare            "Save to CaptureCat" share extension
+  Localization/   app + both extensions + StudioLab   Localizable.xcstrings (all UI strings)
   ../macos/CaptureCat/Shared/   all three        files that MUST build on iOS
   ../macos/CaptureCat/Studio/   CaptureCat (app) the studio core, shared with the Mac app
 
@@ -85,6 +86,9 @@ SYNC = {
     # The studio's UIKit surfaces (preview stage, …) — the app and StudioLab
     # share them, so the harness exercises the very views the app ships.
     "StudioUI": ("StudioUI", None),
+    # The UI strings (Localizable.xcstrings, one String Catalog for every
+    # target, so kit and core strings resolve inside the extensions too).
+    "Localization": ("Localization", None),
     # Non-shipping harness app: --ios-preview-parity and friends.
     "StudioLab": ("StudioLab", None),
     # Harness code shared with the Mac (fixture formats, scoring) — StudioLab only.
@@ -130,6 +134,13 @@ CONFIG_FILES = [
     "Config/Lab-Info.plist",
 ]
 
+# Localizations (Localization/Localizable.xcstrings + each bundle's
+# InfoPlist.xcstrings): the 12 App Store listing languages. `en` is the
+# development language (the strings as written in code, mostly US spelling);
+# en-GB and en-US override only the words whose spelling differs.
+KNOWN_REGIONS = ["en", "en-GB", "en-US", "de", "fr", "es", "es-MX", "it", "pt-BR", "nl", "ja", "ko",
+                 '"zh-Hans"', "Base"]
+
 TARGETS = [
     {
         "key": "App",
@@ -138,7 +149,7 @@ TARGETS = [
         "type": "com.apple.product-type.application",
         "filetype": "wrapper.application",
         "bundle": "so.capturecat.ios",
-        "sync": ["App", "Kit", "Core", "MacShared", "Studio", "StudioUI"],
+        "sync": ["App", "Kit", "Core", "MacShared", "Studio", "StudioUI", "Localization"],
         # StillMovieWriter comes with Studio/ for the app; the extensions still
         # reference it on its own.
         "mac": ["OAuthPKCE", "LoopbackAuthServer", "CCIconSet"],
@@ -164,7 +175,7 @@ TARGETS = [
         "type": "com.apple.product-type.app-extension",
         "filetype": '"wrapper.app-extension"',
         "bundle": "so.capturecat.ios.broadcast",
-        "sync": ["Broadcast", "Core", "MacShared"],
+        "sync": ["Broadcast", "Core", "MacShared", "Localization"],
         "mac": ["StillMovieWriter"],
         "plist": "Config/Broadcast-Info.plist",
         "entitlements": "Config/Broadcast.entitlements",
@@ -182,7 +193,7 @@ TARGETS = [
         "type": "com.apple.product-type.app-extension",
         "filetype": '"wrapper.app-extension"',
         "bundle": "so.capturecat.ios.share",
-        "sync": ["ShareExtension", "Kit", "Core", "MacShared"],
+        "sync": ["ShareExtension", "Kit", "Core", "MacShared", "Localization"],
         "mac": ["StillMovieWriter", "CCIconSet"],
         "plist": "Config/Share-Info.plist",
         "entitlements": "Config/Share.entitlements",
@@ -207,7 +218,7 @@ TARGETS.append({
     "bundle": "so.capturecat.ios.studiolab",
     # Kit/ too: --kit-gallery renders the house controls in this real window,
     # and the StudioUI views (the timeline's menus, motion, icons) use the kit.
-    "sync": ["StudioLab", "StudioUI", "Studio", "StudioHarness", "Kit"],
+    "sync": ["StudioLab", "StudioUI", "Studio", "StudioHarness", "Kit", "Localization"],
     "mac": ["CCIconSet"],
     "resources": ["CursorHand1x", "CursorHand2x"],
     "packages": ["WhisperKit"],
@@ -404,7 +415,8 @@ def main():
     if PACKAGES:
         items = "".join(f'\n\t\t\t\t{oid("pkg." + key)} /* XCRemoteSwiftPackageReference "{key}" */,' for key in PACKAGES)
         pkgrefs = f"\n\t\t\tpackageReferences = ({items}\n\t\t\t);"
-    add("PBXProject", f'\t\t{project} /* Project object */ = {{\n\t\t\tisa = PBXProject;\n\t\t\tattributes = {{\n\t\t\t\tBuildIndependentTargetsInParallel = 1;\n\t\t\t\tLastSwiftUpdateCheck = 2700;\n\t\t\t\tLastUpgradeCheck = 2700;\n\t\t\t\tTargetAttributes = {{\n{target_attrs}\n\t\t\t\t}};\n\t\t\t}};\n\t\t\tbuildConfigurationList = {oid("cfglist.project")} /* Build configuration list for PBXProject "CaptureCat" */;\n\t\t\tdevelopmentRegion = en;\n\t\t\thasScannedForEncodings = 0;\n\t\t\tknownRegions = (\n\t\t\t\ten,\n\t\t\t\tBase,\n\t\t\t);\n\t\t\tmainGroup = {main_group};\n\t\t\tminimizedProjectReferenceProxies = 1;{pkgrefs}\n\t\t\tpreferredProjectObjectVersion = 77;\n\t\t\tproductRefGroup = {products_group} /* Products */;\n\t\t\tprojectDirPath = "";\n\t\t\tprojectRoot = "";\n\t\t\ttargets = (\n{target_list}\n\t\t\t);\n\t\t}};')
+    regions = "".join(f'\t\t\t\t{r},\n' for r in KNOWN_REGIONS)
+    add("PBXProject", f'\t\t{project} /* Project object */ = {{\n\t\t\tisa = PBXProject;\n\t\t\tattributes = {{\n\t\t\t\tBuildIndependentTargetsInParallel = 1;\n\t\t\t\tLastSwiftUpdateCheck = 2700;\n\t\t\t\tLastUpgradeCheck = 2700;\n\t\t\t\tTargetAttributes = {{\n{target_attrs}\n\t\t\t\t}};\n\t\t\t}};\n\t\t\tbuildConfigurationList = {oid("cfglist.project")} /* Build configuration list for PBXProject "CaptureCat" */;\n\t\t\tdevelopmentRegion = en;\n\t\t\thasScannedForEncodings = 0;\n\t\t\tknownRegions = (\n{regions}\t\t\t);\n\t\t\tmainGroup = {main_group};\n\t\t\tminimizedProjectReferenceProxies = 1;{pkgrefs}\n\t\t\tpreferredProjectObjectVersion = 77;\n\t\t\tproductRefGroup = {products_group} /* Products */;\n\t\t\tprojectDirPath = "";\n\t\t\tprojectRoot = "";\n\t\t\ttargets = (\n{target_list}\n\t\t\t);\n\t\t}};')
 
     # Build configurations
     def config(id_, name, settings):

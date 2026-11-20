@@ -157,8 +157,8 @@ final class HistoryPreviewBanner: CCSurface {
     var onBack: (() -> Void)?
     let titleLabel: UILabel
     let messageLabel: UILabel
-    let restoreButton = CCButton(title: "Restore", symbol: "clock.arrow.circlepath", style: .primary, size: .sm, radius: .full)
-    let backButton = CCButton(title: "Back to Current", style: .secondary, size: .sm, radius: .full)
+    let restoreButton = CCButton(title: String(localized: "Restore", comment: "Button on the history preview banner: restore the previewed version"), symbol: "clock.arrow.circlepath", style: .primary, size: .sm, radius: .full)
+    let backButton = CCButton(title: String(localized: "Back to Current", comment: "Button on the history preview banner: leave the preview and show the current project"), style: .secondary, size: .sm, radius: .full)
 
     init(title: String, message: String) {
         titleLabel = ccLabel(title, font: CCFont.labelSemibold, color: CCTheme.color.foreground, lines: 2)

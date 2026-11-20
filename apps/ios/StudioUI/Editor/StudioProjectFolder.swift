@@ -24,9 +24,9 @@ final class StudioProjectFolder {
 
         var errorDescription: String? {
             switch self {
-            case .missingDocument: return "This folder has no project.json."
-            case .notAnObject: return "This project's file is damaged."
-            case .noRecording: return "This project's recording isn't in its folder."
+            case .missingDocument: return String(localized: "This folder has no project.json.", comment: "Error opening a project folder; project.json is a file name, don't translate it")
+            case .notAnObject: return String(localized: "This project's file is damaged.")
+            case .noRecording: return String(localized: "This project's recording isn't in its folder.")
             }
         }
     }

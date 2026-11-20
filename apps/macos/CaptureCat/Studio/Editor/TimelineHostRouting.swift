@@ -44,6 +44,15 @@ extension TimelineEdits {
         }
     }
 
+    /// FOCUS-lane caption of a camera-layout block, e.g. "Camera: Side by Side (Left)".
+    static func cameraLayoutLaneLabel(_ region: CameraLayoutRegion) -> String {
+        let name = region.effectiveLook?.displayName
+            ?? (region.mode == .sideBySide ? region.effectiveSplitStyle.displayName : region.mode.displayName)
+        return region.mode == .sideBySide && region.effectiveSide == .leading
+            ? String(localized: "Camera: \(name) (Left)", comment: "Timeline FOCUS lane: camera layout block caption with the camera on the left; the argument is the layout name")
+            : String(localized: "Camera: \(name)", comment: "Timeline FOCUS lane: camera layout block caption; the argument is the layout name")
+    }
+
     /// Compact scrub readout, e.g. "0:02.4".
     static func scrubBubbleText(_ time: TimeInterval) -> String {
         let total = max(0, time)
@@ -180,7 +189,7 @@ extension TimelineEditing {
                     isHighlight: false,
                     startTime: map.outputTime(forSource: region.startTime),
                     endTime: map.outputTime(forSource: region.endTime),
-                    label: region.label,
+                    label: RegionLabel.display(region.label),
                     isSelected: selectedBlurID == region.id
                 )
             }
@@ -190,7 +199,7 @@ extension TimelineEditing {
                     isHighlight: false,
                     startTime: map.outputTime(forSource: region.startTime),
                     endTime: map.outputTime(forSource: region.endTime),
-                    label: region.label,
+                    label: RegionLabel.display(region.label),
                     isSelected: selectedDepthFocusID == region.id
                 )
             }
@@ -200,8 +209,7 @@ extension TimelineEditing {
                     isHighlight: false,
                     startTime: map.outputTime(forSource: region.startTime),
                     endTime: map.outputTime(forSource: region.endTime),
-                    label: "Camera: \(region.effectiveLook?.displayName ?? (region.mode == .sideBySide ? region.effectiveSplitStyle.displayName : region.mode.displayName))"
-                        + (region.mode == .sideBySide && region.effectiveSide == .leading ? " (Left)" : ""),
+                    label: TimelineEdits.cameraLayoutLaneLabel(region),
                     isSelected: selectedCameraLayoutID == region.id
                 )
             }
@@ -211,7 +219,7 @@ extension TimelineEditing {
                     isHighlight: true,
                     startTime: map.outputTime(forSource: region.startTime),
                     endTime: map.outputTime(forSource: region.endTime),
-                    label: region.label,
+                    label: RegionLabel.display(region.label),
                     isSelected: selectedHighlightID == region.id
                 )
             }
@@ -242,7 +250,9 @@ extension TimelineEditing {
                 : min(project.settings.introSlideStart
                       + project.settings.introSlideDuration, outputDuration),
             introChipSelected: selection.introSelected,
-            introChipLabel: project.settings.introSlideStart <= 0.01 ? "Slide In" : "Slide",
+            introChipLabel: project.settings.introSlideStart <= 0.01
+                ? String(localized: "Slide In", comment: "Timeline EFFECTS lane: chip for a slide that plays as the intro")
+                : String(localized: "Slide", comment: "Timeline EFFECTS lane: chip for the slide effect"),
             introChipIcon: {
                 switch project.settings.introSlideStyle {
                 case .top: "arrow.down.to.line"
@@ -312,16 +322,19 @@ extension TimelineEditing {
             entries.append(.separator)
             for split in [CameraSplitStyle.full, .tiles] {
                 entries.append(TimelineMenuEntry(
-                    title: split == .full ? "Full Height" : "Tiles", checked: region.effectiveSplitStyle == split,
+                    title: split == .full
+                        ? String(localized: "Full Height", comment: "Camera layout block menu: split style, full-height columns")
+                        : String(localized: "Tiles", comment: "Camera layout block menu: split style, equal tiles"),
+                    checked: region.effectiveSplitStyle == split,
                     action: { [weak self] in self?.setSplitStyle(split, regionID: id) }))
             }
             entries.append(.separator)
         }
-        entries.append(TimelineMenuEntry(title: "Copy Layout", action: {
+        entries.append(TimelineMenuEntry(title: String(localized: "Copy Layout", comment: "Camera layout block menu item"), action: {
             TimelineEdits.copiedCameraLayout = (region.mode, region.look, region.cameraSide, region.splitStyle)
         }))
         entries.append(TimelineMenuEntry(
-            title: "Paste Layout", isEnabled: TimelineEdits.copiedCameraLayout != nil,
+            title: String(localized: "Paste Layout", comment: "Camera layout block menu item"), isEnabled: TimelineEdits.copiedCameraLayout != nil,
             action: { [weak self] in self?.pasteCameraLayout(regionID: id) }))
         return entries
     }

@@ -330,7 +330,7 @@ extension EditorCanvasView {
             let before = CanvasEditSnapshot(project)
             project.annotations[idx].text = text
             CanvasEditUndo.register(undoManagerProvider?() ?? undoManager, project: project,
-                                    before: before, after: CanvasEditSnapshot(project), actionName: "Edit Text")
+                                    before: before, after: CanvasEditSnapshot(project), actionName: String(localized: "Edit Text", comment: "Undo/redo action name (Undo …)"))
         }
         onInlineEditChanged?(nil)
         gestures.requestRender?()

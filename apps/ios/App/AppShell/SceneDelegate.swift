@@ -37,6 +37,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         AppPerfProbe.start(in: window)
         AccountDeleteGate.startIfRequested(in: window)
         ShareViewerGate.startIfRequested(in: window)
+        if #available(iOS 26, *) { AgentEditGate.startIfRequested(in: window) }
         #endif
     }
 

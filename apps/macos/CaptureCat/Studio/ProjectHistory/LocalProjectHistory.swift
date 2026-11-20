@@ -45,10 +45,10 @@ nonisolated enum LocalHistoryError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .versionNotFound: return "That version no longer exists."
-        case .headVersion: return "The current version can't be deleted."
-        case .invalidLabel: return "Version names are up to 100 characters, without control characters."
-        case .documentMissing: return "This version's document is no longer stored."
+        case .versionNotFound: return String(localized: "That version no longer exists.")
+        case .headVersion: return String(localized: "The current version can't be deleted.")
+        case .invalidLabel: return String(localized: "Version names are up to 100 characters, without control characters.")
+        case .documentMissing: return String(localized: "This version's document is no longer stored.")
         }
     }
 }

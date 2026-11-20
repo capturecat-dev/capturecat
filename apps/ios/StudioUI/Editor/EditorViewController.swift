@@ -79,7 +79,7 @@ final class EditorViewController: UIViewController {
     let aspectChip = EditorAspectChip()
     /// Studio 3d: the header's "Export…" key — a ghost key on BLUE-TINTED
     /// glass (the primary), white ink; the opaque primary under Reduce Transparency.
-    let exportButton = CCButton(title: "Export…", style: .ghost, size: .sm, radius: .full, haptics: true)
+    let exportButton = CCButton(title: String(localized: "Export…", comment: "Editor header button: opens the export sheet"), style: .ghost, size: .sm, radius: .full, haptics: true)
     /// The floating chrome's glass (Liquid Glass, iOS 26): the header's keys
     /// ride capsules, the aspect chip and Export in ONE container so they
     /// merge and morph as neighbours. Content (stage, lanes) stays flat.
@@ -197,9 +197,9 @@ final class EditorViewController: UIViewController {
 
         header.showsBack = true
         header.onBack = { [weak self] in self?.close() }
-        header.setBack(symbol: "square.grid.2x2", title: "Captures", label: "Captures")
-        header.backButton.accessibilityHint = "Saves and returns to your captures."
-        exportButton.accessibilityLabelOverride = "Export"
+        header.setBack(symbol: "square.grid.2x2", title: String(localized: "Captures", comment: "Editor back button: returns to the captures library"), label: String(localized: "Captures", comment: "Editor back button: returns to the captures library"))
+        header.backButton.accessibilityHint = String(localized: "Saves and returns to your captures.")
+        exportButton.accessibilityLabelOverride = String(localized: "Export", comment: "Editor header button: opens the export sheet (VoiceOver)")
         exportButton.accessibilityIdentifier = "studio.export"
         exportButton.onTap = { [weak self] in self?.presentExport() }
         aspectChip.onSelect = { [weak self] ratio in self?.setAspectRatio(ratio) }
@@ -546,7 +546,7 @@ final class EditorViewController: UIViewController {
         // "Captures" with its label where the bar has room; the icon alone
         // on a phone held upright (VoiceOver reads "Captures" either way).
         let roomy = traitCollection.horizontalSizeClass == .regular || view.bounds.width >= 600
-        header.setBack(symbol: "square.grid.2x2", title: roomy ? "Captures" : nil, label: "Captures")
+        header.setBack(symbol: "square.grid.2x2", title: roomy ? String(localized: "Captures", comment: "Editor back button: returns to the captures library") : nil, label: String(localized: "Captures", comment: "Editor back button: returns to the captures library"))
         // The title moves off a vertical crease, over the stage's half.
         if case .vertical(let c)? = crease {
             let rtl = view.effectiveUserInterfaceLayoutDirection == .rightToLeft
@@ -886,7 +886,7 @@ final class EditorViewController: UIViewController {
     /// with its one-time portrait camera-stack rule; one undo step.
     func setAspectRatio(_ ratio: AspectRatio) {
         guard !isPreviewingVersion, project.settings.aspectRatio != ratio else { return }
-        inspector.session.perform("aspectRatio", name: "Aspect Ratio") { [project] in
+        inspector.session.perform("aspectRatio", name: String(localized: "Aspect Ratio")) { [project] in
             project.settings.aspectRatio = ratio
             // Vertical stack (docs/camera-cutout.md §12.12) — the Mac bar's rule.
             if (ratio == .vertical || ratio == .tallVertical),
@@ -1011,12 +1011,12 @@ final class EditorViewController: UIViewController {
     /// The Add sheet: the timeline's add menus (effects, focus, annotation —
     /// the same house sheets its toolbar opened), voice-over and the slice tool.
     private func presentAddSheet(from key: UIView) {
-        let sheet = CCActionSheet(title: "Add")
-        sheet.addAction("Effect", symbol: "sparkles") { [weak self, weak key] in self?.timeline.showEffectsMenu(from: key) }
-        sheet.addAction("Focus or Blur", symbol: "scope") { [weak self, weak key] in self?.timeline.showFocusMenu(from: key) }
-        sheet.addAction("Annotation", symbol: "pencil.tip") { [weak self, weak key] in self?.timeline.showAnnotationMenu(from: key) }
-        sheet.addAction("Voice Over", symbol: "mic.fill") { [weak self] in self?.presentVoiceOver() }
-        sheet.addAction("Slice Tool", symbol: "rectangle.split.2x1") { [weak self] in self?.timeline.toggleSliceTool() }
+        let sheet = CCActionSheet(title: String(localized: "Add", comment: "Title of the Add sheet: add an effect, region, annotation or voice over"))
+        sheet.addAction(String(localized: "Effect", comment: "Add sheet: add a zoom/tilt effect"), symbol: "sparkles") { [weak self, weak key] in self?.timeline.showEffectsMenu(from: key) }
+        sheet.addAction(String(localized: "Focus or Blur", comment: "Add sheet: add a focus or blur region"), symbol: "scope") { [weak self, weak key] in self?.timeline.showFocusMenu(from: key) }
+        sheet.addAction(String(localized: "Annotation", comment: "Add sheet: add an annotation"), symbol: "pencil.tip") { [weak self, weak key] in self?.timeline.showAnnotationMenu(from: key) }
+        sheet.addAction(String(localized: "Voice Over", comment: "Add sheet: record a voice-over narration"), symbol: "mic.fill") { [weak self] in self?.presentVoiceOver() }
+        sheet.addAction(String(localized: "Slice Tool", comment: "Add sheet: arm the tool that slices clips"), symbol: "rectangle.split.2x1") { [weak self] in self?.timeline.toggleSliceTool() }
         sheet.present(from: self, source: key)
     }
 
@@ -1300,9 +1300,9 @@ final class EditorViewController: UIViewController {
     private func wireTransport() {
         // VoiceOver: the timeline's zoom (a pinch) as the playhead's actions.
         transport.playhead.accessibilityCustomActions = [
-            UIAccessibilityCustomAction(name: "Zoom in timeline") { [weak self] _ in self?.timeline.zoomTimeline(in: true); return true },
-            UIAccessibilityCustomAction(name: "Zoom out timeline") { [weak self] _ in self?.timeline.zoomTimeline(in: false); return true },
-            UIAccessibilityCustomAction(name: "Fit timeline") { [weak self] _ in
+            UIAccessibilityCustomAction(name: String(localized: "Zoom in timeline", comment: "VoiceOver action on the playhead")) { [weak self] _ in self?.timeline.zoomTimeline(in: true); return true },
+            UIAccessibilityCustomAction(name: String(localized: "Zoom out timeline", comment: "VoiceOver action on the playhead")) { [weak self] _ in self?.timeline.zoomTimeline(in: false); return true },
+            UIAccessibilityCustomAction(name: String(localized: "Fit timeline", comment: "VoiceOver action on the playhead: zoom the timeline to fit")) { [weak self] _ in
                 guard let self else { return false }
                 self.timeline.setTimelineScale(self.timeline.minTimelineScale)
                 return true
@@ -1487,15 +1487,16 @@ final class EditorViewController: UIViewController {
         var any = false
         if let id = selection.selectedAnnotationID, let a = project.annotations.first(where: { $0.id == id }) {
             if a.type == .text || a.type == .callout {
-                sheet.addAction("Edit Text", symbol: "pencil") { [weak self] in self?.canvas.beginInlineEdit(annotationID: id) }
+                sheet.addAction(String(localized: "Edit Text", comment: "Preview context menu: edit the annotation's text"), symbol: "pencil") { [weak self] in self?.canvas.beginInlineEdit(annotationID: id) }
             }
-            sheet.addAction("Delete \(TimelineEdits.annotationLaneLabel(for: a))", symbol: "trash", destructive: true) {
+            let laneLabel = TimelineEdits.annotationLaneLabel(for: a)
+            sheet.addAction(String(localized: "Delete \(laneLabel)", comment: "Preview context menu: delete the selected annotation; the argument is its text or its kind, e.g. Delete Arrow"), symbol: "trash", destructive: true) {
                 [weak self] in self?.deleteSelection()
             }
             any = true
         } else if selection.selectedBlurID != nil || selection.selectedHighlightID != nil
                     || selection.selectedDepthFocusID != nil {
-            sheet.addAction("Delete Region", symbol: "trash", destructive: true) { [weak self] in self?.deleteSelection() }
+            sheet.addAction(String(localized: "Delete Region", comment: "Preview context menu: delete the selected focus/blur region"), symbol: "trash", destructive: true) { [weak self] in self?.deleteSelection() }
             any = true
         }
         guard any else { return }
@@ -1568,16 +1569,16 @@ final class EditorViewController: UIViewController {
         escape.wantsPriorityOverSystemBehavior = true
         var commands = [
             escape,
-            UIKeyCommand(title: "Undo", action: #selector(keyUndo), input: "z", modifierFlags: .command),
-            UIKeyCommand(title: "Redo", action: #selector(keyRedo), input: "z", modifierFlags: [.command, .shift]),
-            UIKeyCommand(title: "Export…", action: #selector(keyExport), input: "e", modifierFlags: .command),
+            UIKeyCommand(title: String(localized: "Undo", comment: "Keyboard shortcut menu item"), action: #selector(keyUndo), input: "z", modifierFlags: .command),
+            UIKeyCommand(title: String(localized: "Redo", comment: "Keyboard shortcut menu item"), action: #selector(keyRedo), input: "z", modifierFlags: [.command, .shift]),
+            UIKeyCommand(title: String(localized: "Export…", comment: "Keyboard shortcut menu item: open the export sheet"), action: #selector(keyExport), input: "e", modifierFlags: .command),
         ]
         if canvas.inlineEditingID == nil {
             commands += [
-                UIKeyCommand(title: "Play / Pause", action: #selector(keyPlay), input: " ", modifierFlags: []),
-                UIKeyCommand(title: "Previous Frame", action: #selector(keyStepBack), input: UIKeyCommand.inputLeftArrow),
-                UIKeyCommand(title: "Next Frame", action: #selector(keyStepForward), input: UIKeyCommand.inputRightArrow),
-                UIKeyCommand(title: "Delete Selection", action: #selector(keyDelete), input: UIKeyCommand.inputDelete),
+                UIKeyCommand(title: String(localized: "Play / Pause", comment: "Keyboard shortcut menu item"), action: #selector(keyPlay), input: " ", modifierFlags: []),
+                UIKeyCommand(title: String(localized: "Previous Frame", comment: "Keyboard shortcut menu item"), action: #selector(keyStepBack), input: UIKeyCommand.inputLeftArrow),
+                UIKeyCommand(title: String(localized: "Next Frame", comment: "Keyboard shortcut menu item"), action: #selector(keyStepForward), input: UIKeyCommand.inputRightArrow),
+                UIKeyCommand(title: String(localized: "Delete Selection", comment: "Keyboard shortcut menu item"), action: #selector(keyDelete), input: UIKeyCommand.inputDelete),
             ]
         }
         return commands
@@ -1623,7 +1624,7 @@ final class EditorViewController: UIViewController {
             try folder.save()
             dirty = false
         } catch {
-            toaster.show(title: "Couldn't save this project", message: error.localizedDescription, variant: .destructive)
+            toaster.show(title: String(localized: "Couldn't save this project"), message: error.localizedDescription, variant: .destructive)
         }
     }
 }
@@ -1644,13 +1645,13 @@ final class EditorContextPill: CCSurface {
     var onEditText: (() -> Void)?
     var onDelete: (() -> Void)?
 
-    private let edit = CCButton(title: "Edit", symbol: "pencil", style: .ghost, size: .sm, radius: .full)
+    private let edit = CCButton(title: String(localized: "Edit", comment: "Floating bar over a selected text annotation: edit its text"), symbol: "pencil", style: .ghost, size: .sm, radius: .full)
     private let delete = CCButton(symbol: "trash", style: .ghost, size: .sm, radius: .full)
 
     init() {
         super.init(.raised, tint: CCTheme.color.popover, radius: .full)
         translatesAutoresizingMaskIntoConstraints = true
-        delete.accessibilityLabelOverride = "Delete"
+        delete.accessibilityLabelOverride = String(localized: "Delete", comment: "Floating bar over a selected annotation: delete it (VoiceOver)")
         edit.onTap = { [weak self] in self?.onEditText?() }
         delete.onTap = { [weak self] in self?.onDelete?() }
         let row = UIStackView(arrangedSubviews: [edit, delete])

@@ -188,7 +188,7 @@ final class CCToggle: UIControl {
         onGlyph.opacity = glyphs && isOn ? 1 : 0
         offGlyph.opacity = glyphs && !isOn ? 1 : 0
         CATransaction.commit()
-        accessibilityValue = isOn ? "On" : "Off"
+        accessibilityValue = isOn ? String(localized: "On", comment: "Switch state (VoiceOver)") : String(localized: "Off", comment: "Switch state (VoiceOver)")
     }
 
     /// Probe seam: the Differentiate Without Color glyph for this state shows.
@@ -255,10 +255,10 @@ final class CCToggleRow: UIControl {
         accessibilityLabel = title
         accessibilityHint = detail
         accessibilityTraits = .toggleButton
-        accessibilityValue = isOn ? "On" : "Off"
+        accessibilityValue = isOn ? String(localized: "On", comment: "Switch state (VoiceOver)") : String(localized: "Off", comment: "Switch state (VoiceOver)")
         toggle.onChange = { [weak self] on in
             guard let self else { return }
-            self.accessibilityValue = on ? "On" : "Off"
+            self.accessibilityValue = on ? String(localized: "On", comment: "Switch state (VoiceOver)") : String(localized: "Off", comment: "Switch state (VoiceOver)")
             self.onChange?(on)
             self.sendActions(for: .valueChanged)
         }
@@ -269,7 +269,7 @@ final class CCToggleRow: UIControl {
 
     func setOn(_ on: Bool, animated: Bool) {
         toggle.setOn(on, animated: animated)
-        accessibilityValue = on ? "On" : "Off"
+        accessibilityValue = on ? String(localized: "On", comment: "Switch state (VoiceOver)") : String(localized: "Off", comment: "Switch state (VoiceOver)")
     }
 
     /// Change (or clear) the muted detail line.
@@ -430,7 +430,7 @@ final class CCCheckbox: UIControl {
         } else {
             check.strokeEnd = isOn ? 1 : 0
         }
-        accessibilityValue = isOn ? "Checked" : "Not checked"
+        accessibilityValue = isOn ? String(localized: "Checked", comment: "Checkbox state (VoiceOver)") : String(localized: "Not checked", comment: "Checkbox state (VoiceOver)")
     }
 
     override var isHighlighted: Bool {
@@ -466,7 +466,7 @@ final class CCSearchField: UIView, UITextFieldDelegate {
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.addAction(UIAction { [weak self] _ in self?.changed() }, for: .editingChanged)
         textField.addAction(UIAction { [weak self] _ in self?.applyTheme(animated: true) }, for: [.editingDidBegin, .editingDidEnd])
-        clear.accessibilityLabelOverride = "Clear search"
+        clear.accessibilityLabelOverride = String(localized: "Clear search")
         clear.alpha = 0
         clear.onTap = { [weak self] in
             self?.textField.text = ""

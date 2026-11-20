@@ -88,7 +88,7 @@ final class CCHeaderBar: UIView {
             bar.applyTitleLineLimit()
         }
 
-        backButton.accessibilityLabelOverride = "Back"
+        backButton.accessibilityLabelOverride = String(localized: "Back", comment: "Header bar back button (VoiceOver)")
         backButton.isHidden = true
         backButton.onTap = { [weak self] in self?.onBack?() }
         leading.spacing = CCSpace.xs

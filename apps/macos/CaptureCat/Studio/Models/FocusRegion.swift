@@ -9,6 +9,14 @@ enum FocusRegionStyle: String, CaseIterable, Codable, Sendable {
     /// Planar tilt-shift: a sharp BAND through the rect's centre at `angle`,
     /// blur growing with perpendicular distance from the band.
     case tiltShift = "Tilt Shift"
+
+    /// What the editor shows; the raw value stays the persisted identity.
+    var displayName: String {
+        switch self {
+        case .area: return String(localized: "Area", comment: "Inspector ▸ Effects ▸ Depth Focus: focus mode")
+        case .tiltShift: return String(localized: "Tilt Shift", comment: "Inspector ▸ Effects ▸ Depth Focus: focus mode")
+        }
+    }
 }
 
 /// Depth-of-field focus region — the highlight's sibling with BLUR instead of

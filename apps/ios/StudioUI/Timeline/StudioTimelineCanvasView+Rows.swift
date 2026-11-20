@@ -439,7 +439,7 @@ extension StudioTimelineCanvasView {
 
     private func drawVideoInfoPill(clip: TimelineVideoClipItem, display: VideoClipRef, rect: CGRect) {
         let font = UIFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
-        let text = NSMutableAttributedString(string: String(format: "%.1fs", max(0, display.outputDuration)), attributes: [
+        let text = NSMutableAttributedString(string: UnitText.seconds(max(0, display.outputDuration)), attributes: [
             .font: font, .foregroundColor: UIColor.white.withAlphaComponent(0.85),
         ])
         if let speed = clip.pillSpeedLabel {
@@ -592,7 +592,7 @@ extension StudioTimelineCanvasView {
                 ink.withAlphaComponent(0.14).setFill()
                 UIBezierPath(roundedRect: CGRect(x: wave.minX, y: wave.midY - 3, width: wave.width, height: 6), cornerRadius: 3).fill()
             }
-            let title = NSAttributedString(string: "Voice Over", attributes: [
+            let title = NSAttributedString(string: String(localized: "Voice Over", comment: "Title drawn on a voice-over clip in the timeline"), attributes: [
                 .font: UIFont.systemFont(ofSize: 11, weight: .bold), .foregroundColor: ink.withAlphaComponent(0.92),
             ])
             if rect.width > title.size().width + 20 { title.draw(at: CGPoint(x: rect.minX + 10, y: rect.minY + 6)) }

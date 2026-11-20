@@ -210,12 +210,12 @@ final class VoiceOverSession {
             let granted = await AVCaptureDevice.requestAccess(for: .audio)
             guard granted else {
                 throw NSError(domain: "VoiceOverRecorder", code: 2, userInfo: [
-                    NSLocalizedDescriptionKey: "Microphone access is required to record a voice over."
+                    NSLocalizedDescriptionKey: String(localized: "Microphone access is required to record a voice over.", comment: "Voice-over recording error")
                 ])
             }
         default:
             throw NSError(domain: "VoiceOverRecorder", code: 3, userInfo: [
-                NSLocalizedDescriptionKey: "Microphone access is required to record a voice over."
+                NSLocalizedDescriptionKey: String(localized: "Microphone access is required to record a voice over.", comment: "Voice-over recording error")
             ])
         }
     }

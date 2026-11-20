@@ -141,7 +141,7 @@ final class InspectorPlacementPad: InspectorPadRowView {
     private let card = CALayer()
 
     init(host: InspectorHost) {
-        super.init(id: "background.placementPad", title: nil, undoName: "Placement", padHeight: 112, host: host,
+        super.init(id: "background.placementPad", title: nil, undoName: String(localized: "Placement", comment: "Undo action name; also the VoiceOver label of the position pad"), padHeight: 112, host: host,
                    visible: { _ in true })
         pad.showsKnob = false
         for _ in 0..<9 {
@@ -189,7 +189,7 @@ final class InspectorPlacementPad: InspectorPadRowView {
     override var nudgeScale: CGPoint { CGPoint(x: 7, y: 7) }
 
     override func valueText(_ scope: InspectorScope) -> String {
-        BackgroundPane.isCustomPlacement(scope) ? "Custom" : scope.settings.videoPlacement.rawValue
+        BackgroundPane.isCustomPlacement(scope) ? String(localized: "Custom", comment: "Video placement readout: the user dragged it to a custom spot") : scope.settings.videoPlacement.displayName
     }
 
     override func refresh(_ scope: InspectorScope) {
@@ -231,7 +231,7 @@ final class InspectorCameraPad: InspectorPadRowView {
     private let bubble = CALayer()
 
     init(host: InspectorHost) {
-        super.init(id: "camera.pad", title: nil, undoName: "Move Camera", padHeight: 112, host: host,
+        super.init(id: "camera.pad", title: nil, undoName: String(localized: "Move Camera", comment: "Undo action name; also the VoiceOver label of the position pad"), padHeight: 112, host: host,
                    visible: { _ in true })
         pad.showsKnob = false
         bubble.cornerCurve = .continuous
@@ -277,7 +277,7 @@ final class InspectorCameraPad: InspectorPadRowView {
             let f = InspectorPadMath.cameraFraction(s)
             return "\(Int((f.x * 100).rounded()))% / \(Int((f.y * 100).rounded()))%"
         }
-        return s.cameraPosition.rawValue
+        return s.cameraPosition.displayName
     }
 
     override func refresh(_ scope: InspectorScope) {
@@ -321,7 +321,7 @@ final class InspectorTiltPad: InspectorPadRowView {
         self.maxAngle = maxAngle
         self.angles = angles
         self.write = write
-        super.init(id: id, title: "Skew", undoName: "Tilt", padHeight: 132, host: host, visible: visible)
+        super.init(id: id, title: String(localized: "Skew", comment: "Inspector pad that skews (tilts) the video in 3D; VoiceOver label"), undoName: String(localized: "Tilt", comment: "Undo action name: change the 3D tilt"), padHeight: 132, host: host, visible: visible)
         pad.knobAreaInset = 10
         for line in [crossH, crossV] { pad.contentLayer.addSublayer(line) }
         // The Mac's mini screen card (MiniTiltCardLayer): a white gradient
@@ -392,7 +392,7 @@ final class InspectorTiltPad: InspectorPadRowView {
 
     @objc private func resetTilt() {
         guard let host else { return }
-        host.session.perform(rowID, name: "Reset Tilt") { write(host.scope, 0, 0) }
+        host.session.perform(rowID, name: String(localized: "Reset Tilt", comment: "Undo action name: reset the 3D tilt to flat")) { write(host.scope, 0, 0) }
         refresh(host.scope)
     }
 
@@ -508,7 +508,7 @@ final class InspectorSubtitlePad: InspectorPadRowView {
     private let pillLayer = CALayer()
 
     init(host: InspectorHost) {
-        super.init(id: "subtitles.positionPad", title: nil, undoName: "Move Subtitles", padHeight: 112, host: host,
+        super.init(id: "subtitles.positionPad", title: nil, undoName: String(localized: "Move Subtitles", comment: "Undo action name; also the VoiceOver label of the position pad"), padHeight: 112, host: host,
                    visible: { _ in true })
         pad.showsKnob = false
         fauxCard.cornerRadius = 4
@@ -553,7 +553,7 @@ final class InspectorSubtitlePad: InspectorPadRowView {
 
     override func valueText(_ scope: InspectorScope) -> String {
         let s = scope.settings
-        guard s.subtitleCustomX != nil, s.subtitleCustomY != nil else { return s.subtitlePosition.rawValue }
+        guard s.subtitleCustomX != nil, s.subtitleCustomY != nil else { return s.subtitlePosition.displayName }
         let f = InspectorPadMath.subtitleFraction(s)
         return "\(Int((f.x * 100).rounded()))% / \(Int((f.y * 100).rounded()))%"
     }
@@ -587,7 +587,7 @@ final class InspectorWatermarkPad: InspectorPadRowView {
     private var loadedName: String??
 
     init(host: InspectorHost) {
-        super.init(id: "brand.pad", title: nil, undoName: "Move Watermark", padHeight: 112, host: host,
+        super.init(id: "brand.pad", title: nil, undoName: String(localized: "Move Watermark", comment: "Undo action name; also the VoiceOver label of the position pad"), padHeight: 112, host: host,
                    visible: { _ in true })
         pad.showsKnob = false
         mark.contentsGravity = .resizeAspect

@@ -61,7 +61,7 @@ struct ShareMeta: Decodable, Equatable {
         let base = fileName.replacingOccurrences(of: "\\.[A-Za-z0-9]{2,5}$", with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
         if base.isEmpty || base.range(of: "^capturecat-share-[0-9a-fA-F-]{8,}$", options: .regularExpression) != nil {
-            return "Untitled recording"
+            return String(localized: "Untitled recording", comment: "Title shown for a shared video that has no name")
         }
         return base
     }
@@ -129,8 +129,8 @@ enum ShareViewerError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .wrongPassword: return "Wrong password."
-        case .tooManyAttempts: return "Too many attempts — try later."
+        case .wrongPassword: return String(localized: "Wrong password.")
+        case .tooManyAttempts: return String(localized: "Too many attempts — try later.")
         case let .message(text): return text
         }
     }
@@ -143,14 +143,14 @@ enum ShareReportReason: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .spam: return "Spam or misleading"
-        case .sexual: return "Sexual content"
-        case .violence: return "Violence or gore"
-        case .hate: return "Hate or harassment of a group"
-        case .harassment: return "Bullying or harassment"
-        case .illegal: return "Illegal activity"
-        case .copyright: return "Copyright infringement"
-        case .other: return "Something else"
+        case .spam: return String(localized: "Spam or misleading", comment: "Report reason for a shared video")
+        case .sexual: return String(localized: "Sexual content", comment: "Report reason for a shared video")
+        case .violence: return String(localized: "Violence or gore", comment: "Report reason for a shared video")
+        case .hate: return String(localized: "Hate or harassment of a group", comment: "Report reason for a shared video")
+        case .harassment: return String(localized: "Bullying or harassment", comment: "Report reason for a shared video")
+        case .illegal: return String(localized: "Illegal activity", comment: "Report reason for a shared video")
+        case .copyright: return String(localized: "Copyright infringement", comment: "Report reason for a shared video")
+        case .other: return String(localized: "Something else", comment: "Report reason for a shared video")
         }
     }
 }
@@ -158,7 +158,7 @@ enum ShareReportReason: String, CaseIterable {
 /// The reactions the API accepts, in the web's order (apps/api lib/db.ts REACTION_EMOJI).
 enum ShareReactions {
     static let all = ["👍", "❤️", "🔥", "😂", "😮", "🎉"]
-    static let spoken = ["👍": "Thumbs up", "❤️": "Heart", "🔥": "Fire", "😂": "Laughing", "😮": "Surprised", "🎉": "Celebrate"]
+    static let spoken = ["👍": String(localized: "Thumbs up", comment: "VoiceOver name of the 👍 reaction"), "❤️": String(localized: "Heart", comment: "VoiceOver name of the ❤️ reaction"), "🔥": String(localized: "Fire", comment: "VoiceOver name of the 🔥 reaction"), "😂": String(localized: "Laughing", comment: "VoiceOver name of the 😂 reaction"), "😮": String(localized: "Surprised", comment: "VoiceOver name of the 😮 reaction"), "🎉": String(localized: "Celebrate", comment: "VoiceOver name of the 🎉 reaction")]
 }
 
 final class ShareViewerAPI {
@@ -203,8 +203,8 @@ final class ShareViewerAPI {
             return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
         } catch {
             throw ShareViewerError.message((error as? URLError)?.code == .notConnectedToInternet
-                ? "You're offline. Check your connection and try again."
-                : "Couldn't reach CaptureCat. Try again.")
+                ? String(localized: "You're offline. Check your connection and try again.")
+                : String(localized: "Couldn't reach CaptureCat. Try again."))
         }
     }
 
@@ -214,7 +214,7 @@ final class ShareViewerAPI {
 
     private func failure(_ data: Data, _ status: Int, fallback: String) -> ShareViewerError {
         let json = object(data)
-        if status == 429 { return .message(json["error"] as? String ?? "Slow down — try again in a few minutes.") }
+        if status == 429 { return .message(json["error"] as? String ?? String(localized: "Slow down — try again in a few minutes.")) }
         return .message(json["error"] as? String ?? fallback)
     }
 
@@ -231,16 +231,16 @@ final class ShareViewerAPI {
                 return .gated(ShareGateState(rawValue: gate) ?? .locked, fileName: json["fileName"] as? String ?? "")
             }
             guard let meta = try? JSONDecoder.iso.decode(ShareMeta.self, from: data) else {
-                throw ShareViewerError.message("CaptureCat sent an unexpected response. Try again.")
+                throw ShareViewerError.message(String(localized: "CaptureCat sent an unexpected response. Try again."))
             }
             return .open(meta)
         case 410:
             let json = object(data)
-            return .removed(json["message"] as? String ?? "This video was removed for violating CaptureCat's terms.")
+            return .removed(json["message"] as? String ?? String(localized: "This video was removed for violating CaptureCat's terms."))
         case 404:
             return try await probePrivate(videoID)
         default:
-            throw failure(data, status, fallback: "Couldn't load this video. Try again.")
+            throw failure(data, status, fallback: String(localized: "Couldn't load this video. Try again."))
         }
     }
 
@@ -254,7 +254,7 @@ final class ShareViewerAPI {
         switch status {
         case 200, 206: return .ownerPrivate
         case 403: return .privateVideo
-        case 410: return .removed("This video was removed for violating CaptureCat's terms.")
+        case 410: return .removed(String(localized: "This video was removed for violating CaptureCat's terms."))
         default: return .notFound
         }
     }
@@ -263,11 +263,11 @@ final class ShareViewerAPI {
         let (data, status) = try await send(request("POST", url("/api/video/\(videoID)/unlock"), json: ["password": password], bearer: false))
         switch status {
         case 200:
-            guard let token = object(data)["token"] as? String else { throw ShareViewerError.message("Could not load the video.") }
+            guard let token = object(data)["token"] as? String else { throw ShareViewerError.message(String(localized: "Could not load the video.")) }
             return token
         case 429: throw ShareViewerError.tooManyAttempts
         case 403: throw ShareViewerError.wrongPassword
-        default: throw failure(data, status, fallback: "Could not load the video.")
+        default: throw failure(data, status, fallback: String(localized: "Could not load the video."))
         }
     }
 
@@ -290,13 +290,13 @@ final class ShareViewerAPI {
 
     func comments(_ videoID: String, token shareToken: String?) async throws -> (comments: [VideoComment], viewer: ShareCommentViewer?) {
         let (data, status) = try await send(request("GET", url("/api/video/\(videoID)/comments", ["token": shareToken])))
-        guard status == 200 else { throw failure(data, status, fallback: "Couldn't load comments.") }
+        guard status == 200 else { throw failure(data, status, fallback: String(localized: "Couldn't load comments.")) }
         struct Reply: Decodable {
             var comments: [Tolerant]
             var viewer: ShareCommentViewer?
         }
         guard let reply = try? JSONDecoder.iso.decode(Reply.self, from: data) else {
-            throw ShareViewerError.message("Couldn't load comments.")
+            throw ShareViewerError.message(String(localized: "Couldn't load comments."))
         }
         return (reply.comments.compactMap(\.comment), reply.viewer)
     }
@@ -315,11 +315,11 @@ final class ShareViewerAPI {
         }
         let (data, status) = try await send(post)
         guard status == 200 || status == 201 else {
-            throw failure(data, status, fallback: parentID == nil ? "Could not post comment" : "Could not post reply")
+            throw failure(data, status, fallback: parentID == nil ? String(localized: "Could not post comment", comment: "Error when posting a comment on a shared video fails") : String(localized: "Could not post reply", comment: "Error when posting a reply to a comment fails"))
         }
         struct Reply: Decodable { var comment: Tolerant }
         guard let comment = (try? JSONDecoder.iso.decode(Reply.self, from: data))?.comment.comment else {
-            throw ShareViewerError.message("Could not post comment")
+            throw ShareViewerError.message(String(localized: "Could not post comment", comment: "Error when posting a comment on a shared video fails"))
         }
         return comment
     }
@@ -340,7 +340,7 @@ final class ShareViewerAPI {
             comment = VideoComment(
                 commentId: id,
                 parentId: (try? c.decodeIfPresent(String.self, forKey: .parentId)) ?? nil,
-                authorName: (name?.isEmpty == false ? name : nil) ?? "Anonymous",
+                authorName: (name?.isEmpty == false ? name : nil) ?? String(localized: "Anonymous", comment: "Author name for a comment posted without a name"),
                 authorImage: (try? c.decodeIfPresent(String.self, forKey: .authorImage)) ?? nil,
                 isOwner: ((try? c.decodeIfPresent(Bool.self, forKey: .isOwner)) ?? nil) ?? false,
                 body: body,
@@ -355,7 +355,7 @@ final class ShareViewerAPI {
 
     func reactions(_ videoID: String, session sessionID: String) async throws -> (all: [ShareReaction], mine: String?) {
         let (data, status) = try await send(request("GET", url("/api/video/\(videoID)/reactions", ["session": sessionID]), bearer: false))
-        guard status == 200 else { throw failure(data, status, fallback: "Couldn't load reactions.") }
+        guard status == 200 else { throw failure(data, status, fallback: String(localized: "Couldn't load reactions.")) }
         struct Reply: Decodable {
             struct Mine: Decodable { var emoji: String }
             var reactions: [ShareReaction]?
@@ -369,7 +369,7 @@ final class ShareViewerAPI {
     func react(_ videoID: String, emoji: String, at time: Double, session sessionID: String) async throws -> String? {
         let (data, status) = try await send(request("POST", url("/api/video/\(videoID)/reactions"),
                                                     json: ["emoji": emoji, "videoTime": time, "sessionId": sessionID], bearer: false))
-        guard (200..<300).contains(status) else { throw failure(data, status, fallback: "Couldn't react. Try again.") }
+        guard (200..<300).contains(status) else { throw failure(data, status, fallback: String(localized: "Couldn't react. Try again.")) }
         return (object(data)["mine"] as? [String: Any])?["emoji"] as? String
     }
 
@@ -377,7 +377,7 @@ final class ShareViewerAPI {
 
     func transcript(_ videoID: String) async throws -> [ShareTranscriptSegment] {
         let (data, status) = try await send(request("GET", url("/api/video/\(videoID)/transcript"), bearer: false))
-        guard status == 200 else { throw failure(data, status, fallback: "Couldn't load the transcript.") }
+        guard status == 200 else { throw failure(data, status, fallback: String(localized: "Couldn't load the transcript.")) }
         struct Reply: Decodable { var segments: [ShareTranscriptSegment]? }
         return (try? JSONDecoder.iso.decode(Reply.self, from: data))?.segments ?? []
     }
@@ -391,8 +391,8 @@ final class ShareViewerAPI {
     func report(_ videoID: String, reason: ShareReportReason) async throws {
         let (data, status) = try await send(request("POST", url("/api/video/\(videoID)/report"), json: ["reason": reason.rawValue]))
         guard (200..<300).contains(status) else {
-            if status == 429 { throw ShareViewerError.message("You've sent a lot of reports. Try again in a while.") }
-            throw failure(data, status, fallback: "Couldn't send the report. Try again.")
+            if status == 429 { throw ShareViewerError.message(String(localized: "You've sent a lot of reports. Try again in a while.")) }
+            throw failure(data, status, fallback: String(localized: "Couldn't send the report. Try again."))
         }
     }
 }

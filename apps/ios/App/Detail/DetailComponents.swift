@@ -108,7 +108,7 @@ final class InfoCard: CCCard {
             line.isLayoutMarginsRelativeArrangement = true
             line.directionalLayoutMargins = .init(top: 12, leading: 0, bottom: 12, trailing: 0)
             line.isAccessibilityElement = true
-            line.accessibilityLabel = "\(row.0): \(row.1)"
+            line.accessibilityLabel = String(localized: "\(row.0): \(row.1)", comment: "VoiceOver: an info row; values are its label and its value, e.g. Length: 2:14")
             rows.addArrangedSubview(line)
         }
     }

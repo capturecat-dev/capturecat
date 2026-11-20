@@ -235,8 +235,8 @@ final class DetailPlaceholderViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = CCTheme.color.background
-        let empty = CCEmptyState(symbol: "play-fill", title: "Pick a recording",
-                                 message: "Choose something from your library to watch it here.", showsWell: false)
+        let empty = CCEmptyState(symbol: "play-fill", title: String(localized: "Pick a recording", comment: "Empty detail pane title on iPad"),
+                                 message: String(localized: "Choose something from your library to watch it here."), showsWell: false)
         view.addSubview(empty)
         NSLayoutConstraint.activate([
             empty.centerXAnchor.constraint(equalTo: view.centerXAnchor),

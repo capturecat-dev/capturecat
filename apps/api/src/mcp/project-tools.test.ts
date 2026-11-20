@@ -546,3 +546,98 @@ describe("list_versions / restore_version", () => {
     expect(errorText(await call(t, "restore_version", { project_id: PID, version_id: "zzzzzzzz00000000" }))).toMatch(/^No version/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// "AI finished editing" — the owner's iPhone/iPad hears about agent saves
+// ---------------------------------------------------------------------------
+
+describe("agent-edit push + agent name in History", () => {
+  const PHONE = "6f1c2c3e-8d4b-4c47-9f0e-2a7b9d1e5c11";
+  const APNS_TOKEN = "a1".repeat(32);
+  let pushes: { url: string; headers: Record<string, string>; body: Record<string, unknown> }[] = [];
+
+  async function withApns(delayMs: number) {
+    const pair = (await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"])) as CryptoKeyPair;
+    const pkcs8 = new Uint8Array((await crypto.subtle.exportKey("pkcs8", pair.privateKey)) as ArrayBuffer);
+    let b = "";
+    for (const x of pkcs8) b += String.fromCharCode(x);
+    Object.assign(env, {
+      APNS_KEY: `-----BEGIN PRIVATE KEY-----\n${btoa(b)}\n-----END PRIVATE KEY-----\n`,
+      APNS_KEY_ID: "TESTKEY123",
+      APNS_TEAM_ID: "TESTTEAM12",
+      AGENT_EDIT_PUSH_DELAY_MS: String(delayMs),
+    });
+    const now = new Date().toISOString();
+    db.query(
+      `INSERT INTO user_devices (user_id, device_id, platform, name, apns_token, apns_env, created_at, updated_at, last_seen_at)
+       VALUES (?, ?, 'ios', 'iPhone', ?, 'sandbox', ?, ?, ?)`,
+      OWNER, PHONE, APNS_TOKEN, now, now, now,
+    );
+    pushes = [];
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      pushes.push({ url: String(input), headers: init!.headers as Record<string, string>, body: JSON.parse(String(init!.body)) });
+      return new Response(null, { status: 200, headers: { "apns-id": "x" } });
+    });
+  }
+
+  it("pushes once the agent goes quiet — a burst of saves is ONE notification, for the last revision", async () => {
+    await createProject(OWNER, PID, "Checkout demo");
+    await withApns(40);
+    const { token: t } = await token();
+    pending.length = 0;
+    structured("apply_edits", await call(t, "apply_edits", { project_id: PID, ops: [{ op: "set_trim", args: { start: 1 } }] }));
+    const last = structured("apply_edits", await call(t, "apply_edits", { project_id: PID, ...ZOOM_BATCH }));
+    await Promise.allSettled(pending);
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0].url).toBe(`https://api.sandbox.push.apple.com/3/device/${APNS_TOKEN}`);
+    expect(pushes[0].headers["apns-collapse-id"]).toBe(`agent-edit-${PID}`);
+    expect(pushes[0].body).toEqual({
+      aps: { alert: { title: "AI finished editing", body: "Claude edited “Checkout demo”." }, sound: "default", "thread-id": `agent-edit-${PID}` },
+      cc: { type: "agentEdited", projectId: PID, revision: last.revision, agentName: "Claude", projectName: "Checkout demo" },
+    });
+  });
+
+  it("no push when a person saved after the agent, or when APNs isn't configured", async () => {
+    await createProject(OWNER, PID, "Checkout demo");
+    await withApns(40);
+    const { token: t } = await token();
+    pending.length = 0;
+    structured("apply_edits", await call(t, "apply_edits", { project_id: PID, ...ZOOM_BATCH }));
+    await humanRename("Renamed by a person");
+    await Promise.allSettled(pending);
+    expect(pushes).toHaveLength(0);
+
+    Object.assign(env, { APNS_KEY: undefined });
+    pending.length = 0;
+    structured("apply_edits", await call(t, "apply_edits", { project_id: PID, ops: [{ op: "set_trim", args: { start: 1 } }] }));
+    await Promise.allSettled(pending);
+    expect(pushes).toHaveLength(0);
+  });
+
+  it("restore_version by an agent pushes too", async () => {
+    await createProject(OWNER, PID, "Checkout demo");
+    await withApns(0);
+    const { token: t } = await token();
+    pending.length = 0;
+    structured("apply_edits", await call(t, "apply_edits", { project_id: PID, ...ZOOM_BATCH }));
+    await Promise.allSettled(pending);
+    const first = versions()[0];
+    pending.length = 0;
+    pushes = [];
+    const restored = structured("restore_version", await call(t, "restore_version", { project_id: PID, version_id: first.id }));
+    await Promise.allSettled(pending);
+    expect(pushes.map((p) => (p.body.cc as { revision: number }).revision)).toEqual([restored.revision]);
+  });
+
+  it("History names the agent that saved a version; people's versions name none", async () => {
+    await createProject(OWNER, PID, "Checkout demo");
+    const { token: t } = await token();
+    structured("apply_edits", await call(t, "apply_edits", { project_id: PID, ...ZOOM_BATCH }));
+    const res = await session(OWNER, "GET", `/cloud-projects/${PID}/versions`);
+    const body = (await res.json()) as { versions: { source: string; agent: { name: string } | null }[] };
+    expect(body.versions.map((v) => [v.source, v.agent])).toEqual([
+      ["agent", { name: "Claude" }],
+      ["human", null],
+    ]);
+  });
+});

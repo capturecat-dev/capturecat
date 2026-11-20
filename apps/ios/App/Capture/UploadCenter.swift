@@ -71,7 +71,7 @@ final class UploadCenter {
     }
 
     private func publish(_ take: PendingTake) async {
-        progress[take.id] = PublishProgress(phase: .preparing, fraction: 0, message: "Preparing…")
+        progress[take.id] = PublishProgress(phase: .preparing, fraction: 0, message: String(localized: "Preparing…", comment: "Upload status"))
         reload()
         let id = take.id
         do {

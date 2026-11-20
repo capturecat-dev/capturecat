@@ -123,10 +123,14 @@ enum CCAccessibility {
         } else {
             secText = "\(Int(rest.rounded(.down)))"
         }
-        let secWord = secText == "1" ? "second" : "seconds"
-        guard minutes > 0 else { return "\(secText) \(secWord)" }
-        let minWord = minutes == 1 ? "minute" : "minutes"
-        return secText == "0" ? "\(minutes) \(minWord)" : "\(minutes) \(minWord) \(secText) \(secWord)"
+        let secPhrase = secText == "1"
+            ? String(localized: "1 second", comment: "Spoken duration (VoiceOver)")
+            : String(localized: "\(secText) seconds", comment: "Spoken duration (VoiceOver), e.g. 4.5 seconds")
+        guard minutes > 0 else { return secPhrase }
+        let minPhrase = minutes == 1
+            ? String(localized: "1 minute", comment: "Spoken duration (VoiceOver)")
+            : String(localized: "\(minutes) minutes", comment: "Spoken duration (VoiceOver), e.g. 3 minutes")
+        return secText == "0" ? minPhrase : String(localized: "\(minPhrase) \(secPhrase)", comment: "Spoken duration (VoiceOver): minutes phrase then seconds phrase, e.g. 1 minute 4.5 seconds")
     }
 }
 

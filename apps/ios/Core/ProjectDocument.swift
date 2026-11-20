@@ -12,8 +12,8 @@ nonisolated enum ProjectDocument {
 
         var errorDescription: String? {
             switch self {
-            case .templateMissing: return "This copy of CaptureCat is missing its project template. Reinstall the app."
-            case .notAnObject: return "This project's file is damaged."
+            case .templateMissing: return String(localized: "This copy of CaptureCat is missing its project template. Reinstall the app.")
+            case .notAnObject: return String(localized: "This project's file is damaged.")
             }
         }
     }

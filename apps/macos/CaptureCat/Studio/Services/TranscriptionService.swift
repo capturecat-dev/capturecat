@@ -23,6 +23,8 @@ final class TranscriptionService {
     /// 0…1 across the stages (model, audio, decoding, grouping) — the iOS
     /// sheet's bar. The stage strings above are unchanged.
     var fraction: Double = 0
+    /// The first stage's line — compare `progress` against this, not a literal.
+    static let loadingModelProgress = String(localized: "Loading model...", comment: "Generate Subtitles progress line")
 
     /// Where the model lives. Both nil (the Mac's choice since it shipped):
     /// WhisperKit's default download location. `modelFolder` loads a model
@@ -66,7 +68,7 @@ final class TranscriptionService {
     func transcribe(videoURL: URL, language: String = "en") async throws -> [SubtitleSegment] {
         #if canImport(WhisperKit)
         isTranscribing = true
-        progress = "Loading model..."
+        progress = Self.loadingModelProgress
         fraction = 0
         error = nil
         defer { isTranscribing = false }
@@ -89,7 +91,7 @@ final class TranscriptionService {
         }
 
         // Extract audio to 16kHz mono WAV via AVAssetReader
-        progress = "Extracting audio..."
+        progress = String(localized: "Extracting audio...", comment: "Generate Subtitles progress line")
         fraction = 0.1
         let wavURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
@@ -97,7 +99,7 @@ final class TranscriptionService {
         try await extractAudio(from: videoURL, to: wavURL)
 
         // Transcribe with word-level timestamps
-        progress = "Transcribing..."
+        progress = String(localized: "Transcribing...", comment: "Generate Subtitles progress line")
         fraction = 0.15
         let options = DecodingOptions(
             task: .transcribe,
@@ -126,12 +128,12 @@ final class TranscriptionService {
         try? FileManager.default.removeItem(at: wavURL)
 
         // Map word timings → SubtitleSegment, then group
-        progress = "Processing subtitles..."
+        progress = String(localized: "Processing subtitles...", comment: "Generate Subtitles progress line")
         fraction = 0.95
         let grouped = Self.subtitles(fromWords: results.flatMap { result in
             result.allWords.map { (start: $0.start, end: $0.end, word: $0.word) }
         })
-        progress = "Done — \(grouped.count) subtitles"
+        progress = String(localized: "Done — \(grouped.count) subtitles", comment: "Generate Subtitles progress line")
         fraction = 1
         return grouped
         #else
@@ -160,7 +162,7 @@ final class TranscriptionService {
         let asset = AVURLAsset(url: videoURL)
         // Prefer mic track (last) over system audio (first) for speech transcription
         guard let audioTrack = try await asset.loadTracks(withMediaType: .audio).last else {
-            throw TranscriptionError.audioExtractionFailed("No audio track found")
+            throw TranscriptionError.audioExtractionFailed(String(localized: "No audio track found", comment: "Transcription error detail"))
         }
 
         let reader = try AVAssetReader(asset: asset)
@@ -183,7 +185,7 @@ final class TranscriptionService {
                 guard let format = CMSampleBufferGetFormatDescription(sampleBuffer),
                       let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(format)?.pointee,
                       asbd.mSampleRate > 0, asbd.mChannelsPerFrame > 0 else {
-                    throw TranscriptionError.audioExtractionFailed("Unreadable audio format")
+                    throw TranscriptionError.audioExtractionFailed(String(localized: "Unreadable audio format", comment: "Transcription error detail"))
                 }
                 resampler = TranscriptionAudio.Resampler(inputRate: Int(asbd.mSampleRate.rounded()),
                                                          channels: Int(asbd.mChannelsPerFrame))
@@ -200,7 +202,7 @@ final class TranscriptionService {
             }
         }
         if reader.status == .failed {
-            throw TranscriptionError.audioExtractionFailed(reader.error?.localizedDescription ?? "Audio decode failed")
+            throw TranscriptionError.audioExtractionFailed(reader.error?.localizedDescription ?? String(localized: "Audio decode failed", comment: "Transcription error detail"))
         }
         if var r = resampler { samples.append(contentsOf: r.finish()) }
         try TranscriptionAudio.wav(samples).write(to: wavURL)
@@ -213,8 +215,8 @@ enum TranscriptionError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .audioExtractionFailed(let msg): "Audio extraction failed: \(msg)"
-        case .transcriptionFailed(let msg): "Transcription failed: \(msg)"
+        case .audioExtractionFailed(let msg): String(localized: "Audio extraction failed: \(msg)", comment: "Transcription error; %@ is a detail")
+        case .transcriptionFailed(let msg): String(localized: "Transcription failed: \(msg)", comment: "Transcription error; %@ is a detail")
         }
     }
 }

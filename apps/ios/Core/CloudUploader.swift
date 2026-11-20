@@ -25,10 +25,10 @@ nonisolated enum PublishError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .alreadyExists: return "A project with this id is already in your library."
-        case let .uploadFailed(status): return "The upload didn't finish (HTTP \(status)). Try again."
-        case .expired: return "The upload took too long. Try again on a faster connection."
-        case .notVerified: return "Some files didn't reach CaptureCat. Try again."
+        case .alreadyExists: return String(localized: "A project with this id is already in your library.")
+        case let .uploadFailed(status): return String(localized: "The upload didn't finish (HTTP \(status)). Try again.", comment: "Argument is an HTTP status code")
+        case .expired: return String(localized: "The upload took too long. Try again on a faster connection.")
+        case .notVerified: return String(localized: "Some files didn't reach CaptureCat. Try again.")
         }
     }
 }
@@ -60,7 +60,7 @@ nonisolated enum CloudUploader {
         var hashed: Int64 = 0
         for file in files {
             let (sha, bytes) = try sha256(of: file.url) { done in
-                progress(PublishProgress(phase: .preparing, fraction: Double(hashed + done) / Double(total), message: "Preparing…"))
+                progress(PublishProgress(phase: .preparing, fraction: Double(hashed + done) / Double(total), message: String(localized: "Preparing…", comment: "Upload status")))
             }
             hashed += bytes
             manifest.append(ManifestFile(path: file.path, sha256: sha, bytes: bytes, contentType: file.contentType))
@@ -75,7 +75,7 @@ nonisolated enum CloudUploader {
             // published — and may have been edited on the Mac or web since, so
             // never save over it. (Stage reports the CURRENT revision; a save
             // "based on" it would silently win.)
-            gate.finish(PublishProgress(phase: .done, fraction: 1, message: "Saved"))
+            gate.finish(PublishProgress(phase: .done, fraction: 1, message: String(localized: "Saved", comment: "Upload status: finished")))
             return stage.revision
         }
         var queue = stage.missing
@@ -85,7 +85,7 @@ nonisolated enum CloudUploader {
         while let target = queue.first {
             try Task.checkCancellation()
             guard let file = bySHA[target.sha256] else { throw PublishError.notVerified }
-            let message = queue.count == 1 ? "Uploading…" : "Uploading \(queue.count) files…"
+            let message = queue.count == 1 ? String(localized: "Uploading…", comment: "Upload status") : String(localized: "Uploading \(queue.count) files…", comment: "Upload status; argument is the number of files")
             let base = sent
             do {
                 try await put(file.url, to: target) { bytes in
@@ -103,7 +103,7 @@ nonisolated enum CloudUploader {
         }
 
         // ── finalize (bounded verification per request: call while "verifying")
-        progress(PublishProgress(phase: .verifying, fraction: 0, message: "Checking upload…"))
+        progress(PublishProgress(phase: .verifying, fraction: 0, message: String(localized: "Checking upload…", comment: "Upload status: verifying the uploaded files")))
         var committed = false
         for attempt in 0..<60 {
             try Task.checkCancellation()
@@ -113,16 +113,16 @@ nonisolated enum CloudUploader {
                 throw PublishError.notVerified
             }
             if committed { break }
-            progress(PublishProgress(phase: .verifying, fraction: min(0.95, Double(attempt + 1) / 10), message: "Checking upload…"))
+            progress(PublishProgress(phase: .verifying, fraction: min(0.95, Double(attempt + 1) / 10), message: String(localized: "Checking upload…", comment: "Upload status: verifying the uploaded files")))
             try await Task.sleep(nanoseconds: 500_000_000)
         }
         guard committed else { throw PublishError.notVerified }
 
         // ── project.json (first save: based on the stage revision, 0 when new)
-        progress(PublishProgress(phase: .saving, fraction: 0, message: "Saving…"))
+        progress(PublishProgress(phase: .saving, fraction: 0, message: String(localized: "Saving…", comment: "Upload status: saving the project")))
         switch try await api.saveProject(projectID, document: document, baseRevision: stage.revision) {
         case let .saved(revision):
-            gate.finish(PublishProgress(phase: .done, fraction: 1, message: "Saved"))
+            gate.finish(PublishProgress(phase: .done, fraction: 1, message: String(localized: "Saved", comment: "Upload status: finished")))
             return revision
         case .conflict:
             // Never overwrite a document someone else saved under this id.

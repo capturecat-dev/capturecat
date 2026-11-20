@@ -533,7 +533,7 @@ final class PreviewGestureCore {
             let settings = s
             let after = s.cameraStackRatio
             if after != initial {
-                UndoStep.register(host?.gestureUndoManager, target: settings, name: "Camera Height",
+                UndoStep.register(host?.gestureUndoManager, target: settings, name: String(localized: "Camera Height", comment: "Undo action name: dragging the camera stack height"),
                                   undo: { $0.cameraStackRatio = initial }, redo: { $0.cameraStackRatio = after })
             }
             _ = after

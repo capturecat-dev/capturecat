@@ -8,7 +8,7 @@ import UIKit
 //
 //     let alert = CCAlert(title: "Delete project?", message: "This can't be undone.")
 //     alert.addButton("Delete", role: .destructive) { try await api.delete(id) }   // busy + inline error
-//     alert.addButton("Cancel", role: .cancel)
+//     alert.addButton(String(localized: "Cancel", comment: "Alert button"), role: .cancel)
 //     alert.present(from: self) { index in … }      // 0 = first added
 //
 // A button with an async `action` shows a spinner while it runs; if it
@@ -83,7 +83,7 @@ final class CCAlert {
     }
 
     func present(from presenter: UIViewController, completion: ((Int) -> Void)? = nil) {
-        if buttons.isEmpty { buttons = [Button(title: "OK", role: .primary, action: nil)] }
+        if buttons.isEmpty { buttons = [Button(title: String(localized: "OK", comment: "Default alert button"), role: .primary, action: nil)] }
         let controller = CCAlertController(alert: self, completion: completion)
         self.controller = controller
         let top = Self.topmost(from: presenter)
@@ -139,7 +139,7 @@ final class CCAlert {
         alert.tone = destructive ? .destructive : .standard
         alert.presentation = presentation
         alert.addButton(confirmTitle, role: destructive ? .destructive : .primary, action: action)
-        alert.addButton("Cancel", role: .cancel)
+        alert.addButton(String(localized: "Cancel", comment: "Alert button"), role: .cancel)
         alert.present(from: presenter) { completion?($0 == 0) }
     }
 
@@ -177,7 +177,7 @@ final class CCAlert {
             guard !text.isEmpty else { throw CCAlertError.empty(placeholder) }
             try await action?(text)
         }
-        alert.addButton("Cancel", role: .cancel)
+        alert.addButton(String(localized: "Cancel", comment: "Alert button"), role: .cancel)
         alert.present(from: presenter) { [weak field] index in
             let text = (field?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             completion?(index == 0 && !text.isEmpty ? text : nil)
@@ -190,7 +190,7 @@ enum CCAlertError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .empty(let what): return "\(what) can't be empty."
+        case .empty(let what): return String(localized: "\(what) can't be empty.", comment: "Alert text field error; the placeholder is the field's name, e.g. Project name can't be empty.")
         }
     }
 }

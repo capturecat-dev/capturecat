@@ -109,7 +109,7 @@ final class CCActionSheetController: UIViewController {
         if anchored {
             layoutAnchored()
         } else {
-            let cancelRow = CCActionRow(item: .init(title: "Cancel", symbol: nil, destructive: false, checked: false, handler: {}), isCancel: true)
+            let cancelRow = CCActionRow(item: .init(title: String(localized: "Cancel", comment: "Action sheet: dismisses the sheet"), symbol: nil, destructive: false, checked: false, handler: {}), isCancel: true)
             cancelRow.onTap = { [weak self] in self?.cancel() }
             cancelCard.addSubview(cancelRow)
             cancelRow.translatesAutoresizingMaskIntoConstraints = false

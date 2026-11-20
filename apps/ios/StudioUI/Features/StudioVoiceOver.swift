@@ -97,7 +97,7 @@ enum StudioVoiceOver {
                 registerUndo(adding: clip, to: project, undoManager: undoManager, changed: changed)
             }
         }
-        undoManager?.setActionName("Record Voice Over")
+        undoManager?.setActionName(String(localized: "Record Voice Over", comment: "Undo action name: record a voice-over take"))
     }
 }
 
@@ -112,7 +112,7 @@ final class StudioVoiceOverController {
 
     let meter = StudioVoiceLevelMeter()
     let timeLabel = ccLabel("0:00.0", font: CCFont.mono, color: CCTheme.color.foreground, alignment: .center)
-    let recordButton = CCButton(title: "Record", symbol: "mic.fill", style: .primary, size: .lg)
+    let recordButton = CCButton(title: String(localized: "voiceOver.record", defaultValue: "Record", comment: "Voice Over sheet: start recording NARRATION (audio from the microphone, not a screen recording)"), symbol: "mic.fill", style: .primary, size: .lg)
     private(set) var alert: CCAlert?
     private var observation: SurfaceObservation?
     private var wasPlaying = false
@@ -135,11 +135,11 @@ final class StudioVoiceOverController {
         meterRow.axis = .vertical
         meterRow.spacing = CCSpace.sm
         let alert = StudioFeatureSheet.make(
-            title: "Voice Over",
-            message: "Narrate over the recording from the playhead. It plays while you speak; stop when you're done and the take lands on the voice track.",
+            title: String(localized: "Voice Over", comment: "Feature sheet title: record a voice-over narration"),
+            message: String(localized: "Narrate over the recording from the playhead. It plays while you speak; stop when you're done and the take lands on the voice track."),
             symbol: "mic.fill",
             content: [meterRow, recordButton])
-        alert.addButton("Done", role: .cancel)
+        alert.addButton(String(localized: "Done", comment: "Feature sheet: close the sheet"), role: .cancel)
         self.alert = alert
         alert.present(from: presenter) { [weak self] _ in self?.sheetClosed() }
         observation = SurfaceObservation { [weak self] in self?.apply() }
@@ -181,7 +181,7 @@ final class StudioVoiceOverController {
             addedClips.append(clip)
             CCHaptics.success()
             onClipAdded?(clip)
-            CCAccessibility.announce("Voice-over take added")
+            CCAccessibility.announce(String(localized: "Voice-over take added", comment: "VoiceOver announcement after recording a voice-over"))
         }
         return clip
     }
@@ -198,7 +198,7 @@ final class StudioVoiceOverController {
         meter.show(samples: samples, recording: recording)
         let t = recording ? session.recorder.currentTime : 0
         timeLabel.text = String(format: "%d:%04.1f", Int(t) / 60, t.truncatingRemainder(dividingBy: 60))
-        let title = recording ? "Stop" : "Record"
+        let title = recording ? String(localized: "Stop", comment: "Voice Over sheet: stop recording narration") : String(localized: "voiceOver.record", defaultValue: "Record", comment: "Voice Over sheet: start recording NARRATION (audio from the microphone, not a screen recording)")
         if recordButton.title != title {
             recordButton.title = title
             recordButton.symbol = recording ? "stop.fill" : "mic.fill"
@@ -231,7 +231,7 @@ final class StudioVoiceLevelMeter: UIView {
             bars.append(bar)
         }
         isAccessibilityElement = true
-        accessibilityLabel = "Input level"
+        accessibilityLabel = String(localized: "Input level", comment: "VoiceOver label for the microphone level meter")
         ccOnThemeChange { [weak self] in self?.applyTheme() }
         applyTheme()
     }
@@ -261,7 +261,7 @@ final class StudioVoiceLevelMeter: UIView {
         let grew = samples.count != lastSamples.count || samples.last != lastSamples.last
         lastSamples = samples
         shownCount = visible.count
-        accessibilityValue = recording ? "\(Int(((visible.last ?? 0) * 100).rounded())) percent" : "Idle"
+        accessibilityValue = recording ? String(localized: "\(Int(((visible.last ?? 0) * 100).rounded())) percent", comment: "VoiceOver value for the microphone level meter") : String(localized: "Idle", comment: "VoiceOver value for the microphone level meter when not recording")
         guard bounds.width > 0 else { return }
         layoutBars(animatingNewest: recording && grew && !visible.isEmpty)
     }

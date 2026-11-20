@@ -1,0 +1,86 @@
+# ios-l10n.sh: texts that are allowed to come out identical to the English run.
+# Only CONTENT belongs here — what a person or the server wrote (the DEBUG
+# fixture world's project names, comments, people, emails, links) and names
+# that are the same in every language. App copy never does: translate it.
+# One exact text per line, or `re:<regex>`. Truncation of these is design
+# (a long project name ends in "…"), so the judge also exempts it.
+
+# Fixture world (App/Fixtures/FixtureWorld.swift) — projects and shares
+Onboarding walkthrough
+Q4 roadmap demo
+Checkout bug repro
+Login flow on iPhone
+Settings redesign review
+Release notes — November
+Pricing page tour with the new annual plans and team seats
+Screen Recording Nov 13 at 9.41.02 AM
+Screenshot Nov 12 at 4.21.07 PM
+Screenshot Nov 13 at 9.38.10 AM
+Screenshot Nov 9 at 9.02.44 AM
+The upload didn't finish (HTTP 503). Try again.
+# … people and comments
+Alex Rivera
+Jordan Lee
+Priya Natarajan
+Sam Okafor
+Alex Rivera, alex@example.com
+alex@example.com
+Good call — bumping it to a primary button in the next take.
+Love the pacing through the settings section.
+Small typo in the second tooltip (“recieve”).
+The empty state here is lovely. Could the import button be a little more prominent?
+re:^[A-Z]{2}$
+# … links
+re:^(https://)?capturecat\.so/share/
+# StudioLab's fixture project (InspectorValuesTranscript) and its annotation text
+Inspector Values
+First line
+Second line
+Hello from the Mac
+
+# Brand and product names, file formats, glyph samples (the same in every language)
+CAPTURECAT
+CaptureCat
+Pro
+iPhone
+iPad
+iOS
+Mac
+MP4
+MOV
+GIF
+Aa
+AA
+re:^#?[0-9A-F]{6}$
+# Typed confirmation word: deliberately English in every language (the
+# sentence around it is translated and says so).
+DELETE
+
+# The Language page: each language in its own name (by design)
+English (UK)
+English (US)
+Deutsch
+Español (España)
+Español (México)
+Français
+Italiano
+Nederlands
+Português (Brasil)
+
+# The fixture inbox's progress message (FixtureWorld's "Uploading…"; the
+# real one comes from CloudUploader, translated)
+re:^Uploading… \d+%$
+
+# Byte counts: ByteCountFormatter writes "182.4 MB" in several languages
+re:^[\d.,  ]+ ?(bytes|KB|MB|GB|TB)$
+Hello
+
+# Connect AI (App/Account/AgentConnections.swift): the connector URL, the
+# terminal commands and config blocks — typed into another app exactly as is
+https://mcp.capturecat.so/mcp
+re:^gemini mcp add --transport http
+re:^codex mcp add capturecat --url
+re:^\[mcp_servers\.capturecat\]
+re:^\{\s*"mcpServers"
+# … and the fixture's personal token name (FixtureL10nAudit; users name tokens)
+Claude Code on my Mac

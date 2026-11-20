@@ -49,6 +49,44 @@ Copy that talks about this device ("this iPhone", "Record on iPhone") follows th
 (`ThisDevice.noun`); content badges ("iPhone" on a phone-shaped capture) describe the
 recording.
 
+## Connect AI (edit with your own AI)
+
+The Mac embeds no AI SDK — it is an MCP server the user's own agent connects to. The phone
+works the same way through the CLOUD MCP server (`https://mcp.capturecat.so/mcp`,
+`apps/api/src/mcp/`): no API key in the app, the user brings their own Claude or ChatGPT,
+and the agent edits cloud projects server-side with the editor's own op layer (so preview
+and export still match). The phone syncs the result.
+
+- **Account → Connect AI** (`App/Account/ConnectAIViewController`; one row on the Account
+  screen): the connector URL (copy), Claude / ChatGPT / Gemini / Codex / Other apps chips with
+  each app's steps from its own docs (2026-11-20): Claude — Customize → Connectors → Add
+  custom connector; ChatGPT — Plugins → Add custom MCP server; Gemini — gemini.google.com
+  Settings → Connected Apps → Custom apps (US, 18+, personal accounts only — said on screen)
+  plus the Gemini CLI command (`gemini mcp add --transport http --scope user capturecat <url>`);
+  Codex — `codex mcp add capturecat --url <url>` + `codex mcp login capturecat` and the
+  `~/.codex/config.toml` snippet (CLI, IDE extension, desktop app; Codex cloud can't use
+  custom MCP servers). None has a link that pre-fills the connector; the consumer apps add
+  custom connectors on the web, then work in their phone apps. Every command copies in one
+  tap. The `mcpServers` JSON for other clients, **Connected** (apps that signed in with CaptureCat —
+  `GET /api/oauth/apps` — and personal tokens — `GET /api/agent-tokens`; Revoke behind a
+  house confirm), the `agentEditing` plan gate (upgrade callout, never steps that would fail)
+  and the notification permission the "AI finished editing" push needs. Every string is
+  `String(localized:)`.
+- **Background edits feel live** (`StudioUI/Sync/StudioAgentEdits`): whenever the sync pulls
+  or merges cloud changes into an open editor (the head poll, foreground, a lost push race,
+  the push), it asks History who made them; an agent's revision (`source: agent`, named by
+  `agent.name`) shows "Edited by Claude" + the change summary + **Undo**, and the head poll
+  runs every 5 s for 2 minutes. Unsent local work merges three-way exactly as for any
+  concurrent change (conflicts: the usual Merge Review / two-way choice). Undo never deletes:
+  clean case = the server's own restore of the version before (a new `restore` revision);
+  otherwise only the agent's change is reverted three-way and pushed. One editor undo step.
+- **Push** "AI finished editing" (`apps/api/src/lib/agent-edit-push.ts`): sent once the agent
+  has been quiet on a project for 15 s (a burst of saves = one notification; collapse id per
+  project), to the owner's iOS devices with an APNs token. In front with that project open:
+  no banner, the editor refreshes; tapped: the project opens in the editor
+  (`App/Studio/AgentEditNotifications`).
+- **Gate**: `scripts/ios-agent-edit.sh` (below).
+
 ## Share viewer (share links open in the app)
 
 A CaptureCat share link tapped on an iPhone or iPad with the app opens
@@ -446,6 +484,40 @@ row lower — reported, not gated, and open.
   elsewhere since).
 - **Wi-Fi wire protocol**: `apps/macos/CaptureCat/Shared/WirelessDeviceProtocol.swift`.
 
+## Localization
+
+The app, both extensions and StudioLab share one String Catalog,
+`Localization/Localizable.xcstrings` (a synchronized folder in every target),
+in the 12 App Store listing languages: en-GB and en-US (the English as
+written in code — the Mac app's words, which the parity gates compare byte for
+byte), de, fr, es, es-MX, it, pt-BR, nl, ja, ko, zh-Hans.
+Permission prompts and display names are each bundle's `InfoPlist.xcstrings`
+(App/, Broadcast/, ShareExtension/). Every user-facing string goes through
+`String(localized:)` — including the studio core's shared Mac files
+(apps/macos/CaptureCat/Studio), which return their English on the Mac (no
+catalog there; render-baseline identical).
+
+- **Language picker**: Account → Language (`App/Account/LanguageViewController.swift`):
+  System + the 12 languages, each in its own name with the current language's
+  name under it; it sets or clears `AppleLanguages` and says the change applies
+  the next time CaptureCat opens (iOS also offers it in Settings → CaptureCat).
+- **Keeping the catalog in sync** (`scripts/l10n-catalog.py`): build the app,
+  then `harvest <derived-data>` (new keys from the compiler's `.stringsdata`,
+  vanished ones marked stale; `--prune` drops them), `export <lang> <file>`
+  (what still needs translating, with comments and source files),
+  `import <lang> <file>`, `check`.
+- **Rules**: whole sentences as one key (no `+` fragments); interpolate only
+  String / Int (format Doubles first); a `comment:` on every short or
+  ambiguous key; enum raw values, persisted defaults ("Blur", "You") and
+  anything drawn into the exported video stay English — a default is shown
+  translated at the display site (`RegionLabel.display`,
+  `HistoryWords.actorDisplayName`). Layouts must hold every language:
+  `ios-l10n.sh` is the gate.
+- **Left in English on purpose**: the typed confirmation word DELETE (the
+  sentence around it says so), font and sound-style names, file-format names,
+  number-only readouts, project content (names, comments, captions, annotation
+  text), server messages, and text rendered into exported videos.
+
 ## Gates
 
     apps/ios/scripts/core-selftest.sh       # lossless JSON, project docs, link-key vector
@@ -460,6 +532,7 @@ row lower — reported, not gated, and open.
     apps/ios/scripts/ios-history.sh         # History (Studio 4f): rows, compare, preview, restore, Merge Review vs the Mac's --history-transcript, line for line; motion sequences; INJECT= must FAIL
     apps/ios/scripts/ios-cloud-sync.sh      # sync (Phase 5): the Mac's --cloud-sync-test engine sections replayed on iOS (every line == the Mac's), the iOS studio's sync in the real editor (clone, debounced If-Match pushes, merges, Merge Review, cloud History, offline queue, moved container, inbox take, status dot mid-flight), and a Mac ↔ iOS round trip with the REAL Mac binary; INJECT=drop-if-match|merge-wrong-side|lose-unknown-key must FAIL
     apps/ios/scripts/ios-editor-resize.sh   # iPhone Duo fold / unfold: the real editor resized live between the outer (compact) and inner (regular) displays mid-playback — layout per size class, regions inside and clear, History style, project / selection / undo / playback kept; then a crease (top to bottom, then side to side) through FoldingDisplay's seam: stage + transport on one side, timeline / tool bar / inspector on the other, nothing and no title on the crease; then on its side (compact height: the tool rail + side panel). Every arrangement: the one transport row, the timeline's playhead on its viewport's centre, the tool bar's place; a pane tool's panel caught MID-FLIGHT and never over the stage (+ injected ignores-size-class / ignores-crease / snap-panel must FAIL)
+    apps/ios/scripts/ios-l10n.sh            # Localization: the String Catalog complete (every key in de fr es es-MX it pt-BR nl ja ko zh-Hans, placeholders intact, no two different labels on one surface reading the same — Split/Share; injected collision caught); the static lint scripts/ios-l10n-lint.py (no raw English literal reaches a UIKit text sink — text/title/setTitle/placeholder/accessibility*/UIAction/UIMenu/kit titles/string arrays; `// l10n-ok: why` marks a deliberate one; --selftest catches injected literals); then per locale (en baseline + the 12 listing languages, `-AppleLanguages`) on an iPhone and an iPad: the app's -uiFixtures -uiL10nAudit (library + filters, card sheet, project, share, capture, account, Language, delete-account sheet, toast, sign-in, and the empty world's library/filters/capture/account) and StudioLab --l10n (every studio screen A11yLab opens + each object selected with its inspector: every annotation type, highlight, tilt, depth focus, blur, intro, curtain) through Kit/CCLocalizationAudit — every visible + spoken text, truncation / clipping / overlap, a PNG per screen; scripts/ios-l10n-judge.py: a text identical to the English run is untranslated unless the catalog says it's the same word or it's fixture content (scripts/ios-l10n-allow.txt). A row of controls reading the same text twice where English differs fails too. Proves itself: an injected hard-coded English label, a pinned header title and an injected same-row collision must be CAUGHT. DEVICES / LOCALES / PARTS / INJECT=none narrow it.
     apps/ios/scripts/ios-a11y.sh            # Studio 6a: StudioLab --a11y (every studio screen in the real window chain, default + largest text size: VoiceOver labels / traits / values, MEASURED 44 pt targets via UIWindow.hitTest, no overlapping focusable frames, text fits / grows / never overlaps; timeline + stage actions == the touch path, one undo step; Reduce Motion sampled mid-flight; keyboard commands; focus; pointer; contrast / transparency / colour / weight) + the app's -uiFixtures -uiA11yAudit (library, project, share, capture + inbox, account, dialog, sheet, toast, sign-in); INJECT=missing-label|tiny-target|truncation|snap-under-reduce-motion|action-not-undoable must FAIL. Turns the simulators' app-accessibility runtime on for the run (and off after). New studio screens register in A11yLab.extraScreens (the Export sheet, the tool bar's Add sheet and context keys, a tool's panel, the full-screen preview); ⌘E; Reduce Motion samples of the panel and the tool bar's context swap
     # StudioLab --fold-probe                # logs what UIKit reports on the running display: size classes, safe area, verticalBarEdge + bar regions, reserved regions (run on the iPhone Duo simulator)
     apps/ios/scripts/ios-export-sheet.sh    # the export sheet by touch in the real editor: MP4 / GIF / PNG byte-identical (pre-encode tap) to VideoExporter / StillImageExporter for the same settings, file facts, progress MID-FLIGHT, Cancel leaves no file, background path entered + ended, insufficient-memory alert, delivery controllers, iPhone 1080p30 default (INJECT=wrong-resolution|snap-progress|cancel-leaves-file|no-background must FAIL)
@@ -471,6 +544,7 @@ row lower — reported, not gated, and open.
     apps/ios/scripts/ios-release-check.sh   # App Store readiness (6c) on the Release ARCHIVE: privacy manifests vs the required-reason APIs in the stripped binaries, usage strings vs linked APIs, version/build, encryption key, icons, no harness strings / dev URLs / test keys, entitlements used, zero packaging warnings; SELFTEST=1 injects 16 defects that must each FAIL
     apps/ios/scripts/ios-archive.sh         # signed archive → release check → App Store export (destination: export, never uploads)
     apps/ios/scripts/ios-share-viewer.sh    # share viewer: universal link + custom scheme (warm, cold, real simctl openurl), playback, markers ±1 pt, seeks, reactions (optimistic / rollback / toggle), anonymous + signed-in comments, sign-in prompt, tabs, captions, every share state, motion mid-flight, Reduce Motion, a11y audit (default + XXXL) vs Tests/mock_api.py; markers + drawings on the picture's pixels (portrait, landscape fit/fill), drawing → post vs the WEB serializer, the Allow-comments switch; SELFTEST=1 → 11 injected defects must FAIL
+    apps/ios/scripts/ios-agent-edit.sh      # Connect AI + background AI edits in the REAL app vs the LOCAL TEST API (apps/api/scripts/local-test-api: the real Worker, /mcp and op layer over in-memory D1/R2, APNs captured): Account row hit-tested, connected list, copy, guide swap mid-flight, Gemini + Codex guides (commands copy), revoke, Free-plan upgrade; an OAuth-connected "Claude" calls apply_edits while the project is open — push routed (no banner), unsent local work kept, notice mid-flight, Undo reverts only the agent's change; clean edit on foreground → Undo = server restore (new revision, nothing deleted). INJECT=skip-notice|undo-noop must FAIL. Screens: connect-ai{,-chatgpt,-gemini,-codex,-other,-free}.png, editor-notice.png
     cd apps/web && npx vitest run src/editor/core/vectors/iosProjectTemplate.test.ts
 
 `upload-e2e.sh` never talks to the real API: `wrangler dev` binds R2 to the production
@@ -512,3 +586,6 @@ App Store Connect record, a review account).
 `/api/wireless/link[/rotate]`, `/api/devices[...]`, push via APNs — `apps/api/README.md`
 ("iPhone over Wi-Fi"). Deploy order: migration 0042 before the API; APNs secrets
 (`APNS_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID`) are owner-only.
+
+"AI finished editing" uses the same APNs secrets (no new ones, no migration): without them the
+API simply sends no push. History versions now carry `agent: { name }` for agent saves.

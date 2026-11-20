@@ -25,6 +25,20 @@ enum AnnotationEffect: String, CaseIterable, Codable, Sendable {
     /// Strokes reveal in drawing order, like being drawn live (drawings
     /// only; other types fall back to a fade). As an exit it un-draws.
     case drawOn = "Draw On"
+
+    /// What the editor shows; the raw value stays the persisted identity.
+    var displayName: String {
+        switch self {
+        case .none: return String(localized: "None", comment: "Inspector ▸ Annotate: build in / build out animation")
+        case .fade: return String(localized: "Fade", comment: "Inspector ▸ Annotate: build in / build out animation")
+        case .pop: return String(localized: "Pop", comment: "Inspector ▸ Annotate: build in / build out animation")
+        case .scaleUp: return String(localized: "Scale", comment: "Inspector ▸ Annotate: build in / build out animation")
+        case .slideUp: return String(localized: "Slide Up", comment: "Inspector ▸ Annotate: build in / build out animation")
+        case .drop: return String(localized: "Drop", comment: "Inspector ▸ Annotate: build in / build out animation")
+        case .explode: return String(localized: "Explode", comment: "Inspector ▸ Annotate: build in / build out animation")
+        case .drawOn: return String(localized: "Draw On", comment: "Inspector ▸ Annotate: build in / build out animation")
+        }
+    }
 }
 
 /// Pure, deterministic effect math shared by preview and exporter — progress
@@ -207,7 +221,7 @@ struct Annotation: Identifiable, Codable, Sendable {
         self.y = 0.38
         self.arrowEndX = 0.65
         self.arrowEndY = 0.55
-        self.text = "Label"
+        self.text = "Label"  // l10n-ok: default annotation text, drawn into the exported video
         self.fontSize = 18
         self.showBackground = true
         self.color = SystemColorDefaults.white

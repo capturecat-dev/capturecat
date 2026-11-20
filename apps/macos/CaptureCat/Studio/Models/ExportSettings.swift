@@ -25,6 +25,11 @@ struct ExportSettings: Codable, Sendable {
             case .custom: return 1920
             }
         }
+
+        /// What the export sheet shows; the raw value stays the persisted identity.
+        var displayName: String {
+            self == .custom ? String(localized: "Custom", comment: "Export sheet: resolution option for a user-typed width and height") : rawValue
+        }
     }
 
     var format: Format = .mp4
@@ -82,13 +87,13 @@ struct ExportSettings: Codable, Sendable {
     var qualityPresetName: String {
         switch normalizedQuality {
         case ..<0.2:
-            return "Draft"
+            return String(localized: "Draft", comment: "Export sheet: quality preset name (lowest)")
         case ..<0.45:
-            return "Good"
+            return String(localized: "Good", comment: "Export sheet: quality preset name")
         case ..<0.75:
-            return "High"
+            return String(localized: "High", comment: "Export sheet: quality preset name")
         default:
-            return "Master"
+            return String(localized: "Master", comment: "Export sheet: quality preset name (highest)")
         }
     }
 
@@ -133,7 +138,8 @@ struct ExportSettings: Codable, Sendable {
         let width = Int(outputSize.width)
         let height = Int(outputSize.height)
         let rateText = String(format: "%.1f", megabitsPerSecond)
-        return "\(qualityPresetName) • \(width)x\(height) @ \(fps) fps • ~\(rateText) Mbps"
+        return String(localized: "\(qualityPresetName) • \(width)x\(height) @ \(fps) fps • ~\(rateText) Mbps",
+                      comment: "Export sheet caption: quality preset, pixel size, frame rate, estimated bit rate")
     }
 
     private func sanitizedDimension(_ value: Int) -> CGFloat {

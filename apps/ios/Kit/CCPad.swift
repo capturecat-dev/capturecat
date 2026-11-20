@@ -60,8 +60,8 @@ class CCPadView: UIControl {
         accessibilityLabel = title
         accessibilityTraits = .adjustable
         accessibilityCustomActions = [
-            UIAccessibilityCustomAction(name: "Move up") { [weak self] _ in self?.onNudge?(0, -(self?.nudge ?? 0)); return true },
-            UIAccessibilityCustomAction(name: "Move down") { [weak self] _ in self?.onNudge?(0, self?.nudge ?? 0); return true },
+            UIAccessibilityCustomAction(name: String(localized: "Move up", comment: "VoiceOver action: nudge a position pad up")) { [weak self] _ in self?.onNudge?(0, -(self?.nudge ?? 0)); return true },
+            UIAccessibilityCustomAction(name: String(localized: "Move down", comment: "VoiceOver action: nudge a position pad down")) { [weak self] _ in self?.onNudge?(0, self?.nudge ?? 0); return true },
         ]
         ccOnThemeChange { [weak self] in self?.applyTheme() }
         applyTheme()

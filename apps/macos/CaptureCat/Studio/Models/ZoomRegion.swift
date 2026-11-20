@@ -36,6 +36,17 @@ enum ZoomAnimationStyle: String, CaseIterable, Codable, Sendable {
         case .cinematic: return 1.05
         }
     }
+
+    /// What the editor shows; the raw value stays the persisted identity.
+    var displayName: String {
+        switch self {
+        case .instant: return String(localized: "Instant", comment: "Inspector ▸ Effects ▸ Zoom/Tilt: animation speed style of the selected block")
+        case .snappy: return String(localized: "Snappy", comment: "Inspector ▸ Effects ▸ Zoom/Tilt: animation speed style of the selected block")
+        case .smooth: return String(localized: "Smooth", comment: "Inspector ▸ Effects ▸ Zoom/Tilt: animation speed style of the selected block")
+        case .slowGlide: return String(localized: "Slow Glide", comment: "Inspector ▸ Effects ▸ Zoom/Tilt: animation speed style of the selected block")
+        case .cinematic: return String(localized: "Cinematic", comment: "Inspector ▸ Effects ▸ Zoom/Tilt: animation speed style of the selected block")
+        }
+    }
 }
 
 struct ZoomRegion: Identifiable, Codable, Sendable {

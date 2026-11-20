@@ -206,12 +206,12 @@ final class EditorZoomPill: UIView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         accessibilityIdentifier = "studio.zoomPill"
-        minus.accessibilityLabelOverride = "Zoom out"
-        plus.accessibilityLabelOverride = "Zoom in"
+        minus.accessibilityLabelOverride = String(localized: "Zoom out", comment: "Preview zoom pill: zoom the stage out (VoiceOver)")
+        plus.accessibilityLabelOverride = String(localized: "Zoom in", comment: "Preview zoom pill: zoom the stage in (VoiceOver)")
         minus.onTap = { [weak self] in self?.onZoomOut?() }
         plus.onTap = { [weak self] in self?.onZoomIn?() }
         percent.onTap = { [weak self] in self?.onReset?() }
-        percent.accessibilityLabelOverride = "Fit"
+        percent.accessibilityLabelOverride = String(localized: "Fit", comment: "Preview zoom pill: reset the stage to fit the screen (VoiceOver)")
         let row = UIStackView(arrangedSubviews: [minus, percent, plus])
         row.spacing = 0
         row.alignment = .center

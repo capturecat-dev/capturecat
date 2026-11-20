@@ -76,7 +76,7 @@ final class CaptureHubModel {
     /// list). The user already said yes by tapping the push or by having the
     /// app open on that Mac's network — go straight to the system sheet.
     func handleRequest(macID: String?, macName: String?) {
-        lastRequest = Request(macID: macID, macName: macName ?? "your Mac", at: Date())
+        lastRequest = Request(macID: macID, macName: macName ?? String(localized: "your Mac", comment: "Fallback name for a Mac that asked for the screen, used in “%@ asked for your screen”"), at: Date())
         BroadcastLauncher.launch(.stream, preferredMacID: macID, in: nil)
     }
 
@@ -134,7 +134,7 @@ final class CaptureHubModel {
         }
         let errors = await UploadCenter.shared.importScreenshots(images)
         if images.count < results.count || !errors.isEmpty {
-            importError = "Some screenshots couldn't be imported."
+            importError = String(localized: "Some screenshots couldn't be imported.")
         }
     }
 

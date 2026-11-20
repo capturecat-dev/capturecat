@@ -17,10 +17,10 @@ enum CameraLayoutMode: String, CaseIterable, Codable, Sendable {
 
     var displayName: String {
         switch self {
-        case .bubble: return "Bubble"
-        case .cameraOnly: return "Camera Only"
-        case .sideBySide: return "Side by Side"
-        case .screenOnly: return "Screen Only"
+        case .bubble: return String(localized: "Bubble", comment: "Camera layout block mode: timeline label and menu item")
+        case .cameraOnly: return String(localized: "Camera Only", comment: "Camera layout block mode: timeline label and menu item")
+        case .sideBySide: return String(localized: "Side by Side", comment: "Camera layout block mode: timeline label and menu item")
+        case .screenOnly: return String(localized: "Screen Only", comment: "Camera layout block mode: timeline label and menu item")
         }
     }
 }
@@ -42,8 +42,8 @@ enum CameraBubbleLook: String, CaseIterable, Codable, Sendable {
 
     var displayName: String {
         switch self {
-        case .cutout: return "Cutout"
-        case .popOut: return "Pop-out card"
+        case .cutout: return String(localized: "Cutout", comment: "Camera background-removal look: inspector chip and timeline menu item")
+        case .popOut: return String(localized: "Pop-out card", comment: "Camera background-removal look: inspector chip and timeline menu item")
         }
     }
 }
@@ -62,10 +62,10 @@ enum CameraCardFill: String, CaseIterable, Codable, Sendable {
 
     var displayName: String {
         switch self {
-        case .gradient: return "Gradient"
-        case .camera: return "Camera"
-        case .color: return "Color"
-        case .image: return "Image"
+        case .gradient: return String(localized: "Gradient", comment: "Inspector ▸ Camera: what fills the pop-out card behind the person")
+        case .camera: return String(localized: "Camera", comment: "Inspector ▸ Camera: what fills the pop-out card behind the person")
+        case .color: return String(localized: "Color", comment: "Inspector ▸ Camera: what fills the pop-out card behind the person")
+        case .image: return String(localized: "Image", comment: "Inspector ▸ Camera: what fills the pop-out card behind the person")
         }
     }
 }
@@ -79,9 +79,9 @@ enum CameraCardBorder: String, CaseIterable, Codable, Sendable {
 
     var displayName: String {
         switch self {
-        case .solid: return "Solid"
-        case .aurora: return "Aurora"
-        case .gold: return "Gold"
+        case .solid: return String(localized: "Solid", comment: "Inspector ▸ Camera: pop-out card border style")
+        case .aurora: return String(localized: "Aurora", comment: "Inspector ▸ Camera: pop-out card border style")
+        case .gold: return String(localized: "Gold", comment: "Inspector ▸ Camera: pop-out card border style")
         }
     }
 }
@@ -97,8 +97,8 @@ enum CameraSplitStyle: String, CaseIterable, Codable, Sendable {
 
     var displayName: String {
         switch self {
-        case .tiles: return "Side by Side"
-        case .full: return "Split Screen"
+        case .tiles: return String(localized: "Side by Side", comment: "Camera layout: how a side-by-side block splits the frame (menu item)")
+        case .full: return String(localized: "Split Screen", comment: "Camera layout: how a side-by-side block splits the frame (menu item)")
         }
     }
 }
@@ -112,8 +112,8 @@ enum CameraSide: String, CaseIterable, Codable, Sendable {
 
     var displayName: String {
         switch self {
-        case .leading: return "Camera on Left"
-        case .trailing: return "Camera on Right"
+        case .leading: return String(localized: "Camera on Left", comment: "Camera layout: which side the camera tile takes (menu item)")
+        case .trailing: return String(localized: "Camera on Right", comment: "Camera layout: which side the camera tile takes (menu item)")
         }
     }
 }

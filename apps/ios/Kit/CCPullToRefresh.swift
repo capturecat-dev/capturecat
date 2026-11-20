@@ -22,7 +22,7 @@ final class CCPullToRefresh: NSObject {
         super.init()
         spinner.hidesWhenStopped = false
         spinner.alpha = 0
-        spinner.accessibilityLabel = "Refreshing"
+        spinner.accessibilityLabel = String(localized: "Refreshing", comment: "Pull to refresh spinner (VoiceOver)")
         scrollView.addSubview(spinner)
         scrollView.alwaysBounceVertical = true
         offsetObservation = scrollView.observe(\.contentOffset, options: [.new]) { [weak self] _, _ in
@@ -64,7 +64,7 @@ final class CCPullToRefresh: NSObject {
         let offset = scrollView.contentOffset
         scrollView.contentInset.top += restHeight
         scrollView.setContentOffset(offset, animated: false)
-        UIAccessibility.post(notification: .announcement, argument: "Refreshing")
+        UIAccessibility.post(notification: .announcement, argument: String(localized: "Refreshing", comment: "Pull to refresh spinner (VoiceOver)"))
         onRefresh()
     }
 

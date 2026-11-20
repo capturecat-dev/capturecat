@@ -233,11 +233,15 @@ extension CameraSegmentation.Status {
     var displayText: String? {
         switch self {
         case .notNeeded: return nil
-        case .ready: return "Background removed — Cutout and Pop-out card are live."
-        case .queued: return "Removing background — waiting to start…"
-        case .running(let p): return "Removing background… \(Int((p * 100).rounded()))%"
-        case .paused(let p): return "Paused while recording or exporting — \(Int((p * 100).rounded()))%"
-        case .failed(let message): return "Couldn't remove the background: \(message)"
+        case .ready: return String(localized: "Background removed — Cutout and Pop-out card are live.", comment: "Camera background removal status line")
+        case .queued: return String(localized: "Removing background — waiting to start…", comment: "Camera background removal status line")
+        case .running(let p):
+            let percent = Int((p * 100).rounded())
+            return String(localized: "Removing background… \(percent)%", comment: "Camera background removal status line; a percentage")
+        case .paused(let p):
+            let percent = Int((p * 100).rounded())
+            return String(localized: "Paused while recording or exporting — \(percent)%", comment: "Camera background removal status line; a percentage")
+        case .failed(let message): return String(localized: "Couldn't remove the background: \(message)", comment: "Camera background removal status line; %@ is the reason")
         }
     }
 

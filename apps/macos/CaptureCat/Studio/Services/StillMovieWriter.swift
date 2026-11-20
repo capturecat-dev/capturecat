@@ -28,8 +28,8 @@ enum StillMovieWriter {
 
         var errorDescription: String? {
             switch self {
-            case .cannotCreateWriter(let s): return "Could not start the encoder: \(s)"
-            case .encodeFailed(let s): return "Could not encode the capture: \(s)"
+            case .cannotCreateWriter(let s): return String(localized: "Could not start the encoder: \(s)", comment: "Capture encoding error; %@ is a technical detail")
+            case .encodeFailed(let s): return String(localized: "Could not encode the capture: \(s)", comment: "Capture encoding error; %@ is a technical detail")
             }
         }
     }

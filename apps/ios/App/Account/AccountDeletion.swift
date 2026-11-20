@@ -21,10 +21,10 @@ import UIKit
 ///     sign-in screen and a toast confirms.
 @MainActor
 enum AccountDeletion {
-    static let title = "Delete Account"
-    static let confirmTitle = "Delete Account"
+    static let title = String(localized: "Delete Account", comment: "Title of the delete-account confirmation sheet")
+    static let confirmTitle = String(localized: "Delete Account", comment: "Button in the delete-account sheet: permanently delete the account")
     static let confirmWord = "DELETE"
-    static let message = "This permanently deletes your CaptureCat account and everything in it: shared videos and their links, cloud projects and their history, comments you've written, connected devices and agent connections. An active subscription is cancelled immediately, with no further charges. If you connected your own storage bucket, we forget its keys but never delete the files in your bucket. Projects on this \(ThisDevice.noun) are removed too. This can't be undone."
+    static let message = String(localized: "This permanently deletes your CaptureCat account and everything in it: shared videos and their links, cloud projects and their history, comments you've written, connected devices and agent connections. An active subscription is cancelled immediately, with no further charges. If you connected your own storage bucket, we forget its keys but never delete the files in your bucket. Projects on this \(ThisDevice.noun) are removed too. This can't be undone.", comment: "Argument is iPhone or iPad")
 
     /// True when `text` is the confirmation word (any case, spaces ignored).
     static func isConfirmed(_ text: String?) -> Bool {
@@ -47,12 +47,12 @@ enum AccountDeletion {
     /// Present the confirmation from `presenter` (the Account screen).
     @discardableResult
     static func presentConfirmation(from presenter: UIViewController) -> CCAlert {
-        let alert = CCAlert(title: "Delete your account?", message: message)
+        let alert = CCAlert(title: String(localized: "Delete your account?"), message: message)
         alert.symbol = "trash"
         alert.tone = .destructive
         alert.presentation = .sheet
 
-        let hint = ccLabel("To confirm, type \(confirmWord) below.", font: CCFont.labelSemibold, color: CCTheme.color.foreground, lines: 0)
+        let hint = ccLabel(String(localized: "To confirm, type \(confirmWord) below.", comment: "Argument is the word DELETE, which stays in English (the user must type it exactly)"), font: CCFont.labelSemibold, color: CCTheme.color.foreground, lines: 0)
         let field = CCField(placeholder: confirmWord)
         field.autocapitalizationType = .allCharacters
         field.autocorrectionType = .no
@@ -60,7 +60,7 @@ enum AccountDeletion {
         field.smartQuotesType = .no
         field.smartDashesType = .no
         field.returnKeyType = .done
-        field.accessibilityLabel = "Type \(confirmWord) to confirm"
+        field.accessibilityLabel = String(localized: "Type \(confirmWord) to confirm", comment: "Accessibility label; argument is the word DELETE, which stays in English")
         field.onReturn = { [weak field] _ in field?.resignFirstResponder() }
         let accessory = UIStackView(arrangedSubviews: [hint, field])
         accessory.axis = .vertical
@@ -77,7 +77,7 @@ enum AccountDeletion {
             wipeLocalData()
             result = outcome
         }
-        alert.addButton("Cancel", role: .cancel)
+        alert.addButton(String(localized: "Cancel", comment: "Alert button"), role: .cancel)
         alert.setButtonEnabled(0, false)
         field.onTextChange = { [weak alert] text in alert?.setButtonEnabled(0, isConfirmed(text)) }
         #if DEBUG
@@ -96,7 +96,7 @@ enum AccountDeletion {
 
     enum ConfirmError: LocalizedError {
         case notTyped
-        var errorDescription: String? { "Type \(AccountDeletion.confirmWord) to confirm." }
+        var errorDescription: String? { String(localized: "Type \(AccountDeletion.confirmWord) to confirm.", comment: "Error; argument is the word DELETE, which stays in English") }
     }
 
     /// After the sheet closed: drop the credentials (the root swaps to the
@@ -108,10 +108,10 @@ enum AccountDeletion {
         await AppEnvironment.shared.session.endAfterAccountDeletion()
         CCHaptics.success()
         AppToaster.shared.show(
-            title: "Your account was deleted",
+            title: String(localized: "Your account was deleted"),
             message: result.cancelledSubscriptions > 0
-                ? "Your subscription was cancelled. Thanks for using CaptureCat."
-                : "Thanks for using CaptureCat.",
+                ? String(localized: "Your subscription was cancelled. Thanks for using CaptureCat.")
+                : String(localized: "Thanks for using CaptureCat."),
             variant: .success, symbol: "trash"
         )
     }

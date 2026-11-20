@@ -25,9 +25,9 @@ enum ExportDelivery {
         var errorDescription: String? {
             switch self {
             case .photosAccessDenied:
-                return "CaptureCat can't save to Photos. Allow adding photos in Settings › Privacy & Security › Photos."
+                return String(localized: "CaptureCat can't save to Photos. Allow adding photos in Settings › Privacy & Security › Photos.", comment: "Error when Photos access is denied during export")
             case .photosSaveFailed(let reason):
-                return "Couldn't save to Photos: \(reason)"
+                return String(localized: "Couldn't save to Photos: \(reason)", comment: "Export error; the argument is the system error message")
             }
         }
     }
@@ -58,7 +58,7 @@ enum ExportDelivery {
                 if success, let id = created.value {
                     continuation.resume(returning: id)
                 } else {
-                    continuation.resume(throwing: DeliveryError.photosSaveFailed(error?.localizedDescription ?? "unknown error"))
+                    continuation.resume(throwing: DeliveryError.photosSaveFailed(error?.localizedDescription ?? String(localized: "unknown error", comment: "Fallback error reason when saving to Photos failed without a message")))
                 }
             })
         }

@@ -76,7 +76,7 @@ final class MacPresence {
         guard SessionStore.load() != nil else { status = .signedOut; return }
         guard client == nil else { return }
         guard let link = await WirelessLinkStore.current() else {
-            status = .unavailable("Couldn't reach CaptureCat to link this \(ThisDevice.noun). Check your connection.")
+            status = .unavailable(String(localized: "Couldn't reach CaptureCat to link this \(ThisDevice.noun). Check your connection.", comment: "Argument is iPhone or iPad"))
             return
         }
         begin(with: link)

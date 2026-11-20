@@ -94,7 +94,7 @@ nonisolated enum CloudHistoryParse {
         }
         let actor = person(value(object, "actor"))
         let namer = person(value(object, "namedBy"))
-        return CloudVersion(
+        var parsed = CloudVersion(
             id: id,
             seq: CloudJSON.int(value(object, "seq")) ?? 0,
             revision: CloudJSON.int(value(object, "revision")) ?? 0,
@@ -116,6 +116,8 @@ nonisolated enum CloudHistoryParse {
             updatedAt: CloudAPIDate.parse(value(object, "updatedAt")),
             isHead: value(object, "isHead") as? Bool ?? false
         )
+        parsed.agentName = (value(object, "agent") as? [String: Any]).flatMap { CloudJSON.string($0["name"]) }
+        return parsed
     }
 
     static func page(_ data: Data) -> CloudVersionPage? {
@@ -193,7 +195,7 @@ nonisolated struct CloudLocalStatus: Equatable, Sendable {
     let changes: ChangeSet?
 
     var summary: String {
-        guard let changes else { return "Edited on this Mac" }
+        guard let changes else { return String(localized: "Edited on this Mac", comment: "History row caption: local, unsynced edits") }
         return ChangeSummary.format(changes, maxParts: 3)
     }
 
@@ -330,19 +332,19 @@ final class CloudHistoryClient {
     nonisolated static func historyMessage(for error: Error) -> String? {
         switch (error as? CloudSyncError)?.apiCode {
         case "named_version_limit":
-            return "Your plan's named-version limit is reached. Unname an older version first."
+            return String(localized: "Your plan's named-version limit is reached. Unname an older version first.", comment: "History error message")
         case "invalid_label":
-            return "Version names are up to 100 characters, without control characters."
+            return String(localized: "Version names are up to 100 characters, without control characters.")
         case "head_version":
-            return "The current version can't be deleted."
+            return String(localized: "The current version can't be deleted.")
         case "not_owner":
-            return "Only the project's owner can delete versions or free up History."
+            return String(localized: "Only the project's owner can delete versions or free up History.", comment: "History error message")
         case "version_media_missing":
-            return "Some of this version's media is no longer stored, so it can't be restored."
+            return String(localized: "Some of this version's media is no longer stored, so it can't be restored.", comment: "History error message")
         case "version_document_missing":
-            return "This version's document is no longer stored."
+            return String(localized: "This version's document is no longer stored.")
         case "version_not_found":
-            return "That version no longer exists — History may have been pruned."
+            return String(localized: "That version no longer exists — History may have been pruned.", comment: "History error message")
         default:
             return nil
         }

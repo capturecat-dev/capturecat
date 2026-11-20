@@ -236,7 +236,8 @@ final class ShareDrawingSurface: UIControl, UITextFieldDelegate {
         outline.lineWidth = 2
         outline.strokeColor = ShareAnnotationRenderer.color(accent).cgColor
         layer.addSublayer(outline)
-        timeBadge.text = "Drawing at \(Format.duration(time))"
+        let timeText = Format.duration(time)
+        timeBadge.text = String(localized: "Drawing at \(timeText)", comment: "Badge on the video frame while drawing a comment mark; the value is a timestamp")
         timeBadge.font = CCFont.micro
         timeBadge.textColor = UIColor.white.withAlphaComponent(0.85)
         timeBadge.backgroundColor = UIColor.black.withAlphaComponent(0.6)
@@ -246,8 +247,9 @@ final class ShareDrawingSurface: UIControl, UITextFieldDelegate {
         addSubview(timeBadge)
         isMultipleTouchEnabled = false
         isAccessibilityElement = true
-        accessibilityLabel = "Drawing on the video frame at \(Format.spokenDuration(time))"
-        accessibilityHint = "Draw with one finger. Pick a tool, colour and size below."
+        let spokenTime = Format.spokenDuration(time)
+        accessibilityLabel = String(localized: "Drawing on the video frame at \(spokenTime)")
+        accessibilityHint = String(localized: "Draw with one finger. Pick a tool, colour and size below.")
         accessibilityTraits = .allowsDirectInteraction
         editor.onChange = { [weak self] in self?.refresh() }
         if !CCMotion.reduceMotion { CCMotion.fade(layer, keyPath: "opacity", to: 1, duration: 0.22, from: 0) }
@@ -344,9 +346,9 @@ final class ShareDrawingSurface: UIControl, UITextFieldDelegate {
     }
 
     func openLabel(at p: CGPoint) {
-        let field = CCField(placeholder: "Label")
+        let field = CCField(placeholder: String(localized: "Label", comment: "Placeholder for the text of a text mark drawn on a shared video"))
         field.returnKeyType = .done
-        field.accessibilityLabel = "Text label"
+        field.accessibilityLabel = String(localized: "Text label", comment: "VoiceOver label for the text-mark field")
         field.delegate = self
         field.onReturn = { [weak self] _ in self?.commitLabel() }
         labelAt = p
@@ -391,34 +393,35 @@ final class ShareDrawingSurface: UIControl, UITextFieldDelegate {
 final class ShareDrawingToolbar: UIView {
     let glass = CCGlassView(shape: .rounded(.lg))
     let titleLabel = ccLabel("", font: CCFont.captionMedium, color: CCTheme.color.foreground)
-    let cancelButton = CCButton(title: "Cancel", style: .ghost, size: .sm, radius: .full)
-    let doneButton = CCButton(title: "Done", style: .primary, size: .sm, radius: .full)
+    let cancelButton = CCButton(title: String(localized: "Cancel", comment: "Drawing panel: discard the drawing changes"), style: .ghost, size: .sm, radius: .full)
+    let doneButton = CCButton(title: String(localized: "Done", comment: "Drawing panel: keep the drawing"), style: .primary, size: .sm, radius: .full)
     let undoButton = CCButton(symbol: "undo", style: .ghost, size: .regular, radius: .full)
     let redoButton = CCButton(symbol: "redo", style: .ghost, size: .regular, radius: .full)
-    let sizeButton = CCButton(title: "M", style: .ghost, size: .regular, radius: .full)
+    let sizeButton = CCButton(title: String(localized: "M", comment: "Mark size button: Medium (one letter)"), style: .ghost, size: .regular, radius: .full)
     private(set) var toolButtons: [(ShareAnnotationShape.Kind, CCButton)] = []
     private(set) var swatches: [CCColorSwatch] = []
     private let editor: ShareDrawingEditor
     private let palette: [String]
 
     static let tools: [(ShareAnnotationShape.Kind, String, String)] = [
-        (.pen, "pencil", "Pen"), (.highlight, "highlighter", "Highlighter"), (.arrow, "arrow-up-right", "Arrow"),
-        (.rect, "rectangle", "Rectangle"), (.ellipse, "ellipse", "Ellipse"), (.text, "text", "Text"),
+        (.pen, "pencil", String(localized: "Pen", comment: "Drawing tool")), (.highlight, "highlighter", String(localized: "Highlighter", comment: "Drawing tool")), (.arrow, "arrow-up-right", String(localized: "Arrow", comment: "Drawing tool")),
+        (.rect, "rectangle", String(localized: "Rectangle", comment: "Drawing tool")), (.ellipse, "ellipse", String(localized: "Ellipse", comment: "Drawing tool")), (.text, "text", String(localized: "Text", comment: "Drawing tool")),
     ]
-    private static let colorNames = ["#ef4444": "Red", "#3b82f6": "Blue", "#22c55e": "Green", "#ffffff": "White", "#111111": "Black", "#fbbf24": "Amber"]
+    private static let colorNames = ["#ef4444": String(localized: "Red", comment: "Colour name"), "#3b82f6": String(localized: "Blue", comment: "Colour name"), "#22c55e": String(localized: "Green", comment: "Colour name"), "#ffffff": String(localized: "White", comment: "Colour name"), "#111111": String(localized: "Black", comment: "Colour name"), "#fbbf24": String(localized: "Amber", comment: "Colour name")]
 
     init(editor: ShareDrawingEditor, accent: String, time: Double) {
         self.editor = editor
         palette = ShareAnnotationMath.palette(accent: accent)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.text = "Drawing at \(Format.duration(time))"
+        let timeText = Format.duration(time)
+        titleLabel.text = String(localized: "Drawing at \(timeText)", comment: "Badge on the video frame while drawing a comment mark; the value is a timestamp")
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        undoButton.accessibilityLabelOverride = "Undo"
-        redoButton.accessibilityLabelOverride = "Redo"
-        sizeButton.accessibilityLabelOverride = "Mark size"
-        cancelButton.accessibilityHint = "Puts the drawing back the way it was"
-        doneButton.accessibilityHint = "Keeps the drawing with your comment"
+        undoButton.accessibilityLabelOverride = String(localized: "Undo", comment: "VoiceOver: undo the last drawing mark")
+        redoButton.accessibilityLabelOverride = String(localized: "Redo", comment: "VoiceOver: redo the drawing mark")
+        sizeButton.accessibilityLabelOverride = String(localized: "Mark size", comment: "VoiceOver: button that cycles the drawing stroke size")
+        cancelButton.accessibilityHint = String(localized: "Puts the drawing back the way it was")
+        doneButton.accessibilityHint = String(localized: "Keeps the drawing with your comment")
         let header = UIStackView(arrangedSubviews: [cancelButton, titleLabel, undoButton, redoButton, doneButton])
         header.spacing = CCSpace.xs
         header.alignment = .center
@@ -485,8 +488,8 @@ final class ShareDrawingToolbar: UIView {
             key.accessibilityTraits = on ? [.button, .selected] : .button
         }
         for (hex, swatch) in zip(palette, swatches) { swatch.isSelected = hex == editor.color.lowercased() }
-        sizeButton.title = ["S", "M", "L"][max(0, min(2, editor.size - 1))]
-        sizeButton.accessibilityValue = ["Small", "Medium", "Large"][max(0, min(2, editor.size - 1))]
+        sizeButton.title = [String(localized: "S", comment: "Mark size button: Small (one letter)"), String(localized: "M", comment: "Mark size button: Medium (one letter)"), String(localized: "L", comment: "Mark size button: Large (one letter)")][max(0, min(2, editor.size - 1))]
+        sizeButton.accessibilityValue = [String(localized: "Small", comment: "Drawing mark size"), String(localized: "Medium", comment: "Drawing mark size"), String(localized: "Large", comment: "Drawing mark size")][max(0, min(2, editor.size - 1))]
         undoButton.isEnabled = !editor.past.isEmpty
         redoButton.isEnabled = !editor.future.isEmpty
     }

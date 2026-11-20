@@ -72,7 +72,7 @@ enum StudioTranscription {
                 apply(redo, to: project, undoManager: undoManager)
             }
         }
-        undoManager?.setActionName("Generate Subtitles")
+        undoManager?.setActionName(String(localized: "Generate Subtitles", comment: "Undo action name and sheet title: transcribe speech into subtitles"))
     }
 }
 
@@ -97,14 +97,18 @@ final class StudioTranscriptionController {
 
     func present(from presenter: UIViewController) {
         let existing = project.subtitles.count
-        var message = "Turns the recording's speech into subtitles on this device. The first time, the speech model (about 150 MB) downloads."
-        if existing > 0 { message += " This replaces the \(existing) subtitles you have now." }
-        let alert = StudioFeatureSheet.make(title: "Generate Subtitles", message: message,
+        var message = String(localized: "Turns the recording's speech into subtitles on this device. The first time, the speech model (about 150 MB) downloads.")
+        if existing > 0 {
+            message += " " + (existing == 1
+                ? String(localized: "This replaces the 1 subtitle you have now.", comment: "Generate Subtitles sheet: appended after the description")
+                : String(localized: "This replaces the \(existing) subtitles you have now.", comment: "Generate Subtitles sheet: appended after the description"))
+        }
+        let alert = StudioFeatureSheet.make(title: String(localized: "Generate Subtitles", comment: "Undo action name and sheet title: transcribe speech into subtitles"), message: message,
                                             symbol: "captions.bubble", content: [status])
-        alert.addButton(existing > 0 ? "Replace Subtitles" : "Generate", role: .primary) { [weak self] in
+        alert.addButton(existing > 0 ? String(localized: "Replace Subtitles", comment: "Generate Subtitles sheet: primary button when subtitles already exist") : String(localized: "Generate", comment: "Feature sheet primary button: run subtitle generation / auto zoom"), role: .primary) { [weak self] in
             try await self?.generate()
         }
-        alert.addButton("Cancel", role: .cancel)
+        alert.addButton(String(localized: "Cancel", comment: "Alert button"), role: .cancel)
         self.alert = alert
         alert.present(from: presenter) { [weak self] _ in self?.observation = nil }
         observation = SurfaceObservation { [weak self] in self?.apply() }
@@ -118,7 +122,9 @@ final class StudioTranscriptionController {
             lastSegments = segments
             StudioTranscription.apply(segments, to: project, undoManager: undoManager)
             onApplied?(segments)
-            CCAccessibility.announce("Subtitles generated: \(segments.count) \(segments.count == 1 ? "line" : "lines")")
+            CCAccessibility.announce(segments.count == 1
+                ? String(localized: "Subtitles generated: 1 line", comment: "VoiceOver announcement after transcription")
+                : String(localized: "Subtitles generated: \(segments.count) lines", comment: "VoiceOver announcement after transcription"))
         } catch {
             service.error = error.localizedDescription
             throw error
@@ -130,16 +136,16 @@ final class StudioTranscriptionController {
         let text = service.progress
         let fraction = service.fraction
         if busy {
-            status.update(text: text, value: text == "Loading model..." && fraction == 0 ? nil : fraction)
+            status.update(text: text, value: text == TranscriptionService.loadingModelProgress && fraction == 0 ? nil : fraction)
         } else if lastSegments != nil {
             status.update(text: text, value: 1)
         } else {
-            status.update(text: "Ready", value: 0, showsBar: false)
+            status.update(text: String(localized: "Ready", comment: "Generate Subtitles sheet status: nothing running yet"), value: 0, showsBar: false)
         }
     }
 }
 
 enum StudioTranscriptionError: LocalizedError {
     case noRecording
-    var errorDescription: String? { "This project has no recording to transcribe." }
+    var errorDescription: String? { String(localized: "This project has no recording to transcribe.") }
 }

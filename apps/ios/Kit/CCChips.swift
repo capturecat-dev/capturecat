@@ -182,7 +182,7 @@ final class CCChip: UIControl {
         if isSelected { traits.insert(.selected) }
         if !isEnabled { traits.insert(.notEnabled) }
         accessibilityTraits = traits
-        accessibilityHint = groupPosition.map { "\($0.index + 1) of \($0.count)" }
+        accessibilityHint = groupPosition.map { String(localized: "\($0.index + 1) of \($0.count)", comment: "VoiceOver: position of a chip in its group, e.g. 2 of 4") }
     }
 }
 
@@ -362,11 +362,38 @@ final class CCChipGroup: UIView {
         if animate, window != nil {
             // Growth: the bottom edge travels on the bounce; the top stays.
             // (The driver re-lays-out the window's root view each tick.)
-            CCMotion.animate(heightConstraint, to: height, in: ccLayoutRoot, duration: 0.42, curve: .bounce)
+            ccRelayoutAncestors()
+            CCMotion.animate(heightConstraint, to: height, in: ccLayoutRoot, duration: 0.42, curve: .bounce,
+                             completion: { [weak self] in self?.ccRelayoutAncestors() })
         } else if !CCMotion.isAnimating(heightConstraint) {
             heightConstraint.constant = height
+            // A wrap found during the parent's pass (a longer language, a
+            // narrow column): that pass already placed the rows below.
+            ccRelayoutAncestors()
+        } else {
+            // A new height while the growth is still travelling (the width
+            // settled mid-bounce): land on it once the bounce is done.
+            DispatchQueue.main.asyncAfter(deadline: .now() + CCMotion.paced(0.45)) { [weak self] in
+                self?.setNeedsLayout()
+                self?.superview?.setNeedsLayout()
+            }
         }
     }
+
+    /// A fitting pass's height at `width` (before this group is laid out
+    /// there): the flow's height, so a measuring parent sees the wrap.
+    func fitHeight(toWidth width: CGFloat) {
+        guard width > 0, !CCMotion.isAnimating(heightConstraint) else { return }
+        let height = flow(width: width).height
+        if abs(heightConstraint.constant - height) > 0.5 {
+            heightConstraint.constant = height
+            ccRelayoutAncestors()
+        }
+    }
+
+    /// Its frame no longer matches the height its chips need (a wrap
+    /// computed while a parent wasn't laying out).
+    var hasStaleHeight: Bool { !CCMotion.isAnimating(heightConstraint) && abs(bounds.height - heightConstraint.constant) > 0.5 }
 
     // MARK: - Probe seams
 
@@ -377,6 +404,17 @@ final class CCChipGroup: UIView {
 }
 
 extension UIView {
+    /// This view's size changed during (or outside) a layout pass that has
+    /// already placed its neighbours: mark every ancestor dirty and lay the
+    /// window out again on the next turn. (A changed constraint constant alone
+    /// leaves a stack's arranged frames as they were — the inspector's chips
+    /// wrapped onto the row below in longer languages.)
+    func ccRelayoutAncestors() {
+        var view: UIView? = self
+        while let v = view { v.setNeedsLayout(); view = v.superview }
+        DispatchQueue.main.async { [weak self] in self?.window?.layoutIfNeeded() }
+    }
+
     /// The outermost view below the window (a root view controller's view):
     /// the right `in:` for `CCMotion.animate(constraint…)`, whose driver
     /// re-lays-out that view every tick. (A UIWindow is not a valid root —
