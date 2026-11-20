@@ -103,21 +103,21 @@ enum CanvasEditUndo {
     /// The step's name for the drag mode the press grabbed.
     static func actionName(for mode: PreviewDragMode) -> String {
         switch mode {
-        case .annotation: return "Move Annotation"
-        case .annotationHandle: return "Resize Annotation"
-        case .draw: return "Draw"
-        case .regionMove: return "Move Region"
-        case .regionResize: return "Resize Region"
-        case .regionSlider: return "Change Intensity"
-        case .placement: return "Move Video"
-        case .blockOffset: return "Move Zoom Card"
-        case .zoomFocal: return "Move Zoom Focus"
-        case .camera: return "Move Camera"
-        case .watermark: return "Move Watermark"
-        case .subtitle: return "Move Subtitles"
-        case .stackResize: return "Camera Height"
-        case .blurDraw: return "Add Blur"
-        case .idle: return "Edit"
+        case .annotation: return String(localized: "Move Annotation", comment: "Undo/redo action name (Undo …)")
+        case .annotationHandle: return String(localized: "Resize Annotation", comment: "Undo/redo action name (Undo …)")
+        case .draw: return String(localized: "Draw", comment: "Undo/redo action name (Undo …)")
+        case .regionMove: return String(localized: "Move Region", comment: "Undo/redo action name (Undo …)")
+        case .regionResize: return String(localized: "Resize Region", comment: "Undo/redo action name (Undo …)")
+        case .regionSlider: return String(localized: "Change Intensity", comment: "Undo/redo action name (Undo …)")
+        case .placement: return String(localized: "Move Video", comment: "Undo/redo action name (Undo …)")
+        case .blockOffset: return String(localized: "Move Zoom Card", comment: "Undo/redo action name (Undo …)")
+        case .zoomFocal: return String(localized: "Move Zoom Focus", comment: "Undo/redo action name (Undo …)")
+        case .camera: return String(localized: "Move Camera", comment: "Undo/redo action name (Undo …)")
+        case .watermark: return String(localized: "Move Watermark", comment: "Undo/redo action name (Undo …)")
+        case .subtitle: return String(localized: "Move Subtitles", comment: "Undo/redo action name (Undo …)")
+        case .stackResize: return String(localized: "Camera Height", comment: "Undo/redo action name (Undo …)")
+        case .blurDraw: return String(localized: "Add Blur", comment: "Undo/redo action name (Undo …)")
+        case .idle: return String(localized: "Edit", comment: "Undo/redo action name (Undo …)")
         }
     }
 }

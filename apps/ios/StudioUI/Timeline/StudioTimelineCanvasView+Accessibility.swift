@@ -39,15 +39,15 @@ extension StudioTimelineCanvasView {
 
     /// Action names (the gate drives them by name).
     enum AccessibilityAction {
-        static let moveLater = "Move later"
-        static let moveEarlier = "Move earlier"
-        static let startEarlier = "Start earlier"
-        static let startLater = "Start later"
-        static let endLater = "End later"
-        static let endEarlier = "End earlier"
-        static let duplicate = "Duplicate"
-        static let delete = "Delete"
-        static let split = "Split at playhead"
+        static let moveLater = String(localized: "Move later", comment: "VoiceOver action on a timeline block: move it later in time")
+        static let moveEarlier = String(localized: "Move earlier", comment: "VoiceOver action on a timeline block: move it earlier in time")
+        static let startEarlier = String(localized: "Start earlier", comment: "VoiceOver action on a timeline block: extend its start earlier")
+        static let startLater = String(localized: "Start later", comment: "VoiceOver action on a timeline block: trim its start later")
+        static let endLater = String(localized: "End later", comment: "VoiceOver action on a timeline block: extend its end later")
+        static let endEarlier = String(localized: "End earlier", comment: "VoiceOver action on a timeline block: trim its end earlier")
+        static let duplicate = String(localized: "Duplicate", comment: "VoiceOver action on a timeline block: duplicate it")
+        static let delete = String(localized: "Delete", comment: "VoiceOver action on a timeline block: delete it")
+        static let split = String(localized: "Split at playhead", comment: "VoiceOver action on a video clip: split it at the playhead")
     }
 
     // MARK: - Elements
@@ -126,28 +126,41 @@ extension StudioTimelineCanvasView {
     func accessibilityName(for target: StudioTimelineAccessibilityTarget) -> String {
         switch target {
         case .effect(let zoom, let tilt):
-            guard let item = snapshot.effectItems.first(where: { $0.zoomID == zoom && $0.tiltID == tilt }) else { return "Effect" }
+            guard let item = snapshot.effectItems.first(where: { $0.zoomID == zoom && $0.tiltID == tilt }) else { return String(localized: "Effect", comment: "VoiceOver name of a timeline effect block") }
             var parts: [String] = []
-            if let level = item.zoomLevel, item.hasZoom { parts.append(String(format: "Zoom %.1f×", level)) }
-            if item.hasTilt { parts.append(String(format: "Tilt %.0f degrees", item.dominantAngle)) }
-            if item.hasSlide { parts.append("Slide") }
-            return parts.isEmpty ? "Effect" : parts.joined(separator: " and ")
-        case .intro: return snapshot.introChipLabel.isEmpty ? "Intro slide" : snapshot.introChipLabel.replacingOccurrences(of: "·", with: ",")
-        case .curtain: return "Curtain unveil"
-        case .focus(let id): return snapshot.focusItems.first { $0.id == id }?.label ?? "Focus"
+            if let level = item.zoomLevel, item.hasZoom {
+                let levelText = String(format: "%.1f", level)
+                parts.append(String(localized: "Zoom \(levelText)×", comment: "VoiceOver: a zoom effect and its magnification, e.g. Zoom 1.8×"))
+            }
+            if item.hasTilt {
+                let degrees = String(format: "%.0f", item.dominantAngle)
+                parts.append(String(localized: "Tilt \(degrees) degrees", comment: "VoiceOver: a 3D tilt effect and its angle"))
+            }
+            if item.hasSlide { parts.append(String(localized: "Slide", comment: "VoiceOver: an intro slide effect within an effect block")) }
+            return parts.isEmpty ? String(localized: "Effect", comment: "VoiceOver name of a timeline effect block") : ListFormatter.localizedString(byJoining: parts)
+        case .intro: return snapshot.introChipLabel.isEmpty ? String(localized: "Intro slide", comment: "VoiceOver name of the intro slide chip on the timeline") : snapshot.introChipLabel.replacingOccurrences(of: "·", with: ",")
+        case .curtain: return String(localized: "Curtain unveil", comment: "VoiceOver name of the curtain-unveil chip on the timeline")
+        case .focus(let id): return snapshot.focusItems.first { $0.id == id }?.label ?? String(localized: "Focus", comment: "VoiceOver name of a focus/blur/highlight block on the timeline")
         case .annotate(let id):
-            let label = snapshot.annotateItems.first { $0.id == id }?.label ?? "Annotation"
-            return "\(label) annotation"
+            let label = snapshot.annotateItems.first { $0.id == id }?.label ?? String(localized: "Annotation", comment: "VoiceOver name of an annotation block on the timeline")
+            return String(localized: "\(label) annotation", comment: "VoiceOver: an annotation block, e.g. Text annotation")
         case .video(let id):
-            guard let model = videoModel, let index = model.clips.firstIndex(where: { $0.id == id }) else { return "Clip" }
-            let speed = model.clips[index].pillSpeedLabel.map { ", speed \($0)" } ?? ""
-            return model.clips.count == 1 ? "Video\(speed)" : "Clip \(index + 1) of \(model.clips.count)\(speed)"
-        case .voice: return "Voice-over take"
+            guard let model = videoModel, let index = model.clips.firstIndex(where: { $0.id == id }) else { return String(localized: "Clip", comment: "VoiceOver name of a video clip on the timeline") }
+            let speed = model.clips[index].pillSpeedLabel
+            if model.clips.count == 1 {
+                return speed.map { String(localized: "Video, speed \($0)", comment: "VoiceOver: the whole video track and its playback speed, e.g. Video, speed 2×") }
+                    ?? String(localized: "Video", comment: "VoiceOver name of the single video clip on the timeline")
+            }
+            let number = index + 1, total = model.clips.count
+            return speed.map { String(localized: "Clip \(number) of \(total), speed \($0)", comment: "VoiceOver: a video clip, its position and speed") }
+                ?? String(localized: "Clip \(number) of \(total)", comment: "VoiceOver: a video clip and its position")
+        case .voice: return String(localized: "Voice-over take", comment: "VoiceOver name of a recorded voice-over clip on the timeline")
         }
     }
 
     static func spokenSpan(_ start: TimeInterval, _ end: TimeInterval) -> String {
-        "\(CCAccessibility.spokenTime(start)) to \(CCAccessibility.spokenTime(end))"
+        let from = CCAccessibility.spokenTime(start), to = CCAccessibility.spokenTime(end)
+        return String(localized: "\(from) to \(to)", comment: "VoiceOver: a time span on the timeline, e.g. 2 seconds to 5 seconds")
     }
 
     // MARK: - Actions (the touch paths)
@@ -234,8 +247,8 @@ final class StudioTimelineAccessibilityItem: UIAccessibilityElement {
     override var accessibilityHint: String? {
         get {
             switch target {
-            case .intro, .curtain: return "Opens its settings. Actions change its timing."
-            default: return "Selects it. Actions move, trim, split or delete it."
+            case .intro, .curtain: return String(localized: "Opens its settings. Actions change its timing.", comment: "VoiceOver hint on the intro/curtain chip")
+            default: return String(localized: "Selects it. Actions move, trim, split or delete it.", comment: "VoiceOver hint on a timeline block")
             }
         }
         set {}
@@ -310,7 +323,7 @@ final class StudioTimelineAccessibilityItem: UIAccessibilityElement {
             case A.delete: _ = host.deleteSelectedRegion()
             default: host.splitAtPlayhead()
             }
-            CCAccessibility.announce(name == A.delete ? "Deleted" : name == A.duplicate ? "Duplicated" : "Split")
+            CCAccessibility.announce(name == A.delete ? String(localized: "Deleted", comment: "VoiceOver announcement after deleting a timeline block") : name == A.duplicate ? String(localized: "Duplicated", comment: "VoiceOver announcement after duplicating a timeline block") : String(localized: "Split", comment: "VoiceOver announcement after splitting a clip"))
             return true
         default:
             return false
@@ -319,7 +332,7 @@ final class StudioTimelineAccessibilityItem: UIAccessibilityElement {
         host.rebuildCanvas()
         if let after = canvas.accessibilitySpan(for: target) {
             if let before, abs(before.start - after.start) < 1e-6, abs(before.end - after.end) < 1e-6 {
-                CCAccessibility.announce("No room to \(name.lowercased())")
+                CCAccessibility.announce(String(localized: "No room: \(name)", comment: "VoiceOver: a timeline action could not move or resize the block; the argument is the action's name as shown in the actions rotor, e.g. Move Later"))
             } else {
                 CCAccessibility.announce(StudioTimelineCanvasView.spokenSpan(after.start, after.end))
             }

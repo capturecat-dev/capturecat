@@ -36,8 +36,8 @@ final class StudioSyncBadge: UIControl {
             glyph.centerXAnchor.constraint(equalTo: centerXAnchor),
             glyph.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
-        accessibilityLabel = "Sync status"
-        accessibilityHint = "Says the sync state in words."
+        accessibilityLabel = String(localized: "Sync status", comment: "VoiceOver label of the sync status badge")
+        accessibilityHint = String(localized: "Says the sync state in words.", comment: "VoiceOver hint on the sync status badge")
         ccOnThemeChange { [weak self] in
             guard let self, let shown = self.shown else { return }
             self.show(shown, animated: false)
@@ -104,7 +104,7 @@ final class StudioSyncBadge: UIControl {
         let changed = shown != status
         shown = status
         isHidden = status == .localOnly
-        accessibilityLabel = "Sync status"
+        accessibilityLabel = String(localized: "Sync status", comment: "VoiceOver label of the sync status badge")
         accessibilityValue = status.words
         let fill = color(for: status).resolvedColor(with: traitCollection).cgColor
         // Offline: a hollow ring (nothing is moving); otherwise a filled dot.

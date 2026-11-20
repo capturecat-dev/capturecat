@@ -30,9 +30,9 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
 
         var errorDescription: String? {
             switch self {
-            case .cancelled: return "Sign-in was cancelled."
-            case .denied: return "CaptureCat wasn't given access."
-            case .stateMismatch: return "Sign-in couldn't be verified. Try again."
+            case .cancelled: return String(localized: "Sign-in was cancelled.")
+            case .denied: return String(localized: "CaptureCat wasn't given access.")
+            case .stateMismatch: return String(localized: "Sign-in couldn't be verified. Try again.")
             case let .failed(message): return message
             }
         }
@@ -47,7 +47,7 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
 
     /// Run the whole flow. Resolves with the stored session.
     func signIn(from window: UIWindow?) async throws -> AuthSession {
-        guard !isSigningIn else { throw AuthError.failed("Sign-in is already in progress.") }
+        guard !isSigningIn else { throw AuthError.failed(String(localized: "Sign-in is already in progress.")) }
         isSigningIn = true
         defer { isSigningIn = false; webSession = nil }
         anchorWindow = window
@@ -59,7 +59,7 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
         do {
             port = try await listener.start()
         } catch {
-            throw AuthError.failed("Couldn't start sign-in on this device. Try again.")
+            throw AuthError.failed(String(localized: "Couldn't start sign-in on this device. Try again."))
         }
         let redirectURI = OAuthPKCE.loopbackRedirectURI(port: port)
 
@@ -84,7 +84,7 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
         webSession = web
         guard web.start() else {
             listener.cancel()
-            throw AuthError.failed("Couldn't open the sign-in page.")
+            throw AuthError.failed(String(localized: "Couldn't open the sign-in page."))
         }
 
         let callback: LoopbackAuthServer.Callback
@@ -99,12 +99,12 @@ final class AuthService: NSObject, ASWebAuthenticationPresentationContextProvidi
         }
 
         if let error = callback.error {
-            throw error == "access_denied" ? AuthError.denied : AuthError.failed(callback.errorDescription ?? "Sign-in failed.")
+            throw error == "access_denied" ? AuthError.denied : AuthError.failed(callback.errorDescription ?? String(localized: "Sign-in failed."))
         }
         guard let returned = callback.state, OAuthPKCE.constantTimeEquals(returned, state) else {
             throw AuthError.stateMismatch
         }
-        guard let code = callback.code else { throw AuthError.failed("Sign-in didn't return a code.") }
+        guard let code = callback.code else { throw AuthError.failed(String(localized: "Sign-in didn't return a code.")) }
 
         let session = try await APIClient.shared.redeem(code: code, verifier: pkce.verifier, redirectURI: redirectURI)
         SessionStore.save(session)

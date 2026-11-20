@@ -9,12 +9,12 @@ final class SignInViewController: UIViewController {
     private let mark = UIImageView()
     private let markHost = CCSurface(.raised, tint: .black, radius: .lg)
     private let eyebrow = UILabel()
-    private let titleLabel = ccLabel("Sign in to your library", font: CCFont.scaled(28, .semibold, .title1, max: 38), color: CCTheme.color.foreground, lines: 0)
-    private let body = ccLabel("Your recordings from your Mac and the web, on your \(ThisDevice.noun) — watch them, share them, and capture new ones that open straight in the editor.",
+    private let titleLabel = ccLabel(String(localized: "Sign in to your library", comment: "Sign-in screen title"), font: CCFont.scaled(28, .semibold, .title1, max: 38), color: CCTheme.color.foreground, lines: 0)
+    private let body = ccLabel(String(localized: "Your recordings from your Mac and the web, on your \(ThisDevice.noun) — watch them, share them, and capture new ones that open straight in the editor.", comment: "Argument is iPhone or iPad"),
                                font: CCFont.body, color: CCTheme.color.mutedForeground, lines: 0)
-    private let signInButton = CCButton(title: "Sign in", style: .primary, size: .lg, radius: .lg)
+    private let signInButton = CCButton(title: String(localized: "Sign in", comment: "Button"), style: .primary, size: .lg, radius: .lg)
     private let errorLabel = ccLabel("", font: CCFont.label, color: CCTheme.color.destructive, lines: 0)
-    private let footnote = ccLabel("Opens a secure sign-in page. New to CaptureCat? Create a free account there.",
+    private let footnote = ccLabel(String(localized: "Opens a secure sign-in page. New to CaptureCat? Create a free account there."),
                                    font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
     private let stack = UIStackView()
     private var errorHeight: NSLayoutConstraint!
@@ -40,12 +40,12 @@ final class SignInViewController: UIViewController {
         eyebrow.adjustsFontForContentSizeCategory = true
         titleLabel.accessibilityTraits = .header
         signInButton.onTap = { [weak self] in self?.signIn() }
-        signInButton.accessibilityHint = "Opens a secure sign-in page"
+        signInButton.accessibilityHint = String(localized: "Opens a secure sign-in page", comment: "Accessibility hint for the Sign in button")
 
         let features = UIStackView(arrangedSubviews: [
-            feature("cloud-upload", "Projects sync with your Mac and the web"),
-            feature("wifi", "Stream this \(ThisDevice.noun) to your Mac — no cable"),
-            feature("link", "Share links with time-pinned comments"),
+            feature("cloud-upload", String(localized: "Projects sync with your Mac and the web", comment: "Sign-in screen feature list")),
+            feature("wifi", String(localized: "Stream this \(ThisDevice.noun) to your Mac — no cable", comment: "Sign-in screen feature list; argument is iPhone or iPad")),
+            feature("link", String(localized: "Share links with time-pinned comments", comment: "Sign-in screen feature list")),
         ])
         features.axis = .vertical
         features.spacing = CCSpace.md

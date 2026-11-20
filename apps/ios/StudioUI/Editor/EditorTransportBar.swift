@@ -28,25 +28,25 @@ final class EditorTransportBar: UIView {
     /// A timeline command (the key anchors any menu it opens).
     var onCommand: ((Command, UIView) -> Void)?
 
-    let playButton = EditorTransportBar.key("play-fill", "Play")
-    let toStartButton = EditorTransportBar.key("backward.end.fill", "Go to Start")
-    let toEndButton = EditorTransportBar.key("forward.end.fill", "Go to End")
-    let undoButton = EditorTransportBar.key("arrow.uturn.backward", "Undo")
-    let redoButton = EditorTransportBar.key("arrow.uturn.forward", "Redo")
-    let deleteButton = EditorTransportBar.key("trash", "Delete Selected")
-    let effectsButton = EditorTransportBar.key("sparkles", "Effects")
-    let focusButton = EditorTransportBar.key("scope", "Focus & Blur")
-    let sliceButton = EditorTransportBar.key("scissors", "Slice")
-    let splitButton = EditorTransportBar.key("rectangle.split.2x1", "Split at Playhead")
-    let annotateButton = EditorTransportBar.key("pencil.tip", "Add Annotation")
-    let voiceButton = EditorTransportBar.key("mic.fill", "Record Voice Over")
-    let zoomOutButton = EditorTransportBar.key("minus.magnifyingglass", "Zoom Out Timeline")
-    let zoomInButton = EditorTransportBar.key("plus.magnifyingglass", "Zoom In Timeline")
+    let playButton = EditorTransportBar.key("play-fill", String(localized: "Play", comment: "Editor transport bar button (VoiceOver label)"))
+    let toStartButton = EditorTransportBar.key("backward.end.fill", String(localized: "Go to Start", comment: "Editor transport bar button (VoiceOver label)"))
+    let toEndButton = EditorTransportBar.key("forward.end.fill", String(localized: "Go to End", comment: "Editor transport bar button (VoiceOver label)"))
+    let undoButton = EditorTransportBar.key("arrow.uturn.backward", String(localized: "Undo", comment: "Editor transport bar button (VoiceOver label)"))
+    let redoButton = EditorTransportBar.key("arrow.uturn.forward", String(localized: "Redo", comment: "Editor transport bar button (VoiceOver label)"))
+    let deleteButton = EditorTransportBar.key("trash", String(localized: "Delete Selected", comment: "Editor transport bar button (VoiceOver label)"))
+    let effectsButton = EditorTransportBar.key("sparkles", String(localized: "Effects", comment: "Editor transport bar button (VoiceOver label)"))
+    let focusButton = EditorTransportBar.key("scope", String(localized: "Focus & Blur", comment: "Editor transport bar button (VoiceOver label)"))
+    let sliceButton = EditorTransportBar.key("scissors", String(localized: "Slice", comment: "Editor transport bar button (VoiceOver label)"))
+    let splitButton = EditorTransportBar.key("rectangle.split.2x1", String(localized: "Split at Playhead", comment: "Editor transport bar button (VoiceOver label)"))
+    let annotateButton = EditorTransportBar.key("pencil.tip", String(localized: "Add Annotation", comment: "Editor transport bar button (VoiceOver label)"))
+    let voiceButton = EditorTransportBar.key("mic.fill", String(localized: "Record Voice Over", comment: "Editor transport bar button (VoiceOver label)"))
+    let zoomOutButton = EditorTransportBar.key("minus.magnifyingglass", String(localized: "Zoom Out Timeline", comment: "Editor transport bar button (VoiceOver label)"))
+    let zoomInButton = EditorTransportBar.key("plus.magnifyingglass", String(localized: "Zoom In Timeline", comment: "Editor transport bar button (VoiceOver label)"))
     let scaleSlider = EditorScaleSlider()
-    let expandButton = EditorTransportBar.key("display", "Full-screen preview")
+    let expandButton = EditorTransportBar.key("display", String(localized: "Full-screen preview", comment: "Editor transport bar button (VoiceOver label)"))
     /// Kept for the keyboard and VoiceOver (frame steps): hidden keys.
-    let backButton = EditorTransportBar.key("chevron-left", "Previous frame")
-    let forwardButton = EditorTransportBar.key("chevron-right", "Next frame")
+    let backButton = EditorTransportBar.key("chevron-left", String(localized: "Previous frame", comment: "Editor transport bar button (VoiceOver label)"))
+    let forwardButton = EditorTransportBar.key("chevron-right", String(localized: "Next frame", comment: "Editor transport bar button (VoiceOver label)"))
     /// The time readout, VoiceOver's adjustable playhead.
     let playhead = EditorPlayheadReadout()
 
@@ -96,9 +96,9 @@ final class EditorTransportBar: UIView {
         }
         // Play starts media (VoiceOver goes quiet).
         playButton.accessibilityTraits = [.button, .startsMediaSession]
-        playButton.accessibilityHint = "Plays or pauses the recording."
-        backButton.accessibilityHint = "Steps the playhead back one frame."
-        forwardButton.accessibilityHint = "Steps the playhead forward one frame."
+        playButton.accessibilityHint = String(localized: "Plays or pauses the recording.")
+        backButton.accessibilityHint = String(localized: "Steps the playhead back one frame.")
+        forwardButton.accessibilityHint = String(localized: "Steps the playhead forward one frame.")
         deleteButton.tintOverride = CCTheme.color.destructive
 
         row.axis = .horizontal
@@ -172,7 +172,7 @@ final class EditorTransportBar: UIView {
     func update(isPlaying: Bool, outputTime: TimeInterval, outputDuration: TimeInterval) {
         let symbol = isPlaying ? "pause-fill" : "play-fill"
         if playButton.symbol != symbol { playButton.symbol = symbol }
-        let label = isPlaying ? "Pause" : "Play"
+        let label = isPlaying ? String(localized: "Pause", comment: "Editor transport bar: pause playback (VoiceOver)") : String(localized: "Play", comment: "Editor transport bar button (VoiceOver label)")
         if playButton.accessibilityLabelOverride != label {
             playButton.accessibilityLabelOverride = label
             playButton.accessibilityTraits = [.button, .startsMediaSession]
@@ -212,8 +212,8 @@ final class EditorTransportBar: UIView {
     /// The full-screen key's face: expand, or return to the editor.
     func setExpanded(_ expanded: Bool) {
         expandButton.symbol = expanded ? "arrow.down.right.and.arrow.up.left" : "display"
-        expandButton.accessibilityLabelOverride = expanded ? "Exit full-screen preview" : "Full-screen preview"
-        expandButton.accessibilityHint = expanded ? "Shows the timeline and tools again." : "Hides the timeline and tools; the preview takes the screen."
+        expandButton.accessibilityLabelOverride = expanded ? String(localized: "Exit full-screen preview") : String(localized: "Full-screen preview", comment: "Editor transport bar button (VoiceOver label)")
+        expandButton.accessibilityHint = expanded ? String(localized: "Shows the timeline and tools again.") : String(localized: "Hides the timeline and tools; the preview takes the screen.")
     }
 
     /// m:ss (output time) — the Mac toolbar's `formattedTimecode`.
@@ -241,9 +241,9 @@ final class EditorScaleSlider: UIControl {
         knob.shadowRadius = 1.5
         knob.shadowOffset = CGSize(width: 0, height: 0.5)
         isAccessibilityElement = true
-        accessibilityLabel = "Timeline zoom"
+        accessibilityLabel = String(localized: "Timeline zoom", comment: "VoiceOver label for the timeline zoom slider")
         accessibilityTraits = .adjustable
-        accessibilityValue = "0 percent"
+        accessibilityValue = String(localized: "0 percent", comment: "VoiceOver value for the timeline zoom slider at its minimum")
         ccOnThemeChange { [weak self] in self?.restyle() }
         restyle()
     }
@@ -262,7 +262,7 @@ final class EditorScaleSlider: UIControl {
         let c = min(1, max(0, v))
         guard abs(c - value) > 0.0005 else { return }
         value = c
-        accessibilityValue = "\(Int((c * 100).rounded())) percent"
+        accessibilityValue = String(localized: "\(Int((c * 100).rounded())) percent", comment: "VoiceOver value for the timeline zoom slider")
         setNeedsLayout()
     }
 
@@ -323,8 +323,8 @@ final class EditorPlayheadReadout: UIControl {
         accessibilityIdentifier = "studio.time"
         isAccessibilityElement = true
         accessibilityTraits = [.adjustable, .updatesFrequently]
-        accessibilityLabel = "Playhead"
-        accessibilityHint = "Swipe up or down to move a second."
+        accessibilityLabel = String(localized: "Playhead", comment: "VoiceOver label for the time readout / playhead")
+        accessibilityHint = String(localized: "Swipe up or down to move a second.")
         for label in [current, divider, total] {
             label.adjustsFontForContentSizeCategory = true
             label.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -357,7 +357,9 @@ final class EditorPlayheadReadout: UIControl {
 
     /// "6.5 seconds of 20 seconds" — what VoiceOver says for the playhead.
     static func spoken(_ value: TimeInterval, of duration: TimeInterval) -> String {
-        "\(CCAccessibility.spokenTime(value)) of \(CCAccessibility.spokenTime(duration))"
+        let current = CCAccessibility.spokenTime(value)
+        let total = CCAccessibility.spokenTime(duration)
+        return String(localized: "\(current) of \(total)", comment: "VoiceOver: playhead time of total duration, e.g. 6.5 seconds of 20 seconds")
     }
 
     override var canBecomeFocused: Bool { !isHidden }

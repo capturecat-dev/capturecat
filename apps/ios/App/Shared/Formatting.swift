@@ -43,7 +43,7 @@ enum Format {
 
     /// "2 hours ago", "Yesterday".
     static func relative(_ date: Date) -> String {
-        if abs(date.timeIntervalSinceNow) < 60 { return "Just now" }
+        if abs(date.timeIntervalSinceNow) < 60 { return String(localized: "Just now", comment: "Relative time: less than a minute ago (sentence start)") }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
         formatter.dateTimeStyle = .named
@@ -103,9 +103,9 @@ enum SharePrivacy {
 
     var title: String {
         switch self {
-        case .privateShare: return "Private"
-        case .unlisted: return "Unlisted"
-        case .publicShare: return "Public"
+        case .privateShare: return String(localized: "Private", comment: "Share privacy: only the owner can watch")
+        case .unlisted: return String(localized: "Unlisted", comment: "Share privacy: anyone with the link can watch")
+        case .publicShare: return String(localized: "Public", comment: "Share privacy: listed on the public profile")
         }
     }
 
@@ -119,9 +119,9 @@ enum SharePrivacy {
 
     var explanation: String {
         switch self {
-        case .privateShare: return "Only you (signed in) can watch."
-        case .unlisted: return "Anyone with the link can watch."
-        case .publicShare: return "Listed on your public profile."
+        case .privateShare: return String(localized: "Only you (signed in) can watch.")
+        case .unlisted: return String(localized: "Anyone with the link can watch.")
+        case .publicShare: return String(localized: "Listed on your public profile.")
         }
     }
 }

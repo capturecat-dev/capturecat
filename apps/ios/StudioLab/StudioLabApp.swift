@@ -82,6 +82,7 @@ final class LabViewController: UIViewController {
 
     func start(arguments: [String]) {
         if #available(iOS 26, *), A11yLab.start(arguments, lab: self) { return }
+        if L10nLab.start(arguments, lab: self) { return }
         if KitGalleryLab.start(arguments, lab: self) { return }
         if InspectorLab.start(arguments, lab: self) { return }
         if EffectsParityLab.start(arguments, lab: self) { return }

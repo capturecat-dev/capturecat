@@ -92,7 +92,7 @@ final class InspectorPaneView: UIView {
                 }
                 continue
             }
-            let title = spec.title ?? tab.rawValue
+            let title = spec.title ?? tab.displayName
             if visible.count <= 3 || spec.title == nil {
                 out.append(InspectorPanelOption(
                     id: spec.id, title: title, symbol: InspectorPanelOption.symbol(for: title, fallback: tab.icon),
@@ -132,7 +132,7 @@ final class InspectorPaneView: UIView {
         // scrolled).
         if let budget = panelBudget, budget > 0 { out = split(out, budget: budget, scope: scope) }
         if out.isEmpty {
-            out.append(InspectorPanelOption(id: "\(tab.rawValue).all", title: tab.rawValue, symbol: tab.icon,
+            out.append(InspectorPanelOption(id: "\(tab.rawValue).all", title: tab.displayName, symbol: tab.icon,
                                             rows: Array(all.indices), choice: nil, section: nil, isCurrent: false))
         }
         // One name per key: a repeated title (Cursor's three "Size" rows)
@@ -143,7 +143,9 @@ final class InspectorPaneView: UIView {
             guard seen.contains(o.title),
                   let group = sections.first(where: { $0.spec.id == o.section })?.spec.title?.split(separator: " ").first
             else { continue }
-            out[i] = InspectorPanelOption(id: o.id, title: "\(group) \(o.title)", symbol: o.symbol, rows: o.rows,
+            let groupWord = String(group)
+            let optionTitle = o.title
+            out[i] = InspectorPanelOption(id: o.id, title: String(localized: "\(groupWord) \(optionTitle)", comment: "Inspector key name that disambiguates a repeated title: the group's first word, then the title, e.g. Click Size"), symbol: o.symbol, rows: o.rows,
                                           choice: o.choice, section: o.section, isCurrent: o.isCurrent)
         }
         return out
@@ -196,7 +198,8 @@ final class InspectorPaneView: UIView {
                                 scope: InspectorScope) -> InspectorPanelOption {
         let specs = specRows
         let titled = rows.lazy.compactMap { InspectorPanelOption.title(of: specs[$0], scope: scope) }.first
-        let title = titled ?? Self.name(ofRowID: self.rows[rows[0]].rowID) ?? "\(o.title) \(number)"
+        let optionTitle = o.title
+        let title = titled ?? Self.name(ofRowID: self.rows[rows[0]].rowID) ?? String(localized: "\(optionTitle) \(number)", comment: "Inspector key for a further page of an option's controls, e.g. Size 2")
         let kind = specs[rows.first { InspectorPanelOption.title(of: specs[$0], scope: scope) != nil } ?? rows[0]]
         return InspectorPanelOption(
             id: "\(o.section ?? o.id)+\(rows[0])", title: title,
@@ -224,6 +227,9 @@ final class InspectorPaneView: UIView {
         // Multi-line copy wraps at the row's width in the fitting pass too.
         func wrap(_ v: UIView) {
             if let l = v as? UILabel, l.numberOfLines != 1 { l.preferredMaxLayoutWidth = width - 40 }
+            // Chips flow at this width too (their height is otherwise the
+            // last laid-out one — a longer language wraps them later).
+            if let g = v as? CCChipGroup { g.fitHeight(toWidth: width) }
             v.subviews.forEach(wrap)
         }
         wrap(row)
@@ -257,7 +263,11 @@ final class InspectorPaneView: UIView {
             if ch.isUppercase || words.isEmpty { words.append(String(ch)) } else { words[words.count - 1].append(ch) }
         }
         let name = words.joined(separator: " ").lowercased()
-        return name.isEmpty ? nil : name.prefix(1).uppercased() + name.dropFirst()
+        guard !name.isEmpty else { return nil }
+        let english = name.prefix(1).uppercased() + name.dropFirst()
+        // Runtime key: the catalog carries these as manual entries
+        // (ios-l10n.sh flags any it lacks).
+        return Bundle.main.localizedString(forKey: english, value: english, table: nil)
     }
 
     /// A display-only preview well (no control of its own).
@@ -507,7 +517,9 @@ struct InspectorPanelOption: Equatable {
     /// Key names for chip rows titled by their section on the Mac (which
     /// shows them under the section's header, with no label of their own).
     static let choiceKeyNames: [String: String] = [
-        "effects.slideStyle": "Direction", "effects.curtainCorner": "Corner", "blocks.tiltPreset": "Presets",
+        "effects.slideStyle": String(localized: "Direction", comment: "Inspector key: the direction a slide transition moves"),
+        "effects.curtainCorner": String(localized: "Corner", comment: "Inspector key: the corner a curtain transition opens from"),
+        "blocks.tiltPreset": String(localized: "Presets", comment: "Inspector key: tilt presets"),
     ]
 
     @MainActor
@@ -542,7 +554,9 @@ struct InspectorPanelOption: Equatable {
 
     /// A kit icon for a title (keywords), else `fallback`.
     static func symbol(for title: String, fallback: String) -> String {
-        let t = title.lowercased()
+        // The keywords are English: a localized title is matched by the
+        // English key it was translated from.
+        let t = (englishTitle[title] ?? title).lowercased()
         let table: [(String, String)] = [
             ("gradient", "circle-half"), ("mesh", "grid"), ("solid", "circle-fill"), ("wallpaper", "desktop"),
             ("transparent", "circle-dashed"), ("image", "photo"), ("look", "sliders"), ("frame", "rectangle"),
@@ -561,4 +575,14 @@ struct InspectorPanelOption: Equatable {
         for (key, icon) in table where t.contains(key) { return icon }
         return CCIcon.has(fallback) ? fallback : "sliders"
     }
+
+    /// Translation → English key, from the running language's compiled
+    /// string table (empty in English, where titles are the keys).
+    private static let englishTitle: [String: String] = {
+        guard let url = Bundle.main.url(forResource: "Localizable", withExtension: "strings"),
+              let table = NSDictionary(contentsOf: url) as? [String: String] else { return [:] }
+        var inverse: [String: String] = [:]
+        for (key, value) in table where inverse[value] == nil { inverse[value] = key }
+        return inverse
+    }()
 }

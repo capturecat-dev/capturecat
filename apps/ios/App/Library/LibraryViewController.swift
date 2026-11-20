@@ -11,7 +11,7 @@ import UIKit
 final class LibraryViewController: UIViewController, UICollectionViewDelegate {
     enum Filter: Int, CaseIterable {
         case all, videos, images, shares
-        var title: String { ["All", "Videos", "Images", "Shares"][rawValue] }
+        var title: String { [String(localized: "All", comment: "Library filter segment: every item"), String(localized: "Videos", comment: "Library filter segment"), String(localized: "Images", comment: "Library filter segment: screenshots"), String(localized: "Shares", comment: "Library filter segment: shared video links")][rawValue] }
     }
 
     nonisolated private enum Section: Hashable, Sendable {
@@ -24,11 +24,11 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
 
     private let headerBlock = UIView()
     private let sidebarToggle = CCButton(symbol: "sidebar-left", style: .secondary, size: .regular)
-    private let titleLabel = ccLabel("Library", font: CCFont.largeTitle, color: CCTheme.color.foreground)
+    private let titleLabel = ccLabel(String(localized: "Library", comment: "Library screen title"), font: CCFont.largeTitle, color: CCTheme.color.foreground)
     /// Record-red capsule, like the Mac browser's — opens Capture.
-    private let newRecording = CCButton(title: "New Recording", symbol: "record", style: .destructive, size: .sm, radius: .full)
+    private let newRecording = CCButton(title: String(localized: "New Recording", comment: "Library header button: start a new recording"), symbol: "record", style: .destructive, size: .sm, radius: .full)
     private let filterBar = CCSegmented(segments: Filter.allCases.map(\.title), size: .regular, radius: .full)
-    private let searchField = CCSearchField(placeholder: "Search captures…")
+    private let searchField = CCSearchField(placeholder: String(localized: "Search captures…", comment: "Library search field placeholder"))
     private var query = ""
     private var collectionView: UICollectionView!
     private var dataSource: UICollectionViewDiffableDataSource<Section, LibraryRow>!
@@ -115,25 +115,48 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
 
     // MARK: - Header block (the Mac browser's two header rows)
 
+    private var headerRow: UIStackView?
+    /// The New Recording key's width WITH its label (measured while it shows one).
+    private var labeledNewRecordingWidth: CGFloat = 0
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        fitNewRecording()
+    }
+
+    /// New Recording keeps its label only while the title still fits beside
+    /// it whole (long titles in some languages, a narrow column, the largest
+    /// text sizes); otherwise it is the red record key alone.
+    private func fitNewRecording() {
+        guard let row = headerRow, row.bounds.width > 0 else { return }
+        let label = String(localized: "New Recording", comment: "Library header button: start a new recording")
+        if !newRecording.title.isEmpty { labeledNewRecordingWidth = newRecording.intrinsicContentSize.width }
+        if labeledNewRecordingWidth == 0 {
+            newRecording.title = label
+            labeledNewRecordingWidth = newRecording.intrinsicContentSize.width
+        }
+        let toggle = sidebarToggle.isHidden ? 0 : sidebarToggle.intrinsicContentSize.width + row.spacing
+        let need = toggle + ceil(titleLabel.intrinsicContentSize.width) + row.spacing * 2 + labeledNewRecordingWidth
+        let showLabel = !traitCollection.preferredContentSizeCategory.isAccessibilityCategory && need <= row.bounds.width
+        let title = showLabel ? label : ""
+        if newRecording.title != title { newRecording.title = title }
+    }
+
     private func buildHeader() {
         headerBlock.translatesAutoresizingMaskIntoConstraints = false
         headerBlock.backgroundColor = CCTheme.color.background
         view.addSubview(headerBlock)
-        sidebarToggle.accessibilityLabelOverride = "Show or hide the sidebar"
+        sidebarToggle.accessibilityLabelOverride = String(localized: "Show or hide the sidebar")
         sidebarToggle.isHidden = true
         sidebarToggle.onTap = { [weak self] in
             guard let self, let visible = self.coordinator?.toggleSidebar?() else { return }
             self.setSidebarVisible(visible)
         }
         titleLabel.accessibilityTraits = .header
-        newRecording.accessibilityHint = "Opens Capture"
-        newRecording.accessibilityLabelOverride = "New Recording"
-        func fitNewRecording(_ vc: LibraryViewController) {
-            vc.newRecording.title = vc.traitCollection.preferredContentSizeCategory.isAccessibilityCategory ? "" : "New Recording"
-        }
-        fitNewRecording(self)
+        newRecording.accessibilityHint = String(localized: "Opens Capture", comment: "Accessibility hint for the New Recording button; Capture is the tab name")
+        newRecording.accessibilityLabelOverride = String(localized: "New Recording", comment: "Library header button: start a new recording")
         registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (vc: LibraryViewController, _: UITraitCollection) in
-            fitNewRecording(vc)
+            vc.view.setNeedsLayout()
         }
         newRecording.onTap = { [weak self] in self?.coordinator?.openCapture?() }
         newRecording.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -143,12 +166,13 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
             self.rearm()
             self.scrollToTop()
         }
-        filterBar.accessibilityLabel = "Filter"
+        filterBar.accessibilityLabel = String(localized: "Filter", comment: "Accessibility label for the library filter segments")
         searchField.onQueryChange = { [weak self] text in
             self?.query = text.trimmingCharacters(in: .whitespaces)
             self?.rearm()
         }
         let row = UIStackView(arrangedSubviews: [sidebarToggle, titleLabel, UIView(), newRecording])
+        headerRow = row
         row.spacing = CCSpace.sm + 2
         row.alignment = .center
         let hairline = CCDivider()
@@ -266,7 +290,7 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
         }
         dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
             let view = collectionView.dequeueReusableSupplementaryView(ofKind: kind, withReuseIdentifier: LibrarySectionHeader.reuse, for: indexPath) as! LibrarySectionHeader
-            view.label.text = "Uploading from this \(ThisDevice.noun)"
+            view.label.text = String(localized: "Uploading from this \(ThisDevice.noun)", comment: "Section header; argument is iPhone or iPad")
             return view
         }
     }
@@ -360,7 +384,7 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
                 // synchronously (disk cache) must re-run the loop, and a
                 // mutation made during tracking never fires its onChange.
                 DispatchQueue.main.async { store.requestFacts(for: unknown) }
-                status = "Sorting \(unknown.count) more…"
+                status = String(localized: "Sorting \(unknown.count) more…", comment: "Library status while classifying projects; argument is a count")
             }
             items = projects.filter { project in
                 guard let facts = store.facts(for: project) else { return false }
@@ -427,22 +451,22 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
         guard let key else { return }
         let empty: CCEmptyState
         if key.hasPrefix("search:") {
-            empty = CCEmptyState(symbol: "search", title: "No matches", message: "Nothing in your library is called “\(query)”.")
+            empty = CCEmptyState(symbol: "search", title: String(localized: "No matches", comment: "Library empty state: search found nothing"), message: String(localized: "Nothing in your library is called “\(query)”.", comment: "Argument is the search text"))
         } else if case .failed(let message) = phase, key.hasPrefix("failed") {
-            empty = CCEmptyState(symbol: "warning-fill", title: "Couldn't load your library", message: message,
-                                 primary: CCButton(title: "Try again", style: .primary) { LibraryStore.shared.refresh() })
+            empty = CCEmptyState(symbol: "warning-fill", title: String(localized: "Couldn't load your library"), message: message,
+                                 primary: CCButton(title: String(localized: "Try again", comment: "Button: retry loading the library"), style: .primary) { LibraryStore.shared.refresh() })
         } else {
             switch filter {
             case .all:
-                empty = CCEmptyState(symbol: "film-stack", title: "Nothing here yet",
-                                     message: "Recordings and screenshots from this \(ThisDevice.noun), your Mac and the web all land here.",
-                                     primary: CCButton(title: "Start capturing", symbol: "record", style: .primary) { [weak self] in self?.coordinator?.openCapture?() })
+                empty = CCEmptyState(symbol: "film-stack", title: String(localized: "Nothing here yet", comment: "Library empty state title"),
+                                     message: String(localized: "Recordings and screenshots from this \(ThisDevice.noun), your Mac and the web all land here.", comment: "Argument is iPhone or iPad"),
+                                     primary: CCButton(title: String(localized: "Start capturing", comment: "Library empty state button: go to Capture"), symbol: "record", style: .primary) { [weak self] in self?.coordinator?.openCapture?() })
             case .videos:
-                empty = CCEmptyState(symbol: "film", title: "No videos yet", message: "Record on this \(ThisDevice.noun) or on your Mac — they show up here.")
+                empty = CCEmptyState(symbol: "film", title: String(localized: "No videos yet"), message: String(localized: "Record on this \(ThisDevice.noun) or on your Mac — they show up here.", comment: "Argument is iPhone or iPad"))
             case .images:
-                empty = CCEmptyState(symbol: "photo", title: "No images yet", message: "Import screenshots from Photos in the Capture tab.")
+                empty = CCEmptyState(symbol: "photo", title: String(localized: "No images yet"), message: String(localized: "Import screenshots from Photos in the Capture tab."))
             case .shares:
-                empty = CCEmptyState(symbol: "link", title: "No shared videos", message: "Share a recording from your Mac or the web to get a link you can send.")
+                empty = CCEmptyState(symbol: "link", title: String(localized: "No shared videos"), message: String(localized: "Share a recording from your Mac or the web to get a link you can send."))
             }
         }
         backgroundHost.addSubview(empty)
@@ -501,8 +525,13 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
     @objc private func longPressed(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
         let point = gesture.location(in: collectionView)
-        guard let indexPath = collectionView.indexPathForItem(at: point),
-              let row = dataSource.itemIdentifier(for: indexPath),
+        guard let indexPath = collectionView.indexPathForItem(at: point) else { return }
+        showActions(at: indexPath)
+    }
+
+    /// The card's house action sheet (long press; the l10n gate's seam).
+    func showActions(at indexPath: IndexPath) {
+        guard let row = dataSource.itemIdentifier(for: indexPath),
               let cell = collectionView.cellForItem(at: indexPath) else { return }
         CCHaptics.light()
         let store = LibraryStore.shared
@@ -510,17 +539,17 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
         case .project(let id):
             guard let project = store.project(id) else { return }
             let sheet = CCActionSheet(title: project.name)
-            sheet.addAction("Open", symbol: "play-fill") { [weak self] in self?.coordinator?.showProject(id) }
-            sheet.addAction("Rename", symbol: "pencil") { [weak self] in
+            sheet.addAction(String(localized: "Open", comment: "Action sheet: open the project"), symbol: "play-fill") { [weak self] in self?.coordinator?.showProject(id) }
+            sheet.addAction(String(localized: "Rename", comment: "Action sheet: rename the project"), symbol: "pencil") { [weak self] in
                 guard let self else { return }
                 ProjectActions.promptRename(projectID: id, currentName: project.name, from: self)
             }
-            sheet.addAction("Open in web editor", symbol: "globe") { ProjectActions.openInWebEditor(projectID: id) }
+            sheet.addAction(String(localized: "Open in web editor", comment: "Action sheet"), symbol: "globe") { ProjectActions.openInWebEditor(projectID: id) }
             if let share = store.share(linkedTo: id) {
-                sheet.addAction("Copy share link", symbol: "link") { ProjectActions.copyLink(share) }
+                sheet.addAction(String(localized: "Copy share link", comment: "Action sheet"), symbol: "link") { ProjectActions.copyLink(share) }
             }
             if project.isOwner {
-                sheet.addAction("Delete", symbol: "trash", destructive: true) { [weak self] in
+                sheet.addAction(String(localized: "Delete", comment: "Action sheet: delete the project"), symbol: "trash", destructive: true) { [weak self] in
                     guard let self else { return }
                     ProjectActions.confirmDelete(projectID: id, name: project.name, from: self) { [weak self] in
                         self?.coordinator?.projectDeleted(id)
@@ -531,9 +560,9 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
         case .share(let id):
             guard let share = store.share(id) else { return }
             let sheet = CCActionSheet(title: (share.fileName as NSString).deletingPathExtension)
-            sheet.addAction("Open", symbol: "play-fill") { [weak self] in self?.coordinator?.showShare(id) }
-            sheet.addAction("Copy link", symbol: "link") { ProjectActions.copyLink(share) }
-            sheet.addAction("Share…", symbol: "share") { [weak self, weak cell] in
+            sheet.addAction(String(localized: "Open", comment: "Action sheet: open the shared video"), symbol: "play-fill") { [weak self] in self?.coordinator?.showShare(id) }
+            sheet.addAction(String(localized: "Copy link", comment: "Action sheet: copy the share link"), symbol: "link") { ProjectActions.copyLink(share) }
+            sheet.addAction(String(localized: "Share…", comment: "Action sheet: open the system share sheet for the link"), symbol: "share") { [weak self, weak cell] in
                 guard let self, let cell else { return }
                 ProjectActions.shareSheet(share, from: self, source: cell)
             }

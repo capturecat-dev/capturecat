@@ -152,14 +152,14 @@ final class CCProgressBar: UIView {
         isAccessibilityElement = true
         accessibilityTraits = .updatesFrequently
         // Hosts may name it better ("Upload progress"); it is never nameless.
-        accessibilityLabel = "Progress"
+        accessibilityLabel = String(localized: "Progress", comment: "Progress bar (VoiceOver)")
         refreshAccessibilityValue()
         ccOnThemeChange { [weak self] in self?.applyTheme() }
         applyTheme()
     }
 
     private func refreshAccessibilityValue() {
-        accessibilityValue = isIndeterminate ? "In progress" : "\(Int((max(0, min(1, value)) * 100).rounded())) percent"
+        accessibilityValue = isIndeterminate ? String(localized: "In progress", comment: "Indeterminate progress (VoiceOver)") : String(localized: "\(Int((max(0, min(1, value)) * 100).rounded())) percent", comment: "Progress value (VoiceOver)")
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -170,7 +170,7 @@ final class CCProgressBar: UIView {
     private func applyTheme() {
         CCMaterial.dress(layer, as: .recessed(tint: CCTheme.color.active), radius: radius, traits: traitCollection)
         CCMaterial.dress(fill, as: .raisedMatte(tint: tint), radius: radius, traits: traitCollection)
-        accessibilityValue = isIndeterminate ? "In progress" : "\(Int((fraction * 100).rounded())) percent"
+        accessibilityValue = isIndeterminate ? String(localized: "In progress", comment: "Indeterminate progress (VoiceOver)") : String(localized: "\(Int((fraction * 100).rounded())) percent", comment: "Progress value (VoiceOver)")
     }
 
     override func layoutSubviews() {
@@ -198,7 +198,7 @@ final class CCProgressBar: UIView {
     }
 
     private func refreshFill(animated: Bool) {
-        accessibilityValue = "\(Int((fraction * 100).rounded())) percent"
+        accessibilityValue = String(localized: "\(Int((fraction * 100).rounded())) percent", comment: "Progress value (VoiceOver)")
         guard !isIndeterminate else { return }
         let target = bounds.width * fraction
         if animated, window != nil, bounds.width > 0 {

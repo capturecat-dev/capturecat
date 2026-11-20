@@ -250,7 +250,7 @@ final class Project: Identifiable, Codable {
 
     init(
         id: UUID = UUID(),
-        name: String = "Untitled Recording",
+        name: String = String(localized: "Untitled Recording", comment: "Default name of a new recording project"),
         videoURL: URL? = nil,
         cursorDataURL: URL? = nil,
         cameraVideoURL: URL? = nil,

@@ -332,12 +332,33 @@ final class ProjectSettings: Codable {
         case image = "Image"
         case wallpaper = "Wallpaper"
         case transparent = "Transparent"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .gradient: return String(localized: "Gradient", comment: "Inspector ▸ Background: background type option")
+            case .mesh: return String(localized: "Mesh", comment: "Inspector ▸ Background: background type option")
+            case .solid: return String(localized: "Solid Color", comment: "Inspector ▸ Background: background type option")
+            case .image: return String(localized: "Image", comment: "Inspector ▸ Background: background type option")
+            case .wallpaper: return String(localized: "Wallpaper", comment: "Inspector ▸ Background: background type option")
+            case .transparent: return String(localized: "Transparent", comment: "Inspector ▸ Background: background type option")
+            }
+        }
     }
 
     enum MenuBarTitleAlignment: String, CaseIterable, Codable, Sendable {
         case left = "Left"
         case center = "Center"
         case right = "Right"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .left: return String(localized: "Left", comment: "Inspector ▸ Background ▸ Menu Bar: title alignment option")
+            case .center: return String(localized: "Center", comment: "Inspector ▸ Background ▸ Menu Bar: title alignment option")
+            case .right: return String(localized: "Right", comment: "Inspector ▸ Background ▸ Menu Bar: title alignment option")
+            }
+        }
     }
 
     enum MenuBarReplacement: String, CaseIterable, Codable, Sendable {
@@ -345,6 +366,16 @@ final class ProjectSettings: Codable {
         case hidden = "Hidden"
         case dark = "Clean Dark"
         case light = "Clean Light"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .off: return String(localized: "Original", comment: "Inspector ▸ Background ▸ Menu Bar: menu bar replacement option")
+            case .hidden: return String(localized: "Hidden", comment: "Inspector ▸ Background ▸ Menu Bar: menu bar replacement option")
+            case .dark: return String(localized: "Clean Dark", comment: "Inspector ▸ Background ▸ Menu Bar: menu bar replacement option")
+            case .light: return String(localized: "Clean Light", comment: "Inspector ▸ Background ▸ Menu Bar: menu bar replacement option")
+            }
+        }
     }
 
     enum CursorStyle: String, CaseIterable, Codable, Sendable {
@@ -353,6 +384,17 @@ final class ProjectSettings: Codable {
         case hand = "Hand"
         case dot = "Dot"
         case ring = "Ring"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .system: return String(localized: "macOS Arrow", comment: "Inspector ▸ Cursor: cursor style option")
+            case .inverted: return String(localized: "White Arrow", comment: "Inspector ▸ Cursor: cursor style option")
+            case .hand: return String(localized: "Hand", comment: "Inspector ▸ Cursor: cursor style option")
+            case .dot: return String(localized: "Dot", comment: "Inspector ▸ Cursor: cursor style option")
+            case .ring: return String(localized: "Ring", comment: "Inspector ▸ Cursor: cursor style option")
+            }
+        }
     }
 
     enum CameraPosition: String, CaseIterable, Codable, Sendable {
@@ -360,6 +402,16 @@ final class ProjectSettings: Codable {
         case topRight = "Top Right"
         case bottomLeft = "Bottom Left"
         case bottomRight = "Bottom Right"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .topLeft: return String(localized: "Top Left", comment: "Inspector ▸ Camera: camera bubble corner position")
+            case .topRight: return String(localized: "Top Right", comment: "Inspector ▸ Camera: camera bubble corner position")
+            case .bottomLeft: return String(localized: "Bottom Left", comment: "Inspector ▸ Camera: camera bubble corner position")
+            case .bottomRight: return String(localized: "Bottom Right", comment: "Inspector ▸ Camera: camera bubble corner position")
+            }
+        }
     }
 
     enum CameraShape: String, CaseIterable, Codable, Sendable {
@@ -367,6 +419,16 @@ final class ProjectSettings: Codable {
         case squircle = "Squircle"
         case roundedRect = "Rounded Rectangle"
         case square = "Square"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .circle: return String(localized: "Circle", comment: "Inspector ▸ Camera: camera bubble shape")
+            case .squircle: return String(localized: "Squircle", comment: "Inspector ▸ Camera: camera bubble shape")
+            case .roundedRect: return String(localized: "Rounded Rectangle", comment: "Inspector ▸ Camera: camera bubble shape")
+            case .square: return String(localized: "Square", comment: "Inspector ▸ Camera: camera bubble shape")
+            }
+        }
     }
 
     /// Camera color-look presets. RAW VALUES ARE PERSISTENCE IDENTITY —
@@ -378,6 +440,18 @@ final class ProjectSettings: Codable {
         case warm = "Warm"
         case cool = "Cool"
         case fade = "Fade"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .none: return String(localized: "None", comment: "Inspector ▸ Camera: camera color filter preset")
+            case .mono: return String(localized: "Mono", comment: "Inspector ▸ Camera: camera color filter preset")
+            case .noir: return String(localized: "Noir", comment: "Inspector ▸ Camera: camera color filter preset")
+            case .warm: return String(localized: "Warm", comment: "Inspector ▸ Camera: camera color filter preset")
+            case .cool: return String(localized: "Cool", comment: "Inspector ▸ Camera: camera color filter preset")
+            case .fade: return String(localized: "Fade", comment: "Inspector ▸ Camera: camera color filter preset")
+            }
+        }
     }
 
     /// Camera bubble orientation. RAW VALUES ARE PERSISTENCE IDENTITY —
@@ -386,6 +460,15 @@ final class ProjectSettings: Codable {
         case auto = "Auto"
         case vertical = "Vertical"
         case wide = "Wide"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .auto: return String(localized: "Auto", comment: "Inspector ▸ Camera: camera bubble orientation")
+            case .vertical: return String(localized: "Vertical", comment: "Inspector ▸ Camera: camera bubble orientation")
+            case .wide: return String(localized: "Wide", comment: "Inspector ▸ Camera: camera bubble orientation")
+            }
+        }
     }
 
     /// Name-tag placement relative to the camera bubble. RAW VALUES ARE
@@ -394,12 +477,30 @@ final class ProjectSettings: Codable {
         case below = "Below"
         case above = "Above"
         case overlapBottom = "Overlap Bottom"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .below: return String(localized: "Below", comment: "Inspector ▸ Camera: name tag placement relative to the camera bubble")
+            case .above: return String(localized: "Above", comment: "Inspector ▸ Camera: name tag placement relative to the camera bubble")
+            case .overlapBottom: return String(localized: "Overlap Bottom", comment: "Inspector ▸ Camera: name tag placement relative to the camera bubble")
+            }
+        }
     }
 
     enum SubtitlePosition: String, CaseIterable, Codable, Sendable {
         case top = "Top"
         case center = "Center"
         case bottom = "Bottom"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .top: return String(localized: "Top", comment: "Inspector ▸ Subtitles: subtitle vertical position")
+            case .center: return String(localized: "Center", comment: "Inspector ▸ Subtitles: subtitle vertical position")
+            case .bottom: return String(localized: "Bottom", comment: "Inspector ▸ Subtitles: subtitle vertical position")
+            }
+        }
     }
 
     enum SubtitleStyle: String, CaseIterable, Codable, Sendable {
@@ -407,6 +508,16 @@ final class ProjectSettings: Codable {
         case background = "Background"
         case glow = "Glow"
         case plain = "Plain"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .outline: return String(localized: "Outline", comment: "Inspector ▸ Subtitles: subtitle text style")
+            case .background: return String(localized: "Background", comment: "Inspector ▸ Subtitles: subtitle text style")
+            case .glow: return String(localized: "Glow", comment: "Inspector ▸ Subtitles: subtitle text style")
+            case .plain: return String(localized: "Plain", comment: "Inspector ▸ Subtitles: subtitle text style")
+            }
+        }
     }
 
     enum SubtitleWeight: String, CaseIterable, Codable, Sendable {
@@ -415,6 +526,17 @@ final class ProjectSettings: Codable {
         case semibold = "Semibold"
         case bold = "Bold"
         case heavy = "Heavy"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .regular: return String(localized: "Regular", comment: "Inspector ▸ Subtitles: font weight")
+            case .medium: return String(localized: "Medium", comment: "Inspector ▸ Subtitles: font weight")
+            case .semibold: return String(localized: "Semibold", comment: "Inspector ▸ Subtitles: font weight")
+            case .bold: return String(localized: "Bold", comment: "Inspector ▸ Subtitles: font weight")
+            case .heavy: return String(localized: "Heavy", comment: "Inspector ▸ Subtitles: font weight")
+            }
+        }
     }
 
     enum VideoPlacement: String, CaseIterable, Codable, Sendable {
@@ -428,12 +550,36 @@ final class ProjectSettings: Codable {
         case bottom = "Bottom"
         case bottomRight = "Bottom Right"
 
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .center: return String(localized: "Center", comment: "Inspector ▸ Background ▸ Frame: where the video card sits on the canvas")
+            case .topLeft: return String(localized: "Top Left", comment: "Inspector ▸ Background ▸ Frame: where the video card sits on the canvas")
+            case .top: return String(localized: "Top", comment: "Inspector ▸ Background ▸ Frame: where the video card sits on the canvas")
+            case .topRight: return String(localized: "Top Right", comment: "Inspector ▸ Background ▸ Frame: where the video card sits on the canvas")
+            case .left: return String(localized: "Left", comment: "Inspector ▸ Background ▸ Frame: where the video card sits on the canvas")
+            case .right: return String(localized: "Right", comment: "Inspector ▸ Background ▸ Frame: where the video card sits on the canvas")
+            case .bottomLeft: return String(localized: "Bottom Left", comment: "Inspector ▸ Background ▸ Frame: where the video card sits on the canvas")
+            case .bottom: return String(localized: "Bottom", comment: "Inspector ▸ Background ▸ Frame: where the video card sits on the canvas")
+            case .bottomRight: return String(localized: "Bottom Right", comment: "Inspector ▸ Background ▸ Frame: where the video card sits on the canvas")
+            }
+        }
+
     }
 
     enum FrameShape: String, CaseIterable, Codable, Sendable {
         case roundedRect = "Rounded Rectangle"
         case squircle = "Squircle"
         case rectangle = "Rectangle"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .roundedRect: return String(localized: "Rounded Rectangle", comment: "Inspector ▸ Background ▸ Frame: video card shape")
+            case .squircle: return String(localized: "Squircle", comment: "Inspector ▸ Background ▸ Frame: video card shape")
+            case .rectangle: return String(localized: "Rectangle", comment: "Inspector ▸ Background ▸ Frame: video card shape")
+            }
+        }
     }
 
     enum ScreenTiltMode: String, CaseIterable, Codable, Sendable {
@@ -441,6 +587,16 @@ final class ProjectSettings: Codable {
         case intro = "Intro"
         case zoomedOut = "Zoomed Out"
         case both = "Both"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .off: return String(localized: "Off", comment: "Inspector ▸ Motion: when the screen tilt applies")
+            case .intro: return String(localized: "Intro", comment: "Inspector ▸ Motion: when the screen tilt applies")
+            case .zoomedOut: return String(localized: "Zoomed Out", comment: "Inspector ▸ Motion: when the screen tilt applies")
+            case .both: return String(localized: "Both", comment: "Inspector ▸ Motion: when the screen tilt applies")
+            }
+        }
     }
 
     enum AnimationSpeed: String, CaseIterable, Codable, Sendable {
@@ -448,6 +604,16 @@ final class ProjectSettings: Codable {
         case mellow = "Mellow"
         case quick = "Quick"
         case rapid = "Rapid"
+
+        /// What the inspector shows; the raw value stays the persisted identity.
+        var displayName: String {
+            switch self {
+            case .slow: return String(localized: "Slow", comment: "Inspector ▸ Motion: animation speed preset")
+            case .mellow: return String(localized: "Mellow", comment: "Inspector ▸ Motion: animation speed preset")
+            case .quick: return String(localized: "Quick", comment: "Inspector ▸ Motion: animation speed preset")
+            case .rapid: return String(localized: "Rapid", comment: "Inspector ▸ Motion: animation speed preset")
+            }
+        }
 
         var duration: Double {
             switch self {

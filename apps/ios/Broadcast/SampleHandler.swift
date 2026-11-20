@@ -39,7 +39,7 @@ nonisolated final class SampleHandler: RPBroadcastSampleHandler, @unchecked Send
 
         guard mode != .record, let link = WirelessLinkStore.cached() else {
             if mode == .stream {
-                finish(error: "Sign in to CaptureCat on this iPhone and on your Mac with the same account, then try again.")
+                finish(error: String(localized: "Sign in to CaptureCat on this iPhone and on your Mac with the same account, then try again.", comment: "Shown by the system when the broadcast stops"))
             } else {
                 startRecording()
             }
@@ -50,7 +50,7 @@ nonisolated final class SampleHandler: RPBroadcastSampleHandler, @unchecked Send
         DispatchQueue.global().asyncAfter(deadline: .now() + wait) { [weak self] in
             guard let self, self.currentPhase == .deciding else { return }
             if mode == .stream {
-                self.finish(error: "Couldn't find your Mac. Open CaptureCat on your Mac — same Wi-Fi, same account — and try again.")
+                self.finish(error: String(localized: "Couldn't find your Mac. Open CaptureCat on your Mac — same Wi-Fi, same account — and try again.", comment: "Shown by the system when the broadcast stops"))
             } else {
                 self.stopStreaming(reason: "no-mac")
                 self.startRecording()
@@ -137,7 +137,7 @@ nonisolated final class SampleHandler: RPBroadcastSampleHandler, @unchecked Send
             if phase == .deciding { phase = .recording }
             lock.unlock()
         } catch {
-            finish(error: "Couldn't start the recording: \(error.localizedDescription)")
+            finish(error: String(localized: "Couldn't start the recording: \(error.localizedDescription)", comment: "Shown by the system when the broadcast stops; argument is the error message"))
         }
     }
 

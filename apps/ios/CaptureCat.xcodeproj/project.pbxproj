@@ -125,6 +125,11 @@
 			path = "StudioUI";
 			sourceTree = "<group>";
 		};
+		1A285642F5954D366633DB1C /* Localization */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Localization";
+			sourceTree = "<group>";
+		};
 		67D8ECD84E4320DD83C45054 /* StudioLab */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "StudioLab";
@@ -183,6 +188,7 @@
 				CD55FDE3D7803DAB714BB484 /* MacShared */,
 				C503F10A943CFCC747EA3E4A /* Studio */,
 				7D1EB2785D17823A595A5076 /* StudioUI */,
+				1A285642F5954D366633DB1C /* Localization */,
 				67D8ECD84E4320DD83C45054 /* StudioLab */,
 				4854E0004C908A659321E6C7 /* StudioHarness */,
 				72F08247BF5820569C2C5F1A /* MacSources */,
@@ -265,6 +271,7 @@
 				CD55FDE3D7803DAB714BB484 /* MacShared */,
 				C503F10A943CFCC747EA3E4A /* Studio */,
 				7D1EB2785D17823A595A5076 /* StudioUI */,
+				1A285642F5954D366633DB1C /* Localization */,
 			);
 			name = CaptureCat;
 			packageProductDependencies = (
@@ -290,6 +297,7 @@
 				A3127BDF9DF3C920DE148719 /* Broadcast */,
 				609BBAAC42BACA8CD6EFA6D5 /* Core */,
 				CD55FDE3D7803DAB714BB484 /* MacShared */,
+				1A285642F5954D366633DB1C /* Localization */,
 			);
 			name = CaptureCatBroadcast;
 			productName = CaptureCatBroadcast;
@@ -313,6 +321,7 @@
 				74CBCF1117CD7C0DAE8EF3CA /* Kit */,
 				609BBAAC42BACA8CD6EFA6D5 /* Core */,
 				CD55FDE3D7803DAB714BB484 /* MacShared */,
+				1A285642F5954D366633DB1C /* Localization */,
 			);
 			name = CaptureCatShare;
 			productName = CaptureCatShare;
@@ -337,6 +346,7 @@
 				C503F10A943CFCC747EA3E4A /* Studio */,
 				4854E0004C908A659321E6C7 /* StudioHarness */,
 				74CBCF1117CD7C0DAE8EF3CA /* Kit */,
+				1A285642F5954D366633DB1C /* Localization */,
 			);
 			name = StudioLab;
 			packageProductDependencies = (
@@ -375,6 +385,18 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				en-GB,
+				en-US,
+				de,
+				fr,
+				es,
+				es-MX,
+				it,
+				pt-BR,
+				nl,
+				ja,
+				ko,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = 71DC27D9F8E3B109C877BFC4;

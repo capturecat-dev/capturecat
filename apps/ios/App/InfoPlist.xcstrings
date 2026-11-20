@@ -1,0 +1,342 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "comment" : "Home Screen name (the brand, the same in every language)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "en-US" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Local network permission prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat looks for your Mac on this Wi-Fi network so your Mac can record this screen without a cable."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat looks for your Mac on this Wi-Fi network so your Mac can record this screen without a cable."
+          }
+        },
+        "en-US" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat looks for your Mac on this Wi-Fi network so your Mac can record this screen without a cable."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat sucht deinen Mac in diesem WLAN, damit dein Mac diesen Bildschirm ohne Kabel aufnehmen kann."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat recherche votre Mac sur ce réseau Wi-Fi pour qu’il puisse enregistrer cet écran sans câble."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat busca tu Mac en esta red Wi-Fi para que pueda grabar esta pantalla sin cable."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat busca tu Mac en esta red Wi-Fi para que pueda grabar esta pantalla sin cable."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat cerca il tuo Mac su questa rete Wi-Fi, così il Mac può registrare questo schermo senza cavo."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O CaptureCat procura seu Mac nesta rede Wi-Fi para que ele possa gravar esta tela sem cabo."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat zoekt je Mac op dit wifinetwerk, zodat je Mac dit scherm zonder kabel kan opnemen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCatはこのWi-FiネットワークでMacを探し、ケーブルなしでこの画面をMacで録画できるようにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat이 이 Wi-Fi 네트워크에서 Mac을 찾아 케이블 없이 Mac에서 이 화면을 녹화할 수 있게 합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat 会在此 Wi-Fi 网络中查找你的 Mac，让 Mac 无需连接线即可录制此屏幕。"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "Microphone permission prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat records your voice when you record a voice-over in the editor, and with a screen recording when you turn the microphone on."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat records your voice when you record a voice-over in the editor, and with a screen recording when you turn the microphone on."
+          }
+        },
+        "en-US" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat records your voice when you record a voice-over in the editor, and with a screen recording when you turn the microphone on."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat nimmt deine Stimme auf, wenn du im Editor ein Voice-over aufnimmst, und bei einer Bildschirmaufnahme, wenn du das Mikrofon einschaltest."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat enregistre votre voix lorsque vous enregistrez une voix off dans l’éditeur, et pendant un enregistrement d’écran lorsque vous activez le micro."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat graba tu voz cuando grabas una locución en el editor y, en una grabación de pantalla, cuando activas el micrófono."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat graba tu voz cuando grabas una locución en el editor y, en una grabación de pantalla, cuando activas el micrófono."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat registra la tua voce quando registri un voice-over nell’editor e, in una registrazione schermo, quando attivi il microfono."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O CaptureCat grava sua voz quando você grava uma narração no editor e, numa gravação de tela, quando você liga o microfone."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat neemt je stem op als je in de editor een voice-over opneemt, en bij een schermopname als je de microfoon aanzet."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCatは、エディタでナレーションを録音するときと、マイクをオンにして画面録画するときに、あなたの声を録音します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat은 편집기에서 보이스오버를 녹음할 때와 마이크를 켜고 화면 녹화를 할 때 사용자의 목소리를 녹음합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当你在编辑器中录制旁白，或在录屏时打开麦克风，CaptureCat 会录制你的声音。"
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryAddUsageDescription" : {
+      "comment" : "Photos (add only) permission prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat saves the videos, GIFs and images you export to your photo library."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat saves the videos, GIFs and images you export to your photo library."
+          }
+        },
+        "en-US" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat saves the videos, GIFs and images you export to your photo library."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat sichert die Videos, GIFs und Bilder, die du exportierst, in deiner Fotomediathek."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat enregistre dans votre photothèque les vidéos, GIF et images que vous exportez."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat guarda en tu fototeca los vídeos, GIF e imágenes que exportas."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat guarda en tu fototeca los videos, GIF e imágenes que exportas."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat salva nella libreria Foto i video, le GIF e le immagini che esporti."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O CaptureCat salva na sua fototeca os vídeos, GIFs e imagens que você exporta."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat bewaart de video’s, GIF’s en afbeeldingen die je exporteert in je fotobibliotheek."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCatは、書き出したビデオ、GIF、画像を写真ライブラリに保存します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat은 내보낸 비디오, GIF, 이미지를 사진 보관함에 저장합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat 会将你导出的视频、GIF 和图片存储到照片图库。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

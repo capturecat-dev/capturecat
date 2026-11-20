@@ -22,12 +22,12 @@ enum InspectorCustomRows {
                 write: { EffectBlocksPane.tilt($0, pitch: $1, yaw: $2) })
         case "blocks.focusPad":
             return InspectorPointPad(
-                id: id, title: "Focus", host: host, visible: visible,
+                id: id, title: String(localized: "Focus", comment: "Inspector pad: where a zoom aims (VoiceOver label and undo name)"), host: host, visible: visible,
                 read: { EffectBlocksPane.focal($0) },
                 write: { EffectBlocksPane.focus($0, fx: $1.x, fy: $1.y) })
         case "blocks.offsetPad":
             return InspectorPointPad(
-                id: id, title: "Offset", host: host, visible: visible,
+                id: id, title: String(localized: "Offset", comment: "Inspector pad: shifts the zoomed card off-center (VoiceOver label and undo name)"), host: host, visible: visible,
                 read: { EffectBlocksPane.offsetPoint($0) },
                 write: { EffectBlocksPane.offset($0, point: $1) })
         case "subtitles.positionPad": return InspectorSubtitlePad(host: host)
@@ -35,18 +35,18 @@ enum InspectorCustomRows {
 
         case "background.chooseImage":
             return InspectorImagePickRow(
-                id: id, title: "Choose Image…", visible: visible, host: host,
+                id: id, title: String(localized: "Choose Image…", comment: "Inspector button: pick a background or camera-card image"), visible: visible, host: host,
                 path: { $0.settings.backgroundImagePath },
                 adopt: { BackgroundPane.adoptImage($0, path: $1) })
         case "camera.cardImage":
             return InspectorImagePickRow(
-                id: id, title: "Choose Image…", visible: visible, host: host,
+                id: id, title: String(localized: "Choose Image…", comment: "Inspector button: pick a background or camera-card image"), visible: visible, host: host,
                 path: { $0.settings.cameraCardImagePath },
                 adopt: { CameraPane.adoptCardImage($0, path: $1) })
         case "background.wallpaperGrid":
             return InspectorNoteRow(
                 id: id, visible: visible,
-                text: "macOS wallpapers are picked on the Mac — a project's wallpaper renders here exactly as there.")
+                text: String(localized: "macOS wallpapers are picked on the Mac — a project's wallpaper renders here exactly as there."))
         case "effects.curtainLogo": return InspectorCurtainLogoRow(visible: visible, host: host)
         case "brand.logo": return InspectorBrandLogoRow(host: host)
         case "cursor.keyPermission":
@@ -151,7 +151,7 @@ final class InspectorImagePickRow: InspectorCustomRow {
         choose.onTap = { [weak self] in
             guard let self, let host = self.host else { return }
             host.pickImage(logo: false) { [weak self] url in
-                self?.perform(id, "Background Image") { adopt($0, url.path) }
+                self?.perform(id, String(localized: "Background Image", comment: "Undo action name: pick a background or camera-card image")) { adopt($0, url.path) }
             }
         }
         let row = Self.hstack([thumb, choose, UIView()], spacing: CCSpace.md)
@@ -176,18 +176,18 @@ final class InspectorCurtainLogoRow: InspectorCustomRow {
     private let remove: CCButton
 
     init(visible: @escaping (InspectorScope) -> Bool, host: InspectorHost) {
-        choose = Self.button("effects.curtainLogoChoose", "Choose Logo…")
+        choose = Self.button("effects.curtainLogoChoose", String(localized: "Choose Logo…", comment: "Inspector button: pick a logo image"))
         remove = Self.button(EffectsPane.curtainLogoRemove.id, EffectsPane.curtainLogoRemove.title(host.scope),
                              style: .destructive)
         super.init(id: "effects.curtainLogo", visible: visible, host: host)
         choose.onTap = { [weak self] in
             guard let self, let host = self.host else { return }
             host.pickImage(logo: true) { [weak self] url in
-                self?.perform("effects.curtainLogoChoose", "Curtain Logo") { try? EffectsPane.adoptCurtainLogo($0, from: url) }
+                self?.perform("effects.curtainLogoChoose", String(localized: "Curtain Logo", comment: "Undo action name: set the logo shown on the curtain effect")) { try? EffectsPane.adoptCurtainLogo($0, from: url) }
             }
         }
         remove.onTap = { [weak self] in
-            self?.perform(EffectsPane.curtainLogoRemove.id, "Remove Logo") { EffectsPane.curtainLogoRemove.run($0) }
+            self?.perform(EffectsPane.curtainLogoRemove.id, String(localized: "Remove Logo", comment: "Undo action name")) { EffectsPane.curtainLogoRemove.run($0) }
         }
         let row = Self.hstack([choose, remove, UIView()])
         addSubview(row)
@@ -214,8 +214,8 @@ final class InspectorBrandLogoRow: InspectorCustomRow {
     private var loadedName: String??
 
     init(host: InspectorHost) {
-        choose = Self.button("brand.choose", "Choose Logo…")
-        remove = Self.button(BrandPane.remove.id, "Remove", style: .destructive)
+        choose = Self.button("brand.choose", String(localized: "Choose Logo…", comment: "Inspector button: pick a logo image"))
+        remove = Self.button(BrandPane.remove.id, String(localized: "Remove", comment: "Inspector button: remove the watermark logo"), style: .destructive)
         super.init(id: "brand.logo", visible: { _ in true }, host: host)
         image.contentMode = .scaleAspectFit
         thumb.addSubview(image)
@@ -231,19 +231,20 @@ final class InspectorBrandLogoRow: InspectorCustomRow {
             guard let self, let host = self.host else { return }
             host.pickImage(logo: true) { [weak self] url in
                 guard let self else { return }
-                self.perform("brand.choose", "Watermark Logo") { scope in
+                self.perform("brand.choose", String(localized: "Watermark Logo", comment: "Undo action name: set the watermark logo")) { scope in
                     do {
                         try BrandPane.adoptLogo(scope, from: url)
                         self.error.text = nil
                     } catch InspectorMediaError.noProjectFolder {
-                        self.error.text = "Project folder not available."
+                        self.error.text = String(localized: "Project folder not available.")
                     } catch {
-                        self.error.text = "Couldn't copy logo: \(error.localizedDescription)"
+                        let reason = error.localizedDescription
+                        self.error.text = String(localized: "Couldn't copy logo: \(reason)", comment: "Inspector error under the watermark logo; the argument is the system's error message")
                     }
                 }
             }
         }
-        remove.onTap = { [weak self] in self?.perform(BrandPane.remove.id, "Remove Logo") { BrandPane.remove.run($0) } }
+        remove.onTap = { [weak self] in self?.perform(BrandPane.remove.id, String(localized: "Remove Logo", comment: "Undo action name")) { BrandPane.remove.run($0) } }
         let buttons = UIStackView(arrangedSubviews: [choose, remove])
         buttons.axis = .vertical
         buttons.alignment = .leading
@@ -279,7 +280,7 @@ final class InspectorBrandLogoRow: InspectorCustomRow {
 /// Generate (the host transcribes — Studio 4e wires `onTranscribe`).
 final class InspectorSubtitleGenerateRow: InspectorCustomRow {
     private let generate: CCButton
-    private let caption = ccLabel("Auto-transcribes the recording's speech into editable subtitles.",
+    private let caption = ccLabel(String(localized: "Auto-transcribes the recording's speech into editable subtitles."),
                                   font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
     private let spinner = CCSpinner(diameter: 18)
     private let progress = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
@@ -318,26 +319,49 @@ final class InspectorSubtitleGenerateRow: InspectorCustomRow {
 
 final class InspectorSubtitleManageRow: InspectorCustomRow {
     private let count = ccLabel("", font: CCFont.labelMedium, color: CCTheme.color.mutedForeground)
-    private let regenerate = InspectorCustomRow.button("subtitles.regenerate", "Regenerate")
+    private let regenerate = InspectorCustomRow.button("subtitles.regenerate", String(localized: "Regenerate", comment: "Inspector button: transcribe the subtitles again"))
     private let delete: CCButton
 
     init(visible: @escaping (InspectorScope) -> Bool, host: InspectorHost) {
-        delete = Self.button(SubtitlePane.delete.id, "Delete", style: .destructive)
+        delete = Self.button(SubtitlePane.delete.id, String(localized: "Delete", comment: "Inspector button: delete all subtitles"), style: .destructive)
         super.init(id: "subtitles.manage", visible: visible, host: host)
         regenerate.onTap = { [weak self] in
             guard let self, let host = self.host else { return }
-            self.perform("subtitles.regenerate", "Regenerate Subtitles") { SubtitlePane.clearForRegenerate($0) }
+            self.perform("subtitles.regenerate", String(localized: "Regenerate Subtitles", comment: "Undo action name")) { SubtitlePane.clearForRegenerate($0) }
             host.runFeature(.transcribe)
         }
-        delete.onTap = { [weak self] in self?.perform(SubtitlePane.delete.id, "Delete Subtitles") { SubtitlePane.delete.run($0) } }
+        delete.onTap = { [weak self] in self?.perform(SubtitlePane.delete.id, String(localized: "Delete Subtitles", comment: "Undo action name")) { SubtitlePane.delete.run($0) } }
         // Big Dynamic Type: the count wraps beside the keys instead of losing its end.
         count.numberOfLines = 0
-        let row = Self.hstack([count, UIView(), regenerate, delete])
+        keys.addArrangedSubview(regenerate)
+        keys.addArrangedSubview(delete)
+        keys.spacing = CCSpace.sm
+        keys.alignment = .center
+        let row = Self.hstack([count, UIView(), keys])
         addSubview(row)
         pinEdges(row, to: self)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    private let keys = UIStackView()
+
+    /// The two keys sit side by side while they fit beside the count;
+    /// longer languages ("Genereer opnieuw" + "Verwijder") stack them.
+    override func layoutSubviews() {
+        let countWidth = count.text.map { ($0 as NSString).size(withAttributes: [.font: count.font as Any]).width } ?? 0
+        let need = ceil(countWidth) + CCSpace.sm * 2 + regenerate.intrinsicContentSize.width + CCSpace.sm + delete.intrinsicContentSize.width
+        let axis: NSLayoutConstraint.Axis = bounds.width > 0 && need > bounds.width + 0.5 ? .vertical : .horizontal
+        if keys.axis != axis {
+            keys.axis = axis
+            keys.alignment = axis == .vertical ? .trailing : .center
+            keys.spacing = axis == .vertical ? CCSpace.md : CCSpace.sm
+            invalidateIntrinsicContentSize()
+            // This pass already placed the rows below: re-run it.
+            ccRelayoutAncestors()
+        }
+        super.layoutSubviews()
+    }
 
     override func refresh(_ scope: InspectorScope) { count.text = SubtitlePane.countText(scope) }
 }
@@ -356,7 +380,7 @@ final class InspectorPresetRow: InspectorCustomRow {
         for preset in SubtitlePreset.all {
             let card = InspectorPresetCard(preset: preset)
             card.addAction(UIAction { [weak self] _ in
-                self?.perform("subtitles.presets", "Subtitle Preset") { SubtitlePane.applyPreset($0, preset) }
+                self?.perform("subtitles.presets", String(localized: "Subtitle Preset", comment: "Undo action name: apply a subtitle style preset")) { SubtitlePane.applyPreset($0, preset) }
             }, for: .touchUpInside)
             row.addArrangedSubview(card)
             cards.append((preset, card))
@@ -422,7 +446,8 @@ final class InspectorPresetCard: UIControl {
             sample.heightAnchor.constraint(equalToConstant: 48),
         ])
         isAccessibilityElement = true
-        accessibilityLabel = "\(preset.name) preset"
+        let presetName = preset.name
+        accessibilityLabel = String(localized: "\(presetName) preset", comment: "VoiceOver label for a subtitle style preset card, e.g. Bold preset")
         accessibilityTraits = .button
         sample.layer.borderWidth = 2
         restyle()
@@ -514,13 +539,14 @@ final class InspectorCaptionListRow: InspectorCustomRow {
             let card = CCCard(tint: CCTheme.color.elevated, radius: .md)
             let time = ccLabel("\(Self.timecode(segment.startTime)) — \(Self.timecode(segment.endTime))",
                                font: CCFont.monoSmall, color: CCTheme.color.faintForeground)
-            let field = CCField(placeholder: "Text", value: segment.text)
+            let field = CCField(placeholder: String(localized: "Text", comment: "Placeholder for a subtitle line's text field"), value: segment.text)
             field.accessibilityIdentifier = "subtitles.caption.\(segment.id.uuidString)"
-            field.accessibilityLabel = "Caption \(Self.timecode(segment.startTime))"
+            let startCode = Self.timecode(segment.startTime)
+            field.accessibilityLabel = String(localized: "Caption \(startCode)", comment: "VoiceOver label for a subtitle line's text field; the argument is its start time, e.g. Caption 0:04.50")
             let id = segment.id
             field.onTextChange = { [weak self] text in
                 guard let host = self?.host else { return }
-                host.session.begin("subtitles.caption.\(id)", name: "Edit Subtitle")
+                host.session.begin("subtitles.caption.\(id)", name: String(localized: "Edit Subtitle", comment: "Undo action name"))
                 SubtitlePane.setCaption(host.scope, id: id, text: text)
             }
             field.addAction(UIAction { [weak self] _ in self?.host?.session.commit() }, for: .editingDidEnd)
@@ -566,10 +592,10 @@ final class InspectorAnnotateHeaderRow: InspectorCustomRow {
     private var shownType: AnnotationType?
 
     init(visible: @escaping (InspectorScope) -> Bool, host: InspectorHost) {
-        delete = Self.button(AnnotationPane.delete.id, "Delete", style: .destructive)
+        delete = Self.button(AnnotationPane.delete.id, String(localized: "Delete", comment: "Inspector button: delete the selected annotation"), style: .destructive)
         super.init(id: "annotate.header", visible: visible, host: host)
         name.adjustsFontForContentSizeCategory = true
-        delete.onTap = { [weak self] in self?.perform(AnnotationPane.delete.id, "Delete Annotation") { AnnotationPane.delete.run($0) } }
+        delete.onTap = { [weak self] in self?.perform(AnnotationPane.delete.id, String(localized: "Delete Annotation", comment: "Undo action name")) { AnnotationPane.delete.run($0) } }
         let row = Self.hstack([icon, name, UIView(), delete])
         addSubview(row)
         pinEdges(row, to: self)
@@ -587,8 +613,8 @@ final class InspectorAnnotateHeaderRow: InspectorCustomRow {
 
 /// "Background"/"Fill": a well (while on) and a switch.
 final class InspectorAnnotateFillRow: InspectorCustomRow {
-    private let title = ccLabel("Background", font: CCFont.body, color: CCTheme.color.foreground)
-    private let well = CCColorWell(title: "Background", color: .black)
+    private let title = ccLabel(String(localized: "Background", comment: "Annotation fill row: the shape's background (fill) color"), font: CCFont.body, color: CCTheme.color.foreground)
+    private let well = CCColorWell(title: String(localized: "Background", comment: "Annotation fill row: the shape's background (fill) color"), color: .black)
     private let toggle = CCToggle()
 
     init(visible: @escaping (InspectorScope) -> Bool, host: InspectorHost) {
@@ -596,15 +622,15 @@ final class InspectorAnnotateFillRow: InspectorCustomRow {
         title.adjustsFontForContentSizeCategory = true
         well.accessibilityIdentifier = AnnotationPane.fillColor.id
         toggle.accessibilityIdentifier = AnnotationPane.fillToggle.id
-        toggle.accessibilityLabel = "Background"
+        toggle.accessibilityLabel = String(localized: "Background", comment: "Annotation fill row: the shape's background (fill) color")
         well.onChange = { [weak self] color in
             guard let host = self?.host else { return }
-            host.session.begin(AnnotationPane.fillColor.id, name: "Fill Color")
+            host.session.begin(AnnotationPane.fillColor.id, name: String(localized: "Fill Color", comment: "Undo action name"))
             AnnotationPane.fillColor.write(host.scope, CodableColor(color))
         }
         well.onCommit = { [weak self] _ in self?.host?.session.commit() }
         toggle.onChange = { [weak self] on in
-            self?.perform(AnnotationPane.fillToggle.id, "Background") { AnnotationPane.fillToggle.write($0, on) }
+            self?.perform(AnnotationPane.fillToggle.id, String(localized: "Background", comment: "Undo action name: turn an annotation's background fill on or off")) { AnnotationPane.fillToggle.write($0, on) }
         }
         let row = Self.hstack([title, UIView(), well, toggle], spacing: CCSpace.md)
         addSubview(row)
@@ -636,14 +662,20 @@ final class InspectorStrokesRow: InspectorCustomRow {
     private let clear: CCButton
 
     init(visible: @escaping (InspectorScope) -> Bool, host: InspectorHost) {
-        undoLast = Self.button(AnnotationPane.undoStroke.id, "Undo Last")
-        clear = Self.button(AnnotationPane.clearStrokes.id, "Clear", style: .destructive)
+        undoLast = Self.button(AnnotationPane.undoStroke.id, String(localized: "Undo Last", comment: "Inspector button: remove the last drawn stroke"))
+        clear = Self.button(AnnotationPane.clearStrokes.id, String(localized: "Clear", comment: "Inspector button: erase every drawn stroke"), style: .destructive)
         super.init(id: "annotate.strokes", visible: visible, host: host)
-        undoLast.onTap = { [weak self] in self?.perform(AnnotationPane.undoStroke.id, "Undo Last Stroke") { AnnotationPane.undoStroke.run($0) } }
-        clear.onTap = { [weak self] in self?.perform(AnnotationPane.clearStrokes.id, "Clear Strokes") { AnnotationPane.clearStrokes.run($0) } }
-        let row = Self.hstack([label, UIView(), undoLast, clear])
-        addSubview(row)
-        pinEdges(row, to: self)
+        undoLast.onTap = { [weak self] in self?.perform(AnnotationPane.undoStroke.id, String(localized: "Undo Last Stroke", comment: "Undo action name")) { AnnotationPane.undoStroke.run($0) } }
+        clear.onTap = { [weak self] in self?.perform(AnnotationPane.clearStrokes.id, String(localized: "Clear Strokes", comment: "Undo action name")) { AnnotationPane.clearStrokes.run($0) } }
+        // The count on its line, the keys on the next: side by side the
+        // count lost its end ("2 str…") in the iPad column.
+        label.numberOfLines = 0
+        let keys = Self.hstack([undoLast, clear, UIView()])
+        let column = UIStackView(arrangedSubviews: [label, keys])
+        column.axis = .vertical
+        column.spacing = CCSpace.sm
+        addSubview(column)
+        pinEdges(column, to: self)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -663,10 +695,10 @@ final class InspectorTimingRow: InspectorCustomRow {
     init(visible: @escaping (InspectorScope) -> Bool, host: InspectorHost) {
         start = InspectorTextRowView(AnnotationPane.start, host: host, showsTitle: false)
         end = InspectorTextRowView(AnnotationPane.end, host: host, showsTitle: false)
-        atPlayhead = Self.button(AnnotationPane.atPlayhead.id, "At Playhead")
+        atPlayhead = Self.button(AnnotationPane.atPlayhead.id, String(localized: "At Playhead", comment: "Inspector button: move the annotation to start at the playhead; also its undo name"))
         super.init(id: "annotate.timing", visible: visible, host: host)
         for field in [start.field, end.field] { field.keyboardType = .decimalPad }
-        atPlayhead.onTap = { [weak self] in self?.perform(AnnotationPane.atPlayhead.id, "At Playhead") { AnnotationPane.atPlayhead.run($0) } }
+        atPlayhead.onTap = { [weak self] in self?.perform(AnnotationPane.atPlayhead.id, String(localized: "At Playhead", comment: "Inspector button: move the annotation to start at the playhead; also its undo name")) { AnnotationPane.atPlayhead.run($0) } }
         func labelled(_ title: String, _ view: UIView) -> UIView {
             let caption = ccLabel(title, font: CCFont.captionMedium, color: CCTheme.color.faintForeground)
             let column = UIStackView(arrangedSubviews: [caption, view])
@@ -675,14 +707,24 @@ final class InspectorTimingRow: InspectorCustomRow {
             view.widthAnchor.constraint(equalToConstant: 80).isActive = true
             return column
         }
-        let row = UIStackView(arrangedSubviews: [labelled("Start", start), labelled("End", end), UIView(), atPlayhead])
-        row.alignment = .bottom
-        row.spacing = CCSpace.sm
-        addSubview(row)
-        pinEdges(row, to: self)
+        fields.addArrangedSubview(labelled(String(localized: "Start", comment: "Annotation timing: start time field"), start))
+        fields.addArrangedSubview(labelled(String(localized: "End", comment: "Annotation timing: end time field"), end))
+        fields.addArrangedSubview(UIView())
+        fields.alignment = .bottom
+        fields.spacing = CCSpace.sm
+        // At Playhead on its own line under the fields: beside them it was
+        // squeezed to a sliver in the iPad column (in every language).
+        let key = UIStackView(arrangedSubviews: [atPlayhead, UIView()])
+        let column = UIStackView(arrangedSubviews: [fields, key])
+        column.axis = .vertical
+        column.spacing = CCSpace.md
+        addSubview(column)
+        pinEdges(column, to: self)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    private let fields = UIStackView()
 
     override func refresh(_ scope: InspectorScope) {
         start.refresh(scope)

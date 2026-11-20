@@ -12,8 +12,8 @@ nonisolated enum StudioInboxImport {
         case missingMedia(String)
         var errorDescription: String? {
             switch self {
-            case .alreadyAProject: return "This capture is already a project on this device."
-            case .missingMedia(let name): return "The capture's file (\(name)) is missing."
+            case .alreadyAProject: return String(localized: "This capture is already a project on this device.", comment: "Error importing a capture from the inbox")
+            case .missingMedia(let name): return String(localized: "The capture's file (\(name)) is missing.", comment: "Error importing a capture; the argument is a file name")
             }
         }
     }

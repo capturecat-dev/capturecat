@@ -14,7 +14,7 @@ final class ProjectDetailViewController: DetailPageViewController {
     let projectID: String
     private weak var coordinator: LibraryCoordinator?
     private let playerCard = PlayerCard()
-    private let sourceSwitch = CCSegmented(segments: ["Original", "Shared video"], size: .sm, radius: .full)
+    private let sourceSwitch = CCSegmented(segments: [String(localized: "Original", comment: "Project detail switch: play the original recording"), String(localized: "Shared video", comment: "Project detail switch: play the shared (exported) video")], size: .sm, radius: .full)
     private let captionIcon = CCIconView("info-fill", pointSize: 12, weight: .semibold, tint: CCTheme.color.faintForeground)
     private let captionLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
     private let titleLabel: UILabel = {
@@ -37,8 +37,8 @@ final class ProjectDetailViewController: DetailPageViewController {
         return label
     }()
     private let shareExplain = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)
-    private let privacyBadge = CCBadge("Unlisted", symbol: "link")
-    private let commentsButton = CCButton(title: "Comments on the shared video", symbol: "text-bubble", style: .ghost, size: .sm)
+    private let privacyBadge = CCBadge(String(localized: "Unlisted", comment: "Share privacy badge (initial value)"), symbol: "link")
+    private let commentsButton = CCButton(title: String(localized: "Comments on the shared video"), symbol: "text-bubble", style: .ghost, size: .sm)
     private let actionsCard = ActionListCard()
     private var observation: SurfaceObservation?
     private var source: Source = .original
@@ -52,7 +52,7 @@ final class ProjectDetailViewController: DetailPageViewController {
     init(projectID: String, coordinator: LibraryCoordinator?) {
         self.projectID = projectID
         self.coordinator = coordinator
-        super.init(title: LibraryStore.shared.project(projectID)?.name ?? "Recording")
+        super.init(title: LibraryStore.shared.project(projectID)?.name ?? String(localized: "Recording", comment: "Fallback title for a project with no name"))
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -60,7 +60,7 @@ final class ProjectDetailViewController: DetailPageViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         let web = CCButton(symbol: "globe", style: .ghost, size: .regular, radius: .full)
-        web.accessibilityLabelOverride = "Open in web editor"
+        web.accessibilityLabelOverride = String(localized: "Open in web editor", comment: "VoiceOver: button that opens the project in the web editor")
         web.onTap = { [weak self] in
             guard let self else { return }
             ProjectActions.openInWebEditor(projectID: self.projectID)
@@ -91,7 +91,7 @@ final class ProjectDetailViewController: DetailPageViewController {
         buildShareCard()
         shareSection.axis = .vertical
         shareSection.spacing = CCSpace.sm
-        shareSection.addArrangedSubview(sectionLabel("Shared link"))
+        shareSection.addArrangedSubview(sectionLabel(String(localized: "Shared link", comment: "Section heading on the project page")))
         shareSection.addArrangedSubview(shareCard)
         shareSection.isHidden = true
 
@@ -161,9 +161,9 @@ final class ProjectDetailViewController: DetailPageViewController {
 
         var badgeItems: [(String, String)] = []
         if facts?.sourceKind == "device" { badgeItems.append(("iPhone", "iphone")) }
-        if facts?.isStillCapture == true { badgeItems.append(("Screenshot", "photo")) }
-        if share != nil { badgeItems.append(("Shared", "link")) }
-        if !project.isOwner { badgeItems.append(("Team", "person-fill")) }
+        if facts?.isStillCapture == true { badgeItems.append((String(localized: "Screenshot", comment: "Badge: the project is a still screenshot"), "photo")) }
+        if share != nil { badgeItems.append((String(localized: "Shared", comment: "Badge: the project has a share link"), "link")) }
+        if !project.isOwner { badgeItems.append((String(localized: "Team", comment: "Badge: the project belongs to your team"), "person-fill")) }
         let key = badgeItems.map(\.0).joined(separator: ",")
         if key != badgeKey {
             badgeKey = key
@@ -174,16 +174,16 @@ final class ProjectDetailViewController: DetailPageViewController {
 
         var rows: [(String, String)] = []
         if facts?.isStillCapture == true {
-            rows.append(("Kind", "Screenshot"))
+            rows.append((String(localized: "Kind", comment: "Project info row label: what kind of capture"), String(localized: "Screenshot", comment: "Project info row value: the capture is a screenshot")))
         } else if let duration = facts?.trimmedDuration ?? facts?.duration {
-            rows.append(("Length", Format.duration(duration)))
-            if let full = facts?.duration, abs(full - duration) > 0.5 { rows.append(("Original length", Format.duration(full))) }
+            rows.append((String(localized: "Length", comment: "Project info row label: the recording's duration"), Format.duration(duration)))
+            if let full = facts?.duration, abs(full - duration) > 0.5 { rows.append((String(localized: "Original length", comment: "Project info row label: duration before trimming"), Format.duration(full))) }
         }
-        rows.append(("Size", Format.bytes(project.totalBytes)))
-        rows.append(("Created", Format.dateTime(project.createdAt)))
-        rows.append(("Last edited", Format.relative(project.updatedAt)))
-        if let kind = facts?.sourceKind { rows.append(("Captured on", kind == "device" ? "iPhone" : "Mac or web")) }
-        if !project.isOwner { rows.append(("Access", "Shared with your team")) }
+        rows.append((String(localized: "Size", comment: "Project info row label: file size"), Format.bytes(project.totalBytes)))
+        rows.append((String(localized: "Created", comment: "Project info row label: creation date"), Format.dateTime(project.createdAt)))
+        rows.append((String(localized: "Last edited", comment: "Project info row label"), Format.relative(project.updatedAt)))
+        if let kind = facts?.sourceKind { rows.append((String(localized: "Captured on", comment: "Project info row label: which device recorded it"), kind == "device" ? "iPhone" : String(localized: "Mac or web", comment: "Project info row value: recorded on the Mac app or the web recorder"))) }
+        if !project.isOwner { rows.append((String(localized: "Access", comment: "Project info row label: who can access it"), String(localized: "Shared with your team"))) }
         infoCard.setRows(rows)
 
         // Share section + source switch.
@@ -206,34 +206,34 @@ final class ProjectDetailViewController: DetailPageViewController {
             if source == .share { switchSource(.original) }
         }
         captionLabel.text = source == .original
-            ? "Original recording — edits play on Mac and the web."
-            : "The shared video, exactly as exported."
+            ? String(localized: "Original recording — edits play on Mac and the web.")
+            : String(localized: "The shared video, exactly as exported.")
 
         var actions: [ActionListCard.Action] = []
         // The studio editor (iOS 26+): edit the project on this device.
         if #available(iOS 26, *) {
-            actions.append(.init(title: "Edit on \(ThisDevice.noun)", symbol: "scissors") { [weak self] _ in
+            actions.append(.init(title: String(localized: "Edit on \(ThisDevice.noun)", comment: "Action: edit the project on this device; argument is iPhone or iPad"), symbol: "scissors") { [weak self] _ in
                 guard let self else { return }
                 self.playerCard.player.pause()
                 StudioEditorEntry.open(projectID: self.projectID, from: self)
             })
         }
         actions += [
-            .init(title: "Continue on Mac", symbol: "desktop") { [weak self] _ in
+            .init(title: String(localized: "Continue on Mac", comment: "Action: hand the project off to the Mac app"), symbol: "desktop") { [weak self] _ in
                 guard let self, let project = LibraryStore.shared.project(self.projectID) else { return }
                 ProjectActions.continueOnMac(projectID: self.projectID, name: project.name, from: self)
             },
-            .init(title: "Rename", symbol: "pencil") { [weak self] _ in
+            .init(title: String(localized: "Rename", comment: "Action: rename the project"), symbol: "pencil") { [weak self] _ in
                 guard let self, let project = LibraryStore.shared.project(self.projectID) else { return }
                 ProjectActions.promptRename(projectID: self.projectID, currentName: project.name, from: self)
             },
-            .init(title: "Open in web editor", symbol: "globe") { [weak self] _ in
+            .init(title: String(localized: "Open in web editor", comment: "Action: open the project in the web editor"), symbol: "globe") { [weak self] _ in
                 guard let self else { return }
                 ProjectActions.openInWebEditor(projectID: self.projectID)
             },
         ]
         if project.isOwner {
-            actions.append(.init(title: "Delete project", symbol: "trash", destructive: true) { [weak self] _ in
+            actions.append(.init(title: String(localized: "Delete project"), symbol: "trash", destructive: true) { [weak self] _ in
                 guard let self, let project = LibraryStore.shared.project(self.projectID) else { return }
                 ProjectActions.confirmDelete(projectID: self.projectID, name: project.name, from: self) { [weak self] in
                     guard let self else { return }
@@ -256,12 +256,12 @@ final class ProjectDetailViewController: DetailPageViewController {
         top.alignment = .center
         shareTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         shareURL.lineBreakMode = .byTruncatingMiddle
-        let copy = CCButton(title: "Copy link", symbol: "link", style: .secondary, size: .regular)
+        let copy = CCButton(title: String(localized: "Copy link", comment: "Button: copy the share link"), symbol: "link", style: .secondary, size: .regular)
         copy.onTap = { [weak self] in
             guard let self, let share = LibraryStore.shared.share(linkedTo: self.projectID) else { return }
             ProjectActions.copyLink(share)
         }
-        let shareButton = CCButton(title: "Share…", symbol: "share", style: .secondary, size: .regular)
+        let shareButton = CCButton(title: String(localized: "Share…", comment: "Button: open the system share sheet for the link"), symbol: "share", style: .secondary, size: .regular)
         shareButton.onTap = { [weak self, weak shareButton] in
             guard let self, let shareButton, let share = LibraryStore.shared.share(linkedTo: self.projectID) else { return }
             ProjectActions.shareSheet(share, from: self, source: shareButton)
@@ -297,7 +297,7 @@ final class ProjectDetailViewController: DetailPageViewController {
         let wasPlaying = playerCard.player.isPlaying
         source = new
         sourceSwitch.setSelectedIndex(new == .original ? 0 : 1)
-        captionLabel.text = new == .original ? "Original recording — edits play on Mac and the web." : "The shared video, exactly as exported."
+        captionLabel.text = new == .original ? String(localized: "Original recording — edits play on Mac and the web.") : String(localized: "The shared video, exactly as exported.")
         loadPlayer(startAt: 0, autoplay: wasPlaying)
     }
 
@@ -316,7 +316,7 @@ final class ProjectDetailViewController: DetailPageViewController {
                     guard self.source == .original else { return }
                     let facts = LibraryStore.shared.project(self.projectID).flatMap { LibraryStore.shared.facts(for: $0) }
                     guard let file = ThumbnailStore.recordingFile(in: detail, facts: facts) else {
-                        player.showError("This project has no recording to play yet.")
+                        player.showError(String(localized: "This project has no recording to play yet."))
                         return
                     }
                     self.loadedSource = .original
@@ -343,7 +343,7 @@ final class ProjectDetailViewController: DetailPageViewController {
         } else if source == .share, error == nil {
             loadPlayer(startAt: resumeAt, autoplay: true)
         } else {
-            player.showError("Couldn't play this video. Check your connection and try again.")
+            player.showError(String(localized: "Couldn't play this video. Check your connection and try again."))
         }
     }
 
@@ -356,9 +356,9 @@ final class ProjectDetailViewController: DetailPageViewController {
     private func showMissing() {
         guard missingView == nil else { return }
         playerCard.player.pause()
-        let empty = CCEmptyState(symbol: "film", title: "This project isn't in your library anymore",
-                                 message: "It may have been deleted on another device.",
-                                 primary: CCButton(title: "Back to library", style: .primary) { [weak self] in
+        let empty = CCEmptyState(symbol: "film", title: String(localized: "This project isn't in your library anymore"),
+                                 message: String(localized: "It may have been deleted on another device."),
+                                 primary: CCButton(title: String(localized: "Back to library"), style: .primary) { [weak self] in
                                      guard let self else { return }
                                      self.coordinator?.projectDeleted(self.projectID)
                                  })

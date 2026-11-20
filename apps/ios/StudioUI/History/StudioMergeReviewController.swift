@@ -29,8 +29,8 @@ final class StudioMergeReviewController: UIViewController {
     let device: String
     private(set) var rows: [(conflict: MergeConflict, title: UILabel, detail: UILabel, control: CCSegmented)] = []
     private(set) var autoResolvedSection: HistoryDisclosureSection?
-    let applyButton = CCButton(title: "Apply Merge", style: .primary, size: .regular, radius: .full)
-    let cancelButton = CCButton(title: "Cancel", style: .secondary, size: .regular, radius: .full)
+    let applyButton = CCButton(title: String(localized: "Apply Merge", comment: "Merge review: apply the chosen merge"), style: .primary, size: .regular, radius: .full)
+    let cancelButton = CCButton(title: String(localized: "Cancel", comment: "Merge review: cancel without merging"), style: .secondary, size: .regular, radius: .full)
     private let introLabel: UILabel
     private var finished = false
 

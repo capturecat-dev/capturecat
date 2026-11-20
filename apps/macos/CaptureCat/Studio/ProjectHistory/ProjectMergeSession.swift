@@ -23,7 +23,7 @@ nonisolated struct ProjectMergeSession: Sendable {
 
     init(base: JSONValue, mine: JSONValue, theirs: JSONValue, mineWins: Bool,
          choices: [String: MergeSide] = [:], theirsAuthor: CloudVersionAuthor? = nil,
-         theirsFallback: String = "The web editor") {
+         theirsFallback: String = String(localized: "The web editor", comment: "Merge Review: who else edited, when the name is unknown")) {
         self.base = base
         self.mine = mine
         self.theirs = theirs

@@ -134,7 +134,7 @@ final class CCButton: UIControl {
                 self.label.alpha = contentAlpha
                 self.icon.alpha = contentAlpha
             }
-            accessibilityValue = isBusy ? "In progress" : nil
+            accessibilityValue = isBusy ? String(localized: "In progress", comment: "Busy button state (VoiceOver)") : nil
         }
     }
 

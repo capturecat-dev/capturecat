@@ -17,8 +17,8 @@ nonisolated enum MediaImport {
 
         var errorDescription: String? {
             switch self {
-            case .unreadableImage: return "That image couldn't be read."
-            case .unsupportedVideo: return "That video format isn't supported."
+            case .unreadableImage: return String(localized: "That image couldn't be read.")
+            case .unsupportedVideo: return String(localized: "That video format isn't supported.")
             }
         }
     }

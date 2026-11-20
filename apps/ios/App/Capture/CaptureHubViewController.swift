@@ -11,7 +11,7 @@ final class CaptureHubViewController: UIViewController {
     let model = CaptureHubModel.shared
     private var feed: CaptureFeed { AppEnvironment.shared.capture }
 
-    private let header = CCHeaderBar(title: "Capture", style: .large)
+    private let header = CCHeaderBar(title: String(localized: "Capture", comment: "Capture tab screen title"), style: .large)
     private let scrollView = UIScrollView()
     private let column = UIStackView()
 
@@ -29,12 +29,12 @@ final class CaptureHubViewController: UIViewController {
     private let statusDetail = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
     private let statusSpinner = CCSpinner(diameter: 14)
     private let macPicker = CCSelect(options: [], symbol: "laptop")
-    private let streamButton = CCButton(title: "Start streaming", symbol: "wifi", style: .primary, size: .lg, radius: .lg)
+    private let streamButton = CCButton(title: String(localized: "Start streaming", comment: "Button: stream this device's screen to the Mac"), symbol: "wifi", style: .primary, size: .lg, radius: .lg)
     private var macIDs: [String] = []
 
     // Import
     private let importSpinner = CCSpinner(diameter: 16)
-    private let importStatus = ccLabel("Importing…", font: CCFont.caption, color: CCTheme.color.mutedForeground)
+    private let importStatus = ccLabel(String(localized: "Importing…", comment: "Status while importing from Photos"), font: CCFont.caption, color: CCTheme.color.mutedForeground)
     private let importStatusRow = UIStackView()
     private let importError = CCCallout(message: "", variant: .destructive)
 
@@ -101,12 +101,12 @@ final class CaptureHubViewController: UIViewController {
 
     private func buildBanner() {
         let icon = CCIconView("bell-badge-fill", pointSize: 17, weight: .medium, tint: CCTheme.color.primary)
-        let detail = ccLabel("Tap Start Broadcast in the sheet to begin.", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)
+        let detail = ccLabel(String(localized: "Tap Start Broadcast in the sheet to begin.", comment: "Start Broadcast is the system sheet's button name"), font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)
         let text = UIStackView(arrangedSubviews: [bannerLabel, detail])
         text.axis = .vertical
         text.spacing = 2
         let close = CCButton(symbol: "close", style: .ghost, size: .sm, radius: .full)
-        close.accessibilityLabelOverride = "Dismiss"
+        close.accessibilityLabelOverride = String(localized: "Dismiss", comment: "Accessibility label: close the banner")
         close.onTap = { [weak self] in self?.feed.dismissRequest() }
         let row = UIStackView(arrangedSubviews: [icon, text, close])
         row.spacing = CCSpace.md
@@ -122,10 +122,10 @@ final class CaptureHubViewController: UIViewController {
     }
 
     private func buildHero() {
-        let eyebrow = ccLabel("\(ThisDevice.noun) over Wi-Fi", font: CCFont.captionMedium, color: CCTheme.color.mutedForeground)
-        let title = ccLabel("Stream to your Mac", font: CCFont.title, color: CCTheme.color.foreground, lines: 2)
+        let eyebrow = ccLabel(String(localized: "\(ThisDevice.noun) over Wi-Fi", comment: "Eyebrow label; argument is iPhone or iPad"), font: CCFont.captionMedium, color: CCTheme.color.mutedForeground)
+        let title = ccLabel(String(localized: "Stream to your Mac"), font: CCFont.title, color: CCTheme.color.foreground, lines: 2)
         title.accessibilityTraits = .header
-        let pitch = ccLabel("Your Mac records this screen like a plugged-in \(ThisDevice.noun) — with the device frame. No cable.",
+        let pitch = ccLabel(String(localized: "Your Mac records this screen like a plugged-in \(ThisDevice.noun) — with the device frame. No cable.", comment: "Argument is iPhone or iPad"),
                             font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0)
 
         statusDot.translatesAutoresizingMaskIntoConstraints = false
@@ -151,7 +151,7 @@ final class CaptureHubViewController: UIViewController {
         statusWell.accessibilityElements = [statusLabel, statusDetail]
         self.statusWell = statusWell
 
-        macPicker.prompt = "Stream to which Mac?"
+        macPicker.prompt = String(localized: "Stream to which Mac?", comment: "Picker prompt")
         macPicker.presenter = self
         macPicker.isHidden = true
         macPicker.onSelect = { [weak self] index in
@@ -162,7 +162,7 @@ final class CaptureHubViewController: UIViewController {
             guard let self else { return }
             self.feed.streamToMac(from: self.streamButton)
         }
-        streamButton.accessibilityHint = "Opens the system Start Broadcast sheet"
+        streamButton.accessibilityHint = String(localized: "Opens the system Start Broadcast sheet", comment: "Accessibility hint")
 
         let stack = UIStackView(arrangedSubviews: [linkStrip, eyebrow, title, pitch, statusWell, macPicker, streamButton])
         stack.axis = .vertical
@@ -187,9 +187,9 @@ final class CaptureHubViewController: UIViewController {
     private func buildRecordCard() -> UIView {
         let card = CCCard(radius: .lg)
         let tile = CCIconTile(symbol: "record")
-        let title = ccLabel("Record on \(ThisDevice.noun)", font: CCFont.header, color: CCTheme.color.foreground, lines: 2)
+        let title = ccLabel(String(localized: "Record on \(ThisDevice.noun)", comment: "Card title; argument is iPhone or iPad"), font: CCFont.header, color: CCTheme.color.foreground, lines: 2)
         title.accessibilityTraits = .header
-        let body = ccLabel("Saves to your library when you stop. Control Center's record button works too — pick CaptureCat in the list.",
+        let body = ccLabel(String(localized: "Saves to your library when you stop. Control Center's record button works too — pick CaptureCat in the list."),
                            font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
         let text = UIStackView(arrangedSubviews: [title, body])
         text.axis = .vertical
@@ -197,12 +197,12 @@ final class CaptureHubViewController: UIViewController {
         let top = UIStackView(arrangedSubviews: [tile, text])
         top.spacing = CCSpace.md
         top.alignment = .top
-        let record = CCButton(title: "Record this screen", symbol: "record-fill", style: .secondary, size: .regular)
+        let record = CCButton(title: String(localized: "Record this screen", comment: "Button"), symbol: "record-fill", style: .secondary, size: .regular)
         record.onTap = { [weak self, weak record] in
             guard let self, let record else { return }
             self.feed.recordOnPhone(from: record)
         }
-        record.accessibilityHint = "Opens the system Start Broadcast sheet"
+        record.accessibilityHint = String(localized: "Opens the system Start Broadcast sheet", comment: "Accessibility hint")
         let stack = UIStackView(arrangedSubviews: [top, record])
         stack.axis = .vertical
         stack.spacing = CCSpace.md + 2
@@ -218,14 +218,14 @@ final class CaptureHubViewController: UIViewController {
     }
 
     private func buildImport() -> UIView {
-        let label = ccLabel("Import from Photos", font: CCFont.labelSemibold, color: CCTheme.color.mutedForeground)
+        let label = ccLabel(String(localized: "Import from Photos", comment: "Section label"), font: CCFont.labelSemibold, color: CCTheme.color.mutedForeground)
         label.accessibilityTraits = .header
-        let screenshots = CCButton(title: "Screenshots", symbol: "photo-add", style: .secondary, size: .lg, radius: .lg)
+        let screenshots = CCButton(title: String(localized: "Screenshots", comment: "Button: import screenshots from Photos"), symbol: "photo-add", style: .secondary, size: .lg, radius: .lg)
         screenshots.onTap = { [weak self] in
             guard let self else { return }
             self.feed.pickScreenshots(from: self)
         }
-        let videos = CCButton(title: "Videos", symbol: "film", style: .secondary, size: .lg, radius: .lg)
+        let videos = CCButton(title: String(localized: "Videos", comment: "Button: import videos from Photos"), symbol: "film", style: .secondary, size: .lg, radius: .lg)
         videos.onTap = { [weak self] in
             guard let self else { return }
             self.feed.pickVideos(from: self)
@@ -240,7 +240,7 @@ final class CaptureHubViewController: UIViewController {
         importStatusRow.alignment = .center
         importStatusRow.isHidden = true
         importError.isHidden = true
-        let hint = ccLabel(ThisDevice.isPad ? "Screenshots open on your Mac and the web, ready to edit." : "Screenshots open on your Mac and the web with the iPhone frame around them.",
+        let hint = ccLabel(ThisDevice.isPad ? String(localized: "Screenshots open on your Mac and the web, ready to edit.") : String(localized: "Screenshots open on your Mac and the web with the iPhone frame around them."),
                            font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
         let stack = UIStackView(arrangedSubviews: [label, row, importStatusRow, importError, hint])
         stack.axis = .vertical
@@ -249,7 +249,7 @@ final class CaptureHubViewController: UIViewController {
     }
 
     private func buildInbox() {
-        let label = ccLabel("Waiting to upload", font: CCFont.labelSemibold, color: CCTheme.color.mutedForeground)
+        let label = ccLabel(String(localized: "Waiting to upload", comment: "Section label: recordings not uploaded yet"), font: CCFont.labelSemibold, color: CCTheme.color.mutedForeground)
         label.accessibilityTraits = .header
         inboxList.axis = .vertical
         inboxList.spacing = CCSpace.sm
@@ -280,23 +280,23 @@ final class CaptureHubViewController: UIViewController {
         var linkState = PresenceStrip.State.idle
         switch status {
         case .signedOut:
-            title = "Signed out"
-            detail = "Sign in to stream this \(ThisDevice.noun) to your Mac."
+            title = String(localized: "Signed out", comment: "Capture status title")
+            detail = String(localized: "Sign in to stream this \(ThisDevice.noun) to your Mac.", comment: "Argument is iPhone or iPad")
             canStream = false
         case .unavailable(let message):
             dot = colors.destructive
-            title = "Can't link this \(ThisDevice.noun)"
+            title = String(localized: "Can't link this \(ThisDevice.noun)", comment: "Argument is iPhone or iPad")
             detail = message
         case .searching:
             dot = colors.warning
-            title = "Looking for your Mac…"
-            detail = "Open CaptureCat on your Mac — same Wi-Fi, same account."
+            title = String(localized: "Looking for your Mac…")
+            detail = String(localized: "Open CaptureCat on your Mac — same Wi-Fi, same account.")
             searching = true
             linkState = .searching
         case .connected(let macName):
             dot = colors.success
-            title = "Connected to \(macName)"
-            detail = "Ready. Start streaming, then pick this \(ThisDevice.noun) as the source on your Mac."
+            title = String(localized: "Connected to \(macName)", comment: "Argument is the Mac's name")
+            detail = String(localized: "Ready. Start streaming, then pick this \(ThisDevice.noun) as the source on your Mac.", comment: "Argument is iPhone or iPad")
             linkState = .connected
         }
         let key = "\(title)|\(detail)"
@@ -350,7 +350,7 @@ final class CaptureHubViewController: UIViewController {
         }
         guard bannerShownAt != request.at else { return }
         bannerShownAt = request.at
-        bannerLabel.text = "\(request.macName) asked for your screen"
+        bannerLabel.text = String(localized: "\(request.macName) asked for your screen", comment: "Banner; argument is the Mac's name (or 'your Mac')")
         banner.accessibilityLabel = bannerLabel.text
         if banner.isHidden {
             banner.alpha = 0

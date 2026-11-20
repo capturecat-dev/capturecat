@@ -174,7 +174,7 @@ final class LibraryStore {
         } catch {
             if case APIError.signedOut = error { return }
             let message = error.localizedDescription
-            if projects.isEmpty && shares.isEmpty { phase = .failed(message) } else { AppToaster.shared.show(title: "Couldn't refresh", message: message, variant: .warning) }
+            if projects.isEmpty && shares.isEmpty { phase = .failed(message) } else { AppToaster.shared.show(title: String(localized: "Couldn't refresh", comment: "Toast title: the library failed to refresh"), message: message, variant: .warning) }
         }
     }
 

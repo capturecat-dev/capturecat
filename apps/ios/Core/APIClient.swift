@@ -9,10 +9,10 @@ nonisolated enum APIError: LocalizedError, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .signedOut: return "You're signed out. Sign in to CaptureCat to continue."
+        case .signedOut: return String(localized: "You're signed out. Sign in to CaptureCat to continue.")
         case let .http(_, _, message): return message
         case let .transport(message): return message
-        case .invalidResponse: return "CaptureCat sent an unexpected response. Try again."
+        case .invalidResponse: return String(localized: "CaptureCat sent an unexpected response. Try again.")
         }
     }
 
@@ -263,8 +263,8 @@ nonisolated final class APIClient: Sendable {
             (data, response) = try await session.data(for: request)
         } catch {
             throw APIError.transport((error as? URLError)?.code == .notConnectedToInternet
-                ? "You're offline. Check your connection and try again."
-                : "Couldn't reach CaptureCat. Try again.")
+                ? String(localized: "You're offline. Check your connection and try again.")
+                : String(localized: "Couldn't reach CaptureCat. Try again."))
         }
         guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         if (200..<300).contains(http.statusCode) || extra.contains(http.statusCode) { return (data, http) }
@@ -298,23 +298,26 @@ nonisolated enum AccountDeletionError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .offline:
-            return "You're offline, so nothing was deleted. Connect to the internet and try again."
+            return String(localized: "You're offline, so nothing was deleted. Connect to the internet and try again.")
         case .unreachable:
-            return "Couldn't reach CaptureCat, so your account wasn't deleted. Check your connection and try again."
+            return String(localized: "Couldn't reach CaptureCat, so your account wasn't deleted. Check your connection and try again.")
         case let .http(status, code, message):
             switch (status, code) {
             case (409, _):
-                return message ?? "Your account can't be deleted yet. Try again from the web app."
+                return message ?? String(localized: "Your account can't be deleted yet. Try again from the web app.")
             case (502, _), (_, "billing_unavailable"):
-                return message ?? "We couldn't cancel your subscription, so nothing was deleted. Try again in a moment."
+                return message ?? String(localized: "We couldn't cancel your subscription, so nothing was deleted. Try again in a moment.")
             case (403, "agent_token_forbidden"):
-                return "Only you can delete your account, while signed in to CaptureCat."
+                return String(localized: "Only you can delete your account, while signed in to CaptureCat.")
             case (403, _):
-                return (message.map { $0 + ". " } ?? "") + "This account can't be deleted here. Email contact@capturecat.so and we'll help."
+                if let message {
+                    return String(localized: "\(message). This account can't be deleted here. Email contact@capturecat.so and we'll help.", comment: "Argument is the server's reason, without a final period")
+                }
+                return String(localized: "This account can't be deleted here. Email contact@capturecat.so and we'll help.")
             case (429, _):
-                return "Too many attempts. Wait a minute, then try again."
+                return String(localized: "Too many attempts. Wait a minute, then try again.")
             default:
-                return "Something went wrong, and nothing was deleted. Try again in a moment."
+                return String(localized: "Something went wrong, and nothing was deleted. Try again in a moment.")
             }
         }
     }

@@ -57,8 +57,8 @@ final class StudioAutoZoomController {
         self.project = project
         self.undoManager = undoManager
         availability = StudioAutoZoom.availability(for: project)
-        levelSlider = CCSlider(title: "Zoom Level", value: project.settings.autoZoomLevel, range: 1.5...4.0, step: 0.1,
-                               format: { String(format: "%.1fx", $0) })
+        levelSlider = CCSlider(title: String(localized: "Zoom Level", comment: "Auto Zoom sheet: how far auto zooms magnify"), value: project.settings.autoZoomLevel, range: 1.5...4.0, step: 0.1,
+                               format: { UnitText.multiplier($0) })
         levelSlider.accessibilityIdentifier = "studio.autozoom.level"
         levelSlider.onChange = { [weak self] value in self?.project.settings.autoZoomLevel = value }
     }
@@ -68,19 +68,19 @@ final class StudioAutoZoomController {
         switch availability {
         case .available:
             alert = StudioFeatureSheet.make(
-                title: "Auto Zoom",
-                message: "Zooms into your clicks, typing and pauses from the cursor the Mac recorded. Earlier auto zooms are replaced; zoom blocks you placed yourself stay.",
+                title: String(localized: "Auto Zoom", comment: "Feature sheet title: automatically add zooms from the recorded cursor"),
+                message: String(localized: "Zooms into your clicks, typing and pauses from the cursor the Mac recorded. Earlier auto zooms are replaced; zoom blocks you placed yourself stay."),
                 symbol: "sparkles",
                 content: [levelSlider])
-            alert.addButton("Generate", role: .primary) { [weak self] in try self?.generate() }
-            alert.addButton("Cancel", role: .cancel)
+            alert.addButton(String(localized: "Generate", comment: "Feature sheet primary button: run subtitle generation / auto zoom"), role: .primary) { [weak self] in try self?.generate() }
+            alert.addButton(String(localized: "Cancel", comment: "Alert button"), role: .cancel)
         case .needsMacCapture:
             alert = StudioFeatureSheet.make(
-                title: "Auto Zoom",
-                message: "Auto Zoom follows the cursor and clicks a Mac recording carries. This take has none — add zoom blocks on the timeline and aim them on the canvas instead.",
+                title: String(localized: "Auto Zoom", comment: "Feature sheet title: automatically add zooms from the recorded cursor"),
+                message: String(localized: "Auto Zoom follows the cursor and clicks a Mac recording carries. This take has none — add zoom blocks on the timeline and aim them on the canvas instead."),
                 symbol: "sparkles",
                 content: [])
-            alert.addButton("OK", role: .cancel)
+            alert.addButton(String(localized: "OK", comment: "Alert button"), role: .cancel)
         }
         self.alert = alert
         alert.present(from: presenter)
@@ -95,13 +95,15 @@ final class StudioAutoZoomController {
         guard created > 0 else { throw StudioAutoZoomError.nothingToZoom }
         CCHaptics.success()
         onApplied?(created)
-        CCAccessibility.announce("Auto Zoom added \(created) \(created == 1 ? "zoom" : "zooms")")
+        CCAccessibility.announce(created == 1
+            ? String(localized: "Auto Zoom added 1 zoom", comment: "VoiceOver announcement after Auto Zoom")
+            : String(localized: "Auto Zoom added \(created) zooms", comment: "VoiceOver announcement after Auto Zoom"))
     }
 }
 
 enum StudioAutoZoomError: LocalizedError {
     case nothingToZoom
     var errorDescription: String? {
-        "No clicks, typing or pauses worth zooming into were found."
+        String(localized: "No clicks, typing or pauses worth zooming into were found.")
     }
 }

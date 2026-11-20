@@ -35,7 +35,7 @@ extension CloudProjectSync {
         let docURL = projectDirectory.appendingPathComponent("project.json")
         guard !fm.fileExists(atPath: docURL.path) else { throw CloudSyncError.alreadyOnThisMac }
 
-        progress(Progress(phase: .fetching, fraction: 0, message: "Finding your project…"))
+        progress(Progress(phase: .fetching, fraction: 0, message: String(localized: "Finding your project…", comment: "Cloud sync progress line")))
         guard let remote = try await transport.fetch(projectID: projectID),
               let document = remote.document else {
             return .noCloudCopy
@@ -47,7 +47,7 @@ extension CloudProjectSync {
         do {
             _ = try await syncMedia(remote.files, referencedBy: document, projectID: projectID,
                                     projectDirectory: projectDirectory, progress: progress)
-            progress(Progress(phase: .writing, fraction: 0.5, message: "Opening on this Mac…"))
+            progress(Progress(phase: .writing, fraction: 0.5, message: String(localized: "Opening on this Mac…", comment: "Cloud sync progress line")))
             let data = try Self.validatedDocument(document, projectID: projectID,
                                                   projectDirectory: projectDirectory, files: remote.files)
             // The recording is the one file a project cannot open without
@@ -55,7 +55,7 @@ extension CloudProjectSync {
             let project = try Self.checkedProject(data, projectID: projectID)
             if let video = project.videoURL, video.isFileURL, !fm.fileExists(atPath: video.path) {
                 throw CloudSyncError.downloadFailed(paths: [video.lastPathComponent],
-                                                    detail: "the cloud copy has no recording")
+                                                    detail: String(localized: "the cloud copy has no recording", comment: "Cloud sync error detail, shown in parentheses inside a longer error message"))
             }
             try saveState(revision: remote.revision, base: data, in: projectDirectory, projectID: projectID)
             try ProjectFileIO.writeProjectData(data, to: docURL)
@@ -63,7 +63,7 @@ extension CloudProjectSync {
             if created { try? fm.removeItem(at: projectDirectory) }
             throw error
         }
-        progress(Progress(phase: .writing, fraction: 1, message: "Ready"))
+        progress(Progress(phase: .writing, fraction: 1, message: String(localized: "Ready", comment: "Cloud sync progress status")))
         cloneLogger.info("cloned cloud revision \(remote.revision) into \(projectID.uuidString, privacy: .public)")
         return .cloned(revision: remote.revision)
     }

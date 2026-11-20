@@ -302,7 +302,7 @@ final class ShareVideoSurface: UIView {
     private func refreshPlayButton() {
         let playing = player.timeControlStatus != .paused
         playButton.symbol = playing ? "pause-fill" : "play-fill"
-        playButton.accessibilityLabel = playing ? "Pause" : "Play"
+        playButton.accessibilityLabel = playing ? String(localized: "Pause", comment: "VoiceOver: pause the shared video") : String(localized: "Play", comment: "VoiceOver: play the shared video")
         // The big key steps aside while the video plays (the frame is the
         // point), for a drawing on the frame, and while a viewer draws.
         let away = playing || drawingSurface != nil || (drawingPill != nil && annotationCanvas.alpha > 0)
@@ -507,7 +507,9 @@ final class ShareTimelineView: UIView {
         guard markers != scrubber.annotationMarkers else { return }
         scrubber.annotationMarkers = markers
         scrubber.accessibilityCustomActions = markers.enumerated().map { index, marker in
-            UIAccessibilityCustomAction(name: "Jump to \(marker.label?.isEmpty == false ? marker.label! : "annotation") at \(Format.spokenDuration(marker.start))") { [weak self] _ in
+            UIAccessibilityCustomAction(name: marker.label?.isEmpty == false
+                ? String(localized: "Jump to \(marker.label!) at \(Format.spokenDuration(marker.start))", comment: "VoiceOver action: jump to a named annotation; values are its label and a spoken time")
+                : String(localized: "Jump to annotation at \(Format.spokenDuration(marker.start))", comment: "VoiceOver action: jump to an unnamed annotation; the value is a spoken time")) { [weak self] _ in
                 guard let self else { return false }
                 self.onMarker?(self.scrubber.annotationMarkers[index])
                 return true
@@ -617,9 +619,9 @@ final class ShareMarkerView: UIControl {
         accessibilityIdentifier = CCAccessibility.dataGeometryPrefix + "share-marker." + group.key
         accessibilityTraits = .button
         accessibilityLabel = group.comments.count == 1
-            ? "Comment by \(first.authorName) at \(Format.duration(group.time))"
-            : "\(group.comments.count) comments from \(Format.duration(group.time))"
-        accessibilityCustomActions = [UIAccessibilityCustomAction(name: "Play from here") { [weak self] _ in
+            ? String(localized: "Comment by \(first.authorName) at \(Format.duration(group.time))", comment: "VoiceOver: timeline marker for one comment; values are the author and a timestamp")
+            : String(localized: "\(group.comments.count) comments from \(Format.duration(group.time))", comment: "VoiceOver: timeline marker for several comments; values are the count and a timestamp")
+        accessibilityCustomActions = [UIAccessibilityCustomAction(name: String(localized: "Play from here", comment: "VoiceOver action on a comment marker: play from its time")) { [weak self] _ in
             self?.onTap?()
             return true
         }]
@@ -652,7 +654,7 @@ final class ShareScrubber: UIControl {
     var time: Double = 0 {
         didSet {
             setNeedsLayout()
-            accessibilityValue = "\(Format.spokenDuration(time)) of \(Format.spokenDuration(duration))"
+            accessibilityValue = String(localized: "\(Format.spokenDuration(time)) of \(Format.spokenDuration(duration))", comment: "VoiceOver value of the playback scrubber: elapsed of total, both spoken durations")
         }
     }
     var reactions: [ShareReaction] = [] {
@@ -685,9 +687,9 @@ final class ShareScrubber: UIControl {
         knob.layer.shadowRadius = 2
         knob.layer.shadowOffset = CGSize(width: 0, height: 1)
         isAccessibilityElement = true
-        accessibilityLabel = "Playback position"
+        accessibilityLabel = String(localized: "Playback position", comment: "VoiceOver label of the video scrubber")
         accessibilityTraits = .adjustable
-        accessibilityValue = "0 seconds"
+        accessibilityValue = String(localized: "0 seconds", comment: "VoiceOver value of the scrubber before playback starts")
         ccOnThemeChange { [weak self] in self?.applyTheme() }
         applyTheme()
     }
@@ -850,7 +852,7 @@ final class ShareReactionBar: UIView {
         tallies.arrangedSubviews.forEach { $0.removeFromSuperview() }
         for (index, text) in wanted.enumerated() {
             let chip = CCBadge(text, variant: counts[index].emoji == mine ? .primary : .subtle)
-            chip.accessibilityLabel = "\(ShareReactions.spoken[counts[index].emoji] ?? counts[index].emoji): \(counts[index].count)"
+            chip.accessibilityLabel = String(localized: "\(ShareReactions.spoken[counts[index].emoji] ?? counts[index].emoji): \(counts[index].count)", comment: "VoiceOver: reaction tally chip; values are the reaction name and its count")
             tallies.addArrangedSubview(chip)
         }
         tallies.isHidden = wanted.isEmpty
@@ -902,7 +904,7 @@ final class ShareReactionKey: UIControl {
     }
 
     private func refreshAccessibility() {
-        accessibilityLabel = "React \(ShareReactions.spoken[emoji] ?? emoji)"
+        accessibilityLabel = String(localized: "React \(ShareReactions.spoken[emoji] ?? emoji)", comment: "VoiceOver: reaction button; the value is the reaction name, e.g. Heart")
         accessibilityValue = count > 0 ? "\(count)" : nil
         accessibilityTraits = isChosen ? [.button, .selected] : .button
     }
@@ -952,7 +954,7 @@ final class ShareCommentRow: UIView {
         let when = ccLabel(Format.relative(comment.createdAt), font: CCFont.caption, color: CCTheme.color.mutedForeground)
         when.setContentCompressionResistancePriority(.required, for: .horizontal)
         var topItems: [UIView] = [author]
-        if comment.isOwner { topItems.append(CCBadge("Owner", variant: .outline)) }
+        if comment.isOwner { topItems.append(CCBadge(String(localized: "Owner", comment: "Badge on a comment written by the video's owner"), variant: .outline)) }
         topItems.append(when)
         topItems.append(UIView())
         let top = UIStackView(arrangedSubviews: topItems)
@@ -964,12 +966,12 @@ final class ShareCommentRow: UIView {
         if !reply {
             let time = comment.videoTime ?? 0
             let chip = CCButton(title: Format.duration(time), symbol: "play-fill", style: .secondary, size: .sm, radius: .full)
-            chip.accessibilityLabelOverride = "Play from \(Format.spokenDuration(time))"
+            chip.accessibilityLabelOverride = String(localized: "Play from \(Format.spokenDuration(time))", comment: "VoiceOver: comment timestamp chip; the value is a spoken time")
             chip.onTap = { [weak self] in self?.onSeek?(time) }
             timeChip = chip
             actions.append(chip)
-            let replyKey = CCButton(title: "Reply", style: .ghost, size: .sm, radius: .full)
-            replyKey.accessibilityLabelOverride = "Reply to \(comment.authorName)"
+            let replyKey = CCButton(title: String(localized: "Reply", comment: "Button: reply to a comment"), style: .ghost, size: .sm, radius: .full)
+            replyKey.accessibilityLabelOverride = String(localized: "Reply to \(comment.authorName)", comment: "VoiceOver: reply button; the value is the comment author")
             replyKey.onTap = { [weak self] in
                 guard let self else { return }
                 self.onReply?(self.comment)
@@ -978,8 +980,8 @@ final class ShareCommentRow: UIView {
             actions.append(replyKey)
             if let shapes = comment.drawing {
                 let thumb = ShareAnnotationThumb(shapes: shapes, aspect: aspect, width: 44)
-                let show = CCButton(title: "Drawing", symbol: "draw", style: .ghost, size: .sm, radius: .full)
-                show.accessibilityLabelOverride = "Show \(comment.authorName)'s drawing at \(Format.spokenDuration(time))"
+                let show = CCButton(title: String(localized: "Drawing", comment: "Button on a comment: show the drawing attached to it"), symbol: "draw", style: .ghost, size: .sm, radius: .full)
+                show.accessibilityLabelOverride = String(localized: "Show \(comment.authorName)'s drawing at \(Format.spokenDuration(time))", comment: "VoiceOver: show a comment's drawing; values are the author and a spoken time")
                 show.onTap = { [weak self] in
                     guard let self else { return }
                     self.onShowDrawing?(self.comment)
@@ -1021,8 +1023,18 @@ final class ShareCommentRow: UIView {
             row.topAnchor.constraint(equalTo: topAnchor),
             row.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
-        let spokenTime = reply ? "" : ", at \(Format.spokenDuration(comment.videoTime ?? 0))"
-        author.accessibilityLabel = "\(reply ? "Reply from" : "Comment from") \(comment.authorName)\(comment.isOwner ? ", owner" : ""), \(Format.relative(comment.createdAt))\(spokenTime)"
+        let authorName = comment.authorName
+        let whenText = Format.relative(comment.createdAt)
+        if reply {
+            author.accessibilityLabel = comment.isOwner
+                ? String(localized: "Reply from \(authorName), owner, \(whenText)", comment: "VoiceOver: reply header by the video owner; values are the author and a relative date")
+                : String(localized: "Reply from \(authorName), \(whenText)", comment: "VoiceOver: reply header; values are the author and a relative date")
+        } else {
+            let spokenTime = Format.spokenDuration(comment.videoTime ?? 0)
+            author.accessibilityLabel = comment.isOwner
+                ? String(localized: "Comment from \(authorName), owner, \(whenText), at \(spokenTime)", comment: "VoiceOver: comment header by the video owner; values are the author, a relative date and a spoken video time")
+                : String(localized: "Comment from \(authorName), \(whenText), at \(spokenTime)", comment: "VoiceOver: comment header; values are the author, a relative date and a spoken video time")
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -1035,14 +1047,14 @@ final class ShareCommentRow: UIView {
 /// named), the reply strip, then the moment chip · "Add a comment…" · send.
 final class ShareComposerView: UIView {
     let identityLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)
-    let nameField = CCField(placeholder: "Your name (optional)")
-    let signInButton = CCButton(title: "Sign in", style: .link, size: .sm)
+    let nameField = CCField(placeholder: String(localized: "Your name (optional)"))
+    let signInButton = CCButton(title: String(localized: "Sign in", comment: "Link in the comment composer: sign in to comment as yourself"), style: .link, size: .sm)
     let replyLabel = ccLabel("", font: CCFont.captionMedium, color: CCTheme.color.foreground)
     let cancelReply = CCButton(symbol: "close", style: .ghost, size: .sm, radius: .full)
     let timeChip = CCButton(title: "0:00", symbol: "timer", style: .secondary, size: .sm, radius: .full)
     /// Draw on the frame the comment is pinned to (the web's pencil).
     let drawButton = CCButton(symbol: "draw", style: .ghost, size: .regular, radius: .full)
-    let field = CCField(placeholder: "Add a comment…")
+    let field = CCField(placeholder: String(localized: "Add a comment…"))
     let sendButton = CCButton(symbol: "arrow-up-line", style: .primary, size: .regular, radius: .full)
     let errorLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.destructive, lines: 0)
     private let identityRow = UIStackView()
@@ -1058,14 +1070,14 @@ final class ShareComposerView: UIView {
         addSubview(rule)
         nameField.autocapitalizationType = .words
         nameField.textContentType = .name
-        nameField.accessibilityLabel = "Your name"
-        signInButton.accessibilityHint = "Comment as yourself"
+        nameField.accessibilityLabel = String(localized: "Your name", comment: "VoiceOver label of the optional commenter-name field")
+        signInButton.accessibilityHint = String(localized: "Comment as yourself", comment: "VoiceOver hint of the Sign in link in the comment composer")
         signInButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         identityLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         identityRow.spacing = CCSpace.sm
         identityRow.alignment = .center
         identityRow.ccStacksAtAccessibilitySizes(rowAlignment: .center)
-        cancelReply.accessibilityLabelOverride = "Cancel reply"
+        cancelReply.accessibilityLabelOverride = String(localized: "Cancel reply")
         replyRow.addArrangedSubview(CCIconView("text-bubble", pointSize: 13, weight: .medium, tint: CCTheme.color.mutedForeground))
         replyRow.addArrangedSubview(replyLabel)
         replyRow.addArrangedSubview(UIView())
@@ -1074,12 +1086,12 @@ final class ShareComposerView: UIView {
         replyRow.alignment = .center
         replyRow.isHidden = true
         field.returnKeyType = .send
-        field.accessibilityLabel = "Comment"
+        field.accessibilityLabel = String(localized: "Comment", comment: "VoiceOver label of the comment text field")
         timeChip.setContentCompressionResistancePriority(.required, for: .horizontal)
-        sendButton.accessibilityLabelOverride = "Post comment"
+        sendButton.accessibilityLabelOverride = String(localized: "Post comment")
         sendButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        drawButton.accessibilityLabelOverride = "Draw on the video"
-        drawButton.accessibilityHint = "Pauses on this moment so you can mark it up"
+        drawButton.accessibilityLabelOverride = String(localized: "Draw on the video")
+        drawButton.accessibilityHint = String(localized: "Pauses on this moment so you can mark it up")
         drawButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         let main = UIStackView(arrangedSubviews: [timeChip, drawButton, field, sendButton])
         main.spacing = CCSpace.sm
@@ -1113,7 +1125,7 @@ final class ShareComposerView: UIView {
     func setIdentity(signedInAs name: String?) {
         identityRow.arrangedSubviews.forEach { $0.removeFromSuperview() }
         if let name {
-            identityLabel.text = "Commenting as \(name)"
+            identityLabel.text = String(localized: "Commenting as \(name)", comment: "Comment composer; the value is the signed-in viewer's name")
             identityRow.addArrangedSubview(identityLabel)
         } else {
             identityRow.addArrangedSubview(nameField)
@@ -1126,7 +1138,7 @@ final class ShareComposerView: UIView {
     /// The reply strip grows in at the composer's TOP edge (the pushed edge).
     func setReplying(to name: String?) {
         let show = name != nil
-        if let name { replyLabel.text = "Replying to \(name)" }
+        if let name { replyLabel.text = String(localized: "Replying to \(name)", comment: "Comment composer reply strip; the value is the comment author") }
         guard replyRow.isHidden == show else { return }
         if CCMotion.reduceMotion {
             CCMotion.crossFade(stack) { self.replyRow.isHidden = !show }
@@ -1144,7 +1156,7 @@ final class ShareComposerView: UIView {
     /// The Draw key says when a drawing waits to be posted.
     func setDraftMarks(_ count: Int) {
         drawButton.style = count > 0 ? .secondary : .ghost
-        drawButton.accessibilityValue = count > 0 ? (count == 1 ? "1 mark" : "\(count) marks") : nil
+        drawButton.accessibilityValue = count > 0 ? (count == 1 ? String(localized: "1 mark", comment: "VoiceOver: number of drawing marks on the comment") : String(localized: "\(count) marks", comment: "VoiceOver: number of drawing marks on the comment")) : nil
     }
 
     func showError(_ text: String?) {

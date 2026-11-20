@@ -152,10 +152,10 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         self.undo = undoManager
         self.currentTime = currentTime
         env = InspectorEnvironment.of(project)
-        rail = CCIconRail(items: InspectorTab.allCases.map { CCIconRail.Item(title: $0.rawValue, symbol: $0.icon) },
+        rail = CCIconRail(items: InspectorTab.allCases.map { CCIconRail.Item(title: $0.displayName, symbol: $0.icon) },
                           selectedIndex: InspectorTab.allCases.firstIndex(of: selection.inspectorTab) ?? 0,
                           axis: .vertical,
-                          trailing: CCIconRail.Item(title: "History", symbol: InspectorFeature.showHistory.symbol))
+                          trailing: CCIconRail.Item(title: String(localized: "History", comment: "Inspector rail key: this project's earlier versions"), symbol: InspectorFeature.showHistory.symbol))
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -248,9 +248,9 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         for v in [hairline, edgeLine, rail, strip, closeButton, panelTitle, headerToggle] as [UIView] {
             v.translatesAutoresizingMaskIntoConstraints = false
         }
-        closeButton.accessibilityLabelOverride = "Done"
+        closeButton.accessibilityLabelOverride = String(localized: "Done", comment: "Inspector panel: close the panel (VoiceOver)")
         closeButton.accessibilityIdentifier = "inspector.close"
-        closeButton.accessibilityHint = "Closes the panel."
+        closeButton.accessibilityHint = String(localized: "Closes the panel.")
         panelTitle.accessibilityTraits = .header
         panelTitle.adjustsFontForContentSizeCategory = true
         panelTitle.adjustsFontSizeToFitWidth = true
@@ -451,7 +451,7 @@ final class StudioInspectorController: UIViewController, InspectorHost {
     }
 
     private func refreshPanelTitle() {
-        panelTitle.text = shownOption?.title ?? shownTab?.rawValue ?? selection.inspectorTab.rawValue
+        panelTitle.text = shownOption?.title ?? shownTab?.displayName ?? selection.inspectorTab.displayName
     }
 
     /// The sub-options the tool bar offers for `tab` (its drill-down level).
@@ -546,7 +546,8 @@ final class StudioInspectorController: UIViewController, InspectorHost {
         let scope = self.scope
         let on = row.spec.read(scope)
         headerToggle.accessibilityLabel = row.spec.title
-        headerToggle.accessibilityHint = "Turns \(row.spec.title) on or off."
+        let toggleTitle = row.spec.title
+        headerToggle.accessibilityHint = String(localized: "Turns \(toggleTitle) on or off.", comment: "VoiceOver hint for a panel's on/off switch; the argument is the setting's name")
         if headerToggle.isOn != on { headerToggle.setOn(on, animated: view.window != nil && headerToggle.bounds.width > 0) }
         let enabled = row.spec.enabled(scope)
         if headerToggle.isEnabled != enabled { headerToggle.isEnabled = enabled }

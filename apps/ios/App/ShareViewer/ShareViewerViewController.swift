@@ -42,7 +42,7 @@ final class ShareViewerViewController: DetailPageViewController {
     private var aspect: CGFloat = 9.0 / 16.0
     private let timeline = ShareTimelineView()
     private let playKey = CCButton(symbol: "play-fill", style: .ghost, size: .regular, radius: .full)
-    private let captionsKey = CCButton(title: "Captions", symbol: "captions", style: .ghost, size: .sm, radius: .full)
+    private let captionsKey = CCButton(title: String(localized: "Captions", comment: "Button: toggle captions on the shared video"), symbol: "captions", style: .ghost, size: .sm, radius: .full)
     private let transportRow = UIStackView()
     private let stateHost = UIStackView()
     private let titleLabel: UILabel = {
@@ -58,7 +58,7 @@ final class ShareViewerViewController: DetailPageViewController {
     private let tabsHost = UIStackView()
     private let panel = UIStackView()
     private let commentsCountLabel = ccLabel("", font: CCFont.labelSemibold, color: CCTheme.color.foreground)
-    private let sortButton = CCButton(title: "Video order", symbol: "chevron-up-down", style: .ghost, size: .sm, radius: .full)
+    private let sortButton = CCButton(title: String(localized: "Video order", comment: "Comment sort button: sort comments by their time in the video"), symbol: "chevron-up-down", style: .ghost, size: .sm, radius: .full)
     private let commentsStack = UIStackView()
     private let summaryStack = UIStackView()
     private let transcriptStack = UIStackView()
@@ -93,6 +93,23 @@ final class ShareViewerViewController: DetailPageViewController {
     enum Tab: String { case comments = "Comments", summary = "Summary", transcript = "Transcript" }
     enum Sort: String, CaseIterable { case videoTime = "Video order", oldest = "Oldest first", newest = "Newest first" }
 
+    /// Display names (the raw values stay English).
+    private func tabTitle(_ tab: Tab) -> String {
+        switch tab {
+        case .comments: return String(localized: "Comments", comment: "Share viewer tab")
+        case .summary: return String(localized: "Summary", comment: "Share viewer tab: the AI summary of the video")
+        case .transcript: return String(localized: "Transcript", comment: "Share viewer tab")
+        }
+    }
+
+    private func sortTitle(_ sort: Sort) -> String {
+        switch sort {
+        case .videoTime: return String(localized: "Video order", comment: "Comment sort button: sort comments by their time in the video")
+        case .oldest: return String(localized: "Oldest first", comment: "Comment sort option")
+        case .newest: return String(localized: "Newest first", comment: "Comment sort option")
+        }
+    }
+
     private(set) var tabOrder: [Tab] = []
     private(set) var selectedTab: Tab = .comments
     private(set) var sort: Sort = .videoTime
@@ -120,9 +137,9 @@ final class ShareViewerViewController: DetailPageViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        shareKey.accessibilityLabelOverride = "Share and more"
+        shareKey.accessibilityLabelOverride = String(localized: "Share and more", comment: "VoiceOver: the share-viewer menu button")
         shareKey.onTap = { [weak self] in self?.presentShareMenu() }
-        closeKey.accessibilityLabelOverride = "Close"
+        closeKey.accessibilityLabelOverride = String(localized: "Close", comment: "VoiceOver: close the share viewer")
         closeKey.onTap = { [weak self] in self?.close() }
         header.setTrailing([shareKey, closeKey])
 
@@ -278,9 +295,9 @@ final class ShareViewerViewController: DetailPageViewController {
     }
 
     override var keyCommands: [UIKeyCommand]? {
-        let space = UIKeyCommand(title: "Play / Pause", action: #selector(keyTogglePlay), input: " ")
+        let space = UIKeyCommand(title: String(localized: "Play / Pause", comment: "Keyboard shortcut title"), action: #selector(keyTogglePlay), input: " ")
         space.wantsPriorityOverSystemBehavior = true
-        return [space, UIKeyCommand(title: "Close", action: #selector(keyClose), input: UIKeyCommand.inputEscape)]
+        return [space, UIKeyCommand(title: String(localized: "Close", comment: "Keyboard shortcut title: close the share viewer"), action: #selector(keyClose), input: UIKeyCommand.inputEscape)]
     }
 
     @objc private func keyTogglePlay() {
@@ -315,7 +332,7 @@ final class ShareViewerViewController: DetailPageViewController {
             if playing { self.shownComment = nil }
             self.refreshOverlay()
             self.playKey.symbol = playing ? "pause-fill" : "play-fill"
-            self.playKey.accessibilityLabelOverride = playing ? "Pause" : "Play"
+            self.playKey.accessibilityLabelOverride = playing ? String(localized: "Pause", comment: "VoiceOver: pause the shared video") : String(localized: "Play", comment: "VoiceOver: play the shared video")
             self.model.track(playing ? "play" : "pause", at: self.surface.currentTime)
             if !playing, self.surface.duration > 0, self.surface.currentTime >= self.surface.duration - 0.15, !self.ended {
                 self.ended = true
@@ -326,7 +343,7 @@ final class ShareViewerViewController: DetailPageViewController {
         }
         surface.onPresentationSize = { [weak self] size in self?.setAspect(size.height / size.width) }
         surface.onFailure = { [weak self] _ in
-            self?.toaster.show(title: "Couldn't play this video", message: "Check your connection and try again.", variant: .destructive)
+            self?.toaster.show(title: String(localized: "Couldn't play this video"), message: String(localized: "Check your connection and try again."), variant: .destructive)
         }
         timeline.onSeek = { [weak self] time, ended in
             guard let self else { return }
@@ -352,9 +369,9 @@ final class ShareViewerViewController: DetailPageViewController {
             markerPillsScroll.frameLayoutGuide.heightAnchor.constraint(equalTo: markerPills.heightAnchor),
         ])
         markerPillsScroll.isHidden = true
-        playKey.accessibilityLabelOverride = "Play"
+        playKey.accessibilityLabelOverride = String(localized: "Play", comment: "VoiceOver: play the shared video")
         playKey.onTap = { [weak self] in self?.surface.togglePlay() }
-        captionsKey.accessibilityLabelOverride = "Captions"
+        captionsKey.accessibilityLabelOverride = String(localized: "Captions", comment: "VoiceOver: toggle captions on the shared video")
         captionsKey.onTap = { [weak self] in self?.toggleCaptions() }
         transportRow.addArrangedSubview(playKey)
         transportRow.addArrangedSubview(UIView())
@@ -384,7 +401,7 @@ final class ShareViewerViewController: DetailPageViewController {
         summaryStack.spacing = CCSpace.xs
         commentsCountLabel.accessibilityTraits = .header
         sortButton.symbolPlacement = .trailing
-        sortButton.accessibilityLabelOverride = "Sort comments"
+        sortButton.accessibilityLabelOverride = String(localized: "Sort comments", comment: "VoiceOver: comment sort button")
         sortButton.onTap = { [weak self] in self?.presentSortMenu() }
     }
 
@@ -489,7 +506,7 @@ final class ShareViewerViewController: DetailPageViewController {
         var byline: [String] = []
         if let date = meta.createdDate { byline.append(date.formatted(date: .abbreviated, time: .omitted)) }
         if let duration = meta.durationSeconds, duration > 0 { byline.append(Format.duration(duration)) }
-        byline.append(model.isOwnerPrivate ? "Private — only you can watch it" : "Shared via CaptureCat")
+        byline.append(model.isOwnerPrivate ? String(localized: "Private — only you can watch it") : String(localized: "Shared via CaptureCat"))
         bylineLabel.text = byline.joined(separator: " · ")
         if let label = meta.ctaLabel, !label.isEmpty { ctaButton.title = label }
         captionsKey.isHidden = !model.hasTranscript
@@ -522,7 +539,7 @@ final class ShareViewerViewController: DetailPageViewController {
         if model.hasSummaryTab { order.append(.summary) }
         if model.hasTranscript { order.append(.transcript) }
         let titles = order.map { tab -> String in
-            tab == .comments && model.commentsLoaded ? "Comments \(model.comments.count)" : tab.rawValue
+            tab == .comments && model.commentsLoaded ? String(localized: "Comments \(model.comments.count)", comment: "Share viewer tab with the comment count") : self.tabTitle(tab)
         }
         if order != tabOrder {
             tabOrder = order
@@ -596,8 +613,8 @@ final class ShareViewerViewController: DetailPageViewController {
 
     private func renderComments(newID: String? = nil) {
         let total = model.comments.count
-        commentsCountLabel.text = total == 1 ? "1 comment" : "\(total) comments"
-        sortButton.title = sort.rawValue
+        commentsCountLabel.text = total == 1 ? String(localized: "1 comment") : String(localized: "\(total) comments")
+        sortButton.title = sortTitle(sort)
         guard model.comments != renderedComments || sort != renderedSort || commentsStack.arrangedSubviews.isEmpty || newID != nil else { return }
         renderedComments = model.comments
         renderedSort = sort
@@ -606,7 +623,7 @@ final class ShareViewerViewController: DetailPageViewController {
         head.alignment = .center
         commentsStack.addArrangedSubview(head)
         if let error = model.commentsError, model.comments.isEmpty {
-            commentsStack.addArrangedSubview(ccLabel("Couldn't load comments. \(error)", font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0))
+            commentsStack.addArrangedSubview(ccLabel(String(localized: "Couldn't load comments. \(error)", comment: "The value is the error message"), font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0))
             return
         }
         if !model.commentsLoaded {
@@ -617,7 +634,7 @@ final class ShareViewerViewController: DetailPageViewController {
             return
         }
         if model.comments.isEmpty {
-            commentsStack.addArrangedSubview(ccLabel("No comments yet. Pause on a moment and leave a note — it's pinned to that time.",
+            commentsStack.addArrangedSubview(ccLabel(String(localized: "No comments yet. Pause on a moment and leave a note — it's pinned to that time."),
                                                      font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0))
             return
         }
@@ -646,9 +663,9 @@ final class ShareViewerViewController: DetailPageViewController {
     func commentRows() -> [ShareCommentRow] { commentsStack.arrangedSubviews.compactMap { $0 as? ShareCommentRow } }
 
     private func presentSortMenu() {
-        let sheet = CCActionSheet(title: "Sort comments")
+        let sheet = CCActionSheet(title: String(localized: "Sort comments", comment: "Title of the comment sort menu"))
         for option in Sort.allCases {
-            sheet.addAction(option.rawValue, checked: option == sort) { [weak self] in self?.setSort(option) }
+            sheet.addAction(sortTitle(option), checked: option == sort) { [weak self] in self?.setSort(option) }
         }
         sheet.present(from: self, source: sortButton)
     }
@@ -682,7 +699,7 @@ final class ShareViewerViewController: DetailPageViewController {
         let chapters = meta.meaningfulChapters
         let markers = model.isOwnerPrivate ? [] : meta.pillMarkers
         if !chapters.isEmpty || !markers.isEmpty {
-            let heading = ccLabel("Chapters", font: CCFont.labelSemibold, color: CCTheme.color.mutedForeground)
+            let heading = ccLabel(String(localized: "Chapters", comment: "Heading above the video's chapter list"), font: CCFont.labelSemibold, color: CCTheme.color.mutedForeground)
             heading.accessibilityTraits = .header
             summaryStack.addArrangedSubview(heading)
             var rows: [(start: Double, row: ShareTimedRow)] = chapters.map { chapter in
@@ -692,7 +709,7 @@ final class ShareViewerViewController: DetailPageViewController {
             }
             rows += markers.map { marker in
                 let label = marker.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                let row = ShareTimedRow(time: marker.start, text: label.isEmpty ? "Annotation" : label)
+                let row = ShareTimedRow(time: marker.start, text: label.isEmpty ? String(localized: "Annotation", comment: "Name of an unnamed annotation marker in the chapter list") : label)
                 row.onTap = { [weak self] in self?.jumpToMarker(marker) }
                 return (marker.start, row)
             }
@@ -716,7 +733,7 @@ final class ShareViewerViewController: DetailPageViewController {
             return
         }
         if model.transcript.isEmpty {
-            transcriptStack.addArrangedSubview(ccLabel("No transcript yet.", font: CCFont.label, color: CCTheme.color.mutedForeground))
+            transcriptStack.addArrangedSubview(ccLabel(String(localized: "No transcript yet."), font: CCFont.label, color: CCTheme.color.mutedForeground))
             return
         }
         for segment in model.transcript {
@@ -774,7 +791,7 @@ final class ShareViewerViewController: DetailPageViewController {
         timeline.setTime(time, duration: duration)
         model.tick(time, playing: surface.isPlaying)
         if draftTime == nil, replyingTo == nil { composer.timeChip.title = Format.duration(time) }
-        composer.timeChip.accessibilityLabelOverride = "Posts at \(Format.spokenDuration(draftTime ?? time))"
+        composer.timeChip.accessibilityLabelOverride = String(localized: "Posts at \(Format.spokenDuration(draftTime ?? time))", comment: "VoiceOver: comment time chip; the value is a spoken time")
         if captionsOn {
             surface.setCaption(model.transcript.last { $0.start <= time && time < $0.end }?.text)
         }
@@ -796,14 +813,14 @@ final class ShareViewerViewController: DetailPageViewController {
         seek(to: time, play: true)
         // Bring the player back into view.
         scrollView.setContentOffset(CGPoint(x: 0, y: -scrollView.adjustedContentInset.top), animated: !CCMotion.reduceMotion)
-        UIAccessibility.post(notification: .announcement, argument: "Playing from \(Format.spokenDuration(time))")
+        UIAccessibility.post(notification: .announcement, argument: String(localized: "Playing from \(Format.spokenDuration(time))", comment: "VoiceOver announcement; the value is a spoken time"))
     }
 
     private func toggleCaptions() {
         captionsOn.toggle()
         captionsKey.symbol = captionsOn ? "captions-fill" : "captions"
         captionsKey.style = captionsOn ? .secondary : .ghost
-        captionsKey.accessibilityValue = captionsOn ? "On" : "Off"
+        captionsKey.accessibilityValue = captionsOn ? String(localized: "On", comment: "VoiceOver value: captions are on") : String(localized: "Off", comment: "VoiceOver value: captions are off")
         if captionsOn {
             Task {
                 await model.loadTranscript()
@@ -812,7 +829,7 @@ final class ShareViewerViewController: DetailPageViewController {
         } else {
             surface.setCaption(nil)
         }
-        CCAccessibility.announce(captionsOn ? "Captions on" : "Captions off")
+        CCAccessibility.announce(captionsOn ? String(localized: "Captions on") : String(localized: "Captions off"))
     }
 
     // MARK: - Reactions
@@ -823,9 +840,9 @@ final class ShareViewerViewController: DetailPageViewController {
         Task {
             let landed = await model.react(emoji, at: time)
             if !landed {
-                toaster.show(title: "Couldn't react", message: "Check your connection and try again.", variant: .destructive)
+                toaster.show(title: String(localized: "Couldn't react"), message: String(localized: "Check your connection and try again."), variant: .destructive)
             } else if model.myEmoji == emoji {
-                CCAccessibility.announce("Reacted \(ShareReactions.spoken[emoji] ?? emoji) at \(Format.spokenDuration(time))")
+                CCAccessibility.announce(String(localized: "Reacted \(ShareReactions.spoken[emoji] ?? emoji) at \(Format.spokenDuration(time))", comment: "VoiceOver announcement; values are the reaction name and a spoken time"))
             }
         }
     }
@@ -842,7 +859,7 @@ final class ShareViewerViewController: DetailPageViewController {
     func setReply(_ comment: VideoComment?) {
         replyingTo = comment
         composer.setReplying(to: comment?.authorName)
-        composer.field.placeholderText = comment.map { "Reply to \($0.authorName)…" } ?? "Add a comment…"
+        composer.field.placeholderText = comment.map { String(localized: "Reply to \($0.authorName)…", comment: "Comment field placeholder while replying; the value is the comment author") } ?? String(localized: "Add a comment…")
         if comment != nil {
             _ = composer.field.becomeFirstResponder()
         } else if draftTime == nil {
@@ -857,7 +874,7 @@ final class ShareViewerViewController: DetailPageViewController {
             return
         }
         guard text.count <= 500 else {
-            composer.showError("Comments are 500 characters at most.")
+            composer.showError(String(localized: "Comments are 500 characters at most."))
             return
         }
         composer.field.isError = false
@@ -868,7 +885,7 @@ final class ShareViewerViewController: DetailPageViewController {
         // The drawing, in the web's exact serialized form (replies carry none).
         let serialized = parent == nil ? ShareAnnotationMath.serialize(draftShapes) : ShareAnnotationMath.serialize([])
         guard !serialized.tooLarge else {
-            composer.showError("That drawing is too detailed to post — undo a few marks.")
+            composer.showError(String(localized: "That drawing is too detailed to post — undo a few marks."))
             return
         }
         composer.sendButton.isBusy = true
@@ -890,7 +907,7 @@ final class ShareViewerViewController: DetailPageViewController {
                 self.select(tab: .comments, animated: false)
                 self.renderComments(newID: comment.commentId)
                 CCHaptics.success()
-                CCAccessibility.announce(parent == nil ? "Comment posted at \(Format.spokenDuration(time ?? 0))" : "Reply posted")
+                CCAccessibility.announce(parent == nil ? String(localized: "Comment posted at \(Format.spokenDuration(time ?? 0))", comment: "VoiceOver announcement; the value is a spoken time") : String(localized: "Reply posted"))
             } catch {
                 self.composer.showError(error.localizedDescription)
             }
@@ -908,8 +925,10 @@ final class ShareViewerViewController: DetailPageViewController {
             let label = marker.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let pill = CCButton(title: label.isEmpty ? Format.duration(marker.start) : "\(Format.duration(marker.start))  \(label)",
                                 symbol: "play-fill", style: .secondary, size: .sm, radius: .full)
-            pill.accessibilityLabelOverride = "\(label.isEmpty ? "Annotation" : label), at \(Format.spokenDuration(marker.start))"
-            pill.accessibilityHint = "Plays from here"
+            pill.accessibilityLabelOverride = label.isEmpty
+                ? String(localized: "Annotation, at \(Format.spokenDuration(marker.start))", comment: "VoiceOver: unnamed annotation marker pill; the value is a spoken time")
+                : String(localized: "\(label), at \(Format.spokenDuration(marker.start))", comment: "VoiceOver: annotation marker pill; values are its label and a spoken time")
+            pill.accessibilityHint = String(localized: "Plays from here", comment: "VoiceOver hint: tapping plays the video from this time")
             pill.onTap = { [weak self] in self?.jumpToMarker(marker) }
             markerPills.addArrangedSubview(pill)
         }
@@ -933,7 +952,7 @@ final class ShareViewerViewController: DetailPageViewController {
         shownComment = comment
         refreshOverlay()
         if isLandscapePlayer { landscapeControls.alpha = 1 }
-        CCAccessibility.announce("Showing \(comment.authorName)'s drawing at \(Format.spokenDuration(comment.videoTime ?? 0))")
+        CCAccessibility.announce(String(localized: "Showing \(comment.authorName)'s drawing at \(Format.spokenDuration(comment.videoTime ?? 0))", comment: "VoiceOver announcement; values are the author and a spoken time"))
     }
 
     /// What the frame shows: a posted comment's drawing, else the composer's
@@ -944,12 +963,12 @@ final class ShareViewerViewController: DetailPageViewController {
             return
         }
         if let shown = shownComment, let shapes = shown.drawing {
-            let text = "\(shown.authorName) drew at \(Format.duration(shown.videoTime ?? 0))"
+            let text = String(localized: "\(shown.authorName) drew at \(Format.duration(shown.videoTime ?? 0))", comment: "Pill over a shown drawing; values are the author and a timestamp")
             let key = "shown|" + shown.commentId
             guard key != overlayKey else { return }
             overlayKey = key
             let hide = CCButton(symbol: "close", style: .ghost, size: .regular, radius: .full)
-            hide.accessibilityLabelOverride = "Hide drawing"
+            hide.accessibilityLabelOverride = String(localized: "Hide drawing")
             hide.onTap = { [weak self] in
                 self?.shownComment = nil
                 self?.refreshOverlay()
@@ -962,10 +981,10 @@ final class ShareViewerViewController: DetailPageViewController {
             let key = "draft|\(draftShapes.count)|\(draftShapes.hashValue)"
             guard key != overlayKey else { return }
             overlayKey = key
-            let edit = CCButton(title: "Edit", style: .secondary, size: .sm, radius: .full)
-            edit.accessibilityLabelOverride = "Edit your drawing"
+            let edit = CCButton(title: String(localized: "Edit", comment: "Pill button: edit your unposted drawing"), style: .secondary, size: .sm, radius: .full)
+            edit.accessibilityLabelOverride = String(localized: "Edit your drawing")
             edit.onTap = { [weak self] in self?.startDrawing() }
-            surface.showDrawing(draftShapes, pill: "Your drawing · not posted yet", action: edit)
+            surface.showDrawing(draftShapes, pill: String(localized: "Your drawing · not posted yet"), action: edit)
             return
         }
         if !overlayKey.isEmpty {
@@ -1063,7 +1082,7 @@ final class ShareViewerViewController: DetailPageViewController {
         endDrawingMode()
         CCHaptics.success()
         if !isLandscapePlayer { _ = composer.field.becomeFirstResponder() }
-        CCAccessibility.announce(draftShapes.isEmpty ? "No drawing" : "Drawing kept with your comment")
+        CCAccessibility.announce(draftShapes.isEmpty ? String(localized: "No drawing", comment: "VoiceOver announcement after closing the drawing panel with nothing drawn") : String(localized: "Drawing kept with your comment"))
     }
 
     /// Cancel: the drawing goes back to what it was before.
@@ -1094,7 +1113,7 @@ final class ShareViewerViewController: DetailPageViewController {
                 if self.model.phase == .privateVideo { await self.model.load() }
             } catch {
                 if case AuthService.AuthError.cancelled = error { return }
-                self.toaster.show(title: "Couldn't sign in", message: error.localizedDescription, variant: .destructive)
+                self.toaster.show(title: String(localized: "Couldn't sign in"), message: error.localizedDescription, variant: .destructive)
             }
         }
     }
@@ -1103,29 +1122,29 @@ final class ShareViewerViewController: DetailPageViewController {
 
     private func presentShareMenu() {
         let link = ShareLink(videoID: videoID, startAt: nil)
-        let sheet = CCActionSheet(title: model.meta?.displayTitle ?? "Shared video")
-        sheet.addAction("Copy link", symbol: "link") { [weak self] in
+        let sheet = CCActionSheet(title: model.meta?.displayTitle ?? String(localized: "Shared video", comment: "Menu title when the shared video has no name"))
+        sheet.addAction(String(localized: "Copy link", comment: "Share menu action"), symbol: "link") { [weak self] in
             UIPasteboard.general.url = link.webURL
-            self?.toaster.show(title: "Link copied", message: link.webURL.absoluteString, variant: .success, symbol: "link")
+            self?.toaster.show(title: String(localized: "Link copied", comment: "Toast"), message: link.webURL.absoluteString, variant: .success, symbol: "link")
         }
-        sheet.addAction("Share…", symbol: "share") { [weak self] in
+        sheet.addAction(String(localized: "Share…", comment: "Share menu action: open the system share sheet"), symbol: "share") { [weak self] in
             guard let self else { return }
             let activity = UIActivityViewController(activityItems: [link.webURL], applicationActivities: nil)
             activity.popoverPresentationController?.sourceView = self.shareKey
             self.present(activity, animated: true)
         }
-        sheet.addAction("Open in browser", symbol: "globe") {
+        sheet.addAction(String(localized: "Open in browser", comment: "Share menu action"), symbol: "globe") {
             UIApplication.shared.open(link.webURL)
         }
         if model.phase == .open, model.meta?.allowDownload == true {
             let url = model.api.downloadURL(videoID, token: model.shareToken)
-            sheet.addAction("Download", symbol: "download-fill") { [weak self] in
+            sheet.addAction(String(localized: "Download", comment: "Share menu action: download the video"), symbol: "download-fill") { [weak self] in
                 self?.model.track("download", at: self?.surface.currentTime ?? 0)
                 UIApplication.shared.open(url)
             }
         }
         if model.phase == .open, !model.isOwnerPrivate {
-            sheet.addAction("Report video", symbol: "warning-fill", destructive: true) { [weak self] in
+            sheet.addAction(String(localized: "Report video", comment: "Share menu action"), symbol: "warning-fill", destructive: true) { [weak self] in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { self?.presentReport() }
             }
         }
@@ -1133,7 +1152,7 @@ final class ShareViewerViewController: DetailPageViewController {
     }
 
     private func presentReport() {
-        let sheet = CCActionSheet(title: "Report this video", message: "What's wrong with it? Reports are anonymous.")
+        let sheet = CCActionSheet(title: String(localized: "Report this video"), message: String(localized: "What's wrong with it? Reports are anonymous."))
         for reason in ShareReportReason.allCases {
             sheet.addAction(reason.label) { [weak self] in self?.report(reason) }
         }
@@ -1145,10 +1164,10 @@ final class ShareViewerViewController: DetailPageViewController {
             guard let self else { return }
             do {
                 try await self.model.api.report(self.videoID, reason: reason)
-                self.toaster.show(title: "Thanks for reporting", message: "We'll review this video. If it breaks our rules, we'll take it down.",
+                self.toaster.show(title: String(localized: "Thanks for reporting"), message: String(localized: "We'll review this video. If it breaks our rules, we'll take it down."),
                                   variant: .success)
             } catch {
-                self.toaster.show(title: "Couldn't send the report", message: error.localizedDescription, variant: .destructive)
+                self.toaster.show(title: String(localized: "Couldn't send the report"), message: error.localizedDescription, variant: .destructive)
             }
         }
     }
@@ -1223,8 +1242,8 @@ final class ShareTimedRow: UIControl {
         ])
         isAccessibilityElement = true
         accessibilityTraits = .button
-        accessibilityLabel = "\(Format.spokenDuration(time)): \(text)"
-        accessibilityHint = "Plays from here"
+        accessibilityLabel = String(localized: "\(Format.spokenDuration(time)): \(text)", comment: "VoiceOver: chapter row; values are a spoken time and the chapter name")
+        accessibilityHint = String(localized: "Plays from here", comment: "VoiceOver hint: tapping plays the video from this time")
         addAction(UIAction { [weak self] _ in
             CCHaptics.selection()
             self?.onTap?()
@@ -1264,7 +1283,7 @@ final class CCSpinnerCard: CCCard {
             heightAnchor.constraint(equalToConstant: 220),
         ])
         isAccessibilityElement = true
-        accessibilityLabel = "Loading video"
+        accessibilityLabel = String(localized: "Loading video")
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -1319,13 +1338,13 @@ final class ShareStateCard: CCCard {
     static func gate(_ gate: ShareGateState, fileName: String, onUnlock: @escaping (String) async throws -> Void) -> ShareStateCard {
         switch gate {
         case .locked:
-            let card = ShareStateCard(kind: "locked", symbol: "eye-off", title: fileName, message: "This video is password protected.")
-            let field = CCField(placeholder: "Password")
+            let card = ShareStateCard(kind: "locked", symbol: "eye-off", title: fileName, message: String(localized: "This video is password protected."))
+            let field = CCField(placeholder: String(localized: "Password", comment: "Placeholder of the share password field"))
             field.isSecureTextEntry = true
             field.textContentType = .password
             field.returnKeyType = .go
-            field.accessibilityLabel = "Password"
-            let watch = CCButton(title: "Watch", symbol: "play-fill", style: .primary, size: .regular)
+            field.accessibilityLabel = String(localized: "Password", comment: "VoiceOver label of the share password field")
+            let watch = CCButton(title: String(localized: "Watch", comment: "Button: unlock and watch a password-protected video"), symbol: "play-fill", style: .primary, size: .regular)
             let error = ccLabel("", font: CCFont.caption, color: CCTheme.color.destructive, lines: 0, alignment: .center)
             error.isHidden = true
             let row = UIStackView(arrangedSubviews: [field, watch])
@@ -1361,27 +1380,27 @@ final class ShareStateCard: CCCard {
             watch.onTap = submit
             return card
         case .expired:
-            return ShareStateCard(kind: "expired", symbol: "timer", title: fileName, message: "This share link has expired.")
+            return ShareStateCard(kind: "expired", symbol: "timer", title: fileName, message: String(localized: "This share link has expired."))
         case .viewLimit:
-            return ShareStateCard(kind: "view_limit", symbol: "eye", title: fileName, message: "This video has reached its view limit.")
+            return ShareStateCard(kind: "view_limit", symbol: "eye", title: fileName, message: String(localized: "This video has reached its view limit."))
         case .paused:
             return ShareStateCard(kind: "paused", symbol: "pause-fill", title: fileName,
-                                  message: "This share is paused — the owner’s plan no longer includes cloud sharing.")
+                                  message: String(localized: "This share is paused — the owner’s plan no longer includes cloud sharing."))
         }
     }
 
     static func removed(_ message: String) -> ShareStateCard {
-        let card = ShareStateCard(kind: "removed", symbol: "close-octagon-fill", title: "Video removed", message: message)
-        card.stack.addArrangedSubview(ccLabel("If you uploaded it and think this is a mistake, contact us at capturecat.so/contact.",
+        let card = ShareStateCard(kind: "removed", symbol: "close-octagon-fill", title: String(localized: "Video removed"), message: message)
+        card.stack.addArrangedSubview(ccLabel(String(localized: "If you uploaded it and think this is a mistake, contact us at capturecat.so/contact."),
                                               font: CCFont.caption, color: CCTheme.color.faintForeground, lines: 0, alignment: .center))
         return card
     }
 
     static func privateVideo(signedIn: Bool, onSignIn: @escaping () -> Void) -> ShareStateCard {
-        let card = ShareStateCard(kind: signedIn ? "private-signed-in" : "private", symbol: "eye-off", title: "This video is private",
-                                  message: signedIn ? "Only its owner can watch it." : "Only its owner can watch it. If it's yours, sign in to watch.")
+        let card = ShareStateCard(kind: signedIn ? "private-signed-in" : "private", symbol: "eye-off", title: String(localized: "This video is private"),
+                                  message: signedIn ? String(localized: "Only its owner can watch it.") : String(localized: "Only its owner can watch it. If it's yours, sign in to watch."))
         if !signedIn {
-            let button = CCButton(title: "Sign in", style: .secondary, size: .regular)
+            let button = CCButton(title: String(localized: "Sign in", comment: "Button on the private-video card"), style: .secondary, size: .regular)
             button.onTap = onSignIn
             card.addButton(button)
         }
@@ -1389,13 +1408,13 @@ final class ShareStateCard: CCCard {
     }
 
     static func notFound() -> ShareStateCard {
-        ShareStateCard(kind: "not-found", symbol: "film", title: "Video not found",
-                       message: "This link doesn't lead to a video anymore. It may have been deleted.")
+        ShareStateCard(kind: "not-found", symbol: "film", title: String(localized: "Video not found"),
+                       message: String(localized: "This link doesn't lead to a video anymore. It may have been deleted."))
     }
 
     static func failed(_ message: String, retry: @escaping () -> Void) -> ShareStateCard {
-        let card = ShareStateCard(kind: "failed", symbol: "warning-fill", title: "Couldn't load this video", message: message)
-        let button = CCButton(title: "Try again", symbol: "rotate-cw", style: .secondary, size: .regular)
+        let card = ShareStateCard(kind: "failed", symbol: "warning-fill", title: String(localized: "Couldn't load this video"), message: message)
+        let button = CCButton(title: String(localized: "Try again", comment: "Button: retry loading the shared video"), symbol: "rotate-cw", style: .secondary, size: .regular)
         button.onTap = retry
         card.addButton(button)
         return card

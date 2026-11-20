@@ -211,6 +211,12 @@ final class InspectorChoiceRowView: UIView, InspectorRowView {
         if let chips {
             let want: Set<Int> = index.map { [$0] } ?? []
             if chips.selection != want { chips.setSelection(want) }
+            // Shown again with a wrap it computed while out of view: lay the
+            // pane out so the rows below make room.
+            DispatchQueue.main.async { [weak chips] in
+                guard let chips, chips.window != nil, chips.hasStaleHeight else { return }
+                chips.ccRelayoutAncestors()
+            }
         }
         if let select {
             if let index, select.selectedIndex != index { select.setSelectedIndex(index) }
@@ -249,8 +255,8 @@ final class InspectorColorRowView: UIView, InspectorRowView {
             let pair = UIStackView(arrangedSubviews: wells)
             pair.spacing = CCSpace.sm
             control = pair
-            if let first = wells.first { first.title = "\(title) — Top" }
-            if wells.count > 1 { wells[1].title = "\(title) — Bottom" }
+            if let first = wells.first { first.title = String(localized: "\(title) — Top", comment: "Color well title for the top color of a gradient pair, e.g. Background — Top") }
+            if wells.count > 1 { wells[1].title = String(localized: "\(title) — Bottom", comment: "Color well title for the bottom color of a gradient pair, e.g. Background — Bottom") }
         }
         let row = CCControlRow(title: title, control: control)
         addSubview(row)
@@ -348,13 +354,34 @@ final class InspectorActionRowView: UIView, InspectorRowView {
                 host.session.perform(spec.id, name: spec.title(host.scope)) { spec.run(host.scope) }
             }
         }
-        let row = UIStackView(arrangedSubviews: buttons + [UIView()])
+        row.addArrangedSubview(UIView())
+        for button in buttons.reversed() { row.insertArrangedSubview(button, at: 0) }
         row.spacing = CCSpace.sm
         row.alignment = .center
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
         pinEdges(row, to: self)
         heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+    }
+
+    private let row = UIStackView()
+
+    /// Side by side while the keys fit the column whole; stacked when a
+    /// language's titles are too long for one line ("Genereer opnieuw" +
+    /// "Verwijder").
+    override func layoutSubviews() {
+        let shown = buttons.filter { !$0.isHidden }
+        let need = shown.reduce(0) { $0 + $1.intrinsicContentSize.width } + CGFloat(max(0, shown.count - 1)) * CCSpace.sm
+        let axis: NSLayoutConstraint.Axis = bounds.width > 0 && need > bounds.width + 0.5 ? .vertical : .horizontal
+        if row.axis != axis {
+            row.axis = axis
+            row.alignment = axis == .vertical ? .leading : .center
+            row.spacing = axis == .vertical ? CCSpace.md : CCSpace.sm
+            invalidateIntrinsicContentSize()
+            // This pass already placed the rows below: re-run it.
+            ccRelayoutAncestors()
+        }
+        super.layoutSubviews()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -393,8 +420,8 @@ final class InspectorCaptionRowView: UIView, InspectorRowView {
         label = ccLabel(spec.fixed ?? "", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
         if let full = spec.full, full != spec.fixed {
             let key = CCButton(symbol: "info.circle.fill", style: .ghost, size: .sm, radius: .md)
-            key.accessibilityLabelOverride = "More"
-            key.accessibilityHint = "Shows the whole explanation."
+            key.accessibilityLabelOverride = String(localized: "More", comment: "Inspector caption: expand the explanation (VoiceOver)")
+            key.accessibilityHint = String(localized: "Shows the whole explanation.")
             key.accessibilityIdentifier = "\(spec.id).more"
             moreKey = key
         } else {
@@ -440,8 +467,8 @@ final class InspectorCaptionRowView: UIView, InspectorRowView {
         guard let moreKey, expanded != isExpanded else { return }
         isExpanded = expanded
         moreKey.symbol = expanded ? "chevron.up" : "info.circle.fill"
-        moreKey.accessibilityLabelOverride = expanded ? "Less" : "More"
-        moreKey.accessibilityHint = expanded ? "Folds the explanation." : "Shows the whole explanation."
+        moreKey.accessibilityLabelOverride = expanded ? String(localized: "Less", comment: "Inspector caption: fold the explanation (VoiceOver)") : String(localized: "More", comment: "Inspector caption: expand the explanation (VoiceOver)")
+        moreKey.accessibilityHint = expanded ? String(localized: "Folds the explanation.") : String(localized: "Shows the whole explanation.")
         let text = expanded ? (spec.full ?? shortText) : shortText
         guard animated, window != nil else {
             label.text = text

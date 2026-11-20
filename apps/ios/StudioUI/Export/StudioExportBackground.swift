@@ -163,9 +163,9 @@ final class StudioExportBackground {
     var note: String {
         switch path {
         case .continuedProcessing:
-            return "You can leave CaptureCat — the export keeps going and shows its progress."
+            return String(localized: "You can leave CaptureCat — the export keeps going and shows its progress.")
         case .backgroundTask, .none:
-            return "Keep CaptureCat open until the export finishes."
+            return String(localized: "Keep CaptureCat open until the export finishes.")
         }
     }
 }

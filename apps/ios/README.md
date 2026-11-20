@@ -446,6 +446,40 @@ row lower — reported, not gated, and open.
   elsewhere since).
 - **Wi-Fi wire protocol**: `apps/macos/CaptureCat/Shared/WirelessDeviceProtocol.swift`.
 
+## Localization
+
+The app, both extensions and StudioLab share one String Catalog,
+`Localization/Localizable.xcstrings` (a synchronized folder in every target),
+in the 12 App Store listing languages: en-GB and en-US (the English as
+written in code — the Mac app's words, which the parity gates compare byte for
+byte), de, fr, es, es-MX, it, pt-BR, nl, ja, ko, zh-Hans.
+Permission prompts and display names are each bundle's `InfoPlist.xcstrings`
+(App/, Broadcast/, ShareExtension/). Every user-facing string goes through
+`String(localized:)` — including the studio core's shared Mac files
+(apps/macos/CaptureCat/Studio), which return their English on the Mac (no
+catalog there; render-baseline identical).
+
+- **Language picker**: Account → Language (`App/Account/LanguageViewController.swift`):
+  System + the 12 languages, each in its own name with the current language's
+  name under it; it sets or clears `AppleLanguages` and says the change applies
+  the next time CaptureCat opens (iOS also offers it in Settings → CaptureCat).
+- **Keeping the catalog in sync** (`scripts/l10n-catalog.py`): build the app,
+  then `harvest <derived-data>` (new keys from the compiler's `.stringsdata`,
+  vanished ones marked stale; `--prune` drops them), `export <lang> <file>`
+  (what still needs translating, with comments and source files),
+  `import <lang> <file>`, `check`.
+- **Rules**: whole sentences as one key (no `+` fragments); interpolate only
+  String / Int (format Doubles first); a `comment:` on every short or
+  ambiguous key; enum raw values, persisted defaults ("Blur", "You") and
+  anything drawn into the exported video stay English — a default is shown
+  translated at the display site (`RegionLabel.display`,
+  `HistoryWords.actorDisplayName`). Layouts must hold every language:
+  `ios-l10n.sh` is the gate.
+- **Left in English on purpose**: the typed confirmation word DELETE (the
+  sentence around it says so), font and sound-style names, file-format names,
+  number-only readouts, project content (names, comments, captions, annotation
+  text), server messages, and text rendered into exported videos.
+
 ## Gates
 
     apps/ios/scripts/core-selftest.sh       # lossless JSON, project docs, link-key vector
@@ -460,6 +494,7 @@ row lower — reported, not gated, and open.
     apps/ios/scripts/ios-history.sh         # History (Studio 4f): rows, compare, preview, restore, Merge Review vs the Mac's --history-transcript, line for line; motion sequences; INJECT= must FAIL
     apps/ios/scripts/ios-cloud-sync.sh      # sync (Phase 5): the Mac's --cloud-sync-test engine sections replayed on iOS (every line == the Mac's), the iOS studio's sync in the real editor (clone, debounced If-Match pushes, merges, Merge Review, cloud History, offline queue, moved container, inbox take, status dot mid-flight), and a Mac ↔ iOS round trip with the REAL Mac binary; INJECT=drop-if-match|merge-wrong-side|lose-unknown-key must FAIL
     apps/ios/scripts/ios-editor-resize.sh   # iPhone Duo fold / unfold: the real editor resized live between the outer (compact) and inner (regular) displays mid-playback — layout per size class, regions inside and clear, History style, project / selection / undo / playback kept; then a crease (top to bottom, then side to side) through FoldingDisplay's seam: stage + transport on one side, timeline / tool bar / inspector on the other, nothing and no title on the crease; then on its side (compact height: the tool rail + side panel). Every arrangement: the one transport row, the timeline's playhead on its viewport's centre, the tool bar's place; a pane tool's panel caught MID-FLIGHT and never over the stage (+ injected ignores-size-class / ignores-crease / snap-panel must FAIL)
+    apps/ios/scripts/ios-l10n.sh            # Localization: the String Catalog complete (every key in de fr es es-MX it pt-BR nl ja ko zh-Hans, placeholders intact, no two different labels on one surface reading the same — Split/Share; injected collision caught); the static lint scripts/ios-l10n-lint.py (no raw English literal reaches a UIKit text sink — text/title/setTitle/placeholder/accessibility*/UIAction/UIMenu/kit titles/string arrays; `// l10n-ok: why` marks a deliberate one; --selftest catches injected literals); then per locale (en baseline + the 12 listing languages, `-AppleLanguages`) on an iPhone and an iPad: the app's -uiFixtures -uiL10nAudit (library + filters, card sheet, project, share, capture, account, Language, delete-account sheet, toast, sign-in, and the empty world's library/filters/capture/account) and StudioLab --l10n (every studio screen A11yLab opens + each object selected with its inspector: every annotation type, highlight, tilt, depth focus, blur, intro, curtain) through Kit/CCLocalizationAudit — every visible + spoken text, truncation / clipping / overlap, a PNG per screen; scripts/ios-l10n-judge.py: a text identical to the English run is untranslated unless the catalog says it's the same word or it's fixture content (scripts/ios-l10n-allow.txt). A row of controls reading the same text twice where English differs fails too. Proves itself: an injected hard-coded English label, a pinned header title and an injected same-row collision must be CAUGHT. DEVICES / LOCALES / PARTS / INJECT=none narrow it.
     apps/ios/scripts/ios-a11y.sh            # Studio 6a: StudioLab --a11y (every studio screen in the real window chain, default + largest text size: VoiceOver labels / traits / values, MEASURED 44 pt targets via UIWindow.hitTest, no overlapping focusable frames, text fits / grows / never overlaps; timeline + stage actions == the touch path, one undo step; Reduce Motion sampled mid-flight; keyboard commands; focus; pointer; contrast / transparency / colour / weight) + the app's -uiFixtures -uiA11yAudit (library, project, share, capture + inbox, account, dialog, sheet, toast, sign-in); INJECT=missing-label|tiny-target|truncation|snap-under-reduce-motion|action-not-undoable must FAIL. Turns the simulators' app-accessibility runtime on for the run (and off after). New studio screens register in A11yLab.extraScreens (the Export sheet, the tool bar's Add sheet and context keys, a tool's panel, the full-screen preview); ⌘E; Reduce Motion samples of the panel and the tool bar's context swap
     # StudioLab --fold-probe                # logs what UIKit reports on the running display: size classes, safe area, verticalBarEdge + bar regions, reserved regions (run on the iPhone Duo simulator)
     apps/ios/scripts/ios-export-sheet.sh    # the export sheet by touch in the real editor: MP4 / GIF / PNG byte-identical (pre-encode tap) to VideoExporter / StillImageExporter for the same settings, file facts, progress MID-FLIGHT, Cancel leaves no file, background path entered + ended, insufficient-memory alert, delivery controllers, iPhone 1080p30 default (INJECT=wrong-resolution|snap-progress|cancel-leaves-file|no-background must FAIL)

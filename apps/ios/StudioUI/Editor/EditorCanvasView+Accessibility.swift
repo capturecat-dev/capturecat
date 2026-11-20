@@ -24,13 +24,13 @@ enum EditorStageAccessibilityTarget: Equatable {
 
 extension EditorCanvasView {
     enum AccessibilityAction {
-        static let left = "Move left"
-        static let right = "Move right"
-        static let up = "Move up"
-        static let down = "Move down"
-        static let larger = "Make larger"
-        static let smaller = "Make smaller"
-        static let editText = "Edit text"
+        static let left = String(localized: "Move left", comment: "VoiceOver action on a preview object: move it left")
+        static let right = String(localized: "Move right", comment: "VoiceOver action on a preview object: move it right")
+        static let up = String(localized: "Move up", comment: "VoiceOver action on a preview object: move it up")
+        static let down = String(localized: "Move down", comment: "VoiceOver action on a preview object: move it down")
+        static let larger = String(localized: "Make larger", comment: "VoiceOver action on a preview shape: make it larger")
+        static let smaller = String(localized: "Make smaller", comment: "VoiceOver action on a preview shape: make it smaller")
+        static let editText = String(localized: "Edit text", comment: "VoiceOver action on a text annotation: edit its text")
     }
 
     /// One nudge, as a fraction of the recording's frame.
@@ -68,8 +68,9 @@ extension EditorCanvasView {
     var accessibilitySummary: UIAccessibilityElement {
         let summary = accessibilitySummaryElement ?? UIAccessibilityElement(accessibilityContainer: self)
         accessibilitySummaryElement = summary
-        summary.accessibilityLabel = "Preview"
-        summary.accessibilityValue = "at " + CCAccessibility.spokenTime(gestureCurrentTime)
+        summary.accessibilityLabel = String(localized: "Preview", comment: "VoiceOver label for the editor's video preview")
+        let spokenTime = CCAccessibility.spokenTime(gestureCurrentTime)
+        summary.accessibilityValue = String(localized: "at \(spokenTime)", comment: "VoiceOver value for the preview: the playhead time, e.g. at 6.5 seconds")
         summary.accessibilityTraits = .image
         summary.accessibilityIdentifier = CCAccessibility.dataGeometryPrefix + "stage.summary"
         // A thin strip along the stage's top edge, so it never covers an object.
@@ -126,29 +127,29 @@ extension EditorCanvasView {
     }
 
     func accessibilityName(for target: EditorStageAccessibilityTarget) -> String {
-        guard let ctx = context else { return "Object" }
+        guard let ctx = context else { return String(localized: "Object", comment: "VoiceOver: an unnamed object on the preview") }
         switch target {
         case .annotation(let id):
-            guard let a = ctx.project.annotations.first(where: { $0.id == id }) else { return "Annotation" }
+            guard let a = ctx.project.annotations.first(where: { $0.id == id }) else { return String(localized: "Annotation", comment: "VoiceOver: an annotation on the preview") }
             let kind: String
             switch a.type {
-            case .text: kind = "Text"
-            case .callout: kind = "Callout"
-            case .arrow: kind = "Arrow"
-            case .rectangle: kind = "Rectangle"
-            case .ellipse: kind = "Ellipse"
-            case .tap: kind = "Tap"
-            case .drawing: kind = "Drawing"
-            default: kind = "Annotation"
+            case .text: kind = String(localized: "Text annotation", comment: "VoiceOver: a text annotation on the preview")
+            case .callout: kind = String(localized: "Callout annotation", comment: "VoiceOver: a callout annotation on the preview")
+            case .arrow: kind = String(localized: "Arrow annotation", comment: "VoiceOver: an arrow annotation on the preview")
+            case .rectangle: kind = String(localized: "Rectangle annotation", comment: "VoiceOver: a rectangle annotation on the preview")
+            case .ellipse: kind = String(localized: "Ellipse annotation", comment: "VoiceOver: an ellipse annotation on the preview")
+            case .tap: kind = String(localized: "Tap annotation", comment: "VoiceOver: a tap (touch ripple) annotation on the preview")
+            case .drawing: kind = String(localized: "Drawing annotation", comment: "VoiceOver: a freehand drawing annotation on the preview")
+            default: kind = String(localized: "Annotation", comment: "VoiceOver: an annotation on the preview")
             }
             let text = a.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            return (a.type == .text || a.type == .callout) && !text.isEmpty ? "\(kind) annotation, \(text)" : "\(kind) annotation"
-        case .highlight: return "Highlight region"
-        case .depthFocus: return "Depth focus region"
-        case .blur: return "Blur region"
-        case .camera: return "Camera"
-        case .subtitle: return "Subtitles"
-        case .zoomFocal: return "Zoom focus point"
+            return (a.type == .text || a.type == .callout) && !text.isEmpty ? String(localized: "\(kind), \(text)", comment: "VoiceOver: annotation kind, then the annotation's own text") : kind
+        case .highlight: return String(localized: "Highlight region", comment: "VoiceOver: a highlight region on the preview")
+        case .depthFocus: return String(localized: "Depth focus region", comment: "VoiceOver: a depth-focus region on the preview")
+        case .blur: return String(localized: "Blur region", comment: "VoiceOver: a blur region on the preview")
+        case .camera: return String(localized: "Camera", comment: "VoiceOver: the webcam overlay on the preview")
+        case .subtitle: return String(localized: "Subtitles", comment: "VoiceOver: the subtitles on the preview")
+        case .zoomFocal: return String(localized: "Zoom focus point", comment: "VoiceOver: the point a zoom aims at, on the preview")
         }
     }
 
@@ -159,7 +160,7 @@ extension EditorCanvasView {
         guard video.width > 1, video.height > 1 else { return nil }
         let x = Int(((rect.midX - video.minX) / video.width * 100).rounded())
         let y = Int(((rect.midY - video.minY) / video.height * 100).rounded())
-        return "\(x)% across, \(y)% down"
+        return String(localized: "\(x)% across, \(y)% down", comment: "VoiceOver: an object's position on the preview, e.g. 40% across, 30% down")
     }
 
     func accessibilityIsSelected(_ target: EditorStageAccessibilityTarget) -> Bool {
@@ -239,7 +240,7 @@ final class EditorStageAccessibilityItem: UIAccessibilityElement {
     }
 
     override var accessibilityHint: String? {
-        get { target == .zoomFocal ? "Actions aim the zoom." : "Selects it. Actions move it." }
+        get { target == .zoomFocal ? String(localized: "Actions aim the zoom.") : String(localized: "Selects it. Actions move it.") }
         set {}
     }
 

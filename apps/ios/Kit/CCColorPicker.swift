@@ -106,18 +106,18 @@ struct CCColorPreset {
 
     /// The Mac picker's twelve presets, in its order.
     static let house: [CCColorPreset] = [
-        .init(name: "White", color: .white),
-        .init(name: "Light grey", color: UIColor(red: 0.75, green: 0.75, blue: 0.75, alpha: 1)),
-        .init(name: "Grey", color: UIColor(red: 0.45, green: 0.45, blue: 0.45, alpha: 1)),
-        .init(name: "Black", color: .black),
-        .init(name: "Yellow", color: UIColor(red: 1.00, green: 0.84, blue: 0.20, alpha: 1)),
-        .init(name: "Coral", color: UIColor(red: 1.00, green: 0.42, blue: 0.30, alpha: 1)),
-        .init(name: "Pink", color: UIColor(red: 0.98, green: 0.31, blue: 0.55, alpha: 1)),
-        .init(name: "Violet", color: UIColor(red: 0.65, green: 0.45, blue: 0.98, alpha: 1)),
-        .init(name: "Periwinkle", color: UIColor(red: 0.62, green: 0.66, blue: 0.92, alpha: 1)),
-        .init(name: "Blue", color: UIColor(red: 0.25, green: 0.62, blue: 1.00, alpha: 1)),
-        .init(name: "Green", color: UIColor(red: 0.25, green: 0.85, blue: 0.62, alpha: 1)),
-        .init(name: "Orange", color: UIColor(red: 1.00, green: 0.62, blue: 0.25, alpha: 1)),
+        .init(name: String(localized: "White", comment: "Color swatch name, read by VoiceOver"), color: .white),
+        .init(name: String(localized: "Light grey", comment: "Color swatch name, read by VoiceOver"), color: UIColor(red: 0.75, green: 0.75, blue: 0.75, alpha: 1)),
+        .init(name: String(localized: "Grey", comment: "Color swatch name, read by VoiceOver"), color: UIColor(red: 0.45, green: 0.45, blue: 0.45, alpha: 1)),
+        .init(name: String(localized: "Black", comment: "Color swatch name, read by VoiceOver"), color: .black),
+        .init(name: String(localized: "Yellow", comment: "Color swatch name, read by VoiceOver"), color: UIColor(red: 1.00, green: 0.84, blue: 0.20, alpha: 1)),
+        .init(name: String(localized: "Coral", comment: "Color swatch name, read by VoiceOver"), color: UIColor(red: 1.00, green: 0.42, blue: 0.30, alpha: 1)),
+        .init(name: String(localized: "Pink", comment: "Color swatch name, read by VoiceOver"), color: UIColor(red: 0.98, green: 0.31, blue: 0.55, alpha: 1)),
+        .init(name: String(localized: "Violet", comment: "Color swatch name, read by VoiceOver"), color: UIColor(red: 0.65, green: 0.45, blue: 0.98, alpha: 1)),
+        .init(name: String(localized: "Periwinkle", comment: "Color swatch name, read by VoiceOver"), color: UIColor(red: 0.62, green: 0.66, blue: 0.92, alpha: 1)),
+        .init(name: String(localized: "Blue", comment: "Color swatch name, read by VoiceOver"), color: UIColor(red: 0.25, green: 0.62, blue: 1.00, alpha: 1)),
+        .init(name: String(localized: "Green", comment: "Color swatch name, read by VoiceOver"), color: UIColor(red: 0.25, green: 0.85, blue: 0.62, alpha: 1)),
+        .init(name: String(localized: "Orange", comment: "Color swatch name, read by VoiceOver"), color: UIColor(red: 1.00, green: 0.62, blue: 0.25, alpha: 1)),
     ]
 
     static func name(for color: UIColor, in presets: [CCColorPreset] = house) -> String? {
@@ -129,7 +129,7 @@ struct CCColorPreset {
 func ccColorDescription(_ color: UIColor, presets: [CCColorPreset] = CCColorPreset.house, opacity: Bool = true) -> String {
     let rgba = color.ccSRGBA
     var parts = [CCColorPreset.name(for: color, in: presets), "#" + color.ccHex].compactMap { $0 }
-    if opacity, rgba.a < 0.995 { parts.append("\(Int((rgba.a * 100).rounded()))% opacity") }
+    if opacity, rgba.a < 0.995 { parts.append(String(localized: "\(Int((rgba.a * 100).rounded()))% opacity", comment: "VoiceOver: a color's opacity, e.g. 80% opacity")) }
     return parts.joined(separator: ", ")
 }
 
@@ -256,8 +256,8 @@ final class CCColorField: UIControl {
         refreshGradient()
         satElement.accessibilityContainer = self
         briElement.accessibilityContainer = self
-        satElement.accessibilityLabel = "Saturation"
-        briElement.accessibilityLabel = "Brightness"
+        satElement.accessibilityLabel = String(localized: "Saturation", comment: "Color picker: saturation axis (VoiceOver)")
+        briElement.accessibilityLabel = String(localized: "Brightness", comment: "Color picker: brightness axis (VoiceOver)")
         satElement.accessibilityTraits = .adjustable
         briElement.accessibilityTraits = .adjustable
         satElement.valueText = { [weak self] in "\(Int(((self?.saturation ?? 0) * 100).rounded()))%" }
@@ -404,7 +404,7 @@ final class CCColorBar: UIControl {
         layer.addSublayer(knob)
         heightAnchor.constraint(equalToConstant: Self.height).isActive = true
         isAccessibilityElement = true
-        accessibilityLabel = kind == .hue ? "Hue" : "Opacity"
+        accessibilityLabel = kind == .hue ? String(localized: "Hue", comment: "Color picker: hue slider (VoiceOver)") : String(localized: "Opacity", comment: "Color picker: opacity slider (VoiceOver)")
         accessibilityTraits = .adjustable
         refreshGradient()
         refreshAccessibility()
@@ -646,7 +646,7 @@ private final class CCSwatchGrid: UIView {
         heightConstraint = heightAnchor.constraint(equalToConstant: Self.cell)
         heightConstraint.isActive = true
         accessibilityContainerType = .semanticGroup
-        accessibilityLabel = "Swatches"
+        accessibilityLabel = String(localized: "Swatches", comment: "Color picker: the row of preset color swatches (VoiceOver)")
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
@@ -724,7 +724,7 @@ final class CCColorPickerView: UIView, UITextFieldDelegate {
 
     private let swatches: [CCColorSwatch]
     private let swatchGrid: CCSwatchGrid
-    private let customLabel = ccLabel("Custom", font: CCFont.captionMedium, color: CCTheme.color.mutedForeground)
+    private let customLabel = ccLabel(String(localized: "Custom", comment: "Color picker: label above the custom color controls"), font: CCFont.captionMedium, color: CCTheme.color.mutedForeground)
     private let field = CCColorField()
     private let hueBar = CCColorBar(kind: .hue)
     private let opacityBar = CCColorBar(kind: .opacity)
@@ -780,7 +780,7 @@ final class CCColorPickerView: UIView, UITextFieldDelegate {
         hexField.spellCheckingType = .no
         hexField.returnKeyType = .done
         hexField.delegate = self
-        hexField.accessibilityLabel = "Hex color"
+        hexField.accessibilityLabel = String(localized: "Hex color", comment: "Color picker: hex code text field (VoiceOver)")
         hexField.translatesAutoresizingMaskIntoConstraints = false
         hashLabel.isAccessibilityElement = false
         // The "#" hugs; the field takes the well's width (equal 250 hugging
@@ -982,7 +982,7 @@ final class CCColorWell: UIControl {
         isAccessibilityElement = true
         accessibilityLabel = title
         accessibilityTraits = .button
-        accessibilityHint = "Opens the color picker"
+        accessibilityHint = String(localized: "Opens the color picker")
         addAction(UIAction { [weak self] _ in self?.presentPicker() }, for: .touchUpInside)
         ccOnThemeChange { [weak self] in self?.applyTheme() }
         applyTheme()
@@ -1109,7 +1109,7 @@ final class CCColorPickerController: UIViewController, UIGestureRecognizerDelega
 
         let titleLabel = ccLabel(pickerTitle, font: CCFont.header, color: CCTheme.color.foreground)
         titleLabel.accessibilityTraits = .header
-        let done = CCButton(title: "Done", style: .secondary, size: .sm, radius: .full)
+        let done = CCButton(title: String(localized: "Done", comment: "Color picker: closes the picker"), style: .secondary, size: .sm, radius: .full)
         done.onTap = { [weak self] in self?.close() }
         let header = UIStackView(arrangedSubviews: [titleLabel, done])
         header.alignment = .center

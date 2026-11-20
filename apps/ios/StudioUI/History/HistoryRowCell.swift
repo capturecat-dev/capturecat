@@ -95,7 +95,7 @@ final class HistoryRowCell: UIControl {
         isAccessibilityElement = true
         accessibilityTraits = .button
         accessibilityLabel = model.accessibilityLabel(clientLabel: version.clientLabel)
-        accessibilityHint = "Shows what you can do with this version"
+        accessibilityHint = String(localized: "Shows what you can do with this version", comment: "VoiceOver hint on a History row")
         addAction(UIAction { [weak self] _ in
             guard let self else { return }
             self.onActivate?(self)
@@ -144,9 +144,9 @@ final class HistoryRowCell: UIControl {
 final class HistoryExternalRow: UIView {
     var onReview: (() -> Void)?
     private let icon = CCIconView("arrow.triangle.merge", pointSize: 15, weight: .medium, tint: CCTheme.color.primary)
-    let titleLabel = ccLabel("Changed outside this editor", font: CCFont.labelSemibold, color: CCTheme.color.foreground)
+    let titleLabel = ccLabel(String(localized: "Changed outside this editor", comment: "History row: the project file was changed by another app or window"), font: CCFont.labelSemibold, color: CCTheme.color.foreground)
     let summaryLabel: UILabel
-    let reviewButton = CCButton(title: "Review", symbol: "merge", style: .secondary, size: .sm, radius: .full)
+    let reviewButton = CCButton(title: String(localized: "Review", comment: "Button: review changes made outside this editor before merging"), symbol: "merge", style: .secondary, size: .sm, radius: .full)
 
     init(summary: String) {
         summaryLabel = ccLabel(summary, font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)

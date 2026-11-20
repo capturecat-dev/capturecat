@@ -225,7 +225,7 @@ final class CCCallout: UIView {
         addSubview(row)
         if dismissible {
             let close = CCButton(symbol: "close", style: .ghost, size: .sm)
-            close.accessibilityLabelOverride = "Dismiss"
+            close.accessibilityLabelOverride = String(localized: "Dismiss", comment: "Banner close button (VoiceOver)")
             close.onTap = { [weak self] in self?.onDismiss?() }
             row.addArrangedSubview(close)
             dismissButton = close

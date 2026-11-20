@@ -1,3 +1,4 @@
+import Foundation
 import AVFoundation
 import OSLog
 
@@ -60,7 +61,7 @@ final class VoiceOverRecorder: NSObject {
         recorder.prepareToRecord()
         guard recorder.record() else {
             throw NSError(domain: "VoiceOverRecorder", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Unable to start voice-over recording."
+                NSLocalizedDescriptionKey: String(localized: "Unable to start voice-over recording.", comment: "Voice-over recording error")
             ])
         }
 

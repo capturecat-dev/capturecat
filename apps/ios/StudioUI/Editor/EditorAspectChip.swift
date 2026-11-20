@@ -9,7 +9,7 @@ final class EditorAspectChip: UIControl {
     weak var presenter: UIViewController?
     private(set) var ratio: AspectRatio = .auto
 
-    private let label = ccLabel("Auto", font: CCFont.scaled(14, .semibold, .subheadline, max: 22), color: CCTheme.color.foreground)
+    private let label = ccLabel(AspectRatio.auto.displayName, font: CCFont.scaled(14, .semibold, .subheadline, max: 22), color: CCTheme.color.foreground)
     private let chevron = CCIconView("chevron-up-down", pointSize: 11, weight: .semibold, tint: CCTheme.color.mutedForeground)
 
     override init(frame: CGRect) {
@@ -33,8 +33,8 @@ final class EditorAspectChip: UIControl {
         layer.cornerCurve = .continuous
         isAccessibilityElement = true
         accessibilityTraits = .button
-        accessibilityLabel = "Aspect Ratio"
-        accessibilityHint = "Chooses the video's shape."
+        accessibilityLabel = String(localized: "Aspect Ratio")
+        accessibilityHint = String(localized: "Chooses the video's shape.")
         addAction(UIAction { [weak self] _ in self?.open() }, for: .touchUpInside)
         setRatio(.auto)
         ccInstallPointerHover { [weak self] in self?.layer.cornerRadius ?? 0 }
@@ -44,8 +44,8 @@ final class EditorAspectChip: UIControl {
 
     func setRatio(_ ratio: AspectRatio) {
         self.ratio = ratio
-        if label.text != ratio.rawValue { label.text = ratio.rawValue }
-        accessibilityValue = ratio.rawValue
+        if label.text != ratio.displayName { label.text = ratio.displayName }
+        accessibilityValue = ratio.displayName
     }
 
     override var isHighlighted: Bool {
@@ -65,9 +65,9 @@ final class EditorAspectChip: UIControl {
 
     private func open() {
         guard let presenter else { return }
-        let sheet = CCActionSheet(title: "Aspect Ratio")
+        let sheet = CCActionSheet(title: String(localized: "Aspect Ratio"))
         for option in AspectRatio.allCases {
-            let title = option.platformHint.map { "\(option.rawValue)  ·  \($0)" } ?? option.rawValue
+            let title = option.platformHint.map { "\(option.displayName)  ·  \($0)" } ?? option.displayName
             sheet.addAction(title, checked: option == ratio) { [weak self] in
                 guard let self else { return }
                 self.setRatio(option)

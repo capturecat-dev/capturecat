@@ -68,7 +68,7 @@ final class CCSelect: UIControl {
 
     private func refresh() {
         valueLabel.text = overrideTitle ?? (options.indices.contains(selectedIndex) ? options[selectedIndex] : "")
-        accessibilityLabel = prompt ?? "Choose"
+        accessibilityLabel = prompt ?? String(localized: "Choose", comment: "Pop-up menu with no prompt (VoiceOver label)")
         accessibilityValue = valueLabel.text
     }
 

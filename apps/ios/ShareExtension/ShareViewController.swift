@@ -13,7 +13,7 @@ final class ShareViewController: UIViewController {
     private let titleLabel = UILabel()
     private let detailLabel = UILabel()
     private let progress = CCProgressBar()
-    private let doneButton = CCButton(title: "Close", style: .ghost, size: .sm)
+    private let doneButton = CCButton(title: String(localized: "Close", comment: "Share extension button: close the sheet"), style: .ghost, size: .sm)
     private var work: Task<Void, Never>?
 
     override func viewDidLoad() {
@@ -44,7 +44,7 @@ final class ShareViewController: UIViewController {
     private func run() async {
         let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? [])
             .flatMap { $0.attachments ?? [] }
-        setStatus(title: "Saving to CaptureCat", detail: providers.count == 1 ? "Preparing…" : "Preparing \(providers.count) items…", fraction: 0)
+        setStatus(title: String(localized: "Saving to CaptureCat", comment: "Share extension status title"), detail: providers.count == 1 ? String(localized: "Preparing…", comment: "Share extension status") : String(localized: "Preparing \(providers.count) items…", comment: "Share extension status; argument is the number of items"), fraction: 0)
 
         var takes: [PendingTake] = []
         var failures = 0
@@ -65,22 +65,29 @@ final class ShareViewController: UIViewController {
             }
         }
         guard !takes.isEmpty else {
-            finish(title: "Nothing to save", detail: "CaptureCat saves screenshots, images and videos.", success: false)
+            finish(title: String(localized: "Nothing to save", comment: "Share extension: nothing usable was shared"), detail: String(localized: "CaptureCat saves screenshots, images and videos."), success: false)
             return
         }
         guard SessionStore.load() != nil else {
-            finish(title: "Saved for later", detail: "Open CaptureCat and sign in — \(Self.count(takes)) will upload then.", success: true)
+            finish(title: String(localized: "Saved for later", comment: "Share extension: items are kept and upload later"),
+                   detail: takes.count == 1
+                       ? String(localized: "Open CaptureCat and sign in — it will upload then.")
+                       : String(localized: "Open CaptureCat and sign in — they will upload then.", comment: "Several shared items"),
+                   success: true)
             return
         }
 
         for (index, take) in takes.enumerated() {
             if Task.isCancelled { break }
-            let label = takes.count == 1 ? Self.noun(take) : "\(index + 1) of \(takes.count)"
+            let position = index + 1
+            let uploading = takes.count == 1
+                ? Self.uploadingNoun(take)
+                : String(localized: "Uploading \(position) of \(takes.count)…", comment: "Share extension status; arguments are the item number and the total")
             do {
                 try await TakeInbox.publish(take) { [weak self] p in
                     Task { @MainActor in
                         let overall = (Double(index) + Self.weight(p)) / Double(takes.count)
-                        self?.setStatus(title: "Saving to CaptureCat", detail: "Uploading \(label)…", fraction: overall)
+                        self?.setStatus(title: String(localized: "Saving to CaptureCat", comment: "Share extension status title"), detail: uploading, fraction: overall)
                     }
                 }
             } catch {
@@ -89,11 +96,11 @@ final class ShareViewController: UIViewController {
         }
         let saved = takes.count - failures
         if failures == 0 {
-            finish(title: "Saved", detail: takes.count == 1 ? "It's in your CaptureCat library." : "\(takes.count) items are in your library.", success: true)
+            finish(title: String(localized: "Saved", comment: "Share extension: everything was saved"), detail: takes.count == 1 ? String(localized: "It's in your CaptureCat library.") : String(localized: "\(takes.count) items are in your library."), success: true)
         } else if saved > 0 {
-            finish(title: "Partly saved", detail: "\(failures) didn't upload — CaptureCat will retry when you open it.", success: true)
+            finish(title: String(localized: "Partly saved", comment: "Share extension: some items failed to upload"), detail: String(localized: "\(failures) didn't upload — CaptureCat will retry when you open it.", comment: "Argument is the number of items that failed"), success: true)
         } else {
-            finish(title: "Saved for later", detail: "Couldn't upload right now — CaptureCat will retry when you open it.", success: true)
+            finish(title: String(localized: "Saved for later", comment: "Share extension: items are kept and upload later"), detail: String(localized: "Couldn't upload right now — CaptureCat will retry when you open it."), success: true)
         }
     }
 
@@ -103,7 +110,7 @@ final class ShareViewController: UIViewController {
         iconView.tintColor = success ? CCTheme.color.success : CCTheme.color.warning
         CCMotion.pop(iconView)
         if success { CCHaptics.success() } else { CCHaptics.warning() }
-        doneButton.title = "Done"
+        doneButton.title = String(localized: "Done", comment: "Share extension button: close the sheet")
         DispatchQueue.main.asyncAfter(deadline: .now() + (success ? 1.4 : 2.5)) { [weak self] in self?.close() }
     }
 
@@ -136,7 +143,7 @@ final class ShareViewController: UIViewController {
         detailLabel.adjustsFontForContentSizeCategory = true
         detailLabel.numberOfLines = 2
         doneButton.onTap = { [weak self] in self?.close() }
-        doneButton.accessibilityHint = "Uploads that haven't finished continue next time you open CaptureCat."
+        doneButton.accessibilityHint = String(localized: "Uploads that haven't finished continue next time you open CaptureCat.")
 
         let text = UIStackView(arrangedSubviews: [titleLabel, detailLabel])
         text.axis = .vertical
@@ -189,12 +196,10 @@ final class ShareViewController: UIViewController {
         }
     }
 
-    private static func noun(_ take: PendingTake) -> String {
-        take.kind == .screenshot ? "screenshot" : "video"
-    }
-
-    private static func count(_ takes: [PendingTake]) -> String {
-        takes.count == 1 ? "it" : "they"
+    private static func uploadingNoun(_ take: PendingTake) -> String {
+        take.kind == .screenshot
+            ? String(localized: "Uploading screenshot…", comment: "Share extension status")
+            : String(localized: "Uploading video…", comment: "Share extension status")
     }
 
     private static func loadData(_ provider: NSItemProvider, type: UTType) async -> Data? {

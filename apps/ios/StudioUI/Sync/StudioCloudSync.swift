@@ -67,13 +67,17 @@ final class StudioCloudSync {
 
         var words: String {
             switch self {
-            case .localOnly: return "Saved on this \(StudioHistory.deviceNoun) only"
-            case .synced: return "All changes synced"
-            case .pending: return "Changes waiting to sync"
-            case .syncing: return "Syncing…"
-            case .offline: return "Offline — your changes are saved on this \(StudioHistory.deviceNoun) and sync when you're back online"
-            case .review: return "Waiting for you to choose how to merge"
-            case .failed(let message): return "Couldn't sync: \(message)"
+            case .localOnly:
+                let device = StudioHistory.deviceNoun
+                return String(localized: "Saved on this \(device) only", comment: "Sync status; the argument is iPhone or iPad")
+            case .synced: return String(localized: "All changes synced", comment: "Sync status")
+            case .pending: return String(localized: "Changes waiting to sync", comment: "Sync status")
+            case .syncing: return String(localized: "Syncing…", comment: "Sync status: a sync is in progress")
+            case .offline:
+                let device = StudioHistory.deviceNoun
+                return String(localized: "Offline — your changes are saved on this \(device) and sync when you're back online", comment: "Sync status; the argument is iPhone or iPad")
+            case .review: return String(localized: "Waiting for you to choose how to merge", comment: "Sync status: a merge conflict needs the user")
+            case .failed(let message): return String(localized: "Couldn't sync: \(message)", comment: "Sync status; the argument is the error message")
             }
         }
     }
@@ -266,7 +270,7 @@ final class StudioCloudSync {
     enum OpenError: LocalizedError {
         case noCloudCopy
         var errorDescription: String? {
-            "This project isn't in your CaptureCat cloud any more."
+            String(localized: "This project isn't in your CaptureCat cloud any more.", comment: "Error opening a cloud project that was deleted from the cloud")
         }
     }
 
@@ -449,7 +453,7 @@ final class StudioCloudSync {
             case .cloudIsNewer:
                 await runPull()
             case .merged(let revision, let report):
-                adoptDisk(since: before, actionName: "Merge Changes")
+                adoptDisk(since: before, actionName: String(localized: "Merge Changes", comment: "Undo action name: merging synced changes"))
                 toast(report.toastTitle)
                 status = localStatus
                 onPushed?(revision)
@@ -494,7 +498,7 @@ final class StudioCloudSync {
             retryIndex = 0
             switch outcome {
             case .pulled, .mediaRestored:
-                adoptDisk(since: before, actionName: "Changes from the Cloud")
+                adoptDisk(since: before, actionName: String(localized: "Changes from the Cloud", comment: "Undo action name: adopting changes pulled from the cloud"))
                 status = localStatus
                 if status == .pending { schedulePush(after: pushDelay) }
             case .upToDate:
@@ -502,7 +506,7 @@ final class StudioCloudSync {
                 if status == .pending { schedulePush(after: pushDelay) }
             case .merged(_, let report):
                 // The cloud's edits are in; this device's are still unsent.
-                adoptDisk(since: before, actionName: "Merge Changes")
+                adoptDisk(since: before, actionName: String(localized: "Merge Changes", comment: "Undo action name: merging synced changes"))
                 toast(report.toastTitle)
                 status = .pending
                 schedulePush(after: 0.2)
@@ -537,7 +541,7 @@ final class StudioCloudSync {
         }
         let session = ProjectMergeSession(
             base: review.base, mine: review.mine, theirs: review.theirs, mineWins: review.mineWins,
-            choices: review.choices, theirsAuthor: review.author, theirsFallback: "The cloud version")
+            choices: review.choices, theirsAuthor: review.author, theirsFallback: String(localized: "The cloud version", comment: "Merge review: name for the cloud side of a conflict"))
         Self.trace?("merge review: \(review.unresolved.count) conflict(s) to review")
         let shown = StudioHistory.reviewMerge(from: editor, session: session, onApply: { [weak self] resolved in
             guard let self else { return }
@@ -565,7 +569,7 @@ final class StudioCloudSync {
             Self.trace?("resolve → \(outcome)")
             switch outcome {
             case .merged(let revision, let report):
-                adoptDisk(since: before, actionName: "Merge Changes")
+                adoptDisk(since: before, actionName: String(localized: "Merge Changes", comment: "Undo action name: merging synced changes"))
                 toast(report.toastTitle)
                 status = localStatus
                 if review.origin == .push { onPushed?(revision) }
@@ -591,18 +595,18 @@ final class StudioCloudSync {
         Self.trace?("two-way choice at revision \(remoteRevision)")
         let device = StudioHistory.deviceNoun
         let alert = CCAlert(
-            title: "This project changed in two places",
-            message: "It was edited elsewhere while this \(device) had changes that never synced, and the two can't be merged automatically.")
+            title: String(localized: "This project changed in two places", comment: "Alert title: sync conflict that cannot be merged automatically"),
+            message: String(localized: "It was edited elsewhere while this \(device) had changes that never synced, and the two can't be merged automatically.", comment: "Sync conflict alert; the argument is iPhone or iPad"))
         alert.presentation = .sheet
-        alert.addButton("Keep this \(device)'s version", role: .primary) { [weak self] in
+        alert.addButton(String(localized: "Keep this \(device)'s version", comment: "Sync conflict alert button: keep the local version; the argument is iPhone or iPad"), role: .primary) { [weak self] in
             guard let self else { return }
             _ = try await self.exclusive { [self] in await self.runPush(overwriteRevision: remoteRevision) }
         }
-        alert.addButton("Use the cloud version", role: .destructive) { [weak self] in
+        alert.addButton(String(localized: "Use the cloud version", comment: "Sync conflict alert button: replace local changes with the cloud version"), role: .destructive) { [weak self] in
             guard let self else { return }
             _ = try await self.exclusive { [self] in await self.runPull(force: true) }
         }
-        alert.addButton("Not now", role: .cancel)
+        alert.addButton(String(localized: "Not now", comment: "Sync conflict alert button: decide later"), role: .cancel)
         #if DEBUG
         probeTwoWay = alert
         #endif

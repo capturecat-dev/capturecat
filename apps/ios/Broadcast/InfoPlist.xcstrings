@@ -1,0 +1,174 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "comment" : "Name in the screen broadcast picker (the brand)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "en-US" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat"
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription" : {
+      "comment" : "Local network permission prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat looks for your Mac on this Wi-Fi network so your Mac can record this screen without a cable."
+          }
+        },
+        "en-GB" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat looks for your Mac on this Wi-Fi network so your Mac can record this screen without a cable."
+          }
+        },
+        "en-US" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat looks for your Mac on this Wi-Fi network so your Mac can record this screen without a cable."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat sucht deinen Mac in diesem WLAN, damit dein Mac diesen Bildschirm ohne Kabel aufnehmen kann."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat recherche votre Mac sur ce réseau Wi-Fi pour qu’il puisse enregistrer cet écran sans câble."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat busca tu Mac en esta red Wi-Fi para que pueda grabar esta pantalla sin cable."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat busca tu Mac en esta red Wi-Fi para que pueda grabar esta pantalla sin cable."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat cerca il tuo Mac su questa rete Wi-Fi, così il Mac può registrare questo schermo senza cavo."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O CaptureCat procura seu Mac nesta rede Wi-Fi para que ele possa gravar esta tela sem cabo."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat zoekt je Mac op dit wifinetwerk, zodat je Mac dit scherm zonder kabel kan opnemen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCatはこのWi-FiネットワークでMacを探し、ケーブルなしでこの画面をMacで録画できるようにします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat이 이 Wi-Fi 네트워크에서 Mac을 찾아 케이블 없이 Mac에서 이 화면을 녹화할 수 있게 합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat 会在此 Wi-Fi 网络中查找你的 Mac，让 Mac 无需连接线即可录制此屏幕。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

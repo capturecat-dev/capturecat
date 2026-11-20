@@ -164,40 +164,40 @@ final class EditorToolBar: UIView, UIScrollViewDelegate {
 
     private func item(for tool: Tool) -> CCIconRail.Item {
         switch tool {
-        case .add: return .init(title: "Add", symbol: "plus")
-        case .split: return .init(title: "Split", symbol: "scissors")
-        case .speed: return .init(title: "Speed", symbol: "gauge.with.needle")
-        case .pane(let tab): return .init(title: tab.rawValue, symbol: tab.icon)
+        case .add: return .init(title: String(localized: "Add", comment: "Tool bar key: add an effect, region, annotation or voice over"), symbol: "plus")
+        case .split: return .init(title: String(localized: "Split", comment: "Tool bar key: split the recording at the playhead"), symbol: "scissors")
+        case .speed: return .init(title: String(localized: "Speed", comment: "Tool bar key: set playback speed"), symbol: "gauge.with.needle")
+        case .pane(let tab): return .init(title: tab.displayName, symbol: tab.icon)
         case .history: return .init(title: InspectorFeature.showHistory.title, symbol: InspectorFeature.showHistory.symbol)
-        case .back: return .init(title: "Back", symbol: "chevron-left")
+        case .back: return .init(title: String(localized: "Back", comment: "Tool bar key: go back to the tools"), symbol: "chevron-left")
         case .option(let id):
             let o = options.first { $0.id == id }
             return .init(title: o?.title ?? id, symbol: o?.symbol ?? "sliders")
-        case .adjust: return .init(title: "Adjust", symbol: "slider.horizontal.3")
-        case .duplicate: return .init(title: "Duplicate", symbol: "square.fill.on.square")
-        case .delete: return .init(title: "Delete", symbol: "trash")
-        case .options: return .init(title: "Options", symbol: "gearshape")
+        case .adjust: return .init(title: String(localized: "Adjust", comment: "Tool bar key: open the selection's settings"), symbol: "slider.horizontal.3")
+        case .duplicate: return .init(title: String(localized: "Duplicate", comment: "Tool bar key: duplicate the selection"), symbol: "square.fill.on.square")
+        case .delete: return .init(title: String(localized: "Delete", comment: "Tool bar key: delete the selection"), symbol: "trash")
+        case .options: return .init(title: String(localized: "Options", comment: "Tool bar key: show the selection's options"), symbol: "gearshape")
         }
     }
 
     private func hint(for tool: Tool) -> String? {
         switch tool {
-        case .add: return "Adds an effect, a focus region, an annotation or a voice over, or arms the slice tool."
-        case .split: return "Splits the recording at the playhead."
-        case .speed: return "Sets the speed of the part under the playhead."
-        case .pane: return "Shows its settings on the tool bar."
-        case .history: return "Shows this project's earlier versions."
+        case .add: return String(localized: "Adds an effect, a focus region, an annotation or a voice over, or arms the slice tool.")
+        case .split: return String(localized: "Splits the recording at the playhead.")
+        case .speed: return String(localized: "Sets the speed of the part under the playhead.")
+        case .pane: return String(localized: "Shows its settings on the tool bar.")
+        case .history: return String(localized: "Shows this project's earlier versions.")
         case .back:
             switch mode {
-            case .context: return "Clears the selection."
-            case .slicing: return "Puts the slice tool away."
-            default: return "Back to the tools."
+            case .context: return String(localized: "Clears the selection.")
+            case .slicing: return String(localized: "Puts the slice tool away.")
+            default: return String(localized: "Back to the tools.")
             }
-        case .option: return "Opens its controls above the tool bar."
-        case .adjust: return "Opens the selection's settings."
-        case .duplicate: return "Duplicates the selection."
-        case .delete: return "Deletes the selection."
-        case .options: return "Shows the selection's options."
+        case .option: return String(localized: "Opens its controls above the tool bar.")
+        case .adjust: return String(localized: "Opens the selection's settings.")
+        case .duplicate: return String(localized: "Duplicates the selection.")
+        case .delete: return String(localized: "Deletes the selection.")
+        case .options: return String(localized: "Shows the selection's options.")
         }
     }
 

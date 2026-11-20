@@ -82,14 +82,14 @@ struct TimelineVideoRowModel: Equatable {
     }
 
     static func formatSpeedLabel(_ s: Double) -> String {
-        if abs(s - s.rounded()) < 0.01 { return String(format: "%.0fx", s) }
-        return String(format: "%.1fx", s)
+        if abs(s - s.rounded()) < 0.01 { return UnitText.multiplier(s, digits: 0) }
+        return UnitText.multiplier(s, digits: 1)
     }
 
     /// Port of `VideoTrackContent.speedLabel(for:)`.
     static func segmentLabel(outputSpan: TimeInterval, speed: Double) -> String {
         let srcDur = outputSpan * speed
-        let d = srcDur < 1 ? String(format: "%.1fs", srcDur) : "\(Int(srcDur.rounded()))s"
+        let d = srcDur < 1 ? UnitText.seconds(srcDur, digits: 1) : UnitText.seconds(srcDur.rounded(), digits: 0)
         return "\(d) · \(formatSpeedLabel(speed))"
     }
 

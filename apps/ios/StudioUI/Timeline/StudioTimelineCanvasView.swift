@@ -959,7 +959,7 @@ final class StudioTimelineCanvasView: UIView {
                      isSelected: snapshot.introChipSelected)
         }
         if let rect = curtainChipRect {
-            drawChip(in: context, rect: rect, icon: "book.pages", label: "Curtain", isSelected: snapshot.curtainChipSelected)
+            drawChip(in: context, rect: rect, icon: "book.pages", label: String(localized: "Curtain", comment: "Timeline chip label for the curtain-unveil effect"), isSelected: snapshot.curtainChipSelected)
         }
         for item in snapshot.effectItems {
             let key = effectKey(item)
@@ -1069,7 +1069,7 @@ final class StudioTimelineCanvasView: UIView {
             }
         }
         if rect.width > 58 {
-            let zoomLabel = String(format: "%.1fx", item.zoomLevel ?? 1)
+            let zoomLabel = UnitText.multiplier(item.zoomLevel ?? 1)
             let tiltLabel = String(format: "%.0f°", item.dominantAngle)
             let value: String
             switch (item.hasZoom, item.hasTilt) {

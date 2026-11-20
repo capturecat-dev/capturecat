@@ -15,7 +15,7 @@ final class DeviceRegistry {
     /// never on cold launch.
     func requestPushPermission() async {
         let center = UNUserNotificationCenter.current()
-        let start = UNNotificationAction(identifier: PushRouter.startActionID, title: "Start streaming", options: [.foreground])
+        let start = UNNotificationAction(identifier: PushRouter.startActionID, title: String(localized: "Start streaming", comment: "Notification action button: start streaming this device to the Mac that asked"), options: [.foreground])
         let category = UNNotificationCategory(identifier: PushRouter.broadcastCategory, actions: [start], intentIdentifiers: [])
         center.setNotificationCategories([category])
         let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge, .timeSensitive])) ?? false

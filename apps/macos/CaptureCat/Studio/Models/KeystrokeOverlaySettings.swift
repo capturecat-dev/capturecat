@@ -9,10 +9,10 @@ enum KeystrokeOverlayPosition: String, CaseIterable, Codable, Sendable {
 
     var label: String {
         switch self {
-        case .bottomCenter: return "Bottom Center"
-        case .bottomLeft: return "Bottom Left"
-        case .bottomRight: return "Bottom Right"
-        case .topCenter: return "Top Center"
+        case .bottomCenter: return String(localized: "Bottom Center", comment: "Inspector ▸ Cursor ▸ Shortcut Overlay: where the shortcut pill sits")
+        case .bottomLeft: return String(localized: "Bottom Left", comment: "Inspector ▸ Cursor ▸ Shortcut Overlay: where the shortcut pill sits")
+        case .bottomRight: return String(localized: "Bottom Right", comment: "Inspector ▸ Cursor ▸ Shortcut Overlay: where the shortcut pill sits")
+        case .topCenter: return String(localized: "Top Center", comment: "Inspector ▸ Cursor ▸ Shortcut Overlay: where the shortcut pill sits")
         }
     }
 }
@@ -25,9 +25,9 @@ enum KeystrokeOverlayAnimation: String, CaseIterable, Codable, Sendable {
 
     var label: String {
         switch self {
-        case .slideUp: return "Slide Up"
-        case .fade: return "Fade"
-        case .pop: return "Pop"
+        case .slideUp: return String(localized: "Slide Up", comment: "Inspector ▸ Cursor ▸ Shortcut Overlay: how the shortcut pill enters")
+        case .fade: return String(localized: "Fade", comment: "Inspector ▸ Cursor ▸ Shortcut Overlay: how the shortcut pill enters")
+        case .pop: return String(localized: "Pop", comment: "Inspector ▸ Cursor ▸ Shortcut Overlay: how the shortcut pill enters")
         }
     }
 }

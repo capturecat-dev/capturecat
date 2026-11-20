@@ -456,23 +456,28 @@ nonisolated enum CloudSyncError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .notSignedIn: return "Sign in to CaptureCat to use the web editor."
+        case .notSignedIn: return String(localized: "Sign in to CaptureCat to use the web editor.", comment: "Cloud sync error message")
         case .api(_, _, let message): return message
-        case .invalidResponse: return "The CaptureCat server sent an unexpected response."
-        case .uploadURLExpired: return "An upload link expired before the file was sent."
-        case .uploadFailed(let detail): return "Upload failed: \(detail)"
-        case .missingProjectFile: return "This project's project.json could not be read."
+        case .invalidResponse: return String(localized: "The CaptureCat server sent an unexpected response.", comment: "Cloud sync error message")
+        case .uploadURLExpired: return String(localized: "An upload link expired before the file was sent.", comment: "Cloud sync error message")
+        case .uploadFailed(let detail): return String(localized: "Upload failed: \(detail)", comment: "Cloud sync error message; %@ is a technical detail")
+        case .missingProjectFile: return String(localized: "This project's project.json could not be read.", comment: "Cloud sync error message")
         case .invalidRemoteDocument(let detail):
-            return "The web editor's version could not be opened on this Mac (\(detail)). Nothing was changed."
-        case .projectMismatch: return "The cloud copy belongs to a different project. Nothing was changed."
-        case .tooManyRetries: return "The upload could not be completed. Try again in a moment."
-        case .downloadURLExpired: return "A download link expired before the file arrived."
+            return String(localized: "The web editor's version could not be opened on this Mac (\(detail)). Nothing was changed.", comment: "Cloud sync error message; %@ is a technical detail")
+        case .projectMismatch: return String(localized: "The cloud copy belongs to a different project. Nothing was changed.", comment: "Cloud sync error message")
+        case .tooManyRetries: return String(localized: "The upload could not be completed. Try again in a moment.", comment: "Cloud sync error message")
+        case .downloadURLExpired: return String(localized: "A download link expired before the file arrived.", comment: "Cloud sync error message")
         case .downloadFailed(let paths, let detail):
-            let names = paths.prefix(3).joined(separator: ", ") + (paths.count > 3 ? " and \(paths.count - 3) more" : "")
-            let what = paths.count == 1 ? "a file" : "\(paths.count) files"
-            return "The web editor’s version uses \(what) that could not be downloaded (\(names): \(detail)). "
-                + "This Mac’s copy of the project was not changed — try again in a moment."
-        case .alreadyOnThisMac: return "This project is already on this Mac. Nothing was changed."
+            let listed = paths.prefix(3).joined(separator: ", ")
+            let names = paths.count > 3
+                ? String(localized: "\(listed) and \(paths.count - 3) more", comment: "A list of file names, then how many more files")
+                : listed
+            return paths.count == 1
+                ? String(localized: "The web editor’s version uses a file that could not be downloaded (\(names): \(detail)). This Mac’s copy of the project was not changed — try again in a moment.",
+                         comment: "Cloud sync error message. First %@ is the file name, second a technical detail")
+                : String(localized: "The web editor’s version uses \(paths.count) files that could not be downloaded (\(names): \(detail)). This Mac’s copy of the project was not changed — try again in a moment.",
+                         comment: "Cloud sync error message. %lld is the file count, then the file names and a technical detail")
+        case .alreadyOnThisMac: return String(localized: "This project is already on this Mac. Nothing was changed.", comment: "Cloud sync error message")
         }
     }
 
@@ -630,13 +635,13 @@ final class CloudProjectSync {
             CloudSyncState.load(from: projectDirectory, projectID: projectID, apiBaseURL: apiBaseURL),
             local: document, in: projectDirectory)
 
-        progress(Progress(phase: .hashing, fraction: 0, message: "Preparing files…"))
+        progress(Progress(phase: .hashing, fraction: 0, message: String(localized: "Preparing files…", comment: "Cloud sync progress line")))
         // What the cloud holds now: files the web editor added exist only
         // there, and a stage REPLACES the manifest — anything it leaves out,
         // finalize deletes.
         let remote = try await transport.fetch(projectID: projectID)
         var manifest = try await CloudProjectManifest.build(project: project, projectDirectory: projectDirectory) { done, total in
-            progress(Progress(phase: .hashing, fraction: total > 0 ? Double(done) / Double(total) : 1, message: "Preparing files…"))
+            progress(Progress(phase: .hashing, fraction: total > 0 ? Double(done) / Double(total) : 1, message: String(localized: "Preparing files…", comment: "Cloud sync progress line")))
         }
         if !manifest.skipped.isEmpty {
             cloudLogger.info("cloud push skipped \(manifest.skipped.count) reference(s): \(manifest.skipped.joined(separator: ", "), privacy: .public)")
@@ -651,7 +656,7 @@ final class CloudProjectSync {
         guard manifest.files.count <= CloudPath.maxManifestFiles else {
             throw CloudSyncError.api(
                 status: 400, code: "too_many_files",
-                message: "This project uses \(manifest.files.count) files; the web editor takes at most \(CloudPath.maxManifestFiles).")
+                message: String(localized: "This project uses \(manifest.files.count) files; the web editor takes at most \(CloudPath.maxManifestFiles).", comment: "Cloud sync error message"))
         }
 
         var stage = try await transport.stage(projectID: projectID, name: project.name, files: manifest.files)
@@ -671,7 +676,7 @@ final class CloudProjectSync {
 
         // The document. Compare against the CLOUD's copy first: identical
         // bytes need no save, whoever wrote them.
-        progress(Progress(phase: .saving, fraction: 0, message: "Saving project…"))
+        progress(Progress(phase: .saving, fraction: 0, message: String(localized: "Saving project…", comment: "Cloud sync progress line")))
         if stage.documentSHA256 == documentSHA, stage.revision > 0 {
             try saveState(revision: stage.revision, base: document, in: projectDirectory, projectID: projectID)
             return .unchanged(revision: stage.revision)
@@ -688,13 +693,13 @@ final class CloudProjectSync {
         switch try await transport.save(projectID: projectID, document: document, baseRevision: base, context: context) {
         case .saved(let revision, _, _):
             try saveState(revision: revision, base: document, in: projectDirectory, projectID: projectID)
-            progress(Progress(phase: .saving, fraction: 1, message: "Saved"))
+            progress(Progress(phase: .saving, fraction: 1, message: String(localized: "Saved", comment: "Cloud sync progress status")))
             return .pushed(revision: revision)
         case .conflict(let conflict):
             // "Replace Web Version" lost a race: ask again — never merge
             // over the user's explicit overwrite.
             if overwriteRevision != nil { return .conflict(remoteRevision: conflict.revision) }
-            progress(Progress(phase: .saving, fraction: 0.3, message: "Merging web edits…"))
+            progress(Progress(phase: .saving, fraction: 0.3, message: String(localized: "Merging web edits…", comment: "Cloud sync progress line")))
             return try await mergeAfterConflict(
                 conflict, mine: document, state: state, projectID: projectID,
                 projectDirectory: projectDirectory, progress: progress)
@@ -742,7 +747,8 @@ final class CloudProjectSync {
     }
 
     private func uploadMessage(_ remaining: Int) -> String {
-        remaining == 1 ? "Uploading 1 file…" : "Uploading \(remaining) files…"
+        remaining == 1 ? String(localized: "Uploading 1 file…", comment: "Cloud sync progress line")
+            : String(localized: "Uploading \(remaining) files…", comment: "Cloud sync progress line")
     }
 
     private func finalize(
@@ -754,10 +760,10 @@ final class CloudProjectSync {
         var reuploaded = false
         for attempt in 0..<40 {
             try Task.checkCancellation()
-            progress(Progress(phase: .verifying, fraction: min(Double(attempt) / 10, 0.9), message: "Verifying upload…"))
+            progress(Progress(phase: .verifying, fraction: min(Double(attempt) / 10, 0.9), message: String(localized: "Verifying upload…", comment: "Cloud sync progress line")))
             switch try await transport.finalize(projectID: projectID) {
             case .committed:
-                progress(Progress(phase: .verifying, fraction: 1, message: "Verified"))
+                progress(Progress(phase: .verifying, fraction: 1, message: String(localized: "Verified", comment: "Cloud sync progress status")))
                 return
             case .verifying:
                 continue
@@ -813,7 +819,7 @@ final class CloudProjectSync {
         force: Bool = false,
         progress: @escaping (Progress) -> Void = { _ in }
     ) async throws -> PullOutcome {
-        progress(Progress(phase: .fetching, fraction: 0, message: "Checking the web editor…"))
+        progress(Progress(phase: .fetching, fraction: 0, message: String(localized: "Checking the web editor…", comment: "Cloud sync progress line")))
         guard let remote = try await transport.fetch(projectID: projectID),
               let remoteDocument = remote.document else {
             return .noCloudCopy
@@ -873,12 +879,12 @@ final class CloudProjectSync {
         _ = try await syncMedia(remote.files, referencedBy: remoteDocument, projectID: projectID,
                                 projectDirectory: projectDirectory, progress: progress)
 
-        progress(Progress(phase: .writing, fraction: 0.5, message: "Applying web edits…"))
+        progress(Progress(phase: .writing, fraction: 0.5, message: String(localized: "Applying web edits…", comment: "Cloud sync progress line")))
         let data = try Self.validatedDocument(remoteDocument, projectID: projectID, projectDirectory: projectDirectory,
                                               files: remote.files)
         try ProjectFileIO.writeProjectData(data, to: docURL)
         try saveState(revision: remote.revision, base: data, in: projectDirectory, projectID: projectID)
-        progress(Progress(phase: .writing, fraction: 1, message: "Pulled revision \(remote.revision)"))
+        progress(Progress(phase: .writing, fraction: 1, message: String(localized: "Pulled revision \(remote.revision)", comment: "Cloud sync progress line")))
         cloudLogger.info("pulled cloud revision \(remote.revision) into \(projectID.uuidString, privacy: .public)")
         return .pulled(revision: remote.revision)
     }

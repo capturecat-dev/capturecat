@@ -68,7 +68,10 @@ enum StudioBackgroundRemoval {
         undoManager?.registerUndo(withTarget: project) { project in
             setLook(previous, on: project, undoManager: undoManager)
         }
-        undoManager?.setActionName(look.map { "Background: \($0.displayName)" } ?? "Background: None")
+        undoManager?.setActionName(look.map { look in
+            let name = look.displayName
+            return String(localized: "Background: \(name)", comment: "Undo action name: set the camera background look, e.g. Background: Cutout")
+        } ?? String(localized: "Background: None", comment: "Undo action name: turn the camera background removal off"))
         _ = cameraMask(for: project)
     }
 }
@@ -88,7 +91,7 @@ final class StudioBackgroundRemovalController {
         self.project = project
         self.undoManager = undoManager
         let selected = StudioBackgroundRemoval.looks.firstIndex(of: project.settings.cameraLook) ?? 0
-        chips = CCChipGroup(items: StudioBackgroundRemoval.looks.map { $0?.displayName ?? "None" },
+        chips = CCChipGroup(items: StudioBackgroundRemoval.looks.map { $0?.displayName ?? String(localized: "None", comment: "Remove Background sheet chip: keep the camera's own background") },
                             selected: [selected])
         chips.accessibilityIdentifier = "studio.background.looks"
         status.accessibilityIdentifier = "studio.background.status"
@@ -104,17 +107,17 @@ final class StudioBackgroundRemovalController {
         let alert: CCAlert
         if hasCamera {
             alert = StudioFeatureSheet.make(
-                title: "Remove Background",
-                message: "Finds you in the camera on this device and removes what's behind you. Cutout stands you over the recording; Pop-out card puts you on a card you break out of.",
+                title: String(localized: "Remove Background", comment: "Feature sheet title: remove the background behind the person in the camera"),
+                message: String(localized: "Finds you in the camera on this device and removes what's behind you. Cutout stands you over the recording; Pop-out card puts you on a card you break out of.", comment: "Remove Background sheet; Cutout and Pop-out card are the names of the looks shown as chips"),
                 symbol: "person.crop.rectangle",
                 content: [chips, status])
-            alert.addButton("Done", role: .cancel)
+            alert.addButton(String(localized: "Done", comment: "Feature sheet: close the sheet"), role: .cancel)
         } else {
             alert = StudioFeatureSheet.make(
-                title: "Remove Background",
-                message: "This recording has no camera to remove the background from.",
+                title: String(localized: "Remove Background", comment: "Feature sheet title: remove the background behind the person in the camera"),
+                message: String(localized: "This recording has no camera to remove the background from."),
                 symbol: "person.crop.rectangle", content: [])
-            alert.addButton("OK", role: .cancel)
+            alert.addButton(String(localized: "OK", comment: "Alert button"), role: .cancel)
         }
         self.alert = alert
         alert.present(from: presenter) { [weak self] _ in self?.observation = nil }

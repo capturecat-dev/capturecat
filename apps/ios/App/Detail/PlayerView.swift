@@ -86,7 +86,7 @@ final class PlayerView: UIView {
         errorLabel.textColor = .white
         errorLabel.numberOfLines = 0
         errorLabel.textAlignment = .center
-        let retry = CCButton(title: "Try again", symbol: "rotate-cw", style: .secondary, size: .sm)
+        let retry = CCButton(title: String(localized: "Try again", comment: "Player button: retry loading the video"), symbol: "rotate-cw", style: .secondary, size: .sm)
         retry.onTap = { [weak self] in
             self?.errorStack.isHidden = true
             self?.onFailure?(nil)
@@ -254,7 +254,7 @@ final class PlayerView: UIView {
     private func refreshPlayButton() {
         let playing = player.timeControlStatus != .paused
         playButton.symbol = playing ? "pause-fill" : "play-fill"
-        playButton.accessibilityLabel = playing ? "Pause" : "Play"
+        playButton.accessibilityLabel = playing ? String(localized: "Pause", comment: "VoiceOver: pause the video") : String(localized: "Play", comment: "VoiceOver: play the video")
     }
 
     private func tick(_ seconds: Double) {
@@ -264,7 +264,7 @@ final class PlayerView: UIView {
         elapsedLabel.text = Format.duration(shown)
         remainingLabel.text = "-" + Format.duration(max(0, duration - shown))
         if !isScrubbing, duration > 0 { scrubber.fraction = CGFloat(shown / duration) }
-        scrubber.accessibilityValue = "\(Format.spokenDuration(shown)) of \(Format.spokenDuration(duration))"
+        scrubber.accessibilityValue = String(localized: "\(Format.spokenDuration(shown)) of \(Format.spokenDuration(duration))", comment: "VoiceOver value of the playback scrubber: elapsed of total, both spoken durations")
         onTimeChange?(shown)
     }
 
@@ -376,10 +376,10 @@ final class PlayerScrubber: UIControl {
             addSubview(view)
         }
         isAccessibilityElement = true
-        accessibilityLabel = "Playback position"
+        accessibilityLabel = String(localized: "Playback position", comment: "VoiceOver label of the video scrubber")
         accessibilityTraits = .adjustable
         // Before the player knows its duration it still speaks a position.
-        accessibilityValue = "0 seconds"
+        accessibilityValue = String(localized: "0 seconds", comment: "VoiceOver value of the scrubber before playback starts")
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }

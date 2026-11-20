@@ -6,6 +6,14 @@ import CoreGraphics
 enum BlurStyle: String, CaseIterable, Codable, Sendable {
     case blur = "Blur"
     case pixelate = "Pixelate"
+
+    /// What the editor shows; the raw value stays the persisted identity.
+    var displayName: String {
+        switch self {
+        case .blur: return String(localized: "Blur", comment: "Inspector ▸ Effects ▸ Blur: blur region look")
+        case .pixelate: return String(localized: "Pixelate", comment: "Inspector ▸ Effects ▸ Blur: blur region look")
+        }
+    }
 }
 
 struct BlurRegion: Identifiable, Codable, Sendable {

@@ -246,7 +246,9 @@ nonisolated enum CloudProjectMedia {
     }
 
     struct IntegrityError: LocalizedError {
-        var errorDescription: String? { "the downloaded bytes did not match their checksum" }
+        var errorDescription: String? {
+            String(localized: "the downloaded bytes did not match their checksum", comment: "Cloud sync error detail, shown in parentheses inside a longer error message")
+        }
     }
 }
 
@@ -272,12 +274,12 @@ extension CloudProjectSync {
     ) async throws -> Int {
         guard !files.isEmpty else { return 0 }
         CloudProjectMedia.removeStalePartials(in: projectDirectory)
-        progress(Progress(phase: .hashing, fraction: 0, message: "Checking files…"))
+        progress(Progress(phase: .hashing, fraction: 0, message: String(localized: "Checking files…", comment: "Cloud sync progress line")))
         var queue = try await CloudProjectMedia.plan(files, projectDirectory: projectDirectory) { done, total in
             progress(Progress(phase: .hashing, fraction: total > 0 ? Double(done) / Double(total) : 1,
-                              message: "Checking files…"))
+                              message: String(localized: "Checking files…", comment: "Cloud sync progress line")))
         }
-        progress(Progress(phase: .hashing, fraction: 1, message: "Checking files…"))
+        progress(Progress(phase: .hashing, fraction: 1, message: String(localized: "Checking files…", comment: "Cloud sync progress line")))
         guard !queue.isEmpty else { return 0 }
 
         let fm = FileManager.default
@@ -291,7 +293,8 @@ extension CloudProjectSync {
         var refreshedAt: Int?
 
         func message(_ remaining: Int) -> String {
-            remaining == 1 ? "Downloading 1 file…" : "Downloading \(remaining) files…"
+            remaining == 1 ? String(localized: "Downloading 1 file…", comment: "Cloud sync progress line")
+                : String(localized: "Downloading \(remaining) files…", comment: "Cloud sync progress line")
         }
         progress(Progress(phase: .downloading, fraction: 0, message: message(queue.count)))
 

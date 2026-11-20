@@ -96,7 +96,7 @@ enum StudioEditorEntry {
             }
             return
         }
-        let progress = AppToaster.shared.show(title: "Preparing the editor…", symbol: "film")
+        let progress = AppToaster.shared.show(title: String(localized: "Preparing the editor…"), symbol: "film")
         Task { @MainActor in
             do {
                 adoptLiveEnvironment()
@@ -111,7 +111,7 @@ enum StudioEditorEntry {
                 progress?.dismiss()
             } catch {
                 progress?.dismiss()
-                AppToaster.shared.show(title: "Couldn't open the editor", message: error.localizedDescription,
+                AppToaster.shared.show(title: String(localized: "Couldn't open the editor"), message: error.localizedDescription,
                                        variant: .destructive)
             }
         }
@@ -130,10 +130,10 @@ enum StudioEditorEntry {
     static func open(take: PendingTake, from presenter: UIViewController) {
         switch take.state {
         case .recording:
-            AppToaster.shared.show(title: "Still recording", message: "Open it once the recording has finished.")
+            AppToaster.shared.show(title: String(localized: "Still recording", comment: "Toast: the recording can't be edited yet"), message: String(localized: "Open it once the recording has finished."))
             return
         case .uploading:
-            AppToaster.shared.show(title: "Uploading…", message: "It opens from your library as soon as it's there.")
+            AppToaster.shared.show(title: String(localized: "Uploading…", comment: "Toast title: the recording is still uploading"), message: String(localized: "It opens from your library as soon as it's there."))
             return
         case .pending, .failed:
             break
@@ -154,7 +154,7 @@ enum StudioEditorEntry {
             TakeInbox.update(take.id) { $0.openedInStudio = true; $0.state = .pending; $0.error = nil }
             UploadCenter.shared.reload()
         } catch {
-            AppToaster.shared.show(title: "Couldn't open the editor", message: error.localizedDescription,
+            AppToaster.shared.show(title: String(localized: "Couldn't open the editor"), message: error.localizedDescription,
                                    variant: .destructive)
             return
         }

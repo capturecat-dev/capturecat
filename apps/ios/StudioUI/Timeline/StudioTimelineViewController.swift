@@ -366,7 +366,7 @@ final class StudioTimelineViewController: UIViewController {
             // Dynamic Type: 10 pt grows to 13 (what the 84 pt column and an
             // 18 pt closed strip hold), re-set on every size change.
             func setLaneTitle(_ label: UILabel) {
-                label.attributedText = NSAttributedString(string: name, attributes: [
+                label.attributedText = NSAttributedString(string: Self.laneTitle(name), attributes: [
                     .font: UIFontMetrics(forTextStyle: .caption2).scaledFont(
                         for: .systemFont(ofSize: 10, weight: CCFont.legible(.semibold)), maximumPointSize: 13,
                         compatibleWith: label.traitCollection),
@@ -393,14 +393,14 @@ final class StudioTimelineViewController: UIViewController {
             // VoiceOver: each lane label reads as its lane; an overlay lane's
             // label is the key that opens or closes it.
             row.isAccessibilityElement = true
-            row.accessibilityLabel = name.capitalized + " lane"
+            row.accessibilityLabel = Self.laneAccessibilityLabel(name)
             row.accessibilityTraits = lane == nil ? .header : .button
             if let lane {
                 // Its height IS the lane's (an 18 pt strip while closed): the
                 // a11y gate takes the toggle as a custom action instead.
                 row.accessibilityIdentifier = CCAccessibility.dataGeometryPrefix + "lane"
-                row.accessibilityHint = "Opens or closes the lane."
-                row.accessibilityCustomActions = [UIAccessibilityCustomAction(name: "Open or close lane") { [weak self] _ in
+                row.accessibilityHint = String(localized: "Opens or closes the lane.", comment: "VoiceOver hint on a timeline lane label")
+                row.accessibilityCustomActions = [UIAccessibilityCustomAction(name: String(localized: "Open or close lane", comment: "VoiceOver action on a timeline lane label")) { [weak self] _ in
                     self?.performLaneLabelTap(lane)
                     return true
                 }]
@@ -453,13 +453,37 @@ final class StudioTimelineViewController: UIViewController {
     /// Lane accordion frame: each overlay label row takes its lane's current
     /// height and top, and a closed lane's label recedes a little with it.
     private func applyLaneLabelLayout(_ layout: TimelineLaneLayout) {
-        let names: [TimelineOverlayLane: String] = [.effects: "EFFECTS", .focus: "FOCUS", .annotate: "ANNOTATE"]
+        let names: [TimelineOverlayLane: String] = [.effects: "EFFECTS", .focus: "FOCUS", .annotate: "ANNOTATE"]  // l10n-ok: row keys; titles come from laneTitle(_:)
         for lane in TimelineOverlayLane.allCases {
             guard let name = names[lane] else { continue }
             labelHeights[lane]?.constant = layout.laneHeight(lane)
             labelTops[name]?.constant = layout.laneY(lane)
             labelViews[name]?.alpha = 0.7 + 0.3 * min(1, max(0, layout.openness(lane)))
-            labelViews[name]?.accessibilityValue = canvas.openOverlayLane == lane ? "Open" : "Closed"
+            labelViews[name]?.accessibilityValue = canvas.openOverlayLane == lane ? String(localized: "Open", comment: "VoiceOver value: the timeline lane is expanded") : String(localized: "Closed", comment: "VoiceOver value: the timeline lane is collapsed")
+        }
+    }
+
+    /// A lane label's on-screen title (`key` is the lane's identity key, never shown).
+    private static func laneTitle(_ key: String) -> String {
+        switch key {
+        case "VIDEO": return String(localized: "VIDEO", comment: "Timeline lane label (all caps): the video track")
+        case "VOICE": return String(localized: "VOICE", comment: "Timeline lane label (all caps): the voice-over track")
+        case "EFFECTS": return String(localized: "EFFECTS", comment: "Timeline lane label (all caps): zoom/tilt effects")
+        case "FOCUS": return String(localized: "FOCUS", comment: "Timeline lane label (all caps): blur/highlight regions")
+        case "ANNOTATE": return String(localized: "ANNOTATE", comment: "Timeline lane label (all caps): annotations")
+        default: return key
+        }
+    }
+
+    /// What VoiceOver reads for a lane label ("Effects lane").
+    private static func laneAccessibilityLabel(_ key: String) -> String {
+        switch key {
+        case "VIDEO": return String(localized: "Video lane", comment: "VoiceOver label of the timeline's video lane")
+        case "VOICE": return String(localized: "Voice lane", comment: "VoiceOver label of the timeline's voice-over lane")
+        case "EFFECTS": return String(localized: "Effects lane", comment: "VoiceOver label of the timeline's effects lane")
+        case "FOCUS": return String(localized: "Focus lane", comment: "VoiceOver label of the timeline's focus lane")
+        case "ANNOTATE": return String(localized: "Annotate lane", comment: "VoiceOver label of the timeline's annotation lane")
+        default: return key.capitalized
         }
     }
 
@@ -535,13 +559,13 @@ final class StudioTimelineViewController: UIViewController {
             toolbar.heightAnchor.constraint(equalTo: toolbarScroll.frameLayoutGuide.heightAnchor),
             toolbar.widthAnchor.constraint(greaterThanOrEqualTo: toolbarScroll.frameLayoutGuide.widthAnchor, constant: -10),
         ])
-        let toStart = key("backward.end.fill", "Go to Start") { [weak self] in
+        let toStart = key("backward.end.fill", String(localized: "Go to Start", comment: "Timeline toolbar key: jump to the start")) { [weak self] in
             guard let self else { return }
             seekToSource(project.effectiveTrimStart)
         }
-        let play = key("play.fill", "Play") { [weak self] in self?.togglePlayback() }
+        let play = key("play.fill", String(localized: "Play", comment: "Timeline toolbar key: play/pause")) { [weak self] in self?.togglePlayback() }
         playButton = play
-        let toEnd = key("forward.end.fill", "Go to End") { [weak self] in
+        let toEnd = key("forward.end.fill", String(localized: "Go to End", comment: "Timeline toolbar key: jump to the end")) { [weak self] in
             guard let self else { return }
             seekToSource(max(project.effectiveTrimStart, project.effectiveTrimEnd - 0.01))
         }
@@ -569,45 +593,45 @@ final class StudioTimelineViewController: UIViewController {
         timecode.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8)
         // VoiceOver: one element, the playhead time in words.
         timecode.isAccessibilityElement = true
-        timecode.accessibilityLabel = "Playhead time"
+        timecode.accessibilityLabel = String(localized: "Playhead time", comment: "VoiceOver label of the timeline timecode")
         timecode.accessibilityTraits = .updatesFrequently
         toolbar.addArrangedSubview(timecode)
         let spacer = UIView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         toolbar.addArrangedSubview(spacer)
 
-        undoButton = key("arrow.uturn.backward", "Undo") { [weak self] in self?.timelineUndoManager.undo() }
-        redoButton = key("arrow.uturn.forward", "Redo") { [weak self] in self?.timelineUndoManager.redo() }
+        undoButton = key("arrow.uturn.backward", String(localized: "Undo", comment: "Timeline toolbar key: undo")) { [weak self] in self?.timelineUndoManager.undo() }
+        redoButton = key("arrow.uturn.forward", String(localized: "Redo", comment: "Timeline toolbar key: redo")) { [weak self] in self?.timelineUndoManager.redo() }
         for v in [undoButton!, redoButton!] { toolbar.addArrangedSubview(v) }
         toolbar.addArrangedSubview(separator())
-        deleteButton = key("trash", "Delete Selected") { [weak self] in _ = self?.deleteSelectedRegion() }
+        deleteButton = key("trash", String(localized: "Delete Selected", comment: "Timeline toolbar key: delete the selected block")) { [weak self] in _ = self?.deleteSelectedRegion() }
         // ⌘D's touch twin (the Mac duplicates from the keyboard only).
-        duplicateButton = key("clipboard", "Duplicate") { [weak self] in self?.duplicateSelectedRegion() }
+        duplicateButton = key("clipboard", String(localized: "Duplicate", comment: "Timeline toolbar key: duplicate the selected block")) { [weak self] in self?.duplicateSelectedRegion() }
         toolbar.addArrangedSubview(deleteButton!)
         toolbar.addArrangedSubview(duplicateButton!)
         toolbar.addArrangedSubview(separator())
-        let effects = menuKey("sparkles", "Effects") { [weak self] in self?.showEffectsMenu(from: $0) }
-        let focus = menuKey("scope", "Focus & Blur") { [weak self] in self?.showFocusMenu(from: $0) }
-        sliceButton = key("scissors", "Slice") { [weak self] in self?.sliceMode.toggle() }
-        let split = key("rectangle.split.2x1", "Split at Playhead") { [weak self] in self?.splitAtPlayhead() }
-        let annotate = menuKey("pencil.tip", "Add Annotation") { [weak self] in self?.showAnnotationMenu(from: $0) }
+        let effects = menuKey("sparkles", String(localized: "Effects", comment: "Timeline toolbar key: open the effects menu")) { [weak self] in self?.showEffectsMenu(from: $0) }
+        let focus = menuKey("scope", String(localized: "Focus & Blur", comment: "Timeline toolbar key: open the focus and blur menu")) { [weak self] in self?.showFocusMenu(from: $0) }
+        sliceButton = key("scissors", String(localized: "Slice", comment: "Timeline toolbar key: toggle slice mode (cut clips by tapping)")) { [weak self] in self?.sliceMode.toggle() }
+        let split = key("rectangle.split.2x1", String(localized: "Split at Playhead", comment: "Timeline toolbar key: split the clip at the playhead")) { [weak self] in self?.splitAtPlayhead() }
+        let annotate = menuKey("pencil.tip", String(localized: "Add Annotation", comment: "Timeline toolbar key: open the add-annotation menu")) { [weak self] in self?.showAnnotationMenu(from: $0) }
         effectsButton = effects
         focusButton = focus
         annotateButton = annotate
         for v in [effects, focus, sliceButton!, split, annotate] { toolbar.addArrangedSubview(v) }
         toolbar.addArrangedSubview(separator())
-        voiceButton = key("mic.fill", "Record Voice Over") { [weak self] in self?.onToggleVoiceOverRecording?() }
+        voiceButton = key("mic.fill", String(localized: "Record Voice Over", comment: "Timeline toolbar key: record a voice-over")) { [weak self] in self?.onToggleVoiceOverRecording?() }
         voiceButton?.isHidden = onToggleVoiceOverRecording == nil
         toolbar.addArrangedSubview(voiceButton!)
-        zoomOutButton = key("minus.magnifyingglass", "Zoom Out Timeline") { [weak self] in
+        zoomOutButton = key("minus.magnifyingglass", String(localized: "Zoom Out Timeline", comment: "Timeline toolbar key: zoom the timeline out")) { [weak self] in
             guard let self else { return }
             setTimelineScale(timelineScale / 1.5)
         }
-        zoomInButton = key("plus.magnifyingglass", "Zoom In Timeline") { [weak self] in
+        zoomInButton = key("plus.magnifyingglass", String(localized: "Zoom In Timeline", comment: "Timeline toolbar key: zoom the timeline in")) { [weak self] in
             guard let self else { return }
             setTimelineScale(timelineScale * 1.5)
         }
-        fitButton = key("arrow.down.right.and.arrow.up.left", "Fit Timeline") { [weak self] in self?.setTimelineScale(1) }
+        fitButton = key("arrow.down.right.and.arrow.up.left", String(localized: "Fit Timeline", comment: "Timeline toolbar key: fit the whole timeline")) { [weak self] in self?.setTimelineScale(1) }
         for v in [zoomOutButton!, zoomInButton!, fitButton!] { toolbar.addArrangedSubview(v) }
     }
 
@@ -703,7 +727,8 @@ final class StudioTimelineViewController: UIViewController {
         timecodeTotal.isHidden = hidesTime
         timecodeCurrent.text = visibleCurrentTime.formattedTimecode
         timecodeTotal.text = visibleDuration.formattedTimecode
-        timecodeCurrent.superview?.accessibilityValue = "\(CCAccessibility.spokenTime(visibleCurrentTime)) of \(CCAccessibility.spokenTime(visibleDuration))"
+        let spokenCurrent = CCAccessibility.spokenTime(visibleCurrentTime), spokenDuration = CCAccessibility.spokenTime(visibleDuration)
+        timecodeCurrent.superview?.accessibilityValue = String(localized: "\(spokenCurrent) of \(spokenDuration)", comment: "VoiceOver value of the timecode: current time of total duration")
         setEnabled(deleteButton, hasDeletableSelection)
         // What `duplicateSelectedRegion` can copy: EFFECTS blocks, blur,
         // highlight and speed regions.
@@ -737,39 +762,39 @@ final class StudioTimelineViewController: UIViewController {
     }
 
     func showAnnotationMenu(from source: UIView?) {
-        let sheet = CCActionSheet(title: "Add Annotation")
-        sheet.addAction("Text Label", symbol: "text.bubble") { [weak self] in self?.addForInlineEditing(.text) }
-        sheet.addAction("Arrow", symbol: "arrow.up.right") { [weak self] in self?.addAnnotation(type: .arrow) }
-        sheet.addAction("Callout", symbol: "pencil.tip") { [weak self] in self?.addForInlineEditing(.callout) }
-        sheet.addAction("Drawing", symbol: "pencil.and.scribble") { [weak self] in self?.addAnnotation(type: .drawing) }
-        sheet.addAction("Rectangle", symbol: "rectangle") { [weak self] in self?.addAnnotation(type: .rectangle) }
-        sheet.addAction("Ellipse", symbol: "oval") { [weak self] in self?.addAnnotation(type: .ellipse) }
-        sheet.addAction("Tap Indicator", symbol: "hand.tap") { [weak self] in self?.addAnnotation(type: .tap) }
+        let sheet = CCActionSheet(title: String(localized: "Add Annotation", comment: "Title of the add-annotation menu"))
+        sheet.addAction(String(localized: "Text Label", comment: "Add-annotation menu: text label"), symbol: "text.bubble") { [weak self] in self?.addForInlineEditing(.text) }
+        sheet.addAction(String(localized: "Arrow", comment: "Add-annotation menu: arrow"), symbol: "arrow.up.right") { [weak self] in self?.addAnnotation(type: .arrow) }
+        sheet.addAction(String(localized: "Callout", comment: "Add-annotation menu: callout bubble"), symbol: "pencil.tip") { [weak self] in self?.addForInlineEditing(.callout) }
+        sheet.addAction(String(localized: "Drawing", comment: "Add-annotation menu: freehand drawing"), symbol: "pencil.and.scribble") { [weak self] in self?.addAnnotation(type: .drawing) }
+        sheet.addAction(String(localized: "Rectangle", comment: "Add-annotation menu: rectangle shape"), symbol: "rectangle") { [weak self] in self?.addAnnotation(type: .rectangle) }
+        sheet.addAction(String(localized: "Ellipse", comment: "Add-annotation menu: ellipse shape"), symbol: "oval") { [weak self] in self?.addAnnotation(type: .ellipse) }
+        sheet.addAction(String(localized: "Tap Indicator", comment: "Add-annotation menu: tap indicator"), symbol: "hand.tap") { [weak self] in self?.addAnnotation(type: .tap) }
         present(sheet, from: source)
     }
 
     func showEffectsMenu(from source: UIView?) {
-        let sheet = CCActionSheet(title: "Effects")
+        let sheet = CCActionSheet(title: String(localized: "Effects", comment: "Title of the effects menu"))
         if project.isImageCapture {
-            sheet.addAction("Motion", symbol: "wand.and.stars") { [weak self] in self?.runStillMotion() }
+            sheet.addAction(String(localized: "Motion", comment: "Effects menu: add motion to a still image"), symbol: "wand.and.stars") { [weak self] in self?.runStillMotion() }
         }
         if project.cursorDataURL != nil {
-            sheet.addAction("Auto Zoom", symbol: "sparkle.magnifyingglass") { [weak self] in self?.autoZoom() }
+            sheet.addAction(String(localized: "Auto Zoom", comment: "Effects menu: generate zooms automatically from clicks"), symbol: "sparkle.magnifyingglass") { [weak self] in self?.autoZoom() }
         }
-        sheet.addAction("Zoom In", symbol: "plus.magnifyingglass") { [weak self] in self?.addZoomRegion() }
-        sheet.addAction("Showcase", symbol: "sparkles.rectangle.stack") { [weak self] in self?.addShowcaseBlock() }
-        sheet.addAction("Scale Down", symbol: "arrow.down.right.and.arrow.up.left") { [weak self] in self?.addScaleDownBlock() }
-        sheet.addAction("Tilt", symbol: "rotate.3d") { [weak self] in self?.addTiltRegion() }
-        sheet.addAction("Slide", symbol: "arrow.up.to.line") { [weak self] in self?.enableIntroSlide() }
-        sheet.addAction("Curtain Unveil", symbol: "book.pages") { [weak self] in self?.enableCurtainUnveil() }
+        sheet.addAction(String(localized: "Zoom In", comment: "Effects menu: add a zoom-in block"), symbol: "plus.magnifyingglass") { [weak self] in self?.addZoomRegion() }
+        sheet.addAction(String(localized: "Showcase", comment: "Effects menu: add a showcase effect block"), symbol: "sparkles.rectangle.stack") { [weak self] in self?.addShowcaseBlock() }
+        sheet.addAction(String(localized: "Scale Down", comment: "Effects menu: add a scale-down effect block"), symbol: "arrow.down.right.and.arrow.up.left") { [weak self] in self?.addScaleDownBlock() }
+        sheet.addAction(String(localized: "Tilt", comment: "Effects menu: add a 3D tilt block"), symbol: "rotate.3d") { [weak self] in self?.addTiltRegion() }
+        sheet.addAction(String(localized: "Slide", comment: "Effects menu: add an intro slide"), symbol: "arrow.up.to.line") { [weak self] in self?.enableIntroSlide() }
+        sheet.addAction(String(localized: "Curtain Unveil", comment: "Effects menu: add a curtain-unveil intro"), symbol: "book.pages") { [weak self] in self?.enableCurtainUnveil() }
         if project.cameraVideoURL != nil {
-            sheet.addAction("Camera Full Screen", symbol: "person.crop.rectangle") { [weak self] in
+            sheet.addAction(String(localized: "Camera Full Screen", comment: "Effects menu: show only the camera for a region"), symbol: "person.crop.rectangle") { [weak self] in
                 self?.addCameraLayoutRegion(mode: .cameraOnly)
             }
-            sheet.addAction("Side by Side", symbol: "rectangle.split.2x1") { [weak self] in
+            sheet.addAction(String(localized: "Side by Side", comment: "Effects menu: camera and screen side by side"), symbol: "rectangle.split.2x1") { [weak self] in
                 self?.addCameraLayoutRegion(mode: .sideBySide)
             }
-            sheet.addAction("Side by Side, Camera Left", symbol: "rectangle.split.2x1") { [weak self] in
+            sheet.addAction(String(localized: "Side by Side, Camera Left", comment: "Effects menu: camera and screen side by side, camera on the left"), symbol: "rectangle.split.2x1") { [weak self] in
                 self?.addCameraLayoutRegion(mode: .sideBySide, side: .leading)
             }
             sheet.addAction(CameraSplitStyle.full.displayName, symbol: "rectangle.split.2x1.fill") { [weak self] in
@@ -781,7 +806,7 @@ final class StudioTimelineViewController: UIViewController {
             sheet.addAction(CameraBubbleLook.popOut.displayName, symbol: "person.crop.square") { [weak self] in
                 self?.addCameraLayoutRegion(mode: .bubble, look: .popOut)
             }
-            sheet.addAction("Hide Camera", symbol: "person.crop.rectangle.badge.xmark") { [weak self] in
+            sheet.addAction(String(localized: "Hide Camera", comment: "Effects menu: hide the camera for a region"), symbol: "person.crop.rectangle.badge.xmark") { [weak self] in
                 self?.addCameraLayoutRegion(mode: .screenOnly)
             }
         }
@@ -789,17 +814,17 @@ final class StudioTimelineViewController: UIViewController {
     }
 
     func showFocusMenu(from source: UIView?) {
-        let sheet = CCActionSheet(title: "Focus & Blur")
-        sheet.addAction("Add Blur", symbol: "eye.slash") { [weak self] in
+        let sheet = CCActionSheet(title: String(localized: "Focus & Blur", comment: "Title of the focus and blur menu"))
+        sheet.addAction(String(localized: "Add Blur", comment: "Focus menu: add a blur region"), symbol: "eye.slash") { [weak self] in
             guard let self else { return }
             if let arm = onArmBlurDraw { arm(.blur) } else { addBlurRegion() }
         }
-        sheet.addAction("Add Pixelate", symbol: "squareshape.split.3x3") { [weak self] in
+        sheet.addAction(String(localized: "Add Pixelate", comment: "Focus menu: add a pixelate region"), symbol: "squareshape.split.3x3") { [weak self] in
             guard let self else { return }
             if let arm = onArmBlurDraw { arm(.pixelate) } else { addBlurRegion() }
         }
-        sheet.addAction("Add Highlight", symbol: "highlighter") { [weak self] in self?.addHighlightRegion() }
-        sheet.addAction("Add Depth Focus", symbol: "camera.aperture") { [weak self] in self?.addDepthFocusRegion() }
+        sheet.addAction(String(localized: "Add Highlight", comment: "Focus menu: add a highlight region"), symbol: "highlighter") { [weak self] in self?.addHighlightRegion() }
+        sheet.addAction(String(localized: "Add Depth Focus", comment: "Focus menu: add a depth-of-field focus region"), symbol: "camera.aperture") { [weak self] in self?.addDepthFocusRegion() }
         present(sheet, from: source)
     }
 
@@ -895,19 +920,19 @@ final class StudioTimelineViewController: UIViewController {
 
     override var keyCommands: [UIKeyCommand]? {
         [
-            UIKeyCommand(title: "Duplicate", action: #selector(keyDuplicate), input: "d", modifierFlags: .command),
-            UIKeyCommand(title: "Split at Playhead", action: #selector(keySplit), input: "b", modifierFlags: .command),
-            UIKeyCommand(title: "Delete", action: #selector(keyDelete), input: "\u{8}"),
-            UIKeyCommand(title: "Delete", action: #selector(keyDelete), input: UIKeyCommand.inputDelete),
-            UIKeyCommand(title: "Undo", action: #selector(keyUndo), input: "z", modifierFlags: .command),
-            UIKeyCommand(title: "Redo", action: #selector(keyRedo), input: "z", modifierFlags: [.command, .shift]),
-            UIKeyCommand(title: "Play", action: #selector(keyPlay), input: " "),
-            UIKeyCommand(title: "Back", action: #selector(keyLeft), input: UIKeyCommand.inputLeftArrow),
-            UIKeyCommand(title: "Forward", action: #selector(keyRight), input: UIKeyCommand.inputRightArrow),
+            UIKeyCommand(title: String(localized: "Duplicate", comment: "Keyboard shortcut: duplicate the selected block"), action: #selector(keyDuplicate), input: "d", modifierFlags: .command),
+            UIKeyCommand(title: String(localized: "Split at Playhead", comment: "Keyboard shortcut: split at the playhead"), action: #selector(keySplit), input: "b", modifierFlags: .command),
+            UIKeyCommand(title: String(localized: "Delete", comment: "Keyboard shortcut: delete the selected block"), action: #selector(keyDelete), input: "\u{8}"),
+            UIKeyCommand(title: String(localized: "Delete", comment: "Keyboard shortcut: delete the selected block"), action: #selector(keyDelete), input: UIKeyCommand.inputDelete),
+            UIKeyCommand(title: String(localized: "Undo", comment: "Keyboard shortcut: undo"), action: #selector(keyUndo), input: "z", modifierFlags: .command),
+            UIKeyCommand(title: String(localized: "Redo", comment: "Keyboard shortcut: redo"), action: #selector(keyRedo), input: "z", modifierFlags: [.command, .shift]),
+            UIKeyCommand(title: String(localized: "Play", comment: "Keyboard shortcut: play/pause"), action: #selector(keyPlay), input: " "),
+            UIKeyCommand(title: String(localized: "Back", comment: "Keyboard shortcut: step the playhead back one frame"), action: #selector(keyLeft), input: UIKeyCommand.inputLeftArrow),
+            UIKeyCommand(title: String(localized: "Forward", comment: "Keyboard shortcut: step the playhead forward one frame"), action: #selector(keyRight), input: UIKeyCommand.inputRightArrow),
             // The zoom keys' twins (pinch stays the touch way).
-            UIKeyCommand(title: "Zoom In Timeline", action: #selector(keyZoomIn), input: "=", modifierFlags: .command),
-            UIKeyCommand(title: "Zoom Out Timeline", action: #selector(keyZoomOut), input: "-", modifierFlags: .command),
-            UIKeyCommand(title: "Fit Timeline", action: #selector(keyZoomFit), input: "0", modifierFlags: .command),
+            UIKeyCommand(title: String(localized: "Zoom In Timeline", comment: "Keyboard shortcut: zoom the timeline in"), action: #selector(keyZoomIn), input: "=", modifierFlags: .command),
+            UIKeyCommand(title: String(localized: "Zoom Out Timeline", comment: "Keyboard shortcut: zoom the timeline out"), action: #selector(keyZoomOut), input: "-", modifierFlags: .command),
+            UIKeyCommand(title: String(localized: "Fit Timeline", comment: "Keyboard shortcut: fit the whole timeline"), action: #selector(keyZoomFit), input: "0", modifierFlags: .command),
         ]
     }
 

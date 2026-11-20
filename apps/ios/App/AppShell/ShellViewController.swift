@@ -22,9 +22,9 @@ final class ShellViewController: UIViewController, UINavigationControllerDelegat
     private lazy var accountNav = HiddenBarNavigationController(rootViewController: account)
 
     private static let items = [
-        CCNavItem(title: "Library", symbol: "grid"),
-        CCNavItem(title: "Capture", symbol: "record"),
-        CCNavItem(title: "Account", symbol: "person-circle"),
+        CCNavItem(title: String(localized: "Library", comment: "Tab name"), symbol: "grid"),
+        CCNavItem(title: String(localized: "Capture", comment: "Tab name"), symbol: "record"),
+        CCNavItem(title: String(localized: "Account", comment: "Tab name"), symbol: "person-circle"),
     ]
 
     private let content = UIView()

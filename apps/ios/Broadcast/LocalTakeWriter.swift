@@ -148,7 +148,7 @@ nonisolated final class LocalTakeWriter: @unchecked Sendable {
         } else {
             TakeInbox.update(take.id) {
                 $0.state = .failed
-                $0.error = self.writer.error?.localizedDescription ?? "The recording couldn't be saved."
+                $0.error = self.writer.error?.localizedDescription ?? String(localized: "The recording couldn't be saved.")
             }
         }
     }

@@ -19,25 +19,25 @@ final class ShareDetailViewController: DetailPageViewController {
         return label
     }()
     private let metaLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)
-    private let privacyBadge = CCBadge("Unlisted", symbol: "link")
+    private let privacyBadge = CCBadge(String(localized: "Unlisted", comment: "Share privacy badge (initial value)"), symbol: "link")
     private let linkLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground)
     private let privacyExplain = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)
-    private let openProjectButton = CCButton(title: "Open the project", symbol: "film", style: .ghost, size: .sm)
-    private let commentsHeader = ccLabel("Comments", font: CCFont.labelSemibold, color: CCTheme.color.mutedForeground)
+    private let openProjectButton = CCButton(title: String(localized: "Open the project", comment: "Button: open the project this share came from"), symbol: "film", style: .ghost, size: .sm)
+    private let commentsHeader = ccLabel(String(localized: "Comments", comment: "Section heading above a share's comments"), font: CCFont.labelSemibold, color: CCTheme.color.mutedForeground)
     private let commentsStack = UIStackView()
     private let commentsSpinner = CCSpinner(diameter: 20)
     private let composer = UIView()
-    private let composerField = CCField(placeholder: "Add a comment…")
-    private let timeChip = CCBadge("at 0:00", symbol: "timer")
-    private let postButton = CCButton(title: "Post", style: .primary, size: .regular)
-    private let offNote = CCCallout(message: "Comments are off. Viewers of this link can't read or add comments.", variant: .info)
-    private let commentsToggle = CCToggleRow(title: "Allow comments", detail: ShareDetailViewController.commentsDetail)
+    private let composerField = CCField(placeholder: String(localized: "Add a comment…"))
+    private let timeChip = CCBadge(String(localized: "at \("0:00")", comment: "Comment composer time chip; the value is a timestamp"), symbol: "timer")
+    private let postButton = CCButton(title: String(localized: "Post", comment: "Button: post the comment"), style: .primary, size: .regular)
+    private let offNote = CCCallout(message: String(localized: "Comments are off. Viewers of this link can't read or add comments."), variant: .info)
+    private let commentsToggle = CCToggleRow(title: String(localized: "Allow comments", comment: "Toggle on the share page"), detail: ShareDetailViewController.commentsDetail)
     /// The plan includes viewer comments (GET /api/me); nil until known.
     private(set) var planAllowsComments: Bool?
-    private var planName = "current"
+    private var planName: String?
     /// A switch the API hasn't answered yet (the toggle shows it meanwhile).
     private var pendingComments: Bool?
-    static let commentsDetail = "Viewers can leave timestamped comments and drawings."
+    static let commentsDetail = String(localized: "Viewers can leave timestamped comments and drawings.")
 
     private var comments: [VideoComment] = []
     private var observation: SurfaceObservation?
@@ -47,7 +47,7 @@ final class ShareDetailViewController: DetailPageViewController {
     init(videoID: String, coordinator: LibraryCoordinator?) {
         self.videoID = videoID
         self.coordinator = coordinator
-        let name = LibraryStore.shared.share(videoID).map { ($0.fileName as NSString).deletingPathExtension } ?? "Shared video"
+        let name = LibraryStore.shared.share(videoID).map { ($0.fileName as NSString).deletingPathExtension } ?? String(localized: "Shared video", comment: "Title for a share whose file name is unknown")
         super.init(title: name)
     }
 
@@ -56,7 +56,7 @@ final class ShareDetailViewController: DetailPageViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         let shareButton = CCButton(symbol: "share", style: .ghost, size: .regular, radius: .full)
-        shareButton.accessibilityLabelOverride = "Share link"
+        shareButton.accessibilityLabelOverride = String(localized: "Share link", comment: "VoiceOver: share button on the share page")
         shareButton.onTap = { [weak self, weak shareButton] in
             guard let self, let shareButton, let share = LibraryStore.shared.share(self.videoID) else { return }
             ProjectActions.shareSheet(share, from: self, source: shareButton)
@@ -107,14 +107,14 @@ final class ShareDetailViewController: DetailPageViewController {
         buildComposer()
 
         playerCard.player.onTimeChange = { [weak self] time in
-            self?.timeChip.text = "at \(Format.duration(time))"
+            self?.timeChip.text = String(localized: "at \(Format.duration(time))", comment: "Comment composer time chip; the value is a timestamp")
         }
         playerCard.player.onFailure = { [weak self] error in
             guard let self else { return }
             if error == nil {
                 self.loadPlayer(startAt: self.playerCard.player.currentTime, autoplay: true)
             } else {
-                self.playerCard.player.showError("Couldn't play this video. Check your connection and try again.")
+                self.playerCard.player.showError(String(localized: "Couldn't play this video. Check your connection and try again."))
             }
         }
         observation = SurfaceObservation { [weak self] in self?.render() }
@@ -151,8 +151,8 @@ final class ShareDetailViewController: DetailPageViewController {
                 LibraryStore.shared.setCommentsEnabled(self.videoID, stored)
                 self.render()
                 if stored { self.loadComments() }
-                AppToaster.shared.show(title: stored ? "Comments on" : "Comments off",
-                                       message: stored ? "Anyone with the link can comment." : "Viewers can't read or add comments.",
+                AppToaster.shared.show(title: stored ? String(localized: "Comments on", comment: "Toast after enabling comments") : String(localized: "Comments off", comment: "Toast after disabling comments"),
+                                       message: stored ? String(localized: "Anyone with the link can comment.") : String(localized: "Viewers can't read or add comments."),
                                        variant: .success)
             } catch {
                 #if DEBUG
@@ -166,7 +166,7 @@ final class ShareDetailViewController: DetailPageViewController {
                 self.commentsToggle.setOn(before, animated: true)
                 self.render()
                 CCHaptics.warning()
-                AppToaster.shared.show(title: on ? "Couldn't turn comments on" : "Couldn't turn comments off",
+                AppToaster.shared.show(title: on ? String(localized: "Couldn't turn comments on") : String(localized: "Couldn't turn comments off"),
                                        message: error.localizedDescription, variant: .destructive)
             }
         }
@@ -182,12 +182,12 @@ final class ShareDetailViewController: DetailPageViewController {
         linkLabel.lineBreakMode = .byTruncatingMiddle
         // Accessibility text sizes: the whole link, wrapped.
         linkLabel.ccWrapsAtAccessibilitySizes()
-        let copy = CCButton(title: "Copy link", symbol: "link", style: .secondary, size: .regular)
+        let copy = CCButton(title: String(localized: "Copy link", comment: "Button: copy the share link"), symbol: "link", style: .secondary, size: .regular)
         copy.onTap = { [weak self] in
             guard let self, let share = LibraryStore.shared.share(self.videoID) else { return }
             ProjectActions.copyLink(share)
         }
-        let shareButton = CCButton(title: "Share…", symbol: "share", style: .secondary, size: .regular)
+        let shareButton = CCButton(title: String(localized: "Share…", comment: "Button: open the system share sheet for the link"), symbol: "share", style: .secondary, size: .regular)
         shareButton.onTap = { [weak self, weak shareButton] in
             guard let self, let shareButton, let share = LibraryStore.shared.share(self.videoID) else { return }
             ProjectActions.shareSheet(share, from: self, source: shareButton)
@@ -223,10 +223,10 @@ final class ShareDetailViewController: DetailPageViewController {
         let rule = CCDivider()
         composerField.returnKeyType = .send
         composerField.onReturn = { [weak self] _ in self?.post() }
-        composerField.accessibilityLabel = "Comment"
+        composerField.accessibilityLabel = String(localized: "Comment", comment: "VoiceOver label of the comment text field")
         postButton.onTap = { [weak self] in self?.post() }
         postButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        timeChip.accessibilityLabel = "Posts at the current playback time"
+        timeChip.accessibilityLabel = String(localized: "Posts at the current playback time")
         let fieldRow = UIStackView(arrangedSubviews: [composerField, postButton])
         fieldRow.spacing = CCSpace.sm
         fieldRow.alignment = .center
@@ -270,7 +270,7 @@ final class ShareDetailViewController: DetailPageViewController {
         let name = (share.fileName as NSString).deletingPathExtension
         header.title = name
         titleLabel.text = name
-        var meta = ["Shared \(Format.relative(share.createdAt))"]
+        var meta = [String(localized: "Shared \(Format.relative(share.createdAt))", comment: "Share page meta line; the value is a relative date like 2 days ago")]
         if let duration = share.durationSeconds { meta.append(Format.duration(duration)) }
         if let bytes = share.fileSizeBytes { meta.append(Format.bytes(bytes)) }
         metaLabel.text = meta.joined(separator: " · ")
@@ -284,7 +284,8 @@ final class ShareDetailViewController: DetailPageViewController {
         // Off can always be switched; on needs a plan with comments.
         let blocked = planAllowsComments == false && !enabled
         commentsToggle.isEnabled = !blocked && pendingComments == nil
-        let reason = "Your \(planName) plan doesn't include viewer comments. Upgrade at app.capturecat.so/billing to turn them on."
+        let reason = planName.map { String(localized: "Your \($0) plan doesn't include viewer comments. Upgrade at app.capturecat.so/billing to turn them on.", comment: "The value is the plan name, e.g. Free") }
+            ?? String(localized: "Your current plan doesn't include viewer comments. Upgrade at app.capturecat.so/billing to turn them on.")
         commentsToggle.accessibilityHint = blocked ? reason : Self.commentsDetail
         commentsToggle.setDetail(blocked ? reason : Self.commentsDetail)
         offNote.isHidden = enabled
@@ -299,7 +300,7 @@ final class ShareDetailViewController: DetailPageViewController {
         if !didLoadPlayer {
             didLoadPlayer = true
             if let removed = share.removed {
-                playerCard.player.showError("CaptureCat removed this video" + (removed.reason.map { ": \($0)" } ?? "."))
+                playerCard.player.showError(removed.reason.map { String(localized: "CaptureCat removed this video: \($0)", comment: "The value is the moderation reason from the server") } ?? String(localized: "CaptureCat removed this video."))
             } else {
                 loadPlayer(startAt: 0, autoplay: false)
             }
@@ -328,13 +329,13 @@ final class ShareDetailViewController: DetailPageViewController {
 
     private func renderComments(animatedNewID: String?, error: String? = nil) {
         commentsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        commentsHeader.text = comments.isEmpty ? "Comments" : "Comments · \(comments.count)"
+        commentsHeader.text = comments.isEmpty ? String(localized: "Comments", comment: "Section heading above a share's comments") : String(localized: "Comments · \(comments.count)", comment: "Section heading with the comment count")
         if let error {
-            commentsStack.addArrangedSubview(ccLabel("Couldn't load comments. \(error)", font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0))
+            commentsStack.addArrangedSubview(ccLabel(String(localized: "Couldn't load comments. \(error)", comment: "The value is the error message"), font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0))
             return
         }
         if comments.isEmpty {
-            let empty = ccLabel("No comments yet. Add one at any moment of the video — it's pinned to that time.",
+            let empty = ccLabel(String(localized: "No comments yet. Add one at any moment of the video — it's pinned to that time."),
                                 font: CCFont.label, color: CCTheme.color.mutedForeground, lines: 0)
             commentsStack.addArrangedSubview(empty)
             return
@@ -390,9 +391,9 @@ final class ShareDetailViewController: DetailPageViewController {
                 self.composerField.resignFirstResponder()
                 self.renderComments(animatedNewID: comment.commentId)
                 CCHaptics.success()
-                AppToaster.shared.show(title: "Comment posted", message: "At \(Format.duration(time))", variant: .success)
+                AppToaster.shared.show(title: String(localized: "Comment posted"), message: String(localized: "At \(Format.duration(time))", comment: "Toast detail after posting a comment; the value is a timestamp"), variant: .success)
             } catch {
-                AppToaster.shared.show(title: "Couldn't post", message: error.localizedDescription, variant: .destructive)
+                AppToaster.shared.show(title: String(localized: "Couldn't post", comment: "Toast when posting a comment fails"), message: error.localizedDescription, variant: .destructive)
             }
         }
     }
@@ -420,7 +421,7 @@ final class CommentRowView: UIView {
         let time = ccLabel(Format.relative(comment.createdAt), font: CCFont.caption, color: CCTheme.color.mutedForeground)
         time.setContentCompressionResistancePriority(.required, for: .horizontal)
         var topItems: [UIView] = [author]
-        if comment.isOwner { topItems.append(CCBadge("Owner", variant: .outline)) }
+        if comment.isOwner { topItems.append(CCBadge(String(localized: "Owner", comment: "Badge on a comment written by the video's owner"), variant: .outline)) }
         topItems.append(time)
         topItems.append(UIView())
         let top = UIStackView(arrangedSubviews: topItems)
@@ -433,7 +434,7 @@ final class CommentRowView: UIView {
         textStack.alignment = .fill
         if let videoTime = comment.videoTime {
             let chip = CCButton(title: Format.duration(videoTime), symbol: "play-fill", style: .secondary, size: .regular, radius: .full)
-            chip.accessibilityLabelOverride = "Play from \(Format.spokenDuration(videoTime))"
+            chip.accessibilityLabelOverride = String(localized: "Play from \(Format.spokenDuration(videoTime))", comment: "VoiceOver: comment timestamp chip; the value is a spoken time")
             chip.onTap = { [weak self] in self?.onSeek?(videoTime) }
             let chipRow = UIStackView(arrangedSubviews: [chip, UIView()])
             textStack.insertArrangedSubview(chipRow, at: 1)
@@ -466,8 +467,22 @@ final class CommentRowView: UIView {
             row.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
         isAccessibilityElement = false
-        let spokenTime = comment.videoTime.map { ", at \(Format.spokenDuration($0))" } ?? ""
-        author.accessibilityLabel = "\(reply ? "Reply from" : "Comment from") \(comment.authorName)\(comment.isOwner ? ", owner" : ""), \(Format.relative(comment.createdAt))\(spokenTime)"
+        let authorName = comment.authorName
+        let when = Format.relative(comment.createdAt)
+        if reply {
+            author.accessibilityLabel = comment.isOwner
+                ? String(localized: "Reply from \(authorName), owner, \(when)", comment: "VoiceOver: reply header by the video owner; values are the author and a relative date")
+                : String(localized: "Reply from \(authorName), \(when)", comment: "VoiceOver: reply header; values are the author and a relative date")
+        } else if let videoTime = comment.videoTime {
+            let spokenTime = Format.spokenDuration(videoTime)
+            author.accessibilityLabel = comment.isOwner
+                ? String(localized: "Comment from \(authorName), owner, \(when), at \(spokenTime)", comment: "VoiceOver: comment header by the video owner; values are the author, a relative date and a spoken video time")
+                : String(localized: "Comment from \(authorName), \(when), at \(spokenTime)", comment: "VoiceOver: comment header; values are the author, a relative date and a spoken video time")
+        } else {
+            author.accessibilityLabel = comment.isOwner
+                ? String(localized: "Comment from \(authorName), owner, \(when)", comment: "VoiceOver: comment header by the video owner; values are the author and a relative date")
+                : String(localized: "Comment from \(authorName), \(when)", comment: "VoiceOver: comment header; values are the author and a relative date")
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }

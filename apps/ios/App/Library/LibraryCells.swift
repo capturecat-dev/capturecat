@@ -45,7 +45,8 @@ final class LibraryCardCell: UICollectionViewCell {
         super.init(frame: frame)
         // Accessibility text sizes: name and details wrap instead of truncating.
         titleLabel.ccWrapsAtAccessibilitySizes()
-        metaLabel.ccWrapsAtAccessibilitySizes()
+        // Longer languages ("6:02 · há 2 dias · compartilhado") take a second line.
+        metaLabel.ccWrapsAtAccessibilitySizes(otherwise: 2)
         surface.isUserInteractionEnabled = false
         surface.alpha = 0
         contentView.addSubview(surface)
@@ -155,9 +156,11 @@ final class LibraryCardCell: UICollectionViewCell {
 
     /// The Mac's relative time ("1 wk ago").
     static func shortRelative(_ date: Date) -> String {
-        if abs(date.timeIntervalSinceNow) < 60 { return "just now" }
+        if abs(date.timeIntervalSinceNow) < 60 { return String(localized: "just now", comment: "Short relative time on a library card, lowercase (less than a minute ago)") }
         let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
+        // French's abbreviated form is the bare "-3 h"; its short form reads
+        // "il y a 3 h" (every other catalog language words both the same).
+        formatter.unitsStyle = Locale.current.language.languageCode == .french ? .short : .abbreviated
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
@@ -175,13 +178,13 @@ final class LibraryCardCell: UICollectionViewCell {
             var meta: [String] = []
             if !still, let duration = facts?.trimmedDuration ?? facts?.duration { meta.append(Format.duration(duration)) }
             meta.append(Self.shortRelative(project.updatedAt))
-            if shared { meta.append("shared") }
-            if !project.isOwner { meta.append("team") }
+            if shared { meta.append(String(localized: "shared", comment: "Library card metadata: the project has a share link (lowercase, joined with ·)")) }
+            if !project.isOwner { meta.append(String(localized: "team", comment: "Library card metadata: a team member's project (lowercase, joined with ·)")) }
             metaLabel.text = meta.joined(separator: " · ")
             // One marker per card (narrow cards can't fit two): a screenshot
             // says so; otherwise an iPhone take says that.
             if still {
-                setMarkers([("Screenshot", "photo")])
+                setMarkers([(String(localized: "Screenshot", comment: "Badge on a library card thumbnail"), "photo")])
             } else if facts?.sourceKind == "device" {
                 setMarkers([("iPhone", "iphone")])
             } else {
@@ -189,14 +192,14 @@ final class LibraryCardCell: UICollectionViewCell {
             }
             placeholder.iconName = still ? "photo" : "film"
             setThumbnail(thumbs.image(for: project))
-            var spoken = [project.name, still ? "Screenshot" : "Recording"]
-            if facts?.sourceKind == "device" { spoken.append("from iPhone") }
+            var spoken = [project.name, still ? String(localized: "Screenshot", comment: "VoiceOver: kind of library item") : String(localized: "Recording", comment: "VoiceOver: kind of library item")]
+            if facts?.sourceKind == "device" { spoken.append(String(localized: "from iPhone", comment: "VoiceOver: library item was recorded on an iPhone")) }
             if !still, let duration = facts?.trimmedDuration ?? facts?.duration { spoken.append(Format.spokenDuration(duration)) }
-            spoken.append("edited \(Format.relative(project.updatedAt))")
-            if shared { spoken.append("shared") }
-            if !project.isOwner { spoken.append("team project") }
+            spoken.append(String(localized: "edited \(Format.relative(project.updatedAt))", comment: "VoiceOver: argument is a relative time like '2 hours ago'"))
+            if shared { spoken.append(String(localized: "shared", comment: "VoiceOver: the project has a share link")) }
+            if !project.isOwner { spoken.append(String(localized: "team project", comment: "VoiceOver: a team member's project")) }
             accessibilityLabel = spoken.joined(separator: ", ")
-            accessibilityHint = "Opens the recording. Touch and hold for more actions."
+            accessibilityHint = String(localized: "Opens the recording. Touch and hold for more actions.")
         case .share(let id):
             guard let share = store.share(id) else { return }
             let privacy = SharePrivacy(video: share, extras: store.shareExtras[share.videoId])
@@ -204,14 +207,14 @@ final class LibraryCardCell: UICollectionViewCell {
             var meta: [String] = []
             if let duration = share.durationSeconds { meta.append(Format.duration(duration)) }
             meta.append(Self.shortRelative(share.createdAt))
-            meta.append(share.removed != nil ? "removed" : privacy.title.lowercased())
+            meta.append(share.removed != nil ? String(localized: "removed", comment: "Library card metadata: the shared video was removed (lowercase, joined with ·)") : privacy.title.lowercased())
             metaLabel.text = meta.joined(separator: " · ")
-            setMarkers([("Shared", "link")])
+            setMarkers([(String(localized: "Shared", comment: "Badge on a library card thumbnail: a shared video link"), "link")])
             placeholder.iconName = "film"
             setThumbnail(thumbs.image(for: share))
-            accessibilityLabel = [titleLabel.text ?? "", "Shared video", privacy.title, Format.spokenDuration(share.durationSeconds),
-                                  "shared \(Format.relative(share.createdAt))"].joined(separator: ", ")
-            accessibilityHint = "Opens the shared video and its comments."
+            accessibilityLabel = [titleLabel.text ?? "", String(localized: "Shared video", comment: "VoiceOver: kind of library item"), privacy.title, Format.spokenDuration(share.durationSeconds),
+                                  String(localized: "shared \(Format.relative(share.createdAt))", comment: "VoiceOver: argument is a relative time like '2 hours ago'")].joined(separator: ", ")
+            accessibilityHint = String(localized: "Opens the shared video and its comments.")
         default:
             break
         }
@@ -292,7 +295,7 @@ final class InboxTakeView: CCCard {
     private let titleLabel = ccLabel("", font: CCFont.labelSemibold, color: CCTheme.color.foreground)
     private let statusLabel = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 2)
     private let progressBar = CCProgressBar()
-    private let retryButton = CCButton(title: "Retry", symbol: "sync", style: .secondary, size: .regular)
+    private let retryButton = CCButton(title: String(localized: "Retry", comment: "Button: retry a failed upload"), symbol: "sync", style: .secondary, size: .regular)
     private let discardButton = CCButton(symbol: "close", style: .ghost, size: .regular, radius: .full)
     /// Studio 5c: open the take in the editor (its upload then happens from there).
     private let editButton = CCButton(symbol: "scissors", style: .ghost, size: .regular, radius: .full)
@@ -302,7 +305,7 @@ final class InboxTakeView: CCCard {
 
     init() {
         super.init(radius: .lg)
-        discardButton.accessibilityLabelOverride = "Discard"
+        discardButton.accessibilityLabelOverride = String(localized: "Discard", comment: "Accessibility label: delete an un-uploaded recording")
         let text = UIStackView(arrangedSubviews: [titleLabel, statusLabel, progressBar])
         text.axis = .vertical
         text.spacing = 3
@@ -318,7 +321,7 @@ final class InboxTakeView: CCCard {
         row.ccStacksAtAccessibilitySizes()
         titleLabel.ccWrapsAtAccessibilitySizes()
         statusLabel.ccWrapsAtAccessibilitySizes(otherwise: 2)
-        progressBar.accessibilityLabel = "Upload progress"
+        progressBar.accessibilityLabel = String(localized: "Upload progress")
         addSubview(row)
         actions.setContentCompressionResistancePriority(.required, for: .horizontal)
         actions.setContentHuggingPriority(.required, for: .horizontal)
@@ -332,7 +335,7 @@ final class InboxTakeView: CCCard {
             guard let id = self?.takeID else { return }
             AppEnvironment.shared.inbox.retry(id)
         }
-        editButton.accessibilityLabelOverride = "Edit"
+        editButton.accessibilityLabelOverride = String(localized: "Edit", comment: "Accessibility label: open the recording in the editor")
         editButton.onTap = { [weak self] in
             guard let self, let id = self.takeID, let take = AppEnvironment.shared.inbox.takes.first(where: { $0.id == id }) else { return }
             var responder: UIResponder? = self
@@ -369,16 +372,19 @@ final class InboxTakeView: CCCard {
         var showsProgress = false
         switch take.state {
         case .recording:
-            status = "Recording…"
+            status = String(localized: "Recording…", comment: "Upload status: still recording")
         case .pending:
-            status = "Waiting to upload"
+            status = String(localized: "Waiting to upload")
         case .uploading:
             let overall = Self.overall(progress)
-            status = "\(progress?.message ?? "Uploading…") \(Int((overall * 100).rounded()))%"
+            let message = progress?.message ?? String(localized: "Uploading…", comment: "Upload status")
+            let percent = Int((overall * 100).rounded())
+            status = String(localized: "\(message) \(percent)%", comment: "Upload status line: first argument is the phase (e.g. Uploading…), second is the percentage")
             showsProgress = true
             progressBar.value = overall
         case .failed:
-            status = "Upload failed — \(take.error ?? "try again")"
+            let reason = take.error ?? String(localized: "try again", comment: "Fallback reason after 'Upload failed —' (lowercase)")
+            status = String(localized: "Upload failed — \(reason)", comment: "Upload status; argument is the error message")
             statusColor = CCTheme.color.destructive
         }
         if take.state == .pending, let progress {
@@ -387,7 +393,7 @@ final class InboxTakeView: CCCard {
             status = progress.message
         }
         if take.openedInStudio == true, take.state == .pending {
-            status = "In the editor — uploads with your edits"
+            status = String(localized: "In the editor — uploads with your edits")
         }
         statusLabel.text = status
         statusLabel.textColor = statusColor

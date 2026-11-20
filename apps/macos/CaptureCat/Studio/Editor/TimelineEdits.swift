@@ -68,12 +68,12 @@ enum TimelineEdits {
         switch annotation.type {
         case .text, .callout:
             let trimmed = annotation.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? "Text" : trimmed
-        case .arrow: return "Arrow"
-        case .drawing: return "Drawing"
-        case .rectangle: return "Rectangle"
-        case .ellipse: return "Ellipse"
-        case .tap: return "Tap"
+            return trimmed.isEmpty ? String(localized: "Text", comment: "Timeline ANNOTATE lane: block caption for an empty text annotation") : trimmed
+        case .arrow: return String(localized: "Arrow", comment: "Timeline ANNOTATE lane: block caption for an annotation type")
+        case .drawing: return String(localized: "Drawing", comment: "Timeline ANNOTATE lane: block caption for an annotation type")
+        case .rectangle: return String(localized: "Rectangle", comment: "Timeline ANNOTATE lane: block caption for an annotation type")
+        case .ellipse: return String(localized: "Ellipse", comment: "Timeline ANNOTATE lane: block caption for an annotation type")
+        case .tap: return String(localized: "Tap", comment: "Timeline ANNOTATE lane: block caption for an annotation type")
         }
     }
 }
@@ -157,7 +157,12 @@ extension TimelineEditing {
         let intro = after.introStart != before.introStart || after.introDuration != before.introDuration
         let resized = intro ? after.introDuration != before.introDuration
                             : after.curtainDuration != before.curtainDuration
-        let name = (resized ? "Resize " : "Move ") + (intro ? "Slide" : "Curtain Unveil")
+        let name = switch (resized, intro) {
+        case (true, true): String(localized: "Resize Slide", comment: "Undo action name")
+        case (false, true): String(localized: "Move Slide", comment: "Undo action name")
+        case (true, false): String(localized: "Resize Curtain Unveil", comment: "Undo action name")
+        case (false, false): String(localized: "Move Curtain Unveil", comment: "Undo action name")
+        }
         UndoStep.register(undoManager, target: project, name: name,
                           undo: { before.apply(to: $0.settings, intro: intro) },
                           redo: { after.apply(to: $0.settings, intro: intro) })
@@ -204,16 +209,16 @@ extension TimelineEditing {
     func commitFocusTimes(id: UUID, isHighlight: Bool, sourceStart: TimeInterval, sourceEnd: TimeInterval) {
         if isHighlight {
             commitSpan(id: id, in: \.highlightRegions, start: sourceStart, end: sourceEnd,
-                       startKey: \.startTime, endKey: \.endTime, name: "Move Highlight")
+                       startKey: \.startTime, endKey: \.endTime, name: String(localized: "Move Highlight", comment: "Undo action name"))
         } else if project.focusRegions.contains(where: { $0.id == id }) {
             commitSpan(id: id, in: \.focusRegions, start: sourceStart, end: sourceEnd,
-                       startKey: \.startTime, endKey: \.endTime, name: "Move Depth Focus")
+                       startKey: \.startTime, endKey: \.endTime, name: String(localized: "Move Depth Focus", comment: "Undo action name"))
         } else if project.cameraLayoutRegions.contains(where: { $0.id == id }) {
             commitSpan(id: id, in: \.cameraLayoutRegions, start: sourceStart, end: sourceEnd,
-                       startKey: \.startTime, endKey: \.endTime, name: "Move Camera Layout")
+                       startKey: \.startTime, endKey: \.endTime, name: String(localized: "Move Camera Layout", comment: "Undo action name"))
         } else {
             commitSpan(id: id, in: \.blurRegions, start: sourceStart, end: sourceEnd,
-                       startKey: \.startTime, endKey: \.endTime, name: "Move Blur")
+                       startKey: \.startTime, endKey: \.endTime, name: String(localized: "Move Blur", comment: "Undo action name"))
         }
     }
 
@@ -325,7 +330,7 @@ extension TimelineEditing {
 
         let zoomIndex = project.zoomRegions.count - 1
         let tiltIndex = project.tiltRegions.count - 1
-        UndoStep.register(undoManager, target: project, name: "Add Showcase", undo: { project in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Add Showcase", comment: "Undo action name"), undo: { project in
             project.zoomRegions.removeAll { $0.id == zoom.id }
             project.tiltRegions.removeAll { $0.id == tilt.id }
         }, redo: { project in
@@ -356,7 +361,7 @@ extension TimelineEditing {
         selectedTiltID = nil
         selectedZoomID = region.id
 
-        UndoStep.added(undoManager, project, \.zoomRegions, region, name: "Add Scale Down")
+        UndoStep.added(undoManager, project, \.zoomRegions, region, name: String(localized: "Add Scale Down", comment: "Undo action name"))
     }
 
     func autoZoom() {
@@ -377,7 +382,7 @@ extension TimelineEditing {
         selectedTiltID = nil
         let zooms = project.zoomRegions
         let tilts = project.tiltRegions
-        UndoStep.register(undoManager, target: project, name: "Motion", undo: { project in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Motion", comment: "Undo action name"), undo: { project in
             project.zoomRegions = previousZooms
             project.tiltRegions = previousTilts
         }, redo: { project in
@@ -409,7 +414,7 @@ extension TimelineEditing {
         selectedTiltID = nil
         selectedZoomID = region.id
 
-        UndoStep.added(undoManager, project, \.zoomRegions, region, name: "Add Zoom")
+        UndoStep.added(undoManager, project, \.zoomRegions, region, name: String(localized: "Add Zoom", comment: "Undo action name"))
     }
 
     func deleteZoomRegion(id: UUID) {
@@ -418,7 +423,7 @@ extension TimelineEditing {
         project.zoomRegions.remove(at: index)
         if selectedZoomID == id { selectedZoomID = nil }
 
-        UndoStep.removed(undoManager, project, \.zoomRegions, region, at: index, name: "Delete Zoom")
+        UndoStep.removed(undoManager, project, \.zoomRegions, region, at: index, name: String(localized: "Delete Zoom", comment: "Undo action name"))
     }
 
     func addTiltRegion(at startTime: TimeInterval? = nil) {
@@ -455,7 +460,7 @@ extension TimelineEditing {
         selectedZoomID = nil
         selectedTiltID = region.id
 
-        UndoStep.added(undoManager, project, \.tiltRegions, region, name: "Add Tilt")
+        UndoStep.added(undoManager, project, \.tiltRegions, region, name: String(localized: "Add Tilt", comment: "Undo action name"))
     }
 
     func deleteTiltRegion(id: UUID) {
@@ -464,7 +469,7 @@ extension TimelineEditing {
         project.tiltRegions.remove(at: index)
         if selectedTiltID == id { selectedTiltID = nil }
 
-        UndoStep.removed(undoManager, project, \.tiltRegions, region, at: index, name: "Delete Tilt")
+        UndoStep.removed(undoManager, project, \.tiltRegions, region, at: index, name: String(localized: "Delete Tilt", comment: "Undo action name"))
     }
 
     /// Writes a dragged/resized block's span back into both halves. Linked
@@ -513,7 +518,7 @@ extension TimelineEditing {
         let zooms = project.zoomRegions
         let tilts = project.tiltRegions
         let slide = (project.settings.introSlideStart, project.settings.introSlideDuration)
-        UndoStep.register(undoManager, target: project, name: "Move Effect", undo: { project in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Move Effect", comment: "Undo action name"), undo: { project in
             project.zoomRegions = previousZooms
             project.tiltRegions = previousTilts
             project.settings.introSlideStart = previousSlide.0
@@ -532,7 +537,7 @@ extension TimelineEditing {
         guard abs(previous - level) > 0.0001 else { return }
         project.zoomRegions[index].zoomLevel = level
 
-        UndoStep.register(undoManager, target: project, name: "Zoom Level", undo: { project in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Zoom Level", comment: "Undo action name"), undo: { project in
             guard let i = project.zoomRegions.firstIndex(where: { $0.id == id }) else { return }
             project.zoomRegions[i].zoomLevel = previous
         }, redo: { project in
@@ -559,7 +564,7 @@ extension TimelineEditing {
         selectedZoomID = zoomID
         selectedTiltID = region.id
 
-        UndoStep.added(undoManager, project, \.tiltRegions, region, name: "Add Tilt to Block")
+        UndoStep.added(undoManager, project, \.tiltRegions, region, name: String(localized: "Add Tilt to Block", comment: "Undo action name"))
     }
 
     /// Adds a zoom that exactly co-spans an existing tilt.
@@ -575,7 +580,7 @@ extension TimelineEditing {
         selectedZoomID = region.id
         selectedTiltID = tiltID
 
-        UndoStep.added(undoManager, project, \.zoomRegions, region, name: "Add Zoom to Block")
+        UndoStep.added(undoManager, project, \.zoomRegions, region, name: String(localized: "Add Zoom to Block", comment: "Undo action name"))
     }
 
     /// Deletes every half of a block as a single undoable action.
@@ -595,7 +600,7 @@ extension TimelineEditing {
 
         let zooms = project.zoomRegions
         let tilts = project.tiltRegions
-        UndoStep.register(undoManager, target: project, name: "Delete Effect", undo: { project in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Delete Effect", comment: "Undo action name"), undo: { project in
             project.zoomRegions = previousZooms
             project.tiltRegions = previousTilts
         }, redo: { project in
@@ -635,7 +640,7 @@ extension TimelineEditing {
 
         let zoomIndex = project.zoomRegions.count - 1
         let tiltIndex = project.tiltRegions.count - 1
-        UndoStep.register(undoManager, target: project, name: "Duplicate Effect", undo: { project in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Duplicate Effect", comment: "Undo action name"), undo: { project in
             project.zoomRegions.removeAll { $0.id == zoomCopy.id }
             project.tiltRegions.removeAll { $0.id == tiltCopy.id }
         }, redo: { project in
@@ -665,7 +670,7 @@ extension TimelineEditing {
     func enableIntroSlide() {
         if project.settings.introSlideStyle == .off {
             project.settings.introSlideStyle = .bottom
-            UndoStep.register(undoManager, target: project, name: "Add Slide",
+            UndoStep.register(undoManager, target: project, name: String(localized: "Add Slide", comment: "Undo action name"),
                               undo: { $0.settings.introSlideStyle = .off },
                               redo: { $0.settings.introSlideStyle = .bottom })
         }
@@ -682,7 +687,7 @@ extension TimelineEditing {
     func enableCurtainUnveil() {
         if project.settings.curtainUnveilCorner == .off {
             project.settings.curtainUnveilCorner = .topLeft
-            UndoStep.register(undoManager, target: project, name: "Add Curtain Unveil",
+            UndoStep.register(undoManager, target: project, name: String(localized: "Add Curtain Unveil", comment: "Undo action name"),
                               undo: { $0.settings.curtainUnveilCorner = .off },
                               redo: { $0.settings.curtainUnveilCorner = .topLeft })
         }
@@ -702,7 +707,7 @@ extension TimelineEditing {
         let prevDuration = settings.introSlideDuration
         settings.introSlideStyle = .off
         selection.introSelected = false
-        UndoStep.register(undoManager, target: project, name: "Delete Slide", undo: { project in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Delete Slide", comment: "Undo action name"), undo: { project in
             project.settings.introSlideStyle = prevStyle
             project.settings.introSlideStart = prevStart
             project.settings.introSlideDuration = prevDuration
@@ -719,7 +724,7 @@ extension TimelineEditing {
         let prevDuration = settings.curtainUnveilDuration
         settings.curtainUnveilCorner = .off
         selection.curtainSelected = false
-        UndoStep.register(undoManager, target: project, name: "Delete Curtain Unveil", undo: { project in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Delete Curtain Unveil", comment: "Undo action name"), undo: { project in
             project.settings.curtainUnveilCorner = prevCorner
             project.settings.curtainUnveilStart = prevStart
             project.settings.curtainUnveilDuration = prevDuration
@@ -759,8 +764,9 @@ extension TimelineEditing {
         if look != nil { timelineEditNeedsCameraMask() }
 
         UndoStep.added(undoManager, project, \.cameraLayoutRegions, region,
-                       name: look.map { "Add \($0.displayName)" }
-                           ?? split.map { "Add \($0.displayName)" } ?? "Add Camera Layout")
+                       name: look.map { String(localized: "Add \($0.displayName)", comment: "Undo action name; the argument is a camera look or split style") }
+                           ?? split.map { String(localized: "Add \($0.displayName)", comment: "Undo action name; the argument is a camera look or split style") }
+                           ?? String(localized: "Add Camera Layout", comment: "Undo action name"))
     }
 
     func setCameraSide(_ side: CameraSide, regionID: UUID) {
@@ -779,7 +785,7 @@ extension TimelineEditing {
         project.cameraLayoutRegions[index].splitStyle = split == .tiles ? nil : split
         UndoStep.replaced(undoManager, project, \.cameraLayoutRegions,
                           before: before, after: project.cameraLayoutRegions[index],
-                          name: split == .full ? "Full Height" : "Tiles")
+                          name: split == .full ? String(localized: "Full Height", comment: "Undo action name: camera split style changed to full-height columns") : String(localized: "Tiles", comment: "Undo action name: camera split style changed to equal tiles"))
     }
 
     func pasteCameraLayout(regionID: UUID) {
@@ -792,7 +798,7 @@ extension TimelineEditing {
         project.cameraLayoutRegions[index].splitStyle = copied.split
         if copied.look != nil { timelineEditNeedsCameraMask() }
         UndoStep.replaced(undoManager, project, \.cameraLayoutRegions,
-                          before: before, after: project.cameraLayoutRegions[index], name: "Paste Layout")
+                          before: before, after: project.cameraLayoutRegions[index], name: String(localized: "Paste Layout", comment: "Undo action name"))
     }
 
     func deleteCameraLayoutRegion(id: UUID) {
@@ -800,7 +806,7 @@ extension TimelineEditing {
         let region = project.cameraLayoutRegions[index]
         project.cameraLayoutRegions.remove(at: index)
         if selectedCameraLayoutID == id { selectedCameraLayoutID = nil }
-        UndoStep.removed(undoManager, project, \.cameraLayoutRegions, region, at: index, name: "Delete Camera Layout")
+        UndoStep.removed(undoManager, project, \.cameraLayoutRegions, region, at: index, name: String(localized: "Delete Camera Layout", comment: "Undo action name"))
     }
 
     func addBlurRegion(at startTime: TimeInterval? = nil) {
@@ -818,11 +824,11 @@ extension TimelineEditing {
         )
         guard start < end else { timelineEditRefused(); return } // lane full
 
-        let region = BlurRegion(startTime: start, endTime: end, label: "Blur")
+        let region = BlurRegion(startTime: start, endTime: end, label: "Blur")  // l10n-ok: persisted default label; shown via RegionLabel.display
         project.blurRegions.append(region)
         selectedBlurID = region.id
 
-        UndoStep.added(undoManager, project, \.blurRegions, region, name: "Add Blur")
+        UndoStep.added(undoManager, project, \.blurRegions, region, name: String(localized: "Add Blur", comment: "Undo action name"))
     }
 
     /// Drag-to-draw entry (popover arms the preview, the preview reports the
@@ -847,7 +853,8 @@ extension TimelineEditing {
         project.blurRegions.append(region)
         selectedBlurID = region.id
 
-        UndoStep.added(undoManager, project, \.blurRegions, region, name: "Add \(label)")
+        UndoStep.added(undoManager, project, \.blurRegions, region,
+                       name: style == .pixelate ? String(localized: "Add Pixelate", comment: "Undo action name") : String(localized: "Add Blur", comment: "Undo action name"))
     }
 
     /// Depth Focus: sharp region, graduated blur outside (FocusMath).
@@ -869,7 +876,7 @@ extension TimelineEditing {
         project.focusRegions.append(region)
         selectedDepthFocusID = region.id
 
-        UndoStep.added(undoManager, project, \.focusRegions, region, name: "Add Depth Focus")
+        UndoStep.added(undoManager, project, \.focusRegions, region, name: String(localized: "Add Depth Focus", comment: "Undo action name"))
     }
 
     func deleteDepthFocusRegion(id: UUID) {
@@ -877,7 +884,7 @@ extension TimelineEditing {
         let region = project.focusRegions[index]
         project.focusRegions.remove(at: index)
         if selectedDepthFocusID == id { selectedDepthFocusID = nil }
-        UndoStep.removed(undoManager, project, \.focusRegions, region, at: index, name: "Delete Depth Focus")
+        UndoStep.removed(undoManager, project, \.focusRegions, region, at: index, name: String(localized: "Delete Depth Focus", comment: "Undo action name"))
     }
 
     func deleteBlurRegion(id: UUID) {
@@ -886,7 +893,7 @@ extension TimelineEditing {
         project.blurRegions.remove(at: index)
         if selectedBlurID == id { selectedBlurID = nil }
 
-        UndoStep.removed(undoManager, project, \.blurRegions, region, at: index, name: "Delete Blur")
+        UndoStep.removed(undoManager, project, \.blurRegions, region, at: index, name: String(localized: "Delete Blur", comment: "Undo action name"))
     }
 
     func addHighlightRegion(at startTime: TimeInterval? = nil) {
@@ -903,11 +910,11 @@ extension TimelineEditing {
         )
         guard start < end else { timelineEditRefused(); return } // lane full
 
-        let region = HighlightRegion(startTime: start, endTime: end, label: "Highlight")
+        let region = HighlightRegion(startTime: start, endTime: end, label: "Highlight")  // l10n-ok: persisted default label; shown via RegionLabel.display
         project.highlightRegions.append(region)
         selectedHighlightID = region.id
 
-        UndoStep.added(undoManager, project, \.highlightRegions, region, name: "Add Highlight")
+        UndoStep.added(undoManager, project, \.highlightRegions, region, name: String(localized: "Add Highlight", comment: "Undo action name"))
     }
 
     func deleteHighlightRegion(id: UUID) {
@@ -916,7 +923,7 @@ extension TimelineEditing {
         project.highlightRegions.remove(at: index)
         if selectedHighlightID == id { selectedHighlightID = nil }
 
-        UndoStep.removed(undoManager, project, \.highlightRegions, region, at: index, name: "Delete Highlight")
+        UndoStep.removed(undoManager, project, \.highlightRegions, region, at: index, name: String(localized: "Delete Highlight", comment: "Undo action name"))
     }
 
     // MARK: - ANNOTATE lane + the floating pill
@@ -933,7 +940,7 @@ extension TimelineEditing {
 
         let newStart = project.annotations[index].startTime
         let newEnd = project.annotations[index].endTime
-        UndoStep.register(undoManager, target: project, name: "Edit Annotation Timing", undo: { p in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Edit Annotation Timing", comment: "Undo action name"), undo: { p in
             guard let i = p.annotations.firstIndex(where: { $0.id == id }) else { return }
             p.annotations[i].startTime = previousStart
             p.annotations[i].endTime = previousEnd
@@ -953,7 +960,7 @@ extension TimelineEditing {
         project.annotations.remove(at: index)
         if selectedAnnotationID == id { selectedAnnotationID = nil }
 
-        UndoStep.removed(undoManager, project, \.annotations, removed, at: index, name: "Delete Annotation")
+        UndoStep.removed(undoManager, project, \.annotations, removed, at: index, name: String(localized: "Delete Annotation", comment: "Undo action name"))
     }
 
     func addAnnotation(type: AnnotationType, atSource requestedStart: TimeInterval? = nil) {
@@ -975,7 +982,7 @@ extension TimelineEditing {
         selectedAnnotationID = annotation.id
 
         UndoStep.added(undoManager, project, \.annotations, annotation,
-                       name: "Add \(TimelineEdits.annotationLaneLabel(for: annotation))")
+                       name: String(localized: "Add \(TimelineEdits.annotationLaneLabel(for: annotation))", comment: "Undo action name; the argument is the annotation's type or its text"))
     }
 
     /// The pill's tool buttons land here — same path the popover rows used.
@@ -994,7 +1001,7 @@ extension TimelineEditing {
         let previous = project.annotations[idx].color
         let recolored = CodableColor(color)
         project.annotations[idx].color = recolored
-        UndoStep.register(undoManager, target: project, name: "Recolor Annotation", undo: { p in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Recolor Annotation", comment: "Undo action name"), undo: { p in
             if let i = p.annotations.firstIndex(where: { $0.id == id }) { p.annotations[i].color = previous }
         }, redo: { p in
             if let i = p.annotations.firstIndex(where: { $0.id == id }) { p.annotations[i].color = recolored }
@@ -1076,7 +1083,7 @@ extension TimelineEditing {
 
         let clipsAfter = project.videoClipSegments
         let splitsAfter = project.splitPoints
-        UndoStep.register(undoManager, target: project, name: "Split Clip", undo: { p in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Split Clip", comment: "Undo action name"), undo: { p in
             p.videoClipSegments = previousClips
             p.splitPoints = previousSplits
         }, redo: { p in
@@ -1131,7 +1138,7 @@ extension TimelineEditing {
 
         let clipsAfter = project.videoClipSegments
         let splitsAfter = project.splitPoints
-        UndoStep.register(undoManager, target: project, name: "Remove Split", undo: { p in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Remove Split", comment: "Undo action name"), undo: { p in
             p.videoClipSegments = previousClips
             p.splitPoints = previousSplits
         }, redo: { p in
@@ -1166,7 +1173,7 @@ extension TimelineEditing {
 
         let clipsAfter = project.videoClipSegments
         let splitsAfter = project.splitPoints
-        UndoStep.register(undoManager, target: project, name: "Delete Clip", undo: { p in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Delete Clip", comment: "Undo action name"), undo: { p in
             p.videoClipSegments = previousClips
             p.splitPoints = previousSplits
         }, redo: { p in
@@ -1207,14 +1214,14 @@ extension TimelineEditing {
         project.speedRegions.append(region)
         selectedSpeedID = region.id
 
-        UndoStep.added(undoManager, project, \.speedRegions, region, name: "Add Speed")
+        UndoStep.added(undoManager, project, \.speedRegions, region, name: String(localized: "Add Speed", comment: "Undo action name"))
     }
 
     func changeSpeedRegion(id: UUID, speed: Double) {
         guard let idx = project.speedRegions.firstIndex(where: { $0.id == id }) else { return }
         let previous = project.speedRegions[idx].speed
         project.speedRegions[idx].speed = speed
-        UndoStep.register(undoManager, target: project, name: "Change Speed", undo: { p in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Change Speed", comment: "Undo action name"), undo: { p in
             if let i = p.speedRegions.firstIndex(where: { $0.id == id }) { p.speedRegions[i].speed = previous }
         }, redo: { p in
             if let i = p.speedRegions.firstIndex(where: { $0.id == id }) { p.speedRegions[i].speed = speed }
@@ -1227,7 +1234,7 @@ extension TimelineEditing {
         project.speedRegions.remove(at: index)
         if selectedSpeedID == id { selectedSpeedID = nil }
 
-        UndoStep.removed(undoManager, project, \.speedRegions, region, at: index, name: "Delete Speed")
+        UndoStep.removed(undoManager, project, \.speedRegions, region, at: index, name: String(localized: "Delete Speed", comment: "Undo action name"))
     }
 
     /// A VOICE clip move / trim, committed on release through the shared
@@ -1240,7 +1247,7 @@ extension TimelineEditing {
         #if DEBUG
         if UndoStep.probeDefect == .dragNoUndo { return }
         #endif
-        let name = after.duration != before.duration ? "Trim Voice Over" : "Move Voice Over"
+        let name = after.duration != before.duration ? String(localized: "Trim Voice Over", comment: "Undo action name") : String(localized: "Move Voice Over", comment: "Undo action name")
         UndoStep.replaced(undoManager, project, \.voiceOverClips, before: before, after: after, name: name)
     }
 
@@ -1248,7 +1255,7 @@ extension TimelineEditing {
     func toggleRecordedAudioMute() {
         let muted = !project.settings.muteRecordedAudio
         project.settings.muteRecordedAudio = muted
-        UndoStep.register(undoManager, target: project, name: muted ? "Mute Audio" : "Unmute Audio",
+        UndoStep.register(undoManager, target: project, name: muted ? String(localized: "Mute Audio", comment: "Undo action name") : String(localized: "Unmute Audio", comment: "Undo action name"),
                           undo: { $0.settings.muteRecordedAudio = !muted },
                           redo: { $0.settings.muteRecordedAudio = muted })
     }
@@ -1264,7 +1271,7 @@ extension TimelineEditing {
 
         // Undo puts the clip (and its audio file) back at its index; redo
         // deletes both again.
-        UndoStep.register(undoManager, target: project, name: "Delete Voice Over", undo: { project in
+        UndoStep.register(undoManager, target: project, name: String(localized: "Delete Voice Over", comment: "Undo action name"), undo: { project in
             UndoStep.insert(clip, at: index, into: \.voiceOverClips, of: project)
             if let clipData {
                 try? FileManager.default.createDirectory(at: project.projectDirectory, withIntermediateDirectories: true)
@@ -1353,7 +1360,7 @@ extension TimelineEditing {
             )
             project.zoomRegions.append(copy)
             selectedZoomID = copy.id
-            UndoStep.added(undoManager, project, \.zoomRegions, copy, name: "Duplicate Zoom")
+            UndoStep.added(undoManager, project, \.zoomRegions, copy, name: String(localized: "Duplicate Zoom", comment: "Undo action name"))
             return
         }
 
@@ -1372,7 +1379,7 @@ extension TimelineEditing {
             )
             project.tiltRegions.append(copy)
             selectedTiltID = copy.id
-            UndoStep.added(undoManager, project, \.tiltRegions, copy, name: "Duplicate Tilt")
+            UndoStep.added(undoManager, project, \.tiltRegions, copy, name: String(localized: "Duplicate Tilt", comment: "Undo action name"))
             return
         }
 
@@ -1392,7 +1399,7 @@ extension TimelineEditing {
             )
             project.blurRegions.append(copy)
             selectedBlurID = copy.id
-            UndoStep.added(undoManager, project, \.blurRegions, copy, name: "Duplicate Blur")
+            UndoStep.added(undoManager, project, \.blurRegions, copy, name: String(localized: "Duplicate Blur", comment: "Undo action name"))
             return
         }
 
@@ -1411,7 +1418,7 @@ extension TimelineEditing {
             )
             project.highlightRegions.append(copy)
             selectedHighlightID = copy.id
-            UndoStep.added(undoManager, project, \.highlightRegions, copy, name: "Duplicate Highlight")
+            UndoStep.added(undoManager, project, \.highlightRegions, copy, name: String(localized: "Duplicate Highlight", comment: "Undo action name"))
             return
         }
 
@@ -1423,7 +1430,7 @@ extension TimelineEditing {
             let copy = VideoSpeedRegion(startTime: slot.start, endTime: slot.end, speed: source.speed)
             project.speedRegions.append(copy)
             selectedSpeedID = copy.id
-            UndoStep.added(undoManager, project, \.speedRegions, copy, name: "Duplicate Speed")
+            UndoStep.added(undoManager, project, \.speedRegions, copy, name: String(localized: "Duplicate Speed", comment: "Undo action name"))
         }
     }
 

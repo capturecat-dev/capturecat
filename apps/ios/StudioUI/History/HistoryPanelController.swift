@@ -31,7 +31,7 @@ final class HistoryPanelController: UIViewController {
     weak var presentation: HistoryPresentation?
 
     private(set) var page: CloudVersionPage?
-    private let titleLabel = ccLabel("History", font: CCFont.header, color: CCTheme.color.foreground)
+    private let titleLabel = ccLabel(String(localized: "History", comment: "Title of the project version-history panel"), font: CCFont.header, color: CCTheme.color.foreground)
     let closeButton = CCButton(symbol: "close", style: .ghost, size: .sm, radius: .full)
     private let content = UIView()
     private let listPage = UIView()
@@ -60,7 +60,7 @@ final class HistoryPanelController: UIViewController {
         root.backgroundColor = .clear
         view = root
         titleLabel.accessibilityTraits = .header
-        closeButton.accessibilityLabelOverride = "Close History"
+        closeButton.accessibilityLabelOverride = String(localized: "Close History", comment: "VoiceOver label of the History panel's close button")
         closeButton.onTap = { [weak self] in self?.close() }
         content.clipsToBounds = true
         stack.axis = .vertical
@@ -149,8 +149,8 @@ final class HistoryPanelController: UIViewController {
             stack.addArrangedSubview(row)
         }
         guard let page = next, !page.versions.isEmpty else {
-            let empty = CCEmptyState(symbol: "history", title: "No history yet",
-                                     message: "Every save of this project on this \(device) is kept here, so you can preview, compare and restore earlier versions.")
+            let empty = CCEmptyState(symbol: "history", title: String(localized: "No history yet", comment: "History panel empty state title"),
+                                     message: String(localized: "Every save of this project on this \(device) is kept here, so you can preview, compare and restore earlier versions.", comment: "History panel empty state; the argument is iPhone or iPad"))
             emptyState = empty
             stack.addArrangedSubview(empty)
             return
@@ -195,10 +195,10 @@ final class HistoryPanelController: UIViewController {
     }
 
     private func footerText(_ page: CloudVersionPage) -> String {
-        var parts = [service.isLocal ? "Kept on this \(device)" : "Kept in your CaptureCat cloud"]
+        var parts = [service.isLocal ? String(localized: "Kept on this \(device)", comment: "History footer: versions are stored on this device; the argument is iPhone or iPad") : String(localized: "Kept in your CaptureCat cloud", comment: "History footer: versions are stored in the cloud")]
         if let caption = HistoryWords.retentionCaption(page) { parts.append(caption) }
         let named = page.versions.filter(\.isNamed).count
-        if named > 0, page.retention?.maxNamed == nil { parts.append(named == 1 ? "1 named" : "\(named) named") }
+        if named > 0, page.retention?.maxNamed == nil { parts.append(named == 1 ? String(localized: "1 named", comment: "History footer: one version has a name") : String(localized: "\(named) named", comment: "History footer: how many versions have names")) }
         return parts.joined(separator: " · ")
     }
 
@@ -215,7 +215,7 @@ final class HistoryPanelController: UIViewController {
             case .compareWithCurrent:
                 out.append((action.title, { [weak self] in self?.compare(version, with: nil) }))
                 if let previous = previousVersion(of: version) {
-                    out.append(("Compare with Previous", { [weak self] in self?.compare(previous, with: version) }))
+                    out.append((String(localized: "Compare with Previous", comment: "History row menu: compare this version with the one before it"), { [weak self] in self?.compare(previous, with: version) }))
                 }
             case .restore: out.append((action.title, { [weak self] in self?.confirmRestore(version) }))
             case .delete: out.append((action.title, { [weak self] in self?.confirmDelete(version) }))
@@ -223,11 +223,11 @@ final class HistoryPanelController: UIViewController {
         }
         // The head offers the two-version compares too (its menu has no "with Current").
         if row.model.isHead, let previous = previousVersion(of: version) {
-            out.insert(("Compare with Previous", { [weak self] in self?.compare(previous, with: version) }), at: min(1, out.count))
+            out.insert((String(localized: "Compare with Previous", comment: "History row menu: compare this version with the one before it"), { [weak self] in self?.compare(previous, with: version) }), at: min(1, out.count))
         }
         if (page?.versions.count ?? 0) > 1 {
-            let index = out.firstIndex { $0.0 == "Restore This Version…" } ?? out.count
-            out.insert(("Compare with…", { [weak self] in self?.pickCompare(for: version) }), at: index)
+            let index = out.firstIndex { $0.0 == HistoryRowAction.restore.title } ?? out.count
+            out.insert((String(localized: "Compare with…", comment: "History row menu: pick another version to compare with"), { [weak self] in self?.pickCompare(for: version) }), at: index)
         }
         return out
     }
@@ -248,13 +248,13 @@ final class HistoryPanelController: UIViewController {
         for (title, run) in actions(for: row) {
             let symbol: String?
             switch title {
-            case "Preview": symbol = "eye"
-            case "Restore This Version…": symbol = "clock.arrow.circlepath"
-            case "Delete Version…": symbol = "trash"
-            case "Rename Version…", "Name This Version…": symbol = "pencil"
+            case HistoryRowAction.preview.title: symbol = "eye"
+            case HistoryRowAction.restore.title: symbol = "clock.arrow.circlepath"
+            case HistoryRowAction.delete.title: symbol = "trash"
+            case HistoryRowAction.name(isNamed: true).title, HistoryRowAction.name(isNamed: false).title: symbol = "pencil"
             default: symbol = "split"
             }
-            sheet.addAction(title, symbol: symbol, destructive: title == "Delete Version…") { [weak row] in
+            sheet.addAction(title, symbol: symbol, destructive: title == HistoryRowAction.delete.title) { [weak row] in
                 row?.setActive(false)
                 run()
             }
@@ -283,8 +283,8 @@ final class HistoryPanelController: UIViewController {
                                                 after: { self?.reloadNow() })
                         }
                     } catch {
-                        CCAlert(title: "Couldn’t open that version", message: error.localizedDescription)
-                            .addButton("OK", role: .primary).present(from: host)
+                        CCAlert(title: String(localized: "Couldn’t open that version", comment: "Alert title: a history version failed to load"), message: error.localizedDescription)
+                            .addButton(String(localized: "OK", comment: "Alert button"), role: .primary).present(from: host)
                     }
                 }
                 // iPhone: the sheet steps aside so the stage shows the version.
@@ -294,7 +294,7 @@ final class HistoryPanelController: UIViewController {
                     begin()
                 }
             } catch {
-                self.alert("Couldn’t open that version", error)
+                self.alert(String(localized: "Couldn’t open that version", comment: "Alert title: a history version failed to load"), error)
             }
         }
     }
@@ -304,7 +304,7 @@ final class HistoryPanelController: UIViewController {
     func name(_ version: CloudVersion) {
         CCAlert.prompt(title: HistoryWords.nameTitle(isNamed: version.isNamed), message: HistoryWords.nameMessage,
                        placeholder: HistoryWords.namePlaceholder, initialValue: version.label ?? "",
-                       confirmTitle: "Save", from: self, action: { [weak self] label in
+                       confirmTitle: String(localized: "Save", comment: "Prompt button: save the version name"), from: self, action: { [weak self] label in
             guard let self else { return }
             let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
             try await self.service.rename(versionID: version.id, label: trimmed.isEmpty ? nil : String(trimmed.prefix(80)))
@@ -327,16 +327,16 @@ final class HistoryPanelController: UIViewController {
                 let toJSON = (try? JSONValue.parse(data: b)) ?? .object(JSONObject())
                 self.showCompare(HistoryComparePage(from: fromJSON, to: toJSON,
                                                     fromTitle: HistoryWords.stamp(from.date, clock: self.clock),
-                                                    toTitle: to.map { HistoryWords.stamp($0.date, clock: self.clock) } ?? "now"))
+                                                    toTitle: to.map { HistoryWords.stamp($0.date, clock: self.clock) } ?? String(localized: "now", comment: "Version compare subtitle: the project as it is now, e.g. Sep 28, 3:42 PM → now")))
             } catch {
-                self.alert("Couldn’t compare", error)
+                self.alert(String(localized: "Couldn’t compare", comment: "Alert title: comparing two versions failed"), error)
             }
         }
     }
 
     private func pickCompare(for version: CloudVersion) {
         guard let versions = page?.versions else { return }
-        let sheet = CCActionSheet(title: "Compare with…", message: HistoryWords.stamp(version.date, clock: clock))
+        let sheet = CCActionSheet(title: String(localized: "Compare with…", comment: "Title of the sheet to pick a version to compare with"), message: HistoryWords.stamp(version.date, clock: clock))
         for other in versions where other.id != version.id {
             let title = HistoryWords.stamp(other.date, clock: clock) + (other.label.map { " — \($0)" } ?? "")
             sheet.addAction(title, symbol: "split") { [weak self] in
@@ -415,7 +415,7 @@ final class HistoryPanelController: UIViewController {
     static func confirmRestore(_ version: CloudVersion, service: ProjectHistoryService, host: EditorViewController,
                                clock: HistoryClock, presenter: UIViewController? = nil, after: (() -> Void)? = nil) {
         CCAlert.confirm(title: HistoryWords.restoreTitle(version, clock: clock), message: HistoryWords.restoreMessage,
-                        confirmTitle: "Restore", symbol: "clock.arrow.circlepath",
+                        confirmTitle: String(localized: "Restore", comment: "Confirm button: restore this version"), symbol: "clock.arrow.circlepath",
                         presentation: .sheet, from: presenter ?? host, action: {
             try await restore(version, service: service, host: host)
         }, completion: { restored in
@@ -432,14 +432,14 @@ final class HistoryPanelController: UIViewController {
         HistoryPreviewSession.current(in: host)?.end(animated: false)
         host.saveNow()
         let document = try await service.restore(versionID: version.id)
-        try host.historyApply(document: document, actionName: "Restore Version")
+        try host.historyApply(document: document, actionName: String(localized: "Restore Version", comment: "Undo action name: restoring a history version"))
     }
 
     // MARK: Delete
 
     func confirmDelete(_ version: CloudVersion) {
         CCAlert.confirm(title: HistoryWords.deleteTitle, message: HistoryWords.deleteMessage(version, clock: clock),
-                        confirmTitle: "Delete", destructive: true, symbol: "trash", presentation: .sheet, from: self,
+                        confirmTitle: String(localized: "Delete", comment: "Confirm button: delete this version"), destructive: true, symbol: "trash", presentation: .sheet, from: self,
                         action: { [weak self] in
             try await self?.service.delete(versionID: version.id)
         }, completion: { [weak self] deleted in
@@ -455,10 +455,10 @@ final class HistoryPanelController: UIViewController {
             guard let host else { return }
             do {
                 try host.historyApplyMerge(resolved, theirs: change.theirs)
-                StudioHistory.toast(in: host, title: "Merged the changes made outside this editor",
-                                    message: "Both versions before the merge are in History.", variant: .success)
+                StudioHistory.toast(in: host, title: String(localized: "Merged the changes made outside this editor", comment: "Toast after merging external changes"),
+                                    message: String(localized: "Both versions before the merge are in History.", comment: "Toast after merging external changes"), variant: .success)
             } catch {
-                self?.alert("Couldn’t merge", error)
+                self?.alert(String(localized: "Couldn’t merge", comment: "Alert title: merging external changes failed"), error)
             }
             self?.reloadNow()
         }
@@ -479,7 +479,7 @@ final class HistoryPanelController: UIViewController {
     func didClose() {}
 
     private func alert(_ title: String, _ error: Error) {
-        CCAlert(title: title, message: error.localizedDescription).addButton("OK", role: .primary).present(from: self)
+        CCAlert(title: title, message: error.localizedDescription).addButton(String(localized: "OK", comment: "Alert button"), role: .primary).present(from: self)
     }
 
     // MARK: - Probe seams
@@ -519,7 +519,7 @@ extension EditorViewController {
         let session = ProjectMergeSession(
             base: base, mine: mine, theirs: theirs,
             mineWins: ProjectMergeSession.mineWins(mineEdited: head.updatedAt, theirsSaved: modified, now: Date()),
-            theirsFallback: "Another window")
+            theirsFallback: String(localized: "Another window", comment: "Merge review: name for the other side when the change came from another app or window"))
         return HistoryExternalChange(session: session, theirs: disk,
                                      summary: ChangeSummary.format(ProjectDiff.diff(base, theirs), maxParts: 3))
     }
@@ -536,7 +536,7 @@ extension EditorViewController {
         let merged = session.merged
         let bytes: Data
         if merged == session.theirs { bytes = theirs } else if merged == session.mine { bytes = mine } else { bytes = Data(merged.canonical.utf8) }
-        try historyApply(document: bytes, actionName: "Merge Changes")
+        try historyApply(document: bytes, actionName: String(localized: "Merge Changes", comment: "Undo action name: merging external changes"))
         store.record(bytes, at: store.clock(), checkpoint: .merge)
     }
 }

@@ -34,8 +34,8 @@ enum StudioExport {
 
     /// The alert title for a failed export.
     static func errorTitle(for error: Error?) -> String {
-        if case VideoExporter.ExportError.insufficientMemory? = error { return "Not enough memory to export" }
-        return "Couldn't export"
+        if case VideoExporter.ExportError.insufficientMemory? = error { return String(localized: "Not enough memory to export") }
+        return String(localized: "Couldn't export")
     }
 }
 
@@ -66,14 +66,14 @@ final class StudioExportSheetController: UIViewController {
     private let formStack = UIStackView()
     let typeControl = CCSegmented(segments: ExportSheetSpec.typeTitles, size: .sm)
     let formatControl = CCSegmented(segments: ExportSheetSpec.formats.map(\.rawValue), size: .sm)
-    let resolutionControl = CCSegmented(segments: ExportSheetSpec.resolutions.map(\.rawValue), size: .sm)
+    let resolutionControl = CCSegmented(segments: ExportSheetSpec.resolutions.map(\.displayName), size: .sm)
     let frameRateControl = CCSegmented(segments: ExportSheetSpec.frameRates.map(ExportSheetSpec.frameRateTitle), size: .sm)
-    let widthField = CCField(placeholder: "Width")
-    let heightField = CCField(placeholder: "Height")
-    let qualitySlider = CCSlider(title: "Quality", value: 0.85,
+    let widthField = CCField(placeholder: String(localized: "Width", comment: "Export sheet: custom width in pixels (field placeholder)"))
+    let heightField = CCField(placeholder: String(localized: "Height", comment: "Export sheet: custom height in pixels (field placeholder)"))
+    let qualitySlider = CCSlider(title: String(localized: "Quality", comment: "Export sheet: video quality slider"), value: 0.85,
                                  range: ExportSettings.minimumQuality...ExportSettings.maximumQuality, step: 0.05)
     let caption = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
-    let fastExportRow = CCToggleRow(title: "Fast export", detail: "Collapse still frames (identical pixels, variable frame rate)")
+    let fastExportRow = CCToggleRow(title: String(localized: "Fast export", comment: "Export sheet toggle"), detail: String(localized: "Collapse still frames (identical pixels, variable frame rate)", comment: "Export sheet: explains the Fast export toggle"))
     private var typeRow: UIView!
     private var formatRow: UIView!
     private var frameRateRow: UIView!
@@ -90,13 +90,13 @@ final class StudioExportSheetController: UIViewController {
 
     // Footer.
     private let footer = UIStackView()
-    let cancelButton = CCButton(title: "Cancel", style: .secondary, size: .lg, radius: .lg)
-    let exportButton = CCButton(title: "Export", symbol: "share", style: .primary, size: .lg, radius: .lg)
-    let cancelExportButton = CCButton(title: "Cancel Export", style: .secondary, size: .lg, radius: .lg)
-    let photosButton = CCButton(title: "Save to Photos", symbol: "photo-add", style: .primary, size: .lg, radius: .lg)
-    let filesButton = CCButton(title: "Save to Files", symbol: "folder", style: .secondary, size: .lg, radius: .lg)
-    let shareButton = CCButton(title: "Share", symbol: "share", style: .secondary, size: .lg, radius: .lg)
-    let doneButton = CCButton(title: "Done", style: .ghost, size: .lg, radius: .lg)
+    let cancelButton = CCButton(title: String(localized: "Cancel", comment: "Export sheet: close without exporting"), style: .secondary, size: .lg, radius: .lg)
+    let exportButton = CCButton(title: String(localized: "Export", comment: "Export sheet: start the export"), symbol: "share", style: .primary, size: .lg, radius: .lg)
+    let cancelExportButton = CCButton(title: String(localized: "Cancel Export", comment: "Export sheet: stop the running export"), style: .secondary, size: .lg, radius: .lg)
+    let photosButton = CCButton(title: String(localized: "Save to Photos", comment: "Export sheet: save the exported file to the Photos library"), symbol: "photo-add", style: .primary, size: .lg, radius: .lg)
+    let filesButton = CCButton(title: String(localized: "Save to Files", comment: "Export sheet: save the exported file with the Files app"), symbol: "folder", style: .secondary, size: .lg, radius: .lg)
+    let shareButton = CCButton(title: String(localized: "Share", comment: "Export sheet: open the share sheet for the exported file"), symbol: "share", style: .secondary, size: .lg, radius: .lg)
+    let doneButton = CCButton(title: String(localized: "Done", comment: "Export sheet: close after exporting"), style: .ghost, size: .lg, radius: .lg)
 
     private var observation: SurfaceObservation?
     private var heightPin: NSLayoutConstraint?
@@ -239,9 +239,9 @@ final class StudioExportSheetController: UIViewController {
     private func buildForm() {
         formStack.axis = .vertical
         formStack.spacing = CCSpace.md
-        typeRow = row("Type", typeControl)
-        formatRow = row("Format", formatControl)
-        let resolutionRow = row("Resolution", resolutionControl)
+        typeRow = row(String(localized: "Type", comment: "Export sheet row: image or video"), typeControl)
+        formatRow = row(String(localized: "Format", comment: "Export sheet row: file format (MP4, GIF…)"), formatControl)
+        let resolutionRow = row(String(localized: "Resolution", comment: "Export sheet row: output resolution"), resolutionControl)
         for field in [widthField, heightField] {
             field.keyboardType = .numberPad
             field.textAlignment = .center
@@ -252,8 +252,8 @@ final class StudioExportSheetController: UIViewController {
         sizeStack.spacing = CCSpace.sm
         sizeStack.alignment = .center
         widthField.widthAnchor.constraint(equalTo: heightField.widthAnchor).isActive = true
-        customSizeRow = row("Size", sizeStack)
-        frameRateRow = row("Frame Rate", frameRateControl)
+        customSizeRow = row(String(localized: "Size", comment: "Export sheet row: custom width × height"), sizeStack)
+        frameRateRow = row(String(localized: "Frame Rate", comment: "Export sheet row: frames per second"), frameRateControl)
         for v in [typeRow!, formatRow!, resolutionRow, customSizeRow!, frameRateRow!, qualitySlider, caption, fastExportRow] {
             formStack.addArrangedSubview(v)
         }
@@ -351,7 +351,7 @@ final class StudioExportSheetController: UIViewController {
         caption.isHidden = isImage
         fastExportRow.isHidden = isImage
         customSizeRow.isHidden = settings.resolution != .custom
-        titleLabel.text = phase == .done ? (isImage ? "Image exported" : "Exported")
+        titleLabel.text = phase == .done ? (isImage ? String(localized: "Image exported", comment: "Export sheet title when an image export finished") : String(localized: "Exported", comment: "Export sheet title / status when a video export finished"))
             : ExportSheetSpec.title(for: outputKind)
     }
 
@@ -475,7 +475,7 @@ final class StudioExportSheetController: UIViewController {
         commitCustomSize()
         let job = StudioExportJob(project: project, kind: outputKind, settings: settings)
         self.job = job
-        progressRow.update(text: "Exporting… 0%", value: 0)
+        progressRow.update(text: String(localized: "Exporting… \(0 as Int)%", comment: "Export progress line, e.g. Exporting… 42%"), value: 0)
         job.start()
         backgroundNote.text = job.background.note
         setPhase(.exporting)
@@ -485,9 +485,9 @@ final class StudioExportSheetController: UIViewController {
             let progress = job.progress
             switch state {
             case .running:
-                self.progressRow.update(text: "Exporting… \(Int((progress * 100).rounded(.down)))%", value: progress)
+                self.progressRow.update(text: String(localized: "Exporting… \(Int((progress * 100).rounded(.down)))%", comment: "Export progress line, e.g. Exporting… 42%"), value: progress)
             case .finished(let url):
-                self.progressRow.update(text: "Exported", value: 1)
+                self.progressRow.update(text: String(localized: "Exported", comment: "Export sheet title / status when a video export finished"), value: 1)
                 self.finished(url)
             case .failed(let message):
                 self.failed(message, error: job.error)
@@ -522,7 +522,7 @@ final class StudioExportSheetController: UIViewController {
         let alert = CCAlert(title: title, message: message)
         alert.symbol = "warning-fill"
         alert.tone = .destructive
-        alert.addButton("OK", role: .primary)
+        alert.addButton(String(localized: "OK", comment: "Alert button"), role: .primary)
         #if DEBUG
         probeAlerts.append(alert)
         #endif
@@ -539,7 +539,7 @@ final class StudioExportSheetController: UIViewController {
                let w = props[kCGImagePropertyPixelWidth] as? Int, let h = props[kCGImagePropertyPixelHeight] as? Int {
                 parts.append("\(w)×\(h)")
                 let frames = CGImageSourceGetCount(source)
-                if frames > 1 { parts.append("\(frames) frames") }
+                if frames > 1 { parts.append(String(localized: "\(frames) frames", comment: "Exported file summary: frame count of an animated GIF")) }
             }
         case .movie:
             let asset = AVURLAsset(url: url)
@@ -548,7 +548,8 @@ final class StudioExportSheetController: UIViewController {
                 parts.append("\(Int(size.width))×\(Int(size.height))")
             }
             if let duration = try? await asset.load(.duration) {
-                parts.append(String(format: "%.1f s", duration.seconds))
+                let seconds = String(format: "%.1f", duration.seconds)
+                parts.append(String(localized: "\(seconds) s", comment: "Exported file summary: duration in seconds, e.g. 4.0 s"))
             }
         }
         if let bytes = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? Int64 {
@@ -572,14 +573,14 @@ final class StudioExportSheetController: UIViewController {
                 _ = try await ExportDelivery.saveToPhotos(url)
                 guard let self else { return }
                 self.photosButton.isBusy = false
-                self.photosButton.title = "Saved to Photos"
+                self.photosButton.title = String(localized: "Saved to Photos", comment: "Export sheet button after saving to Photos succeeded")
                 self.photosButton.symbol = "check"
                 self.photosButton.isEnabled = false
                 CCHaptics.success()
             } catch {
                 guard let self else { return }
                 self.photosButton.isBusy = false
-                self.presentAlert(title: "Couldn't save to Photos", message: error.localizedDescription)
+                self.presentAlert(title: String(localized: "Couldn't save to Photos"), message: error.localizedDescription)
             }
         }
     }

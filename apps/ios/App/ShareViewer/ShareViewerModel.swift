@@ -78,7 +78,7 @@ final class ShareViewerModel {
 
     func refreshSignedIn() {
         let user = SessionStore.load()?.user
-        signedInName = user.map { $0.name?.isEmpty == false ? $0.name! : ($0.email ?? "you") }
+        signedInName = user.map { $0.name?.isEmpty == false ? $0.name! : ($0.email ?? String(localized: "you", comment: "Fallback name for the signed-in viewer when the account has no name or email")) }
     }
 
     // MARK: - Load
@@ -100,7 +100,7 @@ final class ShareViewerModel {
             case .ownerPrivate:
                 isOwnerPrivate = true
                 let library = LibraryStore.shared.share(videoID)
-                meta = ShareMeta(videoId: videoID, fileName: library?.fileName ?? "Private video",
+                meta = ShareMeta(videoId: videoID, fileName: library?.fileName ?? String(localized: "Private video", comment: "Title for the owner's own private shared video when its name is unknown"),
                                  durationSeconds: library?.durationSeconds, createdAt: library.map { ISO8601DateFormatter().string(from: $0.createdAt) })
                 phase = .open
             case .notFound:
@@ -125,7 +125,7 @@ final class ShareViewerModel {
             phase = .open
             startSocial()
         default:
-            throw ShareViewerError.message("Could not load the video.")
+            throw ShareViewerError.message(String(localized: "Could not load the video."))
         }
     }
 
