@@ -40,13 +40,15 @@ final class ConnectAIViewController: DetailPageViewController {
     private(set) var client: Client = .claude
     private var loadError: CCCallout?
 
-    // MARK: Probe seams (the gate)
+    // MARK: Probe seams (the gate) — DEBUG only, never in the shipped binary
+    #if DEBUG
     var probeState: AgentAccessState? { state }
     var probeGuideCard: UIView { guideCard }
     var probeSwitcher: CCChipGroup { switcher }
     private(set) var probeRevokeButtons: [CCButton] = []
     private(set) var probeUpgradeCallout: UIView?
     private(set) var probeRevokeAlert: CCAlert?
+    #endif
     var onLoaded: (() -> Void)?
     #if DEBUG
     /// The l10n audit (no server): the state to show instead of the API's.
@@ -300,7 +302,9 @@ final class ConnectAIViewController: DetailPageViewController {
 
     private func renderPlan() {
         planSlot.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        #if DEBUG
         probeUpgradeCallout = nil
+        #endif
         guard let state, !state.agentEditing else { return }
         let plan = state.planName ?? String(localized: "current", comment: "Plan name fallback, as in 'your current plan'")
         let message = state.agentAccess
@@ -308,13 +312,17 @@ final class ConnectAIViewController: DetailPageViewController {
             : String(localized: "Editing with AI isn't included in your \(plan) plan. It comes with CaptureCat Pro — upgrade at app.capturecat.so/billing, then come back here.", comment: "Connect AI: plan has no agent access; the argument is the plan name")
         let callout = CCCallout(title: String(localized: "Upgrade to edit with AI", comment: "Connect AI: upgrade callout title"), message: message, variant: .warning)
         planSlot.addArrangedSubview(callout)
+        #if DEBUG
         probeUpgradeCallout = callout
+        #endif
         if view.window != nil { CCMotion.enter(callout.layer, .slideDown(distance: 8)) }
     }
 
     private func renderConnections() {
         connectedStack.arrangedSubviews.filter { $0 !== loadError }.forEach { $0.removeFromSuperview() }
+        #if DEBUG
         probeRevokeButtons = []
+        #endif
         guard let state else {
             connectedStack.addArrangedSubview(emptyRow(String(localized: "Checking…", comment: "Connect AI: connected list while loading")))
             return
@@ -352,7 +360,9 @@ final class ConnectAIViewController: DetailPageViewController {
         revoke.accessibilityLabel = String(localized: "Revoke \(connection.name)", comment: "VoiceOver: revoke an AI connection; the argument is its name")
         revoke.onTap = { [weak self] in self?.confirmRevoke(connection) }
         revoke.setContentCompressionResistancePriority(.required, for: .horizontal)
+        #if DEBUG
         probeRevokeButtons.append(revoke)
+        #endif
         let row = UIStackView(arrangedSubviews: [icon, text, revoke])
         row.spacing = CCSpace.md
         row.alignment = .center
@@ -391,7 +401,9 @@ final class ConnectAIViewController: DetailPageViewController {
             try await APIClient.shared.revoke(connection)
         }
         alert.addButton(String(localized: "Cancel", comment: "Cancel button"), role: .cancel)
+        #if DEBUG
         probeRevokeAlert = alert
+        #endif
         alert.present(from: self) { [weak self] index in
             guard index == 0 else { return }
             CCHaptics.success()
