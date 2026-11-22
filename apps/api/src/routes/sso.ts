@@ -212,10 +212,39 @@ ssoRoutes.post("/sso/providers/:providerId/verify", requireAuth, requireEntitlem
   const ok = records.some((r) => expected.includes(r));
 
   if (ok) {
-    await c.env.DB
-      .prepare('UPDATE "ssoProvider" SET "domainVerified" = 1 WHERE "providerId" = ?')
-      .bind(providerId)
+    // Bind the write to EXACTLY what the DNS lookup proved. The row was read
+    // before the (slow) lookup; /sso/update-provider can change its domain
+    // in the meantime, and a write keyed on providerId alone would then mark
+    // the NEW, unproven domain verified — an attacker-controlled IdP could
+    // then assert any address at that domain and be linked to an existing
+    // account (the race behind GHSA-8c5h-wx78-2cfg, which the plugin fixed
+    // in its own /sso/verify-domain; this route is our copy of that check).
+    const res = await c.env.DB
+      .prepare(
+        `UPDATE "ssoProvider" SET "domainVerified" = 1
+          WHERE "providerId" = ? AND "organizationId" = ? AND "domain" = ?
+            AND COALESCE("domainVerified", 0) = 0`,
+      )
+      .bind(providerId, parsed.data.organizationId, provider.domain)
       .run();
+    if (!res.meta.changes) {
+      // Nothing matched: either a parallel verify of the SAME domain won
+      // (fine), or the provider changed under us (refuse, like the plugin's
+      // SSO_PROVIDER_CHANGED).
+      const now = await c.env.DB
+        .prepare('SELECT "domain", "domainVerified" FROM "ssoProvider" WHERE "providerId" = ? AND "organizationId" = ?')
+        .bind(providerId, parsed.data.organizationId)
+        .first<{ domain: string; domainVerified: number | null }>();
+      if (!(now && now.domain === provider.domain && now.domainVerified === 1)) {
+        return c.json(
+          {
+            error: "The provider changed while its domain was being checked. Reload and verify again.",
+            code: "SSO_PROVIDER_CHANGED",
+          },
+          409,
+        );
+      }
+    }
   }
   return c.json({
     providerId,

@@ -135,16 +135,19 @@ export const ssoRouter = createTRPCRouter({
           issuer: input.issuer,
           domain: input.domain,
           organizationId: input.organizationId,
+          // Better Auth 1.7 shape. The ACS URL is derived by the plugin
+          // (`/sso/saml2/sp/acs/:providerId`), so `callbackUrl` — now only the
+          // landing page for IdP-initiated logins, which are off — is not
+          // sent. The top-level `issuer` identifies the SERVICE provider in
+          // 1.7 and is no longer an IdP fallback: the IdP's entity ID must be
+          // given as `idpMetadata.entityID` or registration is refused.
           samlConfig: {
             entryPoint: input.entryPoint,
             cert: input.cert,
-            callbackUrl: `${input.apiOrigin}/api/auth/sso/saml2/sp/acs/${encodeURIComponent(input.providerId)}`,
+            idpMetadata: { entityID: input.issuer },
             audience: spEntityId,
             wantAssertionsSigned: true,
-            spMetadata: {
-              metadata: "",
-              entityID: spEntityId,
-            },
+            spMetadata: { entityID: spEntityId },
           },
         }),
       });
