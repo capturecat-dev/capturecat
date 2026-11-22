@@ -1,0 +1,7 @@
+# Workers Static Assets headers. The Apple app-site-association file has no
+# extension, so it would otherwise go out as application/octet-stream; Apple's
+# CDN reads it as JSON. (src/server/apple-app-site-association.ts serves the
+# same bytes from the Worker if a request ever reaches it.)
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+  Cache-Control: public, max-age=3600

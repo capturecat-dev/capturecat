@@ -24,6 +24,7 @@ import {
   appHostMarkdownResponse,
   htmlRenderable,
 } from "@/server/agent-discovery";
+import { AASA_PATH, appleAppSiteAssociationResponse } from "@/server/apple-app-site-association";
 
 const startHandler = createStartHandler({ handler: defaultStreamHandler });
 
@@ -101,6 +102,18 @@ async function rewrite(request: Request): Promise<Request | Response> {
   if (isSiblingHost(host)) {
     // Not ours, and never proxied (see isSiblingHost): no subrequest, no loop.
     return new Response("Misdirected request", { status: 421 });
+  }
+
+  // Universal links for the iOS app's share viewer — BEFORE the www → apex
+  // redirect: Apple's CDN fetches this path on each host and never follows a
+  // redirect. Normally the static asset (public/_headers sets its type) answers
+  // first; this covers a request that reaches the Worker.
+  if (
+    path === AASA_PATH &&
+    isFirstPartyHost(host) &&
+    (request.method === "GET" || request.method === "HEAD")
+  ) {
+    return appleAppSiteAssociationResponse(request);
   }
 
   // One canonical origin for the marketing site: https, no www, no trailing

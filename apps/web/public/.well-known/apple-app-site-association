@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["E52HU87CX9.so.capturecat.ios"],
+        "appID": "E52HU87CX9.so.capturecat.ios",
+        "paths": ["/share/*"],
+        "components": [{ "/": "/share/*" }]
+      }
+    ]
+  }
+}
