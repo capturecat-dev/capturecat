@@ -602,6 +602,29 @@ describe("a saved Stripe customer this key does not know", () => {
     expect(decodeURIComponent(checkouts()[0].body)).toContain("customer=cus_new_1");
   });
 
+  it("is replaced for a cookie (web) caller too", async () => {
+    // Prod, 2026-10-01, after the fix above: the web app forwards the session
+    // COOKIE, so the hook's session read was cached on ctx.context and the
+    // plugin reused that user — dead id and all — after D1 was cleared.
+    // Bearer callers re-read D1, which is why the test above stayed green.
+    fake.missingCustomers.add(CUSTOMER);
+    const key = await crypto.subtle.importKey(
+      "raw", new TextEncoder().encode(env.BETTER_AUTH_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+    );
+    const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode("payer-token")));
+    const cookie = `better-auth.session_token=${encodeURIComponent(`payer-token.${btoa(String.fromCharCode(...sig))}`)}`;
+    const res = await buildAuth(env).handler(
+      new Request("http://localhost:8787/api/auth/subscription/upgrade", {
+        method: "POST",
+        headers: { Cookie: cookie, "Content-Type": "application/json", Origin: "http://localhost:3200" },
+        body: JSON.stringify({ plan: "pro", successUrl: "/", cancelUrl: "/" }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(savedCustomer()).toBe("cus_new_1");
+    expect(decodeURIComponent(checkouts()[0].body)).toContain("customer=cus_new_1");
+  });
+
   it("a customer that exists is never replaced", async () => {
     const res = await upgrade({ plan: "pro" });
     expect(res.status).toBe(200);

@@ -178,9 +178,12 @@ export function buildAuth(env: Env) {
           // key/mode, or deleted) fails every checkout with "No such
           // customer". Forget it, and the plugin finds or creates the user's
           // customer again — matching by email, but never a customer whose
-          // metadata names a different user (the plugin's own guard). The
-          // session is read fresh from D1 (no cookie cache), so the endpoint
-          // that runs next sees the cleared id.
+          // metadata names a different user (the plugin's own guard).
+          // getSessionFromCtx CACHES the session on ctx.context.session, and
+          // a hook's ctx.context is the endpoint's own object — the plugin
+          // reuses that cached user, so the id is cleared there as well as in
+          // D1. Clearing D1 alone left the plugin listing subscriptions of the
+          // dead customer: an uncaught "No such customer", a 500.
           // A global before-hook runs ahead of the bearer plugin, so a
           // bearer (desktop) caller has no session yet: resolve its token
           // ("<token>" or the signed "<token>.<sig>") directly.
@@ -199,6 +202,7 @@ export function buildAuth(env: Env) {
               update: { stripeCustomerId: null },
               where: [{ field: "id", value: user.id }],
             });
+            user.stripeCustomerId = null;
           }
           return;
         }
