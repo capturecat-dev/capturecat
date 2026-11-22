@@ -1,0 +1,174 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>CaptureCat store canvas</title>
+<style>
+  /* House palette from apps/web/src/styles/airy.css (the light marketing site). */
+  :root {
+    --ink: #0b0b0f;
+    --violet: #7c5cf0;
+    --blue: #2f7bff;
+    --bg: #fbfbfd;
+  }
+  html, body { margin: 0; padding: 0; background: var(--bg); }
+  body { overflow: hidden; -webkit-font-smoothing: antialiased; }
+  #stage { position: relative; overflow: hidden; }
+  .bg-air {
+    background:
+      radial-gradient(46% 30% at 8% 0%, rgb(124 92 240 / 0.20), transparent 70%),
+      radial-gradient(44% 28% at 94% 2%, rgb(47 123 255 / 0.15), transparent 70%),
+      radial-gradient(60% 34% at 52% 30%, rgb(255 178 138 / 0.13), transparent 72%),
+      radial-gradient(70% 40% at 50% 104%, rgb(124 92 240 / 0.10), transparent 70%),
+      linear-gradient(180deg, #f0ecff 0%, #f7f4fb 48%, #fbfbfd 100%);
+  }
+  .bg-air-wide {
+    background:
+      radial-gradient(36% 60% at 6% 0%, rgb(124 92 240 / 0.22), transparent 70%),
+      radial-gradient(34% 56% at 96% 0%, rgb(47 123 255 / 0.17), transparent 70%),
+      radial-gradient(44% 50% at 50% 100%, rgb(255 178 138 / 0.18), transparent 72%),
+      linear-gradient(180deg, #f0ecff 0%, #f7f4fb 58%, #fbfbfd 100%);
+  }
+  /* The site's hero sky (dusk), kept darker in the middle so white type reads. */
+  .bg-sky {
+    background:
+      radial-gradient(30% 60% at 12% 100%, rgb(255 178 138 / 0.85) 0%, transparent 70%),
+      radial-gradient(30% 56% at 88% 100%, rgb(255 138 186 / 0.70) 0%, transparent 70%),
+      radial-gradient(60% 70% at 50% -10%, #5b49e8 0%, transparent 72%),
+      linear-gradient(180deg, #2c2378 0%, #4a39b0 34%, #7a5ccf 66%, #b98fd6 100%);
+  }
+  .headline {
+    position: absolute; left: 0; right: 0; text-align: center;
+    font-family: -apple-system, "SF Pro Display", "SF Pro", system-ui, sans-serif;
+    font-weight: 650; line-height: 1.1; color: var(--ink);
+  }
+  .headline .line { display: block; white-space: nowrap; }
+  .headline .line span { display: inline-block; padding: 0.04em 0.06em 0.10em; }
+  .headline .l2 span {
+    background: linear-gradient(90deg, var(--violet) 0%, #5d6cf6 45%, var(--blue) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .headline.on-dark { color: #fff; text-shadow: 0 2px 24px rgb(40 20 120 / 0.35); }
+  .headline.on-dark .l2 span { background: none; color: rgb(255 255 255 / 0.74); }
+  .headline.left { text-align: left; }
+  :lang(ja) .headline, .headline:lang(ja) { font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; }
+  .headline:lang(ko) { font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; word-break: keep-all; }
+  .headline:lang(zh-Hans) { font-family: -apple-system, "PingFang SC", sans-serif; }
+  .headline:lang(ja), .headline:lang(zh-Hans) { line-break: strict; }
+
+  .device { position: absolute; box-sizing: border-box; background: #0d0d10; }
+  .device::before { /* the metal band */
+    content: ""; position: absolute; inset: calc(var(--band) * -1); border-radius: inherit;
+    background: linear-gradient(160deg, #e9e9ee 0%, #a8a8b2 30%, #d7d7dd 55%, #8e8e98 100%);
+    z-index: -1; border-radius: calc(var(--r) + var(--band));
+  }
+  .device .screen { position: absolute; overflow: hidden; background: #000; }
+  .device .screen img { display: block; width: 100%; height: 100%; }
+  .shadow { position: absolute; border-radius: 9999px; filter: blur(var(--blur)); background: rgb(44 30 120 / 0.22); }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script>
+// render(cfg) lays out one canvas and returns geometry + text-fit facts for the checks.
+// cfg: { W, H, kind: "shot"|"header"|"search", lang, lines:[l1,l2], device:{...}, devices:[...] }
+// device: { src, sw, sh (screenshot px), radius (screen corner, screenshot px), bezel (fraction of screen width) }
+function el(tag, cls, parent) { const e = document.createElement(tag); if (cls) e.className = cls; parent.appendChild(e); return e; }
+
+function placeDevice(stage, d, x, y, scale) {
+  const sw = d.sw * scale, sh = d.sh * scale;
+  const bezel = Math.round(sw * d.bezel);
+  const r = d.radius * scale;
+  const band = Math.max(2, Math.round(sw * 0.006));
+  const w = sw + bezel * 2, h = sh + bezel * 2;
+  const sh1 = el("div", "shadow", stage);
+  Object.assign(sh1.style, { left: (x + w * 0.08) + "px", top: (y + h * 0.10) + "px", width: (w * 0.84) + "px", height: (h * 0.86) + "px" });
+  sh1.style.setProperty("--blur", Math.round(w * 0.07) + "px");
+  sh1.style.borderRadius = (r + bezel) + "px";
+  const dev = el("div", "device", stage);
+  Object.assign(dev.style, { left: x + "px", top: y + "px", width: w + "px", height: h + "px", borderRadius: (r + bezel) + "px" });
+  dev.style.setProperty("--band", band + "px");
+  dev.style.setProperty("--r", (r + bezel) + "px");
+  const scr = el("div", "screen", dev);
+  Object.assign(scr.style, { left: bezel + "px", top: bezel + "px", width: sw + "px", height: sh + "px", borderRadius: r + "px" });
+  const img = el("img", null, scr);
+  img.src = d.src;
+  return { x: x - band, y: y - band, w: w + band * 2, h: h + band * 2,
+           screen: { x: x + bezel, y: y + bezel, w: sw, h: sh, r: r } };
+}
+
+function headline(stage, cfg, box, opts) {
+  const h = el("div", "headline" + (opts.dark ? " on-dark" : "") + (opts.align === "left" ? " left" : ""), stage);
+  h.lang = cfg.lang;
+  Object.assign(h.style, { left: box.x + "px", width: box.w + "px", top: box.y + "px" });
+  const cjk = /^(ja|ko|zh)/.test(cfg.lang);
+  h.style.letterSpacing = cjk ? "0em" : "-0.035em";
+  cfg.lines.forEach((t, i) => { const l = el("div", "line l" + (i + 1), h); const s = el("span", null, l); s.textContent = t; });
+  let size = opts.base;
+  const min = opts.base * 0.62;
+  const fits = () => {
+    const spans = [...h.querySelectorAll(".line span")];
+    const widest = Math.max(...spans.map(s => s.getBoundingClientRect().width));
+    return widest <= box.w && h.getBoundingClientRect().height <= box.h;
+  };
+  h.style.fontSize = size + "px";
+  while (!fits() && size > min) { size -= 1; h.style.fontSize = size + "px"; }
+  if (opts.valign === "middle") {
+    const hh = h.getBoundingClientRect().height;
+    h.style.top = (box.y + (box.h - hh) / 2) + "px";
+  }
+  const rect = h.getBoundingClientRect();
+  const lines = [...h.querySelectorAll(".line span")].map(s => {
+    const r = s.getBoundingClientRect();
+    return { text: s.textContent, x: r.x, y: r.y, w: r.width, h: r.height, lines: Math.round(r.height / (size * 1.1 * 0.98)) };
+  });
+  return { base: opts.base, size, ratio: size / opts.base, box, rect: { x: rect.x, y: rect.y, w: rect.width, h: rect.height }, lines, fits: fits() };
+}
+
+function render(cfg) {
+  const stage = document.getElementById("stage");
+  stage.innerHTML = "";
+  stage.style.width = cfg.W + "px"; stage.style.height = cfg.H + "px";
+  document.documentElement.lang = cfg.lang;
+  const W = cfg.W, H = cfg.H;
+  const out = { kind: cfg.kind, W, H, devices: [] };
+  if (cfg.kind === "shot") {
+    stage.className = "bg-air";
+    const d = cfg.device;
+    const padX = W * 0.07;
+    const top = H * (d.headTop || 0.058);
+    const headH = H * (d.headH || 0.135);
+    out.text = headline(stage, cfg, { x: padX, y: top, w: W - padX * 2, h: headH }, { base: W * d.font, valign: "middle" });
+    const gapTop = top + headH + H * 0.03;
+    const availH = H - gapTop - H * (d.bottom || 0.035);
+    const availW = W - W * (d.sidePad || 0.12) * 2;
+    // Fit the whole device (screen + bezels) into the space under the headline.
+    const k = 1 + 2 * d.bezel;
+    const scale = Math.min(availH / (d.sh + 2 * d.bezel * d.sw), availW / (d.sw * k));
+    const devW = d.sw * scale * k, devH = d.sh * scale + 2 * Math.round(d.sw * scale * d.bezel);
+    out.devices.push(placeDevice(stage, d, (W - devW) / 2, gapTop + (availH - devH) / 2, scale));
+  } else if (cfg.kind === "header") {
+    stage.className = "bg-sky";
+    const safe = cfg.safe;
+    out.safe = safe;
+    out.text = headline(stage, cfg, { x: safe.x + 30, y: safe.y, w: safe.w - 60, h: safe.h }, { base: 190, dark: true, valign: "middle" });
+    for (const d of cfg.devices) {
+      const scale = d.height / (d.sh + 2 * d.bezel * d.sw);
+      out.devices.push(placeDevice(stage, d, d.cx - (d.sw * scale * (1 + 2 * d.bezel)) / 2, d.top, scale));
+    }
+  } else if (cfg.kind === "search") {
+    stage.className = "bg-air-wide";
+    const safe = cfg.safe;
+    out.safe = safe;
+    for (const d of cfg.devices) {
+      const scale = d.height / (d.sh + 2 * d.bezel * d.sw);
+      out.devices.push(placeDevice(stage, d, d.cx - (d.sw * scale * (1 + 2 * d.bezel)) / 2, d.top, scale));
+    }
+    out.text = headline(stage, cfg, cfg.textBox, { base: 172, align: "left", valign: "middle" });
+  }
+  return out;
+}
+window.render = render;
+</script>
+</body>
+</html>

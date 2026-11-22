@@ -1,0 +1,4 @@
+out/
+.env
+# Rendered videos — regenerate with the scripts here.
+/out/

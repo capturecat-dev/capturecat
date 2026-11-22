@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CaptureCat app preview</title>
+<!--
+  CaptureCat's App Store app preview, adapted from the Strobia pipeline
+  (Strobia/apps/ios/scripts/app-preview): real simulator recordings of the
+  app, filmed by a virtual camera that eases one move per idea; cuts hide
+  inside moves or quick punch-ins; motion blur from blended subframes.
+  Guideline 2.3.4: the recording fills the frame, no device is drawn and
+  nothing follows the app footage (no logo, no end card). The only overlays
+  are the headline captions (house style: ink + violet-to-blue) and tap
+  ripples.
+
+  Two passes per device (render.mjs): mode "base" draws the footage and
+  taps at 60 fps with motion blur; mode "captions" draws only the localized
+  headlines and their scrim on a transparent page, per locale.
+-->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fbfbfd; }
+  body.captions-only, body.captions-only #stage { background: transparent; }
+  #stage { position: relative; overflow: hidden; background: #fbfbfd; }
+  #rig { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  #screen { position: absolute; overflow: hidden; background: #fff; }
+  #screen img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .tap { position: absolute; left: 0; top: 0; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; }
+  .tap .dot { position: absolute; inset: 0; border-radius: 50%; background: rgba(124, 92, 240, 0.28); border: 2px solid rgba(124, 92, 240, 0.75); }
+  .tap .ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid rgba(124, 92, 240, 0.8); }
+  /* The headline sits on a soft light scrim at the top, like the site's airy header. */
+  #scrim { position: absolute; left: 0; top: 0; width: 100%; height: 34%;
+    background: linear-gradient(180deg, rgba(251, 251, 253, 0.97) 0%, rgba(247, 244, 251, 0.92) 46%, rgba(247, 244, 251, 0) 100%); }
+  .caption {
+    position: absolute; left: 6%; right: 6%; text-align: center;
+    font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; font-weight: 650;
+    color: #0b0b0f; letter-spacing: -0.035em; line-height: 1.1;
+  }
+  .caption:lang(ja) { font-family: -apple-system, "Hiragino Sans", sans-serif; letter-spacing: 0; }
+  .caption:lang(ko) { font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; letter-spacing: 0; word-break: keep-all; }
+  .caption:lang(zh-Hans) { font-family: -apple-system, "PingFang SC", sans-serif; letter-spacing: 0; }
+  .caption .line { display: block; white-space: nowrap; }
+  .caption .word { display: inline-block; white-space: pre; padding: 0.04em 0.02em 0.1em; }
+  .caption .l2 .word {
+    background: linear-gradient(90deg, #7c5cf0 0%, #5d6cf6 45%, #2f7bff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="rig">
+    <div id="screen"><img id="a" alt=""><img id="b" alt=""></div>
+    <div id="taps"></div>
+  </div>
+  <div id="scrim"></div>
+  <div id="captions"></div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const TAU = Math.PI * 2;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, p) => a + (b - a) * p;
+const win = (t, a, b) => clamp((t - a) / (b - a));
+const smooth = (p) => p * p * (3 - 2 * p);
+const easeOut = (p) => 1 - (1 - p) ** 3;
+const EASE = {
+  inOut: (p) => (p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2),
+  in: (p) => p ** 3,
+  out: (p) => 1 - (1 - p) ** 4,
+};
+
+/** Step response of a damped spring released at dt = 0. */
+function spring(dt, f, z) {
+  if (dt <= 0) return 0;
+  const w = TAU * f;
+  if (z >= 1) return 1 - Math.exp(-w * dt) * (1 + w * dt);
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * dt) * (Math.cos(wd * dt) + ((z * w) / wd) * Math.sin(wd * dt));
+}
+/** A value whose target changes at the given times: one spring per change, summed. */
+function springTrack(keys) {
+  return (t) => {
+    let v = keys[0].v;
+    for (let i = 1; i < keys.length; i++) v += (keys[i].v - keys[i - 1].v) * spring(t - keys[i].t, keys[i].f, keys[i].z);
+    return v;
+  };
+}
+
+// The recording fills the frame: the output's width, its own aspect
+// (iPhone runs ~2 px past the top and bottom at rest; iPad fits exactly).
+let W, H, SCREEN, ORIGIN, REST;
+let plan, taps = [];
+
+/** The camera at time t: zoom (s), the point of the screen it looks at
+ *  (fx, fy, fractions of the screen) and where that point sits in the
+ *  frame (ax, ay). Moves ease from wherever the camera is; a jump sets it
+ *  at once, at a cut. Zoom is eased in log space so it feels even. */
+function cameraAt(t) {
+  let state = { ...REST, ...plan.camera.start };
+  for (const move of plan.camera.moves) {
+    if (t < move.t) break;
+    const target = { ...state, ...move.to };
+    if (move.jump) { state = target; continue; }
+    const p = EASE[move.ease ?? 'inOut'](win(t, move.t, move.t + move.dur));
+    state = {
+      s: Math.exp(lerp(Math.log(state.s), Math.log(target.s), p)),
+      fx: lerp(state.fx, target.fx, p), fy: lerp(state.fy, target.fy, p),
+      ax: lerp(state.ax, target.ax, p), ay: lerp(state.ay, target.ay, p),
+    };
+  }
+  return state;
+}
+function setup(p) {
+  plan = p;
+  W = p.width; H = p.height;
+  SCREEN = { w: W, h: W * p.sourceAspect };
+  ORIGIN = { x: 0, y: (H - SCREEN.h) / 2 };
+  REST = { s: 1, fx: 0.5, fy: 0.5, ax: W / 2, ay: H / 2 };
+  document.documentElement.lang = p.lang || 'en';
+  document.body.classList.toggle('captions-only', p.mode === 'captions');
+  if (p.mode === 'captions') document.documentElement.style.background = 'transparent';
+  Object.assign($('stage').style, { width: `${W}px`, height: `${H}px` });
+  Object.assign($('rig').style, { width: `${W}px`, height: `${H}px` });
+  $('rig').style.display = p.mode === 'captions' ? 'none' : '';
+  $('scrim').style.display = p.mode === 'base' ? 'none' : '';
+  $('captions').style.display = p.mode === 'base' ? 'none' : '';
+  Object.assign($('screen').style, {
+    left: `${ORIGIN.x}px`, top: `${ORIGIN.y}px`, width: `${SCREEN.w}px`, height: `${SCREEN.h}px`,
+  });
+  // Two lines per headline (ink, then violet-to-blue), word by word.
+  const fits = [];
+  plan.captions.forEach((c, i) => {
+    const el = document.createElement('div');
+    el.className = 'caption';
+    el.id = `cap${i}`;
+    el.lang = p.lang || 'en';
+    el.style.top = `${p.captionTop}px`;
+    el.style.fontSize = `${p.captionSize}px`;
+    $('captions').appendChild(el);
+    (c.lines || []).forEach((line, l) => {
+      const row = document.createElement('span');
+      row.className = `line l${l + 1}`;
+      // CJK has no spaces: the line animates as one word.
+      const words = /\s/.test(line) ? line.split(' ') : [line];
+      words.forEach((word, w, all) => {
+        const span = document.createElement('span');
+        span.className = 'word';
+        span.textContent = w < all.length - 1 ? `${word} ` : word;
+        row.appendChild(span);
+      });
+      el.appendChild(row);
+    });
+  });
+  taps = (plan.mode === 'captions' ? [] : plan.taps).map((tap) => {
+    const el = document.createElement('div');
+    el.className = 'tap';
+    el.innerHTML = '<div class="ring"></div><div class="dot"></div>';
+    el.style.left = `${ORIGIN.x + tap.x * SCREEN.w}px`;
+    el.style.top = `${ORIGIN.y + tap.y * SCREEN.h}px`;
+    $('taps').appendChild(el);
+    return { ...tap, el, dot: el.querySelector('.dot'), ring: el.querySelector('.ring') };
+  });
+  $('scrim').style.height = `${p.scrimHeight}px`;
+  return document.fonts.ready.then(() => {
+    // Fit: shrink a headline until its widest line fits the caption box.
+    plan.captions.forEach((c, i) => {
+      const el = $(`cap${i}`);
+      const box = el.getBoundingClientRect().width;
+      let size = p.captionSize;
+      const widest = () => Math.max(0, ...[...el.querySelectorAll('.line')].map((r) => [...r.children].reduce((a, w) => a + w.getBoundingClientRect().width, 0)));
+      while (widest() > box && size > p.captionSize * 0.6) { size -= 1; el.style.fontSize = `${size}px`; }
+      // One gradient across the whole second line, split over its words.
+      el.querySelectorAll('.l2').forEach((row) => {
+        const words = [...row.children];
+        const left = words[0].getBoundingClientRect().left;
+        const width = words.reduce((acc, w) => acc + w.getBoundingClientRect().width, 0);
+        words.forEach((w) => {
+          w.style.backgroundSize = `${width}px 100%`;
+          w.style.backgroundPosition = `${-(w.getBoundingClientRect().left - left)}px 0`;
+        });
+      });
+      const rect = el.getBoundingClientRect();
+      fits.push({ lines: c.lines, size, base: p.captionSize, ratio: size / p.captionSize, box, widest: widest(),
+                  bottom: rect.bottom, fits: widest() <= box + 0.5 && rect.bottom <= p.scrimHeight });
+    });
+    window.FITS = fits;
+    return fits;
+  });
+}
+
+/** The recorded frame for a source moment in a take. */
+function frameURL(take, seconds) {
+  return `${plan.frames}/t${take}_${String(Math.round(seconds * plan.fps)).padStart(6, '0')}.jpg`;
+}
+async function show(img, src, opacity) {
+  img.style.opacity = opacity.toFixed(4);
+  if (opacity < 0.002 || !src) return;
+  if (img.getAttribute('src') !== src) {
+    img.setAttribute('src', src);
+    await img.decode();   // rejects on a missing frame: render.mjs then fails loudly
+  }
+}
+
+/** Draws the moment t (seconds). Resolves once the frames are decoded. */
+async function seek(t) {
+  if (plan.mode !== 'captions') await drawFootage(t);
+  if (plan.mode !== 'base') drawCaptions(t);
+}
+
+async function drawFootage(t) {
+  // The recording on screen: a segment, crossfading from the one before.
+  const segs = plan.segments;
+  let i = segs.length - 1;
+  while (i > 0 && t < segs[i].start) i--;
+  const source = (s) => clamp(s.from + (t - s.start) * s.speed, s.from, s.to - 1 / plan.fps);
+  const cur = segs[i], prev = segs[i - 1];
+  const fade = i > 0 && cur.fade > 0 ? smooth(win(t, cur.start, cur.start + cur.fade)) : 1;
+  await Promise.all([
+    show($('a'), prev && fade < 1 ? frameURL(prev.take, source(prev)) : '', prev && fade < 1 ? 1 : 0),
+    show($('b'), frameURL(cur.take, source(cur)), fade),
+  ]);
+
+  // The camera, breathing very slightly while it holds. It never pulls
+  // back past the recording's edges, so the frame is always the app.
+  const cam = cameraAt(t);
+  const s = Math.max(1, cam.s * (1 + 0.006 * Math.sin((TAU * t) / 7.3)));
+  const f = { x: cam.fx * SCREEN.w, y: cam.fy * SCREEN.h };
+  const tx = clamp(cam.ax + 3 * Math.sin((TAU * t) / 9.1) - s * (ORIGIN.x + f.x),
+    W - s * (ORIGIN.x + SCREEN.w), -s * ORIGIN.x);
+  const ty = clamp(cam.ay + 3 * Math.cos((TAU * t) / 8.3) - s * (ORIGIN.y + f.y),
+    H - s * (ORIGIN.y + SCREEN.h), -s * ORIGIN.y);
+  $('rig').style.transform = `translate(${tx.toFixed(3)}px, ${ty.toFixed(3)}px) scale(${s.toFixed(5)})`;
+
+  // Taps: the finger lands, and a ring spreads from it.
+  taps.forEach((tap) => {
+    const down = win(t, tap.t - 0.16, tap.t - 0.04), up = win(t, tap.t, tap.t + 0.22);
+    const ring = win(t, tap.t - 0.02, tap.t + 0.5);
+    const dotO = smooth(down) * (1 - smooth(up));
+    tap.el.style.visibility = dotO > 0.002 || (ring > 0 && ring < 1) ? 'visible' : 'hidden';
+    tap.dot.style.opacity = dotO.toFixed(4);
+    tap.dot.style.transform = `scale(${(1.15 - 0.2 * smooth(down)).toFixed(4)})`;
+    tap.ring.style.opacity = (ring > 0 && ring < 1 ? 0.8 * (1 - easeOut(ring)) : 0).toFixed(4);
+    tap.ring.style.transform = `scale(${(0.9 + 1.5 * easeOut(ring)).toFixed(4)})`;
+  });
+
+}
+
+function drawCaptions(t) {
+  // Captions: in with a small rise, out before the next one arrives. The
+  // scrim that keeps them readable over the app comes and goes with them.
+  let shown = 0;
+  plan.captions.forEach((c, k) => {
+    const el = $(`cap${k}`);
+    const outP = k === plan.captions.length - 1 ? 0 : EASE.in(win(t, c.out - 0.28, c.out));
+    el.style.opacity = (1 - outP).toFixed(4);
+    el.style.transform = `translateY(${(-14 * outP).toFixed(2)}px)`;
+    el.style.filter = outP > 0.01 ? `blur(${(6 * outP).toFixed(2)}px)` : 'none';
+    [...el.querySelectorAll('.word')].forEach((word, w) => {
+      const p = EASE.out(win(t, c.in + w * 0.07, c.in + w * 0.07 + 0.55));
+      word.style.opacity = p.toFixed(4);
+      word.style.transform = `translateY(${(22 * (1 - p)).toFixed(2)}px)`;
+      word.style.filter = p < 0.99 ? `blur(${(10 * (1 - p)).toFixed(2)}px)` : 'none';
+    });
+    if ((c.lines || []).length) shown = Math.max(shown, smooth(win(t, c.in - 0.25, c.in + 0.35)) * (1 - outP));
+  });
+  $('scrim').style.opacity = shown.toFixed(4);
+}
+
+window.setup = setup;
+window.seek = seek;
+window.READY = true;
+</script>
+</body>
+</html>

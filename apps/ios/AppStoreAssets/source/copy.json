@@ -1,0 +1,538 @@
+{
+  "_note": "Two-line headlines per locale: [line 1 (ink), line 2 (gradient)]. Keys: editor, background, captions, library, stream (stream_ipad on iPad), share = screenshots 1-6 and the preview's scenes; header + search. Rewritten 2026-11-20 for App Store keyword ranking: Apple OCRs screenshot text, so every headline carries the locale's screen-recorder search term (_keywords: 'keyword' is the search term, 'ocr' the stems check.py requires in every image), kept whole on one line.",
+  "_keywords": {
+    "en-GB": {
+      "keyword": "screen recorder",
+      "ocr": [
+        "screen"
+      ]
+    },
+    "en-US": {
+      "keyword": "screen recorder",
+      "ocr": [
+        "screen"
+      ]
+    },
+    "de-DE": {
+      "keyword": "Bildschirmaufnahme",
+      "ocr": [
+        "bildschirmaufnahme"
+      ]
+    },
+    "fr-FR": {
+      "keyword": "enregistreur d'écran",
+      "ocr": [
+        "enregistr",
+        "ecran"
+      ]
+    },
+    "es-ES": {
+      "keyword": "grabador de pantalla",
+      "ocr": [
+        "grab",
+        "pantalla"
+      ]
+    },
+    "es-MX": {
+      "keyword": "grabador de pantalla",
+      "ocr": [
+        "grab",
+        "pantalla"
+      ]
+    },
+    "it": {
+      "keyword": "registrazione schermo",
+      "ocr": [
+        "registr",
+        "schermo"
+      ]
+    },
+    "pt-BR": {
+      "keyword": "gravador de tela",
+      "ocr": [
+        "grav",
+        "tela"
+      ]
+    },
+    "nl-NL": {
+      "keyword": "schermopname",
+      "ocr": [
+        "schermopn"
+      ]
+    },
+    "ja": {
+      "keyword": "画面録画",
+      "ocr": [
+        "画面録画"
+      ]
+    },
+    "ko": {
+      "keyword": "화면 녹화",
+      "ocr": [
+        "화면녹화"
+      ]
+    },
+    "zh-Hans": {
+      "keyword": "录屏",
+      "ocr": [
+        "录屏"
+      ]
+    }
+  },
+  "en-GB": {
+    "editor": [
+      "Screen recorder",
+      "with auto zoom."
+    ],
+    "background": [
+      "Screen recordings,",
+      "beautifully framed."
+    ],
+    "captions": [
+      "Auto captions for",
+      "screen recordings."
+    ],
+    "library": [
+      "Every screen recording,",
+      "on every device."
+    ],
+    "stream": [
+      "Record your iPhone",
+      "screen on your Mac."
+    ],
+    "stream_ipad": [
+      "Record your iPad",
+      "screen on your Mac."
+    ],
+    "share": [
+      "Share screen videos",
+      "with a link."
+    ],
+    "header": [
+      "Screen recorder.",
+      "Skip the editing."
+    ],
+    "search": [
+      "Screen recorder",
+      "and video editor."
+    ]
+  },
+  "en-US": {
+    "editor": [
+      "Screen recorder",
+      "with auto zoom."
+    ],
+    "background": [
+      "Screen recordings,",
+      "beautifully framed."
+    ],
+    "captions": [
+      "Auto captions for",
+      "screen recordings."
+    ],
+    "library": [
+      "Every screen recording,",
+      "on every device."
+    ],
+    "stream": [
+      "Record your iPhone",
+      "screen on your Mac."
+    ],
+    "stream_ipad": [
+      "Record your iPad",
+      "screen on your Mac."
+    ],
+    "share": [
+      "Share screen videos",
+      "with a link."
+    ],
+    "header": [
+      "Screen recorder.",
+      "Skip the editing."
+    ],
+    "search": [
+      "Screen recorder",
+      "and video editor."
+    ]
+  },
+  "de-DE": {
+    "editor": [
+      "Bildschirmaufnahme",
+      "mit Auto-Zoom."
+    ],
+    "background": [
+      "Bildschirmaufnahmen,",
+      "schön gerahmt."
+    ],
+    "captions": [
+      "Auto-Untertitel für",
+      "Bildschirmaufnahmen."
+    ],
+    "library": [
+      "Jede Bildschirmaufnahme,",
+      "auf jedem Gerät."
+    ],
+    "stream": [
+      "iPhone-Bildschirmaufnahme",
+      "direkt am Mac."
+    ],
+    "stream_ipad": [
+      "iPad-Bildschirmaufnahme",
+      "direkt am Mac."
+    ],
+    "share": [
+      "Bildschirmaufnahmen",
+      "per Link teilen."
+    ],
+    "header": [
+      "Bildschirmaufnahme.",
+      "Ohne Schnittaufwand."
+    ],
+    "search": [
+      "Bildschirmaufnahme",
+      "und Videoeditor."
+    ]
+  },
+  "fr-FR": {
+    "editor": [
+      "Enregistreur d’écran",
+      "avec zoom auto."
+    ],
+    "background": [
+      "Enregistrements d’écran,",
+      "joliment cadrés."
+    ],
+    "captions": [
+      "Enregistrements d’écran",
+      "sous-titrés auto."
+    ],
+    "library": [
+      "Enregistrements d’écran",
+      "sur tous vos appareils."
+    ],
+    "stream": [
+      "L’écran de l’iPhone,",
+      "enregistré sur Mac."
+    ],
+    "stream_ipad": [
+      "L’écran de l’iPad,",
+      "enregistré sur Mac."
+    ],
+    "share": [
+      "Enregistrements d’écran",
+      "partagés par lien."
+    ],
+    "header": [
+      "Enregistreur d’écran.",
+      "Oubliez le montage."
+    ],
+    "search": [
+      "Enregistreur d’écran",
+      "et montage vidéo."
+    ]
+  },
+  "es-ES": {
+    "editor": [
+      "Grabador de pantalla",
+      "con zoom automático."
+    ],
+    "background": [
+      "Grabaciones de pantalla",
+      "con fondos preciosos."
+    ],
+    "captions": [
+      "Subtítulos automáticos",
+      "para grabar pantalla."
+    ],
+    "library": [
+      "Grabaciones de pantalla",
+      "en cada dispositivo."
+    ],
+    "stream": [
+      "Pantalla del iPhone,",
+      "grabada en Mac."
+    ],
+    "stream_ipad": [
+      "Pantalla del iPad,",
+      "grabada en Mac."
+    ],
+    "share": [
+      "Comparte pantallas grabadas",
+      "por enlace."
+    ],
+    "header": [
+      "Grabador de pantalla.",
+      "Olvídate de editar."
+    ],
+    "search": [
+      "Grabador de pantalla",
+      "con editor."
+    ]
+  },
+  "es-MX": {
+    "editor": [
+      "Grabador de pantalla",
+      "con zoom automático."
+    ],
+    "background": [
+      "Grabaciones de pantalla",
+      "con fondos increíbles."
+    ],
+    "captions": [
+      "Subtítulos automáticos",
+      "para grabar pantalla."
+    ],
+    "library": [
+      "Grabaciones de pantalla",
+      "en cada dispositivo."
+    ],
+    "stream": [
+      "Pantalla del iPhone,",
+      "grabada en Mac."
+    ],
+    "stream_ipad": [
+      "Pantalla del iPad,",
+      "grabada en Mac."
+    ],
+    "share": [
+      "Comparte pantallas grabadas",
+      "por enlace."
+    ],
+    "header": [
+      "Grabador de pantalla.",
+      "Olvídate de editar."
+    ],
+    "search": [
+      "Grabador de pantalla",
+      "con editor."
+    ]
+  },
+  "it": {
+    "editor": [
+      "Registrazione schermo",
+      "con zoom automatico."
+    ],
+    "background": [
+      "Registrazioni schermo",
+      "dalla cornice perfetta."
+    ],
+    "captions": [
+      "Registrazione schermo",
+      "con sottotitoli auto."
+    ],
+    "library": [
+      "Ogni registrazione schermo,",
+      "su ogni dispositivo."
+    ],
+    "stream": [
+      "Registra lo schermo",
+      "dell’iPhone sul Mac."
+    ],
+    "stream_ipad": [
+      "Registra lo schermo",
+      "dell’iPad sul Mac."
+    ],
+    "share": [
+      "Registrazioni schermo",
+      "condivise con un link."
+    ],
+    "header": [
+      "Registrazione schermo.",
+      "Salta il montaggio."
+    ],
+    "search": [
+      "Registrazione schermo",
+      "ed editor video."
+    ]
+  },
+  "pt-BR": {
+    "editor": [
+      "Gravador de tela",
+      "com zoom automático."
+    ],
+    "background": [
+      "Gravações de tela",
+      "com fundos lindos."
+    ],
+    "captions": [
+      "Legendas automáticas",
+      "para gravações de tela."
+    ],
+    "library": [
+      "Gravações de tela",
+      "em cada aparelho."
+    ],
+    "stream": [
+      "Tela do iPhone",
+      "gravada no Mac."
+    ],
+    "stream_ipad": [
+      "Tela do iPad",
+      "gravada no Mac."
+    ],
+    "share": [
+      "Gravações de tela",
+      "compartilhadas por link."
+    ],
+    "header": [
+      "Gravador de tela.",
+      "Pule a edição."
+    ],
+    "search": [
+      "Gravador de tela",
+      "com editor."
+    ]
+  },
+  "nl-NL": {
+    "editor": [
+      "Schermopname",
+      "met automatische zoom."
+    ],
+    "background": [
+      "Schermopnames,",
+      "prachtig in beeld."
+    ],
+    "captions": [
+      "Automatische ondertitels",
+      "voor schermopnames."
+    ],
+    "library": [
+      "Elke schermopname,",
+      "op elk apparaat."
+    ],
+    "stream": [
+      "Je iPhone-scherm opnemen",
+      "op je Mac."
+    ],
+    "stream_ipad": [
+      "Je iPad-scherm opnemen",
+      "op je Mac."
+    ],
+    "share": [
+      "Deel schermopnames",
+      "met een link."
+    ],
+    "header": [
+      "Schermopname.",
+      "Sla het monteren over."
+    ],
+    "search": [
+      "Schermopname",
+      "en video-editor."
+    ]
+  },
+  "ja": {
+    "editor": [
+      "画面録画を、",
+      "自動ズームで。"
+    ],
+    "background": [
+      "画面録画を、",
+      "美しいフレームで。"
+    ],
+    "captions": [
+      "画面録画に、",
+      "自動で字幕を。"
+    ],
+    "library": [
+      "すべての画面録画を、",
+      "すべてのデバイスで。"
+    ],
+    "stream": [
+      "iPhoneの画面録画を、",
+      "Macで。"
+    ],
+    "stream_ipad": [
+      "iPadの画面録画を、",
+      "Macで。"
+    ],
+    "share": [
+      "画面録画を、",
+      "リンクで共有。"
+    ],
+    "header": [
+      "画面録画。",
+      "編集の手間なし。"
+    ],
+    "search": [
+      "画面録画と、",
+      "動画編集。"
+    ]
+  },
+  "ko": {
+    "editor": [
+      "화면 녹화,",
+      "자동 줌까지."
+    ],
+    "background": [
+      "화면 녹화를",
+      "아름다운 프레임에."
+    ],
+    "captions": [
+      "화면 녹화에",
+      "자동 자막을."
+    ],
+    "library": [
+      "모든 화면 녹화를",
+      "모든 기기에서."
+    ],
+    "stream": [
+      "iPhone 화면 녹화를",
+      "Mac에서."
+    ],
+    "stream_ipad": [
+      "iPad 화면 녹화를",
+      "Mac에서."
+    ],
+    "share": [
+      "화면 녹화를",
+      "링크로 공유하세요."
+    ],
+    "header": [
+      "화면 녹화.",
+      "편집은 건너뛰세요."
+    ],
+    "search": [
+      "화면 녹화와",
+      "동영상 편집."
+    ]
+  },
+  "zh-Hans": {
+    "editor": [
+      "录屏，",
+      "自动缩放。"
+    ],
+    "background": [
+      "录屏，",
+      "画面更精美。"
+    ],
+    "captions": [
+      "录屏，",
+      "自动生成字幕。"
+    ],
+    "library": [
+      "所有录屏，",
+      "所有设备同步。"
+    ],
+    "stream": [
+      "iPhone 录屏，",
+      "直接在 Mac 上。"
+    ],
+    "stream_ipad": [
+      "iPad 录屏，",
+      "直接在 Mac 上。"
+    ],
+    "share": [
+      "录屏视频，",
+      "一个链接分享。"
+    ],
+    "header": [
+      "录屏，",
+      "无需剪辑。"
+    ],
+    "search": [
+      "录屏软件，",
+      "还能剪辑视频。"
+    ]
+  }
+}

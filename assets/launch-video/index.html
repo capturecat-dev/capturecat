@@ -1,0 +1,812 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>CaptureCat open source</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#000;overflow:hidden}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden;background:#f2f2ef;
+  font-family:-apple-system,"SF Pro Display","SF Pro Text",system-ui,sans-serif;color:#0b0b0c;-webkit-font-smoothing:antialiased}
+.scene{position:absolute;inset:0;display:none;transform-origin:50% 50%}
+.scene.dark{background:radial-gradient(1400px 900px at 50% 45%,#161618,#050506 75%)}
+h1{position:absolute;top:104px;left:0;right:0;text-align:center;font-size:96px;font-weight:800;letter-spacing:-3.6px;line-height:1.02}
+.dark h1{color:#fff}
+.w{display:inline-block;white-space:pre;transform-origin:50% 70%}
+.card{position:absolute;background:#fff;border-radius:22px;border:1px solid rgba(0,0,0,.07);box-shadow:0 24px 60px rgba(0,0,0,.10),0 2px 4px rgba(0,0,0,.04);overflow:hidden}
+
+/* mock app */
+.app{position:absolute;left:0;top:0;width:1240px;height:720px;background:#fff;transform-origin:0 0}
+.app .tb{height:44px;background:#f6f6f6;border-bottom:1px solid #e9e9e9;display:flex;align-items:center;padding:0 18px;gap:9px}
+.tl{width:13px;height:13px;border-radius:50%;display:inline-block}
+.tl.r{background:#ff5f57}.tl.y{background:#febc2e}.tl.g{background:#28c840}
+.app .tbt{flex:1;text-align:center;font-size:15px;color:#8a8a8a;font-weight:600;margin-right:60px}
+.app .body{position:absolute;top:44px;left:0;right:0;bottom:0;display:flex}
+.app .side{width:230px;background:#fafafa;border-right:1px solid #efefef;padding:24px 18px}
+.app .side i{display:block;height:14px;border-radius:7px;background:#e8e8e8;margin:0 0 22px}
+.app .side i.on{background:#d3ead6}
+.app .main{flex:1;padding:30px 32px;position:relative}
+.app .mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.app .h{font-size:30px;font-weight:700;letter-spacing:-.6px}
+.app .pub{width:150px;height:48px;border-radius:12px;background:#111;color:#fff;font-size:18px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
+.app .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.app .c{height:250px;border-radius:16px;border:1px solid #eeeeee;padding:22px;position:relative;background:#fff}
+.app .c .k{width:90px;height:12px;border-radius:6px;background:#ececec}
+.app .c .v{font-size:40px;font-weight:700;margin-top:16px;letter-spacing:-1px}
+.app .c .bars{position:absolute;left:22px;right:22px;bottom:22px;height:90px;display:flex;align-items:flex-end;gap:7px}
+.app .c .bars b{flex:1;border-radius:4px;background:#e2e8f3}
+.app .c .bars b.hi{background:#111}
+
+/* cursor: hotspot is the arrow tip */
+.cur{position:absolute;left:0;top:0;width:58px;height:74px;z-index:60;display:none;pointer-events:none}
+#cursor{filter:drop-shadow(0 10px 12px rgba(0,0,0,.22)) drop-shadow(0 2px 2px rgba(0,0,0,.28))}
+.rring{position:absolute;left:0;top:0;width:100px;height:100px;margin:-50px 0 0 -50px;border-radius:50%;z-index:58;display:none;border:3px solid #34c759}
+.rdot{position:absolute;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;z-index:58;display:none;background:rgba(52,199,89,.35)}
+
+/* s1 */
+.tbar{position:absolute;left:50%;top:50%;display:flex;align-items:center;gap:8px;padding:14px;border-radius:30px;
+  background:linear-gradient(#2c2c31,#222226);border:1px solid rgba(255,255,255,.10);box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.08)}
+.tbtn{width:116px;height:104px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#e8e8ee;font-size:17px;font-weight:500}
+.tbtn.sel{background:rgba(255,255,255,.10)}
+.tbtn svg{width:40px;height:40px}
+.sep{width:1px;height:70px;background:rgba(255,255,255,.12);margin:0 6px}
+.rec{width:104px;height:104px;border-radius:24px;background:rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;margin-left:6px}
+.rec .dot{width:46px;height:46px;border-radius:50%;background:#ff3b30}
+.timer{position:absolute;left:0;right:0;top:820px;text-align:center;color:#fff;font-size:30px;font-weight:600;font-variant-numeric:tabular-nums}
+.timer i{display:inline-block;width:14px;height:14px;border-radius:50%;background:#ff3b30;margin-right:12px;vertical-align:2px}
+
+/* s2 */
+.logo{position:absolute;filter:drop-shadow(0 24px 30px rgba(0,0,0,.28))}
+.dark .logo{filter:drop-shadow(0 0 2px rgba(255,255,255,.35)) drop-shadow(0 0 40px rgba(255,255,255,.12))}
+.sub{position:absolute;left:0;right:0;text-align:center;font-size:40px;color:#8a8a8a;font-weight:600;letter-spacing:-.6px}
+
+/* s5 */
+.capov{position:absolute;left:0;right:0;bottom:44px;text-align:center}
+.capov .pill{display:inline-block;background:rgba(10,10,12,.82);border-radius:18px;padding:12px 18px}
+.capov .cw{display:inline-block;font-size:40px;font-weight:700;color:#fff;padding:2px 10px;border-radius:10px;margin:0 1px}
+.capov .cw.on{background:#34c759;color:#06210d}
+.badge{position:absolute;display:flex;align-items:center;gap:10px;font-size:22px;font-weight:700;padding:12px 20px;border-radius:999px;background:#111;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+
+/* s6 */
+.canvas{position:absolute;left:380px;top:270px;width:1160px;height:620px;border-radius:26px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.14)}
+.bgl{position:absolute;inset:0}
+.shot{position:absolute;left:0;top:0;width:1160px;height:620px;overflow:hidden;transform-origin:50% 50%}
+.tray{position:absolute;top:928px;left:50%;display:flex;gap:16px;padding:12px;border-radius:22px;background:#fff;border:1px solid rgba(0,0,0,.07);box-shadow:0 14px 40px rgba(0,0,0,.10)}
+.sw{width:96px;height:58px;border-radius:12px;border:3px solid transparent}
+.sw.on{border-color:#111}
+
+/* s7 */
+.bubble{position:absolute;width:210px;height:210px;border-radius:50%;border:6px solid #fff;overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,.3);background:linear-gradient(160deg,#2a2a30,#0c0c0e)}
+.bubble img{width:100%;height:100%;object-fit:cover;transform:translateY(6%) scale(1.05)}
+.vstrip{position:absolute;left:340px;top:898px;width:1240px;height:118px;background:#fff;border-radius:20px;border:1px solid rgba(0,0,0,.07);box-shadow:0 18px 50px rgba(0,0,0,.08);display:flex;align-items:center;padding:0 28px;gap:24px}
+.vstrip .lab{font-size:20px;font-weight:700;width:150px;display:flex;align-items:center;gap:10px}
+.vstrip .lab i{width:14px;height:14px;border-radius:50%;background:#ff3b30;display:inline-block}
+.wave{flex:1;height:80px;display:flex;align-items:center;gap:3px}
+.wave b{flex:1;border-radius:3px;background:#111;transform-origin:50% 50%}
+
+/* s8 editor */
+.preview{position:absolute;left:460px;top:245px;width:1000px;height:580px;border-radius:18px;overflow:hidden;background:#fff;border:1px solid rgba(0,0,0,.07);box-shadow:0 24px 60px rgba(0,0,0,.12)}
+.tline{position:absolute;left:220px;top:850px;width:1480px;height:192px;border-radius:20px;background:#161618;padding:12px 18px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.trk{position:relative;height:28px;margin-bottom:6px}
+.trk .tn{position:absolute;left:0;top:0;width:120px;height:28px;line-height:28px;font-size:15px;color:#8d8d96;font-weight:600}
+.trk .lane{position:absolute;left:130px;right:0;top:0;height:28px}
+.seg{position:absolute;top:0;height:28px;border-radius:7px;font-size:13px;font-weight:700;color:rgba(0,0,0,.65);display:flex;align-items:center;padding:0 10px;overflow:hidden}
+.film{background:#e9e9ec;display:flex;gap:3px;padding:3px}
+.film u{flex:1;height:22px;border-radius:3px;background:#c9c9cf;text-decoration:none}
+.playhead{position:absolute;top:6px;bottom:6px;width:3px;background:#ff453a;border-radius:2px}
+.kpill{position:absolute;display:flex;gap:8px;padding:10px 14px;border-radius:18px;background:rgba(20,20,22,.9);box-shadow:0 12px 30px rgba(0,0,0,.35)}
+.kpill b{min-width:58px;height:58px;padding:0 14px;border-radius:12px;background:linear-gradient(#48484e,#333338);color:#fff;font-size:30px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 3px 0 #111}
+.anno{position:absolute}
+.anno .lbl{position:absolute;white-space:nowrap;font-size:26px;font-weight:800;color:#fff;background:#ff375f;padding:8px 16px;border-radius:12px}
+
+/* s9 */
+.win{position:absolute;border-radius:16px;overflow:hidden;background:#1d1d20;box-shadow:0 30px 70px rgba(0,0,0,.22)}
+.win .bar{height:46px;background:#29292d;display:flex;align-items:center;gap:8px;padding:0 16px}
+.url{flex:1;margin:0 20px;height:30px;border-radius:9px;background:#18181b;color:#c9c9d2;font-size:16px;display:flex;align-items:center;justify-content:center;gap:8px}
+.mini{position:absolute;left:20px;right:20px;top:66px;bottom:20px}
+.mini .pv{position:absolute;left:0;right:0;top:0;height:64%;border-radius:10px;overflow:hidden;background:#fff}
+.mini .tk{position:absolute;left:0;right:0;height:16px;border-radius:5px}
+.sync{position:absolute;width:110px;height:110px;border-radius:50%;background:#fff;box-shadow:0 16px 40px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center}
+.hist{position:absolute;width:420px;background:#fff;border-radius:20px;border:1px solid rgba(0,0,0,.07);box-shadow:0 30px 80px rgba(0,0,0,.2);padding:22px}
+.hist h3{font-size:22px;margin-bottom:14px}
+.hrow{display:flex;align-items:center;gap:14px;padding:12px;border-radius:12px;font-size:19px;font-weight:600}
+.hrow.on{background:#eef8f0}
+.av{width:38px;height:38px;border-radius:50%;color:#fff;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;flex:none}
+.hrow small{display:block;color:#888;font-size:15px;margin-top:2px;font-weight:500}
+
+/* s10 */
+.sheet{position:absolute;left:250px;top:300px;width:820px;height:520px;background:#fff;border-radius:24px;border:1px solid rgba(0,0,0,.07);box-shadow:0 24px 60px rgba(0,0,0,.10);padding:40px}
+.sheet h2{font-size:34px;letter-spacing:-.6px;margin-bottom:28px}
+.segc{position:relative;display:flex;background:#f0f0f0;border-radius:14px;padding:5px;width:520px;margin-bottom:30px}
+.segc span{flex:1;text-align:center;font-size:22px;font-weight:700;height:52px;line-height:52px;position:relative;z-index:2}
+.segc .sel{position:absolute;top:5px;left:5px;height:52px;width:170px;border-radius:10px;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.12);z-index:1}
+.row{display:flex;justify-content:space-between;font-size:22px;padding:14px 0;border-bottom:1px solid #f0f0f0;color:#555}
+.row b{color:#111}
+.prog{margin-top:34px;height:14px;border-radius:7px;background:#eee;overflow:hidden}
+.prog i{display:block;height:100%;background:#111;border-radius:7px}
+.plab{margin-top:12px;font-size:20px;color:#666;font-weight:600}
+.link{position:absolute;left:1150px;top:350px;width:540px;height:84px;background:#fff;border-radius:20px;border:1px solid rgba(0,0,0,.07);box-shadow:0 20px 50px rgba(0,0,0,.10);display:flex;align-items:center;padding:0 14px 0 26px;gap:14px;font-size:24px;font-weight:700}
+.link .cp{margin-left:auto;background:#111;color:#fff;font-size:20px;border-radius:12px;padding:14px 22px}
+.toast{position:absolute;left:1150px;top:456px;padding:14px 22px;border-radius:14px;background:#34c759;color:#06210d;font-size:20px;font-weight:700}
+.views{position:absolute;left:1150px;top:540px;width:540px;height:250px;background:#fff;border-radius:20px;border:1px solid rgba(0,0,0,.07);box-shadow:0 20px 50px rgba(0,0,0,.08);padding:26px}
+.views .n{font-size:56px;font-weight:800;letter-spacing:-1.5px;font-variant-numeric:tabular-nums}
+.views .l{font-size:20px;color:#777;font-weight:600}
+
+/* s11 */
+.chat{position:absolute;left:230px;top:290px;width:700px;height:660px;background:#fff;border-radius:24px;border:1px solid rgba(0,0,0,.07);box-shadow:0 24px 60px rgba(0,0,0,.10);padding:28px}
+.chat .hd{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:700;padding-bottom:18px;border-bottom:1px solid #f0f0f0;margin-bottom:22px}
+.msg{font-size:24px;line-height:1.35;padding:16px 20px;border-radius:18px;max-width:560px}
+.msg.me{margin-left:auto;background:#111;color:#fff;border-bottom-right-radius:6px;min-height:58px}
+.msg.ai{background:#f1f1f1;border-bottom-left-radius:6px;margin-top:20px;font-weight:600}
+.tool{display:flex;align-items:center;gap:14px;margin-top:14px;font:600 21px ui-monospace,"SF Mono",Menlo,monospace;color:#333;background:#f7f7f7;border:1px solid #ededed;border-radius:14px;padding:12px 16px;width:420px}
+.tool .st{width:28px;height:28px;border-radius:50%;flex:none;position:relative}
+.tool small{margin-left:auto;font:600 16px -apple-system,system-ui;color:#999}
+
+/* s13 */
+.repo{position:absolute;left:385px;top:470px;width:1150px;height:210px;border-radius:26px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);padding:40px 46px;color:#fff}
+.repo .nm{white-space:nowrap;font:600 40px ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:-1px;display:flex;align-items:center;gap:20px}
+.pills{display:flex;gap:14px;margin-top:26px}
+.pills span{font-size:20px;font-weight:700;padding:8px 18px;border-radius:999px;background:rgba(255,255,255,.1);color:#ddd}
+.pills span.g{background:rgba(52,199,89,.2);color:#7ee29a}
+.freedoms{position:absolute;left:0;right:0;top:760px;display:flex;justify-content:center;gap:70px}
+.freedoms div{font-size:52px;font-weight:800;color:#fff;letter-spacing:-1.5px;display:flex;align-items:center;gap:16px}
+.freedoms svg{width:46px;height:46px}
+
+/* s14 */
+.word{position:absolute;left:0;right:0;text-align:center;color:#fff}
+#fade{position:absolute;inset:0;background:#000;z-index:100;pointer-events:none;opacity:0}
+
+/* X / square cut: header + cropped stage (source x 189..1731 is the safe area) */
+#frame{display:none;position:relative;width:1080px;height:1080px;overflow:hidden;background:#050506;
+  font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#fff}
+body.square #frame{display:block}
+#xhead{position:absolute;left:0;right:0;top:0;height:150px;display:flex;align-items:center;justify-content:center;gap:22px}
+#xhead img{width:84px;height:84px;filter:drop-shadow(0 0 2px rgba(255,255,255,.4)) drop-shadow(0 0 18px rgba(255,255,255,.12))}
+#xhead .t1{font-size:46px;font-weight:800;letter-spacing:-1.6px}
+#xhead .t1 em{font-style:normal;color:#34c759}
+#stageWrap{position:absolute;left:0;top:150px;width:1080px;height:756px;overflow:hidden}
+#stageWrap #stage{transform:translateX(-132.3px) scale(.7);transform-origin:0 0}
+#xfoot{position:absolute;left:0;right:0;top:906px;height:174px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+#xfoot .u{font-size:38px;font-weight:800;color:#34c759;letter-spacing:-1px}
+#xfoot .d{font-size:24px;font-weight:600;color:#8a8a93}
+#ffade{position:absolute;inset:0;background:#000;opacity:0;z-index:10}
+</style>
+</head>
+<body>
+<div id="frame">
+  <div id="xhead"><img src="cat.png"><div class="t1">CaptureCat is now <em>open source</em></div></div>
+  <div id="stageWrap"></div>
+  <div id="xfoot"><div class="u">capturecat.so</div><div class="d">Mac app + any browser · AGPL-3.0</div></div>
+  <div id="ffade"></div>
+</div>
+<div id="stage">
+
+  <section id="s1" class="scene dark">
+    <h1 data-words style="top:250px;font-size:120px;letter-spacing:-4.5px"></h1>
+    <div class="tbar" id="tbar" style="top:610px">
+      <div class="tbtn sel"><svg viewBox="0 0 40 40" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"><rect x="4" y="6" width="32" height="21" rx="3"/><path d="M14 34h12M20 27v7"/></svg>Display</div>
+      <div class="tbtn"><svg viewBox="0 0 40 40" fill="none" stroke="#fff" stroke-width="2.6"><rect x="5" y="7" width="30" height="26" rx="4"/><path d="M5 14h30"/></svg>Window</div>
+      <div class="tbtn"><svg viewBox="0 0 40 40" fill="none" stroke="#fff" stroke-width="2.6" stroke-dasharray="4 4"><rect x="6" y="8" width="28" height="24" rx="2"/></svg>Area</div>
+      <div class="sep"></div>
+      <div class="tbtn"><svg viewBox="0 0 40 40" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"><rect x="4" y="11" width="23" height="18" rx="4"/><path d="M27 17l9-5v16l-9-5z"/></svg>Camera</div>
+      <div class="tbtn"><svg viewBox="0 0 40 40" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><rect x="14" y="4" width="12" height="20" rx="6"/><path d="M8 19a12 12 0 0 0 24 0M20 31v5"/></svg>Mic</div>
+      <div class="rec" id="recbtn"><div class="dot" id="recdot"></div></div>
+    </div>
+    <div class="timer" id="timer"><i></i><span>00:00</span></div>
+  </section>
+
+  <section id="s2" class="scene">
+    <img class="logo" id="s2logo" src="cat.png" style="width:220px;height:220px;left:850px;top:210px">
+    <h1 data-words style="top:500px;font-size:150px;letter-spacing:-6px"></h1>
+    <div class="sub" id="s2sub" style="top:700px">CaptureCat</div>
+  </section>
+
+  <section id="s3" class="scene">
+    <h1 data-words></h1>
+    <div class="card" id="s3card" style="left:340px;top:280px;width:1240px;height:720px">
+      <div class="app" id="s3app" data-app></div>
+    </div>
+  </section>
+
+  <section id="s5" class="scene">
+    <h1 data-words></h1>
+    <div class="card" id="s5card" style="left:360px;top:280px;width:1200px;height:697px">
+      <div class="app" data-app style="transform:scale(.9677)"></div>
+      <div class="capov"><div class="pill" id="caps"></div></div>
+      <div class="badge" id="s5badge" style="right:28px;top:62px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2.6"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        Audio stays on device</div>
+    </div>
+  </section>
+
+  <section id="s6" class="scene">
+    <h1 data-words></h1>
+    <div class="canvas" id="s6canvas">
+      <div class="bgl" style="background:#e6e6e3"></div>
+      <div class="bgl" style="background:linear-gradient(135deg,#8be0b0,#1f8a6e)"></div>
+      <div class="bgl" style="background:linear-gradient(135deg,#ffc58f,#ff375f)"></div>
+      <div class="shot" id="s6shot"><div class="app" data-app style="transform:scale(.9355)"></div></div>
+    </div>
+    <div class="tray" id="s6tray">
+      <div class="sw on" style="background:#e6e6e3"></div>
+      <div class="sw" style="background:linear-gradient(135deg,#8be0b0,#1f8a6e)"></div>
+      <div class="sw" style="background:linear-gradient(135deg,#ffc58f,#ff375f)"></div>
+      <div class="sw" style="background:linear-gradient(135deg,#8fb0ff,#3a2a8f)"></div>
+    </div>
+  </section>
+
+  <section id="s7" class="scene">
+    <h1 data-words></h1>
+    <div class="card" id="s7card" style="left:340px;top:270px;width:1240px;height:600px">
+      <div class="app" data-app></div>
+      <div class="bubble" id="s7bub"><img src="cat.png"></div>
+    </div>
+    <div class="vstrip" id="s7strip"><div class="lab"><i id="s7rec"></i>Voice-over</div><div class="wave" id="s7wave"></div><div style="font:700 20px ui-monospace,Menlo;color:#888" id="s7time">0:00</div></div>
+  </section>
+
+  <section id="s8" class="scene">
+    <h1 data-words></h1>
+    <div class="preview" id="s8prev">
+      <div class="app" data-app style="transform:scale(.8065)"></div>
+      <div class="anno" id="s8anno" style="left:560px;top:150px">
+        <svg width="200" height="120" viewBox="0 0 200 120" style="position:absolute;left:0;top:0"><path d="M10 110 C 60 100, 120 70, 170 22" fill="none" stroke="#ff375f" stroke-width="9" stroke-linecap="round"/><path d="M140 18 L176 14 L168 50" fill="none" stroke="#ff375f" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="lbl" style="left:-150px;top:104px">Click here</div>
+      </div>
+      <div class="kpill" id="s8keys" style="left:380px;top:470px"><b>⌘</b><b>⇧</b><b>S</b></div>
+    </div>
+    <div class="tline" id="s8tl">
+      <div class="trk"><div class="tn">Video</div><div class="lane" id="s8video"></div></div>
+      <div class="trk"><div class="tn">Zoom</div><div class="lane"><div class="seg" style="left:8%;width:14%;background:#7ee29a">1.8×</div><div class="seg" style="left:56%;width:16%;background:#7ee29a">2.0×</div></div></div>
+      <div class="trk"><div class="tn">Captions</div><div class="lane" id="s8caps"></div></div>
+      <div class="trk"><div class="tn">Voice</div><div class="lane" id="s8voice" style="display:flex;align-items:center;gap:2px"></div></div>
+      <div class="trk"><div class="tn">Annotations</div><div class="lane"><div class="seg" style="left:40%;width:15%;background:#ff8fa8">Arrow</div><div class="seg" style="left:74%;width:12%;background:#ff8fa8">Keys</div></div></div>
+      <div class="playhead" id="s8ph"></div>
+    </div>
+  </section>
+
+  <section id="s9" class="scene">
+    <h1 data-words></h1>
+    <div class="win" id="s9mac" style="left:200px;top:300px;width:740px;height:500px">
+      <div class="bar"><i class="tl r"></i><i class="tl y"></i><i class="tl g"></i><div class="url" style="background:none">CaptureCat for Mac</div></div>
+      <div class="mini" data-mini></div>
+    </div>
+    <div class="win" id="s9web" style="left:980px;top:280px;width:740px;height:540px">
+      <div class="bar"><i class="tl" style="background:#4d4d53"></i><i class="tl" style="background:#4d4d53"></i><i class="tl" style="background:#4d4d53"></i>
+        <div class="url"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c9c9d2" stroke-width="2.6"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>capturecat.so/app/editor</div></div>
+      <div class="mini" data-mini></div>
+    </div>
+    <div class="sync" id="s9sync" style="left:905px;top:500px">
+      <svg id="s9arrows" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 0 1-13.7 5.6M4 12a8 8 0 0 1 13.7-5.6"/><path d="M18 2.5v4.2h-4.2M6 21.5v-4.2h4.2"/></svg>
+    </div>
+    <div class="hist" id="s9hist" style="left:1290px;top:560px">
+      <h3>History</h3>
+      <div class="hrow on"><div class="av" style="background:#111">M</div><div>Trimmed the intro<small>Mac · just now</small></div></div>
+      <div class="hrow"><div class="av" style="background:#ff375f">S</div><div>Added a zoom<small>Web · 2m ago</small></div></div>
+      <div class="hrow"><div class="av" style="background:#34c759">M</div><div>Generated captions<small>Web · 1h ago</small></div></div>
+    </div>
+  </section>
+
+  <section id="s10" class="scene">
+    <h1 data-words></h1>
+    <div class="sheet" id="s10sheet">
+      <h2>Export</h2>
+      <div class="segc" id="s10seg"><div class="sel" id="s10sel"></div><span>MP4</span><span>GIF</span><span>MOV</span></div>
+      <div class="row">Resolution<b>4K</b></div>
+      <div class="row">Frame rate<b>60 fps</b></div>
+      <div class="prog"><i id="s10bar"></i></div>
+      <div class="plab" id="s10lab">Ready</div>
+    </div>
+    <div class="link" id="s10link">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.6" stroke-linecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+      capturecat.so/s/k3f9x<div class="cp" id="s10copy">Copy</div></div>
+    <div class="toast" id="s10toast">Link copied</div>
+    <div class="views" id="s10views"><div class="n" id="s10n">0</div><div class="l">views this week</div>
+      <svg width="488" height="90" viewBox="0 0 488 90" style="margin-top:14px"><path id="s10spark" d="M0 80 L40 74 L80 76 L120 62 L160 66 L200 50 L240 54 L280 38 L320 42 L360 26 L400 30 L440 14 L488 8" fill="none" stroke="#34c759" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  </section>
+
+  <section id="s11" class="scene">
+    <h1 data-words></h1>
+    <div class="chat" id="s11chat">
+      <div class="hd"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Agent<span style="margin-left:auto;font-size:16px;color:#1c7a36;background:#eef8f0;padding:6px 12px;border-radius:999px">CaptureCat MCP</span></div>
+      <div class="msg me" id="s11me"></div>
+      <div id="s11tools"></div>
+      <div class="msg ai" id="s11ai">Done. Cut, zoomed and annotated.</div>
+    </div>
+    <div class="card" id="s11prev" style="left:970px;top:330px;width:740px;height:430px">
+      <div class="app" id="s11app" data-app style="transform:scale(.5968)"></div>
+      <div class="anno" id="s11anno" style="transform-origin:119px 16px">
+        <svg width="140" height="90" viewBox="0 0 200 120"><path d="M10 110 C 60 100, 120 70, 170 22" fill="none" stroke="#ff375f" stroke-width="11" stroke-linecap="round"/><path d="M140 18 L176 14 L168 50" fill="none" stroke="#ff375f" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+  </section>
+
+  <section id="s13" class="scene dark">
+    <h1 data-words style="top:250px;font-size:130px;letter-spacing:-5px"></h1>
+    <div class="repo" id="s13repo">
+      <div class="nm"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>github.com/capturecat-dev/capturecat</div>
+      <div class="pills"><span class="g">AGPL-3.0</span><span>Swift</span><span>TypeScript</span><span>Mac app + web + API</span></div>
+    </div>
+    <div class="freedoms">
+      <div class="fd" data-word="fork"><svg viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Fork it</div>
+      <div class="fd" data-word="change"><svg viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Change it</div>
+      <div class="fd" data-word="host"><svg viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>Host it yourself</div>
+    </div>
+  </section>
+
+  <section id="s14" class="scene dark">
+    <img class="logo" id="s14logo" src="cat.png" style="width:240px;height:240px;left:840px;top:240px">
+    <div class="word" id="s14name" style="top:530px;font-size:120px;font-weight:800;letter-spacing:-5px">CaptureCat</div>
+    <div class="word" id="s14tag" style="top:690px;font-size:42px;font-weight:600;color:#9a9aa3">Hit record. It edits itself.</div>
+    <div class="word" id="s14url" style="top:790px;font-size:38px;font-weight:800;color:#34c759">capturecat.so</div>
+    <div class="word" id="s14gh" style="top:852px;font:600 26px ui-monospace,'SF Mono',Menlo,monospace;color:#6e6e76">github.com/capturecat-dev/capturecat</div>
+  </section>
+
+  <div class="rring" id="rr0"></div><div class="rdot" id="rd0"></div><div class="rring" id="rr1"></div><div class="rdot" id="rd1"></div>
+  <svg id="trail" width="1920" height="1080" style="position:absolute;left:0;top:0;z-index:59;pointer-events:none"><path/><path/><path/><path/><path/><path/><path/><path/><path/><path/><path/><path/><path/><path/></svg>
+  <svg class="cur" id="cursor" viewBox="-5 -4 36 46">
+    <defs>
+      <linearGradient id="cfill" x1="0" y1="0" x2=".35" y2="1"><stop offset="0" stop-color="#3a3a40"/><stop offset=".55" stop-color="#121214"/><stop offset="1" stop-color="#000"/></linearGradient>
+      <g id="cshape"><path d="M3 2.6 C3 1.3 4.4 .7 5.3 1.6 L25.2 20.7 C26.1 21.6 25.5 23 24.3 23.1 L16.8 23.6 L21.1 33.1 C21.5 34.1 21.1 35.2 20.1 35.6 L17.3 36.8 C16.3 37.2 15.2 36.8 14.8 35.8 L10.6 26.3 L5.2 31.6 C4.3 32.5 3 31.9 3 30.6 Z" fill="url(#cfill)" stroke="#fff" stroke-width="2.3" stroke-linejoin="round"/></g>
+    </defs>
+    <use href="#cshape"/>
+    <path d="M5.6 6.2 L5.6 17" stroke="rgba(255,255,255,.28)" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+  <div id="fade"></div>
+</div>
+
+<script src="scenes.js"></script>
+<script>
+// ---------- math ----------
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, p) => a + (b - a) * p;
+const pr = (t, a, b) => clamp((t - a) / (b - a));
+const E = {
+  outCubic: p => 1 - Math.pow(1 - p, 3),
+  inOutCubic: p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2,
+  inOutQuart: p => p < .5 ? 8 * p ** 4 : 1 - Math.pow(-2 * p + 2, 4) / 2,
+  outExpo: p => p >= 1 ? 1 : 1 - Math.pow(2, -10 * p),
+  inOutExpo: p => p <= 0 ? 0 : p >= 1 ? 1 : p < .5 ? Math.pow(2, 20 * p - 10) / 2 : (2 - Math.pow(2, -20 * p + 10)) / 2,
+  inCubic: p => p * p * p,
+};
+// Closed-form damped spring, 0 -> 1. Stiff by default: lands fast with one small overshoot.
+function spring(t, w = 20, z = 0.68) {
+  if (t <= 0) return 0;
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t));
+}
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const $ = s => document.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+function tf(el, { x = 0, y = 0, s = 1, r = 0, o, b, pre = '' } = {}) {
+  el.style.transform = `${pre} translate(${x}px,${y}px) scale(${s}) rotate(${r}deg)`;
+  if (o !== undefined) el.style.opacity = o;
+  if (b !== undefined) el.style.filter = b > 0.05 ? `blur(${b}px)` : 'none';
+}
+// Snappy entrance: quick scale-up from slightly small + rise, opacity snaps in.
+function pop(el, lt, t0, { from = 0.88, rise = 26, w = 22, z = 0.62, pre = '' } = {}) {
+  const p = spring(lt - t0, w, z);
+  tf(el, { y: (1 - p) * rise, s: lerp(from, 1, p), o: clamp((lt - t0) * 10), pre });
+  return p;
+}
+// Card entrance used by most scenes.
+function enter(el, lt, t0 = 0.05) { const p = spring(lt - t0, 18, .74); tf(el, { y: (1 - p) * 70, s: lerp(.96, 1, p), o: clamp((lt - t0) * 9) }); return p; }
+
+// ---------- setup ----------
+const K = window.SCENEKIT;
+const SPEED = K.SPEED;
+const STAGE = $('#stage');
+let TL = window.TIMELINE || K.buildTimeline(null);
+const WORDS = window.WORDS || {};
+const anchors = {};
+const TT = {};          // per scene: real local time each title word lands
+const norm = w => w.toLowerCase().replace(/[^a-z0-9-]/g, '');
+function wordTime(id, word, fallback) {
+  const ws = WORDS[id] || []; const i = ws.findIndex(w => norm(w.w) === word);
+  return i < 0 ? fallback : ws[i].s - 0.03;
+}
+
+function mockApp(el) {
+  const vals = ['12.4k', '3,218', '98.2%', '641', '27m', '4.9'];
+  el.innerHTML = `<div class="tb"><i class="tl r"></i><i class="tl y"></i><i class="tl g"></i><div class="tbt">Dashboard</div></div>
+  <div class="body"><div class="side"><i class="on" style="width:80%"></i><i style="width:65%"></i><i style="width:72%"></i><i style="width:55%"></i><i style="width:68%"></i><i style="width:48%"></i></div>
+  <div class="main"><div class="mh"><div class="h">Overview</div><div class="pub"><span class="pt">Publish</span></div></div>
+  <div class="grid">${vals.map((v, i) => `<div class="c"><div class="k"></div><div class="v">${v}</div><div class="bars">${
+    [40, 62, 48, 80, 58, 92, 70].map((h, j) => `<b class="${j === (i + 3) % 7 ? 'hi' : ''}" style="height:${(h + i * 7) % 100 || 30}%"></b>`).join('')}</div></div>`).join('')}</div></div></div>`;
+}
+function miniEditor(el) {
+  el.innerHTML = `<div class="pv"><div class="app" data-app></div></div>
+    <div class="tk" style="top:68%;background:#e9e9ec;width:92%"></div>
+    <div class="tk" style="top:76%;background:#7ee29a;left:12%;width:22%"></div><div class="tk" style="top:76%;background:#7ee29a;left:58%;width:18%"></div>
+    <div class="tk" style="top:84%;background:#ff8fa8;left:36%;width:16%"></div>
+    <div class="tk" style="top:92%;background:#b9a6ff;width:78%"></div>`;
+}
+
+function setup() {
+  $$('[data-mini]').forEach(miniEditor);
+  $$('[data-app]').forEach(mockApp);
+  $$('.mini .pv .app').forEach(a => { a.style.transform = `scale(${700 / 1240})`; });
+
+  // titles from the manifest, word-split; each word lands when the voice says it
+  K.SCENES.forEach(sc => {
+    const h = $(`#${sc.id} h1[data-words]`); if (!h) return;
+    const words = sc.title.split(' ');
+    h.innerHTML = words.map(w => `<span class="w">${w}</span>`).join(' ');
+    const vo = WORDS[sc.id] || []; let j = 0, prev = 0.05;
+    TT[sc.id] = words.map((w, i) => {
+      const k = vo.findIndex((v, idx) => idx >= j && norm(v.w) === norm(w));
+      if (k >= 0) { j = k + 1; prev = vo[k].s - 0.03; } else prev = i === 0 ? 0.08 : prev + 0.09;
+      return prev;
+    });
+  });
+
+  // captions overlay words (s5)
+  $('#caps').innerHTML = 'ship a demo in five minutes'.split(' ').map(w => `<span class="cw">${w}</span>`).join('');
+
+  const wr = rng(3);
+  $('#s7wave').innerHTML = Array.from({ length: 110 }, (_, i) => `<b style="height:${Math.round(12 + Math.abs(Math.sin(i * .37)) * 50 * (.4 + wr() * .6))}px"></b>`).join('');
+  $('#s8video').innerHTML = `<div class="seg film" id="s8clipA" style="left:0;width:35%">${'<u></u>'.repeat(8)}</div><div class="seg film" id="s8clipB" style="left:35%;width:63%">${'<u></u>'.repeat(14)}</div>`;
+  $('#s8caps').innerHTML = [3, 12, 21, 30, 44, 53, 62, 71, 84].map(l => `<div class="seg" style="left:${l}%;width:7.5%;background:#3a3a40"></div>`).join('');
+  $('#s8voice').innerHTML = Array.from({ length: 150 }, (_, i) => `<b style="display:block;width:6px;border-radius:2px;background:#b9a6ff;height:${Math.round(4 + Math.abs(Math.sin(i * .29) * Math.cos(i * .07)) * 22)}px"></b>`).join('');
+  $('#s11tools').innerHTML = ['cut_video', 'auto_zoom', 'add_annotation'].map(n => `<div class="tool" data-tool><div class="st"></div>${n}<small></small></div>`).join('');
+
+  // Measure anchors with every scene laid out and untransformed, in stage coords
+  // (independent of how the stage itself is scaled for the X cut).
+  $$('.scene').forEach(s => s.style.display = 'block');
+  const rel = el => { const r = el.getBoundingClientRect(), sr = STAGE.getBoundingClientRect(), k = sr.width / 1920;
+    return { x: (r.left - sr.left + r.width / 2) / k, y: (r.top - sr.top + r.height / 2) / k, w: r.width / k, h: r.height / k, l: (r.left - sr.left) / k, t: (r.top - sr.top) / k }; };
+  const tb = $('#tbar'); anchors.tbarW = tb.offsetWidth; anchors.tbarH = tb.offsetHeight;
+  const tr = $('#s6tray'); anchors.trayW = tr.offsetWidth;
+  tb.style.transform = `translate(${-anchors.tbarW / 2}px,${-anchors.tbarH / 2}px)`;
+  tr.style.transform = `translateX(${-anchors.trayW / 2}px)`;
+  anchors.rec = rel($('#recbtn'));
+  anchors.s3pub = rel($('#s3app .pub'));
+  anchors.s3card = rel($('#s3card'));
+  anchors.sw = $$('#s6tray .sw').map(rel);
+  anchors.s7bub = rel($('#s7bub'));
+  anchors.s10copy = rel($('#s10copy'));
+  anchors.s10gif = rel($$('#s10seg span')[1]);
+  anchors.s10mp4 = rel($$('#s10seg span')[0]);
+  anchors.s11pub = rel($('#s11app .pub'));
+  anchors.s11prev = rel($('#s11prev'));
+  $$('.scene').forEach(s => { s.style.display = 'none'; });
+  tb.style.transform = ''; tr.style.transform = '';
+  // s11 arrow tip sits just below-left of the Publish button
+  const P = anchors.s11pub, V = anchors.s11prev;
+  $('#s11anno').style.left = `${P.x - V.l - 119 - 30}px`; $('#s11anno').style.top = `${P.y - V.t + 18}px`;
+}
+
+// ---------- cursor paths ----------
+// Fluid cursor: a cubic Hermite spline through timed waypoints [{t,x,y,stop}].
+// Velocity is continuous everywhere, so the cursor flows instead of stop-starting;
+// `stop` waypoints get zero velocity (it glides in, settles, clicks, glides out).
+// Consecutive stops at the same spot = a hold.
+function swoosh(lt, keys) {
+  const n = keys.length;
+  if (lt <= keys[0].t) return { x: keys[0].x, y: keys[0].y };
+  if (lt >= keys[n - 1].t) return { x: keys[n - 1].x, y: keys[n - 1].y };
+  const tan = i => {
+    const k = keys[i];
+    if (k.stop) return [0, 0];
+    const a = keys[Math.max(0, i - 1)], b = keys[Math.min(n - 1, i + 1)];
+    return [(b.x - a.x) / (b.t - a.t), (b.y - a.y) / (b.t - a.t)];
+  };
+  let i = 0; while (lt > keys[i + 1].t) i++;
+  const A = keys[i], B = keys[i + 1], h = B.t - A.t, u = (lt - A.t) / h;
+  const [ma, mb] = [tan(i), tan(i + 1)];
+  const h00 = 2 * u ** 3 - 3 * u ** 2 + 1, h10 = u ** 3 - 2 * u ** 2 + u, h01 = -2 * u ** 3 + 3 * u ** 2, h11 = u ** 3 - u ** 2;
+  return { x: h00 * A.x + h10 * h * ma[0] + h01 * B.x + h11 * h * mb[0], y: h00 * A.y + h10 * h * ma[1] + h01 * B.y + h11 * h * mb[1] };
+}
+// Click squash: dips fast just before the click, springs back with a little overshoot.
+const press = (lt, tc) => lt < tc - 0.07 ? 1 : lt < tc ? 1 - 0.2 * pr(lt, tc - 0.07, tc) : 0.8 + 0.2 * spring(lt - tc, 30, .4);
+const pressAll = (lt, ts) => Math.min(...ts.map(t => press(lt, t)));
+
+// ---------- scenes ----------
+// draw(lt, dur, rt): lt/dur in design seconds (SPEED x real), rt = real local seconds.
+function titles(id, rt) {
+  const h = $(`#${id} h1`); if (!h || !TT[id]) return;
+  $$('.w', h).forEach((w, i) => {
+    const t0 = TT[id][i], p = spring(rt - t0, 26, .78);
+    tf(w, { s: lerp(1.35, 1, p), y: (1 - p) * 8, o: clamp((rt - t0) * 18), b: (1 - clamp(p)) * 5 });
+  });
+}
+const DRAW = {
+  s1(lt, dur, rt) {
+    titles('s1', rt);
+    const S = 1.3, tb = $('#tbar'), p = spring(lt - 0.15, 18, 0.7);
+    tb.style.transform = `translate(${-anchors.tbarW / 2}px,${-anchors.tbarH / 2 + (1 - p) * 50}px) scale(${S * lerp(.9, 1, p)})`;
+    tb.style.opacity = clamp((lt - .15) * 8);
+    $$('.tbtn', tb).forEach((b, i) => { const q = spring(lt - 0.25 - i * 0.04, 22, 0.6); tf(b, { y: (1 - q) * 16, o: clamp((lt - .25 - i * .04) * 8) }); });
+    const tc = 1.95, rec = { x: 960 + (anchors.rec.x - 960) * S, y: 610 + (anchors.rec.y - 610) * S };
+    const on = lt > tc, dot = $('#recdot'), dp = spring(lt - tc, 26, 0.55);
+    dot.style.borderRadius = on ? `${lerp(50, 24, clamp(dp))}%` : '50%';
+    dot.style.transform = `scale(${on ? lerp(1, .74, dp) : 1})`;
+    dot.style.boxShadow = on ? `0 0 0 ${8 + 8 * (0.5 + 0.5 * Math.sin((lt - tc) * 9))}px rgba(255,59,48,.22)` : '0 0 0 0 transparent';
+    const tm = $('#timer'); tm.style.opacity = clamp((lt - tc - .1) * 8); tm.style.transform = `translateY(${(1 - spring(lt - tc - .1)) * 16}px)`;
+    tm.querySelector('span').textContent = '00:0' + Math.max(0, Math.floor((lt - tc) * 1.6));
+  },
+  s2(lt, dur, rt) {
+    pop($('#s2logo'), lt, 0.02, { from: .55, rise: 40, w: 18, z: .55 });
+    titles('s2', rt);
+    const last = TT.s2 ? TT.s2[TT.s2.length - 1] : 0.6;
+    const sp = spring(rt - last - .1, 22, .7); tf($('#s2sub'), { y: (1 - sp) * 20, o: clamp((rt - last - .1) * 8) });
+  },
+  s3(lt, dur, rt) {
+    titles('s3', rt);
+    const card = $('#s3card'), app = $('#s3app'), cp = enter(card, lt);
+    const C = anchors.s3card, P = anchors.s3pub;
+    const ox = P.x - C.l, oy = P.y - C.t, tc = 1.75;
+    const zin = E.inOutExpo(pr(lt, 1.9, 2.5)), zout = E.inOutExpo(pr(lt, dur - .9, dur - .25));
+    const z = 1 + 1.0 * (zin - zout);
+    app.style.transformOrigin = `${ox}px ${oy}px`; app.style.transform = `scale(${z})`;
+    const pub = app.querySelector('.pub'), done = lt > tc + 0.1;
+    pub.style.transform = `scale(${press(lt, tc)})`;
+    pub.style.background = done ? '#34c759' : '#111'; pub.style.color = done ? '#06210d' : '#fff';
+    pub.querySelector('.pt').textContent = done ? 'Published ✓' : 'Publish';
+  },
+  s5(lt, dur, rt) {
+    titles('s5', rt);
+    enter($('#s5card'), lt);
+    const ws = $$('#caps .cw'), t0 = .5, per = .26;
+    const idx = Math.floor((lt - t0) / per);
+    ws.forEach((w, i) => {
+      const shown = i <= idx, p = spring(lt - t0 - i * per, 30, .6);
+      w.style.display = shown ? 'inline-block' : 'none';
+      w.style.transform = `scale(${shown ? lerp(.85, 1, p) : 1})`;
+      w.classList.toggle('on', i === Math.min(idx, ws.length - 1) && lt > t0);
+    });
+    $('#caps').style.opacity = lt > t0 ? 1 : 0;
+    pop($('#s5badge'), lt, 1.9, { from: .6, rise: 14 });
+  },
+  s6(lt, dur, rt) {
+    titles('s6', rt);
+    enter($('#s6canvas'), lt);
+    pop($('#s6tray'), lt, .4, { from: .9, rise: 24, pre: `translateX(${-anchors.trayW / 2}px)` });
+    const c1 = 1.1, c2 = 2.1, tilt0 = 2.75;
+    const bgs = $$('#s6canvas .bgl');
+    bgs[1].style.opacity = clamp((lt - c1) * 8); bgs[2].style.opacity = clamp((lt - c2) * 8);
+    $$('#s6tray .sw').forEach((s, i) => s.classList.toggle('on', i === (lt > c2 ? 2 : lt > c1 ? 1 : 0)));
+    const pad = spring(lt - c1, 18, .62), tp = spring(lt - tilt0, 12, .68);
+    const shot = $('#s6shot');
+    const s = lerp(1, .78, pad) * lerp(1, .9, tp);
+    shot.style.borderRadius = `${lerp(0, 20, clamp(pad))}px`;
+    shot.style.boxShadow = `0 ${30 * pad}px ${70 * pad}px rgba(0,0,0,${.35 * clamp(pad)})`;
+    shot.style.overflow = tp > .02 ? 'visible' : 'hidden';
+    shot.style.transform = `perspective(1800px) rotateY(${-16 * tp}deg) rotateX(${7 * tp}deg) scale(${s})`;
+  },
+  s7(lt, dur, rt) {
+    titles('s7', rt);
+    const cp = enter($('#s7card'), lt);
+    pop($('#s7strip'), lt, .35, { from: .96, rise: 30 });
+    const B = anchors.s7bub, tg = 1.0, rel = 2.1;
+    const bub = $('#s7bub'), bp = spring(lt - .3, 20, .55);
+    const follow = spring(lt - 1.1, 14, .55);
+    const dxs = lt < 1.1 ? 0 : (1010 - 30) * follow;
+    bub.style.left = '30px'; bub.style.top = '360px';
+    bub.style.transform = `translateX(${dxs}px) scale(${lerp(.3, 1, bp) * (lt > tg && lt < rel ? 1.06 : 1)})`;
+    bub.style.opacity = clamp((lt - .3) * 10);
+    const n = $$('#s7wave b'), wp = pr(lt, rel - .2, dur - .2);
+    n.forEach((b, i) => { const v = i / n.length < wp; b.style.opacity = v ? 1 : .1; b.style.transform = `scaleY(${v ? 1 : .2})`; });
+    $('#s7rec').style.opacity = lt > rel ? (0.5 + 0.5 * Math.cos((lt - rel) * 8)) : .3;
+    $('#s7time').textContent = '0:0' + Math.max(0, Math.floor((lt - rel) * 2));
+  },
+  s8(lt, dur, rt) {
+    titles('s8', rt);
+    enter($('#s8prev'), lt);
+    const tp = enter($('#s8tl'), lt, .15);
+    const x = lerp(.06, .94, pr(lt, .3, dur));
+    $('#s8ph').style.left = `${148 + x * (1480 - 36 - 130)}px`;
+    const cut = 1.6, cs = spring(lt - cut, 22, .5);
+    $('#s8clipB').style.transform = `translateX(${lt > cut ? 18 * cs : 0}px)`;
+    $('#s8clipA').style.transform = `translateX(${lt > cut ? -6 * cs : 0}px)`;
+    const an = $('#s8anno'), ap = spring(lt - 2.15, 22, .55);
+    an.style.opacity = clamp((lt - 2.15) * 10); an.style.transform = `scale(${lerp(.5, 1, ap)})`; an.style.transformOrigin = '170px 20px';
+    pop($('#s8keys'), lt, 2.7, { from: .6, rise: 20 });
+  },
+  s9(lt, dur, rt) {
+    titles('s9', rt);
+    const a = spring(lt - .1, 16, .74), b = spring(lt - .25, 16, .74);
+    tf($('#s9mac'), { x: (1 - a) * -140, o: clamp((lt - .1) * 9) });
+    tf($('#s9web'), { x: (1 - b) * 140, o: clamp((lt - .25) * 9) });
+    pop($('#s9sync'), lt, .7, { from: .2, rise: 0 });
+    $('#s9arrows').style.transform = `rotate(${E.inOutExpo(pr(lt, .9, 1.6)) * 360 + E.inOutExpo(pr(lt, 2.9, 3.6)) * 360}deg)`;
+    const hp = spring(lt - 1.9, 18, .66);
+    tf($('#s9hist'), { y: (1 - hp) * 50, s: lerp(.92, 1, hp), o: clamp((lt - 1.9) * 9) });
+    $$('#s9hist .hrow').forEach((r, i) => { const q = spring(lt - 2.05 - i * .08, 22, .7); tf(r, { x: (1 - q) * 24, o: clamp((lt - 2.05 - i * .08) * 9) }); });
+  },
+  s10(lt, dur, rt) {
+    titles('s10', rt);
+    const sp = enter($('#s10sheet'), lt);
+    const g1 = spring(lt - .8, 24, .65), g2 = spring(lt - 1.35, 24, .65);
+    $('#s10sel').style.transform = `translateX(${170 * (g1 - g2)}px)`;
+    const bp = E.inOutCubic(pr(lt, 1.45, 2.5)); $('#s10bar').style.width = `${bp * 100}%`;
+    $('#s10lab').textContent = lt < 1.45 ? 'Ready' : bp < 1 ? `Exporting… ${Math.round(bp * 100)}%` : 'Saved to Movies ✓';
+    pop($('#s10link'), lt, 1.9, { from: .85, rise: 24 });
+    pop($('#s10toast'), lt, 3.2, { from: .7, rise: -10 });
+    pop($('#s10views'), lt, 2.2, { from: .9, rise: 30 });
+    const vp = E.outCubic(pr(lt, 2.4, dur - .2)); $('#s10n').textContent = Math.round(vp * 1284).toLocaleString('en-US');
+    const spark = $('#s10spark'), sl = 520; spark.style.strokeDasharray = sl; spark.style.strokeDashoffset = sl * (1 - vp);
+    const cb = $('#s10copy'); cb.style.transform = `scale(${press(lt, 3.1)})`; cb.textContent = lt > 3.12 ? 'Copied' : 'Copy';
+  },
+  s11(lt, dur, rt) {
+    titles('s11', rt);
+    enter($('#s11chat'), lt); enter($('#s11prev'), lt, .15);
+    const msg = 'Cut the first 3 seconds, zoom in on Publish and point at it';
+    const n = Math.round(clamp(pr(lt, .35, 1.35)) * msg.length);
+    const me = $('#s11me'); me.textContent = msg.slice(0, n); me.style.opacity = clamp((lt - .3) * 10);
+    const starts = [1.55, 2.05, 2.55];
+    $$('#s11tools [data-tool]').forEach((el, i) => {
+      const t0 = starts[i], done = lt > t0 + .38;
+      pop(el, lt, t0, { from: .92, rise: 14 });
+      const st = el.querySelector('.st');
+      st.style.background = done ? '#34c759' : `conic-gradient(#111 ${((lt - t0) * 1100) % 360}deg, #e6e6e6 0)`;
+      st.innerHTML = done ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#06210d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5l4 4 8-9"/></svg>' : '';
+      el.querySelector('small').textContent = done ? 'done' : 'running';
+    });
+    pop($('#s11ai'), lt, 3.15, { from: .92, rise: 14 });
+    const app = $('#s11app'), P = anchors.s11pub, V = anchors.s11prev;
+    const px = P.x - V.l, py = P.y - V.t, z = 1 + .7 * E.inOutExpo(pr(lt, 2.45, 2.95));
+    app.style.transformOrigin = '0 0';
+    app.style.transform = `translate(${px}px,${py}px) scale(${z}) translate(${-px}px,${-py}px) scale(.5968)`;
+    const an = $('#s11anno'), ap = spring(lt - 2.95, 22, .55);
+    an.style.opacity = clamp((lt - 2.95) * 10); an.style.transform = `scale(${lerp(.4, 1, ap)})`;
+  },
+  s13(lt, dur, rt) {
+    titles('s13', rt);
+    pop($('#s13repo'), lt, .7, { from: .92, rise: 30 });
+    $$('#s13 .pills span').forEach((p, i) => pop(p, lt, .95 + i * .06, { from: .7, rise: 8 }));
+    $$('#s13 .fd').forEach((f, i) => { const t = wordTime('s13', f.dataset.word, 1.6 + i * .3); pop(f, rt, t, { from: .6, rise: 26 }); });
+  },
+  s14(lt, dur, rt) {
+    const lp = pop($('#s14logo'), lt, .05, { from: .4, rise: 30, w: 16, z: .55 });
+    $('#s14logo').style.filter = `drop-shadow(0 0 2px rgba(255,255,255,.35)) drop-shadow(0 0 ${50 * clamp(lp)}px rgba(52,199,89,.28))`;
+    const tn = wordTime('s14', 'capturecat', .3), th = wordTime('s14', 'go', .9);
+    const np = spring(rt - tn, 24, .75); tf($('#s14name'), { s: lerp(1.25, 1, np), o: clamp((rt - tn) * 12), b: (1 - clamp(np)) * 6 });
+    const tp = spring(rt - th, 22, .75); tf($('#s14tag'), { y: (1 - tp) * 16, o: clamp((rt - th) * 10) });
+    const up = spring(rt - th - .5, 22, .75); tf($('#s14url'), { y: (1 - up) * 16, o: clamp((rt - th - .5) * 10) });
+    const gp = spring(rt - th - .7, 22, .75); tf($('#s14gh'), { y: (1 - gp) * 16, o: clamp((rt - th - .7) * 10) });
+  },
+};
+
+// ---------- cursor ----------
+// Pure functions of design time -> { x, y, press, scale, ripples }. Kept separate from the
+// scene draws so the renderer can sample the recent past cheaply (trail + banking).
+const ent = (lt, t0 = 0.05) => (1 - spring(lt - t0, 18, .74)) * 70;   // matches enter()
+const CURSOR = {
+  s1(lt) {
+    const S = 1.3, R = { x: 960 + (anchors.rec.x - 960) * S, y: 610 + (anchors.rec.y - 610) * S }, tc = 1.95;
+    const p = swoosh(lt, [{ t: .45, x: 2100, y: 1180 }, { t: .95, x: 1560, y: 520 }, { t: 1.3, x: 1250, y: 860 },
+      { t: 1.72, x: R.x + 6, y: R.y + 4, stop: 1 }, { t: 2.12, x: R.x + 6, y: R.y + 4, stop: 1 }, { t: 2.6, x: 1500, y: 980 }, { t: 2.95, x: 2150, y: 1120 }]);
+    return { ...p, press: press(lt, tc), ripples: [{ x: R.x, y: R.y, age: lt - tc }] };
+  },
+  s3(lt, dur) {
+    const C = anchors.s3card, P = anchors.s3pub, ox = P.x - C.l, oy = P.y - C.t, tc = 1.75, ty = ent(lt);
+    const z = 1 + (E.inOutExpo(pr(lt, 1.9, 2.5)) - E.inOutExpo(pr(lt, dur - .9, dur - .25)));
+    // card-local path (pre-zoom), then pushed through the zoom like the content
+    const L = swoosh(lt, [{ t: .3, x: -520, y: 980 }, { t: .8, x: 160, y: 300 }, { t: 1.2, x: 700, y: 560 },
+      { t: 1.6, x: ox + 8, y: oy + 6, stop: 1 }, { t: dur - .55, x: ox + 8, y: oy + 6, stop: 1 }, { t: dur + .15, x: 1500, y: 980 }]);
+    return { x: C.l + ox + (L.x - ox) * z, y: C.t + ty + oy + (L.y - oy) * z, press: press(lt, tc), scale: 1 + (z - 1) * .35,
+      ripples: [{ x: C.l + ox, y: C.t + oy + ty, age: lt - tc, scale: z * .9 }] };
+  },
+  s6(lt) {
+    const sw = anchors.sw, ty = (1 - spring(lt - .4, 22, .62)) * 24, c1 = 1.1, c2 = 2.1;
+    const p = swoosh(lt, [{ t: .3, x: 2100, y: 640 }, { t: .72, x: 1560, y: 820 },
+      { t: 1.0, x: sw[1].x + 6, y: sw[1].y + 4 + ty, stop: 1 }, { t: 1.25, x: sw[1].x + 6, y: sw[1].y + 4, stop: 1 },
+      { t: 1.6, x: (sw[1].x + sw[2].x) / 2, y: sw[1].y - 190 },
+      { t: 1.98, x: sw[2].x + 6, y: sw[2].y + 4, stop: 1 }, { t: 2.25, x: sw[2].x + 6, y: sw[2].y + 4, stop: 1 },
+      { t: 2.65, x: 1700, y: 640 }, { t: 3.0, x: 2150, y: 380 }]);
+    return { ...p, press: pressAll(lt, [c1, c2]), ripples: [{ x: sw[1].x, y: sw[1].y, age: lt - c1, scale: .6 }, { x: sw[2].x, y: sw[2].y, age: lt - c2, scale: .6 }] };
+  },
+  s7(lt) {
+    const B = anchors.s7bub, tg = 1.0, rel = 2.1, gx = B.x, gy = B.y + 20 + ent(lt);
+    const dx = lt < 1.1 ? 0 : (1010 - 30) * spring(lt - 1.1, 14, .55);
+    let p;
+    if (lt < 1.1) p = swoosh(lt, [{ t: .25, x: 2100, y: 1160 }, { t: .62, x: 1500, y: 980 }, { t: .95, x: gx, y: gy, stop: 1 }, { t: 1.1, x: gx, y: gy, stop: 1 }]);
+    else if (lt < rel + .05) p = { x: gx + dx, y: gy };
+    else p = swoosh(lt, [{ t: rel + .05, x: gx + dx, y: gy, stop: 1 }, { t: rel + .4, x: 1720, y: 560 }, { t: rel + .75, x: 2150, y: 300 }]);
+    return { ...p, press: lt > tg && lt < rel ? .84 : press(lt, tg), ripples: [{ x: gx, y: gy, age: lt - tg, scale: .7 }] };
+  },
+  s8(lt) {
+    const cut = 1.6, tp = ent(lt, .15);
+    const cx = 220 + 18 + 130 + .35 * (1480 - 36 - 130), cy = 850 + 12 + 14 + tp;
+    // after the cut it sweeps up and traces the arrow annotation as it appears
+    const p = swoosh(lt, [{ t: .3, x: -200, y: 1120 }, { t: .8, x: 520, y: 980 },
+      { t: 1.45, x: cx + 4, y: cy + 6, stop: 1 }, { t: 1.75, x: cx + 4, y: cy + 6, stop: 1 },
+      { t: 2.1, x: 1030, y: 505 }, { t: 2.42, x: 1186, y: 420, stop: 1 }, { t: 2.65, x: 1186, y: 420, stop: 1 },
+      { t: 3.05, x: 1600, y: 760 }, { t: 3.4, x: 2150, y: 900 }]);
+    return { ...p, press: press(lt, cut), ripples: [{ x: cx, y: cy, age: lt - cut, scale: .55 }] };
+  },
+  s10(lt, dur) {
+    const C = anchors.s10copy, G = anchors.s10gif, M = anchors.s10mp4, ty = ent(lt);
+    const p = swoosh(lt, [{ t: .15, x: 900, y: 1200 }, { t: .5, x: G.x - 120, y: G.y + 200 },
+      { t: .74, x: G.x + 4, y: G.y + ty + 6, stop: 1 }, { t: .92, x: G.x + 4, y: G.y + 6, stop: 1 },
+      { t: 1.28, x: M.x + 4, y: M.y + 6, stop: 1 }, { t: 1.5, x: M.x + 4, y: M.y + 6, stop: 1 },
+      { t: 2.2, x: 1110, y: 760 }, { t: 2.9, x: C.x + 4, y: C.y + 6, stop: 1 }, { t: 3.35, x: C.x + 4, y: C.y + 6, stop: 1 },
+      { t: Math.max(3.9, dur), x: 1980, y: 1200 }]);
+    return { ...p, press: pressAll(lt, [.8, 1.35, 3.1]),
+      ripples: [{ x: G.x, y: G.y + ty, age: lt - .8, scale: .5 }, { x: M.x, y: M.y, age: lt - 1.35, scale: .5 }, { x: C.x, y: C.y, age: lt - 3.1, scale: .6 }] };
+  },
+};
+
+// ---------- frame ----------
+const DT = 1 / 60;
+function drawScene(sc, rt) { const k = sc.speed || SPEED; DRAW[sc.id](rt * k, sc.dur * k, rt); }
+function placeCursor(el, c, tilt, opacity) {
+  // hotspot = arrow tip at viewBox (3,2) inside the 58px-wide box; banks around the tip
+  const k = 58 / 36, hx = (3 + 5) * k, hy = (2 + 4) * k, s = (c.press || 1) * (c.scale || 1);
+  el.style.display = 'block'; el.style.opacity = opacity;
+  el.style.transformOrigin = `${hx}px ${hy}px`;
+  el.style.transform = `translate(${c.x - hx}px,${c.y - hy}px) rotate(${tilt}deg) scale(${s})`;
+}
+function renderAt(t) {
+  if (SQUARE) $('#ffade').style.opacity = E.inOutCubic(pr(t, TL.total - 0.7, TL.total));
+  const xf = TL.xf, n = TL.scenes.length;
+  // the scene that owns the cursor: the current one, not the one exiting
+  let owner = null;
+  TL.scenes.forEach(sc => { const lt = t - sc.start; if (lt >= 0 && lt <= sc.dur) owner = sc; });
+  let fx = null;
+  TL.scenes.forEach((sc, i) => {
+    const el = document.getElementById(sc.id), rt = t - sc.start, last = i === n - 1;
+    const vis = rt >= 0 && (rt <= sc.dur + xf || last);
+    el.style.display = vis ? 'block' : 'none';
+    if (!vis) return;
+    // fast punch in/out + a slow push-in while the scene holds
+    const inP = i === 0 ? 1 : E.outExpo(pr(rt, 0, xf));
+    const outP = last ? 0 : E.inCubic(pr(rt, sc.dur, sc.dur + xf));
+    const drift = 1 + 0.025 * E.outCubic(pr(rt, 0, sc.dur));
+    el.style.opacity = Math.min(clamp(inP * 1.5), 1 - outP);
+    el.style.transform = `scale(${lerp(1.07, 1, inP) * lerp(1, .93, outP) * drift})`;
+    drawScene(sc, rt);
+  });
+  // cursor: current position plus a short history (for banking and the streak)
+  const cur = $('#cursor'), trail = $('#trail');
+  const f = owner && CURSOR[owner.id];
+  if (f) {
+    const sp = owner.speed || SPEED, lt = (t - owner.start) * sp, dur = owner.dur * sp, step = 0.01 * sp;
+    const c = f(lt, dur); fx = c;
+    const hist = [c]; for (let k = 1; k <= 14; k++) hist.push(f(lt - k * step, dur));
+    const vx = (c.x - hist[1].x) / 0.01, vy = (c.y - hist[1].y) / 0.01, speed = Math.hypot(vx, vy);
+    placeCursor(cur, c, clamp(vx / 110, -20, 20), 1);
+    // tapered streak from the arrow's body, fading with age and with speed
+    const k = clamp((speed - 500) / 2500), dark = K.SCENES.find(s => s.id === owner.id).dark;
+    const segs = $$('path', trail);
+    segs.forEach((seg, i) => {
+      const a = hist[i], b = hist[i + 1];
+      if (k < 0.02 || !b) { seg.setAttribute('d', ''); return; }
+      const off = (q) => ({ x: q.x + 9, y: q.y + 15 });
+      const A = off(a), Bp = off(b), dx = Bp.x - A.x, dy = Bp.y - A.y, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+      const wa = 10 * (1 - i / 14), wb = 10 * (1 - (i + 1) / 14);
+      seg.setAttribute('d', `M${A.x + nx * wa} ${A.y + ny * wa} L${Bp.x + nx * wb} ${Bp.y + ny * wb} L${Bp.x - nx * wb} ${Bp.y - ny * wb} L${A.x - nx * wa} ${A.y - ny * wa}Z`);
+      seg.setAttribute('fill', dark ? '#fff' : '#111');
+      seg.setAttribute('fill-opacity', (dark ? .32 : .2) * k * (1 - i / 14));
+    });
+  } else { cur.style.display = 'none'; $$('path', trail).forEach(p => p.setAttribute('d', '')); }
+  // click rings
+  const rips = ((fx && fx.ripples) || []).filter(r => r.age >= 0 && r.age < .5);
+  [0, 1].forEach(i => {
+    const ring = $('#rr' + i), dot = $('#rd' + i), r = rips[i];
+    if (!r) { ring.style.display = dot.style.display = 'none'; return; }
+    const p = E.outExpo(r.age / .5), sc = r.scale || 1;
+    ring.style.display = dot.style.display = 'block';
+    ring.style.opacity = 1 - E.inCubic(r.age / .5);
+    ring.style.transform = `translate(${r.x}px,${r.y}px) scale(${(.25 + p * .95) * sc})`;
+    ring.style.borderWidth = `${lerp(6, 1.5, p)}px`;
+    dot.style.opacity = 1 - clamp(r.age / .22);
+    dot.style.transform = `translate(${r.x}px,${r.y}px) scale(${(1 - p * .4) * sc})`;
+  });
+  $('#fade').style.opacity = SQUARE ? 0 : E.inOutCubic(pr(t, TL.total - 0.7, TL.total));
+}
+
+const SQUARE = new URLSearchParams(location.search).get('fmt') === 'x';
+if (SQUARE) { document.body.classList.add('square'); $('#stageWrap').appendChild(STAGE); }
+window.ready = (async () => {
+  await document.fonts.ready;
+  await Promise.all([...document.images].map(i => i.decode().catch(() => {})));
+  if (window.TIMELINE) TL = window.TIMELINE;
+  setup();
+  renderAt(parseFloat(new URLSearchParams(location.search).get('t') || '0'));
+  return true;
+})();
+window.renderAt = renderAt;
+</script>
+</body>
+</html>
