@@ -65,12 +65,12 @@ function Home() {
   return (
     // The light, airy home (styles/airy.css): `data-cc-light` re-points the
     // theme tokens while this page is mounted; every other page stays dark.
-    <main data-cc-light className="flex min-h-screen flex-col bg-background text-foreground selection:bg-violet-500/20">
+    <main data-cc-light className="flex min-h-screen flex-col overflow-x-clip bg-background text-foreground selection:bg-violet-500/20">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd(jsonLdData) }}
       />
-      <Navbar />
+      <Navbar tone="light" />
       <AirHero />
       <CapabilityBand />
       <FeatureRows />
@@ -81,7 +81,7 @@ function Home() {
       <FeatureGrid />
       <AirFaq />
       <AirFinalCta />
-      <Footer />
+      <Footer tone="light" />
     </main>
   );
 }

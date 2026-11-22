@@ -95,6 +95,17 @@
     radial-gradient(1px 1px at 55% 4%, #fff 50%, transparent 51%);
 }
 
+/* Below the dunes the page colour takes over, so the sky's warm glow never
+   shows a hard edge under the product shot. */
+.air-floor {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: calc(14% + 2px);
+  z-index: -1;
+  background: var(--background);
+}
+
 /* ── Inner pages: the sky's colours as a pale wash under ink type ───────── */
 
 .air-wash {
@@ -106,6 +117,14 @@
     radial-gradient(34% 62% at 94% 0%, rgb(47 123 255 / 0.15), transparent 70%),
     radial-gradient(48% 56% at 52% 26%, rgb(255 178 138 / 0.15), transparent 72%),
     linear-gradient(180deg, #f0ecff 0%, #f7f4fb 58%, #fbfbfd 100%);
+}
+/* The same wash rising from the bottom: closing bands. */
+.air-wash--up {
+  background:
+    radial-gradient(40% 70% at 12% 100%, rgb(124 92 240 / 0.18), transparent 70%),
+    radial-gradient(38% 64% at 88% 100%, rgb(47 123 255 / 0.14), transparent 70%),
+    radial-gradient(50% 60% at 50% 100%, rgb(255 178 138 / 0.16), transparent 72%),
+    linear-gradient(0deg, #f0ecff 0%, #f7f4fb 50%, #fbfbfd 100%);
 }
 .air-wash::after {
   content: "";
@@ -359,20 +378,282 @@
   animation-play-state: paused !important;
 }
 
-/* ── The shared footer, inside the light page ───────────────────────────── */
-/* Footer.tsx is dressed for the dark pages (white pill, white hairlines);
-   here its tokens already flip, so only the hard-coded whites need ink. */
-[data-cc-light] > footer {
-  border-top-color: var(--cc-air-hairline);
-  background: #fff;
+/* ── Device frames + the Mac / iPhone product shot (airy/Devices.tsx) ───── */
+
+.air-device-screen > picture,
+.air-device-screen > img,
+.air-device-screen > picture > img,
+.air-device-screen > video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
 }
-[data-cc-light] > footer > span[aria-hidden] {
-  display: none;
+/* The lid's own soft lift: a static shadow behind the lid only. */
+.air-laptop-lift {
+  position: absolute;
+  left: 7.5%;
+  right: 7.5%;
+  top: 2%;
+  bottom: 5%;
+  border-radius: 3% / 4.5%;
+  box-shadow:
+    0 2.4vw 5vw -1.6vw rgb(40 24 110 / 0.32),
+    0 0.8vw 1.6vw -0.8vw rgb(0 0 0 / 0.22);
 }
-[data-cc-light] > footer .border-t {
-  border-top-color: var(--cc-air-hairline);
+@media (min-width: 1280px) {
+  .air-laptop-lift {
+    box-shadow:
+      0 34px 70px -24px rgb(40 24 110 / 0.32),
+      0 12px 22px -12px rgb(0 0 0 / 0.22);
+  }
 }
-[data-cc-light] > footer a.bg-white {
-  background: var(--cc-air-ink);
-  color: #fff;
+
+/* The lineup. Container units keep every offset proportional: the laptop
+   at the back, the tablet stepping in from the left, the unfolded foldable
+   and the phone in front on the right. */
+.air-lineup {
+  position: relative;
+  aspect-ratio: 100 / 46;
+  container-type: inline-size;
+}
+.air-lineup > div {
+  position: absolute;
+}
+.air-lineup-laptop {
+  left: 17%;
+  width: 66%;
+  bottom: 4.5cqw;
+}
+.air-lineup-tablet {
+  left: 0.5%;
+  width: 30%;
+  bottom: 1.4cqw;
+}
+.air-lineup-fold {
+  right: 11.5%;
+  width: 23%;
+  bottom: 0;
+}
+.air-lineup-phone {
+  right: 1%;
+  width: 11.5%;
+  bottom: 0.3cqw;
+}
+.air-lineup-tablet,
+.air-lineup-fold,
+.air-lineup-phone {
+  filter:
+    drop-shadow(0 1.8cqw 2.2cqw rgb(30 20 90 / 0.28))
+    drop-shadow(0 0.4cqw 0.6cqw rgb(0 0 0 / 0.2));
+}
+/* Narrow screens: three devices at a readable size. The foldable tucks out
+   of the shot, the tablet and the phone grow. */
+@media (max-width: 639px) {
+  .air-lineup {
+    aspect-ratio: 100 / 54;
+  }
+  .air-lineup-laptop {
+    left: 13%;
+    width: 76%;
+    bottom: 4cqw;
+  }
+  .air-lineup-tablet {
+    left: 0;
+    width: 40%;
+    bottom: 1cqw;
+  }
+  .air-lineup-fold {
+    display: none;
+  }
+  .air-lineup-phone {
+    right: 0.5%;
+    width: 19%;
+    bottom: 0;
+  }
+}
+/* A phone on its own (download page): the same lift as in the pair. */
+.air-phone-solo {
+  filter:
+    drop-shadow(0 28px 34px rgb(30 20 90 / 0.28))
+    drop-shadow(0 6px 10px rgb(0 0 0 / 0.2));
+}
+/* Contact shadow on the surface the devices stand on. */
+.air-lineup-floor {
+  position: absolute;
+  left: 1%;
+  right: 1%;
+  bottom: -1.2cqw;
+  height: 3.6cqw;
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, rgb(30 20 80 / 0.22), transparent 72%);
+  filter: blur(6px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .air-lineup-laptop {
+    animation: airDuoRise 1.1s var(--cc-air-settle) 0.1s both;
+  }
+  .air-lineup-tablet {
+    animation: airDuoRise 1.1s var(--cc-air-settle) 0.25s both;
+  }
+  .air-lineup-fold {
+    animation: airDuoRise 1.1s var(--cc-air-settle) 0.4s both;
+  }
+  .air-lineup-phone {
+    animation: airDuoRise 1.1s var(--cc-air-settle) 0.5s both;
+  }
+}
+@keyframes airDuoRise {
+  from {
+    opacity: 0;
+    transform: translateY(5cqw);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The laptop's desktop: the hero's dusk wallpaper, a slim menu bar, the real
+   editor window, and a dock (airy/MacDesktop.tsx). Container units: one
+   cqw is 1 % of the screen's width (the screen is 1.545 : 1). */
+.air-mac-desk {
+  position: absolute;
+  inset: 0;
+  container-type: inline-size;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 50% at 18% 85%, rgb(255 178 138 / 0.85), transparent 70%),
+    radial-gradient(55% 50% at 88% 80%, rgb(255 138 186 / 0.7), transparent 70%),
+    linear-gradient(180deg, #2c2378 0%, #5a45c9 35%, #9a72dc 62%, #e2b0cf 100%);
+}
+.air-mac-menubar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2.6cqw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.6cqw;
+  background: rgb(255 255 255 / 0.18);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.1);
+  color: rgb(255 255 255 / 0.92);
+  font: 500 1.15cqw/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.air-mac-menu {
+  display: flex;
+  gap: 1.5cqw;
+  white-space: nowrap;
+}
+.air-mac-menu b {
+  font-weight: 700;
+}
+.air-mac-window {
+  position: absolute;
+  left: 50%;
+  top: 4cqw;
+  width: 82cqw;
+  transform: translateX(-50%);
+  overflow: hidden;
+  border-radius: 1.1cqw;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.55),
+    inset 0 0 0 1px rgb(255 255 255 / 0.08),
+    0 2.4cqw 5cqw -1.2cqw rgb(10 6 40 / 0.55);
+}
+.air-mac-window img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.air-mac-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 0.6cqw;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5cqw;
+  /* Even space above and beside the icons; the bottom strip is a little
+     taller so the running dots sit inside the shelf, clear of its edge. */
+  padding: 0.55cqw 0.55cqw 0.85cqw;
+  border-radius: 1.7cqw;
+  /* Frosted glass shelf, like a desktop dock. */
+  background: rgb(255 255 255 / 0.26);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.42),
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    0 0.8cqw 2.2cqw -0.6cqw rgb(20 10 60 / 0.5);
+  backdrop-filter: blur(10px) saturate(1.6);
+  -webkit-backdrop-filter: blur(10px) saturate(1.6);
+}
+.air-dock-app {
+  position: relative;
+  display: block;
+  width: 3.4cqw;
+  height: 3.4cqw;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 0.18cqw 0.28cqw rgb(0 0 0 / 0.28));
+}
+.air-dock-app svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.air-dock-app--bin {
+  filter: drop-shadow(0 0.18cqw 0.28cqw rgb(0 0 0 / 0.18));
+}
+.air-dock-divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 0.2cqw 0.2cqw -0.3cqw;
+  background: rgb(255 255 255 / 0.5);
+}
+.air-dock-app--cc {
+  filter: drop-shadow(0 0.18cqw 0.28cqw rgb(0 0 0 / 0.3));
+}
+.air-dock-app--cc picture,
+.air-dock-app--cc img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Dock magnification on hover (pointer devices, motion allowed): the icon
+   under the pointer grows from its base, its neighbours a little less. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .air-dock-app {
+    transition: transform 0.22s var(--cc-air-settle, cubic-bezier(0.2, 0.8, 0.2, 1));
+  }
+  .air-dock-app:hover {
+    transform: scale(1.32) translateY(-0.3cqw);
+  }
+  .air-dock-app:has(+ .air-dock-app:hover),
+  .air-dock-app:hover + .air-dock-app {
+    transform: scale(1.12) translateY(-0.1cqw);
+  }
+}
+/* The running-app dot under the CaptureCat icon. */
+.air-dock-dot {
+  position: absolute;
+  bottom: -0.58cqw;
+  left: 50%;
+  width: 0.32cqw;
+  height: 0.32cqw;
+  margin-left: -0.16cqw;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.92);
+  box-shadow: 0 0 0.2cqw rgb(0 0 0 / 0.25);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .air-dock-app--cc {
+    animation: airDockBounce 0.9s var(--cc-air-settle) 1.3s both;
+  }
+}
+@keyframes airDockBounce {
+  0%, 100% { transform: none; }
+  30% { transform: translateY(-1.1cqw); }
+  55% { transform: none; }
+  75% { transform: translateY(-0.45cqw); }
 }

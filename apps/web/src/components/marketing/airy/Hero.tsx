@@ -2,14 +2,17 @@ import { Globe } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { AppleGlyph } from "../primitives";
-import { ProductLoop } from "../home/demo/ProductLoop";
-import { InkLink, SoftAnchor, SoftFrame } from "./primitives";
+import { DeviceLineup } from "./Devices";
+import { AppStoreSlot, FoldableEditorScreen, IosAppScreen, IpadAppScreen } from "./IosApp";
+import { MacDesktop } from "./MacDesktop";
+import { InkLink, SoftAnchor } from "./primitives";
 
 const PROOF = ["Free for personal use", "Open source", "Native Swift", "Runs in your browser too"];
 
 /**
  * Dusk over the product's own canvas gradient, one line of promise, two
- * actions, then the editor itself rising out of the sky.
+ * actions, then the product shot: the Mac editor on a laptop with the
+ * iPhone app standing in front of it.
  */
 export default function AirHero() {
   return (
@@ -31,6 +34,7 @@ export default function AirHero() {
         <path d="M0 140 C 240 70 420 70 640 120 S 1060 190 1240 120 S 1400 80 1440 92 V260 H0z" fill="url(#airDuneA)" />
         <path d="M0 190 C 220 140 460 150 720 182 S 1180 210 1440 168 V260 H0z" fill="url(#airDuneB)" />
       </svg>
+      <div className="air-floor" aria-hidden />
 
       <div className="mx-auto max-w-6xl px-6 pt-[132px] md:pt-[164px]">
         <div className="flex flex-col items-center text-center">
@@ -39,7 +43,7 @@ export default function AirHero() {
             className="group inline-flex items-center gap-2 rounded-full bg-white/12 px-3.5 py-1.5 text-[13px] text-white/90 ring-1 ring-white/25 backdrop-blur-xl transition-colors hover:bg-white/18"
           >
             <span className="rounded-full bg-white px-1.5 py-px text-[11px] font-semibold text-[#3d2f8f]">New</span>
-            Camera layouts: cutout, pop-out and split screen
+            CaptureCat for iPhone and iPad
             <span aria-hidden className="transition-transform group-hover:translate-x-0.5">›</span>
           </a>
 
@@ -51,7 +55,7 @@ export default function AirHero() {
 
           <p className="mt-6 max-w-xl text-pretty text-[17px] leading-relaxed text-white/82 md:text-[19px]">
             CaptureCat watches where you click and type, then adds the zooms, smooths the cursor and writes the
-            captions. On your Mac, or in your browser.
+            captions. On your Mac, in your browser — and soon on iPhone and iPad.
           </p>
 
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
@@ -65,26 +69,40 @@ export default function AirHero() {
             </SoftAnchor>
           </div>
 
-          <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13px] text-white/72">
+          <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[13px] text-white/72 sm:gap-x-3">
             {PROOF.map((item, i) => (
               <li key={item} className="flex items-center gap-3">
-                {i > 0 && <span aria-hidden className="h-1 w-1 rounded-full bg-white/40" />}
+                {/* Dots only where the list sits on one line; wrapped lines never start with one. */}
+                {i > 0 && <span aria-hidden className="hidden h-1 w-1 rounded-full bg-white/40 sm:inline-block" />}
                 {item}
               </li>
             ))}
           </ul>
         </div>
 
-        <div className="relative mx-auto mt-14 max-w-5xl md:mt-20">
-          <SoftFrame halo={false}>
-            <ProductLoop />
-          </SoftFrame>
-          <p className="mt-4 text-center text-[13px] text-[var(--cc-air-faint)]">
-            The editor, recreated: auto zoom places its blocks, then the preview follows the click.{" "}
-            <Link to="/features" className="text-[var(--cc-air-ink-2)] underline-offset-4 hover:underline">
+        <div id="iphone" className="relative mx-auto mt-14 max-w-6xl scroll-mt-28 md:mt-20">
+          <div className="-mx-3 sm:mx-0">
+            <DeviceLineup
+              label="CaptureCat on a Mac laptop, an iPad, an unfolded foldable phone and an iPhone. The Mac shows the editor zoomed in on a demo recording; the iPad shows the library; the foldable shows the editor split at the fold; the iPhone shows a synced project."
+              laptopScreen={<MacDesktop priority />}
+              tabletScreen={<IpadAppScreen />}
+              foldableScreen={<FoldableEditorScreen />}
+              phoneScreen={<IosAppScreen priority />}
+            />
+          </div>
+          <div className="mx-auto mt-10 flex max-w-xl flex-col items-center text-center md:mt-12">
+            <p className="text-pretty text-[15px] leading-relaxed text-[var(--cc-air-muted)] md:text-base">
+              <strong className="font-semibold text-[var(--cc-air-ink)]">CaptureCat for iPhone and iPad.</strong> Record
+              on your phone, edit anywhere. Every project syncs with your Mac and the web.
+            </p>
+            <AppStoreSlot />
+            <Link
+              to="/features"
+              className="mt-3 text-[13px] text-[var(--cc-air-faint)] underline-offset-4 hover:text-[var(--cc-air-ink-2)] hover:underline"
+            >
               See every feature
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </section>

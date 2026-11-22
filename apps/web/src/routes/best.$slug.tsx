@@ -155,7 +155,7 @@ function BestPage() {
         </ol>
       </AirContainer>
 
-      <PseoCta />
+      <PseoCta tone="light" />
     </AirPage>
   );
 }

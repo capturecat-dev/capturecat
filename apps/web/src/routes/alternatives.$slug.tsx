@@ -88,7 +88,7 @@ function AlternativePage() {
       </AirContainer>
 
       <FaqSection faqs={page.faqs} />
-      <PseoCta competitorName={competitor.name} />
+      <PseoCta competitorName={competitor.name} tone="light" />
     </AirPage>
   );
 }

@@ -179,25 +179,48 @@ export function FaqSection({ faqs }: { faqs: Faq[] }) {
   return <AirFaq items={faqs.map((f) => ({ q: f.question, a: f.answer }))} title="FAQ" />;
 }
 
+const CTA_SOFT =
+  "inline-flex h-11 items-center justify-center rounded-full bg-white px-5 text-[15px] font-medium text-[#0b0b0f] shadow-[0_1px_2px_rgb(0_0_0/0.06)] ring-1 ring-black/[0.08] transition-shadow hover:shadow-[0_6px_18px_-8px_rgb(0_0_0/0.2)]";
+
 const CTA_GHOST =
   "inline-flex h-11 items-center justify-center rounded-full px-5 text-[15px] font-medium text-white/85 ring-1 ring-white/20 transition-colors hover:bg-white/[0.06] hover:text-white";
 
-/** The dark closing card. Explicit colours: the docs pages (dark) share it. */
-export function PseoCta({ competitorName }: { competitorName?: string }) {
+/**
+ * The closing card. Explicit colours, never the theme tokens: the dark docs
+ * pages share it (`tone="dark"`, the default); marketing pages pass "light".
+ */
+export function PseoCta({ competitorName, tone = "dark" }: { competitorName?: string; tone?: "light" | "dark" }) {
+  const light = tone === "light";
   return (
     <section className="mx-auto w-full max-w-6xl px-6 py-20">
       <div
-        data-air-dark
-        className="relative isolate overflow-hidden rounded-[32px] bg-[#0b0b10] px-8 py-14 text-center text-white ring-1 ring-white/10 md:px-12 md:py-16"
+        {...(light ? {} : { "data-air-dark": "" })}
+        className={`relative isolate overflow-hidden rounded-[32px] px-8 py-14 text-center md:px-12 md:py-16 ${
+          light
+            ? "bg-white text-[#0b0b0f] shadow-[0_1px_2px_rgb(0_0_0/0.04),0_30px_70px_-44px_rgb(30_20_90/0.45)] ring-1 ring-black/[0.06]"
+            : "bg-[#0b0b10] text-white ring-1 ring-white/10"
+        }`}
       >
-        <div
-          aria-hidden
-          className="absolute inset-0 -z-10 bg-[radial-gradient(55%_70%_at_50%_0%,rgb(124_92_240/0.4),transparent_70%),radial-gradient(40%_50%_at_50%_100%,rgb(255_150_120/0.16),transparent_70%)]"
-        />
-        <h2 className="text-balance text-[28px] font-semibold leading-[1.1] tracking-[-0.03em] text-white md:text-[40px]">
+        {light ? (
+          <div className="air-wash air-wash--up" aria-hidden />
+        ) : (
+          <div
+            aria-hidden
+            className="absolute inset-0 -z-10 bg-[radial-gradient(55%_70%_at_50%_0%,rgb(124_92_240/0.4),transparent_70%),radial-gradient(40%_50%_at_50%_100%,rgb(255_150_120/0.16),transparent_70%)]"
+          />
+        )}
+        <h2
+          className={`text-balance text-[28px] font-semibold leading-[1.1] tracking-[-0.03em] md:text-[40px] ${
+            light ? "text-[#0b0b0f]" : "text-white"
+          }`}
+        >
           Try the recording{competitorName ? `, not the pitch` : ""}
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-pretty text-[15.5px] leading-relaxed text-white/62">
+        <p
+          className={`mx-auto mt-4 max-w-xl text-pretty text-[15.5px] leading-relaxed ${
+            light ? "text-[#5c5c68]" : "text-white/62"
+          }`}
+        >
           The recorder and the full editor are free for personal use. Record
           one clip and watch the zooms, cursor smoothing, and captions appear
           on their own.
@@ -205,15 +228,19 @@ export function PseoCta({ competitorName }: { competitorName?: string }) {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
             to="/download"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-[15px] font-medium text-[#0b0b0f] shadow-[0_8px_24px_-10px_rgb(0_0_0/0.5)] transition-transform duration-300 hover:-translate-y-px active:translate-y-0 active:scale-[0.98]"
+            className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition-transform duration-300 hover:-translate-y-px active:translate-y-0 active:scale-[0.98] ${
+              light
+                ? "bg-[#0b0b0f] text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_8px_20px_-10px_rgb(0_0_0/0.55)]"
+                : "bg-white text-[#0b0b0f] shadow-[0_8px_24px_-10px_rgb(0_0_0/0.5)]"
+            }`}
           >
             <AppleGlyph />
             Download for Mac
           </Link>
-          <Link to="/pricing" className={CTA_GHOST}>
+          <Link to="/pricing" className={light ? CTA_SOFT : CTA_GHOST}>
             Pricing
           </Link>
-          <Link to="/compare" className={CTA_GHOST}>
+          <Link to="/compare" className={light ? CTA_SOFT : CTA_GHOST}>
             All comparisons
           </Link>
         </div>

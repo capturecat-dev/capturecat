@@ -117,7 +117,7 @@ function GuidePage() {
         </AirContainer>
       )}
 
-      <PseoCta />
+      <PseoCta tone="light" />
     </AirPage>
   );
 }

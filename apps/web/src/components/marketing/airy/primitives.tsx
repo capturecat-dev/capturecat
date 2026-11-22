@@ -127,10 +127,22 @@ export const GHOST_ON_DARK =
   "inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium text-white/85 ring-1 ring-white/20 transition-colors hover:bg-white/[0.06] hover:text-white";
 
 /** Quiet pill: white on the page, frosted glass on the dusk sky. */
-export function SoftAnchor({ href, glass = false, children }: { href: string; glass?: boolean; children: ReactNode }) {
+export function SoftAnchor({
+  href,
+  glass = false,
+  external = false,
+  children,
+}: {
+  href: string;
+  glass?: boolean;
+  /** Opens in a new tab (GitHub and other sites). */
+  external?: boolean;
+  children: ReactNode;
+}) {
   return (
     <a
       href={href}
+      {...(external ? { target: "_blank", rel: "noopener" } : {})}
       className={`${BUTTON} ${glass ? "bg-white/14 text-white ring-1 ring-white/30 backdrop-blur-xl hover:bg-white/20" : SOFT}`}
     >
       {children}

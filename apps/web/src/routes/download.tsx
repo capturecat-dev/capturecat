@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, Globe, RefreshCw, ScrollText, Trash2 } from "lucide-react";
+import { Download, Globe, RefreshCw, ScrollText, Smartphone, Trash2 } from "lucide-react";
 
 import { API_URL } from "@/lib/api-url";
 import { pageHead } from "@/lib/site-content";
@@ -10,7 +10,9 @@ import demosCss from "@/styles/demos.css?url";
 import demosPagesCss from "@/styles/demos-pages.css?url";
 import airyCss from "@/styles/airy.css?url";
 import { AirPage, AirPageHero } from "@/components/marketing/airy/Page";
-import { AIR_CELL, AIR_GRID, AirContainer, AirTitle } from "@/components/marketing/airy/primitives";
+import { AIR_CELL, AIR_GRID, AirChecks, AirContainer, AirLede, AirPill, AirTitle } from "@/components/marketing/airy/primitives";
+import { DevicePhone } from "@/components/marketing/airy/Devices";
+import { AppStoreSlot, IosAppScreen } from "@/components/marketing/airy/IosApp";
 
 async function getLatestRelease() {
   try {
@@ -141,6 +143,40 @@ function DownloadPage() {
               </div>
             ))}
           />
+        </AirContainer>
+      </section>
+
+      <section id="iphone" className="relative isolate scroll-mt-24 overflow-hidden border-t border-[var(--cc-air-hairline)] py-20 md:py-28">
+        <div className="air-wash air-wash--up" aria-hidden />
+        <AirContainer>
+          <div className="grid items-center gap-12 md:grid-cols-12 md:gap-10">
+            <div className="md:col-span-7">
+              <AirPill icon={<Smartphone className="h-3.5 w-3.5" strokeWidth={2} />}>iPhone and iPad</AirPill>
+              <AirTitle className="mt-5" muted="Edit anywhere.">
+                Record on your phone.
+              </AirTitle>
+              <AirLede className="mt-5 max-w-lg">
+                CaptureCat for iPhone and iPad is on its way to the App Store. It records your screen on the go
+                and keeps your library with you: sign in with the same account and every project syncs with your
+                Mac and the web.
+              </AirLede>
+              <AirChecks
+                items={[
+                  "Record the screen from the app or from Control Center",
+                  "Your whole library, with share links you can copy",
+                  "Continue on your Mac to edit with the full editor",
+                ]}
+              />
+              <AppStoreSlot className="mt-8" />
+            </div>
+            <div className="flex justify-center md:col-span-5">
+              <div className="air-phone-solo w-[min(62vw,260px)]">
+                <DevicePhone>
+                  <IosAppScreen />
+                </DevicePhone>
+              </div>
+            </div>
+          </div>
         </AirContainer>
       </section>
 

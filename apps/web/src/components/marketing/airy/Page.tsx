@@ -13,10 +13,10 @@ import { AirContainer, AirLede, AirPill, AirTitle } from "./primitives";
  */
 export function AirPage({ children }: { children: ReactNode }) {
   return (
-    <main data-cc-light className="flex min-h-screen flex-col bg-background text-foreground selection:bg-violet-500/20">
-      <Navbar />
+    <main data-cc-light className="flex min-h-screen flex-col overflow-x-clip bg-background text-foreground selection:bg-violet-500/20">
+      <Navbar tone="light" />
       {children}
-      <Footer />
+      <Footer tone="light" />
     </main>
   );
 }

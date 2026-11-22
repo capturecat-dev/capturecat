@@ -29,9 +29,9 @@ import { Meter } from "../home/demo/RecordingScene";
 import { AgentSessionDemo } from "../home/demo/AgentDemos";
 import { useOffscreenPause } from "../home/demo/hooks";
 import { AppleGlyph, GITHUB_URL, GitHubIcon } from "../primitives";
-import { AirContainer, AirLede, AirPill, AirTitle, GHOST_ON_DARK, InkLink, SoftAnchor } from "./primitives";
+import { AirContainer, AirLede, AirPill, AirTitle, InkLink, SoftAnchor } from "./primitives";
 
-// ── Dark band: what happens after record ────────────────────────────────────
+// ── What happens after record ───────────────────────────────────────────────
 
 const STEPS = [
   { href: "#zoom", label: "Zoom", icon: ZoomIn },
@@ -43,25 +43,21 @@ const STEPS = [
 
 export function CapabilityBand() {
   return (
-    <section data-air-dark className="relative isolate overflow-hidden bg-[#0b0b10] py-20 md:py-24">
-      <div
-        aria-hidden
-        className="absolute inset-0 -z-10 bg-[radial-gradient(60%_80%_at_50%_120%,rgb(124_92_240/0.35),transparent_70%)]"
-      />
+    <section className="relative border-y border-[var(--cc-air-hairline)] bg-white py-20 md:py-24">
       <AirContainer className="text-center">
-        <AirTitle dark className="mx-auto max-w-2xl !text-[32px] md:!text-[44px]">
+        <AirTitle className="mx-auto max-w-2xl !text-[32px] md:!text-[44px]">
           You record.
           <br />
-          <span className="text-white/45">CaptureCat does the rest.</span>
+          <span className="text-[var(--cc-air-faint)]">CaptureCat does the rest.</span>
         </AirTitle>
         <ul className="mx-auto mt-12 grid max-w-3xl grid-cols-5 gap-2">
           {STEPS.map((s) => (
             <li key={s.href}>
               <a
                 href={s.href}
-                className="group flex flex-col items-center gap-2.5 rounded-2xl py-3 text-[13px] text-white/70 transition-colors hover:text-white"
+                className="group flex flex-col items-center gap-2.5 rounded-2xl py-3 text-[13px] text-[var(--cc-air-muted)] transition-colors hover:text-[var(--cc-air-ink)]"
               >
-                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.06] ring-1 ring-white/10 transition-[transform,background-color] duration-300 group-hover:-translate-y-0.5 group-hover:bg-white/[0.1]">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--cc-air-tint)] text-[var(--cc-air-ink-2)] ring-1 ring-black/[0.06] transition-[transform,background-color,box-shadow] duration-300 group-hover:-translate-y-0.5 group-hover:bg-white group-hover:shadow-[0_8px_20px_-10px_rgb(30_20_90/0.35)]">
                   <s.icon className="h-[22px] w-[22px]" strokeWidth={1.6} />
                 </span>
                 {s.label}
@@ -74,7 +70,25 @@ export function CapabilityBand() {
   );
 }
 
-// ── Mac + browser ───────────────────────────────────────────────────────────
+// ── Mac, iPhone and iPad, browser ───────────────────────────────────────────
+
+const PLATFORMS = [
+  {
+    icon: Monitor,
+    title: "Mac",
+    body: "Native Swift. Records a display, a window, a web page, or an iPhone plugged in over USB.",
+  },
+  {
+    icon: Smartphone,
+    title: "iPhone and iPad",
+    body: "Record on the go and see every project from your Mac and the web. Coming soon to the App Store.",
+  },
+  {
+    icon: Globe,
+    title: "Browser",
+    body: "The same editor on WebGPU, so Windows, Linux and ChromeOS can record, restyle and export.",
+  },
+] as const;
 
 export function Everywhere() {
   const pairRef = useOffscreenPause<HTMLDivElement>();
@@ -82,14 +96,14 @@ export function Everywhere() {
     <section id="everywhere" className="relative scroll-mt-24 bg-[var(--cc-air-tint)] py-24 md:py-32">
       <AirContainer>
         <div className="scroll-reveal mx-auto flex max-w-2xl flex-col items-center text-center">
-          <AirPill icon={<Globe className="h-3.5 w-3.5" strokeWidth={2} />}>Mac app + browser app</AirPill>
+          <AirPill icon={<Globe className="h-3.5 w-3.5" strokeWidth={2} />}>Mac, iPhone, iPad and the web</AirPill>
           <AirTitle className="mt-5">
-            One editor.{" "}
-            <span className="text-[var(--cc-air-faint)]">On your Mac, and in any browser.</span>
+            Record anywhere.{" "}
+            <span className="text-[var(--cc-air-faint)]">Edit anywhere. It all syncs.</span>
           </AirTitle>
           <AirLede className="mt-5">
-            The Mac app is native Swift. The browser app runs the same editor on WebGPU, so Windows, Linux and
-            ChromeOS can record, restyle and export too. Projects move between the two in one click.
+            Record on your Mac or in any browser, and soon on iPhone and iPad. Open the recording wherever you
+            are: projects move between the Mac and the web in one click, and the iPhone app will see them too.
           </AirLede>
         </div>
 
@@ -181,6 +195,16 @@ export function Everywhere() {
             </div>
           </div>
         </div>
+
+        <ul className="scroll-reveal mx-auto mt-14 grid max-w-4xl grid-cols-1 border-l border-t border-[var(--cc-air-hairline)] bg-white md:grid-cols-3">
+          {PLATFORMS.map((p) => (
+            <li key={p.title} className="border-b border-r border-[var(--cc-air-hairline)] p-6 md:p-7">
+              <p.icon className="h-5 w-5 text-[var(--cc-air-violet)]" strokeWidth={1.75} />
+              <h3 className="mt-4 text-[16px] font-semibold tracking-[-0.01em] text-[var(--cc-air-ink)]">{p.title}</h3>
+              <p className="mt-1.5 text-[14.5px] leading-relaxed text-[var(--cc-air-muted)]">{p.body}</p>
+            </li>
+          ))}
+        </ul>
 
         <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <InkLink to="/download">
@@ -381,39 +405,30 @@ export function Statement() {
   );
 }
 
-// ── Dark band: agents ──────────────────────────────────────────────────────
+// ── Agents ─────────────────────────────────────────────────────────────────
 
 export function AgentsBand() {
   return (
-    <section
-      data-air-dark
-      className="relative isolate overflow-hidden bg-[linear-gradient(180deg,#0b0b18_0%,#101a3a_100%)] py-24 md:py-32"
-    >
-      <div
-        aria-hidden
-        className="absolute inset-0 -z-10 bg-[radial-gradient(50%_60%_at_80%_0%,rgb(47_123_255/0.25),transparent_70%),radial-gradient(40%_50%_at_10%_100%,rgb(124_92_240/0.25),transparent_70%)]"
-      />
+    <section className="relative isolate overflow-hidden bg-[var(--cc-air-tint)] py-24 md:py-32">
       <AirContainer>
         <div className="grid items-center gap-12 md:grid-cols-12">
           <div className="scroll-reveal md:col-span-5">
-            <AirPill dark icon={<Bot className="h-3.5 w-3.5" strokeWidth={2} />}>
-              AI agents
-            </AirPill>
-            <AirTitle dark className="mt-5">
+            <AirPill icon={<Bot className="h-3.5 w-3.5" strokeWidth={2} />}>AI agents</AirPill>
+            <AirTitle className="mt-5">
               Ask your agent{" "}
-              <span className="text-white/45">to edit the video.</span>
+              <span className="text-[var(--cc-air-faint)]">to edit the video.</span>
             </AirTitle>
-            <AirLede dark className="mt-5">
+            <AirLede className="mt-5">
               CaptureCat is its own MCP server. Claude, Codex, Cursor, VS Code or Windsurf can record, search your
               captures, add zooms, blurs and captions in one undoable batch, then look at the frames they made.
             </AirLede>
             <div className="mt-8">
-              <InkLink to="/agents" light>
+              <InkLink to="/agents">
                 How agents use CaptureCat
               </InkLink>
             </div>
           </div>
-          <div className="scroll-reveal md:col-span-7">
+          <div className="scroll-reveal air-halo md:col-span-7">
             <AgentSessionDemo />
           </div>
         </div>
@@ -478,33 +493,26 @@ export function AirFinalCta({
 }: {
   title?: ReactNode;
   lede?: ReactNode;
-  /** Replaces the "Read the source" link. */
+  /** Replaces the "Read the source" link (a SoftLink / SoftAnchor). */
   secondary?: ReactNode;
 }) {
   return (
-    <section data-air-dark className="relative isolate overflow-hidden bg-[#0b0b10] py-28 md:py-36">
-      <div
-        aria-hidden
-        className="absolute inset-0 -z-10 bg-[radial-gradient(55%_70%_at_50%_0%,rgb(124_92_240/0.4),transparent_70%),radial-gradient(40%_50%_at_50%_100%,rgb(255_150_120/0.18),transparent_70%)]"
-      />
+    <section className="relative isolate overflow-hidden border-t border-[var(--cc-air-hairline)] py-28 md:py-36">
+      <div className="air-wash air-wash--up" aria-hidden />
       <AirContainer className="flex flex-col items-center text-center">
-        <CaptureCatMark animated className="cc-float h-16 w-16 drop-shadow-[0_12px_40px_rgba(0,0,0,0.55)]" />
-        <AirTitle dark className="mt-8 max-w-2xl">
-          {title}
-        </AirTitle>
-        <AirLede dark className="mt-5 max-w-lg">
-          {lede}
-        </AirLede>
+        <CaptureCatMark animated className="cc-float h-16 w-16 drop-shadow-[0_14px_30px_rgb(40_24_110/0.35)]" />
+        <AirTitle className="mt-8 max-w-2xl">{title}</AirTitle>
+        <AirLede className="mt-5 max-w-lg">{lede}</AirLede>
         <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row">
-          <InkLink to="/download" light>
+          <InkLink to="/download">
             <AppleGlyph />
             Download for Mac
           </InkLink>
           {secondary ?? (
-            <a href={GITHUB_URL} target="_blank" rel="noopener" className={GHOST_ON_DARK}>
+            <SoftAnchor href={GITHUB_URL} external>
               <GitHubIcon />
               Read the source
-            </a>
+            </SoftAnchor>
           )}
         </div>
       </AirContainer>

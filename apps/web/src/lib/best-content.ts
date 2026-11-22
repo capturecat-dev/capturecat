@@ -208,6 +208,23 @@ export const BEST_LISTS: BestList[] = [
     lastModified: LAST_MODIFIED,
   },
   {
+    slug: "screen-recorder-for-tutorials",
+    title: "Best screen recorders for tutorials on Mac",
+    description:
+      "Mac screen recorders for software tutorials and walkthroughs, compared on captions, cursor visibility, automatic zoom, free tier, and sharing.",
+    intro:
+      "A tutorial lives or dies on whether viewers can follow the cursor and read the screen. These are the Mac recorders people use for how-to videos, course lessons, and onboarding walkthroughs, ranked on what makes a tutorial easy to follow.",
+    criteriaText:
+      "Runs on macOS and records video (interactive click-through demo builders are excluded). Ranked by captions, cursor effects, automatic zoom, a usable free tier, and share links.",
+    include: (c) => runsOnMac(c) && c.category !== "interactive",
+    criteria: [ROW.captions, ROW.cursor, ROW.autoZoom, ROW.free, ROW.share],
+    capturecat: {
+      position: "first",
+      note: "Captions written on your Mac, a smoothed and enlarged cursor, zooms placed from your clicks, an optional on-screen keystroke overlay, and blur for anything private. Free recordings stop at 5 minutes and are for personal use, so longer lessons and tutorials made for work need Pro.",
+    },
+    lastModified: "2026-11-09",
+  },
+  {
     slug: "screen-recorders-for-ai-agents",
     title: "Screen recorders AI agents can use",
     description:

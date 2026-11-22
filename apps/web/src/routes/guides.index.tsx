@@ -29,7 +29,7 @@ function GuidesHubPage() {
       <AirPageHero
         pill="Guides"
         icon={<BookOpen className="h-3.5 w-3.5" strokeWidth={2} />}
-        title="Get the recording done"
+        title="Screen recording guides"
         lede="Short answers to the jobs people actually have: zooming in on clicks, captions without uploading, blurring a secret, recording an iPhone, and letting an AI agent do the edit."
       />
 
@@ -49,7 +49,7 @@ function GuidesHubPage() {
         </div>
       </AirContainer>
 
-      <PseoCta />
+      <PseoCta tone="light" />
     </AirPage>
   );
 }

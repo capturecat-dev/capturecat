@@ -125,7 +125,7 @@ function CompareHubPage() {
         </div>
       </AirContainer>
 
-      <PseoCta />
+      <PseoCta tone="light" />
     </AirPage>
   );
 }

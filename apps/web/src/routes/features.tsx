@@ -22,7 +22,6 @@ import {
   AirLede,
   AirPill,
   AirTitle,
-  GHOST_ON_DARK,
   InkLink,
   SoftLink,
 } from "@/components/marketing/airy/primitives";
@@ -167,7 +166,7 @@ function FeaturesPage() {
         pill="Features"
         icon={<Sparkles className="h-3.5 w-3.5" strokeWidth={2} />}
         title="Everything CaptureCat does, on one page."
-        lede="The home page shows the headline features. Here is the rest, then the complete inventory of what ships in the app today. Nothing on this page is planned or in beta."
+        lede="The headline features first, then the complete inventory of what ships in the app today. Nothing on this page is planned or in beta."
       >
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <InkLink to="/download">
@@ -229,9 +228,7 @@ function FeaturesPage() {
         title="Record one thing today and see what comes out."
         lede="Free for personal use, no account to make, and your first export is ready about a minute after you stop recording."
         secondary={
-          <Link to="/pricing" className={GHOST_ON_DARK}>
-            See pricing
-          </Link>
+          <SoftLink to="/pricing">See pricing</SoftLink>
         }
       />
     </AirPage>

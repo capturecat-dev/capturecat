@@ -56,13 +56,20 @@ const COLUMNS: Array<{
  * `mt-auto` only pins anything if the ancestor is a flex column that fills the
  * viewport height, so every page's <main> is `min-h-screen flex flex-col`.
  */
-export default function Footer() {
+export default function Footer({ tone = "dark" }: { tone?: "light" | "dark" }) {
+  const light = tone === "light";
   return (
-    <footer className="relative mt-auto border-t border-white/10">
-      <span
-        aria-hidden
-        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
-      />
+    <footer
+      className={`relative mt-auto border-t ${
+        light ? "border-[var(--cc-air-hairline)] bg-white" : "border-white/10"
+      }`}
+    >
+      {light ? null : (
+        <span
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
+        />
+      )}
 
       <div className="mx-auto max-w-6xl px-6 py-14">
         <div className="flex flex-col gap-12 md:flex-row md:items-start md:justify-between">
@@ -72,9 +79,9 @@ export default function Footer() {
               CaptureCat
             </div>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              A screen recorder for Mac that does the editing for you. Native
-              Swift, no web view, free for personal use. Open source under the
-              AGPL, so you can read every line of it.
+              The screen recorder that does the editing for you. Record on
+              your Mac or in the browser, soon on iPhone and iPad, and every
+              project syncs. Free for personal use, open source under the AGPL.
             </p>
             <a
               href={GITHUB_URL}
@@ -87,7 +94,9 @@ export default function Footer() {
             </a>
             <Link
               to="/download"
-              className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-white px-5 text-sm font-medium text-black transition-transform duration-300 hover:scale-[1.03] active:scale-[0.98]"
+              className={`mt-4 inline-flex h-10 items-center justify-center rounded-full px-5 text-sm font-medium transition-transform duration-300 hover:scale-[1.03] active:scale-[0.98] ${
+                light ? "bg-[var(--cc-air-ink)] text-white" : "bg-white text-black"
+              }`}
             >
               Download for Mac
             </Link>
@@ -121,7 +130,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-2 border-t border-white/8 pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div className={`mt-12 flex flex-col gap-2 border-t pt-6 ${light ? "border-[var(--cc-air-hairline)]" : "border-white/8"} text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between`}>
           <span>© {new Date().getFullYear()} CaptureCat. Made in the UK.</span>
           <span>Requires macOS 14 Sonoma or later. Apple Silicon and Intel.</span>
         </div>

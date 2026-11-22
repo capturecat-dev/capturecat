@@ -258,26 +258,19 @@ function AgentsPage() {
         </AirContainer>
       </section>
 
-      <section
-        data-air-dark
-        className="relative isolate overflow-hidden bg-[linear-gradient(180deg,#0b0b18_0%,#101a3a_100%)] py-24 md:py-32"
-      >
-        <div
-          aria-hidden
-          className="absolute inset-0 -z-10 bg-[radial-gradient(50%_60%_at_80%_0%,rgb(47_123_255/0.25),transparent_70%),radial-gradient(40%_50%_at_10%_100%,rgb(124_92_240/0.25),transparent_70%)]"
-        />
+      <section className="border-y border-[var(--cc-air-hairline)] bg-[var(--cc-air-tint)] py-24 md:py-32">
         <AirContainer>
-          <AirTitle dark className="scroll-reveal max-w-2xl" muted="Things people actually type.">
+          <AirTitle className="scroll-reveal max-w-2xl" muted="Things people actually type.">
             Prompts that work.
           </AirTitle>
           <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2">
             {PROMPTS.map((p) => (
               <div
                 key={p}
-                className="scroll-reveal rounded-[20px] bg-white/[0.05] p-6 ring-1 ring-white/10 shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]"
+                className="scroll-reveal rounded-[20px] bg-white p-6 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_18px_40px_-30px_rgb(30_20_90/0.3)] ring-1 ring-black/[0.06]"
               >
-                <p className="font-mono text-[13.5px] leading-relaxed text-white/85">
-                  <span className="text-white/40">› </span>
+                <p className="font-mono text-[13.5px] leading-relaxed text-[var(--cc-air-ink-2)]">
+                  <span className="text-[var(--cc-air-violet)]">› </span>
                   {p}
                 </p>
               </div>

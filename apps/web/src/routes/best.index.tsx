@@ -52,7 +52,7 @@ function BestHubPage() {
         </div>
       </AirContainer>
 
-      <PseoCta />
+      <PseoCta tone="light" />
     </AirPage>
   );
 }
