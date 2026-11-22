@@ -77,7 +77,11 @@ ATTEST_MODE = "report"
 #   STRIPE_PRO_TRIAL_DAYS          prices; checkout never reads them. Delete
 #                                  once every plan is synced
 #                                  (docs/stripe-setup.md §5).
-#   GEMINI_API_KEY   — server-side AI key for /api/ai/* (never ship in the app)
+#   GEMINI_API_KEY   — server-side AI key for /api/ai/* (never ship in the app);
+#                      also the Gemini engine of Admin → AI search
+#   DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD
+#                    — optional; Admin → AI search's ChatGPT, Perplexity, Claude
+#                      and Google engines. Billed per answer by DataForSEO.
 #   TURNSTILE_SECRET — Cloudflare Turnstile secret for POST /api/beta siteverify.
 #                      The PUBLIC site key is NOT here; it lives in the web app
 #                      as NEXT_PUBLIC_TURNSTILE_SITE_KEY. Set via
@@ -117,6 +121,16 @@ ATTEST_MODE = "report"
 # SCREENSHOT_URL_BLOCKLIST = ""
 
 # ---------------------------------------------------------------------------
+# Workers AI binding — Admin → AI search asks Gemini, OpenAI and Claude through
+# AI Gateway with it (lib/ai-search/engines.ts). Unified Billing: the account's
+# AI Gateway credits pay the providers, so no provider keys are stored here.
+# Requests go through the "default" gateway unless AI_GATEWAY_ID names another.
+# Note: `wrangler dev` uses the real binding too, so local runs spend credits.
+# ---------------------------------------------------------------------------
+[ai]
+binding = "AI"
+
+# ---------------------------------------------------------------------------
 # Durable Objects — per-user background share-upload job tracking
 # ---------------------------------------------------------------------------
 [[durable_objects.bindings]]
@@ -130,6 +144,9 @@ new_sqlite_classes = ["ShareJobsDO"]
 # Two triggers, routed by event.cron in index.ts's scheduled handler:
 #   "17 * * * *"   hourly sweep of abandoned pending uploads, stale rate-limit
 #                  rows, expired OAuth codes/tokens, old approvals/deliveries
-#   "*/5 * * * *"  webhook outbox: retries with exponential backoff (lib/webhooks.ts)
+#   "*/5 * * * *"  webhook outbox: retries with exponential backoff (lib/webhooks.ts),
+#                  then drains pending AI search answers (lib/ai-search/runner.ts)
+# The hourly one also starts a scheduled AI search run when the last is older
+# than AI_SEARCH_SCHEDULE_DAYS (default 7; "0" turns the schedule off).
 [triggers]
 crons = ["17 * * * *", "*/5 * * * *"]

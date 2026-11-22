@@ -41,6 +41,7 @@ import { registerUserPlanAdminRoutes } from "./admin-user-plan";
 import { registerChangelogAdminRoutes } from "./changelog";
 import { registerModerationAdminRoutes } from "./admin-moderation";
 import { registerProjectAdminRoutes } from "./admin-projects";
+import { registerAiSearchAdminRoutes } from "./admin-ai-search";
 
 export const adminRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -271,3 +272,5 @@ registerChangelogAdminRoutes(adminRoutes);
 registerModerationAdminRoutes(adminRoutes);
 // Projects: every cloud project, and whether it was ever shared (read-only).
 registerProjectAdminRoutes(adminRoutes);
+// AI search visibility (0041): buyer questions rerun against AI engines + Google.
+registerAiSearchAdminRoutes(adminRoutes);

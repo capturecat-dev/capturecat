@@ -51,6 +51,23 @@ export interface Env {
   STRIPE_PRO_ANNUAL_PRICE_ID?: string;
   /** Secret — server-side Gemini key for /api/ai/* (never ships in the app). */
   GEMINI_API_KEY?: string;
+  /** Secrets — DataForSEO API login (app.dataforseo.com/api-access). Switch on
+   *  the ChatGPT, Perplexity, Claude and Google engines of Admin → AI search
+   *  (lib/ai-search/engines.ts). Absent = those engines are off. */
+  DATAFORSEO_LOGIN?: string;
+  DATAFORSEO_PASSWORD?: string;
+  /** Vars — AI search: days between scheduled runs ("0" = off, default "7"),
+   *  and model overrides for the engines that take one. */
+  AI_SEARCH_SCHEDULE_DAYS?: string;
+  /** Workers AI binding. Admin → AI search asks Gemini, OpenAI and Claude
+   *  through AI Gateway with it (Unified Billing: no provider keys). */
+  AI?: Ai;
+  /** Var — the AI Gateway id those requests go through (default "default"). */
+  AI_GATEWAY_ID?: string;
+  AI_SEARCH_OPENAI_MODEL?: string;
+  AI_SEARCH_GEMINI_MODEL?: string;
+  AI_SEARCH_CLAUDE_MODEL?: string;
+  AI_SEARCH_PERPLEXITY_MODEL?: string;
   /** Secret — Cloudflare Turnstile secret used by POST /api/beta to verify the
    *  widget token via siteverify. The matching PUBLIC site key lives in the web
    *  app as NEXT_PUBLIC_TURNSTILE_SITE_KEY. Optional in the type because a

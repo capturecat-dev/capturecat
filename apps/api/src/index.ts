@@ -36,6 +36,7 @@ import { AGENT_AUDIT_RETENTION_DAYS } from "./lib/agent-tokens";
 import { agentApprovalRoutes } from "./routes/agent-approvals";
 import { webhookRoutes } from "./routes/webhooks";
 import { devicesRoutes } from "./routes/devices";
+import { hasPendingAnswers, maybeStartScheduledRun, processQueue } from "./lib/ai-search/runner";
 import { changelogRoutes } from "./routes/changelog";
 import { oauthRoutes } from "./routes/oauth";
 import { SITE_DOCUMENTS, frontDoorRoutes } from "./routes/front-door";
@@ -545,6 +546,18 @@ async function sweepAgentPhase2(env: Env): Promise<void> {
     .bind(iso(WEBHOOK_DELIVERY_RETENTION_DAYS * DAY)).run();
 }
 
+/** AI search answers left in the queue (0041). Under four minutes, so one
+ *  five-minute tick rarely overlaps the next (claims are atomic if it does). */
+async function drainAiSearch(env: Env): Promise<void> {
+  try {
+    if (!(await hasPendingAnswers(env))) return;
+    const r = await processQueue(env, { budgetMs: 3.5 * 60_000, maxJobs: 30 });
+    console.log(`ai-search: ${r.answered} answered, ${r.failed} failed, ${r.finishedRuns} run(s) finished`);
+  } catch (err) {
+    console.error("ai-search queue failed", err);
+  }
+}
+
 // Two cron triggers (wrangler.toml): the five-minute one drives the webhook
 // outbox's retries; the hourly one ("17 * * * *") runs the sweep. Not
 // exported: a Worker entry module's named exports are its entrypoints.
@@ -560,9 +573,16 @@ export default {
           (err) => console.error("webhook outbox failed", err),
         ),
       );
+      ctx.waitUntil(drainAiSearch(env));
       return;
     }
     ctx.waitUntil(sweep(env));
+    ctx.waitUntil(
+      maybeStartScheduledRun(env).then(
+        (runId) => runId && console.log(`ai-search: scheduled run ${runId} started`),
+        (err) => console.error("ai-search schedule failed", err),
+      ),
+    );
   },
 };
 

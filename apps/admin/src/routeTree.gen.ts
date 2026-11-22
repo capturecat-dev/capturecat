@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardAiSearchRouteImport } from './routes/_dashboard.ai-search'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 import { Route as DashboardBetaRouteImport } from './routes/_dashboard.beta'
 import { Route as DashboardChangelogRouteImport } from './routes/_dashboard.changelog'
@@ -35,6 +36,11 @@ const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardAiSearchRoute = DashboardAiSearchRouteImport.update({
+  id: '/ai-search',
+  path: '/ai-search',
+  getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
   id: '/analytics',
@@ -85,6 +91,7 @@ const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/ai-search': typeof DashboardAiSearchRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/beta': typeof DashboardBetaRoute
   '/changelog': typeof DashboardChangelogRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/ai-search': typeof DashboardAiSearchRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/beta': typeof DashboardBetaRoute
   '/changelog': typeof DashboardChangelogRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
+  '/_dashboard/ai-search': typeof DashboardAiSearchRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/beta': typeof DashboardBetaRoute
   '/_dashboard/changelog': typeof DashboardChangelogRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/ai-search'
     | '/analytics'
     | '/beta'
     | '/changelog'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/ai-search'
     | '/analytics'
     | '/beta'
     | '/changelog'
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_dashboard'
     | '/login'
+    | '/_dashboard/ai-search'
     | '/_dashboard/analytics'
     | '/_dashboard/beta'
     | '/_dashboard/changelog'
@@ -195,6 +207,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_dashboard/ai-search': {
+      id: '/_dashboard/ai-search'
+      path: '/ai-search'
+      fullPath: '/ai-search'
+      preLoaderRoute: typeof DashboardAiSearchRouteImport
+      parentRoute: typeof DashboardRoute
     }
     '/_dashboard/analytics': {
       id: '/_dashboard/analytics'
@@ -263,6 +282,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface DashboardRouteChildren {
+  DashboardAiSearchRoute: typeof DashboardAiSearchRoute
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardBetaRoute: typeof DashboardBetaRoute
   DashboardChangelogRoute: typeof DashboardChangelogRoute
@@ -274,6 +294,7 @@ interface DashboardRouteChildren {
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardAiSearchRoute: DashboardAiSearchRoute,
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardBetaRoute: DashboardBetaRoute,
   DashboardChangelogRoute: DashboardChangelogRoute,

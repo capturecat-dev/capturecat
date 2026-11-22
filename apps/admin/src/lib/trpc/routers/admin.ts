@@ -6,6 +6,8 @@ import { adminProcedure, createTRPCRouter } from "@/lib/trpc/init";
 import type { AdminPlan } from "@/lib/plan-fields";
 import type { Analytics, SignupSource, UserActivity, UserUsage } from "@/lib/analytics-types";
 import type { AdminChangelogEntry } from "@/lib/changelog-form";
+import type { AiSearchOverview, QuestionDetail } from "@/lib/ai-search-types";
+import { SOURCE_KINDS, SOURCE_STATUSES } from "@/lib/ai-search-types";
 import { CHANGELOG_CATEGORIES, CHANGELOG_PLATFORMS } from "@/lib/changelog-form";
 import type { AdminVideoDetail, AdminVideoPage } from "@/lib/moderation-types";
 import type { AdminProjectDetail, AdminProjectPage } from "@/lib/project-types";
@@ -431,6 +433,76 @@ export const adminRouter = createTRPCRouter({
         { method: "DELETE" },
         "Could not delete the entry",
       ),
+    ),
+
+  // --- AI search (apps/api routes/admin-ai-search.ts). The API validates;
+  // these schemas only shape what the page can send.
+  aiSearch: adminProcedure.query(() =>
+    apiJson<AiSearchOverview>("/api/admin/ai-search", { method: "GET" }, "Could not load AI search"),
+  ),
+
+  aiSearchQuestion: adminProcedure
+    .input(z.object({ id: z.string().min(1) }))
+    .query(({ input }) =>
+      apiJson<QuestionDetail>(
+        `/api/admin/ai-search/questions/${encodeURIComponent(input.id)}`,
+        { method: "GET" },
+        "Could not load the question",
+      ),
+    ),
+
+  createAiSearchQuestion: adminProcedure
+    .input(
+      z.object({
+        decision: z.string().min(1).max(120),
+        prompt: z.string().min(5).max(500),
+        keyword: z.string().min(2).max(200),
+        branded: z.boolean(),
+        targetPath: z.string().max(300).nullable(),
+        notes: z.string().max(2000),
+      }),
+    )
+    .mutation(({ input }) =>
+      apiJson<{ id: string }>("/api/admin/ai-search/questions", jsonBody("POST", input), "Could not add the question"),
+    ),
+
+  updateAiSearchQuestion: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        decision: z.string().min(1).max(120).optional(),
+        prompt: z.string().min(5).max(500).optional(),
+        keyword: z.string().min(2).max(200).optional(),
+        branded: z.boolean().optional(),
+        targetPath: z.string().max(300).nullable().optional(),
+        notes: z.string().max(2000).optional(),
+        active: z.boolean().optional(),
+      }),
+    )
+    .mutation(({ input: { id, ...patch } }) =>
+      apiJson<{ ok: true }>(
+        `/api/admin/ai-search/questions/${encodeURIComponent(id)}`,
+        jsonBody("PATCH", patch),
+        "Could not save the question",
+      ),
+    ),
+
+  startAiSearchRun: adminProcedure.mutation(() =>
+    apiJson<{ runId: string; jobs: number }>("/api/admin/ai-search/runs", { method: "POST" }, "Could not start a run"),
+  ),
+
+  setAiSearchSource: adminProcedure
+    .input(
+      z.object({
+        key: z.string().min(1).max(500),
+        kind: z.enum(SOURCE_KINDS),
+        status: z.enum(SOURCE_STATUSES).optional(),
+        nextStep: z.string().max(500).optional(),
+        url: z.string().max(1000).nullable().optional(),
+      }),
+    )
+    .mutation(({ input }) =>
+      apiJson<{ ok: true }>("/api/admin/ai-search/sources", jsonBody("PUT", input), "Could not save the source"),
     ),
 
   listBetaSignups: adminProcedure.query(async () => {
