@@ -37,6 +37,11 @@ export interface Env {
   /** Secret — the full .p8 contents, BEGIN/END lines included. */
   APPLE_PRIVATE_KEY: string;
 
+  /** Secrets — the single App Review sign-in (lib/review-login.ts). Off
+   *  unless both are set; the password must be >= 24 chars. */
+  REVIEW_LOGIN_EMAIL?: string;
+  REVIEW_LOGIN_PASSWORD?: string;
+
   STRIPE_SECRET_KEY: string;
   /** Secret — signing secret for POST /api/auth/stripe/webhook (`whsec_…`). */
   STRIPE_WEBHOOK_SECRET: string;

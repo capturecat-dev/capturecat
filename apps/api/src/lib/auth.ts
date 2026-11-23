@@ -30,6 +30,7 @@ import { buildStripePlugin, createStripeClient, stripeCustomerIsGone } from "./s
 import { recordSignupAttribution, signupAttributionFrom } from "./signup-attribution";
 import type { Env } from "../types";
 import { webOrigins } from "./origins";
+import { reviewLogin } from "./review-login";
 
 /**
  * Sign in with Apple does not use a static client secret — it wants an ES256
@@ -390,6 +391,10 @@ export function buildAuth(env: Env) {
       // success,billing-portal} and /stripe/webhook under basePath. Configured
       // in ./stripe so plans and webhook handling stay in one place.
       buildStripePlugin(env),
+
+      // App Review only: one allowlisted email + password (both secrets),
+      // off unless both are set. See ./review-login.
+      reviewLogin({ email: env.REVIEW_LOGIN_EMAIL, password: env.REVIEW_LOGIN_PASSWORD }),
     ],
   });
 }

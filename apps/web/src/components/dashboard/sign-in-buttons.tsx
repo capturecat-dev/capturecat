@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { API_URL } from "@/lib/api-url";
 import { authClient } from "@/lib/auth-client";
 import { signInAttribution } from "@/lib/attribution";
 
@@ -16,14 +17,54 @@ import { signInAttribution } from "@/lib/attribution";
  * So errors cannot be rendered in place any more — they come back on the
  * callback URL as `?error=`.
  */
+/**
+ * App Review's account. Typed into the SSO email field it asks for a password
+ * instead of starting SSO; the API accepts only this address, and only while
+ * its REVIEW_LOGIN_* secrets are set (apps/api/src/lib/review-login.ts).
+ */
+const REVIEW_EMAIL = "review@capturecat.so";
+
 export function SignInButtons({ next }: { next?: string }) {
   const [pending, setPending] = useState<string | null>(null);
   const [ssoOpen, setSsoOpen] = useState(false);
   const [ssoEmail, setSsoEmail] = useState("");
+  const [reviewMode, setReviewMode] = useState(false);
+  const [reviewPassword, setReviewPassword] = useState("");
+
+  const destination = () => {
+    const site = import.meta.env.VITE_SITE_URL ?? window.location.origin;
+    return `${site}${next && next.startsWith("/") ? next : "/app"}`;
+  };
+
+  const signInReview = async () => {
+    if (!reviewPassword) return;
+    setPending("review");
+    try {
+      const res = await fetch(`${API_URL}/api/auth/review/sign-in`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: ssoEmail.trim(), password: reviewPassword }),
+      });
+      if (!res.ok) {
+        setPending(null);
+        toast.error(res.status === 401 ? "Wrong email or password." : "Sign-in failed. Please try again.");
+        return;
+      }
+      window.location.assign(destination());
+    } catch {
+      setPending(null);
+      toast.error("Can't reach the API — is it running?");
+    }
+  };
 
   const signInSso = async () => {
     const email = ssoEmail.trim();
     if (!email.includes("@")) return;
+    if (email.toLowerCase() === REVIEW_EMAIL) {
+      setReviewMode(true);
+      return;
+    }
     setPending("sso");
     const site = import.meta.env.VITE_SITE_URL ?? window.location.origin;
     try {
@@ -103,7 +144,29 @@ export function SignInButtons({ next }: { next?: string }) {
         </svg>
         {pending === "apple" ? "Redirecting…" : "Continue with Apple"}
       </button>
-      {ssoOpen ? (
+      {ssoOpen && reviewMode ? (
+        <div className="flex w-full gap-2">
+          <input
+            type="password"
+            autoFocus
+            autoComplete="current-password"
+            placeholder="Password"
+            aria-label={`Password for ${REVIEW_EMAIL}`}
+            value={reviewPassword}
+            onChange={(e) => setReviewPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void signInReview()}
+            className="h-12 w-full rounded-full bg-white px-5 text-[15px] text-[#0b0b0f] ring-1 ring-black/[0.1] placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-[#7c5cf0]/50"
+          />
+          <button
+            type="button"
+            disabled={pending !== null || !reviewPassword}
+            onClick={() => void signInReview()}
+            className="inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-[#0b0b0f] px-5 text-[15px] font-medium text-white transition-[transform,background-color] duration-300 hover:-translate-y-px hover:bg-[#1b1b22] disabled:opacity-60"
+          >
+            {pending === "review" ? "Signing in…" : "Sign in"}
+          </button>
+        </div>
+      ) : ssoOpen ? (
         <div className="flex w-full gap-2">
           <input
             type="email"
