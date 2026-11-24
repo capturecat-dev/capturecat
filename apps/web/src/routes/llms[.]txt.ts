@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { SITE_PAGES, SITE_URL, markdownHref } from "@/lib/site-content";
 import { MCP_ENDPOINT } from "@/lib/agent-access";
+import { IOS_APP_STORE_URL } from "@/lib/ios-app";
 import { isAppHost } from "@/lib/app-host-rewrite";
 import { appHostLlmsTxt } from "@/server/app-host-files";
 import {
@@ -61,6 +62,7 @@ export const Route = createFileRoute("/llms.txt")({
           `- [Render a web page to an image](${SITE_URL}/docs/api): Use when code needs a screenshot of a URL (viewport or full page; PNG, JPEG or WebP; Pro plan). Call \`GET|POST https://api.capturecat.so/api/screenshot/take\` with an access key; see the OpenAPI description.`,
           `- [Embed a CaptureCat share link](${SITE_URL}/docs/api): Use when a page needs the player for a capturecat.so/share/... link. Call the oEmbed endpoint \`https://capturecat.so/api/oembed?url=...\`.`,
           `- [Not a fit](${SITE_URL}/about): Live streaming, video calls, or recording a screen on a server: CaptureCat records on the user's own device, then edits the file.`,
+          `- [Record on iPhone or iPad](${IOS_APP_STORE_URL}): Use when the user wants to record or edit on an iPhone or iPad. Free on the App Store; projects sync with the Mac and the web.`,
           "",
           "## Developers",
           `- [API reference](${SITE_URL}/docs/api): The CaptureCat API: Screenshot API, release feed, oEmbed.`,

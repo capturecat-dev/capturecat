@@ -81,7 +81,7 @@ const PLATFORMS = [
   {
     icon: Smartphone,
     title: "iPhone and iPad",
-    body: "Record on the go and see every project from your Mac and the web. Coming soon to the App Store.",
+    body: "Record on the go and see every project from your Mac and the web. Free on the App Store.",
   },
   {
     icon: Globe,
@@ -102,8 +102,8 @@ export function Everywhere() {
             <span className="text-[var(--cc-air-faint)]">Edit anywhere. It all syncs.</span>
           </AirTitle>
           <AirLede className="mt-5">
-            Record on your Mac or in any browser, and soon on iPhone and iPad. Open the recording wherever you
-            are: projects move between the Mac and the web in one click, and the iPhone app will see them too.
+            Record on your Mac, on iPhone and iPad, or in any browser. Open the recording wherever you
+            are: projects move between the Mac and the web in one click, and the iPhone app sees them too.
           </AirLede>
         </div>
 

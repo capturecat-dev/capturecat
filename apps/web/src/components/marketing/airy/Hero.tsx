@@ -55,7 +55,7 @@ export default function AirHero() {
 
           <p className="mt-6 max-w-xl text-pretty text-[17px] leading-relaxed text-white/82 md:text-[19px]">
             CaptureCat watches where you click and type, then adds the zooms, smooths the cursor and writes the
-            captions. On your Mac, in your browser — and soon on iPhone and iPad.
+            captions. On your Mac, in your browser, and on iPhone and iPad.
           </p>
 
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">

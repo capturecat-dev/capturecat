@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { IOS_APP_JSON_LD } from "@/lib/ios-app";
 import { ORGANIZATION_JSON_LD, jsonLd } from "@/lib/json-ld";
 import { pageHead } from "@/lib/site-content";
 import { CAPTURECAT_OFFERS } from "@/lib/pseo-content";
@@ -35,6 +36,7 @@ const jsonLdData = {
       offers: CAPTURECAT_OFFERS,
       publisher: { "@id": ORGANIZATION_JSON_LD["@id"] },
     },
+    IOS_APP_JSON_LD,
     {
       "@type": "WebSite",
       name: "CaptureCat",

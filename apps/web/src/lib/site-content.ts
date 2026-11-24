@@ -10,6 +10,7 @@
  * agents to index.
  */
 
+import { SMART_APP_BANNER_META } from "./ios-app";
 import { SITE_URL } from "./site-url";
 import { MCP_ENDPOINT, MCP_TOOLS, claudeMcpAddCommand } from "./agent-access";
 import { PSEO_SITE_PAGES } from "./pseo-content";
@@ -341,6 +342,9 @@ Free for personal use, with recordings up to 5 minutes. No account needed until
 you want a share link or Pro, which covers commercial use and recordings of any
 length. Builds for Apple Silicon and Intel, macOS 14 Sonoma or later.
 
+On iPhone and iPad (iOS 18 or later), CaptureCat is free on the App Store:
+https://apps.apple.com/app/screen-recorder-capturecat/id6836948540
+
 Get the latest build from the [download page](${SITE_URL}/download).
 
 ## After the download
@@ -639,6 +643,7 @@ export function pageHead(
       { name: "twitter:title", content: title },
       { name: "twitter:description", content: page.description },
       { name: "twitter:image", content: OG_IMAGE.url },
+      SMART_APP_BANNER_META,
     ],
     links: [...extraLinks, ...markdownAlternateLinks(path)],
   };

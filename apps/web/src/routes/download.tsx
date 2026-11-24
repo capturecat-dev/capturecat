@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Download, Globe, RefreshCw, ScrollText, Smartphone, Trash2 } from "lucide-react";
 
 import { API_URL } from "@/lib/api-url";
+import { IOS_APP_JSON_LD } from "@/lib/ios-app";
+import { ORGANIZATION_JSON_LD, jsonLd } from "@/lib/json-ld";
 import { pageHead } from "@/lib/site-content";
 import { DownloadButtons } from "@/components/marketing/download-buttons";
 import { PinnedStory } from "@/components/marketing/home/demo/PinnedStory";
@@ -73,6 +75,12 @@ function DownloadPage() {
 
   return (
     <AirPage>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd({ "@context": "https://schema.org", "@graph": [IOS_APP_JSON_LD, ORGANIZATION_JSON_LD] }),
+        }}
+      />
       <AirPageHero
         pill={release ? `Version ${release.version}, released ${formatDate(release.date)}` : "macOS app"}
         icon={<Download className="h-3.5 w-3.5" strokeWidth={2} />}
@@ -156,7 +164,7 @@ function DownloadPage() {
                 Record on your phone.
               </AirTitle>
               <AirLede className="mt-5 max-w-lg">
-                CaptureCat for iPhone and iPad is on its way to the App Store. It records your screen on the go
+                CaptureCat for iPhone and iPad is free on the App Store. It records your screen on the go
                 and keeps your library with you: sign in with the same account and every project syncs with your
                 Mac and the web.
               </AirLede>

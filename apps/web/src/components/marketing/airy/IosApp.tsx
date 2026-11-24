@@ -1,10 +1,5 @@
+import { IOS_APP_STORE_URL } from "@/lib/ios-app";
 import { AppleGlyph } from "../primitives";
-
-/**
- * The iPhone and iPad app's App Store page. Leave null until the app is live:
- * every slot then reads "Coming soon to the App Store" instead of linking.
- */
-export const IOS_APP_STORE_URL: string | null = null;
 
 /**
  * A real app screenshot from public/media: AVIF and WebP with a PNG fallback.
@@ -67,28 +62,15 @@ export function FoldableEditorScreen({ priority = false }: { priority?: boolean 
   return <ScreenPicture name="foldable-editor-split" width={900} height={633} priority={priority} />;
 }
 
-/**
- * The App Store slot. Until IOS_APP_STORE_URL is set it is a quiet
- * "coming soon" line; set the URL and it becomes the download link.
- */
+/** The App Store link. */
 export function AppStoreSlot({ className = "mt-4" }: { className?: string }) {
-  if (IOS_APP_STORE_URL) {
-    return (
-      <a
-        href={IOS_APP_STORE_URL}
-        className={`${className} inline-flex h-11 items-center gap-2 rounded-full bg-[var(--cc-air-ink)] px-5 text-[15px] font-medium text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_8px_20px_-10px_rgb(0_0_0/0.55)] transition-transform hover:-translate-y-px`}
-      >
-        <AppleGlyph />
-        Download on the App Store
-      </a>
-    );
-  }
   return (
-    <p
-      className={`${className} inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[var(--cc-air-ink-2)] shadow-[0_1px_2px_rgb(0_0_0/0.06)] ring-1 ring-black/[0.07]`}
+    <a
+      href={IOS_APP_STORE_URL}
+      className={`${className} inline-flex h-11 items-center gap-2 rounded-full bg-[var(--cc-air-ink)] px-5 text-[15px] font-medium text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_8px_20px_-10px_rgb(0_0_0/0.55)] transition-transform hover:-translate-y-px`}
     >
-      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[var(--cc-air-violet)]" />
-      Coming soon to the App Store
-    </p>
+      <AppleGlyph />
+      Download on the App Store
+    </a>
   );
 }

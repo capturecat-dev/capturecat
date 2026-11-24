@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { API_URL } from "@/lib/api-url";
+import { IOS_APP_STORE_URL } from "@/lib/ios-app";
 import { tagDownload } from "@/lib/attribution";
 
 function AppleLogo({ className }: { className?: string }) {
@@ -26,6 +27,7 @@ type Arch = "arm64" | "x86_64";
  */
 type Detected =
   | { kind: "mac"; arch: Arch; confident: boolean }
+  | { kind: "ios" }
   | { kind: "other" };
 
 type UAData = {
@@ -49,7 +51,9 @@ async function detect(): Promise<Detected> {
   const uaData = (navigator as Navigator & { userAgentData?: UAData }).userAgentData;
   // iPadOS Safari sends a Mac user agent; touch points give it away.
   const isIPad = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
-  const isMac = !isIPad && (uaData?.platform === "macOS" || /Macintosh|Mac OS X/.test(ua));
+  // iPhone user agents say "like Mac OS X", so rule iOS out before the Mac test.
+  if (isIPad || /iPhone|iPad|iPod/.test(ua)) return { kind: "ios" };
+  const isMac = uaData?.platform === "macOS" || /Macintosh|Mac OS X/.test(ua);
   if (!isMac) return { kind: "other" };
 
   // Chromium: the real CPU architecture, behind a permission-free hint.
@@ -104,7 +108,22 @@ export function DownloadButtons({ release: _release }: { release: Release | null
   };
   const detected = useDetected();
 
-  // Not a Mac (Windows, Linux, ChromeOS, iPad): the browser app first, the
+  // iPhone and iPad: the App Store; the .dmg builds are no use here.
+  if (detected?.kind === "ios") {
+    return (
+      <div className="flex flex-col items-center gap-4 pt-4">
+        <a href={IOS_APP_STORE_URL} className={primaryCls}>
+          <AppleLogo className="h-4 w-4" />
+          Download on the App Store
+        </a>
+        <p className="text-sm text-muted-foreground">
+          For the Mac app, open this page on your Mac.
+        </p>
+      </div>
+    );
+  }
+
+  // Not a Mac (Windows, Linux, ChromeOS): the browser app first, the
   // Mac builds still offered for someone downloading for another machine.
   if (detected?.kind === "other") {
     return (

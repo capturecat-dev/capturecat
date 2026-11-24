@@ -1,3 +1,4 @@
+import { IOS_APP_STORE_URL } from "@/lib/ios-app";
 import { Link } from "@tanstack/react-router";
 import CaptureCatMark from "@/components/brand/CaptureCatMark";
 import { GITHUB_URL, GitHubIcon } from "./primitives";
@@ -12,6 +13,7 @@ const COLUMNS: Array<{
       { label: "Features", to: "/features" },
       { label: "Pricing", to: "/pricing" },
       { label: "Download", to: "/download" },
+      { label: "iPhone and iPad app", href: IOS_APP_STORE_URL },
       { label: "Agents and MCP", to: "/agents" },
       { label: "Docs", to: "/docs" },
       { label: "Guides", to: "/guides" },
@@ -80,7 +82,7 @@ export default function Footer({ tone = "dark" }: { tone?: "light" | "dark" }) {
             </div>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               The screen recorder that does the editing for you. Record on
-              your Mac or in the browser, soon on iPhone and iPad, and every
+              your Mac, iPhone, iPad or in the browser, and every
               project syncs. Free for personal use, open source under the AGPL.
             </p>
             <a
