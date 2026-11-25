@@ -1,6 +1,26 @@
 # CaptureCat
 
-Screen recording, editing, and sharing — built natively for macOS.
+Screen recording, editing, and sharing. Native apps for Mac, iPhone and iPad,
+plus a web app.
+
+- **Mac** (macOS 14+): [download](https://capturecat.so/download)
+- **iPhone and iPad** (iOS / iPadOS 18+): [App Store](https://apps.apple.com/app/screen-recorder-capturecat/id6836948540)
+- **Web**: [app.capturecat.so](https://app.capturecat.so)
+
+## iPhone and iPad
+
+The iOS app is UIKit, with no SwiftUI, and shares its studio core (models, edit
+math, preview compositor, exporter, sync) with the Mac app: the same files in
+`apps/macos/CaptureCat/Studio/` compile into both. It can:
+
+- record the screen, and import videos and screenshots
+- edit with the Mac's timeline, effects, captions and camera tools, and export
+- sync projects with the Mac and the web, or hand one over with Continue on Mac
+- act as a wireless screen source for the Mac over Wi-Fi
+- open share links, comment and react
+
+It is available in 12 languages. Architecture, gates and release steps are in
+[apps/ios/README.md](apps/ios/README.md).
 
 ## License
 
@@ -15,7 +35,8 @@ official.
 
 ```
 apps/
-  macos/     → Native AppKit macOS app (Xcode)
+  macos/     → Native AppKit macOS app (Xcode), and the shared studio core
+  ios/       → Native UIKit iPhone and iPad app (Xcode)
   api/       → Cloudflare Workers API (Hono + R2 + D1 + Durable Objects)
   web/       → Marketing site + share pages + dashboard (TanStack Start)
   admin/     → Admin console (TanStack Start)
@@ -48,7 +69,12 @@ npm run dev          # start web + api in dev mode
 
 macOS app: open `apps/macos/CaptureCat.xcodeproj` in Xcode and run.
 
-## Releasing a New Version
+iOS app: open `apps/ios/CaptureCat.xcodeproj` in Xcode, pick the `CaptureCat`
+scheme and run it in an iOS 18+ Simulator. To run on a device, set your own team
+and bundle identifiers in `apps/ios/scripts/gen-xcodeproj.py`, which generates
+the project. Screen recording needs a physical device.
+
+## Releasing the Mac App
 
 ### Quick version
 
@@ -150,8 +176,9 @@ of the same marketing version.
 | Release history | R2 → `releases/index.json` |
 | Release metadata | R2 → `releases/latest.json`, `releases/latest-beta.json` |
 | Sparkle feeds | R2 → `releases/appcast-arm64.xml`, `releases/appcast-x86_64.xml` |
+| iPhone and iPad app | [App Store](https://apps.apple.com/app/screen-recorder-capturecat/id6836948540) |
 | API | Cloudflare Workers → `api.capturecat.so` |
-| Website | `capturecat.so` (Next.js) |
+| Website | `capturecat.so` (TanStack Start on Cloudflare Workers) |
 | Videos + metadata | R2 → `videos/` + D1 (via the API) |
 
 ### Sparkle auto-updates

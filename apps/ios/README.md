@@ -1,5 +1,8 @@
 # CaptureCat for iPhone and iPad
 
+On the [App Store](https://apps.apple.com/app/screen-recorder-capturecat/id6836948540) since
+24 November 2026 (version 1.0).
+
 Native UIKit app (iOS 18+) that stays in sync with CaptureCat for Mac and the web app
 through the same cloud projects, and turns the iPhone into a wireless screen source for
 Mac recordings.
@@ -144,22 +147,17 @@ the app goes to the browser. `ShareLink.parse` is the one classifier. The entitl
 `Config/App.entitlements` by `gen-xcodeproj.py` (`ASSOCIATED_DOMAINS`). The web half — the
 `apple-app-site-association` file claiming ONLY `/share/*` (not the `.md` twin), its
 `_headers` content type and a Worker route that answers it before the www → apex
-redirect — is `docs/share-viewer-web.patch`.
+redirect — is live in `apps/web`
+(`src/server/apple-app-site-association.ts`).
 
-**Gate**: `scripts/ios-share-viewer.sh` (see Gates). Universal links can't reach a
-Simulator build until the AASA is live, so the gate drives the real `scene(_:continue:)`
+**Gate**: `scripts/ios-share-viewer.sh` (see Gates). To stay offline and deterministic, the gate drives the real `scene(_:continue:)`
 with the same `NSUserActivity` iOS delivers (warm) and `-shareViewerColdLink` (cold, a
 DEBUG seam that feeds the connection options); the custom scheme is exercised with real
 `simctl openurl`, warm and cold.
 
-**Owner actions** (nothing here is live until they are done):
-1. Apple Developer portal → Identifiers → `so.capturecat.ios` → enable **Associated
-   Domains** (signed device / App Store builds fail to provision without it).
-2. Review and apply `docs/share-viewer-web.patch` to `apps/web`, deploy the web Worker,
-   then check `https://capturecat.so/.well-known/apple-app-site-association` and the
-   `www.` one both answer 200 `application/json` with no redirect.
-3. Apple's CDN caches the AASA; links open the app only after it has fetched the live
-   file (fresh installs pick it up; `?mode=developer` helps on a dev device).
+The `apple-app-site-association` file answers on both `capturecat.so` and `www.`. Apple's CDN
+caches it, so a change reaches devices only after Apple fetches the new file
+(`?mode=developer` helps on a dev device).
 
 ## Layout
 
