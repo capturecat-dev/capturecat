@@ -15,10 +15,21 @@ nonisolated enum AgentConnect {
     /// it is what the user types into another company's app.
     static let mcpURL = "https://mcp.capturecat.so/mcp"
     /// Where each app's connector settings live (their own docs, 2026-11).
-    static let claudeConnectorsURL = URL(string: "https://claude.ai/customize/connectors")!
-    static let chatGPTPluginsURL = URL(string: "https://chatgpt.com/plugins")!
-
-    static let geminiURL = URL(string: "https://gemini.google.com")!
+    /// Claude's add-connector form with the name and URL filled in (Claude asks
+    /// the user to check them). The Claude app claims this link, so it opens
+    /// there when installed and on claude.ai otherwise.
+    static let claudeAddURL: URL = {
+        var c = URLComponents(string: "https://claude.ai/customize/connectors")!
+        c.queryItems = [URLQueryItem(name: "modal", value: "add-custom-connector"),
+                        URLQueryItem(name: "connectorName", value: "CaptureCat"),
+                        URLQueryItem(name: "connectorUrl", value: mcpURL)]
+        return c.url!
+    }()
+    /// ChatGPT adds custom MCP servers on the web only, and its app claims
+    /// /plugins: `no_universal_links=1` (its own opt-out) keeps this in the browser.
+    static let chatGPTPluginsURL = URL(string: "https://chatgpt.com/plugins?no_universal_links=1")!
+    /// Gemini's Connected Apps settings (no link pre-fills a custom app).
+    static let geminiURL = URL(string: "https://gemini.google.com/apps")!
 
     /// Gemini CLI (its docs, 2026-11): `-t/--transport http` = streamable
     /// HTTP, `-s user` = every project (the default scope is the project).

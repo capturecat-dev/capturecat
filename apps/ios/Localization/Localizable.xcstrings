@@ -10000,6 +10000,71 @@
         }
       }
     },
+    "Add CaptureCat to your AI" : {
+      "comment" : "Connect AI: section heading over the Add to Claude and Add to ChatGPT buttons",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat zu deiner KI hinzufügen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter CaptureCat à votre IA"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade CaptureCat a tu IA"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agrega CaptureCat a tu IA"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi CaptureCat alla tua IA"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicione o CaptureCat à sua IA"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voeg CaptureCat toe aan je AI"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "お使いのAIにCaptureCatを追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 중인 AI에 CaptureCat 추가"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将 CaptureCat 添加到你的 AI"
+          }
+        }
+      }
+    },
     "Add Curtain Unveil" : {
       "comment" : "Undo action name",
       "localizations" : {
@@ -11424,6 +11489,136 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Agrega un texto, una flecha, una forma o un indicador de toque desde la línea de tiempo; se coloca en la pista ANOTAR en el cursor de reproducción. Selecciona uno (en la vista previa o en la línea de tiempo) para editar sus propiedades aquí. Toca dos veces un texto en la vista previa para editarlo directamente."
+          }
+        }
+      }
+    },
+    "Add to ChatGPT" : {
+      "comment" : "Connect AI: button that copies the connector URL and opens ChatGPT's plugins",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu ChatGPT hinzufügen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter à ChatGPT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir a ChatGPT"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar a ChatGPT"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi a ChatGPT"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar ao ChatGPT"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toevoegen aan ChatGPT"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPTに追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT에 추가"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加到 ChatGPT"
+          }
+        }
+      }
+    },
+    "Add to Claude" : {
+      "comment" : "Connect AI: button that opens Claude with CaptureCat's connector filled in",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu Claude hinzufügen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter à Claude"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir a Claude"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agregar a Claude"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aggiungi a Claude"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adicionar ao Claude"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toevoegen aan Claude"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claudeに追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude에 추가"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加到 Claude"
           }
         }
       }
@@ -15579,7 +15774,7 @@
       }
     },
     "Background" : {
-      "comment" : "Annotation fill row: the shape's background (fill) color / History Compare dialog: a group title (inspector tab) / Inspector tab name (rail button / tab bar) / Inspector ▸ Annotate: color well label / Inspector ▸ Annotate: switch label / Inspector ▸ Annotate: text background switch label / Inspector ▸ Background: option picker label / Inspector ▸ Background: section header / Inspector ▸ Camera: option picker label / Inspector ▸ Subtitles: color well label / Inspector ▸ Subtitles: subtitle text style / Undo action name: turn an annotation's background fill on or off",
+      "comment" : "Annotation fill row: the shape's background (fill) color / History Compare dialog: a group title (inspector tab) / Inspector tab name (rail button / tab bar) / Inspector tab: background / Inspector ▸ Annotate: color well label / Inspector ▸ Annotate: switch label / Inspector ▸ Annotate: text background switch label / Inspector ▸ Background: option picker label / Inspector ▸ Background: section header / Inspector ▸ Camera: option picker label / Inspector ▸ Subtitles: color well label / Inspector ▸ Subtitles: subtitle text style / Undo action name: turn an annotation's background fill on or off",
       "localizations" : {
         "it" : {
           "stringUnit" : {
@@ -23434,6 +23629,71 @@
         }
       }
     },
+    "Check the address and add the connector." : {
+      "comment" : "Claude step 2",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prüfe die Adresse und füge den Connector hinzu."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifiez l’adresse et ajoutez le connecteur."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprueba la dirección y añade el conector."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa la dirección y agrega el conector."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controlla l’indirizzo e aggiungi il connettore."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confira o endereço e adicione o conector."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controleer het adres en voeg de connector toe."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アドレスを確認して、コネクタを追加します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "주소를 확인하고 커넥터를 추가하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查地址并添加连接器。"
+          }
+        }
+      }
+    },
     "Check your connection and try again." : {
       "localizations" : {
         "it" : {
@@ -23884,71 +24144,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Elegir"
-          }
-        }
-      }
-    },
-    "Choose + Add, then Add custom connector." : {
-      "comment" : "Claude step 2",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wähle + Add, dann Add custom connector."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choisissez + Add, puis Add custom connector."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elige + Add y luego Add custom connector."
-          }
-        },
-        "es-MX" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elige + Add y luego Add custom connector."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scegli + Add, poi Add custom connector."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Escolha + Add e depois Add custom connector."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kies + Add en daarna Add custom connector."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「+ Add」を選び、「Add custom connector」を選びます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+ Add를 선택한 다음 Add custom connector를 선택하세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择“+ Add”，然后选择“Add custom connector”。"
           }
         }
       }
@@ -24727,71 +24922,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Claude"
-          }
-        }
-      }
-    },
-    "Claude adds custom connectors on the web or the desktop app. On a Team or Enterprise plan an owner adds it under Organization settings → Connectors." : {
-      "comment" : "Connect AI: Claude caveat",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude fügt eigene Connectors im Web oder in der Desktop-App hinzu. Bei einem Team- oder Enterprise-Tarif fügt sie ein Owner unter Organization settings → Connectors hinzu."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude ajoute les connecteurs personnalisés sur le web ou dans l’app de bureau. Avec un forfait Team ou Enterprise, un propriétaire l’ajoute dans Organization settings → Connectors."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude añade conectores personalizados en la web o en la app de escritorio. En un plan Team o Enterprise, lo añade un propietario en Organization settings → Connectors."
-          }
-        },
-        "es-MX" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude agrega conectores personalizados en la web o en la app de escritorio. En un plan Team o Enterprise, lo agrega un propietario en Organization settings → Connectors."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude aggiunge connettori personalizzati sul web o nell’app desktop. Con un piano Team o Enterprise, lo aggiunge un proprietario in Organization settings → Connectors."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "O Claude adiciona conectores personalizados na web ou no app para computador. Num plano Team ou Enterprise, um proprietário o adiciona em Organization settings → Connectors."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude voegt eigen connectors toe op het web of in de desktop-app. Bij een Team- of Enterprise-abonnement voegt een eigenaar hem toe via Organization settings → Connectors."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claudeのカスタムコネクタは、Webまたはデスクトップアプリで追加します。TeamまたはEnterpriseプランでは、オーナーがOrganization settings → Connectorsで追加します。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude는 웹 또는 데스크톱 앱에서 사용자 지정 커넥터를 추가합니다. Team 또는 Enterprise 요금제에서는 소유자가 Organization settings → Connectors에서 추가합니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude 需在网页版或桌面 App 中添加自定义连接器。若为 Team 或 Enterprise 方案，由所有者在 Organization settings → Connectors 中添加。"
           }
         }
       }
@@ -28360,6 +28490,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "连接器 URL"
+          }
+        }
+      }
+    },
+    "Connector URL copied" : {
+      "comment" : "Connect AI: alert title",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connector-URL kopiert"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL du connecteur copiée"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL del conector copiada"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL del conector copiada"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL del connettore copiato"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL do conector copiada"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connector-URL gekopieerd"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コネクタURLをコピーしました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커넥터 URL 복사됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已复制连接器 URL"
           }
         }
       }
@@ -50012,6 +50207,71 @@
         }
       }
     },
+    "If the form doesn't open, add it on claude.ai or in the Claude desktop app: Customize → Connectors → + Add → Add custom connector. On a Team or Enterprise plan an owner adds it under Organization settings → Connectors." : {
+      "comment" : "Connect AI: Claude caveat",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn sich das Formular nicht öffnet, füge ihn auf claude.ai oder in der Claude-Desktop-App hinzu: Customize → Connectors → + Add → Add custom connector. Bei einem Team- oder Enterprise-Tarif fügt ihn ein Owner unter Organization settings → Connectors hinzu."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si le formulaire ne s’ouvre pas, ajoutez-le sur claude.ai ou dans l’app de bureau Claude : Customize → Connectors → + Add → Add custom connector. Avec un forfait Team ou Enterprise, un propriétaire l’ajoute dans Organization settings → Connectors."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si el formulario no se abre, añádelo en claude.ai o en la app de escritorio de Claude: Customize → Connectors → + Add → Add custom connector. En un plan Team o Enterprise, lo añade un propietario en Organization settings → Connectors."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si el formulario no se abre, agrégalo en claude.ai o en la app de escritorio de Claude: Customize → Connectors → + Add → Add custom connector. En un plan Team o Enterprise, lo agrega un propietario en Organization settings → Connectors."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se il modulo non si apre, aggiungilo su claude.ai o nell’app desktop di Claude: Customize → Connectors → + Add → Add custom connector. Con un piano Team o Enterprise lo aggiunge un proprietario in Organization settings → Connectors."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se o formulário não abrir, adicione em claude.ai ou no app do Claude para computador: Customize → Connectors → + Add → Add custom connector. Em um plano Team ou Enterprise, um proprietário adiciona em Organization settings → Connectors."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opent het formulier niet? Voeg hem toe op claude.ai of in de Claude-desktopapp: Customize → Connectors → + Add → Add custom connector. Bij een Team- of Enterprise-abonnement voegt een eigenaar hem toe onder Organization settings → Connectors."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フォームが開かない場合は、claude.aiまたはClaudeデスクトップアプリで追加してください：Customize → Connectors → + Add → Add custom connector。TeamまたはEnterpriseプランでは、オーナーがOrganization settings → Connectorsで追加します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "양식이 열리지 않으면 claude.ai 또는 Claude 데스크톱 앱에서 추가하세요: Customize → Connectors → + Add → Add custom connector. Team 또는 Enterprise 요금제에서는 소유자가 Organization settings → Connectors에서 추가합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如果表单没有打开，请在 claude.ai 或 Claude 桌面 App 中添加：Customize → Connectors → + Add → Add custom connector。Team 或 Enterprise 方案由所有者在 Organization settings → Connectors 中添加。"
+          }
+        }
+      }
+    },
     "If you uploaded it and think this is a mistake, contact us at capturecat.so/contact." : {
       "localizations" : {
         "it" : {
@@ -50656,6 +50916,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Importando…"
+          }
+        }
+      }
+    },
+    "In ChatGPT's Plugins, choose +, then Add custom MCP server, and paste it. ChatGPT does this in the browser, and editing needs a Business, Enterprise or Edu plan." : {
+      "comment" : "Connect AI: alert after copying the connector URL, before opening ChatGPT",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle in ChatGPT unter Plugins +, dann Add custom MCP server, und füge sie ein. ChatGPT macht das im Browser, und zum Bearbeiten ist ein Business-, Enterprise- oder Edu-Tarif nötig."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans Plugins de ChatGPT, choisissez +, puis Add custom MCP server, et collez-la. ChatGPT le fait dans le navigateur, et la modification nécessite un forfait Business, Enterprise ou Edu."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En Plugins de ChatGPT, elige + y luego Add custom MCP server, y pégala. ChatGPT lo hace en el navegador, y para editar se necesita un plan Business, Enterprise o Edu."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En Plugins de ChatGPT, elige + y luego Add custom MCP server, y pégala. ChatGPT lo hace en el navegador, y para editar se necesita un plan Business, Enterprise o Edu."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Plugins di ChatGPT scegli +, poi Add custom MCP server, e incollalo. ChatGPT lo fa nel browser e per modificare serve un piano Business, Enterprise o Edu."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Em Plugins do ChatGPT, escolha +, depois Add custom MCP server, e cole. O ChatGPT faz isso no navegador, e editar exige um plano Business, Enterprise ou Edu."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kies in ChatGPT bij Plugins +, dan Add custom MCP server, en plak de URL. ChatGPT doet dit in de browser, en voor bewerken is een Business-, Enterprise- of Edu-abonnement nodig."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPTのPluginsで「+」、「Add custom MCP server」の順に選び、ペーストします。この操作はブラウザで行い、編集にはBusiness、Enterprise、Eduのいずれかのプランが必要です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT의 Plugins에서 +를 누르고 Add custom MCP server를 선택한 다음 붙여넣으세요. ChatGPT에서는 브라우저에서만 할 수 있으며, 편집하려면 Business, Enterprise 또는 Edu 요금제가 필요합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 ChatGPT 的 Plugins 中选择 +，再选择 Add custom MCP server，然后粘贴。ChatGPT 需在浏览器中完成此操作，编辑需要 Business、Enterprise 或 Edu 方案。"
           }
         }
       }
@@ -58707,71 +59032,6 @@
         }
       }
     },
-    "Name it CaptureCat, paste the connector URL and choose Continue." : {
-      "comment" : "Claude step 3",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nenne ihn CaptureCat, füge die Connector-URL ein und wähle Continue."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nommez-le CaptureCat, collez l’URL du connecteur et choisissez Continue."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Llámalo CaptureCat, pega la URL del conector y elige Continue."
-          }
-        },
-        "es-MX" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Llámalo CaptureCat, pega la URL del conector y elige Continue."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chiamalo CaptureCat, incolla l’URL del connettore e scegli Continue."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dê o nome CaptureCat, cole a URL do conector e escolha Continue."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Noem hem CaptureCat, plak de connector-URL en kies Continue."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "名前を「CaptureCat」にし、コネクタURLを貼り付けて「Continue」を選びます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이름을 CaptureCat으로 지정하고 커넥터 URL을 붙여넣은 다음 Continue를 선택하세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "将其命名为“CaptureCat”，粘贴连接器 URL，然后选择“Continue”。"
-          }
-        }
-      }
-    },
     "Name it CaptureCat, paste the connector URL under Connection and choose OAuth sign-in." : {
       "comment" : "ChatGPT step 3",
       "localizations" : {
@@ -61881,71 +62141,6 @@
         }
       }
     },
-    "On claude.ai or in the Claude desktop app, open Customize → Connectors." : {
-      "comment" : "Claude step 1",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Öffne auf claude.ai oder in der Claude-Desktop-App Customize → Connectors."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sur claude.ai ou dans l’app de bureau Claude, ouvrez Customize → Connectors."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En claude.ai o en la app de escritorio de Claude, abre Customize → Connectors."
-          }
-        },
-        "es-MX" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En claude.ai o en la app de escritorio de Claude, abre Customize → Connectors."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Su claude.ai o nell’app desktop di Claude, apri Customize → Connectors."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Em claude.ai ou no app do Claude para computador, abra Customize → Connectors."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open op claude.ai of in de Claude-desktop-app Customize → Connectors."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "claude.aiまたはClaudeデスクトップアプリで「Customize → Connectors」を開きます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "claude.ai 또는 Claude 데스크톱 앱에서 Customize → Connectors를 여세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在 claude.ai 或 Claude 桌面 App 中打开“Customize → Connectors”。"
-          }
-        }
-      }
-    },
     "On gemini.google.com, open Settings → Connected Apps → Custom apps." : {
       "comment" : "Gemini step 1",
       "localizations" : {
@@ -62849,6 +63044,71 @@
         }
       }
     },
+    "Open ChatGPT" : {
+      "comment" : "Button that opens chatgpt.com in the browser",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT öffnen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir ChatGPT"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir ChatGPT"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir ChatGPT"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apri ChatGPT"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir o ChatGPT"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT openen"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPTを開く"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT 열기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 ChatGPT"
+          }
+        }
+      }
+    },
     "Open ChatGPT plugins" : {
       "comment" : "Button that opens chatgpt.com's plugins page",
       "localizations" : {
@@ -62910,71 +63170,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开 ChatGPT 插件"
-          }
-        }
-      }
-    },
-    "Open Claude connectors" : {
-      "comment" : "Button that opens claude.ai's connector settings",
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude-Connectors öffnen"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir les connecteurs Claude"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir conectores de Claude"
-          }
-        },
-        "es-MX" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir conectores de Claude"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apri i connettori di Claude"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir conectores do Claude"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open Claude-connectors"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claudeのコネクタを開く"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude 커넥터 열기"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开 Claude 连接器"
           }
         }
       }
@@ -86902,6 +87097,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Toque"
+          }
+        }
+      }
+    },
+    "Tap Add to Claude. Claude opens with CaptureCat's name and address filled in." : {
+      "comment" : "Claude step 1",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tippe auf „Zu Claude hinzufügen“. Claude öffnet sich mit Name und Adresse von CaptureCat."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez « Ajouter à Claude ». Claude s’ouvre avec le nom et l’adresse de CaptureCat déjà remplis."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca «Añadir a Claude». Claude se abre con el nombre y la dirección de CaptureCat ya rellenados."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca “Agregar a Claude”. Claude se abre con el nombre y la dirección de CaptureCat ya llenados."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tocca “Aggiungi a Claude”. Claude si apre con il nome e l’indirizzo di CaptureCat già inseriti."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toque em “Adicionar ao Claude”. O Claude abre com o nome e o endereço do CaptureCat preenchidos."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tik op ‘Toevoegen aan Claude’. Claude opent met de naam en het adres van CaptureCat ingevuld."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「Claudeに追加」をタップします。CaptureCatの名前とアドレスが入力された状態でClaudeが開きます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‘Claude에 추가’를 탭하세요. CaptureCat의 이름과 주소가 입력된 상태로 Claude가 열립니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轻点“添加到 Claude”。Claude 会打开，并已填好 CaptureCat 的名称和地址。"
           }
         }
       }

@@ -8,10 +8,11 @@ import UserNotifications
 /// (OAuth) at that URL, edit cloud projects server-side with the editor's own
 /// op layer, and the phone syncs the result (StudioAgentEdits).
 ///
-/// - Claude / ChatGPT / Other apps: a switch over each app's steps (from
-///   their current help pages — neither offers a link that pre-fills the
-///   connector, and both add custom connectors on the web, then work on the
-///   phone), the URL to copy, and for other clients a copyable JSON block.
+/// - Add to Claude / ChatGPT: Claude's link opens its app with the connector
+///   filled in; ChatGPT has no such link, so the URL is copied and its
+///   Plugins page opened.
+/// - A switch over each app's steps (from their current help pages), the URL
+///   to copy, and for other clients a copyable JSON block.
 /// - Connected: apps that signed in with CaptureCat and personal tokens, each
 ///   revocable (house confirm).
 /// - The `agentEditing` plan gate: without it, the upgrade path instead of
@@ -48,6 +49,9 @@ final class ConnectAIViewController: DetailPageViewController {
     private(set) var probeRevokeButtons: [CCButton] = []
     private(set) var probeUpgradeCallout: UIView?
     private(set) var probeRevokeAlert: CCAlert?
+    private(set) weak var probeAddAlert: CCAlert?
+    /// Links go here instead of leaving the app.
+    var probeOpen: ((URL) -> Void)?
     #endif
     var onLoaded: (() -> Void)?
     #if DEBUG
@@ -67,6 +71,7 @@ final class ConnectAIViewController: DetailPageViewController {
         column.addArrangedSubview(lead)
         planSlot.axis = .vertical
         column.addArrangedSubview(planSlot)
+        column.addArrangedSubview(makeAddSection())
         column.addArrangedSubview(makeURLSection())
 
         switcher.accessibilityLabel = String(localized: "AI app", comment: "Connect AI: VoiceOver label of the app switcher")
@@ -99,6 +104,61 @@ final class ConnectAIViewController: DetailPageViewController {
         super.viewDidAppear(animated)
         reload()
         renderNotify()
+    }
+
+    // MARK: - Add to …
+
+    private lazy var addCard: ActionListCard = {
+        let card = ActionListCard()
+        card.setActions([
+            .init(title: String(localized: "Add to Claude", comment: "Connect AI: button that opens Claude with CaptureCat's connector filled in"), symbol: "plus", image: ProviderMark.claude.image()) { [weak self] _ in self?.add(to: .claude) },
+            .init(title: String(localized: "Add to ChatGPT", comment: "Connect AI: button that copies the connector URL and opens ChatGPT's plugins"), symbol: "plus", image: ProviderMark.openAI.image()) { [weak self] _ in self?.add(to: .chatGPT) },
+        ])
+        return card
+    }()
+
+    private func makeAddSection() -> UIView {
+        let section = UIStackView(arrangedSubviews: [sectionLabel(String(localized: "Add CaptureCat to your AI", comment: "Connect AI: section heading over the Add to Claude and Add to ChatGPT buttons")), addCard])
+        section.axis = .vertical
+        section.spacing = CCSpace.sm
+        return section
+    }
+
+    /// Claude: one tap. ChatGPT: the URL is copied, and what to tap there is
+    /// said before this app leaves the screen.
+    func add(to client: Client) {
+        if self.client != client { show(client, animated: true) }
+        switch client {
+        case .claude:
+            open(AgentConnect.claudeAddURL)
+        case .chatGPT:
+            copyThenOpen(AgentConnect.chatGPTPluginsURL,
+                         message: String(localized: "In ChatGPT's Plugins, choose +, then Add custom MCP server, and paste it. ChatGPT does this in the browser, and editing needs a Business, Enterprise or Edu plan.", comment: "Connect AI: alert after copying the connector URL, before opening ChatGPT"),
+                         confirm: String(localized: "Open ChatGPT", comment: "Button that opens chatgpt.com in the browser"))
+        case .gemini, .codex, .other:
+            break
+        }
+    }
+
+    private func copyThenOpen(_ url: URL, message: String, confirm: String) {
+        UIPasteboard.general.string = AgentConnect.mcpURL
+        let alert = CCAlert(title: String(localized: "Connector URL copied", comment: "Connect AI: alert title"), message: message)
+        alert.presentation = .sheet
+        alert.addButton(confirm, role: .primary)
+        alert.addButton(String(localized: "Cancel", comment: "Cancel button"), role: .cancel)
+        #if DEBUG
+        probeAddAlert = alert
+        #endif
+        alert.present(from: self) { [weak self] index in
+            if index == 0 { self?.open(url) }
+        }
+    }
+
+    private func open(_ url: URL) {
+        #if DEBUG
+        if let probeOpen { return probeOpen(url) }
+        #endif
+        UIApplication.shared.open(url)
     }
 
     // MARK: - Connector URL
@@ -150,14 +210,12 @@ final class ConnectAIViewController: DetailPageViewController {
         [
             guideTitle(String(localized: "Add CaptureCat to Claude", comment: "Connect AI: Claude guide title")),
             steps([
-                String(localized: "On claude.ai or in the Claude desktop app, open Customize → Connectors.", comment: "Claude step 1"),
-                String(localized: "Choose + Add, then Add custom connector.", comment: "Claude step 2"),
-                String(localized: "Name it CaptureCat, paste the connector URL and choose Continue.", comment: "Claude step 3"),
+                String(localized: "Tap Add to Claude. Claude opens with CaptureCat's name and address filled in.", comment: "Claude step 1"),
+                String(localized: "Check the address and add the connector.", comment: "Claude step 2"),
                 String(localized: "Sign in to CaptureCat and allow access.", comment: "Claude step 4"),
                 String(localized: "In a chat, open + → Connectors and turn on CaptureCat. It then works in the Claude app on this \(ThisDevice.noun) too.", comment: "Claude step 5; the argument is iPhone or iPad"),
             ]),
-            note(String(localized: "Claude adds custom connectors on the web or the desktop app. On a Team or Enterprise plan an owner adds it under Organization settings → Connectors.", comment: "Connect AI: Claude caveat")),
-            openButton(String(localized: "Open Claude connectors", comment: "Button that opens claude.ai's connector settings"), AgentConnect.claudeConnectorsURL),
+            note(String(localized: "If the form doesn't open, add it on claude.ai or in the Claude desktop app: Customize → Connectors → + Add → Add custom connector. On a Team or Enterprise plan an owner adds it under Organization settings → Connectors.", comment: "Connect AI: Claude caveat")),
         ]
     }
 

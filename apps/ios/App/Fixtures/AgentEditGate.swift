@@ -196,6 +196,32 @@ final class AgentEditGate {
         await sleep(200)
         record("copy-url", UIPasteboard.general.string == AgentConnect.mcpURL, "pasteboard = \(UIPasteboard.general.string ?? "nil")")
 
+        // Add to …: Claude's link is pre-filled and opens at once; ChatGPT
+        // copies the URL, says what to tap, then opens the browser.
+        var opened: [URL] = []
+        screen.probeOpen = { opened.append($0) }
+        screen.add(to: .claude)
+        let claudeItems = opened.last.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false) }
+        func item(_ n: String) -> String? { claudeItems?.queryItems?.first { $0.name == n }?.value }
+        record("add-claude", opened.count == 1 && claudeItems?.host == "claude.ai" && claudeItems?.path == "/customize/connectors"
+                   && item("modal") == "add-custom-connector" && item("connectorName") == "CaptureCat" && item("connectorUrl") == AgentConnect.mcpURL,
+               opened.last?.absoluteString ?? "nothing opened")
+        for (client, host) in [(ConnectAIViewController.Client.chatGPT, "chatgpt.com")] {
+            opened = []
+            UIPasteboard.general.string = ""
+            screen.add(to: client)
+            await sleep(700)
+            let copied = UIPasteboard.general.string == AgentConnect.mcpURL, early = opened.count
+            snapshot("connect-ai-add-\(host).png")
+            screen.probeAddAlert?.probeButtons.first?.sendActions(for: .touchUpInside)
+            await sleep(700)
+            record("add-\(host)", copied && early == 0 && opened.count == 1 && opened.first?.host == host,
+                   "copied=\(copied), opened before confirm=\(early), then \(opened.first?.absoluteString ?? "nothing")")
+        }
+        screen.probeOpen = nil
+        screen.show(.claude, animated: false)
+        await sleep(300)
+
         // The switcher: ChatGPT — the guide swap is animated.
         screen.show(.chatGPT, animated: true)
         await sleep(40)

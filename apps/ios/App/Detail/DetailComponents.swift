@@ -122,6 +122,8 @@ final class ActionListCard: CCCard {
         var symbol: String
         var destructive: Bool = false
         var detail: String? = nil
+        /// Instead of the kit symbol: a product's own mark.
+        var image: UIImage? = nil
         var handler: (UIView) -> Void
     }
 
@@ -167,6 +169,10 @@ final class ActionRowControl: UIControl {
         addSubview(wash)
         let ink = action.destructive ? CCTheme.color.destructive : CCTheme.color.foreground
         let icon = CCIconView(action.symbol, pointSize: 17, weight: .medium, tint: action.destructive ? CCTheme.color.destructive : CCTheme.color.mutedForeground)
+        if let image = action.image {
+            icon.image = image
+            icon.tintColor = CCTheme.color.foreground
+        }
         let title = ccLabel(action.title, font: CCFont.bodyMedium, color: ink, lines: 2)
         let chevron = CCIconView("chevron-right", pointSize: 13, weight: .semibold, tint: CCTheme.color.faintForeground)
         var views: [UIView] = [icon, title]
