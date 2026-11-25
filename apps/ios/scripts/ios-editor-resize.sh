@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ios-editor-resize.sh — the editor folding and unfolding (iPhone Duo).
 #
-#   apps/ios/scripts/ios-editor-resize.sh [outDir] [--inject ignores-size-class|ignores-crease]
+#   apps/ios/scripts/ios-editor-resize.sh [outDir] [--inject ignores-size-class|ignores-crease|ignores-side-strip]
 #
 # Builds StudioLab and runs `--editor-resize`: the real editor hosted at the
 # Duo's outer-display size and size classes, given state (playhead,
@@ -17,7 +17,9 @@ set -euo pipefail
 # a SHORT panel (one group, ≤ 30%, full width with only its top corners
 # rounded, no card inside it, never over the stage or the toolbar row,
 # mid-flight), a choice applies + undoes, ✓ closes, ‹ returns to the root.
-# `--inject ignores-size-class` / `ignores-crease` / `snap-panel` /
+# A system strip down one side (the Duo's folded shape): canvas, zoom chip and
+# bars stay out of it and the chip leaves the captions clear.
+# `--inject ignores-size-class` / `ignores-crease` / `ignores-side-strip` / `snap-panel` /
 # `panel-over-toolbar` / `panel-uncapped` / `bar-snap` / `no-back` /
 # `panel-card` / `card-in-card` / `stage-card` must make it FAIL.
 # Liquid Glass (the floating chrome only): every floating key — header back,

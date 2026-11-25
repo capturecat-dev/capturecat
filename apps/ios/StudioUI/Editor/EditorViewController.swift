@@ -597,19 +597,32 @@ final class EditorViewController: UIViewController {
     }
 
     /// Portrait phone: the stage is as tall as the canvas at the full
-    /// width, up to what leaves the toolbar row, the timeline's strip and
+    /// width (clear of a side strip), up to what leaves the toolbar row, the timeline's strip and
     /// a panel's room above the tool bar (a panel never covers or resizes
     /// the preview). A portrait canvas fills that height, centred.
     func stackedStageHeight() -> CGFloat {
-        let h = view.bounds.height, w = view.bounds.width
+        let strip = sideStrip
+        let h = view.bounds.height, w = view.bounds.width - strip.left - strip.right
         let headerBottom = view.safeAreaInsets.top + header.rowHeight
         let budget = h - headerBottom - view.safeAreaInsets.bottom - EditorToolBar.thickness - EditorTransportBar.height
             - Self.minTimelineStrip - h * Self.panelMaxShare
         return max(120, min((w / canvasAspect).rounded(), budget.rounded(.down)))
     }
 
+    /// A folded iPhone Duo's system strip: a safe-area inset down one side
+    /// of the stacked layout (none on an upright phone).
+    private var sideStrip: (left: CGFloat, right: CGFloat) {
+        let i = view.safeAreaInsets
+        guard arrangement == .stacked, abs(i.left - i.right) > 0.5 else { return (0, 0) }
+        #if DEBUG
+        if Self.probeDefect == .ignoresSideStrip { return (0, 0) }
+        #endif
+        return (i.left, i.right)
+    }
+
     private func updateStageHeight() {
         guard let stageHeight else { return }
+        stageCard.sideStrip = sideStrip
         let target = stackedStageHeight()
         if abs(stageHeight.constant - target) > 0.5 { stageHeight.constant = target }
     }
@@ -1439,7 +1452,7 @@ final class EditorViewController: UIViewController {
     /// Probe seams — INJECTED DEFECTS for `--editor-shell --inject …`: the
     /// stage told it is paused while playing (the playback exception
     /// broken), or never handed the player (frames frozen on the poster).
-    enum ProbeDefect { case none, blurWhilePlaying, frozenFrames, ignoresSizeClass, ignoresCrease }
+    enum ProbeDefect { case none, blurWhilePlaying, frozenFrames, ignoresSizeClass, ignoresCrease, ignoresSideStrip }
     static var probeDefect = ProbeDefect.none
     #endif
 

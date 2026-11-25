@@ -55,6 +55,11 @@ final class FixtureDirector {
                 Task { @MainActor in await FixtureA11yAudit.run(window: window, root: root) }
             }
         }
+        if FixtureWorld.has("-uiSideStripAudit") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                Task { @MainActor in await self?.runSideStripAudit() }
+            }
+        }
         if FixtureWorld.has("-uiL10nAudit") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
                 guard let self, let root = self.root, let window = self.window else { return }
@@ -71,6 +76,40 @@ final class FixtureDirector {
                 Task { @MainActor in await self?.runMotionProbe() }
             }
         }
+    }
+
+    /// Every companion screen with a system strip down the trailing side (a
+    /// folded iPhone Duo's own, or an 84 pt stand-in on other phones):
+    /// nothing readable or tappable may sit in it. The shell's bar, which
+    /// belongs there, is not part of the screens checked.
+    private func runSideStripAudit() async {
+        guard let root, let shell = root.shell, let window else { return }
+        if window.safeAreaInsets.right < 40 { root.additionalSafeAreaInsets.right = 84 }
+        var failures = 0, seen = 0
+        for screen in ["project", "share", "share-off", "capture", "account"] {
+            go(to: screen)
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            let bar: [UIView] = [shell.tabBar]
+            let edge = window.bounds.maxX - max(window.safeAreaInsets.right, 84) + 0.5
+            var worst: [String] = [], count = 0
+            func visit(_ v: UIView) {
+                guard !v.isHidden, v.alpha > 0.01, !bar.contains(where: { $0 === v }) else { return }
+                if v is UILabel || v is UIControl || v is UIImageView || v is CCCard || v is UITextField {
+                    let r = v.convert(v.bounds, to: window)
+                    if r.width > 1, r.intersects(window.bounds) {
+                        count += 1
+                        if r.maxX > edge { worst.append("\(type(of: v)) \(r.integral)") }
+                    }
+                }
+                v.subviews.forEach(visit)
+            }
+            visit(shell.view)
+            seen += count
+            if count < 5 || !worst.isEmpty { failures += 1 }
+            print("SIDESTRIP \(screen) \(worst.isEmpty && count >= 5 ? "PASS" : "FAIL") \(count) views, \(worst.count) in the strip from \(Int(edge)) \(worst.prefix(4).joined(separator: "; "))")
+        }
+        print("SIDESTRIP-GATE \(failures == 0 && seen > 0 ? "PASS" : "FAIL")")
+        exit(failures == 0 ? 0 : 1)
     }
 
     private func go(to screen: String) {

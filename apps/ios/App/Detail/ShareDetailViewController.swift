@@ -250,7 +250,7 @@ final class ShareDetailViewController: DetailPageViewController {
             rule.trailingAnchor.constraint(equalTo: composer.trailingAnchor),
             stack.topAnchor.constraint(equalTo: composer.topAnchor, constant: CCSpace.sm + 2),
             stack.bottomAnchor.constraint(equalTo: composer.bottomAnchor, constant: -CCSpace.sm),
-            stack.centerXAnchor.constraint(equalTo: composer.centerXAnchor),
+            stack.centerXAnchor.constraint(equalTo: composer.safeAreaLayoutGuide.centerXAnchor),
             stack.widthAnchor.constraint(lessThanOrEqualToConstant: 720),
             stack.leadingAnchor.constraint(greaterThanOrEqualTo: composer.safeAreaLayoutGuide.leadingAnchor, constant: CCSpace.gutter),
             fieldRow.widthAnchor.constraint(equalTo: stack.widthAnchor),

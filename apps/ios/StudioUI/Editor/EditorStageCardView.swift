@@ -50,12 +50,13 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
             NSLayoutConstraint.activate([
-                view.leadingAnchor.constraint(equalTo: leadingAnchor),
-                view.trailingAnchor.constraint(equalTo: trailingAnchor),
                 view.topAnchor.constraint(equalTo: topAnchor),
                 view.bottomAnchor.constraint(equalTo: bottomAnchor),
             ])
+            stageLeft.append(view.leftAnchor.constraint(equalTo: leftAnchor))
+            stageRight.append(view.rightAnchor.constraint(equalTo: rightAnchor))
         }
+        NSLayoutConstraint.activate(stageLeft + stageRight)
         #if DEBUG
         if Self.probeGlassStage {
             let glass = CCGlassView(shape: .rounded(.md))
@@ -100,6 +101,23 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    private var stageLeft: [NSLayoutConstraint] = []
+    private var stageRight: [NSLayoutConstraint] = []
+    /// The system strip down ONE side of the screen (a folded iPhone Duo:
+    /// the status items and the vertical bar), zero elsewhere. The card's
+    /// ground stays edge to edge; the canvas keeps clear of the strip. The
+    /// stage there is wide and short, so the zoom chip stands upright in
+    /// the spare band beside the canvas instead of lying over its foot.
+    var sideStrip: (left: CGFloat, right: CGFloat) = (0, 0) {
+        didSet {
+            guard sideStrip != oldValue else { return }
+            for c in stageLeft { c.constant = sideStrip.left }
+            for c in stageRight { c.constant = -sideStrip.right }
+            zoomPill.axis = sideStrip == (0, 0) ? .horizontal : .vertical
+            setNeedsLayout()
+        }
+    }
+
     private var pillTrailing: NSLayoutConstraint!
     private var pillLeading: NSLayoutConstraint!
     /// The zoom chip sits bottom-trailing (the Mac's corner); the stage is
@@ -142,12 +160,12 @@ final class EditorStageCardView: UIView, UIGestureRecognizerDelegate {
         if let next { setZoom(next, pan: next <= 1 ? .zero : stage.panOffset) }
     }
 
-    /// Keeps a magnified canvas covering the card's centre (no panning at
+    /// Keeps a magnified canvas covering the stage's centre (no panning at
     /// or below fit).
     private func clampedPan(_ pan: CGPoint, zoom: CGFloat) -> CGPoint {
         let m = stage.fitMagnification * zoom
         let w = stage.virtualCanvasSize.width * m, h = stage.virtualCanvasSize.height * m
-        let maxX = max(0, (w - bounds.width) / 2), maxY = max(0, (h - bounds.height) / 2)
+        let maxX = max(0, (w - stage.bounds.width) / 2), maxY = max(0, (h - stage.bounds.height) / 2)
         return CGPoint(x: min(maxX, max(-maxX, pan.x)), y: min(maxY, max(-maxY, pan.y)))
     }
 
@@ -200,6 +218,17 @@ final class EditorZoomPill: UIView {
 
     private let minus = CCButton(symbol: "minus.magnifyingglass", style: .ghost, size: .regular, radius: .full)
     private let plus = CCButton(symbol: "plus.magnifyingglass", style: .ghost, size: .regular, radius: .full)
+    private let row = UIStackView()
+    /// Upright (zoom in on top) beside a wide, short stage.
+    var axis: NSLayoutConstraint.Axis = .horizontal {
+        didSet {
+            guard axis != oldValue else { return }
+            for key in axis == .vertical ? [plus, percent, minus] : [minus, percent, plus] { row.addArrangedSubview(key) }
+            row.axis = axis
+            percent.hPaddingOverride = axis == .vertical ? 4 : nil
+            setNeedsLayout()
+        }
+    }
     private let percent = CCButton(title: "100%", style: .ghost, size: .sm, radius: .full)
 
     init() {
@@ -212,7 +241,7 @@ final class EditorZoomPill: UIView {
         plus.onTap = { [weak self] in self?.onZoomIn?() }
         percent.onTap = { [weak self] in self?.onReset?() }
         percent.accessibilityLabelOverride = String(localized: "Fit", comment: "Preview zoom pill: reset the stage to fit the screen (VoiceOver)")
-        let row = UIStackView(arrangedSubviews: [minus, percent, plus])
+        for key in [minus, percent, plus] { row.addArrangedSubview(key) }
         row.spacing = 0
         row.alignment = .center
         row.translatesAutoresizingMaskIntoConstraints = false
@@ -239,7 +268,7 @@ final class EditorZoomPill: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        glass.frame = bounds.insetBy(dx: 0, dy: 7)
+        glass.frame = axis == .vertical ? bounds.insetBy(dx: 2, dy: 0) : bounds.insetBy(dx: 0, dy: 7)
     }
 
     func update(zoom: CGFloat, canZoomOut: Bool, canZoomIn: Bool) {

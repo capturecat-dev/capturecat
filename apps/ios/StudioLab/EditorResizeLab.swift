@@ -63,7 +63,7 @@ enum EditorResizeLab {
         try? fm.createDirectory(at: out, withIntermediateDirectories: true)
         log("EDITOR-RESIZE out=\(out.path) device=\(UIDevice.current.model) \(UIDevice.current.systemVersion)")
         if let inject {
-            guard ["ignores-size-class", "ignores-crease", "snap-panel", "panel-over-toolbar", "panel-uncapped",
+            guard ["ignores-size-class", "ignores-crease", "ignores-side-strip", "snap-panel", "panel-over-toolbar", "panel-uncapped",
                    "bar-snap", "no-back", "panel-card", "card-in-card", "stage-card", "keys-block-drag",
                    "flat-chrome", "glass-ignores-reduce-transparency", "glass-no-contrast-border",
                    "glass-on-content"].contains(inject) else {
@@ -84,7 +84,8 @@ enum EditorResizeLab {
             else if inject == "panel-over-toolbar" { EditorViewController.probePanelDefect = .overToolBar }
             else if inject == "panel-uncapped" { EditorViewController.probePanelDefect = .uncapped }
             else if inject == "snap-panel" { EditorViewController.probeSnapPanel = true } else {
-                EditorViewController.probeDefect = inject == "ignores-crease" ? .ignoresCrease : .ignoresSizeClass
+                EditorViewController.probeDefect = inject == "ignores-crease" ? .ignoresCrease
+                    : inject == "ignores-side-strip" ? .ignoresSideStrip : .ignoresSizeClass
             }
             #endif
         }
@@ -208,6 +209,24 @@ enum EditorResizeLab {
         await settle(1.0)
         checkLayout(editor, display: outer)
 
+        // The Duo's real folded shape: a system strip down the trailing side.
+        width.constant = 466
+        containerHeight.constant = min(678, available.height - 40)
+        editor.additionalSafeAreaInsets.right = 84
+        let aspectBefore = project.settings.aspectRatio
+        for aspect in [AspectRatio.square, .widescreen, .vertical] {
+            project.settings.aspectRatio = aspect
+            await settle(0.8)
+            checkSideStrip(editor, tag: "strip-\(aspect.rawValue)", strip: 84)
+        }
+        project.settings.aspectRatio = aspectBefore
+        editor.additionalSafeAreaInsets.right = 0
+        width.constant = outer.size.width
+        containerHeight.constant = outer.size.height
+        await settle(0.8)
+        check("strip-gone", editor.stageCard.sideStrip == (0, 0) && editor.stageCard.zoomPill.axis == .horizontal,
+              "no strip: chip \(editor.stageCard.zoomPill.axis == .horizontal ? "level" : "upright")")
+
         // The edit made before the folds still undoes.
         editor.playback.setPlaying(false, for: project)
         editor.performUndo()
@@ -241,6 +260,25 @@ enum EditorResizeLab {
                     && keysYield && slidersKeep,
                   "\(type(of: scroll)) keys=\(keys.count) yield=\(keysYield) sliders=\(sliders.count) keep=\(slidersKeep) content=\(Int(scroll.contentSize.width))/\(Int(scroll.bounds.width))")
         }
+    }
+
+    /// A strip down one side: the canvas, its zoom chip, the toolbar row and
+    /// the tool bar stay out of it, and the chip leaves the middle of the
+    /// canvas (where captions sit) clear.
+    @available(iOS 26, *)
+    private static func checkSideStrip(_ editor: EditorViewController, tag: String, strip: CGFloat) {
+        let root = editor.view!
+        let edge = root.bounds.maxX - strip + 0.5
+        let stage = editor.stageCard.stage, pill = editor.stageCard.zoomPill
+        let canvas = root.convert(stage.viewRect(fromCanvas: CGRect(origin: .zero, size: stage.virtualCanvasSize)).standardized, from: stage)
+        let chip = root.convert(pill.bounds, from: pill)
+        let row = root.convert(editor.transport.glass.bounds, from: editor.transport.glass)
+        check("\(tag)-canvas-clear", canvas.width > 40 && canvas.minX >= -0.5 && canvas.maxX <= edge, "canvas \(fmt(canvas)), strip from \(Int(edge))")
+        check("\(tag)-chip-clear", chip.maxX <= edge && chip.minX >= 0, "chip \(fmt(chip))")
+        check("\(tag)-row-clear", row.maxX <= edge, "toolbar row \(fmt(row))")
+        let captions = canvas.insetBy(dx: canvas.width * 0.15, dy: 0)
+        check("\(tag)-captions-clear", pill.axis == .vertical && !chip.intersects(captions), "chip \(fmt(chip)) beside captions \(fmt(captions))")
+        check("\(tag)-chip-in-stage", root.convert(editor.stageCard.bounds, from: editor.stageCard).insetBy(dx: -0.5, dy: -0.5).contains(chip), "chip \(fmt(chip))")
     }
 
     @available(iOS 26, *)

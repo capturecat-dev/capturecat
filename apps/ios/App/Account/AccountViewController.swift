@@ -35,7 +35,9 @@ final class AccountViewController: UIViewController {
         column.spacing = CCSpace.lg
         column.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(column)
-        let width = column.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -CCSpace.gutter * 2)
+        // The safe area, not the screen: a folded iPhone Duo's trailing strip
+        // (status + tab bar) is an inset on one side only.
+        let width = column.widthAnchor.constraint(equalTo: view.safeAreaLayoutGuide.widthAnchor, constant: -CCSpace.gutter * 2)
         width.priority = .required - 1
         NSLayoutConstraint.activate([
             header.topAnchor.constraint(equalTo: view.topAnchor),
@@ -47,7 +49,7 @@ final class AccountViewController: UIViewController {
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             column.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: CCSpace.sm),
             column.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -CCSpace.xl),
-            column.centerXAnchor.constraint(equalTo: scrollView.frameLayoutGuide.centerXAnchor),
+            column.centerXAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerXAnchor),
             column.widthAnchor.constraint(lessThanOrEqualToConstant: 620),
             column.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: CCSpace.gutter),
             width,

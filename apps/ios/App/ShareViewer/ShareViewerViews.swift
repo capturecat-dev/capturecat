@@ -1109,7 +1109,7 @@ final class ShareComposerView: UIView {
             rule.trailingAnchor.constraint(equalTo: trailingAnchor),
             stack.topAnchor.constraint(equalTo: topAnchor, constant: CCSpace.sm),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -CCSpace.sm),
-            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stack.centerXAnchor.constraint(equalTo: safeAreaLayoutGuide.centerXAnchor),
             stack.widthAnchor.constraint(lessThanOrEqualToConstant: 720),
             stack.leadingAnchor.constraint(greaterThanOrEqualTo: safeAreaLayoutGuide.leadingAnchor, constant: CCSpace.gutter),
         ])

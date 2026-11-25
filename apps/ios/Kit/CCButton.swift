@@ -65,6 +65,9 @@ final class CCButton: UIControl {
     }
 
     var onTap: (() -> Void)?
+    /// Side padding other than the size's (a title in a narrow column of keys).
+    var hPaddingOverride: CGFloat? { didSet { invalidateIntrinsicContentSize(); setNeedsLayout() } }
+    private var hPadding: CGFloat { hPaddingOverride ?? size.hPadding }
     var symbolPlacement: SymbolPlacement = .leading { didSet { setNeedsLayout() } }
     /// Haptic acknowledgement (light impact) on tap — primary actions.
     var haptics: Bool
@@ -234,7 +237,7 @@ final class CCButton: UIControl {
 
     override var intrinsicContentSize: CGSize {
         if isIconOnly { return CGSize(width: size.height, height: size.height) }
-        var width = titleWidth + size.hPadding * 2
+        var width = titleWidth + hPadding * 2
         if symbol != nil { width += CCIcon.side(for: size.symbolPointSize) + CCSpace.xs + 2 }
         return CGSize(width: ceil(width), height: size.height)
     }
@@ -275,11 +278,11 @@ final class CCButton: UIControl {
             return
         }
         let gap: CGFloat = symbol != nil ? CCSpace.xs + 2 : 0
-        let maxLabel = max(0, bounds.width - size.hPadding * 2 - iconSide - gap)
+        let maxLabel = max(0, bounds.width - hPadding * 2 - iconSide - gap)
         let labelWidth = min(titleWidth, maxLabel)
         let labelHeight = ceil(label.font.lineHeight)
         let content = labelWidth + iconSide + gap
-        var x = max((bounds.width - content) / 2, size.hPadding)
+        var x = max((bounds.width - content) / 2, hPadding)
         if symbol != nil, symbolPlacement == .leading {
             icon.frame = CGRect(x: x, y: (bounds.height - iconSide) / 2, width: iconSide, height: iconSide)
             x += iconSide + gap
