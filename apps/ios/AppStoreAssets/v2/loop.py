@@ -5,7 +5,7 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 R=Path(__file__).parent;loc=sys.argv[2];from_=1
 from storecopy import C,R as RT,APP
-F=R/'build/ridge'/loc;F.mkdir(parents=True,exist_ok=True);T=8;FPS=30
+F=R/'build/ridge3'/loc;F.mkdir(parents=True,exist_ok=True);T=8;FPS=30
 if not list(F.glob('*.jpg')): subprocess.run(['ffmpeg','-v','error','-y','-i',str(R/'raw'/loc/'ridge.mov'),'-vf','fps=30,scale=804:-1','-q:v','3',str(F/'%03d.jpg')],check=True)
 kind=sys.argv[1];test=len(sys.argv)>3
 W,H=(3840,1646) if kind=='header' else (3840,2560)

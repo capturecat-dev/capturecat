@@ -29,7 +29,7 @@ for loc in locs:
     shot('capture',10,*pad,'-uiFixtureScreen','capture','-uiFixturePresence','connected')
     shot('share',11,*pad,'-uiFixtureScreen','share')
     if fam=='iphone':
-        m=list((D/'Library/Caches/StoreCreative').glob('ridge-v2-*.mov'));shutil.copy(m[0],V/loc/'ridge.mov')
+        m=list((D/'Library/Caches/StoreCreative').glob('ridge-v3-*.mov'));shutil.copy(m[0],V/loc/'ridge.mov')
         rec=sp.Popen(['xcrun','simctl','io',U,'recordVideo','--codec','h264','--mask=ignored','--force',str(V/loc/'tour.mov')],stderr=sp.PIPE,text=True)
         for l in rec.stderr:
             if 'Recording started' in l: break

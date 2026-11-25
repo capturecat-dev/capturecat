@@ -529,10 +529,10 @@ index 0000000..4d70af8
 +#endif
 diff --git a/apps/ios/App/Fixtures/StoreCreative.swift b/apps/ios/App/Fixtures/StoreCreative.swift
 new file mode 100644
-index 0000000..4a1dab7
+index 0000000..f26b4d8
 --- /dev/null
 +++ b/apps/ios/App/Fixtures/StoreCreative.swift
-@@ -0,0 +1,454 @@
+@@ -0,0 +1,457 @@
 +#if DEBUG
 +import AVFoundation
 +import UIKit
@@ -569,7 +569,7 @@ index 0000000..4a1dab7
 +            .appendingPathComponent("StoreCreative", isDirectory: true)
 +        let dir = root.appendingPathComponent("project-\(UUID().uuidString.prefix(8))", isDirectory: true)
 +        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-+        let movie = root.appendingPathComponent("ridge-v2-\(RidgeL10n.language).mov")
++        let movie = root.appendingPathComponent("ridge-v3-\(RidgeL10n.language).mov")
 +        if !FileManager.default.fileExists(atPath: movie.path) {
 +            guard await writeMovie(to: movie) else { return nil }
 +        }
@@ -585,6 +585,17 @@ index 0000000..4a1dab7
 +        label.text = RidgeL10n.t("label")
 +        label.x = 0.5; label.y = 0.2
 +        project.annotations = [label]
++        // The preview shows the app's own Tap Indicators (an iPhone recording
++        // carries no taps; the editor places these).
++        if FixtureWorld.has("-uiStoreTour") {
++            for (at, p) in [(tapCard, cardTap), (tapStart, startTap)] {
++                var tap = Annotation(type: .tap, startTime: at - 0.1, endTime: at + 0.9)
++                tap.x = p.x / pt.width
++                tap.y = p.y / pt.height
++                tap.fontSize = 60
++                project.annotations.append(tap)
++            }
++        }
 +        project.settings.gradientStartColor = CodableColor(red: 1.0, green: 0.36, blue: 0.30)
 +        project.settings.gradientEndColor = CodableColor(red: 0.45, green: 0.20, blue: 0.95)
 +        // `-uiStoreAspect 4:3|1:1|…`: the project's canvas aspect (the stage grows with it).
@@ -974,14 +985,6 @@ index 0000000..4a1dab7
 +        // Status bar
 +        text("9:41", CGPoint(x: 62, y: 20), 17, .semibold, ink, centred: true, design: .default)
 +        round(CGRect(x: 340, y: 24, width: 26, height: 13), 4, hex(0xFFFFFF, 0.35)); round(CGRect(x: 342, y: 26, width: 20, height: 9), 2.5, ink)
-+        // Taps
-+        for (at, p) in [(tapCard, cardTap), (tapStart, startTap)] where t >= at - 0.12 && t < at + 0.55 {
-+            let k = CGFloat((t - at + 0.12) / 0.67)
-+            let r = 20 + 34 * k
-+            hex(0xFFFFFF, 0.5 * (1 - k)).setFill()
-+            c.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
-+            hex(0xFFFFFF, 0.9 * (1 - k)).setStroke(); c.setLineWidth(3); c.strokeEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
-+        }
 +        // Home indicator
 +        round(CGRect(x: 134, y: 856, width: 134, height: 5), 2.5, hex(0xFFFFFF, 0.8))
 +    }
@@ -1493,3 +1496,59 @@ index 0000000..d9cd0b1
 +    }
 +}
 +#endif
+diff --git a/apps/ios/StudioUI/Editor/EditorToolBar.swift b/apps/ios/StudioUI/Editor/EditorToolBar.swift
+index cdc2e52..ba2c244 100644
+--- a/apps/ios/StudioUI/Editor/EditorToolBar.swift
++++ b/apps/ios/StudioUI/Editor/EditorToolBar.swift
+@@ -116,7 +116,9 @@ final class EditorToolBar: UIView, UIScrollViewDelegate {
+     /// The edge fade inside the capsule on a side with more keys.
+     static let edgeFade: CGFloat = 44
+     /// Air between the capsule's ends and the first / last key.
+-    static let endPadding: CGFloat = 8
++    static let endPadding: CGFloat = 12
++    /// The selected chip's inset from the capsule, the same all round.
++    static let chipInset: CGFloat = 4
+     /// A bottom panel's glass sheet runs on under the bar: the bar's own
+     /// ground clears so the capsule floats over the sheet.
+     private(set) var isOverSheet = false
+@@ -393,7 +395,7 @@ final class EditorToolBar: UIView, UIScrollViewDelegate {
+     }
+ 
+     /// The keys' natural spacing.
+-    static let keySpacing: CGFloat = 4
++    static let keySpacing: CGFloat = 8
+     /// The most a gap may widen so an overflowing level's edge lands
+     /// between two keys with the capsule still filling the room.
+     static let maxSpread: CGFloat = 22
+@@ -537,7 +539,7 @@ final class EditorToolBar: UIView, UIScrollViewDelegate {
+     private func restyleChrome() {
+         backgroundColor = groundColor
+         hairline.backgroundColor = CCTheme.color.border
+-        CCMaterial.dress(chip, as: .raised(tint: CCTheme.color.elevated), radius: CCTheme.radius(.md), traits: traitCollection)
++        CCMaterial.dress(chip, as: .raised(tint: CCTheme.color.elevated), radius: axis == .horizontal ? Self.capsuleThickness / 2 - Self.chipInset : CCTheme.radius(.lg), traits: traitCollection)
+     }
+ 
+     override func layoutSubviews() {
+@@ -566,8 +568,20 @@ final class EditorToolBar: UIView, UIScrollViewDelegate {
+             if animate { CCMotion.fade(chip, keyPath: "opacity", to: Float(0), duration: 0.18) } else { chip.opacity = 0 }
+             return
+         }
+-        let target = key.convert(key.bounds, to: scroll).insetBy(dx: 1, dy: 2)
+-        let r = CCTheme.radius(.md)
++        // Concentric with the capsule: the same inset at its round ends as
++        // along its sides, so the first key's chip follows the curve.
++        let frame = key.convert(key.bounds, to: scroll)
++        let outset = Self.endPadding - Self.chipInset
++        let target: CGRect
++        let r: CGFloat
++        if axis == .horizontal {
++            let height = Self.capsuleThickness - 2 * Self.chipInset
++            target = CGRect(x: frame.minX - outset, y: frame.midY - height / 2, width: frame.width + 2 * outset, height: height)
++            r = height / 2
++        } else {
++            target = frame.insetBy(dx: 0, dy: -2)
++            r = CCTheme.radius(.lg)
++        }
+         let shown = chip.opacity > 0.5
+         if animate, shown {
+             CATransaction.begin()
