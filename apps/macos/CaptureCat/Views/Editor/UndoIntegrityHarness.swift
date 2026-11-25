@@ -25,6 +25,7 @@ enum UndoIntegrityHarness {
         NSApplication.shared.setActivationPolicy(.accessory)
         let args = CommandLine.arguments
         let verbose = args.contains("--verbose")
+        #if DEBUG
         if let i = args.firstIndex(of: "--inject"), i + 1 < args.count {
             guard let defect = UndoStep.Defect(rawValue: args[i + 1]) else {
                 print("unknown defect \(args[i + 1]); one of \(UndoStep.Defect.allCases.map(\.rawValue))")
@@ -33,6 +34,12 @@ enum UndoIntegrityHarness {
             UndoStep.probeDefect = defect
             print("INJECTED DEFECT: \(defect.rawValue)")
         }
+        #else
+        if args.contains("--inject") {
+            print("--inject needs a DEBUG build")
+            exit(2)
+        }
+        #endif
 
         var failed: [String] = []
         for c in cases {
