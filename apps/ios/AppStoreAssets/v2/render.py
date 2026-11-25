@@ -3,6 +3,7 @@ from pathlib import Path
 from PIL import Image
 from playwright.sync_api import sync_playwright
 R=Path(__file__).parent
+from storecopy import C,KEY
 def src(f,n): return (R/'raw'/f/f'{n}.png').as_uri()
 BG={
 'red':("linear-gradient(160deg,#ff5a36,#ff2d55 45%,#a3147f)",[(-20,-8,70,'#ffb03a99'),(55,45,80,'#6a11cb99')]),
@@ -14,66 +15,78 @@ BG={
 'ink':("linear-gradient(160deg,#39306e,#1b1640 50%,#07060f)",[(50,0,80,'#ff3b5c77'),(-25,50,90,'#4d7dff66')]),
 }
 # crop boxes in the raw 1320x2868 iPhone shots
-IP=[
-('01-screen-recorder','red',['Screen','Recorder'],'Record iPhone with audio',dict(img='RIDGE'),[('capture',(50,1778,1220,458),1200,1960,52)],1.2,True),
-('02-edit','violet',['Edit Screen','Recordings'],'Cut, zoom and add text on iPhone',dict(img='editor'),[('editor',(0,1440,1320,730),1250,1830,44)],1,False),
-('03-zoom','sun',['Zoom Screen','Recordings'],'Show every tap up close',dict(img='export'),[('export',(178,330,964,836),1220,1060,40)],.96,False),
-('04-captions','green',['Auto Captions','& Subtitles'],'For every screen recording',dict(img='captions'),[('captions',(304,1054,712,78),1220,1556,30),('captions',(46,2384,1080,152),1220,2180,50)],.9,False),
-('05-backgrounds','pink',['Screen Video','Backgrounds'],'Phone frames and gradients',dict(img='background'),'FAN',.92,False),
-('06-iphone-to-mac','blue',['Record iPhone','Screen to Mac'],'Over Wi-Fi. No cable.',dict(img='capture'),[('capture',(48,386,1224,1320),1190,1010,70)],.88,False),
-('07-share','ink',['Share Screen','Videos by Link'],'With comments and reactions',dict(img='share'),[('share',(48,1446,1224,498),1190,1960,50)],.9,False),
-('08-library','violet',['Every Screen','Recording'],'Synced to iPhone, iPad and Mac',dict(img='library'),[],1,False),
-]
-def spec(fam,it):
-    k,bg,h1,h2,d,lifts,fk,ring=it
-    if fam=='iphone-6.9': W,H=1320,2868
-    else: W,H=1206,2622
-    g=W/1320
-    fs=(232 if fk==1.2 else 205*fk if fk<1 else 205)*g
-    fs={1.2:262,1:212,.92:196,.9:184,.88:186,.96:206}[fk]*g
-    top=150*g
-    dy=(top+fs*1.96+fs*.36+150*g)
-    dw=1090*g
-    im=(R/'raw'/'ridge-7.0.png').as_uri() if d['img']=='RIDGE' else src('iphone',d['img'])
-    L=[]
-    if lifts=='FAN':
+SHOTS=[('01-screen-recorder','red','s1','RIDGE','rec'),('02-edit','violet','s2','editor','timeline'),('03-ai','ink','s9','ai','ai'),('04-zoom','sun','s3','export','stage'),('05-captions','green','s4','captions','captions'),('06-backgrounds','pink','s5','background','fan'),('07-to-mac','blue','s6','capture','hero'),('08-share','ink','s7','share','share'),('09-library','violet','s8','library','')]
+IPS=[('01-screen-recorder','red','s1','editor','timeline'),('02-ai','ink','s9','ai','ai'),('03-captions','green','s4','captions','stage'),('04-backgrounds','pink','s5','background','stage'),('05-to-mac','blue','s6','capture','hero'),('06-share','ink','s7','share',''),('07-library','violet','s8','library','')]
+import json
+def cards(loc,fam,n,cls='CCCard'):
+    f=R/'raw'/loc/fam/f'{n}.json'
+    return sorted([c['f'] for c in json.loads(f.read_text()) if c['c']==cls],key=lambda f:(f[1],f[0]))
+def spec(loc,fam,it):
+    c=C[loc];k,bg,key,img,kind=it;pad=fam=='ipad-13';rf='ipad' if pad else 'iphone'
+    h1,h2=c[key]
+    if pad and key=='s1': h2=c['ip1']
+    if pad and key=='s6': h1=c['ip6']
+    cjk=loc in('ja','ko','zh-Hans')
+    if pad: h1=[(''if cjk and loc!='ko' else ' ').join(h1).replace('- ','')]
+    W,H=(2064,2752) if pad else (1320,2868) if fam=='iphone-6.9' else (1206,2622)
+    g=W/1320 if not pad else 1
+    P=lambda n:(R/'raw'/loc/rf/f'{n}.png').as_uri()
+    fs=(230 if key=='s1' else 200) if pad else {'s1':262,'s2':212,'s3':206,'s8':206}.get(key,190)*g
+    top=140 if pad else 150*g;lines=len(h1)
+    if pad: dy=top+fs+fs*.36+190
+    else: dy=top+fs*.98*2+fs*.36+150*g
+    if not pad and lines==1: top+=fs*.45
+    dw=1760 if pad else 1090*g
+    iw=2064 if pad else 1320;q=2 if pad else 3
+    px=lambda f,m=0:(f[0]*q-m,f[1]*q-m,f[2]*q+2*m,f[3]*q+2*m)
+    L=[];add=lambda n,crop,w,**kw:L.append(dict(dict(src=P(n),iw=iw,crop=crop,w=w*g,x=(W-w*g)/2,y=0,r=40,rr=(70 if pad else 80)*g,home=1,bg='#1e1d21'),**kw))
+    if kind=='rec':
+        add('capture',px(cards(loc,rf,'capture')[1]),1210,home=0,y=1950*g,rr=1210*g*.044)
+    elif kind=='timeline':
+        if pad: add('editor',(0,1042,1376,480),1500,dx=-150)
+        else: add('editor',(0,1440,1320,730),1250)
+    elif kind=='ai':
+        f=cards(loc,rf,'ai','CCToast')[0];cr=px(f)
+        im0=Image.open(R/'raw'/loc/rf/'ai.png').convert('RGB');x,y,w,h=map(int,px(f,40));col=im0.getpixel((8 if not pad else 700,y-30))
+        im0.paste(col,(0 if not pad else x,y,im0.width if not pad else x+w,min(im0.height,y+h+120)));im0.save(R/'raw'/loc/rf/'ai-clean.png')
+        img='ai-clean'
+        add('ai',cr,(1300 if pad else 1250),home=0,y=(2160 if pad else 2440*g),rr=(44 if pad else 60)*g)
+        L.append(dict(prompt=c['prompt'],w=(1300 if pad else 1140)*g,x=(W-(1300 if pad else 1140)*g)/2,y=(1800 if pad else 2070*g),fs=(62 if pad else 64)*g))
+    elif kind=='stage':
+        if pad: add(img,(301,161,780,776),1500,home=0,x=282,y=640)
+        else: add(img,(178,330,964,836),1220)
+    elif kind=='captions':
+        t=cards(loc,rf,'captions','InspectorPresetCard')[:5]
+        x0,y0=t[0][0]*3,t[0][1]*3;x1=(t[4][0]+t[4][2])*3
+        yh=min(2868-y0,50*3)
+        add('captions',(x0,y0,x1-x0,yh),1220,pad=52*g,bg='linear-gradient(#36363b,#323236)',dy=-60*g)
+    elif kind=='fan':
         for n,w,x,y,rot in (('bg-blue',760,-110,1250,-9),('bg-green',760,670,1250,9),('bg-orange',900,210,1480,0)):
-            L.append(dict(src=src('iphone',n),iw=1320,crop=(180,332,960,838),w=w*g,x=x*g,y=y*g,r=40,rr=70*g,rot=rot,zfix=1))
-        lifts=[]
-    for n,c,w,y,r in lifts:
-        sheet=c[1] in (2384,1826); 
-        L.append(dict(src=src('iphone',n),iw=1320,crop=c,w=w*g,x=(W-w*g)/2,y=y*g,r=r,rr=(r if r<40 else 88)*g,home=d['img']!='RIDGE',pad=(52 if sheet else 0)*g,bg='linear-gradient(#36363b,#323236)' if sheet else '#1e1d21',dy=(-40*g if c[1]==2384 else 0)))
-    return dict(W=W,H=H,bg=BG[bg][0],blobs=BG[bg][1],h1=h1,h2=h2,fs=fs,top=top,dev=dict(w=dw,y=dy,bez=.03,rad=.152,ar=2868/1320,src=im,isl=True,ring=ring),lifts=L,dim=bool(L))
-IPAD=[
-('01-screen-recorder','red',['Screen Recorder'],'Record and edit screen videos on iPad','editor'),
-('02-captions','green',['Auto Captions & Subtitles'],'For every screen recording','captions'),
-('03-backgrounds','pink',['Screen Video Backgrounds'],'Device frames, gradients and zoom','background'),
-('04-ipad-to-mac','blue',['Record iPad Screen to Mac'],'Over Wi-Fi. No cable.','capture'),
-('05-share','ink',['Share Screen Videos by Link'],'With comments and reactions','share'),
-('06-library','violet',['Every Screen Recording'],'Synced to iPad, iPhone and Mac','library'),
-]
-def ispec(it):
-    k,bg,h1,h2,img=it;W,H=2064,2752
-    fs=min(250,1800/(len(h1[0])*.505))
-    top=140;dy=top+fs+fs*.36+170
-    L=[]
-    st={'editor':(301,161,780,776),'export':(301,161,780,776),'background':(301,161,780,776)}.get(img)
-    if img=='editor': L=[dict(src=src('ipad',img),iw=2064,crop=(0,1042,1376,480),w=1500,x=70,y=1800,r=40,home=1,dx=-150)]
-    elif img=='captions': L=[dict(src=src('ipad',img),iw=2064,crop=(301,161,780,776),w=1500,x=282,y=640,r=26)]
-    elif st: L=[dict(src=src('ipad',img),iw=2064,crop=st,w=1500,x=282,y=640,r=26)]
-    if img=='capture': L=[dict(src=src('ipad',img),iw=2064,crop=(672,206,1218,850),w=1640,x=212,y=700,r=40)]
-    return dict(W=W,H=H,bg=BG[bg][0],blobs=BG[bg][1],h1=h1,h2=h2,fs=fs,top=top,dev=dict(w=1760,y=dy,bez=.022,rad=.05,ar=2752/2064,src=src('ipad',img),isl=False),lifts=[dict(l,rr=70) for l in L],dim=bool(L))
+            add(n,(180,332,960,838),w,home=0,x=x*g,y=y*g,rr=70*g,rot=rot)
+    elif kind=='hero': add('capture',px(cards(loc,rf,'capture')[0]),1640 if pad else 1200,dy=40 if pad else 0)
+    elif kind=='share': add('share',px(cards(loc,rf,'share')[0]),1210)
+    im=(R/'raw'/loc/'ridge-7.png').as_uri() if img=='RIDGE' else P(img)
+    return dict(W=W,H=H,bg=BG[bg][0],blobs=BG[bg][1],h1=h1,h2=h2,fs=fs,top=top,cjk=cjk,ja=loc=='ja',dev=dict(w=dw,y=dy,bez=.022 if pad else .03,rad=.05 if pad else .152,ar=2752/2064 if pad else 2868/1320,src=im,isl=not pad,ring=kind=='rec'),lifts=L,dim=bool(L))
+def prep(loc):
+    import subprocess
+    d=R/'raw'/loc
+    subprocess.run(['ffmpeg','-v','error','-y','-ss','7','-i',str(d/'ridge.mov'),'-frames:v','1',str(d/'ridge-7.png')],check=True)
+    t=dict((l.split()[1],float(l.split()[0])) for l in (d/'tour.txt').read_text().splitlines())
+    for n,o in (('blue',.45),('green',1.5),('orange',2.6)):
+        subprocess.run(['ffmpeg','-v','error','-y','-ss',str(t['mesh']-.9+o),'-i',str(d/'tour.mov'),'-frames:v','1',str(d/'iphone'/f'bg-{n}.png')],check=True)
 def main():
-    only=sys.argv[1:] or ['iphone-6.9','iphone-6.3','ipad-13']
+    locs=sys.argv[1].split(',');fams=sys.argv[2].split(',') if len(sys.argv)>2 else ['iphone-6.9','iphone-6.3','ipad-13']
     with sync_playwright() as p:
         b=p.chromium.launch(channel='chrome')
-        for fam in only:
-            out=R/'out'/'en-US'/fam;out.mkdir(parents=True,exist_ok=True)
-            for it in (IPAD if fam=='ipad-13' else IP):
-                s=ispec(it) if fam=='ipad-13' else spec(fam,it)
-                pg=b.new_page(viewport=dict(width=s['W'],height=s['H']));pg.goto((R/'canvas.html').as_uri());pg.evaluate('s=>render(s)',s)
-                w=pg.evaluate("(()=>{let r=document.createRange(),m=0;for(const e of document.querySelectorAll('h1,h2')){r.selectNodeContents(e);m=Math.max(m,r.getBoundingClientRect().width)}return m})()")
-                if w>s['W']*.93: print('TOO WIDE',fam,it[0],w/s['W'])
-                Image.open(io.BytesIO(pg.screenshot())).convert('RGB').save(out/f'{it[0]}.png');pg.close()
+        for loc in locs:
+            if any(f!='ipad-13' for f in fams): prep(loc)
+            for fam in fams:
+                out=R/'out'/loc/fam;out.mkdir(parents=True,exist_ok=True)
+                for o in out.glob('*.png'): o.unlink()
+                for it in (IPS if fam=='ipad-13' else SHOTS):
+                    s=spec(loc,fam,it);pg=b.new_page(viewport=dict(width=s['W'],height=s['H']));pg.goto((R/'canvas.html').as_uri());pg.evaluate('s=>render(s)',s)
+                    if pg.evaluate("FIT.h2<.5"): print('SMALL SUB',loc,fam,it[0])
+                    Image.open(io.BytesIO(pg.screenshot())).convert('RGB').save(out/f'{it[0]}.png');pg.close()
+            print('rendered',loc,flush=True)
         b.close()
 main()

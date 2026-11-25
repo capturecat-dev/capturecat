@@ -48,10 +48,10 @@ index 431049a..d270d1a 100644
          UIColor(hue: hue.truncatingRemainder(dividingBy: 1), saturation: s, brightness: b, alpha: a)
      }
 diff --git a/apps/ios/App/Fixtures/FixtureDirector.swift b/apps/ios/App/Fixtures/FixtureDirector.swift
-index ecf27da..abaeba7 100644
+index ecf27da..144b91b 100644
 --- a/apps/ios/App/Fixtures/FixtureDirector.swift
 +++ b/apps/ios/App/Fixtures/FixtureDirector.swift
-@@ -32,6 +32,21 @@ final class FixtureDirector {
+@@ -32,6 +32,22 @@ final class FixtureDirector {
          if let screen = FixtureWorld.value("-uiFixtureScreen") {
              DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) { [weak self] in self?.go(to: screen) }
          }
@@ -63,6 +63,7 @@ index ecf27da..abaeba7 100644
 +                    StoreCreative.showEditor(mode: mode, from: shell)
 +                }
 +            }
++            if FixtureWorld.has("-uiStoreDump") { Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in MainActor.assumeIsolated { StoreCreative.dump() } } }
 +            if FixtureWorld.has("-uiStoreTour") {
 +                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
 +                    guard let shell = self?.root?.shell else { return }
@@ -174,12 +175,364 @@ index 046ff44..b6178d8 100644
          }
          if FixtureWorld.has("-uiFixtureImportError") { importError = "Some screenshots couldn't be imported." }
      }
+diff --git a/apps/ios/App/Fixtures/RidgeL10n.swift b/apps/ios/App/Fixtures/RidgeL10n.swift
+new file mode 100644
+index 0000000..4d70af8
+--- /dev/null
++++ b/apps/ios/App/Fixtures/RidgeL10n.swift
+@@ -0,0 +1,346 @@
++#if DEBUG
++import Foundation
++
++/// Store demo content (generated from AppStoreAssets/v2/storecopy.py).
++enum RidgeL10n {
++    static let table: [String: [String: String]] = [
++        "en": [
++            "gm": "Good morning, Maya",
++            "find": "Find your trail",
++            "ch": "Nearby|Lakes|Summits|Easy",
++            "t1": "Sunset Ridge",
++            "d1": "9.8 km  ·  Moderate  ·  3 h 10",
++            "t2": "Mirror Lake Loop",
++            "d2": "4.2 km  ·  Easy  ·  1 h 20",
++            "up": "m up",
++            "rate": "rating",
++            "ele": "Elevation",
++            "start": "Start hike",
++            "rec": "Recording hike",
++            "toast": "You're on the trail!",
++            "label": "Pick a trail",
++            "cap1": "Find a trail you'll love.",
++            "cap2": "Tap any hike for the details.",
++            "cap3": "Check the climb before you go.",
++            "cap4": "Then start your hike.",
++            "proj1": "Sunset Ridge demo",
++            "proj2": "iPhone screen recording",
++            "proj3": "Trail screenshot",
++            "proj4": "App tutorial",
++            "proj5": "Launch video",
++            "proj6": "Feature tour",
++            "proj7": "Bug report video",
++            "proj8": "App Store preview",
++            "share3": "App walkthrough",
++            "c1": "This tutorial is so clear. Love the zoom on the start button!",
++            "c2": "Thanks! Recorded and edited on my iPhone.",
++            "c3": "Can you slow this part down a little?",
++            "c4": "The captions make it easy to follow on mute.",
++        ],
++        "de": [
++            "gm": "Guten Morgen, Maya",
++            "find": "Finde deine Tour",
++            "ch": "Nähe|Seen|Gipfel|Leicht",
++            "t1": "Sunset Ridge",
++            "d1": "9,8 km  ·  Mittel  ·  3 Std. 10",
++            "t2": "Mirror Lake",
++            "d2": "4,2 km  ·  Leicht  ·  1 Std. 20",
++            "up": "Hm",
++            "rate": "Wertung",
++            "ele": "Höhenprofil",
++            "start": "Tour starten",
++            "rec": "Tour läuft",
++            "toast": "Du bist unterwegs!",
++            "label": "Wähle eine Tour",
++            "cap1": "Finde eine Tour für dich.",
++            "cap2": "Tippe für alle Details.",
++            "cap3": "Prüfe vorher den Anstieg.",
++            "cap4": "Dann geht es los.",
++            "proj1": "Sunset Ridge Demo",
++            "proj2": "iPhone-Aufnahme",
++            "proj3": "Tour-Bildschirmfoto",
++            "proj4": "App-Tutorial",
++            "proj5": "Launch-Video",
++            "proj6": "Funktionstour",
++            "proj7": "Fehlerbericht",
++            "proj8": "App-Vorschau",
++            "share3": "App-Rundgang",
++            "c1": "Super klar erklärt. Der Zoom auf den Button ist toll!",
++            "c2": "Danke! Alles auf dem iPhone aufgenommen.",
++            "c3": "Kannst du diesen Teil etwas langsamer machen?",
++            "c4": "Mit Untertiteln klappt es auch ohne Ton.",
++        ],
++        "fr": [
++            "gm": "Bonjour Maya",
++            "find": "Trouvez un sentier",
++            "ch": "Proche|Lacs|Sommets|Facile",
++            "t1": "Sunset Ridge",
++            "d1": "9,8 km  ·  Moyen  ·  3 h 10",
++            "t2": "Mirror Lake",
++            "d2": "4,2 km  ·  Facile  ·  1 h 20",
++            "up": "m D+",
++            "rate": "note",
++            "ele": "Dénivelé",
++            "start": "Démarrer",
++            "rec": "Rando en cours",
++            "toast": "C’est parti !",
++            "label": "Choisissez un sentier",
++            "cap1": "Trouvez le bon sentier.",
++            "cap2": "Touchez pour voir les détails.",
++            "cap3": "Vérifiez le dénivelé.",
++            "cap4": "Puis lancez la rando.",
++            "proj1": "Démo Sunset Ridge",
++            "proj2": "Écran de l’iPhone",
++            "proj3": "Capture du sentier",
++            "proj4": "Tutoriel de l’app",
++            "proj5": "Vidéo de lancement",
++            "proj6": "Tour des fonctions",
++            "proj7": "Rapport de bug",
++            "proj8": "Aperçu App Store",
++            "share3": "Visite de l’app",
++            "c1": "Très clair. J’adore le zoom sur le bouton !",
++            "c2": "Merci ! Tout est fait sur mon iPhone.",
++            "c3": "Peux-tu ralentir un peu ce passage ?",
++            "c4": "Les sous-titres aident beaucoup sans le son.",
++        ],
++        "es": [
++            "gm": "Buenos días, Maya",
++            "find": "Encuentra tu ruta",
++            "ch": "Cerca|Lagos|Cimas|Fácil",
++            "t1": "Sunset Ridge",
++            "d1": "9,8 km  ·  Media  ·  3 h 10",
++            "t2": "Mirror Lake",
++            "d2": "4,2 km  ·  Fácil  ·  1 h 20",
++            "up": "m +",
++            "rate": "nota",
++            "ele": "Desnivel",
++            "start": "Empezar ruta",
++            "rec": "Ruta en curso",
++            "toast": "¡Ya estás en ruta!",
++            "label": "Elige una ruta",
++            "cap1": "Encuentra tu ruta ideal.",
++            "cap2": "Toca para ver los detalles.",
++            "cap3": "Mira el desnivel antes.",
++            "cap4": "Y empieza a caminar.",
++            "proj1": "Demo Sunset Ridge",
++            "proj2": "Pantalla del iPhone",
++            "proj3": "Captura de la ruta",
++            "proj4": "Tutorial de la app",
++            "proj5": "Video de lanzamiento",
++            "proj6": "Funciones nuevas",
++            "proj7": "Informe de error",
++            "proj8": "Vista previa",
++            "share3": "Recorrido de la app",
++            "c1": "Clarísimo. ¡Me encanta el zoom en el botón!",
++            "c2": "¡Gracias! Todo hecho en mi iPhone.",
++            "c3": "¿Puedes ir más lento en esta parte?",
++            "c4": "Con subtítulos se sigue sin sonido.",
++        ],
++        "it": [
++            "gm": "Buongiorno, Maya",
++            "find": "Trova il sentiero",
++            "ch": "Vicino|Laghi|Cime|Facile",
++            "t1": "Sunset Ridge",
++            "d1": "9,8 km  ·  Medio  ·  3 h 10",
++            "t2": "Mirror Lake",
++            "d2": "4,2 km  ·  Facile  ·  1 h 20",
++            "up": "m D+",
++            "rate": "voto",
++            "ele": "Dislivello",
++            "start": "Inizia",
++            "rec": "Escursione",
++            "toast": "Sei in cammino!",
++            "label": "Scegli un sentiero",
++            "cap1": "Trova il sentiero giusto.",
++            "cap2": "Tocca per vedere i dettagli.",
++            "cap3": "Controlla la salita.",
++            "cap4": "Poi inizia a camminare.",
++            "proj1": "Demo Sunset Ridge",
++            "proj2": "Schermo iPhone",
++            "proj3": "Foto del sentiero",
++            "proj4": "Tutorial dell’app",
++            "proj5": "Video di lancio",
++            "proj6": "Tour funzioni",
++            "proj7": "Segnalazione bug",
++            "proj8": "Anteprima app",
++            "share3": "Guida all’app",
++            "c1": "Chiarissimo. Bello lo zoom sul pulsante!",
++            "c2": "Grazie! Fatto tutto su iPhone.",
++            "c3": "Puoi rallentare un po’ qui?",
++            "c4": "Con i sottotitoli si segue anche senza audio.",
++        ],
++        "pt": [
++            "gm": "Bom dia, Maya",
++            "find": "Ache sua trilha",
++            "ch": "Perto|Lagos|Picos|Fácil",
++            "t1": "Sunset Ridge",
++            "d1": "9,8 km  ·  Média  ·  3 h 10",
++            "t2": "Mirror Lake",
++            "d2": "4,2 km  ·  Fácil  ·  1 h 20",
++            "up": "m +",
++            "rate": "nota",
++            "ele": "Elevação",
++            "start": "Iniciar trilha",
++            "rec": "Trilha ativa",
++            "toast": "Você está na trilha!",
++            "label": "Escolha uma trilha",
++            "cap1": "Ache a trilha ideal.",
++            "cap2": "Toque para ver os detalhes.",
++            "cap3": "Confira a subida antes.",
++            "cap4": "Depois é só começar.",
++            "proj1": "Demo Sunset Ridge",
++            "proj2": "Tela do iPhone",
++            "proj3": "Captura da trilha",
++            "proj4": "Tutorial do app",
++            "proj5": "Vídeo de lançamento",
++            "proj6": "Tour de recursos",
++            "proj7": "Relato de bug",
++            "proj8": "Prévia do app",
++            "share3": "Tour pelo app",
++            "c1": "Muito claro. Adorei o zoom no botão!",
++            "c2": "Obrigado! Fiz tudo no iPhone.",
++            "c3": "Pode ir mais devagar nessa parte?",
++            "c4": "As legendas ajudam muito sem som.",
++        ],
++        "nl": [
++            "gm": "Goedemorgen, Maya",
++            "find": "Vind je route",
++            "ch": "Dichtbij|Meren|Toppen|Licht",
++            "t1": "Sunset Ridge",
++            "d1": "9,8 km  ·  Middel  ·  3 u 10",
++            "t2": "Mirror Lake",
++            "d2": "4,2 km  ·  Licht  ·  1 u 20",
++            "up": "m stijgen",
++            "rate": "score",
++            "ele": "Hoogte",
++            "start": "Start route",
++            "rec": "Route loopt",
++            "toast": "Je bent op pad!",
++            "label": "Kies een route",
++            "cap1": "Vind een mooie route.",
++            "cap2": "Tik voor alle details.",
++            "cap3": "Bekijk eerst de klim.",
++            "cap4": "En start je route.",
++            "proj1": "Sunset Ridge demo",
++            "proj2": "iPhone-opname",
++            "proj3": "Routefoto",
++            "proj4": "App-uitleg",
++            "proj5": "Lanceringsvideo",
++            "proj6": "Functietour",
++            "proj7": "Foutmelding",
++            "proj8": "App-preview",
++            "share3": "App-rondleiding",
++            "c1": "Heel duidelijk. Mooie zoom op de knop!",
++            "c2": "Dank je! Alles op mijn iPhone gemaakt.",
++            "c3": "Kan dit stuk iets langzamer?",
++            "c4": "Met ondertitels lukt het zonder geluid.",
++        ],
++        "ja": [
++            "gm": "おはよう、Maya",
++            "find": "コースを探す",
++            "ch": "近く|湖|山頂|初級",
++            "t1": "サンセットリッジ",
++            "d1": "9.8 km  ·  中級  ·  3時間10分",
++            "t2": "ミラーレイク",
++            "d2": "4.2 km  ·  初級  ·  1時間20分",
++            "up": "m 登り",
++            "rate": "評価",
++            "ele": "標高",
++            "start": "スタート",
++            "rec": "記録中",
++            "toast": "ハイキング開始！",
++            "label": "コースを選ぶ",
++            "cap1": "お気に入りのコースを探そう。",
++            "cap2": "タップして詳細を見る。",
++            "cap3": "登りを先にチェック。",
++            "cap4": "さあ、出発。",
++            "proj1": "サンセットリッジ",
++            "proj2": "iPhone画面録画",
++            "proj3": "コースの写真",
++            "proj4": "アプリの使い方",
++            "proj5": "紹介動画",
++            "proj6": "機能ツアー",
++            "proj7": "不具合レポート",
++            "proj8": "アプリプレビュー",
++            "share3": "アプリの紹介",
++            "c1": "とても分かりやすい。ズームがいいですね！",
++            "c2": "ありがとう！iPhoneだけで作りました。",
++            "c3": "ここを少しゆっくりできますか？",
++            "c4": "字幕のおかげで音なしでも分かります。",
++        ],
++        "ko": [
++            "gm": "좋은 아침, Maya",
++            "find": "코스 찾기",
++            "ch": "근처|호수|정상|쉬움",
++            "t1": "선셋 리지",
++            "d1": "9.8 km  ·  보통  ·  3시간 10분",
++            "t2": "미러 레이크",
++            "d2": "4.2 km  ·  쉬움  ·  1시간 20분",
++            "up": "m 상승",
++            "rate": "평점",
++            "ele": "고도",
++            "start": "시작하기",
++            "rec": "기록 중",
++            "toast": "출발했어요!",
++            "label": "코스 선택",
++            "cap1": "마음에 드는 코스를 찾으세요.",
++            "cap2": "탭해서 자세히 보기.",
++            "cap3": "오르막을 먼저 확인하세요.",
++            "cap4": "이제 출발!",
++            "proj1": "선셋 리지 데모",
++            "proj2": "iPhone 화면 녹화",
++            "proj3": "코스 사진",
++            "proj4": "앱 튜토리얼",
++            "proj5": "출시 영상",
++            "proj6": "기능 둘러보기",
++            "proj7": "버그 리포트",
++            "proj8": "앱 미리보기",
++            "share3": "앱 소개",
++            "c1": "정말 이해하기 쉬워요. 줌이 좋네요!",
++            "c2": "고마워요! iPhone으로 다 만들었어요.",
++            "c3": "이 부분 조금 천천히 해 주세요.",
++            "c4": "자막 덕분에 소리 없이도 좋아요.",
++        ],
++        "zh": [
++            "gm": "早上好，Maya",
++            "find": "寻找路线",
++            "ch": "附近|湖泊|山顶|轻松",
++            "t1": "日落山脊",
++            "d1": "9.8 公里  ·  中等  ·  3 小时 10 分",
++            "t2": "镜湖环线",
++            "d2": "4.2 公里  ·  轻松  ·  1 小时 20 分",
++            "up": "米爬升",
++            "rate": "评分",
++            "ele": "海拔",
++            "start": "开始徒步",
++            "rec": "徒步中",
++            "toast": "出发啦！",
++            "label": "选择路线",
++            "cap1": "找到喜欢的路线。",
++            "cap2": "轻点查看详情。",
++            "cap3": "先看看爬升。",
++            "cap4": "然后开始徒步。",
++            "proj1": "日落山脊演示",
++            "proj2": "iPhone 录屏",
++            "proj3": "路线截图",
++            "proj4": "App 教程",
++            "proj5": "发布视频",
++            "proj6": "功能介绍",
++            "proj7": "问题反馈",
++            "proj8": "App 预览",
++            "share3": "App 导览",
++            "c1": "讲得很清楚，按钮的放大效果真好！",
++            "c2": "谢谢！全部在 iPhone 上完成。",
++            "c3": "这一段可以慢一点吗？",
++            "c4": "有字幕，静音也能看懂。",
++        ],
++    ]
++    static let language: String = {
++        guard FixtureWorld.has("-uiStoreLocalizedContent") else { return "en" }
++        let base = String((Bundle.main.preferredLocalizations.first ?? "en").split(separator: "-").first ?? "en")
++        return table[base] != nil ? base : "en"
++    }()
++    static func t(_ key: String) -> String { table[language]?[key] ?? table["en"]?[key] ?? key }
++    static func has(_ key: String) -> Bool { table["en"]?[key] != nil }
++}
++#endif
 diff --git a/apps/ios/App/Fixtures/StoreCreative.swift b/apps/ios/App/Fixtures/StoreCreative.swift
 new file mode 100644
-index 0000000..93c69e0
+index 0000000..4a1dab7
 --- /dev/null
 +++ b/apps/ios/App/Fixtures/StoreCreative.swift
-@@ -0,0 +1,424 @@
+@@ -0,0 +1,454 @@
 +#if DEBUG
 +import AVFoundation
 +import UIKit
@@ -196,7 +549,7 @@ index 0000000..93c69e0
 +enum StoreCreative {
 +    static let size = CGSize(width: 1206, height: 2622)
 +    static let duration: TimeInterval = 12
-+    static var projectName: String { "Sunset Ridge demo" }
++    static var projectName: String { RidgeL10n.t("proj1") }
 +
 +    // Layout of the recorded app (pixels in the 1600×1000 frame).
 +    static let field = CGRect(x: 340, y: 262, width: 640, height: 60)
@@ -216,7 +569,7 @@ index 0000000..93c69e0
 +            .appendingPathComponent("StoreCreative", isDirectory: true)
 +        let dir = root.appendingPathComponent("project-\(UUID().uuidString.prefix(8))", isDirectory: true)
 +        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-+        let movie = root.appendingPathComponent("ridge-v1-\(StoreL10n.language).mov")
++        let movie = root.appendingPathComponent("ridge-v2-\(RidgeL10n.language).mov")
 +        if !FileManager.default.fileExists(atPath: movie.path) {
 +            guard await writeMovie(to: movie) else { return nil }
 +        }
@@ -229,7 +582,7 @@ index 0000000..93c69e0
 +            ZoomRegion(id: UUID(), startTime: 7.6, endTime: 10.6, zoomLevel: 1.8, focalPoint: CGPoint(x: 0.5, y: 0.80)),
 +        ]
 +        var label = Annotation(type: .text, startTime: 0.3, endTime: 2.2)
-+        label.text = "Pick a trail"
++        label.text = RidgeL10n.t("label")
 +        label.x = 0.5; label.y = 0.2
 +        project.annotations = [label]
 +        project.settings.gradientStartColor = CodableColor(red: 1.0, green: 0.36, blue: 0.30)
@@ -241,10 +594,10 @@ index 0000000..93c69e0
 +        project.settings.exportSettings.fps = 30
 +        if captions {
 +            project.subtitles = [
-+                SubtitleSegment(startTime: 0.4, endTime: 3.4, text: "Find a trail you'll love."),
-+                SubtitleSegment(startTime: 3.6, endTime: 6.6, text: "Tap any hike for the details."),
-+                SubtitleSegment(startTime: 7.0, endTime: 10.2, text: "Check the climb before you go."),
-+                SubtitleSegment(startTime: 10.4, endTime: 12.0, text: "Then start your hike."),
++                SubtitleSegment(startTime: 0.4, endTime: 3.4, text: RidgeL10n.t("cap1")),
++                SubtitleSegment(startTime: 3.6, endTime: 6.6, text: RidgeL10n.t("cap2")),
++                SubtitleSegment(startTime: 7.0, endTime: 10.2, text: RidgeL10n.t("cap3")),
++                SubtitleSegment(startTime: 10.4, endTime: 12.0, text: RidgeL10n.t("cap4")),
 +            ]
 +            project.settings.showSubtitles = true
 +            project.settings.subtitleCustomX = 0.5
@@ -262,6 +615,24 @@ index 0000000..93c69e0
 +    }
 +
 +    /// `-uiStoreEditor <mode>`: the editor over the library, left up for a screenshot.
++    /// `-uiStoreDump`: where the cards are (points), for the pop-outs.
++    static func dump() {
++        guard FixtureWorld.has("-uiStoreDump"), let window = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first else { return }
++        var out: [[String: Any]] = []
++        func walk(_ v: UIView) {
++            if v.isHidden || v.alpha < 0.05 { return }
++            let name = String(describing: type(of: v))
++            if ["CCCard", "InspectorPresetCard", "CCToast"].contains(name) {
++                let f = v.convert(v.bounds, to: window)
++                out.append(["c": name, "f": [f.minX, f.minY, f.width, f.height]])
++            }
++            v.subviews.forEach(walk)
++        }
++        walk(window)
++        let data = try? JSONSerialization.data(withJSONObject: out)
++        try? data?.write(to: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("dump.json"))
++    }
++
 +    static func showEditor(mode: String, from presenter: UIViewController) {
 +        Task { @MainActor in
 +            let time: TimeInterval = FixtureWorld.value("-uiStoreTime").flatMap(Double.init) ?? (mode == "captions" ? 2.2 : (mode == "background" ? 7.2 : 5.9))
@@ -294,6 +665,10 @@ index 0000000..93c69e0
 +                }
 +            case "background":
 +                if pane { editor.openPanel(.background) } else { openPane(.background, option: FixtureWorld.value("-uiStoreOption") ?? "Gradient", in: editor) }
++            case "ai":
++                editor.project.settings.gradientStartColor = CodableColor(red: 1.0, green: 0.70, blue: 0.12)
++                editor.project.settings.gradientEndColor = CodableColor(red: 0.90, green: 0.15, blue: 0.40)
++                StudioAgentEdits.probeShowNotice(in: editor, named: true)
 +            case "captions":
 +                if pane { editor.openPanel(.subtitles) } else { openPane(.subtitles, option: FixtureWorld.value("-uiStoreOption"), in: editor) }
 +            default:
@@ -326,9 +701,9 @@ index 0000000..93c69e0
 +            feed.setStatus(.searching)
 +            mark("capture")
 +            await wait(3.2)
-+            feed.setStatus(.connecting(macName: "Alex's MacBook Pro"))
++            feed.setStatus(.connecting(macName: StoreL10n.t("mac")))
 +            await wait(1.4)
-+            feed.setStatus(.connected(macName: "Alex's MacBook Pro"))
++            feed.setStatus(.connected(macName: StoreL10n.t("mac")))
 +            await wait(2.4)
 +            mark("library")
 +            shell.select(.library, animated: true)
@@ -345,6 +720,14 @@ index 0000000..93c69e0
 +            mark("pause")
 +            editor.playback.setPlaying(false, for: editor.project)
 +            await wait(0.8)
++            // Idea: an AI app edits the project; the notice and its Undo.
++            mark("ai")
++            editor.project.settings.gradientStartColor = CodableColor(red: 1.0, green: 0.70, blue: 0.12)
++            editor.project.settings.gradientEndColor = CodableColor(red: 0.90, green: 0.15, blue: 0.40)
++            let aiNotice = StudioAgentEdits.probeShowNotice(in: editor, named: true)
++            await wait(3.6)
++            aiNotice.dismiss()
++            await wait(0.6)
 +            // Idea: the background, changed in one tap.
 +            mark("background")
 +            editor.openPanel(.background)
@@ -515,17 +898,17 @@ index 0000000..93c69e0
 +            c.saveGState(); c.setAlpha(1 - open)
 +            let scroll = 34 * CGFloat(ease((t - 0.8) / 1.4)) - 34 * CGFloat(ease((t - 2.2) / 0.7))
 +            c.translateBy(x: 0, y: -scroll)
-+            text("Good morning, Maya", CGPoint(x: 24, y: 76), 16, .semibold, dim)
-+            text("Find your trail", CGPoint(x: 24, y: 98), 36, .bold, ink)
-+            for (n, chip) in ["Nearby", "Lakes", "Summits", "Easy"].enumerated() {
++            text(RidgeL10n.t("gm"), CGPoint(x: 24, y: 76), 16, .semibold, dim)
++            text(RidgeL10n.t("find"), CGPoint(x: 24, y: 98), 36, .bold, ink)
++            for (n, chip) in RidgeL10n.t("ch").split(separator: "|").map(String.init).enumerated() {
 +                let x = 24 + CGFloat(n) * 92
 +                round(CGRect(x: x, y: 156, width: 82, height: 38), 19, n == 0 ? lime : card)
 +                text(chip, CGPoint(x: x + 41, y: 165), 15, .semibold, n == 0 ? hex(0x10180C) : ink, centred: true)
 +            }
 +            let second = CGRect(x: 24, y: 514, width: 354, height: 250)
 +            scene(c, second, radius: 28, sky: [hex(0x2B7FFF), hex(0x7FD4FF), hex(0xE8FBFF)], ridge: [hex(0x5B8DEF), hex(0x2F62B8), hex(0x163B73)], seed: 4.1)
-+            text("Mirror Lake Loop", CGPoint(x: 46, y: 690), 24, .bold, ink)
-+            text("4.2 km  ·  Easy  ·  1 h 20", CGPoint(x: 46, y: 722), 15, .semibold, hex(0xFFFFFF, 0.85))
++            text(RidgeL10n.t("t2"), CGPoint(x: 46, y: 690), 24, .bold, ink)
++            text(RidgeL10n.t("d2"), CGPoint(x: 46, y: 722), 15, .semibold, hex(0xFFFFFF, 0.85))
 +            c.restoreGState()
 +        }
 +        // Hero card → detail hero
@@ -537,24 +920,24 @@ index 0000000..93c69e0
 +        c.saveGState()
 +        c.translateBy(x: hero.midX, y: hero.midY); c.scaleBy(x: press, y: press); c.translateBy(x: -hero.midX, y: -hero.midY)
 +        scene(c, hero, radius: mix(28, 0), sky: [hex(0x3A1C71), hex(0xD76D77), hex(0xFFAF7B)], ridge: [hex(0x7B3B6B), hex(0x4A2454), hex(0x1E1330)], seed: 1.2, shift: 10 * open)
-+        text("Sunset Ridge", CGPoint(x: hero.minX + 24, y: hero.maxY - 84), mix(28, 38), .bold, ink)
-+        text("9.8 km  ·  Moderate  ·  3 h 10", CGPoint(x: hero.minX + 24, y: hero.maxY - mix(48, 38)), 16, .semibold, hex(0xFFFFFF, 0.88))
++        text(RidgeL10n.t("t1"), CGPoint(x: hero.minX + 24, y: hero.maxY - 84), mix(28, 38), .bold, ink)
++        text(RidgeL10n.t("d1"), CGPoint(x: hero.minX + 24, y: hero.maxY - mix(48, 38)), 16, .semibold, hex(0xFFFFFF, 0.88))
 +        c.restoreGState()
 +
 +        // Detail
 +        if open > 0 {
 +            c.saveGState(); c.setAlpha(open); c.translateBy(x: 0, y: 40 * (1 - open))
-+            for (n, stat) in [("9.8", "km"), ("640", "m up"), ("4.9", "rating")].enumerated() {
++            for (n, stat) in [("9.8", "km"), ("640", RidgeL10n.t("up")), ("4.9", RidgeL10n.t("rate"))].enumerated() {
 +                let r = CGRect(x: 24 + CGFloat(n) * 120, y: 444, width: 114, height: 84)
 +                round(r, 22, card)
 +                let k = CGFloat(ease((t - tapCard - 0.5 - Double(n) * 0.12) / 0.8))
-+                let value = stat.1 == "m up" ? String(Int(640 * k)) : String(format: "%.1f", (stat.0 == "9.8" ? 9.8 : 4.9) * k)
++                let value = stat.0 == "640" ? String(Int(640 * k)) : String(format: "%.1f", (stat.0 == "9.8" ? 9.8 : 4.9) * k)
 +                text(value, CGPoint(x: r.midX, y: r.minY + 14), 28, .bold, ink, centred: true)
 +                text(stat.1, CGPoint(x: r.midX, y: r.minY + 50), 14, .semibold, dim, centred: true)
 +            }
 +            let chart = CGRect(x: 24, y: 546, width: 354, height: 178)
 +            round(chart, 26, card)
-+            text("Elevation", CGPoint(x: 44, y: 562), 17, .bold, ink)
++            text(RidgeL10n.t("ele"), CGPoint(x: 44, y: 562), 17, .bold, ink)
 +            let grow = CGFloat(ease((t - 4.5) / 2.0))
 +            let line = UIBezierPath(); let area = UIBezierPath()
 +            var last = CGPoint.zero
@@ -575,7 +958,7 @@ index 0000000..93c69e0
 +            c.saveGState(); c.translateBy(x: button.midX, y: button.midY); c.scaleBy(x: sp, y: sp); c.translateBy(x: -button.midX, y: -button.midY)
 +            round(button, 34, started ? hex(0xFF5A3C) : lime)
 +            let secs = max(0, Int(t - tapStart))
-+            text(started ? "Recording hike  0:0\(secs)" : "Start hike", CGPoint(x: button.midX, y: button.minY + 20), 23, .bold, started ? .white : hex(0x10180C), centred: true)
++            text(started ? "\(RidgeL10n.t("rec"))  0:0\(secs)" : RidgeL10n.t("start"), CGPoint(x: button.midX, y: button.minY + 20), 23, .bold, started ? .white : hex(0x10180C), centred: true)
 +            c.restoreGState()
 +            if started {
 +                let k = CGFloat(ease((t - tapStart - 0.25) / 0.45))
@@ -583,7 +966,7 @@ index 0000000..93c69e0
 +                c.saveGState(); c.setAlpha(k)
 +                round(toast, 28, hex(0x10180C, 0.92)); round(CGRect(x: toast.minX + 10, y: toast.minY + 10, width: 36, height: 36), 18, lime)
 +                text("✓", CGPoint(x: toast.minX + 28, y: toast.minY + 14), 20, .bold, hex(0x10180C), centred: true)
-+                text("You're on the trail!", CGPoint(x: toast.minX + 58, y: toast.minY + 17), 18, .bold, ink)
++                text(RidgeL10n.t("toast"), CGPoint(x: toast.minX + 58, y: toast.minY + 17), 18, .bold, ink)
 +                c.restoreGState()
 +            }
 +            c.restoreGState()
@@ -606,7 +989,7 @@ index 0000000..93c69e0
 +#endif
 diff --git a/apps/ios/App/Fixtures/StoreFixtureL10n.swift b/apps/ios/App/Fixtures/StoreFixtureL10n.swift
 new file mode 100644
-index 0000000..685f237
+index 0000000..d9cd0b1
 --- /dev/null
 +++ b/apps/ios/App/Fixtures/StoreFixtureL10n.swift
 @@ -0,0 +1,500 @@
@@ -1106,7 +1489,7 @@ index 0000000..685f237
 +    }()
 +
 +    static func t(_ key: String) -> String {
-+        table[language]?[key] ?? table["en"]?[key] ?? key
++        RidgeL10n.has(key) ? RidgeL10n.t(key) : table[language]?[key] ?? table["en"]?[key] ?? key
 +    }
 +}
 +#endif
