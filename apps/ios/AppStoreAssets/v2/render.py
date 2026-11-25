@@ -67,6 +67,36 @@ def spec(loc,fam,it):
     elif kind=='share': add('share',px(cards(loc,rf,'share')[0]),1210)
     im=(R/'raw'/loc/'ridge-7.png').as_uri() if img=='RIDGE' else P(img)
     return dict(W=W,H=H,bg=BG[bg][0],blobs=BG[bg][1],h1=h1,h2=h2,fs=fs,top=top,cjk=cjk,ja=loc=='ja',dev=dict(w=dw,y=dy,bez=.022 if pad else .03,rad=.05 if pad else .152,ar=2752/2064 if pad else 2868/1320,src=im,isl=not pad,ring=kind=='rec'),lifts=L,dim=bool(L))
+def duospec(loc,it):
+    c=C[loc];k,bg,key,img,kind=it;h1,h2=c[key];W,H=1398,2034
+    P=lambda n,f='duo':(R/'raw'/loc/f/f'{n}.png').as_uri()
+    fs={'s1':214}.get(key,172);lines=len(h1);top=92;dy=top+fs*.98*2+fs*.36+84
+    if loc in('ja','ko','zh-Hans'): dy+=44;top-=18
+    if loc=='ja' and key=='s1': fs=184
+    if lines==1: top+=fs*.45
+    L=[]
+    def add(src,iw,crop,w,y,**kw): L.append(dict(dict(src=src,iw=iw,crop=crop,w=w,x=(W-w)/2,y=y,r=40,rr=64,bg='#1e1d21'),**kw))
+    ph=lambda f,m=0:(f[0]*3-m,f[1]*3-m,f[2]*3+2*m,f[3]*3+2*m)
+    ip=cards(loc,'iphone','capture')
+    if kind=='rec': add(P('capture','iphone'),1320,ph(ip[1]),1150,1440,rr=50)
+    elif kind=='timeline': add(P('editor'),1398,(0,860,1398,740),1270,1150)
+    elif kind=='ai':
+        f=cards(loc,'duo','ai','CCToast')[0];im0=Image.open(R/'raw'/loc/'duo'/'ai.png').convert('RGB');x,y,w,h=map(int,ph(f,24))
+        im0.paste(im0.getpixel((8,y-40)),(0,y,im0.width,im0.height));im0.save(R/'raw'/loc/'duo'/'ai-clean.png');img='ai-clean'
+        add(P('ai'),1398,ph(f),1180,1660,rr=56)
+        L.append(dict(prompt=c['prompt'],w=1090,x=(W-1090)/2,y=1350,fs=60))
+    elif kind=='stage': add(P('export','iphone'),1320,(178,330,964,836),1180,700)
+    elif kind=='captions':
+        add(P('captions','iphone'),1320,(178,330,964,836),1020,640)
+        t=cards(loc,'iphone','captions','InspectorPresetCard')[:5];x0,y0=t[0][0]*3,t[0][1]*3;x1=(t[4][0]+t[4][2])*3
+        add(P('captions','iphone'),1320,(x0,y0,x1-x0,min(2868-y0,150)),1220,1640,pad=48,bg='linear-gradient(#36363b,#323236)',rr=84)
+    elif kind=='fan':
+        for n,w,x,y,rot in (('bg-blue',700,-60,820,-9),('bg-green',700,758,820,9),('bg-orange',860,269,1020,0)): add(P(n,'iphone'),1320,(180,332,960,838),w,y,x=x,rr=64,rot=rot)
+    elif kind=='hero': add(P('capture','iphone'),1320,ph(ip[0]),1120,660)
+    elif kind=='share': 
+        f=cards(loc,'iphone','share')[0];add(P('share','iphone'),1320,(46,376,1228,f[1]*3+f[3]*3-376),1060,640,pad=44,bg='#141417')
+    im=(R/'raw'/loc/'ridge-7.png').as_uri() if img=='RIDGE' else P(img)
+    return dict(W=W,H=H,bg=BG[bg][0],blobs=BG[bg][1],h1=h1,h2=h2,fs=fs,top=top,cjk=loc in('ja','ko','zh-Hans'),ja=loc=='ja',dev=dict(w=1180,y=dy,bez=.024,rad=.085,ar=2034/1398,src=im,isl=False,ring=kind=='rec'),lifts=L,dim=bool(L))
 def prep(loc):
     import subprocess
     d=R/'raw'/loc
@@ -79,12 +109,12 @@ def main():
     with sync_playwright() as p:
         b=p.chromium.launch(channel='chrome')
         for loc in locs:
-            if any(f!='ipad-13' for f in fams): prep(loc)
+            if any(f.startswith('iphone') for f in fams): prep(loc)
             for fam in fams:
                 out=R/'out'/loc/fam;out.mkdir(parents=True,exist_ok=True)
                 for o in out.glob('*.png'): o.unlink()
                 for it in (IPS if fam=='ipad-13' else SHOTS):
-                    s=spec(loc,fam,it);pg=b.new_page(viewport=dict(width=s['W'],height=s['H']));pg.goto((R/'canvas.html').as_uri());pg.evaluate('s=>render(s)',s)
+                    s=duospec(loc,it) if fam=='duo-outer' else spec(loc,fam,it);pg=b.new_page(viewport=dict(width=s['W'],height=s['H']));pg.goto((R/'canvas.html').as_uri());pg.evaluate('s=>render(s)',s)
                     if pg.evaluate("FIT.h2<.5"): print('SMALL SUB',loc,fam,it[0])
                     Image.open(io.BytesIO(pg.screenshot())).convert('RGB').save(out/f'{it[0]}.png');pg.close()
             print('rendered',loc,flush=True)

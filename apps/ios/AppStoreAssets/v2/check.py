@@ -9,7 +9,7 @@ def fail(*a):
     global bad;bad+=1;print('FAIL',*a)
 norm=lambda s:''.join(c for c in unicodedata.normalize('NFD',s.lower()) if not unicodedata.combining(c)).replace(' ','').replace('\n','').replace('-','')
 LANG={'de-DE':'de-DE','fr-FR':'fr-FR','es-ES':'es-ES','es-MX':'es-ES','it':'it-IT','pt-BR':'pt-BR','nl-NL':'nl-NL','ja':'ja-JP','ko':'ko-KR','zh-Hans':'zh-Hans'}
-SZ={'iphone-6.9':(1320,2868,9),'iphone-6.3':(1206,2622,9),'ipad-13':(2064,2752,7)}
+SZ={'iphone-6.9':(1320,2868,9),'iphone-6.3':(1206,2622,9),'ipad-13':(2064,2752,7),'duo-outer':(1398,2034,9)}
 hit=tot=0
 for l in KEY:
     for fam,(w,h,n) in SZ.items():
