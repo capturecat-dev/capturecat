@@ -8,3 +8,6 @@
 /source/build/
 node_modules/
 __pycache__/
+/v2/out/
+/v2/raw/
+/v2/build/

@@ -116,7 +116,9 @@ final class EditorToolBar: UIView, UIScrollViewDelegate {
     /// The edge fade inside the capsule on a side with more keys.
     static let edgeFade: CGFloat = 44
     /// Air between the capsule's ends and the first / last key.
-    static let endPadding: CGFloat = 8
+    static let endPadding: CGFloat = 12
+    /// The selected chip's inset from the capsule, the same all round.
+    static let chipInset: CGFloat = 4
     /// A bottom panel's glass sheet runs on under the bar: the bar's own
     /// ground clears so the capsule floats over the sheet.
     private(set) var isOverSheet = false
@@ -393,7 +395,7 @@ final class EditorToolBar: UIView, UIScrollViewDelegate {
     }
 
     /// The keys' natural spacing.
-    static let keySpacing: CGFloat = 4
+    static let keySpacing: CGFloat = 8
     /// The most a gap may widen so an overflowing level's edge lands
     /// between two keys with the capsule still filling the room.
     static let maxSpread: CGFloat = 22
@@ -537,7 +539,7 @@ final class EditorToolBar: UIView, UIScrollViewDelegate {
     private func restyleChrome() {
         backgroundColor = groundColor
         hairline.backgroundColor = CCTheme.color.border
-        CCMaterial.dress(chip, as: .raised(tint: CCTheme.color.elevated), radius: CCTheme.radius(.md), traits: traitCollection)
+        CCMaterial.dress(chip, as: .raised(tint: CCTheme.color.elevated), radius: axis == .horizontal ? Self.capsuleThickness / 2 - Self.chipInset : CCTheme.radius(.lg), traits: traitCollection)
     }
 
     override func layoutSubviews() {
@@ -566,8 +568,20 @@ final class EditorToolBar: UIView, UIScrollViewDelegate {
             if animate { CCMotion.fade(chip, keyPath: "opacity", to: Float(0), duration: 0.18) } else { chip.opacity = 0 }
             return
         }
-        let target = key.convert(key.bounds, to: scroll).insetBy(dx: 1, dy: 2)
-        let r = CCTheme.radius(.md)
+        // Concentric with the capsule: the same inset at its round ends as
+        // along its sides, so the first key's chip follows the curve.
+        let frame = key.convert(key.bounds, to: scroll)
+        let outset = Self.endPadding - Self.chipInset
+        let target: CGRect
+        let r: CGFloat
+        if axis == .horizontal {
+            let height = Self.capsuleThickness - 2 * Self.chipInset
+            target = CGRect(x: frame.minX - outset, y: frame.midY - height / 2, width: frame.width + 2 * outset, height: height)
+            r = height / 2
+        } else {
+            target = frame.insetBy(dx: 0, dy: -2)
+            r = CCTheme.radius(.lg)
+        }
         let shown = chip.opacity > 0.5
         if animate, shown {
             CATransaction.begin()

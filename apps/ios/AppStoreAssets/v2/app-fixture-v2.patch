@@ -1,0 +1,1112 @@
+diff --git a/apps/ios/App/Fixtures/FixtureArt.swift b/apps/ios/App/Fixtures/FixtureArt.swift
+index 431049a..d270d1a 100644
+--- a/apps/ios/App/Fixtures/FixtureArt.swift
++++ b/apps/ios/App/Fixtures/FixtureArt.swift
+@@ -8,6 +8,7 @@ import UIKit
+ /// fixture video visibly changes frames. This is CONTENT (never themed).
+ enum FixtureArt {
+     static func frame(device: Bool, still: Bool, hue: CGFloat, title: String, t: Double, duration: Double, exported: Bool = false) -> CGImage? {
++        if FixtureWorld.has("-uiStoreArt"), #available(iOS 26, *), let art = storeFrame(device: device, still: still, hue: hue, t: t, duration: duration) { return art }
+         let size = device ? CGSize(width: 444, height: 960) : CGSize(width: 960, height: 600)
+         let format = UIGraphicsImageRendererFormat()
+         format.scale = 1
+@@ -24,6 +25,36 @@ enum FixtureArt {
+         return image.cgImage
+     }
+ 
++    /// Store art: the same hiking app the demo project records, on a vivid
++    /// backdrop for framed (landscape) takes.
++    @available(iOS 26, *)
++    private static func storeFrame(device: Bool, still: Bool, hue: CGFloat, t: Double, duration: Double) -> CGImage? {
++        let moments: [Double] = [6.9, 1.0, 9.4, 7.4, 4.6, 1.4, 8.0, 10.6]
++        let index = Int(hue * 100) % moments.count
++        let at = still ? moments[index] : (moments[index] + t * 0.15).truncatingRemainder(dividingBy: 11.5)
++        guard let screen = StoreCreative.frame(at: max(0.2, at)) else { return nil }
++        let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
++        let size = device ? CGSize(width: 444, height: 960) : CGSize(width: 960, height: 600)
++        return UIGraphicsImageRenderer(size: size, format: format).image { context in
++            let ctx = context.cgContext
++            if device { UIImage(cgImage: screen).draw(in: CGRect(x: 0, y: 0, width: 444, height: 966)); return }
++            let colors = [color(hue, 0.78, 1).cgColor, color(hue + 0.17, 0.85, 0.82).cgColor] as CFArray
++            ctx.drawLinearGradient(CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1])!,
++                                   start: .zero, end: CGPoint(x: size.width, y: size.height), options: [])
++            let h: CGFloat = 900, w = h * 402 / 874
++            let frame = CGRect(x: size.width / 2 - w / 2, y: 70, width: w, height: h)
++            ctx.saveGState()
++            ctx.setShadow(offset: CGSize(width: 0, height: 20), blur: 50, color: UIColor.black.withAlphaComponent(0.5).cgColor)
++            rounded(ctx, frame.insetBy(dx: -12, dy: -12), 66, UIColor(white: 0.06, alpha: 1))
++            ctx.restoreGState()
++            ctx.saveGState()
++            UIBezierPath(roundedRect: frame, cornerRadius: 54).addClip()
++            UIImage(cgImage: screen).draw(in: frame)
++            ctx.restoreGState()
++            rounded(ctx, CGRect(x: frame.midX - 60, y: frame.minY + 14, width: 120, height: 34), 17, .black)
++        }.cgImage
++    }
++
+     private static func color(_ hue: CGFloat, _ s: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> UIColor {
+         UIColor(hue: hue.truncatingRemainder(dividingBy: 1), saturation: s, brightness: b, alpha: a)
+     }
+diff --git a/apps/ios/App/Fixtures/FixtureDirector.swift b/apps/ios/App/Fixtures/FixtureDirector.swift
+index ecf27da..abaeba7 100644
+--- a/apps/ios/App/Fixtures/FixtureDirector.swift
++++ b/apps/ios/App/Fixtures/FixtureDirector.swift
+@@ -32,6 +32,21 @@ final class FixtureDirector {
+         if let screen = FixtureWorld.value("-uiFixtureScreen") {
+             DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) { [weak self] in self?.go(to: screen) }
+         }
++        // App Store creative (StoreCreative.swift): the editor for a screenshot, or the preview tour.
++        if #available(iOS 26, *) {
++            if let mode = FixtureWorld.value("-uiStoreEditor") {
++                DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) { [weak self] in
++                    guard let shell = self?.root?.shell else { return }
++                    StoreCreative.showEditor(mode: mode, from: shell)
++                }
++            }
++            if FixtureWorld.has("-uiStoreTour") {
++                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
++                    guard let shell = self?.root?.shell else { return }
++                    StoreCreative.runTour(shell: shell)
++                }
++            }
++        }
+         if let after = FixtureWorld.value("-uiForceCompactAfter").flatMap(Double.init) {
+             DispatchQueue.main.asyncAfter(deadline: .now() + after) { [weak self] in
+                 self?.root?.traitOverrides.horizontalSizeClass = .compact
+diff --git a/apps/ios/App/Fixtures/FixtureWorld.swift b/apps/ios/App/Fixtures/FixtureWorld.swift
+index 046ff44..b6178d8 100644
+--- a/apps/ios/App/Fixtures/FixtureWorld.swift
++++ b/apps/ios/App/Fixtures/FixtureWorld.swift
+@@ -61,14 +61,14 @@ final class FixtureWorld: CloudAPI {
+         func id(_ n: Int) -> String { String(format: "0F1C5A7E-0000-4000-8000-%012d", n) }
+         if !Self.has("-uiFixtureEmpty") {
+             projects = [
+-                Project(id: id(1), name: "Onboarding walkthrough", device: false, still: false, duration: 134, created: ago(30), updated: ago(2), bytes: 182_400_000, isOwner: true, revision: 7, hue: 0.62),
+-                Project(id: id(2), name: "Checkout bug repro", device: true, still: false, duration: 48, created: ago(6), updated: ago(5), bytes: 61_200_000, isOwner: true, revision: 2, hue: 0.08),
+-                Project(id: id(3), name: "Screenshot Nov 12 at 4.21.07 PM", device: true, still: true, duration: 8, created: ago(27), updated: ago(26), bytes: 2_100_000, isOwner: true, revision: 1, hue: 0.83),
+-                Project(id: id(4), name: "Q4 roadmap demo", device: false, still: false, duration: 362, created: ago(80), updated: ago(50), bytes: 512_000_000, isOwner: true, revision: 12, hue: 0.36),
+-                Project(id: id(5), name: "Settings redesign review", device: false, still: false, duration: 65, created: ago(90), updated: ago(74), bytes: 88_000_000, isOwner: false, revision: 4, hue: 0.52),
+-                Project(id: id(6), name: "Screenshot Nov 9 at 9.02.44 AM", device: false, still: true, duration: 8, created: ago(120), updated: ago(119), bytes: 3_400_000, isOwner: true, revision: 1, hue: 0.14),
+-                Project(id: id(7), name: "Login flow on iPhone", device: true, still: false, duration: 92, created: ago(170), updated: ago(168), bytes: 104_000_000, isOwner: true, revision: 3, hue: 0.95),
+-                Project(id: id(8), name: "Pricing page tour with the new annual plans and team seats", device: false, still: false, duration: 211, created: ago(340), updated: ago(330), bytes: 260_000_000, isOwner: true, revision: 5, hue: 0.72),
++                Project(id: id(1), name: StoreL10n.t("proj1"), device: false, still: false, duration: 134, created: ago(30), updated: ago(2), bytes: 182_400_000, isOwner: true, revision: 7, hue: 0.62),
++                Project(id: id(2), name: StoreL10n.t("proj2"), device: true, still: false, duration: 48, created: ago(6), updated: ago(5), bytes: 61_200_000, isOwner: true, revision: 2, hue: 0.08),
++                Project(id: id(3), name: StoreL10n.t("proj3"), device: true, still: true, duration: 8, created: ago(27), updated: ago(26), bytes: 2_100_000, isOwner: true, revision: 1, hue: 0.83),
++                Project(id: id(4), name: StoreL10n.t("proj4"), device: false, still: false, duration: 362, created: ago(80), updated: ago(50), bytes: 512_000_000, isOwner: true, revision: 12, hue: 0.36),
++                Project(id: id(5), name: StoreL10n.t("proj5"), device: false, still: false, duration: 65, created: ago(90), updated: ago(74), bytes: 88_000_000, isOwner: false, revision: 4, hue: 0.52),
++                Project(id: id(6), name: StoreL10n.t("proj6"), device: false, still: true, duration: 8, created: ago(120), updated: ago(119), bytes: 3_400_000, isOwner: true, revision: 1, hue: 0.14),
++                Project(id: id(7), name: StoreL10n.t("proj7"), device: true, still: false, duration: 92, created: ago(170), updated: ago(168), bytes: 104_000_000, isOwner: true, revision: 3, hue: 0.95),
++                Project(id: id(8), name: StoreL10n.t("proj8"), device: false, still: false, duration: 211, created: ago(340), updated: ago(330), bytes: 260_000_000, isOwner: true, revision: 5, hue: 0.72),
+             ]
+             let base = URL(string: "https://capturecat.so/share/")!
+             func share(_ vid: String, _ file: String, project: String?, duration: Double, isPrivate: Bool, comments: Bool, created: Date, bytes: Int64) -> SharedVideo {
+@@ -77,9 +77,9 @@ final class FixtureWorld: CloudAPI {
+                             commentsEnabled: comments, thumbnailUrl: nil, removed: nil)
+             }
+             shares = [
+-                share("fxShareOnboard", "Onboarding walkthrough.mp4", project: id(1), duration: 118, isPrivate: false, comments: true, created: ago(3), bytes: 41_000_000),
+-                share("fxShareRoadmap", "Q4 roadmap demo.mp4", project: id(4), duration: 340, isPrivate: true, comments: false, created: ago(49), bytes: 120_000_000),
+-                share("fxShareRelease", "Release notes — November.mp4", project: nil, duration: 96, isPrivate: false, comments: true, created: ago(96), bytes: 33_000_000),
++                share("fxShareOnboard", StoreL10n.t("proj1") + ".mp4", project: id(1), duration: 118, isPrivate: false, comments: true, created: ago(3), bytes: 41_000_000),
++                share("fxShareRoadmap", StoreL10n.t("proj4") + ".mp4", project: id(4), duration: 340, isPrivate: true, comments: false, created: ago(49), bytes: 120_000_000),
++                share("fxShareRelease", StoreL10n.t("share3") + ".mp4", project: nil, duration: 96, isPrivate: false, comments: true, created: ago(96), bytes: 33_000_000),
+             ]
+             extras = [
+                 "fxShareOnboard": ShareExtras(profileVisible: false, hasPassword: false),
+@@ -92,14 +92,14 @@ final class FixtureWorld: CloudAPI {
+             }
+             comments = [
+                 "fxShareOnboard": [
+-                    comment(1, nil, "Priya Natarajan", owner: false, "The empty state here is lovely. Could the import button be a little more prominent?", at: 14, 2.5),
+-                    comment(2, 1, "Alex Rivera", owner: true, "Good call — bumping it to a primary button in the next take.", at: nil, 2.2),
+-                    comment(3, nil, "Sam Okafor", owner: false, "Small typo in the second tooltip (“recieve”).", at: 47, 1.6),
+-                    comment(4, nil, "Jordan Lee", owner: false, "Love the pacing through the settings section.", at: 92, 0.4),
++                    comment(1, nil, "Priya Natarajan", owner: false, StoreL10n.t("c1"), at: 14, 2.5),
++                    comment(2, 1, "Alex Rivera", owner: true, StoreL10n.t("c2"), at: nil, 2.2),
++                    comment(3, nil, "Sam Okafor", owner: false, StoreL10n.t("c3"), at: 47, 1.6),
++                    comment(4, nil, "Jordan Lee", owner: false, StoreL10n.t("c4"), at: 92, 0.4),
+                 ],
+                 "fxShareRelease": [
+-                    comment(5, nil, "Mina Park", owner: false, "Shipping this to the whole team today!", at: 31, 20),
+-                    comment(6, 5, "Alex Rivera", owner: true, "Thanks Mina 🙌", at: nil, 19),
++                    comment(5, nil, "Mina Park", owner: false, StoreL10n.t("c5"), at: 31, 20),
++                    comment(6, 5, "Alex Rivera", owner: true, StoreL10n.t("c6"), at: nil, 19),
+                 ],
+             ]
+             conflictOnce = [id(4)]
+@@ -301,18 +301,19 @@ final class FixtureInbox: InboxFeed {
+     @ObservationIgnored private var timers: [String: Timer] = [:]
+ 
+     init() {
+-        guard !FixtureWorld.has("-uiFixtureEmpty") else { return }
++        guard !FixtureWorld.has("-uiFixtureEmpty"), !FixtureWorld.has("-uiFixtureNoInbox") else { return }
+         let now = Date()
+         takes = [
+-            PendingTake(id: "FIXTURE-TAKE-UPLOADING", kind: .screenRecording, name: "Screen Recording Nov 13 at 9.41.02 AM",
++            PendingTake(id: "FIXTURE-TAKE-UPLOADING", kind: .screenRecording, name: StoreL10n.t("take1"),
+                         createdAt: now.addingTimeInterval(-300), mediaFile: "recording.mp4", contentType: "video/mp4",
+                         duration: 74, pixelWidth: 1179, pixelHeight: 2556, state: .uploading, error: nil),
+-            PendingTake(id: "FIXTURE-TAKE-FAILED", kind: .screenshot, name: "Screenshot Nov 13 at 9.38.10 AM",
++            PendingTake(id: "FIXTURE-TAKE-FAILED", kind: .screenshot, name: StoreL10n.t("take2"),
+                         createdAt: now.addingTimeInterval(-600), mediaFile: "recording.mp4", contentType: "video/mp4",
+                         duration: 8, pixelWidth: 1179, pixelHeight: 2556, state: .failed,
+                         error: "The upload didn't finish (HTTP 503). Try again."),
+         ]
+-        progress["FIXTURE-TAKE-UPLOADING"] = PublishProgress(phase: .uploading, fraction: 0.55, message: "Uploading…")
++        if FixtureWorld.has("-uiFixtureInboxUploadingOnly") { takes.removeAll { $0.state == .failed } }
++        progress["FIXTURE-TAKE-UPLOADING"] = PublishProgress(phase: .uploading, fraction: 0.55, message: FixtureWorld.has("-uiStoreLocalizedContent") ? String(localized: "Uploading…") : "Uploading…")
+         if FixtureWorld.has("-uiFixtureLiveUpload") { simulate("FIXTURE-TAKE-UPLOADING", from: 0.55) }
+     }
+ 
+@@ -380,12 +381,12 @@ final class FixtureCapture: CaptureFeed {
+             nearbyMacs = [("mac-studio", "Studio Mac"), ("mac-air", "Alex's MacBook Air")]
+             connectedMacID = "mac-studio"
+         default:
+-            presenceStatus = .connected(macName: "Alex's MacBook Pro")
+-            nearbyMacs = [("mac-pro", "Alex's MacBook Pro")]
++            presenceStatus = .connected(macName: StoreL10n.t("mac"))
++            nearbyMacs = [("mac-pro", StoreL10n.t("mac"))]
+             connectedMacID = "mac-pro"
+         }
+         if FixtureWorld.has("-uiFixtureRequest") {
+-            lastRequest = CaptureHubModel.Request(macID: "mac-pro", macName: "Alex's MacBook Pro", at: Date())
++            lastRequest = CaptureHubModel.Request(macID: "mac-pro", macName: StoreL10n.t("mac"), at: Date())
+         }
+         if FixtureWorld.has("-uiFixtureImportError") { importError = "Some screenshots couldn't be imported." }
+     }
+diff --git a/apps/ios/App/Fixtures/StoreCreative.swift b/apps/ios/App/Fixtures/StoreCreative.swift
+new file mode 100644
+index 0000000..93c69e0
+--- /dev/null
++++ b/apps/ios/App/Fixtures/StoreCreative.swift
+@@ -0,0 +1,424 @@
++#if DEBUG
++import AVFoundation
++import UIKit
++
++/// App Store creative (apps/ios/AppStoreAssets): real editor screens on a
++/// believable synthetic screen recording, plus a timed TOUR for the app
++/// preview video (library → project → editor → zoom → playback → export →
++/// share). Debug fixture runs only:
++///
++///     -uiFixtures -uiFixtureNoInbox -uiStoreEditor zoom|background|captions
++///     -uiFixtures -uiFixtureNoInbox -uiStoreTour
++@available(iOS 26, *)
++@MainActor
++enum StoreCreative {
++    static let size = CGSize(width: 1206, height: 2622)
++    static let duration: TimeInterval = 12
++    static var projectName: String { "Sunset Ridge demo" }
++
++    // Layout of the recorded app (pixels in the 1600×1000 frame).
++    static let field = CGRect(x: 340, y: 262, width: 640, height: 60)
++    /// Buttons grow with their (localized) label.
++    static let createButton = CGRect(x: 340, y: 356, width: max(280, labelWidth(StoreL10n.t("create")) + 92), height: 60)
++    static let inviteButton = CGRect(x: 340, y: 640, width: max(240, labelWidth(StoreL10n.t("sent")) + 92, labelWidth(StoreL10n.t("send")) + 92), height: 60)
++    static func labelWidth(_ text: String) -> CGFloat {
++        (text as NSString).size(withAttributes: [.font: UIFont.systemFont(ofSize: 22, weight: .semibold)]).width
++    }
++    static let clickCreate: TimeInterval = 4.8
++    static let clickInvite: TimeInterval = 9.2
++
++    // MARK: - Editor
++
++    static func makeEditor(captions: Bool, initialTime: TimeInterval) async -> EditorViewController? {
++        let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
++            .appendingPathComponent("StoreCreative", isDirectory: true)
++        let dir = root.appendingPathComponent("project-\(UUID().uuidString.prefix(8))", isDirectory: true)
++        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
++        let movie = root.appendingPathComponent("ridge-v1-\(StoreL10n.language).mov")
++        if !FileManager.default.fileExists(atPath: movie.path) {
++            guard await writeMovie(to: movie) else { return nil }
++        }
++        let local = dir.appendingPathComponent("screen.mov")
++        try? FileManager.default.copyItem(at: movie, to: local)
++        let project = Project(id: UUID(), name: projectName, videoURL: local, cameraVideoURL: nil,
++                              duration: duration, recordingSourceKind: .device)
++        project.zoomRegions = [
++            ZoomRegion(id: UUID(), startTime: 2.6, endTime: 5.2, zoomLevel: 1.7, focalPoint: CGPoint(x: 0.5, y: 0.36)),
++            ZoomRegion(id: UUID(), startTime: 7.6, endTime: 10.6, zoomLevel: 1.8, focalPoint: CGPoint(x: 0.5, y: 0.80)),
++        ]
++        var label = Annotation(type: .text, startTime: 0.3, endTime: 2.2)
++        label.text = "Pick a trail"
++        label.x = 0.5; label.y = 0.2
++        project.annotations = [label]
++        project.settings.gradientStartColor = CodableColor(red: 1.0, green: 0.36, blue: 0.30)
++        project.settings.gradientEndColor = CodableColor(red: 0.45, green: 0.20, blue: 0.95)
++        // `-uiStoreAspect 4:3|1:1|…`: the project's canvas aspect (the stage grows with it).
++        if let raw = FixtureWorld.value("-uiStoreAspect"), let aspect = AspectRatio(rawValue: raw) { project.settings.aspectRatio = aspect }
++        project.settings.backgroundPadding = Double(FixtureWorld.value("-uiStorePadding") ?? "14") ?? 14
++        project.settings.exportSettings.resolution = .hd720
++        project.settings.exportSettings.fps = 30
++        if captions {
++            project.subtitles = [
++                SubtitleSegment(startTime: 0.4, endTime: 3.4, text: "Find a trail you'll love."),
++                SubtitleSegment(startTime: 3.6, endTime: 6.6, text: "Tap any hike for the details."),
++                SubtitleSegment(startTime: 7.0, endTime: 10.2, text: "Check the climb before you go."),
++                SubtitleSegment(startTime: 10.4, endTime: 12.0, text: "Then start your hike."),
++            ]
++            project.settings.showSubtitles = true
++            project.settings.subtitleCustomX = 0.5
++            project.settings.subtitleCustomY = Double(FixtureWorld.value("-uiStoreCaptionY") ?? "0.88") ?? 0.88
++            project.settings.subtitleStyle = .background
++            project.settings.subtitleFontSize = Double(FixtureWorld.value("-uiStoreCaptionSize") ?? "17") ?? 17
++            if FixtureWorld.has("-uiStoreKaraoke") { project.settings.subtitleHighlightColor = CodableColor(red: 0.78, green: 0.96, blue: 0.35) }
++        }
++        guard let data = try? JSONEncoder().encode(project),
++              (try? data.write(to: dir.appendingPathComponent(StudioProjectFolder.documentName))) != nil,
++              let folder = try? StudioProjectFolder.open(dir) else { return nil }
++        let editor = EditorViewController(folder: folder, initialTime: initialTime)
++        editor.onClose = {}
++        return editor
++    }
++
++    /// `-uiStoreEditor <mode>`: the editor over the library, left up for a screenshot.
++    static func showEditor(mode: String, from presenter: UIViewController) {
++        Task { @MainActor in
++            let time: TimeInterval = FixtureWorld.value("-uiStoreTime").flatMap(Double.init) ?? (mode == "captions" ? 2.2 : (mode == "background" ? 7.2 : 5.9))
++            guard let editor = await makeEditor(captions: mode == "captions", initialTime: time) else { return }
++            editor.modalPresentationStyle = .fullScreen
++            CCAlert.topmost(from: presenter).present(editor, animated: false)
++            try? await Task.sleep(nanoseconds: 2_000_000_000)
++            // `-uiStoreTimelineZoom n`: n steps of the timeline's own zoom-in key (×1.5 each).
++            for _ in 0..<(Int(FixtureWorld.value("-uiStoreTimelineZoom") ?? "0") ?? 0) { editor.timeline.zoomTimeline(in: true) }
++            let pane = FixtureWorld.has("-uiStorePane")
++            switch mode {
++            case "zoom":
++                editor.timeline.canvas.setOpenLane(.effects, animated: true)
++                editor.selection.selectedZoomID = editor.project.zoomRegions.first?.id
++                if pane { DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { editor.openPanel(.effects) } }
++                // `-uiStorePanelOption <title>`: one Effects option's short panel (e.g. the zoom's own rows).
++                if let want = FixtureWorld.value("-uiStorePanelOption") {
++                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
++                        editor.selection.inspectorTab = .effects
++                        let options = editor.inspector.panelOptions(for: .effects)
++                        print("STORE options: \(options.map { "\($0.id)=\($0.title)" })")
++                        // By id (language-independent) or by its English title.
++                        if let option = options.first(where: { $0.id == want || $0.title == want }) { editor.openPanel(option: option) }
++                    }
++                }
++                if let option = FixtureWorld.value("-uiStoreOption") {
++                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
++                        editor.toolBar.probeKey(option)?.sendActions(for: .touchUpInside)
++                    }
++                }
++            case "background":
++                if pane { editor.openPanel(.background) } else { openPane(.background, option: FixtureWorld.value("-uiStoreOption") ?? "Gradient", in: editor) }
++            case "captions":
++                if pane { editor.openPanel(.subtitles) } else { openPane(.subtitles, option: FixtureWorld.value("-uiStoreOption"), in: editor) }
++            default:
++                break
++            }
++        }
++    }
++
++    private static func openPane(_ tab: InspectorTab, option: String?, in editor: EditorViewController) {
++        if let key = editor.toolBar.key(for: .pane(tab)) { key.sendActions(for: .touchUpInside) } else { editor.openPanel(tab) }
++        guard let option else { return }
++        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
++            editor.toolBar.probeKey(option)?.sendActions(for: .touchUpInside)
++        }
++    }
++
++    // MARK: - Tour (app preview)
++
++    /// The app-preview take: one continuous run through the app, one idea per
++    /// stretch, with a STORETOUR line per step (record-tour.sh timestamps them;
++    /// render.mjs cuts on them). Each step holds still long enough for the
++    /// preview's camera to move over it.
++    static func runTour(shell: ShellViewController) {
++        Task { @MainActor in
++            func wait(_ s: Double) async { try? await Task.sleep(nanoseconds: UInt64(s * 1_000_000_000)) }
++            func mark(_ step: String) { print("STORETOUR \(step)") }
++            let editorTask = Task { await makeEditor(captions: true, initialTime: 2.0) }
++            shell.select(.capture, animated: false)
++            let feed = FixtureWorld.shared.capture
++            feed.setStatus(.searching)
++            mark("capture")
++            await wait(3.2)
++            feed.setStatus(.connecting(macName: "Alex's MacBook Pro"))
++            await wait(1.4)
++            feed.setStatus(.connected(macName: "Alex's MacBook Pro"))
++            await wait(2.4)
++            mark("library")
++            shell.select(.library, animated: true)
++            await wait(2.6)
++            guard let editor = await editorTask.value else { mark("FAIL editor"); return }
++            editor.modalPresentationStyle = .fullScreen
++            mark("editor")
++            CCAlert.topmost(from: shell).present(editor, animated: true)
++            await wait(1.6)
++            // Idea: the zoom block. The timeline zooms in, the lane opens, the block is selected.
++            mark("play")
++            editor.playback.setPlaying(true, for: editor.project)
++            await wait(9.0)
++            mark("pause")
++            editor.playback.setPlaying(false, for: editor.project)
++            await wait(0.8)
++            // Idea: the background, changed in one tap.
++            mark("background")
++            editor.openPanel(.background)
++            await wait(1.6)
++            mark("mesh")
++            // A warmer gradient: the Start / End colour wells, as a person would pick them.
++            for (a, b) in [((0.16, 0.66, 1.0), (0.10, 0.10, 0.62)), ((0.10, 0.80, 0.50), (0.02, 0.26, 0.40)), ((1.0, 0.70, 0.12), (0.90, 0.15, 0.40))] {
++                editor.project.settings.gradientStartColor = CodableColor(red: a.0, green: a.1, blue: a.2)
++                editor.project.settings.gradientEndColor = CodableColor(red: b.0, green: b.1, blue: b.2)
++                await wait(1.0)
++            }
++            // Idea: captions made on the device.
++            mark("subtitles")
++            editor.closePanel(animated: true)
++            await wait(0.4)
++            editor.openPanel(.subtitles)
++            await wait(2.6)
++            editor.closePanel(animated: true)
++            await wait(0.5)
++            // Idea: export and share.
++            mark("export")
++            guard let sheet = editor.presentExport() else { mark("FAIL sheet"); return }
++            await wait(1.4)
++            sheet.exportButton.sendActions(for: .touchUpInside)
++            mark("exporting")
++            for _ in 0..<2400 {
++                await wait(0.1)
++                if sheet.shareButton.window != nil, !sheet.shareButton.isHidden, sheet.shareButton.alpha > 0.9 { break }
++            }
++            mark("exported")
++            await wait(1.6)
++            mark("share")
++            sheet.shareButton.onTap?()
++            await wait(2.5)
++            if sheet.presentedViewController != nil {
++                mark("share-sheet visible")
++                await wait(3.0)
++                sheet.presentedViewController?.dismiss(animated: true)
++                await wait(0.8)
++            } else {
++                mark("share-sheet missing")
++            }
++            mark("share-detail")
++            editor.presentingViewController?.dismiss(animated: true)
++            await wait(0.7)
++            shell.library.showShare("fxShareOnboard")
++            await wait(5.0)
++            mark("end")
++        }
++    }
++
++    // MARK: - The recorded app (synthetic, believable)
++
++    static func writeMovie(to url: URL, fps: Int32 = 30) async -> Bool {
++        try? FileManager.default.removeItem(at: url)
++        guard let writer = try? AVAssetWriter(outputURL: url, fileType: .mov) else { return false }
++        let w = Int(size.width), h = Int(size.height)
++        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
++            AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: w, AVVideoHeightKey: h,
++            AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: 12_000_000],
++        ])
++        input.expectsMediaDataInRealTime = false
++        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
++            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
++            kCVPixelBufferWidthKey as String: w, kCVPixelBufferHeightKey as String: h,
++        ])
++        guard writer.canAdd(input) else { return false }
++        writer.add(input)
++        writer.startWriting()
++        writer.startSession(atSourceTime: .zero)
++        let frames = Int(duration * Double(fps))
++        for i in 0...frames {
++            let t = min(Double(i) / Double(fps), duration - 0.001)
++            guard let image = frame(at: t), let pool = adaptor.pixelBufferPool else { return false }
++            var out: CVPixelBuffer?
++            guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &out) == kCVReturnSuccess, let buffer = out else { return false }
++            CVPixelBufferLockBaseAddress(buffer, [])
++            if let ctx = CGContext(data: CVPixelBufferGetBaseAddress(buffer), width: w, height: h, bitsPerComponent: 8,
++                                   bytesPerRow: CVPixelBufferGetBytesPerRow(buffer), space: CGColorSpaceCreateDeviceRGB(),
++                                   bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue) {
++                ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
++            }
++            CVPixelBufferUnlockBaseAddress(buffer, [])
++            while !input.isReadyForMoreMediaData { try? await Task.sleep(nanoseconds: 2_000_000) }
++            guard adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(i), timescale: fps)) else { return false }
++        }
++        input.markAsFinished()
++        await writer.finishWriting()
++        return writer.status == .completed
++    }
++
++    private static func ease(_ x: Double) -> Double { let c = max(0, min(1, x)); return c * c * (3 - 2 * c) }
++    private static func lerp(_ a: CGPoint, _ b: CGPoint, _ k: Double) -> CGPoint {
++        CGPoint(x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k)
++    }
++
++    // MARK: The recorded iPhone app ("Ridge", a hiking app drawn here)
++
++    static let pt = CGSize(width: 402, height: 874)
++    static let tapCard: TimeInterval = 3.2
++    static let tapStart: TimeInterval = 8.2
++    static let cardTap = CGPoint(x: 201, y: 330)
++    static let startTap = CGPoint(x: 201, y: 786)
++
++    static func frame(at t: TimeInterval) -> CGImage? {
++        let format = UIGraphicsImageRendererFormat()
++        format.scale = size.width / pt.width
++        format.opaque = true
++        return UIGraphicsImageRenderer(size: pt, format: format).image { ctx in
++            draw(t, ctx.cgContext)
++        }.cgImage
++    }
++
++    private static func hex(_ v: UInt32, _ a: CGFloat = 1) -> UIColor {
++        UIColor(red: CGFloat(v >> 16 & 255) / 255, green: CGFloat(v >> 8 & 255) / 255, blue: CGFloat(v & 255) / 255, alpha: a)
++    }
++
++    private static func text(_ s: String, _ p: CGPoint, _ size: CGFloat, _ weight: UIFont.Weight, _ color: UIColor, centred: Bool = false, design: UIFontDescriptor.SystemDesign = .rounded) {
++        var font = UIFont.systemFont(ofSize: size, weight: weight)
++        if let d = font.fontDescriptor.withDesign(design) { font = UIFont(descriptor: d, size: size) }
++        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
++        let w = (s as NSString).size(withAttributes: attrs).width
++        (s as NSString).draw(at: CGPoint(x: centred ? p.x - w / 2 : p.x, y: p.y), withAttributes: attrs)
++    }
++
++    private static func round(_ r: CGRect, _ radius: CGFloat, _ fill: UIColor) {
++        fill.setFill(); UIBezierPath(roundedRect: r, cornerRadius: radius).fill()
++    }
++
++    private static func gradient(_ c: CGContext, _ r: CGRect, _ colors: [UIColor], radius: CGFloat = 0, diagonal: Bool = false) {
++        c.saveGState()
++        UIBezierPath(roundedRect: r, cornerRadius: radius).addClip()
++        let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors.map(\.cgColor) as CFArray, locations: nil)!
++        c.drawLinearGradient(g, start: r.origin, end: CGPoint(x: diagonal ? r.maxX : r.minX, y: r.maxY), options: [])
++        c.restoreGState()
++    }
++
++    /// Layered mountains under a sunset sky.
++    private static func scene(_ c: CGContext, _ r: CGRect, radius: CGFloat, sky: [UIColor], ridge: [UIColor], seed: CGFloat, shift: CGFloat = 0) {
++        c.saveGState()
++        UIBezierPath(roundedRect: r, cornerRadius: radius).addClip()
++        gradient(c, r, sky)
++        hex(0xFFF3D6, 0.95).setFill()
++        c.fillEllipse(in: CGRect(x: r.minX + r.width * 0.64, y: r.minY + r.height * 0.18 + shift, width: r.width * 0.15, height: r.width * 0.15))
++        for (n, color) in ridge.enumerated() {
++            let base = r.minY + r.height * (0.46 + 0.16 * CGFloat(n)) + shift * (1 + 0.4 * CGFloat(n))
++            let path = UIBezierPath()
++            path.move(to: CGPoint(x: r.minX, y: r.maxY))
++            for step in 0...40 {
++                let x = CGFloat(step) / 40
++                let y = sin(x * 7 + seed + CGFloat(n) * 2.1) * 0.06 + sin(x * 17 + seed * 2 + CGFloat(n)) * 0.028 + abs(sin(x * 4.2 + seed * 1.3 + CGFloat(n) * 1.7)) * -0.12
++                path.addLine(to: CGPoint(x: r.minX + x * r.width, y: base + y * r.height))
++            }
++            path.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
++            path.close()
++            color.setFill(); path.fill()
++        }
++        c.restoreGState()
++    }
++
++    private static func draw(_ t: TimeInterval, _ c: CGContext) {
++        let bg = hex(0x0E1512), card = hex(0x1A2420), ink = UIColor.white, dim = hex(0x93A59B), lime = hex(0xC8F55A)
++        bg.setFill(); c.fill(CGRect(origin: .zero, size: pt))
++        let open = CGFloat(ease((t - tapCard - 0.12) / 0.55))
++
++        // Feed
++        if open < 1 {
++            c.saveGState(); c.setAlpha(1 - open)
++            let scroll = 34 * CGFloat(ease((t - 0.8) / 1.4)) - 34 * CGFloat(ease((t - 2.2) / 0.7))
++            c.translateBy(x: 0, y: -scroll)
++            text("Good morning, Maya", CGPoint(x: 24, y: 76), 16, .semibold, dim)
++            text("Find your trail", CGPoint(x: 24, y: 98), 36, .bold, ink)
++            for (n, chip) in ["Nearby", "Lakes", "Summits", "Easy"].enumerated() {
++                let x = 24 + CGFloat(n) * 92
++                round(CGRect(x: x, y: 156, width: 82, height: 38), 19, n == 0 ? lime : card)
++                text(chip, CGPoint(x: x + 41, y: 165), 15, .semibold, n == 0 ? hex(0x10180C) : ink, centred: true)
++            }
++            let second = CGRect(x: 24, y: 514, width: 354, height: 250)
++            scene(c, second, radius: 28, sky: [hex(0x2B7FFF), hex(0x7FD4FF), hex(0xE8FBFF)], ridge: [hex(0x5B8DEF), hex(0x2F62B8), hex(0x163B73)], seed: 4.1)
++            text("Mirror Lake Loop", CGPoint(x: 46, y: 690), 24, .bold, ink)
++            text("4.2 km  ·  Easy  ·  1 h 20", CGPoint(x: 46, y: 722), 15, .semibold, hex(0xFFFFFF, 0.85))
++            c.restoreGState()
++        }
++        // Hero card → detail hero
++        let from = CGRect(x: 24, y: 216, width: 354, height: 278), to = CGRect(x: 0, y: 0, width: 402, height: 420)
++        func mix(_ a: CGFloat, _ b: CGFloat) -> CGFloat { a + (b - a) * open }
++        let press = t >= tapCard && t < tapCard + 0.2 ? CGFloat(0.975) : 1
++        let scrollY = open > 0 ? 0 : 34 * CGFloat(ease((t - 0.8) / 1.4)) - 34 * CGFloat(ease((t - 2.2) / 0.7))
++        let hero = CGRect(x: mix(from.minX, to.minX), y: mix(from.minY, to.minY) - scrollY, width: mix(from.width, to.width), height: mix(from.height, to.height))
++        c.saveGState()
++        c.translateBy(x: hero.midX, y: hero.midY); c.scaleBy(x: press, y: press); c.translateBy(x: -hero.midX, y: -hero.midY)
++        scene(c, hero, radius: mix(28, 0), sky: [hex(0x3A1C71), hex(0xD76D77), hex(0xFFAF7B)], ridge: [hex(0x7B3B6B), hex(0x4A2454), hex(0x1E1330)], seed: 1.2, shift: 10 * open)
++        text("Sunset Ridge", CGPoint(x: hero.minX + 24, y: hero.maxY - 84), mix(28, 38), .bold, ink)
++        text("9.8 km  ·  Moderate  ·  3 h 10", CGPoint(x: hero.minX + 24, y: hero.maxY - mix(48, 38)), 16, .semibold, hex(0xFFFFFF, 0.88))
++        c.restoreGState()
++
++        // Detail
++        if open > 0 {
++            c.saveGState(); c.setAlpha(open); c.translateBy(x: 0, y: 40 * (1 - open))
++            for (n, stat) in [("9.8", "km"), ("640", "m up"), ("4.9", "rating")].enumerated() {
++                let r = CGRect(x: 24 + CGFloat(n) * 120, y: 444, width: 114, height: 84)
++                round(r, 22, card)
++                let k = CGFloat(ease((t - tapCard - 0.5 - Double(n) * 0.12) / 0.8))
++                let value = stat.1 == "m up" ? String(Int(640 * k)) : String(format: "%.1f", (stat.0 == "9.8" ? 9.8 : 4.9) * k)
++                text(value, CGPoint(x: r.midX, y: r.minY + 14), 28, .bold, ink, centred: true)
++                text(stat.1, CGPoint(x: r.midX, y: r.minY + 50), 14, .semibold, dim, centred: true)
++            }
++            let chart = CGRect(x: 24, y: 546, width: 354, height: 178)
++            round(chart, 26, card)
++            text("Elevation", CGPoint(x: 44, y: 562), 17, .bold, ink)
++            let grow = CGFloat(ease((t - 4.5) / 2.0))
++            let line = UIBezierPath(); let area = UIBezierPath()
++            var last = CGPoint.zero
++            for step in 0...60 where CGFloat(step) / 60 <= grow {
++                let x = CGFloat(step) / 60
++                let y = 0.5 - 0.34 * sin(x * 3.0) + 0.09 * sin(x * 13) + 0.04 * sin(x * 29)
++                let p = CGPoint(x: chart.minX + 20 + x * (chart.width - 40), y: chart.minY + 62 + y * 100)
++                if step == 0 { line.move(to: p); area.move(to: CGPoint(x: p.x, y: chart.maxY - 16)) } else { line.addLine(to: p) }
++                area.addLine(to: p); last = p
++            }
++            area.addLine(to: CGPoint(x: last.x, y: chart.maxY - 16)); area.close()
++            lime.withAlphaComponent(0.16).setFill(); area.fill()
++            lime.setStroke(); line.lineWidth = 4; line.lineCapStyle = .round; line.lineJoinStyle = .round; line.stroke()
++            if grow > 0.01 { lime.setFill(); c.fillEllipse(in: CGRect(x: last.x - 8, y: last.y - 8, width: 16, height: 16)); bg.setFill(); c.fillEllipse(in: CGRect(x: last.x - 4, y: last.y - 4, width: 8, height: 8)) }
++            let started = t >= tapStart + 0.25
++            let sp: CGFloat = t >= tapStart && t < tapStart + 0.22 ? 0.96 : 1
++            let button = CGRect(x: 24, y: 752, width: 354, height: 68)
++            c.saveGState(); c.translateBy(x: button.midX, y: button.midY); c.scaleBy(x: sp, y: sp); c.translateBy(x: -button.midX, y: -button.midY)
++            round(button, 34, started ? hex(0xFF5A3C) : lime)
++            let secs = max(0, Int(t - tapStart))
++            text(started ? "Recording hike  0:0\(secs)" : "Start hike", CGPoint(x: button.midX, y: button.minY + 20), 23, .bold, started ? .white : hex(0x10180C), centred: true)
++            c.restoreGState()
++            if started {
++                let k = CGFloat(ease((t - tapStart - 0.25) / 0.45))
++                let toast = CGRect(x: 60, y: 20 + 46 * k, width: 282, height: 56)
++                c.saveGState(); c.setAlpha(k)
++                round(toast, 28, hex(0x10180C, 0.92)); round(CGRect(x: toast.minX + 10, y: toast.minY + 10, width: 36, height: 36), 18, lime)
++                text("✓", CGPoint(x: toast.minX + 28, y: toast.minY + 14), 20, .bold, hex(0x10180C), centred: true)
++                text("You're on the trail!", CGPoint(x: toast.minX + 58, y: toast.minY + 17), 18, .bold, ink)
++                c.restoreGState()
++            }
++            c.restoreGState()
++        }
++        // Status bar
++        text("9:41", CGPoint(x: 62, y: 20), 17, .semibold, ink, centred: true, design: .default)
++        round(CGRect(x: 340, y: 24, width: 26, height: 13), 4, hex(0xFFFFFF, 0.35)); round(CGRect(x: 342, y: 26, width: 20, height: 9), 2.5, ink)
++        // Taps
++        for (at, p) in [(tapCard, cardTap), (tapStart, startTap)] where t >= at - 0.12 && t < at + 0.55 {
++            let k = CGFloat((t - at + 0.12) / 0.67)
++            let r = 20 + 34 * k
++            hex(0xFFFFFF, 0.5 * (1 - k)).setFill()
++            c.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
++            hex(0xFFFFFF, 0.9 * (1 - k)).setStroke(); c.setLineWidth(3); c.strokeEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
++        }
++        // Home indicator
++        round(CGRect(x: 134, y: 856, width: 134, height: 5), 2.5, hex(0xFFFFFF, 0.8))
++    }
++}
++#endif
+diff --git a/apps/ios/App/Fixtures/StoreFixtureL10n.swift b/apps/ios/App/Fixtures/StoreFixtureL10n.swift
+new file mode 100644
+index 0000000..685f237
+--- /dev/null
++++ b/apps/ios/App/Fixtures/StoreFixtureL10n.swift
+@@ -0,0 +1,500 @@
++#if DEBUG
++import Foundation
++
++// Generated by AppStoreAssets/source/scripts/gen-fixture-l10n.py from
++// AppStoreAssets/source/fixture-l10n.json — edit the JSON, not this file.
++//
++/// The store fixture's own visible content (project names, comments, the
++/// synthetic recorded web app, the demo captions) in the app's language, for
++/// App Store creative: `-uiStoreLocalizedContent` turns it on; otherwise the
++/// fixture stays English (the l10n gate compares fixture runs to English).
++enum StoreL10n {
++    static let table: [String: [String: String]] = [
++        "en": [
++            "proj1": "Sunset Ridge demo",
++            "proj2": "iPhone screen recording",
++            "proj3": "Trail screenshot",
++            "proj4": "App tutorial",
++            "proj5": "Launch video",
++            "proj6": "Feature tour",
++            "proj7": "Bug report video",
++            "proj8": "App Store preview",
++            "share3": "App walkthrough",
++            "take1": "Screen Recording Nov 13 at 9.41.02 AM",
++            "take2": "Screenshot Nov 13 at 9.38.10 AM",
++            "c1": "This tutorial is so clear. Love the zoom on the start button!",
++            "c2": "Thanks! Recorded and edited on my iPhone.",
++            "c3": "Can you slow this part down a little?",
++            "c4": "The captions make it easy to follow on mute.",
++            "c5": "Sharing this with everyone!",
++            "c6": "Thanks Mina 🙌",
++            "mac": "Alex's MacBook Pro",
++            "nav1": "Home",
++            "nav2": "Projects",
++            "nav3": "Team",
++            "nav4": "Reports",
++            "nav5": "Settings",
++            "title1": "Create your workspace",
++            "sub1": "Name it after your team. You can change it later.",
++            "label": "Workspace name",
++            "typed": "Design Team",
++            "placeholder": "e.g. Marketing",
++            "create": "Create workspace",
++            "title2": "Workspace ready",
++            "sub2": "Design Team is set up. Bring people in next.",
++            "meta": "3 projects · 1 member",
++            "invite": "Invite your team",
++            "send": "Send invites",
++            "sent": "Invites sent",
++            "toast": "3 invites sent to your team",
++            "cap1": "Let’s set up your first workspace.",
++            "cap2": "Give it a name, then hit Create.",
++            "cap3": "Now invite your team in one click.",
++            "cap4": "That’s it, you’re ready.",
++            "label2": "Name your workspace",
++        ],
++        "de": [
++            "proj1": "Onboarding-Rundgang",
++            "proj2": "Checkout-Fehler nachgestellt",
++            "proj3": "Bildschirmfoto 12.11. um 16.21.07",
++            "proj4": "Q4-Roadmap-Demo",
++            "proj5": "Review: Einstellungen neu",
++            "proj6": "Bildschirmfoto 09.11. um 09.02.44",
++            "proj7": "Login-Ablauf auf dem iPhone",
++            "proj8": "Preisseite mit den neuen Jahresplänen und Team-Plätzen",
++            "share3": "Versionshinweise – November",
++            "take1": "Bildschirmaufnahme 13.11. um 09.41.02",
++            "take2": "Bildschirmfoto 13.11. um 09.38.10",
++            "c1": "Der leere Zustand ist toll. Könnte der Import-Button etwas auffälliger sein?",
++            "c2": "Guter Punkt – in der nächsten Aufnahme wird er ein primärer Button.",
++            "c3": "Kleiner Tippfehler im zweiten Tooltip („empfangn“).",
++            "c4": "Das Tempo im Einstellungsteil gefällt mir sehr.",
++            "c5": "Das geht heute ans ganze Team!",
++            "c6": "Danke, Mina 🙌",
++            "mac": "MacBook Pro von Alex",
++            "nav1": "Start",
++            "nav2": "Projekte",
++            "nav3": "Team",
++            "nav4": "Berichte",
++            "nav5": "Einstellungen",
++            "title1": "Workspace erstellen",
++            "sub1": "Benenne ihn nach deinem Team. Du kannst das später ändern.",
++            "label": "Name des Workspace",
++            "typed": "Design-Team",
++            "placeholder": "z. B. Marketing",
++            "create": "Workspace erstellen",
++            "title2": "Workspace bereit",
++            "sub2": "Design-Team ist eingerichtet. Lade jetzt Leute ein.",
++            "meta": "3 Projekte · 1 Mitglied",
++            "invite": "Team einladen",
++            "send": "Einladen",
++            "sent": "Eingeladen",
++            "toast": "3 Einladungen an dein Team gesendet",
++            "cap1": "Richten wir deinen ersten Workspace ein.",
++            "cap2": "Gib ihm einen Namen und tippe auf Erstellen.",
++            "cap3": "Jetzt lädst du dein Team mit einem Klick ein.",
++            "cap4": "Fertig, es kann losgehen.",
++            "label2": "Workspace benennen",
++        ],
++        "fr": [
++            "proj1": "Visite guidée de l’onboarding",
++            "proj2": "Reproduction du bug de paiement",
++            "proj3": "Capture d’écran 12 nov. à 16.21.07",
++            "proj4": "Démo de la feuille de route T4",
++            "proj5": "Revue de la refonte des réglages",
++            "proj6": "Capture d’écran 9 nov. à 09.02.44",
++            "proj7": "Connexion sur iPhone",
++            "proj8": "Visite de la page tarifs avec les nouvelles offres annuelles et les places d’équipe",
++            "share3": "Notes de version – novembre",
++            "take1": "Enregistrement de l’écran 13 nov. à 09.41.02",
++            "take2": "Capture d’écran 13 nov. à 09.38.10",
++            "c1": "L’état vide est réussi. Le bouton d’import pourrait-il être un peu plus visible ?",
++            "c2": "Bonne idée – il devient un bouton principal dans la prochaine prise.",
++            "c3": "Petite faute dans la deuxième infobulle (« recevior »).",
++            "c4": "J’adore le rythme de la partie réglages.",
++            "c5": "J’envoie ça à toute l’équipe aujourd’hui !",
++            "c6": "Merci Mina 🙌",
++            "mac": "MacBook Pro de Alex",
++            "nav1": "Accueil",
++            "nav2": "Projets",
++            "nav3": "Équipe",
++            "nav4": "Rapports",
++            "nav5": "Réglages",
++            "title1": "Créez votre espace",
++            "sub1": "Donnez-lui le nom de votre équipe. Modifiable plus tard.",
++            "label": "Nom de l’espace",
++            "typed": "Équipe Design",
++            "placeholder": "ex. Marketing",
++            "create": "Créer l’espace",
++            "title2": "Espace prêt",
++            "sub2": "Équipe Design est prête. Invitez du monde ensuite.",
++            "meta": "3 projets · 1 membre",
++            "invite": "Invitez votre équipe",
++            "send": "Inviter",
++            "sent": "Invitations envoyées",
++            "toast": "3 invitations envoyées à l’équipe",
++            "cap1": "Créons votre premier espace.",
++            "cap2": "Donnez-lui un nom, puis touchez Créer.",
++            "cap3": "Invitez votre équipe en un clic.",
++            "cap4": "C’est tout, vous êtes prêt.",
++            "label2": "Nommez votre espace",
++        ],
++        "es": [
++            "proj1": "Recorrido de bienvenida",
++            "proj2": "Reproducción del error de pago",
++            "proj3": "Captura 12 nov a las 16.21.07",
++            "proj4": "Demo de la hoja de ruta T4",
++            "proj5": "Revisión del rediseño de ajustes",
++            "proj6": "Captura 9 nov a las 9.02.44",
++            "proj7": "Inicio de sesión en iPhone",
++            "proj8": "Recorrido por la página de precios con los nuevos planes anuales",
++            "share3": "Notas de la versión – noviembre",
++            "take1": "Grabación de pantalla 13 nov a las 9.41.02",
++            "take2": "Captura 13 nov a las 9.38.10",
++            "c1": "El estado vacío queda genial. ¿El botón de importar podría destacar un poco más?",
++            "c2": "Buena idea: en la próxima toma será un botón principal.",
++            "c3": "Pequeña errata en el segundo aviso («recivir»).",
++            "c4": "Me encanta el ritmo en la parte de ajustes.",
++            "c5": "¡Hoy se lo paso a todo el equipo!",
++            "c6": "Gracias, Mina 🙌",
++            "mac": "MacBook Pro de Alex",
++            "nav1": "Inicio",
++            "nav2": "Proyectos",
++            "nav3": "Equipo",
++            "nav4": "Informes",
++            "nav5": "Ajustes",
++            "title1": "Crea tu espacio de trabajo",
++            "sub1": "Ponle el nombre de tu equipo. Puedes cambiarlo luego.",
++            "label": "Nombre del espacio",
++            "typed": "Equipo de diseño",
++            "placeholder": "p. ej. Marketing",
++            "create": "Crear espacio",
++            "title2": "Espacio listo",
++            "sub2": "Equipo de diseño está listo. Ahora invita a tu gente.",
++            "meta": "3 proyectos · 1 miembro",
++            "invite": "Invita a tu equipo",
++            "send": "Invitar",
++            "sent": "Invitaciones enviadas",
++            "toast": "3 invitaciones enviadas a tu equipo",
++            "cap1": "Vamos a crear tu primer espacio.",
++            "cap2": "Ponle un nombre y pulsa Crear.",
++            "cap3": "Invita a tu equipo con un clic.",
++            "cap4": "Listo, ya puedes empezar.",
++            "label2": "Ponle nombre",
++        ],
++        "es-MX": [
++            "proj1": "Recorrido de bienvenida",
++            "proj2": "Reproducción del error de pago",
++            "proj3": "Captura 12 nov a las 4.21.07 p.m.",
++            "proj4": "Demo de la hoja de ruta T4",
++            "proj5": "Revisión del rediseño de configuración",
++            "proj6": "Captura 9 nov a las 9.02.44 a.m.",
++            "proj7": "Inicio de sesión en iPhone",
++            "proj8": "Recorrido por la página de precios con los nuevos planes anuales",
++            "share3": "Notas de la versión – noviembre",
++            "take1": "Grabación de pantalla 13 nov a las 9.41.02 a.m.",
++            "take2": "Captura 13 nov a las 9.38.10 a.m.",
++            "c1": "El estado vacío quedó increíble. ¿El botón de importar podría resaltar un poco más?",
++            "c2": "Buena idea: en la siguiente toma será un botón principal.",
++            "c3": "Pequeño error de dedo en el segundo aviso («recivir»).",
++            "c4": "Me encanta el ritmo en la parte de configuración.",
++            "c5": "¡Hoy se lo comparto a todo el equipo!",
++            "c6": "Gracias, Mina 🙌",
++            "mac": "MacBook Pro de Alex",
++            "nav1": "Inicio",
++            "nav2": "Proyectos",
++            "nav3": "Equipo",
++            "nav4": "Reportes",
++            "nav5": "Configuración",
++            "title1": "Crea tu espacio de trabajo",
++            "sub1": "Ponle el nombre de tu equipo. Puedes cambiarlo después.",
++            "label": "Nombre del espacio",
++            "typed": "Equipo de diseño",
++            "placeholder": "p. ej. Marketing",
++            "create": "Crear espacio",
++            "title2": "Espacio listo",
++            "sub2": "Equipo de diseño está listo. Ahora invita a tu gente.",
++            "meta": "3 proyectos · 1 miembro",
++            "invite": "Invita a tu equipo",
++            "send": "Invitar",
++            "sent": "Invitaciones enviadas",
++            "toast": "3 invitaciones enviadas a tu equipo",
++            "cap1": "Vamos a crear tu primer espacio.",
++            "cap2": "Ponle un nombre y toca Crear.",
++            "cap3": "Invita a tu equipo con un clic.",
++            "cap4": "Listo, ya puedes empezar.",
++            "label2": "Ponle nombre",
++        ],
++        "it": [
++            "proj1": "Tour di onboarding",
++            "proj2": "Riproduzione bug checkout",
++            "proj3": "Istantanea 12 nov alle 16.21.07",
++            "proj4": "Demo roadmap Q4",
++            "proj5": "Revisione nuove Impostazioni",
++            "proj6": "Istantanea 9 nov alle 09.02.44",
++            "proj7": "Accesso su iPhone",
++            "proj8": "Tour della pagina prezzi con i nuovi piani annuali e i posti team",
++            "share3": "Note di rilascio – novembre",
++            "take1": "Registrazione schermo 13 nov alle 09.41.02",
++            "take2": "Istantanea 13 nov alle 09.38.10",
++            "c1": "Lo stato vuoto è bellissimo. Il pulsante di importazione potrebbe risaltare un po’ di più?",
++            "c2": "Ottima idea: nella prossima ripresa diventa un pulsante principale.",
++            "c3": "Piccolo refuso nel secondo suggerimento (“ricevre”).",
++            "c4": "Adoro il ritmo nella parte delle impostazioni.",
++            "c5": "Oggi lo mando a tutto il team!",
++            "c6": "Grazie Mina 🙌",
++            "mac": "MacBook Pro di Alex",
++            "nav1": "Home",
++            "nav2": "Progetti",
++            "nav3": "Team",
++            "nav4": "Report",
++            "nav5": "Impostazioni",
++            "title1": "Crea il tuo spazio di lavoro",
++            "sub1": "Dagli il nome del tuo team. Puoi cambiarlo dopo.",
++            "label": "Nome dello spazio",
++            "typed": "Team Design",
++            "placeholder": "es. Marketing",
++            "create": "Crea spazio",
++            "title2": "Spazio pronto",
++            "sub2": "Team Design è pronto. Ora invita le persone.",
++            "meta": "3 progetti · 1 membro",
++            "invite": "Invita il tuo team",
++            "send": "Invita",
++            "sent": "Inviti inviati",
++            "toast": "3 inviti inviati al team",
++            "cap1": "Creiamo il tuo primo spazio di lavoro.",
++            "cap2": "Dagli un nome, poi tocca Crea.",
++            "cap3": "Ora invita il team con un clic.",
++            "cap4": "Fatto, sei pronto.",
++            "label2": "Dai un nome",
++        ],
++        "pt-BR": [
++            "proj1": "Tour de boas-vindas",
++            "proj2": "Reprodução do bug no checkout",
++            "proj3": "Captura 12 de nov. às 16.21.07",
++            "proj4": "Demo do roadmap do 4º tri",
++            "proj5": "Revisão do novo Ajustes",
++            "proj6": "Captura 9 de nov. às 09.02.44",
++            "proj7": "Login no iPhone",
++            "proj8": "Tour da página de preços com os novos planos anuais e vagas de equipe",
++            "share3": "Notas da versão – novembro",
++            "take1": "Gravação de tela 13 de nov. às 09.41.02",
++            "take2": "Captura 13 de nov. às 09.38.10",
++            "c1": "O estado vazio ficou ótimo. O botão de importar poderia ter mais destaque?",
++            "c2": "Boa — na próxima gravação ele vira botão principal.",
++            "c3": "Pequeno erro de digitação na segunda dica (“receber” sem o r).",
++            "c4": "Adorei o ritmo na parte de ajustes.",
++            "c5": "Vou mandar para a equipe toda hoje!",
++            "c6": "Valeu, Mina 🙌",
++            "mac": "MacBook Pro do Alex",
++            "nav1": "Início",
++            "nav2": "Projetos",
++            "nav3": "Equipe",
++            "nav4": "Relatórios",
++            "nav5": "Ajustes",
++            "title1": "Crie seu espaço de trabalho",
++            "sub1": "Dê o nome da sua equipe. Você pode mudar depois.",
++            "label": "Nome do espaço",
++            "typed": "Equipe de Design",
++            "placeholder": "ex.: Marketing",
++            "create": "Criar espaço",
++            "title2": "Espaço pronto",
++            "sub2": "Equipe de Design está pronta. Agora convide pessoas.",
++            "meta": "3 projetos · 1 membro",
++            "invite": "Convide sua equipe",
++            "send": "Convidar",
++            "sent": "Convites enviados",
++            "toast": "3 convites enviados à equipe",
++            "cap1": "Vamos criar seu primeiro espaço.",
++            "cap2": "Dê um nome e toque em Criar.",
++            "cap3": "Agora convide a equipe com um clique.",
++            "cap4": "Pronto, tudo certo.",
++            "label2": "Dê um nome",
++        ],
++        "nl": [
++            "proj1": "Onboarding-rondleiding",
++            "proj2": "Checkout-bug nagespeeld",
++            "proj3": "Schermafbeelding 12 nov om 16.21.07",
++            "proj4": "Demo roadmap Q4",
++            "proj5": "Review nieuwe Instellingen",
++            "proj6": "Schermafbeelding 9 nov om 09.02.44",
++            "proj7": "Inloggen op iPhone",
++            "proj8": "Rondleiding prijspagina met de nieuwe jaarabonnementen en teamplekken",
++            "share3": "Releasenotes – november",
++            "take1": "Schermopname 13 nov om 09.41.02",
++            "take2": "Schermafbeelding 13 nov om 09.38.10",
++            "c1": "De lege staat is prachtig. Kan de importknop iets meer opvallen?",
++            "c2": "Goed punt – in de volgende opname wordt het een primaire knop.",
++            "c3": "Kleine typfout in de tweede tooltip (‘ontvagen’).",
++            "c4": "Het tempo in het instellingendeel is top.",
++            "c5": "Ik stuur dit vandaag naar het hele team!",
++            "c6": "Dank je, Mina 🙌",
++            "mac": "MacBook Pro van Alex",
++            "nav1": "Start",
++            "nav2": "Projecten",
++            "nav3": "Team",
++            "nav4": "Rapporten",
++            "nav5": "Instellingen",
++            "title1": "Maak je werkruimte",
++            "sub1": "Noem hem naar je team. Je kunt dit later wijzigen.",
++            "label": "Naam werkruimte",
++            "typed": "Designteam",
++            "placeholder": "bijv. Marketing",
++            "create": "Werkruimte maken",
++            "title2": "Werkruimte klaar",
++            "sub2": "Designteam staat klaar. Nodig nu mensen uit.",
++            "meta": "3 projecten · 1 lid",
++            "invite": "Nodig je team uit",
++            "send": "Uitnodigen",
++            "sent": "Uitgenodigd",
++            "toast": "3 uitnodigingen verstuurd",
++            "cap1": "We maken je eerste werkruimte.",
++            "cap2": "Geef hem een naam en tik op Maak.",
++            "cap3": "Nodig je team uit met één klik.",
++            "cap4": "Klaar, je kunt beginnen.",
++            "label2": "Geef een naam",
++        ],
++        "ja": [
++            "proj1": "オンボーディングの紹介",
++            "proj2": "決済バグの再現",
++            "proj3": "スクリーンショット 11月12日 16.21.07",
++            "proj4": "第4四半期ロードマップのデモ",
++            "proj5": "設定画面リデザインのレビュー",
++            "proj6": "スクリーンショット 11月9日 9.02.44",
++            "proj7": "iPhoneでのログイン",
++            "proj8": "新しい年額プランとチーム席を含む料金ページの紹介",
++            "share3": "リリースノート – 11月",
++            "take1": "画面収録 11月13日 9.41.02",
++            "take2": "スクリーンショット 11月13日 9.38.10",
++            "c1": "空の状態がとても良いです。インポートボタンをもう少し目立たせられますか？",
++            "c2": "いいですね。次のテイクでメインボタンにします。",
++            "c3": "2つ目のツールチップに小さな誤字があります。",
++            "c4": "設定パートのテンポが素晴らしいです。",
++            "c5": "今日チーム全員に共有します！",
++            "c6": "ありがとう、Mina 🙌",
++            "mac": "AlexのMacBook Pro",
++            "nav1": "ホーム",
++            "nav2": "プロジェクト",
++            "nav3": "チーム",
++            "nav4": "レポート",
++            "nav5": "設定",
++            "title1": "ワークスペースを作成",
++            "sub1": "チーム名を付けましょう。あとで変更できます。",
++            "label": "ワークスペース名",
++            "typed": "デザインチーム",
++            "placeholder": "例：マーケティング",
++            "create": "ワークスペースを作成",
++            "title2": "ワークスペースの準備完了",
++            "sub2": "デザインチームを作成しました。次はメンバーを招待。",
++            "meta": "3件のプロジェクト · 1人",
++            "invite": "チームを招待",
++            "send": "招待を送信",
++            "sent": "招待を送信済み",
++            "toast": "チームに3件の招待を送信しました",
++            "cap1": "最初のワークスペースを作りましょう。",
++            "cap2": "名前を付けて「作成」をタップ。",
++            "cap3": "ワンクリックでチームを招待。",
++            "cap4": "これで準備完了です。",
++            "label2": "名前を付けましょう",
++        ],
++        "ko": [
++            "proj1": "온보딩 둘러보기",
++            "proj2": "결제 버그 재현",
++            "proj3": "스크린샷 11월 12일 오후 4.21.07",
++            "proj4": "4분기 로드맵 데모",
++            "proj5": "설정 리디자인 검토",
++            "proj6": "스크린샷 11월 9일 오전 9.02.44",
++            "proj7": "iPhone 로그인 흐름",
++            "proj8": "새 연간 요금제와 팀 좌석이 포함된 가격 페이지 둘러보기",
++            "share3": "릴리스 노트 – 11월",
++            "take1": "화면 녹화 11월 13일 오전 9.41.02",
++            "take2": "스크린샷 11월 13일 오전 9.38.10",
++            "c1": "빈 화면이 정말 좋아요. 가져오기 버튼을 조금 더 눈에 띄게 할 수 있을까요?",
++            "c2": "좋은 의견이에요. 다음 녹화에서 기본 버튼으로 바꿀게요.",
++            "c3": "두 번째 툴팁에 작은 오타가 있어요.",
++            "c4": "설정 부분의 속도감이 좋아요.",
++            "c5": "오늘 팀 전체에 공유할게요!",
++            "c6": "고마워요, Mina 🙌",
++            "mac": "Alex의 MacBook Pro",
++            "nav1": "홈",
++            "nav2": "프로젝트",
++            "nav3": "팀",
++            "nav4": "리포트",
++            "nav5": "설정",
++            "title1": "워크스페이스 만들기",
++            "sub1": "팀 이름으로 지어 보세요. 나중에 바꿀 수 있어요.",
++            "label": "워크스페이스 이름",
++            "typed": "디자인 팀",
++            "placeholder": "예: 마케팅",
++            "create": "워크스페이스 만들기",
++            "title2": "워크스페이스 준비 완료",
++            "sub2": "디자인 팀이 준비됐어요. 이제 팀원을 초대하세요.",
++            "meta": "프로젝트 3개 · 멤버 1명",
++            "invite": "팀원 초대",
++            "send": "초대 보내기",
++            "sent": "초대 완료",
++            "toast": "팀에 초대 3개를 보냈어요",
++            "cap1": "첫 워크스페이스를 만들어 볼게요.",
++            "cap2": "이름을 짓고 만들기를 누르세요.",
++            "cap3": "클릭 한 번으로 팀을 초대하세요.",
++            "cap4": "끝! 이제 준비됐어요.",
++            "label2": "이름을 지어 보세요",
++        ],
++        "zh-Hans": [
++            "proj1": "新手引导演示",
++            "proj2": "结账问题复现",
++            "proj3": "截屏 11月12日 下午4.21.07",
++            "proj4": "第四季度路线图演示",
++            "proj5": "设置页改版评审",
++            "proj6": "截屏 11月9日 上午9.02.44",
++            "proj7": "iPhone 登录流程",
++            "proj8": "价格页导览：全新年度方案和团队席位",
++            "share3": "版本说明 – 11 月",
++            "take1": "屏幕录制 11月13日 上午9.41.02",
++            "take2": "截屏 11月13日 上午9.38.10",
++            "c1": "空状态做得很好。导入按钮能再醒目一点吗？",
++            "c2": "好主意，下一版改成主按钮。",
++            "c3": "第二个提示里有个小错别字。",
++            "c4": "设置部分的节奏很棒。",
++            "c5": "今天就发给整个团队！",
++            "c6": "谢谢 Mina 🙌",
++            "mac": "Alex 的 MacBook Pro",
++            "nav1": "首页",
++            "nav2": "项目",
++            "nav3": "团队",
++            "nav4": "报告",
++            "nav5": "设置",
++            "title1": "创建你的工作区",
++            "sub1": "以团队名称命名，之后可以修改。",
++            "label": "工作区名称",
++            "typed": "设计团队",
++            "placeholder": "例如：市场部",
++            "create": "创建工作区",
++            "title2": "工作区已就绪",
++            "sub2": "设计团队已创建，接下来邀请成员。",
++            "meta": "3 个项目 · 1 名成员",
++            "invite": "邀请你的团队",
++            "send": "发送邀请",
++            "sent": "邀请已发送",
++            "toast": "已向团队发送 3 份邀请",
++            "cap1": "来创建你的第一个工作区。",
++            "cap2": "起个名字，然后点“创建”。",
++            "cap3": "一键邀请你的团队。",
++            "cap4": "就这样，准备好了。",
++            "label2": "起个名字",
++        ],
++    ]
++
++    static let language: String = {
++        guard FixtureWorld.has("-uiStoreLocalizedContent") else { return "en" }
++        let preferred = FixtureWorld.value("-uiStoreLang") ?? Bundle.main.preferredLocalizations.first ?? "en"
++        if table[preferred] != nil { return preferred }
++        let base = String(preferred.split(separator: "-").first ?? "en")
++        return table[base] != nil ? base : "en"
++    }()
++
++    static func t(_ key: String) -> String {
++        table[language]?[key] ?? table["en"]?[key] ?? key
++    }
++}
++#endif
