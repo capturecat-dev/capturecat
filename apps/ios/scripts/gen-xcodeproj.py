@@ -47,7 +47,7 @@ APP_GROUP = "group.so.capturecat.ios"
 # A release build may override both on the command line
 # (`MARKETING_VERSION=1.1 CURRENT_PROJECT_VERSION=7`) without regenerating.
 MARKETING_VERSION = "1.0.1"
-BUILD = "2"
+BUILD = "3"
 
 # Universal links (the in-app share viewer, App/ShareViewer): the app claims
 # capturecat.so's SHARE paths only — apps/web/public/.well-known/
