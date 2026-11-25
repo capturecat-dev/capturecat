@@ -12,6 +12,7 @@ import UIKit
 ///     -uiOrientation landscape    rotate the window scene (iPhone)
 ///     -uiForceCompactAfter <s>    override to compact width after s seconds (live size-class change)
 ///     -uiMotionProbe              write Documents/motion-probe.txt (lines start MOTIONPROBE)
+///     -uiLinkDemo                 Capture's finding → connecting → connected animation, looping
 ///     -uiA11yAudit                every screen through CCAccessibilityAudit (FixtureA11yAudit; ios-a11y.sh)
 ///     -uiL10nAudit                every screen's texts + fit in the current language (FixtureL10nAudit; ios-l10n.sh)
 final class FixtureDirector {
@@ -58,6 +59,11 @@ final class FixtureDirector {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
                 guard let self, let root = self.root, let window = self.window else { return }
                 Task { @MainActor in await FixtureL10nAudit.run(window: window, root: root) }
+            }
+        }
+        if FixtureWorld.has("-uiLinkDemo") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                Task { @MainActor in await self?.runLinkDemo() }
             }
         }
         if FixtureWorld.has("-uiMotionProbe") {
@@ -169,6 +175,70 @@ final class FixtureDirector {
 
     private func sleep(_ ms: UInt64) async { try? await Task.sleep(nanoseconds: ms * 1_000_000) }
 
+    /// 5. Capture's link stage: searching → found → connected, sampled
+    /// mid-flight; the last check injects a snap and must catch it.
+    private func runLinkStageProbe(_ shell: ShellViewController, _ record: (String, Bool, String) -> Void) async {
+        shell.select(.capture, animated: false)
+        let feed = FixtureWorld.shared.capture
+        feed.setStatus(.searching)
+        await sleep(1500)
+        guard let hub = shell.capture as CaptureHubViewController?, hub.isViewLoaded else {
+            record("link-stage", false, "no Capture screen")
+            return
+        }
+        let stage = hub.probeLinkStage
+        record("link-radar-loops", stage.probeRadarRunning, "rings + sweep animating while searching")
+        let r0 = stage.probeRingScale
+        await sleep(180)
+        let r1 = stage.probeRingScale
+        record("link-ring-moves", abs(r1 - r0) > 0.004, String(format: "ring scale %.3f → %.3f in 180 ms", r0, r1))
+
+        feed.setStatus(.connecting(macName: "Probe Mac"))
+        for _ in 0..<60 where stage.state != .connecting { await sleep(4) }
+        await sleep(70)
+        let reach = stage.probeReach
+        let x = stage.probePhoneOffset
+        record("link-part-midflight", x < -1 && x > -reach + 1, String(format: "phone offset=%.1f (0 → -%.1f, 70 ms in)", x, reach))
+        await sleep(140)
+        let o = stage.probeMacOpacity, scale = stage.probeMacScale
+        record("link-mac-arrives-midflight", o > 0.02 && o < 0.999, String(format: "mac opacity=%.2f scale=%.2f", o, scale))
+        await sleep(900)
+        record("link-comet-loops", stage.probeCometRunning && !stage.probeRadarRunning, "light on the beam, radar stopped")
+
+        feed.setStatus(.connected(macName: "Probe Mac"))
+        for _ in 0..<60 where stage.state != .connected { await sleep(4) }
+        await sleep(70)
+        let beam = stage.probeBeam
+        record("link-beam-midflight", beam > 0.02 && beam < 0.99, String(format: "beam strokeEnd=%.2f (0 → 1)", beam))
+        await sleep(1200)
+        record("link-beam-settled", stage.probeBeam > 0.999 && abs(stage.probePhoneOffset + reach) < 0.5, String(format: "beam=%.2f offset=%.1f", stage.probeBeam, stage.probePhoneOffset))
+
+        feed.setStatus(.searching)
+        await sleep(1200)
+        CCMotion.probeSnap = true
+        feed.setStatus(.connecting(macName: "Probe Mac"))
+        for _ in 0..<60 where stage.state != .connecting { await sleep(4) }
+        await sleep(70)
+        let snapped = stage.probePhoneOffset
+        record("link-inject-snap-detected", !(snapped < -1 && snapped > -reach + 1), String(format: "with probeSnap the phone read %.1f", snapped))
+        CCMotion.probeSnap = false
+    }
+
+    /// `-uiLinkDemo`: the link stage's story on a loop (recordings).
+    private func runLinkDemo() async {
+        guard let shell = root?.shell else { return }
+        shell.select(.capture, animated: false)
+        let feed = FixtureWorld.shared.capture
+        while true {
+            feed.setStatus(.searching)
+            await sleep(4200)
+            feed.setStatus(.connecting(macName: "Alex's MacBook Pro"))
+            await sleep(2200)
+            feed.setStatus(.connected(macName: "Alex's MacBook Pro"))
+            await sleep(5000)
+        }
+    }
+
     private func runMotionProbe() async {
         guard let root, let shell = root.shell else { return }
         var lines: [String] = []
@@ -271,6 +341,8 @@ final class FixtureDirector {
         let fx = (filter.probeSelectionLayer.presentation() ?? filter.probeSelectionLayer).position.x
         record("segmented-chip-midflight", fx > from + 1 && fx < to - 1, String(format: "start=%.1f sampled=%.1f end=%.1f", from, fx, to))
         filter.setSelectedIndex(0, animated: false)
+
+        await runLinkStageProbe(shell, record)
 
         lines.append("MOTIONPROBE SUMMARY \(failures == 0 ? "PASS" : "FAIL") failures=\(failures)")
         let text = lines.joined(separator: "\n")

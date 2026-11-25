@@ -51,6 +51,14 @@ enum FixtureA11yAudit {
             Screen(name: "share", open: { shell in shell.library.showShare("fxShareOnboard") },
                    close: { shell in shell.library.nav.popToRootViewController(animated: false) }),
             Screen(name: "capture-inbox", open: { shell in shell.select(.capture, animated: false) }, close: { _ in }),
+            Screen(name: "capture-other-account", open: { shell in
+                shell.select(.capture, animated: false)
+                FixtureWorld.shared.capture.setStatus(.otherAccount(macName: "Alex's MacBook Pro"))
+            }, close: { _ in }),
+            Screen(name: "capture-network-off", open: { shell in
+                shell.select(.capture, animated: false)
+                FixtureWorld.shared.capture.setStatus(.localNetworkOff)
+            }, close: { _ in FixtureWorld.shared.capture.setStatus(.connected(macName: "Alex's MacBook Pro")) }),
             Screen(name: "account", open: { shell in shell.select(.account, animated: false) }, close: { _ in }),
             Screen(name: "confirm-dialog", open: { shell in
                 CCAlert.confirm(title: "Forget my devices?", message: "This unlinks every Mac and iPhone on your account from Wi-Fi streaming.",

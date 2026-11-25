@@ -46,8 +46,8 @@ APP_GROUP = "group.so.capturecat.ios"
 #   BUILD: a plain integer, +1 for EVERY upload (TestFlight included); never reused.
 # A release build may override both on the command line
 # (`MARKETING_VERSION=1.1 CURRENT_PROJECT_VERSION=7`) without regenerating.
-MARKETING_VERSION = "1.0"
-BUILD = "1"
+MARKETING_VERSION = "1.0.1"
+BUILD = "2"
 
 # Universal links (the in-app share viewer, App/ShareViewer): the app claims
 # capturecat.so's SHARE paths only — apps/web/public/.well-known/
@@ -56,7 +56,7 @@ BUILD = "1"
 # every run. OWNER: the App ID needs the Associated Domains capability in the
 # Apple Developer portal before a signed device build will provision, and the
 # AASA must be live on both hosts before a tapped link opens the app.
-ASSOCIATED_DOMAINS = ["applinks:capturecat.so", "applinks:www.capturecat.so"]
+ASSOCIATED_DOMAINS = ["applinks:capturecat.so", "applinks:www.capturecat.so", "applinks:capturecat.so?mode=developer", "applinks:www.capturecat.so?mode=developer"]
 
 # Privacy manifests (PrivacyInfo.xcprivacy), one per shipping bundle, copied
 # into the bundle root by that target's Resources phase. Checked against the

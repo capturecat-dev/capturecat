@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import dnssd
 
 /// The iPhone side of "iPhone over Wi-Fi" (contract: WirelessDeviceProtocol.swift,
 /// compiled from the Mac tree). Finds the account's Macs on the local network
@@ -33,6 +34,12 @@ nonisolated final class WirelessMacClient: @unchecked Sendable {
     var onStateChange: (@Sendable (State) -> Void)?
     var onMacsChanged: (@Sendable ([Mac]) -> Void)?
     var onControl: (@Sendable (WirelessControl) -> Void)?
+    /// Macs running CaptureCat nearby whose account fingerprint isn't ours:
+    /// another account, or our cached key is out of date. Never contacted.
+    var onOtherMacsChanged: (@Sendable ([String]) -> Void)?
+    /// iOS is refusing to browse (Settings → CaptureCat → Local Network is
+    /// off, or its prompt hasn't been answered).
+    var onLocalNetworkDenied: (@Sendable (Bool) -> Void)?
     /// The Mac refused our key (TLS handshake failed) — refresh the link.
     var onLinkRejected: (@Sendable () -> Void)?
 
@@ -42,6 +49,8 @@ nonisolated final class WirelessMacClient: @unchecked Sendable {
     private var browser: NWBrowser?
     private var connection: NWConnection?
     private var macs: [Mac] = []
+    private var results: Set<NWBrowser.Result> = []
+    private var denied = false
     private var state: State = .idle
     private var running = false
     private var retryWork: DispatchWorkItem?
@@ -59,7 +68,8 @@ nonisolated final class WirelessMacClient: @unchecked Sendable {
         queue.async {
             self.link = link
             self.preferredMacID = preferredMacID?.lowercased()
-            guard !self.running else { self.reconsider(); return }
+            // A new key changes which Macs are ours: match again.
+            guard !self.running else { self.updateMacs(); return }
             self.running = true
             self.startBrowsing()
         }
@@ -84,6 +94,8 @@ nonisolated final class WirelessMacClient: @unchecked Sendable {
             self.browser?.cancel()
             self.browser = nil
             self.macs = []
+            self.results = []
+            self.setDenied(false)
             self.setState(.idle)
         }
     }
@@ -117,10 +129,19 @@ nonisolated final class WirelessMacClient: @unchecked Sendable {
         parameters.includePeerToPeer = true
         let browser = NWBrowser(for: .bonjourWithTXTRecord(type: WirelessDevice.serviceType, domain: nil), using: parameters)
         browser.browseResultsChangedHandler = { [weak self] results, _ in
-            self?.updateMacs(from: results)
+            self?.results = results
+            self?.updateMacs()
         }
         browser.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
+            switch state {
+            case .ready:
+                self.setDenied(false)
+            case let .waiting(error), let .failed(error):
+                self.setDenied(Self.isLocalNetworkDenied(error))
+            default:
+                break
+            }
             if case .failed = state {
                 self.browser?.cancel()
                 self.browser = nil
@@ -132,8 +153,26 @@ nonisolated final class WirelessMacClient: @unchecked Sendable {
         browser.start(queue: queue)
     }
 
-    private func updateMacs(from results: Set<NWBrowser.Result>) {
+    /// Bonjour's answer when Local Network access is off for this app.
+    static func isLocalNetworkDenied(_ error: NWError) -> Bool {
+        if case let .dns(code) = error { return code == DNSServiceErrorType(kDNSServiceErr_PolicyDenied) }
+        return false
+    }
+
+    private func setDenied(_ new: Bool) {
+        guard new != denied else { return }
+        denied = new
+        onLocalNetworkDenied?(new)
+    }
+
+    private func updateMacs() {
         guard let link else { return }
+        let others = results.compactMap { result -> String? in
+            guard let keyID = WirelessDevice.keyID(of: result), keyID != link.keyID,
+                  case let .service(name, _, _, _) = result.endpoint else { return nil }
+            return name
+        }.sorted()
+        onOtherMacsChanged?(others)
         macs = results.compactMap { result -> Mac? in
             guard WirelessDevice.keyID(of: result) == link.keyID,
                   let id = WirelessDevice.macID(of: result) else { return nil }

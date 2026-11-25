@@ -12,7 +12,7 @@ import UIKit
 /// thumbnail generator run their REAL code paths on them.
 ///
 /// Extra launch flags: `-uiFixtureSignedOut`, `-uiFixtureSignInFails`,
-/// `-uiFixtureEmpty`, `-uiFixturePresence searching|connected|multi|unavailable|signedOut`,
+/// `-uiFixtureEmpty`, `-uiFixturePresence searching|connecting|connected|multi|localNetworkOff|otherAccount|unavailable|signedOut`,
 /// `-uiFixtureRequest`, `-uiFixtureImportError`, `-uiFixtureLiveUpload`.
 final class FixtureWorld: CloudAPI {
     static let shared = FixtureWorld()
@@ -370,6 +370,9 @@ final class FixtureCapture: CaptureFeed {
     init() {
         switch FixtureWorld.value("-uiFixturePresence") ?? "connected" {
         case "searching": presenceStatus = .searching
+        case "localNetworkOff": presenceStatus = .localNetworkOff
+        case "otherAccount": presenceStatus = .otherAccount(macName: "Alex's MacBook Pro")
+        case "connecting": presenceStatus = .connecting(macName: "Alex's MacBook Pro")
         case "unavailable": presenceStatus = .unavailable("Couldn't reach CaptureCat to link this iPhone. Check your connection.")
         case "signedOut": presenceStatus = .signedOut
         case "multi":

@@ -17,6 +17,12 @@ final class MacPresence {
         case signedOut
         case unavailable(String)
         case searching
+        /// iOS refuses local network access to the app.
+        case localNetworkOff
+        /// Only Macs of another account are nearby (the link was refetched
+        /// and still doesn't match). Still searching.
+        case otherAccount(macName: String)
+        case connecting(macName: String)
         case connected(macName: String)
     }
 
@@ -26,6 +32,15 @@ final class MacPresence {
 
     private var client: WirelessMacClient?
     private var refreshedLink = false
+    /// What the client last reported; `status` is derived from them.
+    private var clientState: WirelessMacClient.State = .idle
+    private var denied = false
+    private var otherMacs: [String] = []
+    private var otherMacsConfirmed = false
+    private var denialWork: Task<Void, Never>?
+    private var relinkWork: Task<Void, Never>?
+    private var lastRelink: Date?
+    private var activeKeyID: String?
     /// Waiting "Continue on Mac" requests by project id (nil = timed out).
     private var pendingOpens: [String: CheckedContinuation<Bool?, Never>] = [:]
 
@@ -83,11 +98,19 @@ final class MacPresence {
     }
 
     func stop() {
+        guard client != nil else { return }
         client?.stop(reason: "background")
         client = nil
+        denialWork?.cancel()
+        relinkWork?.cancel()
+        relinkWork = nil
         nearbyMacs = []
         connectedMacID = nil
-        if case .connected = status { status = .searching }
+        clientState = .idle
+        denied = false
+        otherMacs = []
+        otherMacsConfirmed = false
+        status = .searching
     }
 
     /// Tell the stream which Mac to use (the one that asked, or the user's pick).
@@ -98,11 +121,28 @@ final class MacPresence {
 
     private func begin(with link: WirelessLink) {
         let client = WirelessMacClient(role: WirelessDevice.roleApp, hello: Self.hello())
+        // A stopped client's last callbacks must not speak for the new one.
+        let token = ObjectIdentifier(client)
+        let current: @Sendable (@escaping @MainActor @Sendable (MacPresence) -> Void) -> Void = { body in
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    let presence = MacPresence.shared
+                    guard presence.client.map(ObjectIdentifier.init) == token else { return }
+                    body(presence)
+                }
+            }
+        }
         client.onMacsChanged = { macs in
-            Task { @MainActor in MacPresence.shared.nearbyMacs = macs }
+            current { $0.nearbyMacs = macs; $0.refreshStatus() }
         }
         client.onStateChange = { state in
-            Task { @MainActor in MacPresence.shared.apply(state) }
+            current { $0.apply(state) }
+        }
+        client.onOtherMacsChanged = { names in
+            current { $0.applyOtherMacs(names) }
+        }
+        client.onLocalNetworkDenied = { denied in
+            current { $0.applyDenied(denied) }
         }
         client.onControl = { control in
             if control.command == "openedProject", let id = control.projectId {
@@ -118,21 +158,87 @@ final class MacPresence {
             }
         }
         client.onLinkRejected = {
-            Task { @MainActor in await MacPresence.shared.relink() }
+            current { presence in Task { await presence.relink() } }
         }
         self.client = client
-        status = .searching
+        activeKeyID = link.keyID
+        refreshStatus()
         client.start(link: link, preferredMacID: AppGroup.defaults.string(forKey: AppGroup.Keys.preferredMacID))
     }
 
     private func apply(_ state: WirelessMacClient.State) {
-        switch state {
-        case .idle, .searching, .connecting:
-            connectedMacID = nil
-            status = .searching
-        case let .connected(mac, hello):
+        clientState = state
+        if case let .connected(mac, _) = state {
             connectedMacID = mac.id
-            status = .connected(macName: hello.macName.isEmpty ? mac.name : hello.macName)
+            refreshedLink = false
+        } else {
+            connectedMacID = nil
+        }
+        refreshStatus()
+    }
+
+    private func refreshStatus() {
+        let new: Status
+        switch clientState {
+        case let .connected(mac, hello):
+            new = .connected(macName: hello.macName.isEmpty ? mac.name : hello.macName)
+        case let .connecting(mac):
+            new = .connecting(macName: mac.name)
+        case .idle, .searching:
+            if denied {
+                new = .localNetworkOff
+            } else if let mac = nearbyMacs.first {
+                // Found, between attempts: don't flicker back to searching.
+                new = .connecting(macName: nearbyMacs.first { $0.id == AppGroup.defaults.string(forKey: AppGroup.Keys.preferredMacID) }?.name ?? mac.name)
+            } else if otherMacsConfirmed, let other = otherMacs.first {
+                new = .otherAccount(macName: other)
+            } else {
+                new = .searching
+            }
+        }
+        if new != status { status = new }
+    }
+
+    /// iOS also refuses while its own prompt is up: wait for it to last.
+    private func applyDenied(_ new: Bool) {
+        denialWork?.cancel()
+        guard new else {
+            denied = false
+            refreshStatus()
+            return
+        }
+        denialWork = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled, let self else { return }
+            self.denied = true
+            self.refreshStatus()
+        }
+    }
+
+    /// Macs that don't match our key: the cached key may be out of date
+    /// (rotated elsewhere), so refetch it before saying "another account".
+    private func applyOtherMacs(_ names: [String]) {
+        otherMacs = names
+        if names.isEmpty { otherMacsConfirmed = false }
+        refreshStatus()
+        guard !names.isEmpty, nearbyMacs.isEmpty, !otherMacsConfirmed, relinkWork == nil else { return }
+        if let lastRelink, Date().timeIntervalSince(lastRelink) < 30 { return }
+        lastRelink = Date()
+        relinkWork = Task { @MainActor [weak self] in
+            // Our own Mac may still be about to answer.
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard !Task.isCancelled, let self else { return }
+            let before = WirelessLinkStore.cached()
+            let fresh = try? await WirelessLinkStore.refresh()
+            guard !Task.isCancelled else { return }
+            self.relinkWork = nil
+            guard let fresh, let client = self.client else { return }
+            self.otherMacsConfirmed = true
+            if fresh != before || fresh.keyID != self.activeKeyID {
+                self.activeKeyID = fresh.keyID
+                client.start(link: fresh, preferredMacID: AppGroup.defaults.string(forKey: AppGroup.Keys.preferredMacID))
+            }
+            self.refreshStatus()
         }
     }
 
@@ -140,9 +246,9 @@ final class MacPresence {
     private func relink() async {
         guard !refreshedLink else { return }
         refreshedLink = true
-        stop()
-        guard let link = try? await WirelessLinkStore.refresh() else { return }
-        begin(with: link)
+        guard let link = try? await WirelessLinkStore.refresh(), client != nil else { return }
+        activeKeyID = link.keyID
+        client?.start(link: link, preferredMacID: AppGroup.defaults.string(forKey: AppGroup.Keys.preferredMacID))
     }
 
     static func hello() -> @Sendable () -> WirelessHello {

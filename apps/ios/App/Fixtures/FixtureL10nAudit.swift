@@ -71,6 +71,22 @@ enum FixtureL10nAudit {
             Screen(name: "share-comments-off", open: { shell in shell.library.showShare("fxShareRoadmap") },
                    close: { shell in shell.library.nav.popToRootViewController(animated: false) }),
             Screen(name: "capture", open: { shell in shell.select(.capture, animated: false) }, close: { _ in }),
+            Screen(name: "capture-searching", open: { shell in
+                shell.select(.capture, animated: false)
+                FixtureWorld.shared.capture.setStatus(.searching)
+            }, close: { _ in }),
+            Screen(name: "capture-connecting", open: { shell in
+                shell.select(.capture, animated: false)
+                FixtureWorld.shared.capture.setStatus(.connecting(macName: "Alex's MacBook Pro"))
+            }, close: { _ in }),
+            Screen(name: "capture-other-account", open: { shell in
+                shell.select(.capture, animated: false)
+                FixtureWorld.shared.capture.setStatus(.otherAccount(macName: "Alex's MacBook Pro"))
+            }, close: { _ in }),
+            Screen(name: "capture-network-off", open: { shell in
+                shell.select(.capture, animated: false)
+                FixtureWorld.shared.capture.setStatus(.localNetworkOff)
+            }, close: { _ in FixtureWorld.shared.capture.setStatus(.connected(macName: "Alex's MacBook Pro")) }),
             Screen(name: "capture-end", open: { shell in
                 shell.select(.capture, animated: false)
                 await settle(0.5)

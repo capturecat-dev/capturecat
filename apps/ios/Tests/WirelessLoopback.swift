@@ -211,6 +211,38 @@ nonisolated func run() async {
     receiver.lock.lock(); let hellos = receiver.helloCount; receiver.lock.unlock()
     check(!wrongReady && hellos == 1, "wrong account key is refused at the TLS handshake")
 
+    // ── a phone with an out-of-date account key: the Mac shows up as "other",
+    // is never contacted, and matches as soon as the key is refetched
+    let seenOther = DispatchSemaphore(value: 0)
+    let relinked = DispatchSemaphore(value: 0)
+    nonisolated(unsafe) var contactedEarly = false
+    nonisolated(unsafe) var refreshedKey = false
+    nonisolated(unsafe) var othersAfter: [String] = []
+    let testName = "Test Mac \(macID.prefix(4))"
+    let stale = WirelessMacClient(role: WirelessDevice.roleApp, hello: { hello })
+    stale.onOtherMacsChanged = { names in
+        othersAfter = names
+        if names.contains(testName), !refreshedKey { seenOther.signal() }
+    }
+    stale.onStateChange = { state in
+        switch state {
+        case .connecting: if !refreshedKey { contactedEarly = true }
+        case .connected: relinked.signal()
+        default: break
+        }
+    }
+    stale.start(link: wrong, preferredMacID: macID)
+    check(seenOther.wait(timeout: .now() + 15) == .success, "out-of-date key: the Mac is reported as another account's")
+    check(!contactedEarly, "… and never contacted")
+    refreshedKey = true
+    stale.start(link: link, preferredMacID: macID)
+    check(relinked.wait(timeout: .now() + 15) == .success, "refetched key: matched and connected without a new browse")
+    check(!othersAfter.contains(testName), "… and no longer reported as another account's")
+    stale.stop(reason: "test done")
+
+    check(WirelessMacClient.isLocalNetworkDenied(.dns(-65570)), "Bonjour PolicyDenied reads as Local Network off")
+    check(!WirelessMacClient.isLocalNetworkDenied(.dns(-65563)) && !WirelessMacClient.isLocalNetworkDenied(.posix(.ENETDOWN)), "other browse errors don't")
+
     client.stop(reason: "test done")
     encoder.invalidate()
     listener.cancel()

@@ -15579,7 +15579,7 @@
       }
     },
     "Background" : {
-      "comment" : "Annotation fill row: the shape's background (fill) color / History Compare dialog: a group title (inspector tab) / Inspector tab name (rail button / tab bar) / Inspector tab: background / Inspector ▸ Annotate: color well label / Inspector ▸ Annotate: switch label / Inspector ▸ Annotate: text background switch label / Inspector ▸ Background: option picker label / Inspector ▸ Background: section header / Inspector ▸ Camera: option picker label / Inspector ▸ Subtitles: color well label / Inspector ▸ Subtitles: subtitle text style / Undo action name: turn an annotation's background fill on or off",
+      "comment" : "Annotation fill row: the shape's background (fill) color / History Compare dialog: a group title (inspector tab) / Inspector tab name (rail button / tab bar) / Inspector ▸ Annotate: color well label / Inspector ▸ Annotate: switch label / Inspector ▸ Annotate: text background switch label / Inspector ▸ Background: option picker label / Inspector ▸ Background: section header / Inspector ▸ Camera: option picker label / Inspector ▸ Subtitles: color well label / Inspector ▸ Subtitles: subtitle text style / Undo action name: turn an annotation's background fill on or off",
       "localizations" : {
         "it" : {
           "stringUnit" : {
@@ -28234,6 +28234,71 @@
         }
       }
     },
+    "Connecting to %@…" : {
+      "comment" : "Argument is the Mac's name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbinden mit %@ …"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connexion à %@…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectando a %@…"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectando a %@…"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connessione a %@…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectando a %@…"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbinden met %@…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@に接続中…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에 연결 중…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在连接 %@…"
+          }
+        }
+      }
+    },
     "Connector URL" : {
       "comment" : "Connect AI: section heading over the MCP URL",
       "localizations" : {
@@ -30049,6 +30114,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudo leer el fotograma renderizado: %@"
+          }
+        }
+      }
+    },
+    "Could not reserve a local port for sign-in: %@" : {
+      "comment" : "Sign-in error; the placeholder is a technical detail",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein lokaler Port für die Anmeldung verfügbar: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de réserver un port local pour la connexion : %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha podido reservar un puerto local para iniciar sesión: %@"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo reservar un puerto local para iniciar sesión: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile riservare una porta locale per l'accesso: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível reservar uma porta local para o início de sessão: %@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kan geen lokale poort reserveren voor inloggen: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインイン用のローカルポートを確保できませんでした：%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인용 로컬 포트를 확보할 수 없습니다: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法为登录预留本地端口：%@"
           }
         }
       }
@@ -45347,6 +45477,70 @@
         }
       }
     },
+    "Found your Mac. This takes a moment." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Mac wurde gefunden. Einen Moment bitte."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre Mac a été trouvé. Un instant."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hemos encontrado tu Mac. Un momento."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encontramos tu Mac. Un momento."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac trovato. Attendi un momento."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encontramos seu Mac. Só um momento."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je Mac is gevonden. Een ogenblik."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Macが見つかりました。少々お待ちください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac을 찾았습니다. 잠시만 기다려 주세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已找到你的 Mac，请稍候。"
+          }
+        }
+      }
+    },
     "Frame" : {
       "comment" : "Inspector ▸ Background: section header",
       "localizations" : {
@@ -53835,6 +54029,71 @@
         }
       }
     },
+    "Local Network is off" : {
+      "comment" : "Capture status title: iOS permission",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lokales Netzwerk ist aus"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le réseau local est désactivé"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La red local está desactivada"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La red local está desactivada"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La rete locale è disattivata"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A rede local está desativada"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lokaal netwerk staat uit"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルネットワークがオフです"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로컬 네트워크가 꺼져 있음"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地网络已关闭"
+          }
+        }
+      }
+    },
     "Logo Opacity" : {
       "comment" : "Inspector ▸ Effects: slider label",
       "localizations" : {
@@ -60647,6 +60906,71 @@
         }
       }
     },
+    "Not found" : {
+      "comment" : "Browser page heading: the local sign-in helper got a request for an unknown page",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht gefunden"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introuvable"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No encontrado"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No encontrado"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non trovato"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não encontrado"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niet gevonden"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "見つかりません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "찾을 수 없음"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未找到"
+          }
+        }
+      }
+    },
     "Not now" : {
       "comment" : "Sync conflict alert button: decide later",
       "localizations" : {
@@ -62721,7 +63045,7 @@
       }
     },
     "Open Settings" : {
-      "comment" : "Button that opens the app's iOS Settings",
+      "comment" : "Button that opens the app's iOS Settings / Button: opens this app's page in the Settings app",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -66799,6 +67123,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reproduce o pausa la grabación."
+          }
+        }
+      }
+    },
+    "Please try again from CaptureCat." : {
+      "comment" : "Browser page body when sign-in failed without details",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte versuch es erneut über CaptureCat."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veuillez réessayer depuis CaptureCat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuelve a intentarlo desde CaptureCat."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vuelve a intentarlo desde CaptureCat."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Riprova da CaptureCat."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tente novamente pelo CaptureCat."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Probeer het opnieuw vanuit CaptureCat."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCatからもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CaptureCat에서 다시 시도하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请从 CaptureCat 重试。"
           }
         }
       }
@@ -80033,6 +80422,71 @@
         }
       }
     },
+    "Sign-in failed" : {
+      "comment" : "Browser page heading: signing in to the Mac app failed",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anmeldung fehlgeschlagen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec de la connexion"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error al iniciar sesión"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error al iniciar sesión"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso non riuscito"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Falha ao iniciar sessão"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inloggen mislukt"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインインに失敗しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 실패"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录失败"
+          }
+        }
+      }
+    },
     "Sign-in failed." : {
       "localizations" : {
         "it" : {
@@ -80223,7 +80677,8 @@
             "value" : "Se canceló el inicio de sesión."
           }
         }
-      }
+      },
+      "comment" : "Sign-in error: the user cancelled signing in"
     },
     "Signed in" : {
       "comment" : "Fallback account name when the user has no name or email",
@@ -87874,6 +88329,71 @@
         }
       }
     },
+    "The callback could not be read. Please try again from CaptureCat." : {
+      "comment" : "Browser page body when the sign-in callback was malformed",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Callback konnte nicht gelesen werden. Bitte versuch es erneut über CaptureCat."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le retour de connexion n’a pas pu être lu. Veuillez réessayer depuis CaptureCat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha podido leer la respuesta. Vuelve a intentarlo desde CaptureCat."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo leer la respuesta. Vuelve a intentarlo desde CaptureCat."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossibile leggere la risposta di accesso. Riprova da CaptureCat."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível ler o retorno. Tente novamente pelo CaptureCat."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De callback kan niet worden gelezen. Probeer het opnieuw vanuit CaptureCat."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コールバックを読み取れませんでした。CaptureCatからもう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "콜백을 읽을 수 없습니다. CaptureCat에서 다시 시도하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取回调。请从 CaptureCat 重试。"
+          }
+        }
+      }
+    },
     "The capture's file (%@) is missing." : {
       "comment" : "Error importing a capture; the argument is a file name",
       "localizations" : {
@@ -88262,6 +88782,71 @@
         }
       }
     },
+    "The local sign-in listener failed: %@" : {
+      "comment" : "Sign-in error; the placeholder is a technical detail",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der lokale Anmelde-Listener ist fehlgeschlagen: %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’écouteur de connexion local a échoué : %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error en el receptor local de inicio de sesión: %@"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error en el receptor local de inicio de sesión: %@"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il listener locale per l'accesso non è riuscito: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O receptor local de início de sessão falhou: %@"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De lokale inloglistener is mislukt: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルのサインインリスナーでエラーが発生しました：%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로컬 로그인 수신기 오류: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地登录监听器出错：%@"
+          }
+        }
+      }
+    },
     "The new language appears the next time CaptureCat opens. Close it from the App Switcher, then open it again." : {
       "comment" : "Alert message after changing the app language",
       "localizations" : {
@@ -88579,6 +89164,136 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El video compartido, tal como se exportó."
+          }
+        }
+      }
+    },
+    "The sign-in listener is already running." : {
+      "comment" : "Sign-in error: the local callback listener was started twice",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Anmelde-Listener läuft bereits."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’écouteur de connexion est déjà en cours d’exécution."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El receptor de inicio de sesión ya está en marcha."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El receptor de inicio de sesión ya está en marcha."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il listener per l'accesso è già in esecuzione."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O receptor de início de sessão já está em execução."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De inloglistener draait al."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインインリスナーはすでに実行中です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 수신기가 이미 실행 중입니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录监听器已在运行。"
+          }
+        }
+      }
+    },
+    "The sign-in listener is not running." : {
+      "comment" : "Sign-in error: the local callback listener is not running",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Anmelde-Listener läuft nicht."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’écouteur de connexion n’est pas en cours d’exécution."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El receptor de inicio de sesión no está en marcha."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El receptor de inicio de sesión no está en marcha."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il listener per l'accesso non è in esecuzione."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O receptor de início de sessão não está em execução."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De inloglistener draait niet."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインインリスナーが実行されていません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 수신기가 실행되고 있지 않습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录监听器未在运行。"
           }
         }
       }
@@ -89874,6 +90589,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Este enlace ya no lleva a ningún video. Puede que se haya eliminado."
+          }
+        }
+      }
+    },
+    "This local page only handles the CaptureCat sign-in callback." : {
+      "comment" : "Browser page body for an unknown local page during sign-in",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese lokale Seite verarbeitet nur den CaptureCat-Anmelde-Callback."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette page locale ne gère que le retour de connexion CaptureCat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta página local solo gestiona la respuesta del inicio de sesión de CaptureCat."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta página local solo maneja la respuesta del inicio de sesión de CaptureCat."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa pagina locale gestisce solo la risposta di accesso di CaptureCat."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta página local só processa o retorno de início de sessão do CaptureCat."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deze lokale pagina verwerkt alleen de inlogcallback van CaptureCat."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このローカルページはCaptureCatのサインインコールバック専用です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 로컬 페이지는 CaptureCat 로그인 콜백만 처리합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此本地页面仅处理 CaptureCat 登录回调。"
           }
         }
       }
@@ -92656,6 +93436,71 @@
         }
       }
     },
+    "Timed out waiting for the browser to finish signing in." : {
+      "comment" : "Sign-in error: the browser sign-in never completed",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeitüberschreitung beim Warten auf den Abschluss der Anmeldung im Browser."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Délai dépassé en attendant la fin de la connexion dans le navigateur."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se ha agotado el tiempo de espera para que el navegador termine de iniciar sesión."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se agotó el tiempo de espera para que el navegador termine de iniciar sesión."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tempo scaduto in attesa che il browser completi l'accesso."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tempo esgotado esperando o navegador concluir o início de sessão."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time-out bij wachten tot het inloggen in de browser was voltooid."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブラウザでのサインインの完了を待機中にタイムアウトしました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "브라우저에서 로그인이 완료되기를 기다리다 시간이 초과되었습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待浏览器完成登录超时。"
+          }
+        }
+      }
+    },
     "Timeline" : {
       "comment" : "History Compare dialog: a group title",
       "localizations" : {
@@ -94533,6 +95378,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "开启"
+          }
+        }
+      }
+    },
+    "Turn on Local Network for CaptureCat in Settings so this %@ can find your Mac." : {
+      "comment" : "Argument is iPhone or iPad; Local Network is the iOS Settings switch",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktiviere „Lokales Netzwerk“ für CaptureCat in den Einstellungen, damit dieses %@ deinen Mac findet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activez Réseau local pour CaptureCat dans Réglages afin que cet %@ trouve votre Mac."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa Red local para CaptureCat en Ajustes para que este %@ encuentre tu Mac."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activa Red local para CaptureCat en Configuración para que este %@ encuentre tu Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attiva Rete locale per CaptureCat in Impostazioni, così questo %@ può trovare il Mac."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ative Rede Local para o CaptureCat em Ajustes para que este %@ encontre seu Mac."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zet ‘Lokaal netwerk’ voor CaptureCat aan in Instellingen, zodat deze %@ je Mac kan vinden."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この%@からMacを見つけられるように、“設定”でCaptureCatの“ローカルネットワーク”をオンにしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 %@에서 Mac을 찾을 수 있도록 설정에서 CaptureCat의 로컬 네트워크를 켜세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在“设置”中为 CaptureCat 打开“本地网络”，以便这台 %@ 找到你的 Mac。"
           }
         }
       }
@@ -100570,6 +101480,71 @@
         }
       }
     },
+    "You can close this window and go back to CaptureCat." : {
+      "comment" : "Browser page shown after signing in to the Mac app: body text",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du kannst dieses Fenster schließen und zu CaptureCat zurückkehren."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous pouvez fermer cette fenêtre et revenir à CaptureCat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes cerrar esta ventana y volver a CaptureCat."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes cerrar esta ventana y volver a CaptureCat."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puoi chiudere questa finestra e tornare a CaptureCat."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Você pode fechar esta janela e voltar ao CaptureCat."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je kunt dit venster sluiten en teruggaan naar CaptureCat."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このウインドウを閉じてCaptureCatに戻ってください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 윈도우를 닫고 CaptureCat으로 돌아가세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你可以关闭此窗口并返回 CaptureCat。"
+          }
+        }
+      }
+    },
     "You can leave CaptureCat — the export keeps going and shows its progress." : {
       "localizations" : {
         "it" : {
@@ -100758,6 +101733,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No tienes conexión. Revisa tu conexión e inténtalo de nuevo."
+          }
+        }
+      }
+    },
+    "You're signed in" : {
+      "comment" : "Browser page shown after signing in to the Mac app: heading",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du bist angemeldet"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous êtes connecté"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has iniciado sesión"
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciaste sesión"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accesso effettuato"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sessão iniciada"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je bent ingelogd"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインインしました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인되었습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你已登录"
           }
         }
       }
@@ -105628,6 +106668,71 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“%@” aún no se sube. Si lo descartas, se eliminará de este %@."
+          }
+        }
+      }
+    },
+    "“%@” is nearby but signed in to a different account. Use the same account on both." : {
+      "comment" : "Argument is a Mac's name",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ ist in der Nähe, aber mit einem anderen Account angemeldet. Verwende auf beiden denselben Account."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "« %@ » est à proximité, mais connecté à un autre compte. Utilisez le même compte sur les deux."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» está cerca, pero con otra cuenta. Usa la misma cuenta en ambos."
+          }
+        },
+        "es-MX" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” está cerca, pero con otra cuenta. Usa la misma cuenta en ambos."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” è nelle vicinanze ma usa un altro account. Usa lo stesso account su entrambi."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” está por perto, mas com outra conta. Use a mesma conta nos dois."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‘%@’ is in de buurt, maar gebruikt een andere account. Gebruik op beide dezelfde account."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”が近くにありますが、別のアカウントでサインインしています。両方で同じアカウントを使ってください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‘%@’이(가) 근처에 있지만 다른 계정으로 로그인되어 있습니다. 양쪽에서 같은 계정을 사용하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@”就在附近，但登录的是其他账户。请在两台设备上使用同一账户。"
           }
         }
       }

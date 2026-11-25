@@ -23,13 +23,14 @@ final class CaptureHubViewController: UIViewController {
 
     // Hero
     private let hero = CCCard(radius: .xl)
-    private let linkStrip = PresenceStrip()
+    private let linkStage = LinkStage()
     private let statusDot = UIView()
     private let statusLabel = ccLabel("", font: CCFont.labelSemibold, color: CCTheme.color.foreground, lines: 2)
     private let statusDetail = ccLabel("", font: CCFont.caption, color: CCTheme.color.mutedForeground, lines: 0)
     private let statusSpinner = CCSpinner(diameter: 14)
     private let macPicker = CCSelect(options: [], symbol: "laptop")
     private let streamButton = CCButton(title: String(localized: "Start streaming", comment: "Button: stream this device's screen to the Mac"), symbol: "wifi", style: .primary, size: .lg, radius: .lg)
+    private let settingsButton = CCButton(title: String(localized: "Open Settings", comment: "Button: opens this app's page in the Settings app"), symbol: "gear", style: .primary, size: .lg, radius: .lg)
     private var macIDs: [String] = []
 
     // Import
@@ -164,10 +165,15 @@ final class CaptureHubViewController: UIViewController {
         }
         streamButton.accessibilityHint = String(localized: "Opens the system Start Broadcast sheet", comment: "Accessibility hint")
 
-        let stack = UIStackView(arrangedSubviews: [linkStrip, eyebrow, title, pitch, statusWell, macPicker, streamButton])
+        settingsButton.isHidden = true
+        settingsButton.onTap = {
+            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+        }
+
+        let stack = UIStackView(arrangedSubviews: [linkStage, eyebrow, title, pitch, statusWell, macPicker, streamButton, settingsButton])
         stack.axis = .vertical
         stack.spacing = CCSpace.xs
-        stack.setCustomSpacing(CCSpace.lg, after: linkStrip)
+        stack.setCustomSpacing(CCSpace.md, after: linkStage)
         stack.setCustomSpacing(CCSpace.sm, after: title)
         stack.setCustomSpacing(CCSpace.lg, after: pitch)
         stack.setCustomSpacing(CCSpace.md, after: statusWell)
@@ -277,7 +283,8 @@ final class CaptureHubViewController: UIViewController {
         var detail = ""
         var searching = false
         var canStream = true
-        var linkState = PresenceStrip.State.idle
+        var linkState = LinkStage.State.idle
+        var needsSettings = false
         switch status {
         case .signedOut:
             title = String(localized: "Signed out", comment: "Capture status title")
@@ -287,6 +294,25 @@ final class CaptureHubViewController: UIViewController {
             dot = colors.destructive
             title = String(localized: "Can't link this \(ThisDevice.noun)", comment: "Argument is iPhone or iPad")
             detail = message
+            linkState = .blocked
+        case .localNetworkOff:
+            dot = colors.warning
+            title = String(localized: "Local Network is off", comment: "Capture status title: iOS permission")
+            detail = String(localized: "Turn on Local Network for CaptureCat in Settings so this \(ThisDevice.noun) can find your Mac.", comment: "Argument is iPhone or iPad; Local Network is the iOS Settings switch")
+            linkState = .blocked
+            needsSettings = true
+        case .otherAccount(let macName):
+            dot = colors.warning
+            title = String(localized: "Looking for your Mac…")
+            detail = String(localized: "“\(macName)” is nearby but signed in to a different account. Use the same account on both.", comment: "Argument is a Mac's name")
+            searching = true
+            linkState = .searching
+        case .connecting(let macName):
+            dot = colors.primary
+            title = String(localized: "Connecting to \(macName)…", comment: "Argument is the Mac's name")
+            detail = String(localized: "Found your Mac. This takes a moment.")
+            searching = true
+            linkState = .connecting
         case .searching:
             dot = colors.warning
             title = String(localized: "Looking for your Mac…")
@@ -300,8 +326,8 @@ final class CaptureHubViewController: UIViewController {
             linkState = .connected
         }
         let key = "\(title)|\(detail)"
+        let first = statusKey.isEmpty
         if key != statusKey {
-            let first = statusKey.isEmpty
             statusKey = key
             if !first, let well = statusWell {
                 UIView.transition(with: well, duration: CCMotion.paced(0.2), options: [.transitionCrossDissolve, .allowUserInteraction]) {
@@ -317,8 +343,16 @@ final class CaptureHubViewController: UIViewController {
         }
         statusDot.backgroundColor = dot
         if searching { statusSpinner.startAnimating() } else { statusSpinner.stopAnimating() }
-        linkStrip.state = linkState
+        if linkState == .connected, linkStage.state != .connected, !first, view.window != nil { CCHaptics.success() }
+        linkStage.setState(linkState)
         streamButton.isEnabled = canStream
+        if settingsButton.isHidden == needsSettings {
+            CCMotion.run(duration: 0.3, curve: .settle) {
+                self.settingsButton.isHidden = !needsSettings
+                self.streamButton.isHidden = needsSettings
+                self.column.layoutIfNeeded()
+            }
+        }
 
         let showPicker = macs.count > 1
         macIDs = macs.map(\.id)
@@ -429,88 +463,8 @@ final class CaptureHubViewController: UIViewController {
 
     // Probe seams.
     var probeBanner: UIView { banner }
-}
-
-/// The hero's little diagram: iPhone · · · Mac. The dots breathe in sequence
-/// while searching and settle solid (success ink) once connected.
-final class PresenceStrip: UIView {
-    enum State {
-        case idle
-        case searching
-        case connected
-    }
-
-    var state: State = .idle {
-        didSet { if state != oldValue { refresh() } }
-    }
-
-    private let phone = CCIconTile(symbol: ThisDevice.isPad ? "ipad" : "iphone", side: 48)
-    private let mac = CCIconTile(symbol: "laptop", side: 48)
-    private var dots: [UIView] = []
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        translatesAutoresizingMaskIntoConstraints = false
-        let dotRow = UIStackView()
-        dotRow.spacing = 7
-        dotRow.alignment = .center
-        for _ in 0..<5 {
-            let dot = UIView()
-            dot.translatesAutoresizingMaskIntoConstraints = false
-            dot.layer.cornerRadius = 3
-            dot.widthAnchor.constraint(equalToConstant: 6).isActive = true
-            dot.heightAnchor.constraint(equalToConstant: 6).isActive = true
-            dots.append(dot)
-            dotRow.addArrangedSubview(dot)
-        }
-        let row = UIStackView(arrangedSubviews: [phone, dotRow, mac])
-        row.spacing = CCSpace.md
-        row.alignment = .center
-        row.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(row)
-        NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: leadingAnchor),
-            row.topAnchor.constraint(equalTo: topAnchor),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor),
-            row.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
-        ])
-        isAccessibilityElement = false
-        refresh()
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        refresh()
-    }
-
-    private func refresh() {
-        for (index, dot) in dots.enumerated() {
-            dot.layer.removeAnimation(forKey: "breathe")
-            switch state {
-            case .idle:
-                dot.backgroundColor = CCTheme.color.faintForeground
-                dot.alpha = 0.6
-            case .connected:
-                dot.backgroundColor = CCTheme.color.success
-                dot.alpha = 1
-            case .searching:
-                dot.backgroundColor = CCTheme.color.mutedForeground
-                dot.alpha = 1
-                guard !CCMotion.reduceMotion else { continue }
-                let breathe = CABasicAnimation(keyPath: "opacity")
-                breathe.fromValue = 0.2
-                breathe.toValue = 1
-                breathe.duration = 0.6
-                breathe.autoreverses = true
-                breathe.repeatCount = .infinity
-                breathe.isRemovedOnCompletion = false
-                breathe.timingFunction = CCMotion.glide
-                breathe.beginTime = dot.layer.convertTime(CACurrentMediaTime(), from: nil) + 0.12 * Double(index)
-                breathe.fillMode = .backwards
-                dot.layer.add(breathe, forKey: "breathe")
-            }
-        }
-    }
+    #if DEBUG
+    var probeLinkStage: LinkStage { linkStage }
+    var probeScroll: UIScrollView { scrollView }
+    #endif
 }

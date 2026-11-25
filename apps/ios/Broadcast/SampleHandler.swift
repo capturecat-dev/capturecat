@@ -159,7 +159,7 @@ nonisolated final class SampleHandler: RPBroadcastSampleHandler, @unchecked Send
         client.onControl = { [weak encoder] control in
             if control.command == WirelessControl.keyframe.command { encoder?.requestKeyframe() }
         }
-        client.onLinkRejected = { [weak self, weak client] in
+        let relink: @Sendable () -> Void = { [weak self, weak client] in
             // The account key was rotated since we cached it: refetch once.
             guard let self, !self.refreshedLink else { return }
             self.refreshedLink = true
@@ -169,6 +169,10 @@ nonisolated final class SampleHandler: RPBroadcastSampleHandler, @unchecked Send
                 }
             }
         }
+        client.onLinkRejected = relink
+        // A Mac that doesn't match our key is never contacted, so a rotated
+        // key shows up here first.
+        client.onOtherMacsChanged = { if !$0.isEmpty { relink() } }
         lock.lock()
         self.encoder = encoder
         self.client = client
