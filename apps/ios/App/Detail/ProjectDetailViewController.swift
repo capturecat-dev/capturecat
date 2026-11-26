@@ -138,6 +138,7 @@ final class ProjectDetailViewController: DetailPageViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         advertiseHandoff()
+        AskAI.refresh { [weak self] in self?.render() }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -216,6 +217,13 @@ final class ProjectDetailViewController: DetailPageViewController {
                 guard let self else { return }
                 self.playerCard.player.pause()
                 StudioEditorEntry.open(projectID: self.projectID, from: self)
+            })
+        }
+        for entry in AskAI.entries {
+            actions.append(.init(title: entry.title, symbol: "sparkles", image: entry.image) { [weak self] _ in
+                guard let self, let project = LibraryStore.shared.project(self.projectID) else { return }
+                self.playerCard.player.pause()
+                AskAI.run(entry, projectID: self.projectID, name: project.name, from: self)
             })
         }
         actions += [

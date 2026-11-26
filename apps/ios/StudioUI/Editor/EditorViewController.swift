@@ -85,6 +85,12 @@ final class EditorViewController: UIViewController {
     /// merge and morph as neighbours. Content (stage, lanes) stays flat.
     private(set) lazy var aspectGlass = CCGlassView.wrapping(aspectChip, shape: .capsule)
     private(set) lazy var exportGlass = CCGlassView.wrapping(exportButton, shape: .capsule, tint: CCTheme.color.primary)
+    /// "Edit with AI": the app's Edit with Claude / ChatGPT (App/Account/AskAI)
+    /// — StudioUI can't see the app, so the app installs `askAI`; nil hides it.
+    let askAIButton = CCButton(symbol: "sparkles", style: .ghost, size: .sm, radius: .full, haptics: true)
+    private(set) lazy var askAIGlass = CCGlassView.wrapping(askAIButton, shape: .capsule)
+    /// Installed by the app: show Edit with AI for this editor, from `source`.
+    static var askAI: ((EditorViewController, UIView) -> Void)?
     let headerGlassGroup = CCGlassGroup(spacing: CCSpace.sm)
     /// Stacked: the bottom bar's top (it drops toward the home indicator).
     private var toolBarDock: NSLayoutConstraint!
@@ -209,7 +215,14 @@ final class EditorViewController: UIViewController {
         header.adoptGlassKeys()
         aspectGlass.accessibilityIdentifier = "studio.aspect.glass"
         exportGlass.accessibilityIdentifier = "studio.export.glass"
-        let headerKeys = UIStackView(arrangedSubviews: [aspectGlass, exportGlass])
+        askAIButton.accessibilityLabelOverride = String(localized: "Edit with AI", comment: "Editor header button (VoiceOver): ask Claude or ChatGPT to edit this project")
+        askAIButton.accessibilityIdentifier = "studio.askAI"
+        askAIButton.onTap = { [weak self] in
+            guard let self else { return }
+            Self.askAI?(self, self.askAIButton)
+        }
+        askAIGlass.isHidden = Self.askAI == nil
+        let headerKeys = UIStackView(arrangedSubviews: [askAIGlass, aspectGlass, exportGlass])
         headerKeys.spacing = CCSpace.sm
         headerKeys.alignment = .center
         headerKeys.translatesAutoresizingMaskIntoConstraints = false

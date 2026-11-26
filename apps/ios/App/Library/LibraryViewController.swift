@@ -98,6 +98,7 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
         super.viewDidAppear(animated)
         LibraryStore.shared.refreshIfStale(5)
         AppEnvironment.shared.inbox.reload()
+        AskAI.refresh()
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -545,6 +546,12 @@ final class LibraryViewController: UIViewController, UICollectionViewDelegate {
                 ProjectActions.promptRename(projectID: id, currentName: project.name, from: self)
             }
             sheet.addAction(String(localized: "Open in web editor", comment: "Action sheet"), symbol: "globe") { ProjectActions.openInWebEditor(projectID: id) }
+            for entry in AskAI.entries {
+                sheet.addAction(entry.title, symbol: "sparkles") { [weak self] in
+                    guard let self else { return }
+                    AskAI.run(entry, projectID: id, name: project.name, from: self)
+                }
+            }
             if let share = store.share(linkedTo: id) {
                 sheet.addAction(String(localized: "Copy share link", comment: "Action sheet"), symbol: "link") { ProjectActions.copyLink(share) }
             }

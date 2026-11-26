@@ -225,6 +225,29 @@ final class AgentEditGate {
             record("add-\(host)", copied && early == 0 && opened.count == 1 && opened.first?.host == host,
                    "copied=\(copied), opened before confirm=\(early), then \(opened.first?.absoluteString ?? "nothing")")
         }
+        // Edit with Claude on a project: only connected apps are offered; the
+        // request is required; the link carries the request AND the project id.
+        AgentAccessCache.last = screen.probeState
+        record("askai-entries", AskAI.entries == [.app(.claude)], "menu entries: \(AskAI.entries.map(\.title))")
+        var asked: [URL] = []
+        AskAI.probeOpen = { asked.append($0) }
+        AskAI.run(.app(.claude), projectID: "GATE-PROJECT-ID", name: "Agent demo", from: screen)
+        await sleep(800)
+        let askSheet = AskAI.probeSheet
+        snapshot("askai-sheet.png")
+        askSheet?.probeButtons.first?.sendActions(for: .touchUpInside)
+        await sleep(500)
+        let refusedEmpty = asked.isEmpty && askSheet?.probeIsPresented == true
+        AskAI.probeField?.text = "Add captions"
+        askSheet?.probeButtons.first?.sendActions(for: .touchUpInside)
+        await sleep(900)
+        let askItems = asked.first.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false) }
+        let q = askItems?.queryItems?.first { $0.name == "q" }?.value
+        record("askai-claude-link", refusedEmpty && asked.count == 1 && askItems?.host == "claude.ai" && askItems?.path == "/new"
+                   && q == AskAI.prompt(request: "Add captions", projectID: "GATE-PROJECT-ID", name: "Agent demo")
+                   && (q ?? "").contains("projectId: GATE-PROJECT-ID"),
+               "empty refused=\(refusedEmpty); opened \(asked.first?.absoluteString ?? "nothing")")
+        AskAI.probeOpen = nil
         screen.probeOpen = nil
         screen.show(.claude, animated: false)
         await sleep(300)
@@ -328,6 +351,20 @@ final class AgentEditGate {
         await sleep(1500)
         await sync.settle()
         record("editor-opens", sync.status == .synced, "cloned + opened; sync \(sync.status)")
+        // The header's Edit with AI key: shown, and with Claude connected it
+        // goes straight to Edit with Claude for THIS project.
+        AgentAccessCache.last = try? await APIClient.shared.agentAccess()
+        let keyShown = !editor.askAIGlass.isHidden && editor.askAIGlass.window != nil
+        editor.askAIButton.sendActions(for: .touchUpInside)
+        await sleep(900)
+        let editorSheet = AskAI.probeSheet
+        let sheetTitle = editorSheet?.title ?? "none"
+        let sheetMessage = editorSheet?.message ?? ""
+        record("askai-editor-key", keyShown && editorSheet?.probeIsPresented == true && sheetTitle == "Edit with Claude" && sheetMessage.contains("Agent demo"),
+               "key shown=\(keyShown); sheet: \(sheetTitle) — \(sheetMessage.prefix(80))")
+        snapshot("askai-editor.png")
+        editorSheet?.dismiss()
+        await sleep(600)
         sync.pollInterval = 0   // the gate drives every refresh itself
 
         // 4. Unsent local work + an agent edit, noticed through the push.

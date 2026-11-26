@@ -98,6 +98,10 @@ final class StudioCloudSync {
     }
 
     static func existing(projectID: UUID) -> StudioCloudSync? { sessions[projectID] }
+    /// The session an open editor is attached to (its cloud project).
+    static func session(for editor: EditorViewController) -> StudioCloudSync? {
+        sessions.values.first { $0.editor === editor }
+    }
 
     /// Harness seam: forget every session (their timers stop).
     static func resetSessions() {

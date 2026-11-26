@@ -28,6 +28,35 @@ enum StudioEditorEntry {
 
     // MARK: - The live environment
 
+    /// The editor's Edit with AI key: the connected AI apps for this cloud
+    /// project (one goes straight to its request sheet).
+    @available(iOS 26, *)
+    @MainActor
+    private static func askAI(from editor: EditorViewController, source: UIView) {
+        guard let id = StudioCloudSync.session(for: editor)?.projectID.uuidString,
+              let project = LibraryStore.shared.project(id) else {
+            AppToaster.shared.show(title: String(localized: "Not in the cloud yet", comment: "Editor: Edit with AI on a project that hasn't uploaded"),
+                                   message: String(localized: "AI can edit this project once it has uploaded to your library.", comment: "Editor: Edit with AI on a project that hasn't uploaded"),
+                                   symbol: "sparkles")
+            return
+        }
+        let entries = AskAI.entries
+        if entries.count == 1 {
+            AskAI.run(entries[0], projectID: project.projectId, name: project.name, from: editor)
+            AskAI.refresh()
+            return
+        }
+        let sheet = CCActionSheet(title: String(localized: "Edit with AI", comment: "Editor: title of the sheet listing Claude and ChatGPT"))
+        for entry in entries {
+            sheet.addAction(entry.title, symbol: "sparkles") { [weak editor] in
+                guard let editor else { return }
+                AskAI.run(entry, projectID: project.projectId, name: project.name, from: editor)
+            }
+        }
+        sheet.present(from: editor, source: source)
+        AskAI.refresh()
+    }
+
     /// The signed-in session's sync environment: the shared HTTP transport
     /// with this app's bearer token, against this app's API.
     @available(iOS 26, *)
@@ -35,8 +64,10 @@ enum StudioEditorEntry {
     static func adoptLiveEnvironment() {
         guard SessionStore.load()?.token != nil else {
             StudioCloudSync.environment = nil
+            EditorViewController.askAI = nil
             return
         }
+        EditorViewController.askAI = { editor, source in askAI(from: editor, source: source) }
         let base = CaptureCatAPI.baseURL
         if let current = StudioCloudSync.environment, current.apiBaseURL == base { return }
         let transport = HTTPCloudProjectTransport(baseURL: base, token: { SessionStore.load()?.token })

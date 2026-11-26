@@ -168,8 +168,13 @@ final class AccountViewController: UIViewController {
     /// "Connected" once any AI app or personal token is connected.
     private let connectAIRow = ActionListCard()
 
+    /// What the row shows now (nil = not rendered yet).
+    private var connectAIShowsConnected: Bool?
+
     private func renderConnectAIRow() {
         let connected = AgentAccessCache.last.map { !$0.connections.isEmpty } ?? false
+        guard connected != connectAIShowsConnected else { return }
+        connectAIShowsConnected = connected
         connectAIRow.setActions([.init(title: String(localized: "Connect AI", comment: "Account row that opens Connect AI"), symbol: "sparkles",
                                        badge: connected ? String(localized: "connectAI.connected", defaultValue: "Connected", comment: "Badge on Add to Claude / Add to ChatGPT and the Account's Connect AI row once an AI app is connected") : nil) { [weak self] _ in
             self?.navigationController?.pushViewController(ConnectAIViewController(), animated: true)
@@ -179,9 +184,8 @@ final class AccountViewController: UIViewController {
     private func refreshAIConnections() {
         Task { @MainActor [weak self] in
             guard let state = try? await APIClient.shared.agentAccess() else { return }
-            let changed = AgentAccessCache.last?.connections.isEmpty != state.connections.isEmpty
             AgentAccessCache.last = state
-            if changed { self?.renderConnectAIRow() }
+            self?.renderConnectAIRow()
         }
     }
     /// Gate seam: the Connect AI entry.
