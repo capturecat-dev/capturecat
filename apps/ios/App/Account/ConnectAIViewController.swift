@@ -45,6 +45,7 @@ final class ConnectAIViewController: DetailPageViewController {
     #if DEBUG
     var probeState: AgentAccessState? { state }
     var probeGuideCard: UIView { guideCard }
+    var probeAddCard: UIView { addCard }
     var probeSwitcher: CCChipGroup { switcher }
     private(set) var probeRevokeButtons: [CCButton] = []
     private(set) var probeUpgradeCallout: UIView?
@@ -69,6 +70,8 @@ final class ConnectAIViewController: DetailPageViewController {
         super.viewDidLoad()
         lead.text = String(localized: "Let Claude, ChatGPT, Gemini, Codex or another AI app edit your cloud projects — zooms, trims, captions, speed-ups, the look — with CaptureCat's own editing tools. Use your own AI account; nothing to install on this \(ThisDevice.noun). Edits appear here, and you can undo them.", comment: "Connect AI: introduction; the argument is iPhone or iPad")
         column.addArrangedSubview(lead)
+        state = AgentAccessCache.last
+        renderAddCard()
         planSlot.axis = .vertical
         column.addArrangedSubview(planSlot)
         column.addArrangedSubview(makeAddSection())
@@ -108,14 +111,18 @@ final class ConnectAIViewController: DetailPageViewController {
 
     // MARK: - Add to …
 
-    private lazy var addCard: ActionListCard = {
-        let card = ActionListCard()
-        card.setActions([
-            .init(title: String(localized: "Add to Claude", comment: "Connect AI: button that opens Claude with CaptureCat's connector filled in"), symbol: "plus", image: ProviderMark.claude.image()) { [weak self] _ in self?.add(to: .claude) },
-            .init(title: String(localized: "Add to ChatGPT", comment: "Connect AI: button that copies the connector URL and opens ChatGPT's plugins"), symbol: "plus", image: ProviderMark.openAI.image()) { [weak self] _ in self?.add(to: .chatGPT) },
+    private let addCard = ActionListCard()
+
+    /// The two Add rows; each carries "Connected" once that app has signed in.
+    private func renderAddCard() {
+        let connected = String(localized: "connectAI.connected", defaultValue: "Connected", comment: "Badge on Add to Claude / Add to ChatGPT and the Account's Connect AI row once an AI app is connected")
+        addCard.setActions([
+            .init(title: String(localized: "Add to Claude", comment: "Connect AI: button that opens Claude with CaptureCat's connector filled in"), symbol: "plus", image: ProviderMark.claude.image(),
+                  badge: state?.isConnected(.claude) == true ? connected : nil) { [weak self] _ in self?.add(to: .claude) },
+            .init(title: String(localized: "Add to ChatGPT", comment: "Connect AI: button that copies the connector URL and opens ChatGPT's plugins"), symbol: "plus", image: ProviderMark.openAI.image(),
+                  badge: state?.isConnected(.chatGPT) == true ? connected : nil) { [weak self] _ in self?.add(to: .chatGPT) },
         ])
-        return card
-    }()
+    }
 
     private func makeAddSection() -> UIView {
         let section = UIStackView(arrangedSubviews: [sectionLabel(String(localized: "Add CaptureCat to your AI", comment: "Connect AI: section heading over the Add to Claude and Add to ChatGPT buttons")), addCard])
@@ -345,6 +352,8 @@ final class ConnectAIViewController: DetailPageViewController {
                 self.loadError?.removeFromSuperview()
                 self.loadError = nil
                 self.state = state
+                AgentAccessCache.last = state
+                self.renderAddCard()
                 self.renderPlan()
                 self.renderConnections()
             } catch {

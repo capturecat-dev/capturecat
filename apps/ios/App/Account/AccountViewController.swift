@@ -77,11 +77,13 @@ final class AccountViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         languageRow.accessoryText = LanguageViewController.selectedDisplayName
+        renderConnectAIRow()
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         loadAccount()
+        refreshAIConnections()
         LibraryStore.shared.refreshIfStale(30)
     }
 
@@ -162,14 +164,26 @@ final class AccountViewController: UIViewController {
         return card
     }
 
-    /// Settings → Connect AI (ConnectAIViewController): one row.
-    private lazy var connectAIRow: ActionListCard = {
-        let card = ActionListCard()
-        card.setActions([.init(title: String(localized: "Connect AI", comment: "Account row that opens Connect AI"), symbol: "sparkles") { [weak self] _ in
+    /// Settings → Connect AI (ConnectAIViewController): one row, badged
+    /// "Connected" once any AI app or personal token is connected.
+    private let connectAIRow = ActionListCard()
+
+    private func renderConnectAIRow() {
+        let connected = AgentAccessCache.last.map { !$0.connections.isEmpty } ?? false
+        connectAIRow.setActions([.init(title: String(localized: "Connect AI", comment: "Account row that opens Connect AI"), symbol: "sparkles",
+                                       badge: connected ? String(localized: "connectAI.connected", defaultValue: "Connected", comment: "Badge on Add to Claude / Add to ChatGPT and the Account's Connect AI row once an AI app is connected") : nil) { [weak self] _ in
             self?.navigationController?.pushViewController(ConnectAIViewController(), animated: true)
         }])
-        return card
-    }()
+    }
+
+    private func refreshAIConnections() {
+        Task { @MainActor [weak self] in
+            guard let state = try? await APIClient.shared.agentAccess() else { return }
+            let changed = AgentAccessCache.last?.connections.isEmpty != state.connections.isEmpty
+            AgentAccessCache.last = state
+            if changed { self?.renderConnectAIRow() }
+        }
+    }
     /// Gate seam: the Connect AI entry.
     var probeConnectAIRow: UIView { connectAIRow }
 

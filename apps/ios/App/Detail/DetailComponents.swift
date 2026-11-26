@@ -124,6 +124,8 @@ final class ActionListCard: CCCard {
         var detail: String? = nil
         /// Instead of the kit symbol: a product's own mark.
         var image: UIImage? = nil
+        /// A status pill before the chevron ("Connected").
+        var badge: String? = nil
         var handler: (UIView) -> Void
     }
 
@@ -181,6 +183,9 @@ final class ActionRowControl: UIControl {
             detailLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             views.append(detailLabel)
         }
+        if let badge = action.badge {
+            views.append(CCBadge(badge, symbol: "check", variant: .success))
+        }
         views.append(chevron)
         let row = UIStackView(arrangedSubviews: views)
         row.spacing = CCSpace.md
@@ -200,6 +205,7 @@ final class ActionRowControl: UIControl {
         ])
         isAccessibilityElement = true
         accessibilityLabel = action.title
+        accessibilityValue = action.badge
         accessibilityTraits = .button
         addAction(UIAction { [weak self] _ in
             guard let self else { return }

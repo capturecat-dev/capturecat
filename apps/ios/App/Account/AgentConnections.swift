@@ -80,13 +80,35 @@ nonisolated struct AgentConnection: Equatable, Sendable {
     let connectedAt: Date?
     let lastUsedAt: Date?
     let canEdit: Bool
+    /// The app's own site (its verified client-id host, else its client URI).
+    var host: String? = nil
+
+    /// Which "Add to …" app this is. Names are self-asserted, so this only
+    /// drives a status badge, never access.
+    var provider: AgentProvider? {
+        guard case .app = kind else { return nil }
+        let name = name.lowercased(), host = (host ?? "").lowercased()
+        if name.contains("claude") || host == "claude.ai" || host.hasSuffix(".claude.ai") || host.hasSuffix("anthropic.com") { return .claude }
+        if name.contains("chatgpt") || name.contains("openai") || host == "chatgpt.com" || host.hasSuffix(".chatgpt.com") || host.hasSuffix("openai.com") { return .chatGPT }
+        return nil
+    }
 }
+
+nonisolated enum AgentProvider: Sendable { case claude, chatGPT }
 
 nonisolated struct AgentAccessState: Equatable, Sendable {
     var agentAccess: Bool
     var agentEditing: Bool
     var planName: String?
     var connections: [AgentConnection]
+
+    func isConnected(_ provider: AgentProvider) -> Bool { connections.contains { $0.provider == provider } }
+}
+
+/// The last state Connect AI or the Account menu loaded, so the "Connected"
+/// badge is there at once when either screen appears (then refreshed).
+@MainActor enum AgentAccessCache {
+    static var last: AgentAccessState?
 }
 
 extension APIClient {
@@ -106,7 +128,8 @@ extension APIClient {
             connections.append(AgentConnection(
                 kind: .app(clientId: id), name: (app["name"] as? String) ?? id,
                 connectedAt: AgentDate.parse(app["connectedAt"]), lastUsedAt: AgentDate.parse(app["lastUsedAt"]),
-                canEdit: scopes.contains("projects:write")))
+                canEdit: scopes.contains("projects:write"),
+                host: (app["verifiedHost"] as? String) ?? (app["clientUri"] as? String).flatMap { URL(string: $0)?.host }))
         }
         let now = Date()
         for token in tokens["tokens"] as? [[String: Any]] ?? [] {

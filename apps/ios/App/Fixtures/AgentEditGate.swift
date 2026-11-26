@@ -169,6 +169,8 @@ final class AgentEditGate {
         let reachable = row.window === window && window.bounds.contains(CGPoint(x: frame.midX, y: frame.midY)) && (hit?.isDescendant(of: row) ?? false)
         record("entry-reachable", reachable, String(format: "Connect AI row at (%.0f, %.0f, %.0f×%.0f); hit-test → %@", frame.minX, frame.minY, frame.width, frame.height,
                                                     hit.map { String(describing: type(of: $0)) } ?? "nil"))
+        let rowBadge = await waitFor(8000) { self.labels(in: row).contains("Connected") }
+        record("account-connected-badge", rowBadge, "Account → Connect AI row badged Connected: \(rowBadge)")
         snapshot("account.png")
         (hit as? UIControl ?? sequence(first: hit, next: { $0?.superview }).compactMap { $0 as? UIControl }.first)?.sendActions(for: .touchUpInside)
         let pushed = await waitFor(3000) { account.navigationController?.topViewController is ConnectAIViewController }
@@ -183,6 +185,11 @@ final class AgentEditGate {
                "pushed; plan editing=\(screen.probeState?.agentEditing ?? false); connected: \(names.joined(separator: ", "))")
         record("connected-lists-agents", names.contains("Claude") && names.contains("Claude Code on my Mac") && screen.probeUpgradeCallout == nil,
                "Claude (signed in with CaptureCat) and the personal token listed; no upgrade callout on Pro")
+        // "Connected": Claude signed in, ChatGPT didn't — only Claude's row is badged.
+        let addRows = screen.probeAddCard.subviews.first?.subviews.compactMap { $0 as? ActionRowControl } ?? []
+        let badged = addRows.map { row in labels(in: row).contains("Connected") }
+        record("add-connected-badge", badged == [true, false],
+               "Add to Claude / Add to ChatGPT badged: \(badged)")
         let words = labels(in: screen.view).joined(separator: " ")
         record("connect-ai-copy", words.contains(AgentConnect.mcpURL) && words.contains("Customize → Connectors") && words.contains("Add custom connector"),
                "URL shown; Claude steps name Customize → Connectors / Add custom connector")
